@@ -33,6 +33,19 @@ namespace GuardeSoftwareAPI.Dao
 
             return accessDB.GetTable("customers",consult,parameters);
         }
+
+        public void DeleteCustomerById(int id) {
+
+            string consult = "UPDATE customers SET active = 0 WHERE customer_id = @customer_id";
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@customer_id", SqlDbType.Int){Value = id},
+            };
+            
+            accessDB.ExecuteCommand(consult,parameters);
+        
+        }
     }
 }
 

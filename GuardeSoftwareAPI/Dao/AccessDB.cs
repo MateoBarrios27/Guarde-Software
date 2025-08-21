@@ -46,5 +46,33 @@ namespace GuardeSoftwareAPI.Dao
             }
 
         }
+
+        public void ExecuteCommand(string query, SqlParameter[] parameters)
+        {
+            using (SqlConnection connection = new SqlConnection(routeDB))
+            {
+                using (SqlCommand command = new SqlCommand(query, connection))
+                {
+                    if (parameters != null)
+                    {
+                        command.Parameters.AddRange(parameters);
+                    }
+
+                    try
+                    {
+                        connection.Open();
+                        command.ExecuteNonQuery(); 
+                    }
+                    catch (SqlException sqlEx)
+                    {
+                        throw new Exception($"Error executing the query: {sqlEx.Message}", sqlEx);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new Exception("Error executing the query", ex);
+                    }
+                }
+            }
+        }
     }
 }
