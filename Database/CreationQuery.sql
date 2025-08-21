@@ -9,7 +9,7 @@ CREATE TABLE locker_types (
     locker_type_id INT IDENTITY(1,1) PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
-    cubic_meters DECIMAL(10,2),
+    m3 DECIMAL(10,2),
     active BIT DEFAULT 1
 );
 
@@ -34,64 +34,64 @@ CREATE TABLE lockers (
 );
 
 -- Table: increase_policies
-CREATE TABLE increase_policies (
-    policy_id INT IDENTITY(1,1) PRIMARY KEY,
+CREATE TABLE increase_regimens (
+    regimen_id INT IDENTITY(1,1) PRIMARY KEY,
     frequency INT NOT NULL,
     percentage DECIMAL(5,2) NOT NULL
 );
 
 -- Table: customers
-CREATE TABLE customers (
-    customer_id INT IDENTITY(1,1) PRIMARY KEY,
+CREATE TABLE clients (
+    client_id INT IDENTITY(1,1) PRIMARY KEY,
     payment_identifier DECIMAL(10,2),
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     registration_date DATE,
     notes VARCHAR(MAX),
-    document_number VARCHAR(20),
-    tax_id VARCHAR(20),
+    dni VARCHAR(20),
+    cuit VARCHAR(20),
     preferred_payment_method_id INT,
-    active BIT DEFAULT 1,
-    tax_condition VARCHAR(50)
+    iva_condition VARCHAR(50),
+    active BIT DEFAULT 1
 );
 
 -- Table: customers_increase_policies
-CREATE TABLE customers_increase_policies (
-    customer_id INT,
-    policy_id INT,
-    start_date DATE NOT NULL,
+CREATE TABLE clients_x_increase_regimens (
+    client_id INT,
+    regimen_id INT,
+    registration_date DATE NOT NULL,
     end_date DATE,
-    PRIMARY KEY (customer_id, policy_id),
-    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
-    FOREIGN KEY (policy_id) REFERENCES increase_policies(policy_id)
+    PRIMARY KEY (client_id, regimen_id),
+    FOREIGN KEY (client_id) REFERENCES clients(client_id),
+    FOREIGN KEY (regimen_id) REFERENCES increase_regimens(regimen_id)
 );
 
 -- Table: phones
 CREATE TABLE phones (
     phone_id INT IDENTITY(1,1) PRIMARY KEY,
-    customer_id INT NOT NULL,
+    client_id INT NOT NULL,
     type VARCHAR(50),
     whatsapp BIT DEFAULT 0,
-    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    FOREIGN KEY (client_id) REFERENCES clients(client_id)
 );
 
 -- Table: emails
 CREATE TABLE emails (
     email_id INT IDENTITY(1,1) PRIMARY KEY,
-    customer_id INT NOT NULL,
+    client_id INT NOT NULL,
     email VARCHAR(150) NOT NULL,
     type VARCHAR(50),
-    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    FOREIGN KEY (client_id) REFERENCES clients(client_id)
 );
 
 -- Table: addresses
 CREATE TABLE addresses (
     address_id INT IDENTITY(1,1) PRIMARY KEY,
-    customer_id INT NOT NULL,
+    client_id INT NOT NULL,
     address VARCHAR(255) NOT NULL,
     city VARCHAR(100),
-    state VARCHAR(100),
-    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    province VARCHAR(100),
+    FOREIGN KEY (client_id) REFERENCES clients(client_id)
 );
 
 -- Table: payment_methods
@@ -104,12 +104,12 @@ CREATE TABLE payment_methods (
 -- Table: rentals
 CREATE TABLE rentals (
     rental_id INT IDENTITY(1,1) PRIMARY KEY,
-    customer_id INT NOT NULL,
+    client_id INT NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE,
-    contracted_square_meters DECIMAL(10,2),
+    contracted_m3 DECIMAL(10,2),
     active BIT DEFAULT 1,
-    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    FOREIGN KEY (client_id) REFERENCES clients(client_id)
 );
 
 -- Table: rental_amount_history
@@ -125,11 +125,11 @@ CREATE TABLE rental_amount_history (
 -- Table: payments
 CREATE TABLE payments (
     payment_id INT IDENTITY(1,1) PRIMARY KEY,
-    customer_id INT NOT NULL,
+    client_id INT NOT NULL,
     payment_method_id INT NOT NULL,
     payment_date DATE NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
-    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+    FOREIGN KEY (client_id) REFERENCES clients(client_id),
     FOREIGN KEY (payment_method_id) REFERENCES payment_methods(payment_method_id)
 );
 
@@ -138,7 +138,7 @@ CREATE TABLE account_movements (
     movement_id INT IDENTITY(1,1) PRIMARY KEY,
     rental_id INT NOT NULL,
     movement_date DATE NOT NULL,
-    movement_type VARCHAR(10) CHECK (movement_type IN ('DEBIT','CREDIT')),
+    movement_type VARCHAR(10) CHECK (movement_type IN ('DEBITO','CREDITO')),
     concept VARCHAR(255),
     payment_id INT
     FOREIGN KEY (rental_id) REFERENCES rentals(rental_id),
