@@ -1,0 +1,22 @@
+﻿using System;
+
+
+namespace GuardeSoftwareAPI.Dao
+{
+    public class DaoAddresses
+    {
+        private readonly AccessDB accessDB;
+
+        public DaoAddresses(AccessDB _accessDB)
+        {
+            accessDB = _accessDB;
+        }
+
+        public GetAddresses()
+        {
+            string consult = "SELECT addresses_id, customer_id, address, city, state FROM addresses";
+
+            return accessDB.GetTable("addresses", consult);
+        }
+    }
+}
