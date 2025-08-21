@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -12,7 +13,7 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public GetRentals()
+        public DataTable GetRentals()
         {
             string consult = "SELECT rental_id, customer_id, start_date, end_date, contracted_square_meters FROM rentals WHERE active = 1";
             

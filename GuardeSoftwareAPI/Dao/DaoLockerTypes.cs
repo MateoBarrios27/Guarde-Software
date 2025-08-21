@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -13,7 +14,7 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public GetLockerTypes()
+        public DataTable GetLockerTypes()
         {
             string consult = "SELECT locker_type_id, name, amount, cubic_meters  FROM locker_types WHERE active = 1";
 

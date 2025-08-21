@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data;
 
 
 namespace GuardeSoftwareAPI.Dao { 
@@ -12,7 +13,7 @@ namespace GuardeSoftwareAPI.Dao {
             accessDB = _accessDB;
         }
 
-        public GetLockers()
+        public DataTable GetLockers()
         {
             string consult = "SELECT locker_id, warehouse_id,locker_type_id, identifier, feautures, status FROM lockers";
 

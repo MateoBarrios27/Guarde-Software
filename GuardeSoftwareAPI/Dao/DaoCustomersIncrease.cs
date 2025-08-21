@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Data;
+
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -11,7 +13,7 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public GetCustomersIncrease()
+        public DataTable GetCustomersIncrease()
         {
             string consult = "SELECT customer_id, policy_id, start_date, end_date, FROM customers_increase_policies";
 

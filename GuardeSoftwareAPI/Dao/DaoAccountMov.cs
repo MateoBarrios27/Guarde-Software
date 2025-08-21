@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -12,7 +13,7 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public GetAccountMov()
+        public DataTable GetAccountMov()
         {
             string consult = "SELECT movement_id, rental_id,movement_date,movement_type,concept,payment_id FROM account_movements";
 

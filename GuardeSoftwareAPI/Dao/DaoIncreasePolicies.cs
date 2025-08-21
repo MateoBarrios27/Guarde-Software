@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -12,9 +13,11 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public GetIncreasePolicies()
+        public DataTable GetIncreasePolicies()
         {
             string consult = "SELECT policy_id, frequency, percentage FROM increase_policies";
+
+            return accessDB.GetTable("increase_policies",consult);
         }
 
     }

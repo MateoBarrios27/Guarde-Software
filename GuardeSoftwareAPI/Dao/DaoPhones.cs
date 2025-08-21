@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -12,7 +13,7 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public GetPhones()
+        public DataTable GetPhones()
         {
             string consult = "SELECT phone_id, customer_id, type, whatsapp FROM phones"
 ;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -12,7 +13,7 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public GetUserTypes()
+        public DataTable GetUserTypes()
         {
             string consult = "SELECT user_type_id, name FROM user_types";
 

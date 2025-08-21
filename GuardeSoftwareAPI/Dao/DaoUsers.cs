@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Data;
+
 
 namespace GuardeSoftwareAPI.Dao 
 { 
@@ -11,7 +13,7 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public GetUsers()
+        public DataTable GetUsers()
         {
             string consult = "SELECT user_id, user_type_id, username,first_name,last_name FROM users WHERE active = 1";
 

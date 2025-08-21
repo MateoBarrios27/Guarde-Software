@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -12,7 +13,7 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
         
-        public GetPayments()
+        public DataTable GetPayments()
         {
             string consult = "SELECT payment_id, customer_id, payment_method_id, payment_date, amount FROM payments";
 

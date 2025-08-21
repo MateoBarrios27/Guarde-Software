@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Data;
+
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -12,7 +14,7 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public GetAddresses()
+        public DataTable GetAddresses()
         {
             string consult = "SELECT addresses_id, customer_id, address, city, state FROM addresses";
 

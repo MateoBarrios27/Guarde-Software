@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Data;
+
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -11,7 +13,7 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public GetActivityLog()
+        public DataTable GetActivityLog()
         {
             string consult = "SELECT activity_log_id, user_id, log_date, action_table_name, record_id, old_value, new_value FROM activity_log";
 
