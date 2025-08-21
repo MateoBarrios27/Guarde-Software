@@ -70,6 +70,7 @@ CREATE TABLE clients_x_increase_regimens (
 CREATE TABLE phones (
     phone_id INT IDENTITY(1,1) PRIMARY KEY,
     client_id INT NOT NULL,
+    number VARCHAR(20) NOT NULL,
     type VARCHAR(50),
     whatsapp BIT DEFAULT 0,
     FOREIGN KEY (client_id) REFERENCES clients(client_id)

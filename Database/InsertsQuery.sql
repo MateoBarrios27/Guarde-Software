@@ -35,10 +35,10 @@ INSERT INTO clients_x_increase_regimens (client_id, regimen_id, registration_dat
 (2, 2, '2024-02-15', NULL);
 
 -- Phones
-INSERT INTO phones (client_id, type, whatsapp) VALUES
-(1, 'Móvil', 1),
-(1, 'Casa', 0),
-(2, 'Móvil', 1);
+INSERT INTO phones (client_id, number, type, whatsapp) VALUES
+(1, '1160244907', 'Móvil', 1),
+(1, '1160265907','Casa', 0),
+(2, '1161474907','Móvil', 1);
 
 -- Emails
 INSERT INTO emails (client_id, email, type) VALUES
