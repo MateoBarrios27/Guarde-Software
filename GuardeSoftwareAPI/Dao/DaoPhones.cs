@@ -15,7 +15,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public DataTable GetPhones()
         {
-            string consult = "SELECT phone_id, customer_id, type, whatsapp FROM phones"
+            string consult = "SELECT phone_id, client_id, number, type, whatsapp FROM phones"
 ;
             return accessDB.GetTable("phones",consult);
         }
