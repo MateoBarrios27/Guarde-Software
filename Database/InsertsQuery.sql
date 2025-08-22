@@ -14,10 +14,14 @@ INSERT INTO warehouses (name, address, active) VALUES
 ('Guemes', 'Guemes 3670', 1);
 
 -- Lockers
-INSERT INTO lockers (warehouse_id, locker_type_id, identifier, features, status) VALUES
-(1, 1, 'B-101', 'Baulera en planta baja, fácil acceso', 'DISPONIBLE'),
-(1, 2, 'XL-202', 'Baulera grande con ventilación', 'OCUPADO'),
-(2, 3, 'G-301', 'Baulera extra grande', 'DISPONIBLE');
+INSERT INTO lockers (warehouse_id, locker_type_id, identifier, features, status, active) VALUES
+(1, 1, 'B-101', 'Baulera en planta baja, fácil acceso', 'DISPONIBLE', 1),
+(1, 2, 'XL-202', 'Baulera grande con ventilación', 'OCUPADO', 1),
+(2, 3, 'G-301', 'Baulera extra grande con estanterías', 'OCUPADO', 1),
+(2, 4, 'B-102', 'Box en planta baja', 'DISPONIBLE', 1),
+(3, 5, 'L-103', 'Locker con acceso digital', 'OCUPADO', 1),
+(3, 6, 'E-104', 'Espacio libre para almacenamiento flexible', 'DISPONIBLE', 1),
+(2, 3, 'G-301', 'Baulera extra grande', 'DISPONIBLE', 1);
 
 -- Increase Regimens
 INSERT INTO increase_regimens (frequency, percentage) VALUES
@@ -35,18 +39,19 @@ INSERT INTO clients_x_increase_regimens (client_id, regimen_id, registration_dat
 (2, 2, '2024-02-15', NULL);
 
 -- Phones
-INSERT INTO phones (client_id, number, type, whatsapp) VALUES
-(1, '1160244907', 'Móvil', 1),
-(1, '1160265907','Casa', 0),
-(2, '1161474907','Móvil', 1);
+INSERT INTO phones (client_id, number, type, whatsapp, active) VALUES
+(1, '1160244907', 'Móvil', 1, 1),
+(1, '1160265907','Casa', 0, 1),
+(2, '1145678901', 'Trabajo', 0, 1),
+(2, '1161474907','Móvil', 1, 1);
 
 -- Emails
-INSERT INTO emails (client_id, email, type) VALUES
-(1, 'juan.perez@mail.com', 'Personal'),
-(2, 'maria.gonzalez@mail.com', 'Trabajo');
+INSERT INTO emails (client_id, address, type, active) VALUES
+(1, 'juan.perez@mail.com', 'Personal', 1),
+(2, 'maria.gonzalez@mail.com', 'Trabajo', 1);
 
 -- Addresses
-INSERT INTO addresses (client_id, address, city, province) VALUES
+INSERT INTO addresses (client_id, street, city, province) VALUES
 (1, 'Calle Falsa 123', 'Buenos Aires', 'Buenos Aires'),
 (2, 'Av. Libertador 456', 'San Isidro', 'Buenos Aires');
 
@@ -77,9 +82,9 @@ INSERT INTO account_movements (rental_id, movement_date, movement_type, concept,
 (2, '2024-02-25', 'CREDITO', 'Pago alquiler febrero', 2);
 
 -- User Types
-INSERT INTO user_types (name) VALUES
-('Administrador'),
-('Empleado');
+INSERT INTO user_types (name, active) VALUES
+('Administrador', 1),
+('Empleado', 1);
 
 -- Users
 INSERT INTO users (user_type_id, username, first_name, last_name, password, active) VALUES

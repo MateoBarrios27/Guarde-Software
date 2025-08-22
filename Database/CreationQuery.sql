@@ -29,6 +29,7 @@ CREATE TABLE lockers (
     identifier VARCHAR(100) UNIQUE,
     features VARCHAR(MAX),
     status VARCHAR(50),
+    active BIT DEFAULT 1
     FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id),
     FOREIGN KEY (locker_type_id) REFERENCES locker_types(locker_type_id)
 );
@@ -40,7 +41,7 @@ CREATE TABLE increase_regimens (
     percentage DECIMAL(5,2) NOT NULL
 );
 
--- Table: customers
+-- Table: clients
 CREATE TABLE clients (
     client_id INT IDENTITY(1,1) PRIMARY KEY,
     payment_identifier DECIMAL(10,2),
@@ -55,7 +56,7 @@ CREATE TABLE clients (
     active BIT DEFAULT 1
 );
 
--- Table: customers_increase_policies
+-- Table: clients_increase_policies
 CREATE TABLE clients_x_increase_regimens (
     client_id INT,
     regimen_id INT,
@@ -73,6 +74,7 @@ CREATE TABLE phones (
     number VARCHAR(20) NOT NULL,
     type VARCHAR(50),
     whatsapp BIT DEFAULT 0,
+    active BIT DEFAULT 1,
     FOREIGN KEY (client_id) REFERENCES clients(client_id)
 );
 
@@ -80,8 +82,9 @@ CREATE TABLE phones (
 CREATE TABLE emails (
     email_id INT IDENTITY(1,1) PRIMARY KEY,
     client_id INT NOT NULL,
-    email VARCHAR(150) NOT NULL,
+    address VARCHAR(150) NOT NULL,
     type VARCHAR(50),
+    active BIT DEFAULT 1
     FOREIGN KEY (client_id) REFERENCES clients(client_id)
 );
 
@@ -89,7 +92,7 @@ CREATE TABLE emails (
 CREATE TABLE addresses (
     address_id INT IDENTITY(1,1) PRIMARY KEY,
     client_id INT NOT NULL,
-    address VARCHAR(255) NOT NULL,
+    street VARCHAR(255) NOT NULL,
     city VARCHAR(100),
     province VARCHAR(100),
     FOREIGN KEY (client_id) REFERENCES clients(client_id)
@@ -109,7 +112,7 @@ CREATE TABLE rentals (
     start_date DATE NOT NULL,
     end_date DATE,
     contracted_m3 DECIMAL(10,2),
-    active BIT DEFAULT 1,
+    active BIT DEFAULT 1, -- We can use end_date to determine if the rental is active, but this can be useful for quick checks & performance
     FOREIGN KEY (client_id) REFERENCES clients(client_id)
 );
 
@@ -149,7 +152,8 @@ CREATE TABLE account_movements (
 -- Table: user_types
 CREATE TABLE user_types (
     user_type_id INT IDENTITY(1,1) PRIMARY KEY,
-    name VARCHAR(50) NOT NULL
+    name VARCHAR(50) NOT NULL,
+    active BIT DEFAULT 1
 );
 
 -- Table: users
