@@ -21,7 +21,7 @@ INSERT INTO lockers (warehouse_id, locker_type_id, identifier, features, status,
 (2, 4, 'B-102', 'Box en planta baja', 'DISPONIBLE', 1),
 (3, 5, 'L-103', 'Locker con acceso digital', 'OCUPADO', 1),
 (3, 6, 'E-104', 'Espacio libre para almacenamiento flexible', 'DISPONIBLE', 1),
-(2, 3, 'G-301', 'Baulera extra grande', 'DISPONIBLE', 1);
+(2, 3, 'G-305', 'Baulera extra grande', 'DISPONIBLE', 1);
 
 -- Increase Regimens
 INSERT INTO increase_regimens (frequency, percentage) VALUES

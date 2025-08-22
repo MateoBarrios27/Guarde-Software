@@ -29,7 +29,7 @@ CREATE TABLE lockers (
     identifier VARCHAR(100) UNIQUE,
     features VARCHAR(MAX),
     status VARCHAR(50),
-    active BIT DEFAULT 1
+    active BIT DEFAULT 1,
     FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id),
     FOREIGN KEY (locker_type_id) REFERENCES locker_types(locker_type_id)
 );
