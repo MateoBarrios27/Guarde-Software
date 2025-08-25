@@ -4,7 +4,7 @@ using System.Data;
 
 namespace GuardeSoftwareAPI.Dao
 {
-	public class DaoIncreasePolicies
+	public class DaoIncreaseRegimens
 	{
         private readonly AccessDB accessDB;
 
@@ -13,11 +13,11 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetIncreasePolicies()
+        public DataTable GetIncreaseRegimens()
         {
-            string consult = "SELECT policy_id, frequency, percentage FROM increase_policies";
+            string consult = "SELECT regimen_id, frequency, percentage FROM increase_regimens";
 
-            return accessDB.GetTable("increase_policies",consult);
+            return accessDB.GetTable("increase_regimens",consult);
         }
 
     }

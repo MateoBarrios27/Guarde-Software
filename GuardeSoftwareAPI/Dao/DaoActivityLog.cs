@@ -15,7 +15,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public DataTable GetActivityLog()
         {
-            string consult = "SELECT activity_log_id, user_id, log_date, action_table_name, record_id, old_value, new_value FROM activity_log";
+            string consult = "SELECT activity_log_id, user_id, log_date, table_name, record_id, old_value, new_value FROM activity_log";
 
             return accessDB.GetTable("activity_log", consult);
         }
