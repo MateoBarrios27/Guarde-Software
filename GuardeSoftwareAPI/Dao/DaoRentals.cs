@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Data;
-
+using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -18,6 +18,30 @@ namespace GuardeSoftwareAPI.Dao
             string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3 FROM rentals WHERE active = 1";
             
             return accessDB.GetTable("rentals", query);
+        }
+
+        public DataTable GetRentalById(int rentalId) {
+
+            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3 FROM rentals WHERE active = 1 AND rental_id = @rental_id";
+
+            SqlParameter[] parameters = new SqlParameter[] {
+
+                new SqlParameter("@rental_id", SqlDbType.Int){Value  = rentalId},
+            };
+
+            return accessDB.GetTable("rentals", query, parameters);
+        }
+
+        public DataTable GetRentalsByClientId(string clientId) {
+
+            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3 FROM rentals WHERE active = 1 AND client_id = @client_id";
+
+            SqlParameter[] parameters = new SqlParameter[] {
+
+                new SqlParameter("@client_id", SqlDbType.Int){Value  = clientId},
+            };
+
+            return accessDB.GetTable("rentals", query, parameters);
         }
     }
 }

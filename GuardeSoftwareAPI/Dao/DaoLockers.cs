@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Data;
-
+using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Dao { 
 
@@ -18,6 +18,18 @@ namespace GuardeSoftwareAPI.Dao {
             string query = "SELECT locker_id, warehouse_id,locker_type_id, identifier, feautures, status FROM lockers";
 
             return accessDB.GetTable("lockers", query);
+        }
+
+        public DataTable GetLockerById(int id) {
+
+            string query = "SELECT locker_id, warehouse_id,locker_type_id, identifier, feautures, status FROM lockers WHERE locker_id = @locker_id";
+
+            SqlParameter[] parameters = new SqlParameter[] {
+
+                new SqlParameter("@regimen_id", SqlDbType.Int){Value = id},
+            };
+
+            return accessDB.GetTable("lockers", query, parameters);
         }
     }
 }

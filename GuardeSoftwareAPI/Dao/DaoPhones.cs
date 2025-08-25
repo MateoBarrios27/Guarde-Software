@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Data;
-
+using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -18,6 +18,18 @@ namespace GuardeSoftwareAPI.Dao
             string query = "SELECT phone_id, client_id, number, type, whatsapp FROM phones"
 ;
             return accessDB.GetTable("phones", query);
+        }
+
+        public DataTable GetPhoneByClientId(string clientId) {
+
+            string query = "SELECT phone_id, client_id, number, type, whatsapp FROM phones WHERE client_id = @client_id";
+
+            SqlParameter[] parameters = new SqlParameter[] {
+
+                new SqlParameter("@client_id", SqlDbType.Int){Value  = clientId},
+            };
+
+            return accessDB.GetTable("phones",query, parameters);
         }
     }
 }
