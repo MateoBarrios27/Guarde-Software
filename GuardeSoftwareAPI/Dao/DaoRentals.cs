@@ -43,5 +43,17 @@ namespace GuardeSoftwareAPI.Dao
 
             return accessDB.GetTable("rentals", query, parameters);
         }
+
+        public void DeleteRental(int rentalId) {
+
+            string query = "UPDATE rentals SET active = 0 WHERE rental_id = @rental_id";
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@rental_id", SqlDbType.Int){Value = rentalId},
+            };
+
+            accessDB.ExecuteCommand(query, parameters);
+        }
     }
 }
