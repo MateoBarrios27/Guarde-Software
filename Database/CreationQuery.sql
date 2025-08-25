@@ -60,7 +60,7 @@ CREATE TABLE clients (
 CREATE TABLE clients_x_increase_regimens (
     client_id INT,
     regimen_id INT,
-    registration_date DATE NOT NULL,
+    start_date DATE NOT NULL,
     end_date DATE,
     PRIMARY KEY (client_id, regimen_id),
     FOREIGN KEY (client_id) REFERENCES clients(client_id),
@@ -144,6 +144,7 @@ CREATE TABLE account_movements (
     movement_date DATE NOT NULL,
     movement_type VARCHAR(10) CHECK (movement_type IN ('DEBITO','CREDITO')),
     concept VARCHAR(255),
+    amount DECIMAL(10,2) NOT NULL,
     payment_id INT
     FOREIGN KEY (rental_id) REFERENCES rentals(rental_id),
     FOREIGN KEY (payment_id) REFERENCES payments(payment_id)

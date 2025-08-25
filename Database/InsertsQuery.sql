@@ -34,7 +34,7 @@ INSERT INTO clients (payment_identifier, first_name, last_name, registration_dat
 (0.02, 'María', 'González', '2024-02-15', 'Solicitó espacio adicional', '28987654', '27-28987654-8', NULL, 1, 'Responsable Inscripto');
 
 -- Clients x Regimens
-INSERT INTO clients_x_increase_regimens (client_id, regimen_id, registration_date, end_date) VALUES
+INSERT INTO clients_x_increase_regimens (client_id, regimen_id, start_date, end_date) VALUES
 (1, 1, '2024-01-10', NULL),
 (2, 2, '2024-02-15', NULL);
 
@@ -77,9 +77,9 @@ INSERT INTO payments (client_id, payment_method_id, payment_date, amount) VALUES
 (2, 2, '2024-02-25', 115000);
 
 -- Account Movements
-INSERT INTO account_movements (rental_id, movement_date, movement_type, concept, payment_id) VALUES
-(1, '2024-01-20', 'CREDITO', 'Pago alquiler enero', 1),
-(2, '2024-02-25', 'CREDITO', 'Pago alquiler febrero', 2);
+INSERT INTO account_movements (rental_id, movement_date, movement_type, concept, amount, payment_id) VALUES
+(1, '2024-01-20', 'CREDITO', 'Pago alquiler enero', 60000, 1),
+(2, '2024-02-25', 'CREDITO', 'Pago alquiler febrero', 15000, 2);
 
 -- User Types
 INSERT INTO user_types (name, active) VALUES
