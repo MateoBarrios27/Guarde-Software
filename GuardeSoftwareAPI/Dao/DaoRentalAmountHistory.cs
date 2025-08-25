@@ -15,9 +15,9 @@ namespace GuardeSoftwareAPI.Dao
 
         public DataTable GetRentalAmountHistory()
         {
-            string consult = "SELECT rental_amount_history_id, rental_id, amount, start_date, end_date FROM rental_amount_history";
+            string query = "SELECT rental_amount_history_id, rental_id, amount, start_date, end_date FROM rental_amount_history";
 
-            return accessDB.GetTable("rental_amount_history", consult);
+            return accessDB.GetTable("rental_amount_history", query);
         }
 
     }

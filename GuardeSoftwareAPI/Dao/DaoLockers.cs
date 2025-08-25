@@ -15,9 +15,9 @@ namespace GuardeSoftwareAPI.Dao {
 
         public DataTable GetLockers()
         {
-            string consult = "SELECT locker_id, warehouse_id,locker_type_id, identifier, features, status FROM lockers";
+            string query = "SELECT locker_id, warehouse_id,locker_type_id, identifier, feautures, status FROM lockers";
 
-            return accessDB.GetTable("lockers",consult);
+            return accessDB.GetTable("lockers", query);
         }
     }
 }

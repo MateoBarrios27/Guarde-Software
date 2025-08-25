@@ -15,9 +15,9 @@ namespace GuardeSoftwareAPI.Dao
 
         public DataTable GetUsers()
         {
-            string consult = "SELECT user_id, user_type_id, username,first_name,last_name FROM users WHERE active = 1";
+            string query = "SELECT user_id, user_type_id, username,first_name,last_name FROM users WHERE active = 1";
 
-            return accessDB.GetTable("users",consult);
+            return accessDB.GetTable("users", query);
         }
     }
 }

@@ -15,9 +15,9 @@ namespace GuardeSoftwareAPI.Dao
         
         public DataTable GetPayments()
         {
-            string consult = "SELECT payment_id, client_id, payment_method_id, payment_date, amount FROM payments";
+            string query = "SELECT payment_id, client_id, payment_method_id, payment_date, amount FROM payments";
 
-            return accessDB.GetTable("payments",consult);
+            return accessDB.GetTable("payments", query);
         }
     }
 }

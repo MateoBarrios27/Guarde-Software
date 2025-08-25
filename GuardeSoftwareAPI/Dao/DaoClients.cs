@@ -17,33 +17,33 @@ namespace GuardeSoftwareAPI.Dao
 
         public DataTable GetClients() {
 
-            string consult = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes FROM clients WHERE active=1";
+            string query = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes FROM clients WHERE active=1";
 
-            return accessDB.GetTable("clients",consult);
+            return accessDB.GetTable("clients", query);
         }
 
         public DataTable GetClientById(int id)
         {
-            string consult = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes FROM clients WHERE client_id = @client_id";
+            string query = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes FROM clients WHERE client_id = @client_id";
 
             SqlParameter[] parameters = new SqlParameter[] {
 
                 new SqlParameter("@client_id",SqlDbType.Int) {Value = id},
             };
 
-            return accessDB.GetTable("clients",consult,parameters);
+            return accessDB.GetTable("clients", query, parameters);
         }
 
         public void DeleteClientById(int id) {
 
-            string consult = "UPDATE clients SET active = 0 WHERE client_id = @client_id";
+            string query = "UPDATE clients SET active = 0 WHERE client_id = @client_id";
 
             SqlParameter[] parameters = new SqlParameter[]
             {
                 new SqlParameter("@client_id", SqlDbType.Int){Value = id},
             };
             
-            accessDB.ExecuteCommand(consult,parameters);
+            accessDB.ExecuteCommand(query, parameters);
         
         }
     }

@@ -15,9 +15,9 @@ namespace GuardeSoftwareAPI.Dao
 
         public DataTable GetUserTypes()
         {
-            string consult = "SELECT user_type_id, name FROM user_types";
+            string query = "SELECT user_type_id, name FROM user_types";
 
-            return accessDB.GetTable("user_types",consult);
+            return accessDB.GetTable("user_types", query);
         }
     }
 }

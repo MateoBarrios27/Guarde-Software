@@ -16,9 +16,9 @@ namespace GuardeSoftwareAPI.Dao
 
         public DataTable GetAddresses()
         {
-            string consult = "SELECT address_id, client_id, street, city, province FROM addresses";
+            string query = "SELECT address_id, client_id, street, city, province FROM addresses";
 
-            return accessDB.GetTable("addresses", consult);
+            return accessDB.GetTable("addresses", query);
         }
     }
 }

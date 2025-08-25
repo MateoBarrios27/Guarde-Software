@@ -15,9 +15,9 @@ namespace GuardeSoftwareAPI.Dao
 
         public DataTable GetClientIncreaseRegimens()
         {
-            string consult = "SELECT client_id, regimen_id, start_date, end_date FROM clients_x_increase_regimens";
+            string query = "SELECT client_id, regimen_id, start_date, end_date FROM clients_x_increase_regimens";
 
-            return accessDB.GetTable("clients_x_increase_regimens", consult);
+            return accessDB.GetTable("clients_x_increase_regimens", query);
         }
     }
 }
