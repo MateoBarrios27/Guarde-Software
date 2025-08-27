@@ -21,7 +21,7 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("clients_x_increase_regimens", query);
         }
 
-        public DataTable GetClientIncreaseRegimensByClientId(string clientId) {
+        public DataTable GetClientIncreaseRegimensByClientId(int clientId) {
 
             string query = "SELECT client_id, regimen_id, start_date, end_date FROM clients_x_increase_regimens WHERE client_id = @client_id";
 

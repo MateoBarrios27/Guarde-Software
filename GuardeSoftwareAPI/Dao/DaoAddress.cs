@@ -22,7 +22,7 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("addresses", query);
         }
 
-        public DataTable GetAddressByClientId(string cliendId) {
+        public DataTable GetAddressByClientId(int cliendId) {
 
             string query = "SELECT address_id, client_id, street, city, province FROM addresses WHERE client_id = @client_id ";
 

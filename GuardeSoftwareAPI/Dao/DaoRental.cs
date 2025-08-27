@@ -32,7 +32,7 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("rentals", query, parameters);
         }
 
-        public DataTable GetRentalsByClientId(string clientId) {
+        public DataTable GetRentalsByClientId(int clientId) {
 
             string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3 FROM rentals WHERE active = 1 AND client_id = @client_id";
 
