@@ -15,7 +15,7 @@ using GuardeSoftwareAPI.Services.Rental;
 using GuardeSoftwareAPI.Services.RentalAmountHistory;
 using GuardeSoftwareAPI.Services.User;
 using GuardeSoftwareAPI.Services.UserType;
-using GuardeSoftwareAPI.Services.WhareHouse;
+using GuardeSoftwareAPI.Services.Warehouse;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,7 +42,7 @@ builder.Services.AddScoped<IRentalService, RentalService>();
 builder.Services.AddScoped<IRentalAmountHistoryService, RentalAmountHistoryService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserTypeService, UserTypeService>();
-builder.Services.AddScoped<IWhareHouseService, WhareHouseService>();
+builder.Services.AddScoped<IWarehouseService, WarehouseService>();
 
 var app = builder.Build();
 
