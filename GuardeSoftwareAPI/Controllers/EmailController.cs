@@ -1,5 +1,5 @@
 using GuardeSoftwareAPI.Entities;
-using GuardeSoftwareAPI.Services.Email; 
+using GuardeSoftwareAPI.Services.email; 
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -20,7 +20,7 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                List<Email> emails = null; //replace with service call
+                List<Email> emails = _emailService.GetEmailsList();
 
                 return Ok(emails);
             }
@@ -35,7 +35,7 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                Email email = new Email(); //replace with service call
+                List<Email> email = _emailService.GetEmailListByClientId(id);
 
                 if (email == null)
                 {

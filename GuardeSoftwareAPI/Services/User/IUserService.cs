@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GuardeSoftwareAPI.Services.User
+namespace GuardeSoftwareAPI.Services.user
 {
 
 	public interface IUserService

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GuardeSoftwareAPI.Services.Rental
+namespace GuardeSoftwareAPI.Services.rental
 {
 
 	public interface IRentalService

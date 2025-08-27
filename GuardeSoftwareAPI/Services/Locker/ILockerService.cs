@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GuardeSoftwareAPI.Services.Locker
+namespace GuardeSoftwareAPI.Services.locker
 {
 
 	public interface ILockerService

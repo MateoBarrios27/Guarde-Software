@@ -1,21 +1,21 @@
 using GuardeSoftwareAPI.Dao;
 using System.Data;
-using GuardeSoftwareAPI.Services.AccountMovement;
-using GuardeSoftwareAPI.Services.ActivityLog;
-using GuardeSoftwareAPI.Services.Address;
-using GuardeSoftwareAPI.Services.Client;
-using GuardeSoftwareAPI.Services.ClientIncreaseRegimen;
-using GuardeSoftwareAPI.Services.Email;
-using GuardeSoftwareAPI.Services.IncreaseRegimen;
-using GuardeSoftwareAPI.Services.Locker;
-using GuardeSoftwareAPI.Services.LockerType;
-using GuardeSoftwareAPI.Services.Payment;
-using GuardeSoftwareAPI.Services.PaymentMethod;
-using GuardeSoftwareAPI.Services.Rental;
-using GuardeSoftwareAPI.Services.RentalAmountHistory;
-using GuardeSoftwareAPI.Services.User;
-using GuardeSoftwareAPI.Services.UserType;
-using GuardeSoftwareAPI.Services.WhareHouse;
+using GuardeSoftwareAPI.Services.accountMovement;
+using GuardeSoftwareAPI.Services.activityLog;
+using GuardeSoftwareAPI.Services.address;
+using GuardeSoftwareAPI.Services.client;
+using GuardeSoftwareAPI.Services.clientIncreaseRegimen;
+using GuardeSoftwareAPI.Services.email;
+using GuardeSoftwareAPI.Services.increaseRegimen;
+using GuardeSoftwareAPI.Services.locker;
+using GuardeSoftwareAPI.Services.lockerType;
+using GuardeSoftwareAPI.Services.payment;
+using GuardeSoftwareAPI.Services.paymentMethod;
+using GuardeSoftwareAPI.Services.rental;
+using GuardeSoftwareAPI.Services.rentalAmountHistory;
+using GuardeSoftwareAPI.Services.user;
+using GuardeSoftwareAPI.Services.userType;
+using GuardeSoftwareAPI.Services.whareHouse;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +26,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+
+builder.Services.AddScoped<AccessDB>();
 //SERVICES
 builder.Services.AddScoped<IAccountMovementService, AccountMovementService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();

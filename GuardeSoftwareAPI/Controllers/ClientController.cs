@@ -1,5 +1,5 @@
 using GuardeSoftwareAPI.Entities;
-using GuardeSoftwareAPI.Services.Client;
+using GuardeSoftwareAPI.Services.client;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -20,7 +20,7 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                List<Client> clients = null; //replace with service call
+                List<Client> clients = _clientService.GetClientsList();
 
                 return Ok(clients);
             }
@@ -35,7 +35,7 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                Client client = new Client(); //replace with service call
+                List<Client> client = _clientService.GetClientListById(id);
 
                 if (client == null)
                 {

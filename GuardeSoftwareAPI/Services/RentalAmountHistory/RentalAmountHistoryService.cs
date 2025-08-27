@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GuardeSoftwareAPI.Services.RentalAmountHistory
+namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 {
 
 	public class RentalAmountHistoryService : IRentalAmountHistoryService

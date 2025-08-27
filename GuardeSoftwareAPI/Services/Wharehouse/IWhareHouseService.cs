@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GuardeSoftwareAPI.Services.WhareHouse
+namespace GuardeSoftwareAPI.Services.whareHouse
 {
 
 	public interface IWhareHouseService

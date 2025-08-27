@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GuardeSoftwareAPI.Services.UserType
+namespace GuardeSoftwareAPI.Services.userType
 {
 
 	public class UserTypeService : IUserTypeService

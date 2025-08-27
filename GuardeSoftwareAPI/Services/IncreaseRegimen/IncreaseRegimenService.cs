@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GuardeSoftwareAPI.Services.IncreaseRegimen
+namespace GuardeSoftwareAPI.Services.increaseRegimen
 {
 
 	public class IncreaseRegimenService : IIncreaseRegimenService

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GuardeSoftwareAPI.Services.AccountMovement { 
+namespace GuardeSoftwareAPI.Services.accountMovement { 
 
 	public class AccountMovementService : IAccountMovementService
     {

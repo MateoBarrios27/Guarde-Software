@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GuardeSoftwareAPI.Services.ActivityLog { 
+namespace GuardeSoftwareAPI.Services.activityLog { 
 
 	public interface IActivityLogService
 	{

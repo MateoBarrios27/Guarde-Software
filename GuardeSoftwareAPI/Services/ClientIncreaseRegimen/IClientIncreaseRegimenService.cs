@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GuardeSoftwareAPI.Services.ClientIncreaseRegimen
+namespace GuardeSoftwareAPI.Services.clientIncreaseRegimen
 {
 
 	public interface IClientIncreaseRegimenService

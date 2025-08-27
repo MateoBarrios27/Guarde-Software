@@ -1,5 +1,6 @@
 using GuardeSoftwareAPI.Entities;
 using Microsoft.AspNetCore.Mvc;
+using GuardeSoftwareAPI.Services.address;
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -7,12 +8,19 @@ namespace GuardeSoftwareAPI.Controllers
     [Route("api/[controller]")]
     public class AddressController : ControllerBase
     {
+        private readonly IAddressService _addressService;
+
+        public AddressController(IAddressService addressService) { 
+
+            _addressService = addressService;
+        }
+
         [HttpGet]
         public ActionResult<List<Address>> GetAddresses()
         {
             try
             {
-                List<Address> addresses = null; //replace with service call
+                List<Address> addresses = _addressService.GetAddressList();
 
                 return Ok(addresses);
             }
@@ -27,17 +35,13 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                AccountMovement accountMovement = new AccountMovement(); //replace with service call
+                List<Address> addresses = _addressService.GetAddressListByClientId(id);
 
-                if (accountMovement == null)
-                {
-                    return NotFound($"Account movement id n°{id} not found ");
-                }
-                return Ok(accountMovement);
+                return Ok(addresses);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error getting the account movement: {ex.Message}");
+                return StatusCode(500, $"Error getting addresses by client id: {ex.Message}");
             }
         }    
     }

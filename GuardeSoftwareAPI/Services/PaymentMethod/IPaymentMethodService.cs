@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GuardeSoftwareAPI.Services.PaymentMethod
+namespace GuardeSoftwareAPI.Services.paymentMethod
 {
 
 	public interface IPaymentMethodService
