@@ -1,5 +1,6 @@
 using GuardeSoftwareAPI.Dao;
 using System.Data;
+
 using GuardeSoftwareAPI.Services.accountMovement;
 using GuardeSoftwareAPI.Services.activityLog;
 using GuardeSoftwareAPI.Services.address;
@@ -16,6 +17,7 @@ using GuardeSoftwareAPI.Services.rentalAmountHistory;
 using GuardeSoftwareAPI.Services.user;
 using GuardeSoftwareAPI.Services.userType;
 using GuardeSoftwareAPI.Services.whareHouse;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,7 +46,7 @@ builder.Services.AddScoped<IRentalService, RentalService>();
 builder.Services.AddScoped<IRentalAmountHistoryService, RentalAmountHistoryService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserTypeService, UserTypeService>();
-builder.Services.AddScoped<IWhareHouseService, WhareHouseService>();
+builder.Services.AddScoped<IWarehouseService, WarehouseService>();
 
 var app = builder.Build();
 

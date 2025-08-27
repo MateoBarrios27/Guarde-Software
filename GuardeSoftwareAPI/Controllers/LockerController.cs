@@ -1,4 +1,5 @@
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Services.Locker;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -7,6 +8,13 @@ namespace GuardeSoftwareAPI.Controllers
     [Route("api/[controller]")]
     public class LockerController : ControllerBase
     {
+        private readonly ILockerService _lockerService;
+
+        public LockerController(ILockerService lockerService)
+        {
+            _lockerService = lockerService;
+        }
+        
         [HttpGet]
         public ActionResult<List<Locker>> GetLockers()
         {

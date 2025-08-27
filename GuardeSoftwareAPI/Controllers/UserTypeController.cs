@@ -1,4 +1,5 @@
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Services.UserType;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -7,6 +8,13 @@ namespace GuardeSoftwareAPI.Controllers
     [Route("api/[controller]")]
     public class UserTypeController : ControllerBase
     {
+        private readonly IUserTypeService _userTypeService;
+
+        public UserTypeController(IUserTypeService userTypeService)
+        {
+            _userTypeService = userTypeService;
+        }
+
         [HttpGet]
         public ActionResult<List<UserType>> GetUserTypes()
         {

@@ -1,4 +1,5 @@
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Services.ActivityLog;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -7,6 +8,13 @@ namespace GuardeSoftwareAPI.Controllers
     [Route("api/[controller]")]
     public class ActivityLogController : ControllerBase
     {
+        private readonly IActivityLogService _activityLogService;
+
+        public ActivityLogController(IActivityLogService activityLogService)
+        {
+            _activityLogService = activityLogService;
+        }
+
         [HttpGet]
         public ActionResult<List<ActivityLog>> GetActivityLogs()
         {
