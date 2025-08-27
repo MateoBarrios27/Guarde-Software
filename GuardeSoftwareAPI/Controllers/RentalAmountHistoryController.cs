@@ -1,4 +1,5 @@
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Services.RentalAmountHistory;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -7,6 +8,12 @@ namespace GuardeSoftwareAPI.Controllers
     [Route("api/[controller]")]
     public class RentalAmountHistoryController : ControllerBase
     {
+        private readonly IRentalAmountHistoryService _rentalAmountHistoryService;
+
+        public RentalAmountHistoryController(IRentalAmountHistoryService rentalAmountHistoryService)
+        {
+            _rentalAmountHistoryService = rentalAmountHistoryService;
+        }
         [HttpGet]
         public ActionResult<List<RentalAmountHistory>> GetRentalAmountHistories()
         {

@@ -1,4 +1,5 @@
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Services.Address;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -7,6 +8,13 @@ namespace GuardeSoftwareAPI.Controllers
     [Route("api/[controller]")]
     public class AddressController : ControllerBase
     {
+        private readonly IAddressService _addressService;
+
+        public AddressController(IAddressService addressService)
+        {
+            _addressService = addressService;
+        }
+        
         [HttpGet]
         public ActionResult<List<Address>> GetAddresses()
         {

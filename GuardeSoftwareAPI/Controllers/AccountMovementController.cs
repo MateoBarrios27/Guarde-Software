@@ -1,4 +1,5 @@
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Services.AccountMovement;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -7,6 +8,13 @@ namespace GuardeSoftwareAPI.Controllers
     [Route("api/[controller]")]
     public class AccountMovementController : ControllerBase
     {
+        readonly IAccountMovementService _accountMovementService;
+
+        public AccountMovementController(IAccountMovementService accountMovementService)
+        {
+            _accountMovementService = accountMovementService;
+        }
+
         [HttpGet]
         public ActionResult<List<AccountMovement>> GetAccountMovements()
         {

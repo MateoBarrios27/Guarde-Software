@@ -1,4 +1,5 @@
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Services.IncreaseRegimen;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -7,6 +8,13 @@ namespace GuardeSoftwareAPI.Controllers
     [Route("api/[controller]")]
     public class IncreaseRegimenController : ControllerBase
     {
+        private readonly IIncreaseRegimenService _increaseRegimenService;
+
+        public IncreaseRegimenController(IIncreaseRegimenService increaseRegimenService)
+        {
+            _increaseRegimenService = increaseRegimenService;
+        }
+
         [HttpGet]
         public ActionResult<List<IncreaseRegimen>> GetIncreaseRegimens()
         {
