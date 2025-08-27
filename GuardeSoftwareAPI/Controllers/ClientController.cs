@@ -1,4 +1,5 @@
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Services.Client;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -7,6 +8,13 @@ namespace GuardeSoftwareAPI.Controllers
     [Route("api/[controller]")]
     public class ClientController : ControllerBase
     {
+        private readonly IClientService _clientService;
+
+        public ClientController(IClientService clientService)
+        {
+            _clientService = clientService;
+        }
+
         [HttpGet]
         public ActionResult<List<Client>> GetClients()
         {
@@ -23,7 +31,7 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public ActionResult<Client> GetClientPerId(int id)
+        public ActionResult<Client> GetClientById(int id)
         {
             try
             {
@@ -31,7 +39,7 @@ namespace GuardeSoftwareAPI.Controllers
 
                 if (client == null)
                 {
-                    return NotFound($"Client ID n°{id} not found ");
+                    return NotFound($"Client id n°{id} not found ");
                 }
                 return Ok(client);
             }
@@ -39,6 +47,20 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 return StatusCode(500, $"Error getting the client: {ex.Message}");
             }
-        }        
+        }    
+
+        [HttpPost]
+        public ActionResult CreateClient([FromBody] Client client)
+        {
+            try
+            {
+                //call to service to create the client
+                return CreatedAtAction(nameof(GetClientById), new { id = client.Id }, client);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error loading the client: {ex.Message}");
+            }
+        }    
     }
 }

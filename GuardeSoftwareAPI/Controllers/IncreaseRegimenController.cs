@@ -21,5 +21,24 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, $"Error getting increase regimens: {ex.Message}");
             }
         }
+
+        [HttpGet("{id}")]
+        public ActionResult<IncreaseRegimen> GetIncreaseRegimenById(int id)
+        {
+            try
+            {
+                IncreaseRegimen increaseRegimen = new IncreaseRegimen(); //replace with service call
+
+                if (increaseRegimen == null)
+                {
+                    return NotFound($"Increase regimen id n°{id} not found ");
+                }
+                return Ok(increaseRegimen);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error getting the increase regimen: {ex.Message}");
+            }
+        }    
     }
 }
