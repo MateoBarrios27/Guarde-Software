@@ -5,22 +5,22 @@ using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Dao { 
 
-	public class DaoWareHouses
+	public class DaoWarehouse
 	{
 		private readonly AccessDB accessDB;
 
-		public DaoWareHouses(AccessDB _accessDB)
+		public DaoWarehouse(AccessDB _accessDB)
 		{
 			accessDB = _accessDB;
 		}
 
-		public DataTable GetWareHouses()
+		public DataTable GetWarehouses()
 		{
 			string query = "SELECT warehouse_id, name, address FROM warehouses WHERE active = 1";
 			return accessDB.GetTable("warehouses", query);
 		}
 
-        public DataTable GetWareHouseById(int id) {
+        public DataTable GetWarehouseById(int id) {
 
             string query = "SELECT warehouse_id, name, address FROM warehouses WHERE warehouse_id = @warehouse_id";
 
@@ -31,7 +31,7 @@ namespace GuardeSoftwareAPI.Dao {
             return accessDB.GetTable("warehouses", query, parameters);
         }
 
-		public void DeleteWareHouse(int id) {
+		public void DeleteWarehouse(int id) {
 
             string query = "UPDATE warehouses SET active = 0 WHERE warehouse_id = @warehouse_id";
 

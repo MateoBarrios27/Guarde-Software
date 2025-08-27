@@ -5,11 +5,11 @@ using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Dao
 {
-	public class DaoPayments
+	public class DaoPayment
 	{
         private readonly AccessDB accessDB;
 
-        public DaoPayments(AccessDB _accessDB)
+        public DaoPayment(AccessDB _accessDB)
         {
             accessDB = _accessDB;
         }

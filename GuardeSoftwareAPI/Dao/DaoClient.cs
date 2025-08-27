@@ -6,11 +6,11 @@ using Microsoft.Data.SqlClient;
 namespace GuardeSoftwareAPI.Dao
 {
 
-	public class DaoClients
+	public class DaoClient
 	{
         private readonly AccessDB accessDB;
 
-        public DaoClients(AccessDB _accessDB)
+        public DaoClient(AccessDB _accessDB)
         {
             accessDB = _accessDB;
         }

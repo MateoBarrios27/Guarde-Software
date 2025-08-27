@@ -4,11 +4,11 @@ using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Dao
 {
-	public class DaoIncreaseRegimens
+	public class DaoIncreaseRegimen
 	{
         private readonly AccessDB accessDB;
 
-        public DaoIncreaseRegimens(AccessDB _accessDB)
+        public DaoIncreaseRegimen(AccessDB _accessDB)
         {
             accessDB = _accessDB;
         }
