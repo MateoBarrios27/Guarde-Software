@@ -1,12 +1,16 @@
 ﻿using System;
+using GuardeSoftwareAPI.Dao;
 
 namespace GuardeSoftwareAPI.Services.payment
 {
 
 	public class PaymentService : IPaymentService
     {
-		public PaymentService()
+		private readonly DaoPayment _daoPayment;
+		public PaymentService(AccessDB accessDB)
 		{
+			_daoPayment = new DaoPayment(accessDB);
 		}
+		
 	}
 }

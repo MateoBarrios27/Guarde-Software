@@ -1,12 +1,16 @@
 ﻿using System;
+using GuardeSoftwareAPI.Dao;
 
-namespace GuardeSoftwareAPI.Services.Warehouse
+namespace GuardeSoftwareAPI.Services.warehouse
 {
 
 	public class WarehouseService : IWarehouseService
     {
-		public WarehouseService()
+		readonly DaoWarehouse _daoWarehouse;
+		public WarehouseService(AccessDB accessDB)
 		{
+			_daoWarehouse = new DaoWarehouse(accessDB);
 		}
+
 	}
 }

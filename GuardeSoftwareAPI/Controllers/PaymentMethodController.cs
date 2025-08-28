@@ -1,5 +1,5 @@
 using GuardeSoftwareAPI.Entities;
-using GuardeSoftwareAPI.Services.PaymentMethod;
+using GuardeSoftwareAPI.Services.paymentMethod;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers

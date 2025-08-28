@@ -1,5 +1,5 @@
 using GuardeSoftwareAPI.Entities;
-using GuardeSoftwareAPI.Services.ActivityLog;
+using GuardeSoftwareAPI.Services.activityLog;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers

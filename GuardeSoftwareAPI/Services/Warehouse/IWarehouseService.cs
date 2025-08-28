@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GuardeSoftwareAPI.Services.Warehouse
+namespace GuardeSoftwareAPI.Services.warehouse
 {
 	public interface IWarehouseService
 	{

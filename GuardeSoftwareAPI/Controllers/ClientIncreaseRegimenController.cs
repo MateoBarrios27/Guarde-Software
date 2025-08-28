@@ -1,5 +1,5 @@
 using GuardeSoftwareAPI.Entities;
-using GuardeSoftwareAPI.Services.Client;
+using GuardeSoftwareAPI.Services.clientIncreaseRegimen;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -8,11 +8,11 @@ namespace GuardeSoftwareAPI.Controllers
     [Route("api/[controller]")]
     public class ClientIncreaseRegimenController : ControllerBase
     {
-        private readonly IClientService _clientService;
+        private readonly IClientIncreaseRegimenService _clientIncreaseRegimenService;
 
-        public ClientIncreaseRegimenController(IClientService clientService)
+        public ClientIncreaseRegimenController(IClientIncreaseRegimenService clientIncreaseRegimenService)
         {
-            _clientService = clientService;
+            _clientIncreaseRegimenService = clientIncreaseRegimenService;
         }
         
         [HttpGet]

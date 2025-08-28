@@ -16,7 +16,7 @@ using GuardeSoftwareAPI.Services.rental;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
 using GuardeSoftwareAPI.Services.user;
 using GuardeSoftwareAPI.Services.userType;
-using GuardeSoftwareAPI.Services.whareHouse;
+using GuardeSoftwareAPI.Services.warehouse;
 
 
 var builder = WebApplication.CreateBuilder(args);
