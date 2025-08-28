@@ -20,7 +20,7 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("payment_methods", query);
         }
 
-        public DataTable GetPaymentsMethodsById(int id) { 
+        public DataTable GetPaymentMethodsById(int id) { 
         
             string query = "SELECT payment_method_id, name FROM payment_methods WHERE active = 1 AND payment_method_id = @payment_method_id";
 

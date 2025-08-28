@@ -21,7 +21,7 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("emails", query);
         }
 
-        public DataTable GetEmailByClientId(int clientId) {
+        public DataTable GetEmailsByClientId(int clientId) {
 
             string query = "SELECT email_id, client_id, address, type FROM emails WHERE client_id = @client_id";
 

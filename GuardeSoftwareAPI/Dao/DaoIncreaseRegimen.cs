@@ -20,7 +20,7 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("increase_regimens",query);
         }
 
-        public DataTable GetIncreaseRegimensById(int id) { 
+        public DataTable GetIncreaseRegimenById(int id) { 
         
             string query = "SELECT regimen_id, frequency, percentage FROM increase_regimens WHERE regimen_id = @regimen_id";
 
