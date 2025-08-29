@@ -20,7 +20,7 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                List<AccountMovement> accountMovements = null; //replace with service call
+                List<AccountMovement> accountMovements = _accountMovementService.GetAccountMovementList();
 
                 return Ok(accountMovements);
             }
@@ -35,7 +35,7 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                AccountMovement accountMovement = new AccountMovement(); //replace with service call
+                List<AccountMovement> accountMovement = _accountMovementService.GetAccountMovementListByRentalId(id);
 
                 if (accountMovement == null)
                 {

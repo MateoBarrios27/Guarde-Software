@@ -20,7 +20,7 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                List<ActivityLog> activityLogs = null; //replace with service call
+                List<ActivityLog> activityLogs = _activityLogService.GetActivityLogList();
 
                 return Ok(activityLogs);
             }
@@ -35,7 +35,7 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                ActivityLog activityLog = new ActivityLog(); //replace with service call
+                List<ActivityLog> activityLog = _activityLogService.GetActivityLoglistByUserId(id);
 
                 if (activityLog == null)
                 {
