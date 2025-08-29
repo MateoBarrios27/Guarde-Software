@@ -52,7 +52,7 @@ namespace GuardeSoftwareAPI.Services.activityLog
 
         public List<ActivityLog> GetActivityLoglistByUserId(int id)
         {
-            DataTable activityTable = _daoActivityLog.GetActivityLogByUserId(id);
+            DataTable activityTable = _daoActivityLog.GetActivityLogsByUserId(id);
             List<ActivityLog> activityLog = new List<ActivityLog>();
 
             foreach (DataRow row in activityTable.Rows)
