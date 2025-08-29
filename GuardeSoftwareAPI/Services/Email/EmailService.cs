@@ -43,7 +43,7 @@ namespace GuardeSoftwareAPI.Services.email
         public List<Email> GetEmailListByClientId(int id)
         {
 
-            DataTable emailsTable = _daoEmail.GetEmailByClientId(id);
+            DataTable emailsTable = _daoEmail.GetEmailsByClientId(id);
             List<Email> emails = new List<Email>();
 
             foreach (DataRow row in emailsTable.Rows)

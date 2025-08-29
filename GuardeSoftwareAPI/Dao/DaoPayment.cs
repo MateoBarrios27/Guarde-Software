@@ -5,15 +5,15 @@ using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Dao
 {
-	public class DaoPayment
-	{
+    public class DaoPayment
+    {
         private readonly AccessDB accessDB;
 
         public DaoPayment(AccessDB _accessDB)
         {
             accessDB = _accessDB;
         }
-        
+
         public DataTable GetPayments()
         {
             string query = "SELECT payment_id, client_id, payment_method_id, payment_date, amount FROM payments";
@@ -21,7 +21,8 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("payments", query);
         }
 
-        public DataTable GetPaymentsById(int id) {
+        public DataTable GetPaymentById(int id)
+        {
 
             string query = "SELECT payment_id, client_id, payment_method_id, payment_date, amount FROM payments WHERE payment_id = @payment_id";
 
@@ -30,10 +31,11 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@payment_id", SqlDbType.Int){Value  = id},
             };
 
-            return accessDB.GetTable("payments",query, parameters);
+            return accessDB.GetTable("payments", query, parameters);
         }
 
-        public DataTable GetPaymentsByClientId(int clientId) {
+        public DataTable GetPaymentsByClientId(int clientId)
+        {
 
             string query = "SELECT payment_id, client_id, payment_method_id, payment_date, amount FROM payments WHERE client_id = @client_id";
 
@@ -46,5 +48,6 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("payments", query, parameters);
 
         }
+        
     }
 }

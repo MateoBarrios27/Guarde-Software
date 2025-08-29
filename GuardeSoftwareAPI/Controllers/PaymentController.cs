@@ -8,7 +8,7 @@ namespace GuardeSoftwareAPI.Controllers
     [Route("api/[controller]")]
     public class PaymentController : ControllerBase
     {
-        private readonly IPaymentService _paymentService;   
+        private readonly IPaymentService _paymentService;
 
         public PaymentController(IPaymentService paymentService)
         {
@@ -20,13 +20,61 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                List<Payment> payments = null; //replace with service call
+                List<Payment> payments = _paymentService.GetPaymentsList();
 
                 return Ok(payments);
             }
+
+            catch (ArgumentException argEx)
+            {
+                return BadRequest(argEx.Message);
+            }
+
             catch (Exception ex)
             {
                 return StatusCode(500, $"Error getting payments: {ex.Message}");
+            }
+        }
+        
+        [HttpGet("{id}")]
+        public IActionResult GetPaymentById(int id)
+        {
+            try
+            {
+                Payment payment = _paymentService.GetPaymentById(id);
+                if (payment == null)
+                    return NotFound("No payment found with the given ID.");
+
+                return Ok(payment);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("ByClientId/{clientId}")]
+        public IActionResult GetPaymentsByClientId(int clientId)
+        {
+            try
+            {
+                List<Payment> payments = _paymentService.GetPaymentsByClientId(clientId);
+                if (payments == null || payments.Count == 0)
+                    return NotFound("No payment found with the given ID.");
+
+                return Ok(payments);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Internal server error");
             }
         }
     }

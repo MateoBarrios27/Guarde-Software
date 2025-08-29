@@ -20,13 +20,34 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                List<Rental> rentals = null; //replace with service call
+                List<Rental> rentals = _rentalService.GetRentalsList();
 
                 return Ok(rentals);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Error getting rentals: {ex.Message}");
+            }
+        }
+
+        [HttpGet("{id}")]
+        public IActionResult GetRentalById(int id)
+        {
+            try
+            {
+                Rental rental = _rentalService.GetRentalById(id);
+                if (rental == null)
+                    return NotFound("No rental found with the given ID.");
+
+                return Ok(rental);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Internal server error");
             }
         }
     }
