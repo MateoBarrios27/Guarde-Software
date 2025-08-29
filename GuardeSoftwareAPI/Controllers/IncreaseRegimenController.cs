@@ -20,7 +20,7 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                List<IncreaseRegimen> increaseRegimens = null; //replace with service call
+                List<IncreaseRegimen> increaseRegimens = _increaseRegimenService.GetIncreaseRegimensList();
 
                 return Ok(increaseRegimens);
             }
@@ -35,7 +35,7 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                IncreaseRegimen increaseRegimen = new IncreaseRegimen(); //replace with service call
+                List<IncreaseRegimen> increaseRegimen = _increaseRegimenService.GetIncreaseRegimenListById(id);
 
                 if (increaseRegimen == null)
                 {

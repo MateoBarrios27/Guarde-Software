@@ -4,6 +4,6 @@ namespace GuardeSoftwareAPI.Entities
     {
         public int Id { get; set; }
         public int Frequency { get; set; }
-        public Decimal Percentage { get; set; }
+        public decimal Percentage { get; set; }
     }
 }
