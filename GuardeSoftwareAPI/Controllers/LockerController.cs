@@ -20,13 +20,31 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                List<Locker> lockers = null; //replace with service call
-
+                List<Locker> lockers = _lockerService.GetLockersList();
                 return Ok(lockers);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Error getting lockers: {ex.Message}");
+            }
+        }
+
+        [HttpGet("{id}")]
+        public ActionResult<Locker> GetLockersById(int id)
+        {
+            try
+            {
+                List<Locker> locker = _lockerService.GetLockerListById(id);
+
+                if (locker == null)
+                {
+                    return NotFound($"locker id n°{id} not found ");
+                }
+                return Ok(locker);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error getting the locker: {ex.Message}");
             }
         }
     }

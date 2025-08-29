@@ -15,18 +15,18 @@ namespace GuardeSoftwareAPI.Dao {
 
         public DataTable GetLockers()
         {
-            string query = "SELECT locker_id, warehouse_id,locker_type_id, identifier, feautures, status FROM lockers";
+            string query = "SELECT locker_id, warehouse_id,locker_type_id, identifier, features, status FROM lockers";
 
             return accessDB.GetTable("lockers", query);
         }
 
         public DataTable GetLockerById(int id) {
 
-            string query = "SELECT locker_id, warehouse_id,locker_type_id, identifier, feautures, status FROM lockers WHERE locker_id = @locker_id";
+            string query = "SELECT locker_id, warehouse_id,locker_type_id, identifier, features, status FROM lockers WHERE locker_id = @locker_id";
 
             SqlParameter[] parameters = new SqlParameter[] {
 
-                new SqlParameter("@regimen_id", SqlDbType.Int){Value = id},
+                new SqlParameter("@locker_id", SqlDbType.Int){Value = id},
             };
 
             return accessDB.GetTable("lockers", query, parameters);
