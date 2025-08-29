@@ -31,7 +31,7 @@ namespace GuardeSoftwareAPI.Services.rental
 					ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
 					ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
 					StartDate = row["start_date"] != DBNull.Value ? (DateTime)row["start_date"] : DateTime.MinValue,
-					EndDate = row["end_date"] != DBNull.Value ? (DateTime)row["end_date"] : DateTime.MinValue
+					EndDate = row["end_date"] != DBNull.Value ? (DateTime)row["end_date"] : null
 				};
 
 				rentals.Add(rental);
@@ -56,7 +56,7 @@ namespace GuardeSoftwareAPI.Services.rental
 				ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
 				ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
 				StartDate = row["start_date"] != DBNull.Value ? (DateTime)row["start_date"] : DateTime.MinValue,
-				EndDate = row["end_date"] != DBNull.Value ? (DateTime)row["end_date"] : DateTime.MinValue
+				EndDate = row["end_date"] != DBNull.Value ? (DateTime)row["end_date"] : null
 			};
 		}
 		

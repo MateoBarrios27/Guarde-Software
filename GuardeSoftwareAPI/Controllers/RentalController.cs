@@ -24,6 +24,10 @@ namespace GuardeSoftwareAPI.Controllers
 
                 return Ok(rentals);
             }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Error getting rentals: {ex.Message}");
