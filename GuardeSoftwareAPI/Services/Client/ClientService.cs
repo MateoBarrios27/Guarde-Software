@@ -29,17 +29,14 @@ namespace GuardeSoftwareAPI.Services.client
                 Client client = new Client
                 {
                     Id = clientId,
-                    PaymentIdentifier = row["payment_identifier"] != DBNull.Value
-                    ? Convert.ToDecimal(row["payment_identifier"])
-                    : 0m,
+                    PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
                     FirstName = row["first_name"]?.ToString() ?? string.Empty,
                     LastName = row["last_name"]?.ToString() ?? string.Empty,
                     RegistrationDate = (DateTime)row["registration_date"],
                     Notes = row["notes"]?.ToString() ?? string.Empty,
                     Dni = row["dni"]?.ToString() ?? string.Empty,
                     Cuit = row["cuit"]?.ToString() ?? string.Empty,
-                    PreferredPaymentMethodId = row["preferred_payment_method_id"] != DBNull.Value
-                    ? (int)row["preferred_payment_method_id"] : 0,
+                    PreferredPaymentMethodId = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : 0,
                 };
                 clients.Add(client);
             }
@@ -58,17 +55,14 @@ namespace GuardeSoftwareAPI.Services.client
                 Client client = new Client
                 {
                     Id = clientId,
-                    PaymentIdentifier = row["payment_identifier"] != DBNull.Value
-                    ? Convert.ToDecimal(row["payment_identifier"])
-                    : 0m,
+                    PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
                     FirstName = row["first_name"]?.ToString() ?? string.Empty,
                     LastName = row["last_name"]?.ToString() ?? string.Empty,
                     RegistrationDate = (DateTime)row["registration_date"],
                     Notes = row["notes"]?.ToString() ?? string.Empty,
                     Dni = row["dni"]?.ToString() ?? string.Empty,
                     Cuit = row["cuit"]?.ToString() ?? string.Empty,
-                    PreferredPaymentMethodId = row["preferred_payment_method_id"] != DBNull.Value
-                    ? (int)row["preferred_payment_method_id"] : 0,
+                    PreferredPaymentMethodId = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : 0,
                 };
                 clients.Add(client);
             }
