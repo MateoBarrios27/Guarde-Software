@@ -6,6 +6,6 @@ namespace GuardeSoftwareAPI.Entities
         public int ClientId { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime? EndDate { get; set; }
-        public decimal ContractedM3 { get; set; }
+        public decimal? ContractedM3 { get; set; }
     }
 }

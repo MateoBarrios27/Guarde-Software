@@ -28,7 +28,7 @@ CREATE TABLE lockers (
     locker_type_id INT NOT NULL,
     identifier VARCHAR(100) UNIQUE,
     features VARCHAR(MAX),
-    status VARCHAR(50),
+    status VARCHAR(50) NOT NULL,
     active BIT DEFAULT 1,
     FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id),
     FOREIGN KEY (locker_type_id) REFERENCES locker_types(locker_type_id)
@@ -47,7 +47,7 @@ CREATE TABLE clients (
     payment_identifier DECIMAL(10,2),
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    registration_date DATE,
+    registration_date DATE NOT NULL,
     notes VARCHAR(MAX),
     dni VARCHAR(20),
     cuit VARCHAR(20),
@@ -73,7 +73,7 @@ CREATE TABLE phones (
     client_id INT NOT NULL,
     number VARCHAR(20) NOT NULL,
     type VARCHAR(50),
-    whatsapp BIT DEFAULT 0,
+    whatsapp BIT NOT NULL,
     active BIT DEFAULT 1,
     FOREIGN KEY (client_id) REFERENCES clients(client_id)
 );
@@ -93,7 +93,7 @@ CREATE TABLE addresses (
     address_id INT IDENTITY(1,1) PRIMARY KEY,
     client_id INT NOT NULL,
     street VARCHAR(255) NOT NULL,
-    city VARCHAR(100),
+    city VARCHAR(100) NOT NULL,
     province VARCHAR(100),
     FOREIGN KEY (client_id) REFERENCES clients(client_id)
 );
@@ -142,7 +142,7 @@ CREATE TABLE account_movements (
     movement_id INT IDENTITY(1,1) PRIMARY KEY,
     rental_id INT NOT NULL,
     movement_date DATE NOT NULL,
-    movement_type VARCHAR(10) CHECK (movement_type IN ('DEBITO','CREDITO')),
+    movement_type VARCHAR(10) CHECK (movement_type IN ('DEBITO','CREDITO')) NOT NULL,
     concept VARCHAR(255),
     amount DECIMAL(10,2) NOT NULL,
     payment_id INT
@@ -174,9 +174,9 @@ CREATE TABLE activity_log (
     activity_log_id INT IDENTITY(1,1) PRIMARY KEY,
     user_id INT NOT NULL,
     log_date DATETIME NOT NULL,
-    action VARCHAR(50),
-    table_name VARCHAR(100),
-    record_id INT,
+    action VARCHAR(50) NOT NULL,
+    table_name VARCHAR(100) NOT NULL,
+    record_id INT NOT NULL,
     old_value NVARCHAR(MAX),
     new_value NVARCHAR(MAX),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
