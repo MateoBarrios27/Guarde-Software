@@ -40,11 +40,11 @@ namespace GuardeSoftwareAPI.Services.rental
 			return rentals;
 		}
 
-		public Rental GetRentalById(int id)
+		public Rental GetRentalById(int rentalId)
 		{
-			if (id <= 0) throw new ArgumentException("Invalid rental ID.");
+			if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.");
 
-			DataTable rentalTable = _daoRental.GetRentalById(id);
+			DataTable rentalTable = _daoRental.GetRentalById(rentalId);
 
 			if (rentalTable.Rows.Count == 0) throw new ArgumentException("No rental found with the given ID.");
 
@@ -58,6 +58,13 @@ namespace GuardeSoftwareAPI.Services.rental
 				StartDate = row["start_date"] != DBNull.Value ? (DateTime)row["start_date"] : DateTime.MinValue,
 				EndDate = row["end_date"] != DBNull.Value ? (DateTime)row["end_date"] : null
 			};
+		}
+
+		public bool DeleteRental(int rentalId)
+		{
+			if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.");
+			if (_daoRental.DeleteRental(rentalId)) return true;
+			else return false;
 		}
 		
 	}

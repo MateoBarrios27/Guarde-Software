@@ -33,7 +33,7 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, $"Error getting warehouses: {ex.Message}");
             }
         }
-        
+
         [HttpGet("{id}")]
         public IActionResult GetWarehouseById(int id)
         {
@@ -53,6 +53,17 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 return StatusCode(500, "Internal server error");
             }
+        }
+        
+        [HttpDelete("{id}")]
+        public IActionResult DeleteWarehouse(int id)
+        {
+            bool deleted = _warehouseService.DeleteWarehouse(id);
+
+            if (deleted)
+                return Ok(new { message = "Warehouse deleted successfully." });
+            else
+                return NotFound(new { message = "No warehouse found with the given ID." });
         }
     }
 }

@@ -36,12 +36,12 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 			}
 			return paymentMethods;
 		}
-		
-		public PaymentMethod GetPaymentMethodById(int id)
-		{
-			if (id <= 0) throw new ArgumentException("Invalid payment method ID.");
 
-			DataTable paymentMethodTable = _daoPaymentMethod.GetPaymentMethodById(id);
+		public PaymentMethod GetPaymentMethodById(int paymentMethodId)
+		{
+			if (paymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
+
+			DataTable paymentMethodTable = _daoPaymentMethod.GetPaymentMethodById(paymentMethodId);
 
 			if (paymentMethodTable.Rows.Count == 0) throw new ArgumentException("No payment method found with the given ID.");
 
@@ -52,6 +52,13 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 				Id = (int)row["payment_method_id"],
 				Name = row["name"]?.ToString() ?? string.Empty
 			};
+		}
+
+		public bool DeletePaymentMethod(int paymentMethodId)
+		{
+			if (paymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
+			if (_daoPaymentMethod.DeletePaymentMethod(paymentMethodId)) return true;
+			else return false;
 		}
 	}
 }

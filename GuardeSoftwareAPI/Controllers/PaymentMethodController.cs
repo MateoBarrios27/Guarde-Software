@@ -34,7 +34,7 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, $"Error getting payment methods: {ex.Message}");
             }
         }
-        
+
         [HttpGet("{id}")]
         public IActionResult GetPaymenMethodById(int id)
         {
@@ -54,6 +54,17 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 return StatusCode(500, "Internal server error");
             }
+        }
+        
+        [HttpDelete("{id}")]
+        public IActionResult DeletePaymentMethod(int id)
+        {
+            bool deleted = _paymentMethodService.DeletePaymentMethod(id);
+
+            if (deleted)
+                return Ok(new { message = "Payment method deleted successfully." });
+            else
+                return NotFound(new { message = "No payment method found with the given ID." });
         }
 
     }

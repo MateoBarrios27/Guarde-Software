@@ -54,5 +54,16 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        [HttpDelete("{id}")]
+        public IActionResult DeleteRental(int id)
+        {
+            bool deleted = _rentalService.DeleteRental(id);
+
+            if (deleted)
+                return Ok(new { message = "Rental deleted successfully." });
+            else
+                return NotFound(new { message = "No rental found with the given ID." });
+        }
     }
 }

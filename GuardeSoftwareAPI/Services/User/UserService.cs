@@ -41,13 +41,13 @@ namespace GuardeSoftwareAPI.Services.user
 
 			return users;
 		}
-		
-		// Get a user by ID but without the password hash
-		public User GetUserById(int id)
-		{
-			if (id <= 0) throw new ArgumentException("Invalid user ID.");
 
-			DataTable userTable = _daoUser.GetUserById(id);
+		// Get a user by ID but without the password hash
+		public User GetUserById(int userId)
+		{
+			if (userId <= 0) throw new ArgumentException("Invalid user ID.");
+
+			DataTable userTable = _daoUser.GetUserById(userId);
 
 			if (userTable.Rows.Count == 0) throw new ArgumentException("No user found with the given ID.");
 
@@ -62,6 +62,13 @@ namespace GuardeSoftwareAPI.Services.user
 				LastName = row["last_name"]?.ToString() ?? string.Empty,
 				PasswordHash = string.Empty // Do not expose password hash
 			};
+		}
+		
+		public bool DeleteUser(int userId)
+		{
+			if (userId <= 0) throw new ArgumentException("Invalid user ID.");
+			if (_daoUser.DeleteUser(userId)) return true;
+			else return false;
 		}
 	}
 }

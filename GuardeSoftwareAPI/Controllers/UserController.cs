@@ -33,7 +33,7 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, $"Error getting users: {ex.Message}");
             }
         }
-        
+
         [HttpGet("{id}")]
         public IActionResult GetUserById(int id)
         {
@@ -53,6 +53,17 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 return StatusCode(500, "Internal server error");
             }
+        }
+        
+        [HttpDelete("{id}")]
+        public IActionResult DeleteUser(int id)
+        {
+            bool deleted = _userService.DeleteUser(id);
+
+            if (deleted)
+                return Ok(new { message = "User deleted successfully." });
+            else
+                return NotFound(new { message = "No user found with the given ID." });
         }
     }
 }

@@ -8,5 +8,6 @@ namespace GuardeSoftwareAPI.Services.user
 	{
 		public List<User> GetUserList();
 		public User GetUserById(int id);
+		public bool DeleteUser(int userId);
 	}
 }

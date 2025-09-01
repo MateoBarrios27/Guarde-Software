@@ -8,5 +8,6 @@ namespace GuardeSoftwareAPI.Services.rental
 	{
 		public List<Rental> GetRentalsList();
 		public Rental GetRentalById(int id);
+		public bool DeleteRental(int rentalId);
 	}
 }

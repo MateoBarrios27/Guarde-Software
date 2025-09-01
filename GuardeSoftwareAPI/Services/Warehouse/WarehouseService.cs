@@ -37,12 +37,12 @@ namespace GuardeSoftwareAPI.Services.warehouse
 
 			return warehouses;
 		}
-		
-		public Warehouse GetWarehouseById(int id)
-		{
-			if (id <= 0) throw new ArgumentException("Invalid warehouse ID.");
 
-			DataTable warehouseTable = _daoWarehouse.GetWarehouseById(id);
+		public Warehouse GetWarehouseById(int warehouseId)
+		{
+			if (warehouseId <= 0) throw new ArgumentException("Invalid warehouse ID.");
+
+			DataTable warehouseTable = _daoWarehouse.GetWarehouseById(warehouseId);
 
 			if (warehouseTable.Rows.Count == 0) throw new ArgumentException("No warehouse found with the given ID.");
 
@@ -54,6 +54,13 @@ namespace GuardeSoftwareAPI.Services.warehouse
 				Name = row["name"]?.ToString() ?? string.Empty,
 				Address = row["address"]?.ToString() ?? string.Empty
 			};
+		}
+		
+		public bool DeleteWarehouse(int warehouseId)
+		{
+			if (warehouseId <= 0) throw new ArgumentException("Invalid warehouse ID.");
+			if (_daoWarehouse.DeleteWarehouse(warehouseId)) return true;
+			else return false;
 		}
 	}
 }

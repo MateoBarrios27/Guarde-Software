@@ -32,13 +32,13 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("users", query, parameters);
         }
 
-        public bool DeleteUser(int userid) {
+        public bool DeleteUser(int userId) {
 
             string query = "UPDATE users SET active = 0 WHERE user_id = @user_id";
 
             SqlParameter[] parameters = new SqlParameter[] {
 
-                new SqlParameter("user_id", SqlDbType.Int){Value = userid},
+                new SqlParameter("user_id", SqlDbType.Int){Value = userId},
             };
 
             return accessDB.ExecuteCommand(query, parameters) > 0;

@@ -33,7 +33,7 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, $"Error getting user types: {ex.Message}");
             }
         }
-        
+
         [HttpGet("{id}")]
         public IActionResult GetUserTypeById(int id)
         {
@@ -53,6 +53,17 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 return StatusCode(500, "Internal server error");
             }
+        }
+        
+        [HttpDelete("{id}")]
+        public IActionResult DeleteUserType(int id)
+        {
+            bool deleted = _userTypeService.DeleteUserType(id);
+
+            if (deleted)
+                return Ok(new { message = "User deleted successfully." });
+            else
+                return NotFound(new { message = "No user found with the given ID." });
         }
     }
 }

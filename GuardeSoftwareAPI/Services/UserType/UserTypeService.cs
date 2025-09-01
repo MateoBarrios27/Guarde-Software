@@ -36,12 +36,12 @@ namespace GuardeSoftwareAPI.Services.userType
 
 			return userTypes;
 		}
-		
-		public UserType GetUserTypeById(int id)
-		{
-			if (id <= 0) throw new ArgumentException("Invalid user type ID.");
 
-			DataTable userTypeTable = _daoUserType.GetUserTypeById(id);
+		public UserType GetUserTypeById(int userTypeId)
+		{
+			if (userTypeId <= 0) throw new ArgumentException("Invalid user type ID.");
+
+			DataTable userTypeTable = _daoUserType.GetUserTypeById(userTypeId);
 
 			if (userTypeTable.Rows.Count == 0) throw new ArgumentException("No user type found with the given ID.");
 
@@ -52,6 +52,13 @@ namespace GuardeSoftwareAPI.Services.userType
 				Id = row["user_type_id"] != DBNull.Value ? (int)row["user_type_id"] : 0,
 				Name = row["name"]?.ToString() ?? string.Empty
 			};
+		}
+
+		public bool DeleteUserType(int userTypeId)
+		{
+			if (userTypeId <= 0) throw new ArgumentException("Invalid user type ID.");
+			if (_daoUserType.DeleteUserType(userTypeId)) return true;
+			else return false;
 		}
 	}
 }
