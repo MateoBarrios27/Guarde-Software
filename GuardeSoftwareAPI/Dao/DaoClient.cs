@@ -34,7 +34,7 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("clients", query, parameters);
         }
 
-        public void DeleteClientById(int id) {
+        public bool DeleteClientById(int id) {
 
             string query = "UPDATE clients SET active = 0 WHERE client_id = @client_id";
 
@@ -43,7 +43,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@client_id", SqlDbType.Int){Value = id},
             };
             
-            accessDB.ExecuteCommand(query, parameters);
+            return accessDB.ExecuteCommand(query, parameters) > 0;
         
         }
     }

@@ -34,7 +34,7 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("locker_types", query, parameters);
         }
 
-        public void DeleteLockerType(int id) {
+        public bool DeleteLockerType(int id) {
 
             string query = "UPDATE locker_types SET active = 0 WHERE locker_type_id = @locker_type_id";
 
@@ -43,7 +43,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@locker_type_id", SqlDbType.Int){Value  = id},
             };
 
-            accessDB.ExecuteCommand(query, parameters);
+            return accessDB.ExecuteCommand(query, parameters) > 0;
         }
     }
 }

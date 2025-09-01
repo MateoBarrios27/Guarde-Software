@@ -31,7 +31,7 @@ namespace GuardeSoftwareAPI.Dao {
             return accessDB.GetTable("warehouses", query, parameters);
         }
 
-		public void DeleteWarehouse(int id) {
+		public bool DeleteWarehouse(int id) {
 
             string query = "UPDATE warehouses SET active = 0 WHERE warehouse_id = @warehouse_id";
 
@@ -40,7 +40,7 @@ namespace GuardeSoftwareAPI.Dao {
                 new SqlParameter("@warehouse_id", SqlDbType.Int ) { Value = id},
             };
 
-            accessDB.ExecuteCommand(query, parameters);
+            return accessDB.ExecuteCommand(query, parameters) > 0;
         }
     }
 

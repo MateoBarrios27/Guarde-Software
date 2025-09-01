@@ -47,7 +47,7 @@ namespace GuardeSoftwareAPI.Dao
 
         }
 
-        public void ExecuteCommand(string query, SqlParameter[] parameters)
+        public int ExecuteCommand(string query, SqlParameter[] parameters)
         {
             using (SqlConnection connection = new SqlConnection(routeDB))
             {
@@ -61,7 +61,8 @@ namespace GuardeSoftwareAPI.Dao
                     try
                     {
                         connection.Open();
-                        command.ExecuteNonQuery(); 
+                        int rowsAffected = command.ExecuteNonQuery();
+                        return rowsAffected;
                     }
                     catch (SqlException sqlEx)
                     {
@@ -74,5 +75,6 @@ namespace GuardeSoftwareAPI.Dao
                 }
             }
         }
+
     }
 }
