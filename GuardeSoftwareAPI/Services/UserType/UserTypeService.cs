@@ -54,6 +54,14 @@ namespace GuardeSoftwareAPI.Services.userType
 			};
 		}
 
+		public bool CreateUserType(UserType userType)
+		{
+			if (userType == null) throw new ArgumentNullException(nameof(userType), "User type cannot be null.");
+			if (string.IsNullOrWhiteSpace(userType.Name)) throw new ArgumentException("User type name cannot be empty.");
+			if (_daoUserType.CreateUserType(userType)) return true;
+			else return false;
+		}
+
 		public bool DeleteUserType(int userTypeId)
 		{
 			if (userTypeId <= 0) throw new ArgumentException("Invalid user type ID.");

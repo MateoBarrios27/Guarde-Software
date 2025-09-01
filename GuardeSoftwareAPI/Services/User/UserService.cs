@@ -64,6 +64,19 @@ namespace GuardeSoftwareAPI.Services.user
 			};
 		}
 		
+		// Need a password hashing function to create a user
+		public bool CreateUser(User user)
+		{
+			if (user == null) throw new ArgumentNullException(nameof(user), "User cannot be null.");
+			if (user.UserTypeId <= 0) throw new ArgumentException("Invalid user type ID."); //Missing validation for user type existence
+			if (string.IsNullOrWhiteSpace(user.UserName)) throw new ArgumentException("Username cannot be empty.");
+			// if (string.IsNullOrWhiteSpace(user.FirstName)) throw new ArgumentException("First name cannot be empty."); Now, first name can be null
+			// if (string.IsNullOrWhiteSpace(user.LastName)) throw new ArgumentException("Last name cannot be empty."); Now, last name can be null
+			if (string.IsNullOrWhiteSpace(user.PasswordHash)) throw new ArgumentException("Password hash cannot be empty.");
+			if (_daoUser.CreateUser(user)) return true;
+			else return false;
+		}
+
 		public bool DeleteUser(int userId)
 		{
 			if (userId <= 0) throw new ArgumentException("Invalid user ID.");

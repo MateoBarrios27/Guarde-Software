@@ -8,5 +8,6 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 	{
 		public List<RentalAmountHistory> GetRentalAmountHistoriesList();
 		public RentalAmountHistory GetRentalAmountHistoryByRentalId(int id);
+		public bool CreateRentalAmountHistory(RentalAmountHistory rentalAmountHistory);
 	}
 }

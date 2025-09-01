@@ -60,6 +60,16 @@ namespace GuardeSoftwareAPI.Services.rental
 			};
 		}
 
+		public bool CreateRental(Rental rental)
+		{
+			if (rental == null) throw new ArgumentNullException(nameof(rental), "Rental cannot be null.");
+			if (rental.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
+			if (rental.ContractedM3 <= 0) throw new ArgumentException("Contracted M3 must be greater than zero.");
+			if (rental.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
+			if (_daoRental.CreateRental(rental)) return true;
+			else return false;
+		}
+
 		public bool DeleteRental(int rentalId)
 		{
 			if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.");

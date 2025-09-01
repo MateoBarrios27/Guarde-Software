@@ -56,6 +56,15 @@ namespace GuardeSoftwareAPI.Services.warehouse
 			};
 		}
 		
+		public bool CreateWarehouse(Warehouse warehouse)
+		{
+			if (warehouse == null) throw new ArgumentNullException(nameof(warehouse), "Warehouse cannot be null.");
+			if (string.IsNullOrWhiteSpace(warehouse.Name)) throw new ArgumentException("Warehouse name cannot be empty.");
+			if (string.IsNullOrWhiteSpace(warehouse.Address)) throw new ArgumentException("Warehouse address cannot be empty.");
+			if (_daoWarehouse.CreateWarehouse(warehouse)) return true;
+			else return false;
+		}
+
 		public bool DeleteWarehouse(int warehouseId)
 		{
 			if (warehouseId <= 0) throw new ArgumentException("Invalid warehouse ID.");

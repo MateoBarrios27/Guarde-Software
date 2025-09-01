@@ -9,6 +9,6 @@ namespace GuardeSoftwareAPI.Services.payment
 		public List<Payment> GetPaymentsList();
 		public Payment GetPaymentById(int id);
 		public List<Payment> GetPaymentsByClientId(int clientId);
-		
+		public bool CreatePayment(Payment payment);
 	}
 }

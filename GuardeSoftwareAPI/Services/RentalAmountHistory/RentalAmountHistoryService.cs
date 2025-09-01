@@ -59,5 +59,15 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 				EndDate = row["end_date"] != DBNull.Value ? (DateTime)row["end_date"] : null
 			};
 		}
+
+		public bool CreateRentalAmountHistory(RentalAmountHistory rentalAmountHistory)
+		{
+			if (rentalAmountHistory == null) throw new ArgumentNullException(nameof(rentalAmountHistory), "Rental amount history cannot be null.");
+			if (rentalAmountHistory.RentalId <= 0) throw new ArgumentException("Invalid rental ID.");
+			if (rentalAmountHistory.Amount <= 0) throw new ArgumentException("Amount must be greater than zero.");
+			if (rentalAmountHistory.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
+			if (_daoRentalAmountHistory.CreateRentalAmountHistory(rentalAmountHistory)) return true;
+			else return false;
+		}
 	}
 }

@@ -7,6 +7,7 @@ namespace GuardeSoftwareAPI.Services.warehouse
 	{
 		public List<Warehouse> GetWarehouseList();
 		public Warehouse GetWarehouseById(int id);
+		public bool CreateWarehouse(Warehouse warehouse);
 		public bool DeleteWarehouse(int warehouseId);
 	}
 }

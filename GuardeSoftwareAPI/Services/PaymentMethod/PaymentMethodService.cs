@@ -54,6 +54,14 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 			};
 		}
 
+		public bool CreatePaymentMethod(PaymentMethod paymentMethod)
+		{
+			if (paymentMethod == null) throw new ArgumentNullException(nameof(paymentMethod), "Payment method cannot be null.");
+			if (string.IsNullOrWhiteSpace(paymentMethod.Name)) throw new ArgumentException("Payment method name cannot be empty.");
+			if (_daoPaymentMethod.CreatePaymentMethod(paymentMethod)) return true;
+			else return false;
+		}
+
 		public bool DeletePaymentMethod(int paymentMethodId)
 		{
 			if (paymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");

@@ -84,5 +84,14 @@ namespace GuardeSoftwareAPI.Services.payment
 			return payments;
 		}
 
+		public bool CreatePayment(Payment payment)
+		{
+			if (payment == null) throw new ArgumentNullException(nameof(payment), "Payment cannot be null.");
+			if (payment.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
+			if (payment.PaymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
+			if (payment.Amount <= 0) throw new ArgumentException("Amount must be greater than zero.");
+			if (payment.PaymentDate == DateTime.MinValue) throw new ArgumentException("Invalid payment date.");
+			return _daoPayment.CreatePayment(payment);
+		}
 	}
 }
