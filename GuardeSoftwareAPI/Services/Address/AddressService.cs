@@ -65,5 +65,26 @@ namespace GuardeSoftwareAPI.Services.address
             }
             return addresses;
         }
+
+		public bool CreateAddress(Address address)
+		{
+            if (address == null)
+                throw new ArgumentNullException(nameof(address));
+
+            if (address.ClientId <= 0)
+                throw new ArgumentException("Invalid ClientId.");
+
+            if (string.IsNullOrWhiteSpace(address.Street))
+                throw new ArgumentException("Street is required.");
+
+            if (string.IsNullOrWhiteSpace(address.City))
+                throw new ArgumentException("City is required.");
+
+            address.Province = string.IsNullOrWhiteSpace(address.Province) ? null : address.Province.Trim();
+
+            if (daoAddress.CreateAddress(address)) return true;
+            else return false;
+			
+		}
     }
 }

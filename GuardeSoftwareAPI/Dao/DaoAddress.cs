@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Data;
 using Microsoft.Data.SqlClient;
-
+using GuardeSoftwareAPI.Entities;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -32,6 +32,21 @@ namespace GuardeSoftwareAPI.Dao
             };
 
             return accessDB.GetTable("addresses",query, parameters);
+        }
+
+        public bool CreateAddress(Address address) {
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@client_id", SqlDbType.Int){Value = address.ClientId },
+                new SqlParameter("@street", SqlDbType.VarChar){Value = address.Street },
+                new SqlParameter("@city", SqlDbType.VarChar){Value = address.City },
+                new SqlParameter("@province", SqlDbType.VarChar){Value = address.Province },
+            };
+
+            string query = "INSERT INTO addresses(client_id, street, city, province)VALUES(@client_id, @street, @city, @province)";
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
         }
     }
 }

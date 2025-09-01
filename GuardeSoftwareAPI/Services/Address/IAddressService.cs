@@ -9,5 +9,7 @@ namespace GuardeSoftwareAPI.Services.address
 		List<Address> GetAddressList();
 
 		List<Address> GetAddressListByClientId(int id);
+
+		public bool CreateAddress(Address address);
 	}
 }

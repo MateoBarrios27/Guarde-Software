@@ -83,5 +83,29 @@ namespace GuardeSoftwareAPI.Services.activityLog
             }
             return activityLog;
         }
+
+		public bool CreateActivityLog(ActivityLog activityLog) {
+
+            if (activityLog == null)
+                throw new ArgumentNullException(nameof(activityLog));
+
+            if (activityLog.UserId <= 0)
+                throw new ArgumentException("Invalid UserId.");
+
+            if (string.IsNullOrWhiteSpace(activityLog.Action))
+                throw new ArgumentException("Action is required.");
+
+            if (string.IsNullOrWhiteSpace(activityLog.TableName))
+                throw new ArgumentException("TableName is required.");
+
+            if (activityLog.RecordId <= 0)
+                throw new ArgumentException("Invalid RecordId.");
+
+            activityLog.OldValue = string.IsNullOrWhiteSpace(activityLog.OldValue) ? null : activityLog.OldValue;
+            activityLog.NewValue = string.IsNullOrWhiteSpace(activityLog.NewValue) ? null : activityLog.NewValue;
+
+            if(_daoActivityLog.CreateActivityLog(activityLog))return true;
+            else return false;
+		}
     }
 }

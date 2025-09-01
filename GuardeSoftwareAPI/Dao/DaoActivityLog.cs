@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using Microsoft.Data.SqlClient;
+using GuardeSoftwareAPI.Entities;
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -30,6 +31,25 @@ namespace GuardeSoftwareAPI.Dao
             };
 
             return accessDB.GetTable("activity_log",query, parameters);
+        }
+
+        public bool CreateActivityLog(ActivityLog activityLog) {
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@user_id", SqlDbType.Int){Value = activityLog.UserId},
+                new SqlParameter("@log_date",SqlDbType.DateTime){Value = activityLog.LogDate },
+                new SqlParameter("@action", SqlDbType.VarChar){Value = activityLog.Action },
+                new SqlParameter("@table_name", SqlDbType.VarChar){Value = activityLog.TableName },
+                new SqlParameter("@record_id", SqlDbType.Int){Value = activityLog.RecordId },
+                new SqlParameter("@old_value", SqlDbType.NVarChar){Value = activityLog.OldValue },
+                new SqlParameter("@new_value", SqlDbType.NVarChar){Value = activityLog.NewValue },
+            };
+
+            string query = "INSERT INTO activity_log (user_id, log_date, action, table_name, record_id, old_value, new_value)"
+                + "VALUES(@user_id, @log_date, @action, @table_name, @record_id, @old_value, @new_value)";
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
         }
     }
 }

@@ -86,5 +86,23 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             return Accounts;
 
         }
+
+        public bool CreateAccountMovement(AccountMovement accountMovement) {
+
+            if (accountMovement == null)
+                throw new ArgumentNullException(nameof(accountMovement));
+
+            if (accountMovement.RentalId <= 0)
+                throw new ArgumentException("invalid rental ID.");
+
+            if (string.IsNullOrWhiteSpace(accountMovement.MovementType))
+                throw new ArgumentException("MovementType required.");
+
+            if (accountMovement.Amount <= 0)
+                throw new ArgumentException("Amount must to be > 0");
+
+            if (_daoAccountMovement.CreateAccountMovement(accountMovement)) return true;
+            else return false;
+        }
     }
 }

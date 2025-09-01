@@ -11,6 +11,6 @@
         public string? Dni { get; set; } = string.Empty;
         public string? Cuit { get; set; } = string.Empty;
         public int? PreferredPaymentMethodId { get; set; }
-
+        public string? IvaCondition { get; set; } = string.Empty;
     }
 }

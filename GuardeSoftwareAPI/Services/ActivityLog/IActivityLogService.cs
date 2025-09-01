@@ -8,5 +8,7 @@ namespace GuardeSoftwareAPI.Services.activityLog {
 		List<ActivityLog> GetActivityLogList();
 
 		List<ActivityLog> GetActivityLoglistByUserId(int id);
+
+		public bool CreateActivityLog(ActivityLog activitylog);
 	}
 }

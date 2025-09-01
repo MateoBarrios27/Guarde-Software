@@ -10,5 +10,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement
 		
 		List<AccountMovement> GetAccountMovementListByRentalId(int id);
 
+		public bool CreateAccountMovement(AccountMovement  accountMovement);
+
     }
 }
