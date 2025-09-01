@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
 
 
@@ -32,6 +33,20 @@ namespace GuardeSoftwareAPI.Dao
             };
 
             return accessDB.GetTable("payments", query, parameters);
+        }
+
+        public bool CreatePayment(Payment payment)
+        {
+            string query = "INSERT INTO payments (client_id, payment_method_id, payment_date, amount) VALUES (@client_id, @payment_method_id, @payment_date, @amount)";
+
+            SqlParameter[] parameters = new SqlParameter[] {
+                new SqlParameter("@client_id", SqlDbType.Int){Value  = payment.ClientId},
+                new SqlParameter("@payment_method_id", SqlDbType.Int){Value  = payment.PaymentMethodId},
+                new SqlParameter("@payment_date", SqlDbType.DateTime){Value  = payment.PaymentDate},
+                new SqlParameter("@amount", SqlDbType.Decimal){Value  = payment.Amount},
+            };
+
+            return  accessDB.ExecuteCommand(query, parameters) > 0;
         }
 
         public DataTable GetPaymentsByClientId(int clientId)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Dao 
@@ -32,7 +33,24 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("users", query, parameters);
         }
 
-        public bool DeleteUser(int userId) {
+        //This method creates a new user in the database with password
+        //The password should be hashed before calling this method
+        public bool CreateUser(User user)
+        {
+
+            string query = "INSERT INTO users (user_type_id, username, first_name, last_name, password) VALUES (@user_type_id, @username, @first_name, @last_name, @password)";
+            SqlParameter[] parameters = new SqlParameter[] {
+                new SqlParameter("user_type_id", SqlDbType.Int){Value = user.UserTypeId},
+                new SqlParameter("username", SqlDbType.NVarChar, 100){Value = user.UserName},
+                new SqlParameter("first_name", SqlDbType.NVarChar, 100){Value = user.FirstName},
+                new SqlParameter("last_name", SqlDbType.NVarChar, 100){Value = user.LastName},
+                new SqlParameter("password", SqlDbType.NVarChar, 255){Value = user.PasswordHash},
+            };
+            return accessDB.ExecuteCommand(query, parameters) > 0;
+        }
+
+        public bool DeleteUser(int userId)
+        {
 
             string query = "UPDATE users SET active = 0 WHERE user_id = @user_id";
 

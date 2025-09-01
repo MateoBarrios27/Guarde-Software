@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Dao
@@ -33,7 +34,16 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("user_types", query, parameters);
         }
         
-         public bool DeleteUserType(int userTypeId) {
+        public bool CreateUserType(UserType userType) {
+            string query = "INSERT INTO user_types (name) VALUES (@name)";
+            SqlParameter[] parameters = new SqlParameter[] {
+                new SqlParameter("@name", SqlDbType.NVarChar, 100){Value  = userType.Name},
+            };
+            return accessDB.ExecuteCommand(query, parameters) > 0;
+        }
+        
+         public bool DeleteUserType(int userTypeId)
+        {
 
             string query = "UPDATE user_types SET active = 0 WHERE user_type_id = @user_type_id";
 

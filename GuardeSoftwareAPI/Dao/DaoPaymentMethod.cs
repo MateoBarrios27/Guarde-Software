@@ -31,7 +31,18 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("payment_methods", query, parameters);
         }
 
-        public bool DeletePaymentMethod(int id) {
+        public bool CreatePaymentMethod(string name) {
+
+            string query = "INSERT INTO payment_methods (name, active) VALUES (@name, 1)";
+            SqlParameter[] parameters = new SqlParameter[] {
+                new SqlParameter("@name", SqlDbType.NVarChar, 100){Value  = name},
+            };
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
+        }
+        
+        public bool DeletePaymentMethod(int id)
+        {
 
             string query = "UPDATE payment_methods SET active = 0 WHERE payment_method_id = @payment_method_id";
 

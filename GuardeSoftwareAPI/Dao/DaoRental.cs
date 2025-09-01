@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Dao
@@ -43,8 +44,20 @@ namespace GuardeSoftwareAPI.Dao
 
             return accessDB.GetTable("rentals", query, parameters);
         }
+        
+        public bool CreateRental(Rental rental) {
 
-        public bool DeleteRental(int rentalId) {
+            string query = "INSERT INTO rentals (client_id, start_date, contracted_m3) VALUES (@client_id, @start_date,, @contracted_m3)";
+            SqlParameter[] parameters = new SqlParameter[] {
+                new SqlParameter("@client_id", SqlDbType.Int){Value  = rental.ClientId},
+                new SqlParameter("@start_date", SqlDbType.DateTime){Value  = rental.StartDate},
+                new SqlParameter("@contracted_m3", SqlDbType.Int){Value  = rental.ContractedM3},
+            };
+            return accessDB.ExecuteCommand(query, parameters) > 0;
+        }
+
+        public bool DeleteRental(int rentalId)
+        {
 
             string query = "UPDATE rentals SET active = 0 WHERE rental_id = @rental_id";
 
