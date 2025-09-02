@@ -33,6 +33,16 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("users", query, parameters);
         }
 
+        public DataTable GetUserByUsername(string username)
+        {
+            string query = "SELECT user_id, user_type_id, username,first_name,last_name FROM users WHERE active = 1 AND username = @username";
+
+            SqlParameter[] parameters = new SqlParameter[] {
+                new SqlParameter("username", SqlDbType.NVarChar, 100) { Value = username },
+            };
+            return accessDB.GetTable("users", query, parameters);
+        }
+
         //This method creates a new user in the database with password
         //The password should be hashed before calling this method
         public bool CreateUser(User user)

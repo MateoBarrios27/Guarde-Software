@@ -64,7 +64,6 @@ namespace GuardeSoftwareAPI.Services.user
 			};
 		}
 		
-		// Need a password hashing function to create a user
 		public bool CreateUser(User user)
 		{
 			if (user == null) throw new ArgumentNullException(nameof(user), "User cannot be null.");
@@ -73,6 +72,10 @@ namespace GuardeSoftwareAPI.Services.user
 			// if (string.IsNullOrWhiteSpace(user.FirstName)) throw new ArgumentException("First name cannot be empty."); Now, first name can be null
 			// if (string.IsNullOrWhiteSpace(user.LastName)) throw new ArgumentException("Last name cannot be empty."); Now, last name can be null
 			if (string.IsNullOrWhiteSpace(user.PasswordHash)) throw new ArgumentException("Password hash cannot be empty.");
+			user.PasswordHash = Utilities.HashUtility.ComputeSha256Hash(user.PasswordHash);
+			// Check if username already exists
+			DataTable existingUserTable = _daoUser.GetUserByUsername(user.UserName);
+			if (existingUserTable.Rows.Count > 0) throw new ArgumentException("Username already exists.");
 			if (_daoUser.CreateUser(user)) return true;
 			else return false;
 		}

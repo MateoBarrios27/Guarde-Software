@@ -65,7 +65,8 @@ namespace GuardeSoftwareAPI.Controllers
                 bool isCreated = _userService.CreateUser(user); 
                 if (!isCreated)
                     return StatusCode(500, "Failed to create the user.");
-                return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, user);
+                user.PasswordHash = string.Empty; // Do not expose password hash
+                return CreatedAtAction(nameof(GetUserById), new { id = user.Id}, user);
             }
             catch (ArgumentException argEx)
             {
