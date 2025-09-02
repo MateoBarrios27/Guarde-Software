@@ -55,6 +55,28 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        [HttpPost]
+        public IActionResult CreatePaymentMethod([FromBody] PaymentMethod paymentMethod)
+        {
+            try
+            {
+                if (paymentMethod == null)
+                    return BadRequest("Payment method is null.");
+                bool isCreated  = _paymentMethodService.CreatePaymentMethod(paymentMethod);
+                if (!isCreated)
+                    return StatusCode(500, "Failed to create the payment.");
+                return CreatedAtAction(nameof(GetPaymenMethodById), new { id = paymentMethod.Id }, paymentMethod);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating payment method: {ex.Message}");
+            }
+        }
         
         [HttpDelete("{id}")]
         public IActionResult DeletePaymentMethod(int id)

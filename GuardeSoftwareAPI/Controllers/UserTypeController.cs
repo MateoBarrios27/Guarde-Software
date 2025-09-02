@@ -54,6 +54,28 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        [HttpPost]
+        public IActionResult CreateUserType([FromBody] UserType userType)
+        {
+            try
+            {
+                if (userType == null)
+                    return BadRequest("User type is null.");
+                bool isCreated = _userTypeService.CreateUserType(userType);
+                if (!isCreated)
+                    return StatusCode(500, "Failed to create the user type.");
+                return CreatedAtAction(nameof(GetUserTypeById), new { id = userType.Id }, userType);
+            }
+            catch (ArgumentException argEx)
+            {
+                return BadRequest(argEx.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating user type: {ex.Message}");
+            }
+        }
         
         [HttpDelete("{id}")]
         public IActionResult DeleteUserType(int id)

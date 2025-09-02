@@ -54,6 +54,28 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        [HttpPost]
+        public IActionResult CreateWarehouse([FromBody] Warehouse warehouse)
+        {
+            try
+            {
+                if (warehouse == null)
+                    return BadRequest("Warehouse is null.");
+                bool isCreated = _warehouseService.CreateWarehouse(warehouse);
+                if (!isCreated)
+                    return StatusCode(500, "Failed to create the warehouse.");
+                return CreatedAtAction(nameof(GetWarehouseById), new { id = warehouse.Id }, warehouse);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating the payment: {ex.Message}");
+            }
+        }
         
         [HttpDelete("{id}")]
         public IActionResult DeleteWarehouse(int id)

@@ -35,7 +35,7 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, $"Error getting payments: {ex.Message}");
             }
         }
-        
+
         [HttpGet("{id}")]
         public IActionResult GetPaymentById(int id)
         {
@@ -75,6 +75,28 @@ namespace GuardeSoftwareAPI.Controllers
             catch (Exception)
             {
                 return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpPost]
+        public IActionResult CreatePayment([FromBody] Payment payment)
+        {
+            try
+            {
+                if (payment == null)
+                    return BadRequest("Payment method is null.");
+                bool isCreated = _paymentService.CreatePayment(payment);
+                if (!isCreated)
+                    return StatusCode(500, "Failed to create the payment.");
+                return CreatedAtAction(nameof(GetPaymentById), new { id = payment.Id }, payment);
+            }
+            catch (ArgumentException argEx)
+            {
+                return BadRequest(argEx.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating the payment: {ex.Message}");
             }
         }
     }

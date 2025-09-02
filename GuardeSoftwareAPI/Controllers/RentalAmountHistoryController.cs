@@ -33,7 +33,7 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, $"Error getting rental amount histories: {ex.Message}");
             }
         }
-        
+
         [HttpGet("ByRental/{rentalId}")]
         public IActionResult GetRentalAmountHistoryByRentalId(int rentalId)
         {
@@ -52,6 +52,28 @@ namespace GuardeSoftwareAPI.Controllers
             catch (Exception)
             {
                 return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpPost]
+        public IActionResult CreateRentalAmountHistory([FromBody] RentalAmountHistory rentalAmountHistory)
+        {
+            try
+            {
+                if (rentalAmountHistory == null)
+                    return BadRequest("Rental amount history is null.");
+                bool isCreated = _rentalAmountHistoryService.CreateRentalAmountHistory(rentalAmountHistory);
+                if (!isCreated)
+                    return StatusCode(500, "Failed to create the rental amount history.");
+                return CreatedAtAction(nameof(GetRentalAmountHistoryByRentalId), new { id = rentalAmountHistory.Id }, rentalAmountHistory);
+            }
+            catch (ArgumentException argEx)
+            {
+                return BadRequest(argEx.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating rental amount history: {ex.Message}");
             }
         }
     }
