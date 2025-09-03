@@ -57,7 +57,6 @@ namespace GuardeSoftwareAPI.Dao
                     {
                         command.Parameters.AddRange(parameters);
                     }
-
                     try
                     {
                         connection.Open();
