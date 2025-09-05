@@ -9,5 +9,7 @@ namespace GuardeSoftwareAPI.Services.locker
 		List<Locker> GetLockersList();
 
 		List<Locker> GetLockerListById(int id);
+
+		public bool CreateLocker(Locker locker);
 	}
 }

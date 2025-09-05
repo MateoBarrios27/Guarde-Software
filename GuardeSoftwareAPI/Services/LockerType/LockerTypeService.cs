@@ -54,5 +54,23 @@ namespace GuardeSoftwareAPI.Services.lockerType
             }
             return lockerTypeList;
         }
+
+        public bool CreateLockerType(LockerType lockerType)
+        {
+            if (lockerType == null)
+                throw new ArgumentNullException(nameof(lockerType));
+
+            if (string.IsNullOrWhiteSpace(lockerType.Name))
+                throw new ArgumentException("Locker type name is required.");
+
+            if (lockerType.Amount <= 0)
+                throw new ArgumentException("Invalid Amount.");
+
+            if (lockerType.M3 != null && lockerType.M3 <= 0)
+                throw new ArgumentException("M3 must be greater than 0 if provided.");
+
+            if (daoLockerType.CreateLockerType(lockerType)) return true;
+            else return false;
+        }
     }
 }

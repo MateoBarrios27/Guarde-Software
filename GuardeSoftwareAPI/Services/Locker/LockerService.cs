@@ -59,5 +59,31 @@ namespace GuardeSoftwareAPI.Services.locker
             }
             return lockersList;
         }
+
+        public bool CreateLocker(Locker locker)
+        {
+            if (locker == null)
+                throw new ArgumentNullException(nameof(locker));
+
+            if (locker.WarehouseId <= 0)
+                throw new ArgumentException("Invalid WareHouse ID.");
+
+            if (locker.LockerTypeId <= 0)
+                throw new ArgumentException("Invalid Locker Type ID.");
+
+            locker.Identifier = string.IsNullOrWhiteSpace(locker.Identifier)
+                                ? null
+                                : locker.Identifier.Trim();
+
+            locker.Features = string.IsNullOrWhiteSpace(locker.Features)
+                            ? null
+                            : locker.Features.Trim();
+
+            if (string.IsNullOrWhiteSpace(locker.Status))
+                throw new ArgumentException("Locker status is required.");
+
+            if (daoLocker.CreateLocker(locker)) return true;
+            else return false;
+        }
     }
 }

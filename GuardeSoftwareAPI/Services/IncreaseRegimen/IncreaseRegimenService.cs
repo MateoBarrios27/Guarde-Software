@@ -55,5 +55,20 @@ namespace GuardeSoftwareAPI.Services.increaseRegimen
             return increaseRegimensList;
 
         }
+
+        public bool CreateIncreaseRegimen(IncreaseRegimen increaseRegimen)
+        {
+            if (increaseRegimen == null)
+                throw new ArgumentNullException(nameof(increaseRegimen));
+
+            if (increaseRegimen.Frequency <= 0)
+                throw new ArgumentException("Invalid Frequency.");
+
+            if (increaseRegimen.Percentage <= 0)
+                throw new ArgumentException("Invalid Percentage.");
+
+            if (daoIncreaseRegimen.CreateIncreaseRegimen(increaseRegimen)) return true;
+            else return false;
+        }
     }
 }

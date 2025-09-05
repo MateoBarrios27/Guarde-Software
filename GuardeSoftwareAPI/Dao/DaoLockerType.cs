@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using Microsoft.Data.SqlClient;
+using GuardeSoftwareAPI.Entities;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -42,6 +43,20 @@ namespace GuardeSoftwareAPI.Dao
 
                 new SqlParameter("@locker_type_id", SqlDbType.Int){Value  = id},
             };
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
+        }
+
+        public bool CreateLockerType(LockerType lockerType)
+        {
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+               new SqlParameter("@name", SqlDbType.VarChar) {Value = lockerType.Name},
+               new SqlParameter("@amount", SqlDbType.Decimal) {Value = lockerType.Amount},
+               new SqlParameter("@m3", SqlDbType.Decimal) {Value = (object?)lockerType.M3 ?? DBNull.Value},
+            };
+
+            string query = "INSERT INTO locker_type_id(name, amount, m3)VALUES(@name, @amount, @m3)";
 
             return accessDB.ExecuteCommand(query, parameters) > 0;
         }

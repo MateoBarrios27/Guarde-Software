@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Data;
 using Microsoft.Data.SqlClient;
+using GuardeSoftwareAPI.Entities;
+
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -32,5 +34,18 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("increase_regimens", query,parameters);
         }
 
+        public bool CreateIncreaseRegimen(IncreaseRegimen increaseRegimen)
+        {
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                 new SqlParameter("@frequency", SqlDbType.Int){Value = increaseRegimen.Frequency },
+                 new SqlParameter("@Percentage", SqlDbType.Decimal){Value = increaseRegimen.Percentage },
+            };
+
+            string query = "INSERT INTO increase_regimens(frequency, percentage)VALUES(@frequency, @percentage)";
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
+
+        }
     }
 }

@@ -35,12 +35,12 @@ namespace GuardeSoftwareAPI.Dao
 
         public bool CreateEmail(Email email) {
 
-            SqlParameter[] parameters = new SqlParameter[] { 
-                
-                new SqlParameter("@client_id",SqlDbType.){Value = email.ClientId},
-                new SqlParameter("@address",SqlDbType.){Value = email.Address},
-                new SqlParameter("@type",SqlDbType.){Value = email.Type},
-            }
+            SqlParameter[] parameters = new SqlParameter[] {
+
+                new SqlParameter("@client_id",SqlDbType.Int){Value = email.ClientId},
+                new SqlParameter("@address",SqlDbType.VarChar,150){Value = email.Address},
+                new SqlParameter("@type",SqlDbType.VarChar,50){Value = (object?)email.Type ?? DBNull.Value},
+            };
 
             string query = "INSERT INTO emails(client_id, address, type)VALUES(@client_id, @address, @type)";
 

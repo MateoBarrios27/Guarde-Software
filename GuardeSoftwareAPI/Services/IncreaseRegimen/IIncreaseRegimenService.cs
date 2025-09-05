@@ -9,5 +9,7 @@ namespace GuardeSoftwareAPI.Services.increaseRegimen
 		List<IncreaseRegimen> GetIncreaseRegimensList();
 
 		List<IncreaseRegimen> GetIncreaseRegimenListById(int id);
+
+		public bool CreateIncreaseRegimen(IncreaseRegimen increaseRegimen);
 	}
 }
