@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Data;
 using Microsoft.Data.SqlClient;
-
+using GuardeSoftwareAPI.Entities;
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -31,6 +31,20 @@ namespace GuardeSoftwareAPI.Dao
             };
             
             return accessDB.GetTable("emails", query, parameters);
+        }
+
+        public bool CreateEmail(Email email) {
+
+            SqlParameter[] parameters = new SqlParameter[] { 
+                
+                new SqlParameter("@client_id",SqlDbType.){Value = email.ClientId},
+                new SqlParameter("@address",SqlDbType.){Value = email.Address},
+                new SqlParameter("@type",SqlDbType.){Value = email.Type},
+            }
+
+            string query = "INSERT INTO emails(client_id, address, type)VALUES(@client_id, @address, @type)";
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
         }
     }
 }

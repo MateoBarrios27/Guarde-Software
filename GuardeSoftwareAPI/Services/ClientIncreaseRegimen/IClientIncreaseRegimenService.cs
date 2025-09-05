@@ -10,5 +10,7 @@ namespace GuardeSoftwareAPI.Services.clientIncreaseRegimen
 		List<ClientIncreaseRegimen> GetClientIncreaseRegimensList();
 
         List<ClientIncreaseRegimen> GetClientIncreaseRegimensListByClientId(int id);
+
+		public bool CreateClientIncreaseRegimen(ClientIncreaseRegimen clientIncreaseRegimen);
     }
 }

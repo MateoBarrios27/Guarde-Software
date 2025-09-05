@@ -67,5 +67,21 @@ namespace GuardeSoftwareAPI.Services.clientIncreaseRegimen
             }
             return clientIncrease;
         }
+
+        public bool CreateClientIncreaseRegimen(ClientIncreaseRegimen clientIncreaseRegimen)
+        {
+            if (clientIncreaseRegimen == null)
+                throw new ArgumentNullException(nameof(clientIncreaseRegimen));
+
+            if (clientIncreaseRegimen.ClientId <= 0)
+                throw new ArgumentException("Invalid ClientId.");
+
+            if (clientIncreaseRegimen.StartDate == default)
+                throw new ArgumentException("StartDate is required.");
+
+            if (daoClientIncreaseRegimen.CreateClientIncreaseRegimen(clientIncreaseRegimen)) return true;
+            else return false;
+
+        }
     }
 }

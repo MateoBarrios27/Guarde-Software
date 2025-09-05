@@ -11,5 +11,7 @@ namespace GuardeSoftwareAPI.Services.email
 
 		List<Email> GetEmailListByClientId(int id);
 
+		public bool CreateEmail(Email email);
+
 	}
 }

@@ -63,5 +63,23 @@ namespace GuardeSoftwareAPI.Services.email
             }
             return emails;
         }
+
+		public bool CreateEmail(Email email)
+		{
+            if (email == null)
+                throw new ArgumentNullException(nameof(email));
+
+            if (email.ClientId <= 0)
+                throw new ArgumentException("Invalid ClientId.");
+
+            if(string.IsNullOrWhiteSpace(email.Address))
+                throw new ArgumentException("Email Address is required.");
+
+            if (string.IsNullOrWhiteSpace(email.Type))
+                throw new ArgumentException("Email type is required.");
+
+            if (_daoEmail.CreateEmail(email)) return true;
+            else return false;
+        }
     }
 }

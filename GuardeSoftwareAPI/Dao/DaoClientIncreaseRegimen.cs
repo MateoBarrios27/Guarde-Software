@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using Microsoft.Data.SqlClient;
+using GuardeSoftwareAPI.Entities;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -31,6 +32,20 @@ namespace GuardeSoftwareAPI.Dao
             };
 
             return accessDB.GetTable("clients_x_increase_regimens", query, parameters);
+        }
+
+        public bool CreateClientIncreaseRegimen(ClientIncreaseRegimen clientIncrease)
+        {
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@client_id", SqlDbType.Int){Value = clientIncrease.ClientId},
+                new SqlParameter("@start_date", SqlDbType.DateTime){Value = clientIncrease.StartDate},
+                new SqlParameter("@end_date", SqlDbType.DateTime){Value = clientIncrease.EndDate == null ? DBNull.Value : clientIncrease.EndDate},
+            }
+
+            string query = "INSERT INTO clients_x_increase_regimens(client_id, start_date, end_date)VALUES(@client_id, @start_date, @end_date)";
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
         }
     }
 }
