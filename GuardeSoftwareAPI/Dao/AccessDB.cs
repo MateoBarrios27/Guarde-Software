@@ -79,15 +79,14 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
 
-        //New async methods
         //Actually, they are used for jobs with Quartz
         //This method realizes commands that do not return results (INSERT, UPDATE, DELETE)
         //Returns the number of affected rows
         public async Task<int> ExecuteCommandAsync(string query, SqlParameter[] parameters)
         {
-            using (var connection = new SqlConnection(routeDB))
+            using (SqlConnection connection = new SqlConnection(routeDB))
             {
-                using (var command = new SqlCommand(query, connection))
+                using (SqlCommand command = new SqlCommand(query, connection))
                 {
                     if (parameters != null)
                     {
@@ -108,9 +107,9 @@ namespace GuardeSoftwareAPI.Dao
         //object result = await accessDB.ExecuteScalarAsync(query, parameters);
         public async Task<object> ExecuteScalarAsync(string query, SqlParameter[] parameters = null)
         {
-            using (var connection = new SqlConnection(routeDB))
+            using (SqlConnection connection = new SqlConnection(routeDB))
             {
-                using (var command = new SqlCommand(query, connection))
+                using (SqlCommand command = new SqlCommand(query, connection))
                 {
                     if (parameters != null)
                     {
@@ -123,6 +122,30 @@ namespace GuardeSoftwareAPI.Dao
                 }
             }
         }
+
+        //This method is useful for SELECT queries
+        //Returns a DataTable with the results of the query
+        //It'a an async version of GetTable, it is used in DaoRental to realize jobs with Quartz
+        public async Task<DataTable> GetTableAsync(string tableName, string query, SqlParameter[] parameters = null)
+        {
+            using (SqlConnection connection = new SqlConnection(routeDB))
+            using (SqlCommand command = new SqlCommand(query, connection))
+            {
+                if (parameters != null)
+                {
+                    command.Parameters.AddRange(parameters);
+                }
+
+                await connection.OpenAsync();
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    DataTable table = new DataTable(tableName);
+                    table.Load(reader); // Load the DataTable from the SqlDataReader
+                    return table;
+                }
+            }
+        }
+
 
     }
 }

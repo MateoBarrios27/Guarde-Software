@@ -17,6 +17,8 @@ using GuardeSoftwareAPI.Services.rentalAmountHistory;
 using GuardeSoftwareAPI.Services.user;
 using GuardeSoftwareAPI.Services.userType;
 using GuardeSoftwareAPI.Services.warehouse;
+using Quartz;
+using GuardeSoftwareAPI.Jobs;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,7 +29,6 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
 
 builder.Services.AddScoped<AccessDB>();
 //SERVICES
@@ -47,6 +48,24 @@ builder.Services.AddScoped<IRentalAmountHistoryService, RentalAmountHistoryServi
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserTypeService, UserTypeService>();
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+
+// --- Configuration Quartz.NET ---
+builder.Services.AddQuartz(q =>
+{
+    q.UseMicrosoftDependencyInjectionJobFactory();
+
+    var jobKey = new JobKey("ApplyDebitsJob");
+    q.AddJob<ApplyDebitsJob>(opts => opts.WithIdentity(jobKey));
+
+    q.AddTrigger(opts => opts
+        .ForJob(jobKey)
+        .WithIdentity("ApplyDebits-Trigger")
+        // Se ejecuta una sola vez: hoy (6/Sep/2025) a las 18:15:00
+        .WithCronSchedule("0 15 18 6 9 ? 2025") 
+    );
+});
+
+builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
 var app = builder.Build();
 
