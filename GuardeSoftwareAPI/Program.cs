@@ -60,8 +60,7 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(jobKey)
         .WithIdentity("ApplyDebits-Trigger")
-        // Se ejecuta una sola vez: hoy (6/Sep/2025) a las 18:15:00
-        .WithCronSchedule("0 15 18 6 9 ? 2025") 
+        .WithCronSchedule("0 53 23 * * ?") 
     );
 });
 

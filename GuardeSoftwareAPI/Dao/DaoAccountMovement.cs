@@ -89,7 +89,7 @@ namespace GuardeSoftwareAPI.Dao
             return Convert.ToInt32(result) > 0;
         }
 
-         public async Task CreateDebitAsync(AccountMovement debit)
+        public async Task CreateDebitAsync(AccountMovement debit)
         {
             string query = @"
                 INSERT INTO account_movements (rental_id, movement_date, movement_type, concept,amount, payment_id)
@@ -97,13 +97,13 @@ namespace GuardeSoftwareAPI.Dao
 
             var parameters = new SqlParameter[]
             {
-                new SqlParameter("@rentalId", SqlDbType.Int) { Value = debit.RentalId},
-                new SqlParameter("@movementDate", SqlDbType.DateTime) { Value = debit.MovementDate },
-                new SqlParameter("@movementType", SqlDbType.VarChar) { Value = debit.MovementType },
+                new SqlParameter("@rental_id",SqlDbType.Int) { Value = debit.RentalId},
+                new SqlParameter("@movement_date", SqlDbType.DateTime) { Value = debit.MovementDate },
+                new SqlParameter("@movement_type", SqlDbType.VarChar) { Value = debit.MovementType },
                 new SqlParameter("@concept", SqlDbType.VarChar) { Value = debit.Concept },
                 new SqlParameter("@amount", SqlDbType.Decimal) { Value = debit.Amount },
                 // Validation for possible nulls for optional foreign key
-                new SqlParameter("@paymentId", SqlDbType.Int) { Value = (object)debit.PaymentId ?? DBNull.Value }
+                new SqlParameter("@payment_id", SqlDbType.Int) { Value = (object)debit.PaymentId ?? DBNull.Value }
             };
             
             

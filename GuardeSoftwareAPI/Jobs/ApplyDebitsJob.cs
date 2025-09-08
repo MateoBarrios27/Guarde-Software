@@ -8,9 +8,9 @@ namespace GuardeSoftwareAPI.Jobs
     public class ApplyDebitsJob : IJob
     {
         private readonly ILogger<ApplyDebitsJob> _logger;
-        private readonly AccountMovementService _accountMovementService;
+        private readonly IAccountMovementService _accountMovementService;
 
-        public ApplyDebitsJob(ILogger<ApplyDebitsJob> logger, AccountMovementService accountMovementService)
+        public ApplyDebitsJob(ILogger<ApplyDebitsJob> logger, IAccountMovementService accountMovementService)
         {
             _logger = logger;
             _accountMovementService = accountMovementService;
