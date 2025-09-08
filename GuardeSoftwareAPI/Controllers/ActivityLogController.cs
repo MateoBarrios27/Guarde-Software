@@ -47,6 +47,26 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 return StatusCode(500, $"Error getting the activity log: {ex.Message}");
             }
-        }    
+        }
+
+        [HttpDelete("{id}")]
+        public ActionResult DeleteActivityLog(int id)
+        {
+            try
+            {
+                if (_activityLogService.DeleteActivityLog(id))
+                    return Ok($"Activity log id n°{id} deleted successfully.");
+                else
+                    return NotFound($"Activity log id n°{id} not found.");
+            }
+            catch (ArgumentException argEx)
+            {
+                return BadRequest(argEx.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error deleting the activity log: {ex.Message}");
+            }
+        }
     }
 }

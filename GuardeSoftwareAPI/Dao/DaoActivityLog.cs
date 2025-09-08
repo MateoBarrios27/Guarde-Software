@@ -5,8 +5,8 @@ using GuardeSoftwareAPI.Entities;
 
 namespace GuardeSoftwareAPI.Dao
 {
-	public class DaoActivityLog
-	{
+    public class DaoActivityLog
+    {
         private readonly AccessDB accessDB;
 
         public DaoActivityLog(AccessDB _accessDB)
@@ -21,19 +21,21 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("activity_log", query);
         }
 
-        public DataTable GetActivityLogsByUserId(int userId) {
+        public DataTable GetActivityLogsByUserId(int userId)
+        {
 
             string query = "SELECT activity_log_id, user_id, log_date, action, table_name, record_id, old_value, new_value FROM activity_log WHERE user_id = @user_id";
 
-            SqlParameter[] parameters = new SqlParameter[] { 
-                
+            SqlParameter[] parameters = new SqlParameter[] {
+
                 new SqlParameter("@user_id", SqlDbType.Int){Value  = userId},
             };
 
-            return accessDB.GetTable("activity_log",query, parameters);
+            return accessDB.GetTable("activity_log", query, parameters);
         }
 
-        public bool CreateActivityLog(ActivityLog activityLog) {
+        public bool CreateActivityLog(ActivityLog activityLog)
+        {
 
             SqlParameter[] parameters = new SqlParameter[]
             {
@@ -48,6 +50,18 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "INSERT INTO activity_log (user_id, log_date, action, table_name, record_id, old_value, new_value)"
                 + "VALUES(@user_id, @log_date, @action, @table_name, @record_id, @old_value, @new_value)";
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
+        }
+        
+        public bool DeleteActivityLog(int activityLogId)
+        {
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@activity_log_id", SqlDbType.Int){Value = activityLogId},
+            };
+
+            string query = "DELETE FROM activity_log WHERE activity_log_id = @activity_log_id";
 
             return accessDB.ExecuteCommand(query, parameters) > 0;
         }

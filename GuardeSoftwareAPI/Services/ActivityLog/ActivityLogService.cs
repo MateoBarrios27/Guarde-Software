@@ -7,48 +7,48 @@ using System.Collections.Generic;
 namespace GuardeSoftwareAPI.Services.activityLog
 {
 
-	public class ActivityLogService : IActivityLogService
+    public class ActivityLogService : IActivityLogService
     {
-		private readonly DaoActivityLog _daoActivityLog;
+        private readonly DaoActivityLog _daoActivityLog;
 
-		public ActivityLogService(AccessDB accessDB)
-		{
-			_daoActivityLog = new DaoActivityLog(accessDB);
-		}
-		
-		public List<ActivityLog> GetActivityLogList()
-		{
-			DataTable activityTable = _daoActivityLog.GetActivityLog();
-			List<ActivityLog> activityLog = new List<ActivityLog>();
+        public ActivityLogService(AccessDB accessDB)
+        {
+            _daoActivityLog = new DaoActivityLog(accessDB);
+        }
 
-			foreach (DataRow row in activityTable.Rows)
-			{
-				int activityId = (int)row["activity_log_id"];
+        public List<ActivityLog> GetActivityLogList()
+        {
+            DataTable activityTable = _daoActivityLog.GetActivityLog();
+            List<ActivityLog> activityLog = new List<ActivityLog>();
 
-				ActivityLog activity = new ActivityLog
-				{
-					Id = activityId,
+            foreach (DataRow row in activityTable.Rows)
+            {
+                int activityId = (int)row["activity_log_id"];
 
-					UserId = row["user_id"] != DBNull.Value
-					? (int)row["user_id"] : 0,
+                ActivityLog activity = new ActivityLog
+                {
+                    Id = activityId,
 
-					LogDate = (DateTime)row["log_date"],
+                    UserId = row["user_id"] != DBNull.Value
+                    ? (int)row["user_id"] : 0,
 
-					Action = row["action"]?.ToString() ?? string.Empty,
+                    LogDate = (DateTime)row["log_date"],
 
-					TableName = row["table_name"]?.ToString() ?? string.Empty,
+                    Action = row["action"]?.ToString() ?? string.Empty,
 
-					RecordId = row["record_id"] != DBNull.Value
-					? (int)row["record_id"] : 0,
+                    TableName = row["table_name"]?.ToString() ?? string.Empty,
 
-					OldValue = row["old_value"]?.ToString() ?? string.Empty,
+                    RecordId = row["record_id"] != DBNull.Value
+                    ? (int)row["record_id"] : 0,
 
-					NewValue = row["new_value"]?.ToString() ?? string.Empty,
-				};
-				activityLog.Add(activity);
-			}
-			return activityLog;
-		}
+                    OldValue = row["old_value"]?.ToString() ?? string.Empty,
+
+                    NewValue = row["new_value"]?.ToString() ?? string.Empty,
+                };
+                activityLog.Add(activity);
+            }
+            return activityLog;
+        }
 
         public List<ActivityLog> GetActivityLoglistByUserId(int id)
         {
@@ -84,7 +84,8 @@ namespace GuardeSoftwareAPI.Services.activityLog
             return activityLog;
         }
 
-		public bool CreateActivityLog(ActivityLog activityLog) {
+        public bool CreateActivityLog(ActivityLog activityLog)
+        {
 
             if (activityLog == null)
                 throw new ArgumentNullException(nameof(activityLog));
@@ -104,8 +105,17 @@ namespace GuardeSoftwareAPI.Services.activityLog
             activityLog.OldValue = string.IsNullOrWhiteSpace(activityLog.OldValue) ? null : activityLog.OldValue;
             activityLog.NewValue = string.IsNullOrWhiteSpace(activityLog.NewValue) ? null : activityLog.NewValue;
 
-            if(_daoActivityLog.CreateActivityLog(activityLog))return true;
+            if (_daoActivityLog.CreateActivityLog(activityLog)) return true;
             else return false;
-		}
+        }
+        
+        public bool DeleteActivityLog(int id)
+        {
+            if (id <= 0)
+                throw new ArgumentException("Invalid ActivityLog Id.");
+
+            if (_daoActivityLog.DeleteActivityLog(id)) return true;
+            else return false;
+        }
     }
 }
