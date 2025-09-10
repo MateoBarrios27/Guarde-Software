@@ -1,5 +1,6 @@
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.client;
+using GuardeSoftwareAPI.Dtos.Client;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -50,12 +51,13 @@ namespace GuardeSoftwareAPI.Controllers
         }    
 
         [HttpPost]
-        public ActionResult CreateClient([FromBody] Client client)
+        public async Task<ActionResult<Client>> CreateClient([FromBody] CreateClientDTO dto)
         {
             try
             {
-                //call to service to create the client
-                return CreatedAtAction(nameof(GetClientById), new { id = client.Id }, client);
+                int newId = await _clientService.CreateClientAsync(dto);
+
+                return CreatedAtAction(nameof(GetClientById), new { id = newId }, newId);
             }
             catch (Exception ex)
             {

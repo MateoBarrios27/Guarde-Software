@@ -60,15 +60,15 @@ namespace GuardeSoftwareAPI.Services.rental
 			};
 		}
 
-		public bool CreateRental(Rental rental)
+        public async Task<int> CreateRentalAsync(Rental rental)
 		{
 			if (rental == null) throw new ArgumentNullException(nameof(rental), "Rental cannot be null.");
 			if (rental.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
 			if (rental.ContractedM3 <= 0) throw new ArgumentException("Contracted M3 must be greater than zero.");
 			if (rental.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
-			if (_daoRental.CreateRental(rental)) return true;
-			else return false;
-		}
+
+            return await _daoRental.CreateRentalAsync(rental);
+        }
 
 		public bool DeleteRental(int rentalId)
 		{
