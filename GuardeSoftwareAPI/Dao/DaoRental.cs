@@ -153,5 +153,39 @@ namespace GuardeSoftwareAPI.Dao
             return Convert.ToInt32(result);
         }
 
+
+        //METHOD FOR TRANSACTION
+        public async Task<int> CreateRentalTransactionAsync(Rental rental, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (rental == null) throw new ArgumentNullException(nameof(rental));
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@client_id", SqlDbType.Int) { Value = rental.ClientId },
+                new SqlParameter("@start_date", SqlDbType.DateTime) { Value = rental.StartDate },
+                new SqlParameter("@contracted_m3", SqlDbType.Int)
+                {
+                   Value = rental.ContractedM3.HasValue ? (object)rental.ContractedM3.Value : DBNull.Value
+                },
+            };
+
+            string query = @"
+                            INSERT INTO rentals(client_id, start_date, contracted_m3)
+                            OUTPUT INSERTED.rental_id
+                            VALUES(@client_id, @start_date, @contracted_m3);";
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                object result = await command.ExecuteScalarAsync();
+
+                if (result == null || result == DBNull.Value)
+                    throw new InvalidOperationException("The newly added Rental id could not be returned.");
+
+                return Convert.ToInt32(result);
+            }
+        }
+
+
     }
 }

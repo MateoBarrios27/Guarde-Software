@@ -5,6 +5,7 @@ using GuardeSoftwareAPI.Dtos.Client;
 using System.Collections.Generic;
 using System.Data;
 using GuardeSoftwareAPI.Services.rental;
+using GuardeSoftwareAPI.Services.rentalAmountHistory;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -15,10 +16,16 @@ namespace GuardeSoftwareAPI.Services.client
 
         private readonly IRentalService rentalService;
 
-        public ClientService(AccessDB accessDB, IRentalService _rentalService)
+        private readonly IRentalAmountHistoryService rentalAmountHistoryService;
+
+        private readonly AccessDB accessDB;
+
+        public ClientService(AccessDB _accessDB, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService)
         {
-            daoClient = new DaoClient(accessDB);
+            daoClient = new DaoClient(_accessDB);
             this.rentalService = _rentalService;
+            this.rentalAmountHistoryService = _rentalAmountHistoryService;
+            this.accessDB = _accessDB;
         }
 
         public List<Client> GetClientsList()
@@ -78,43 +85,65 @@ namespace GuardeSoftwareAPI.Services.client
         {
             if (dto == null) throw new ArgumentNullException(nameof(dto));
 
-            if (string.IsNullOrWhiteSpace(dto.FirstName)) throw new ArgumentException("FirstName es requerido.");
-            if (string.IsNullOrWhiteSpace(dto.LastName)) throw new ArgumentException("LastName es requerido.");
+            if (string.IsNullOrWhiteSpace(dto.FirstName)) throw new ArgumentException("FirstName is required.");
+            if (string.IsNullOrWhiteSpace(dto.LastName)) throw new ArgumentException("LastName is required.");
+            //add more validations for customer
 
             if (dto.RegistrationDate == default) dto.RegistrationDate = DateTime.UtcNow;
 
-            var client = new Client
-            {  
-                PaymentIdentifier = dto.PaymentIdentifier,
-                FirstName = dto.FirstName?.Trim(),
-                LastName = dto.LastName?.Trim(),
-                RegistrationDate = dto.RegistrationDate,
-                Dni = string.IsNullOrWhiteSpace(dto.Dni) ? null : dto.Dni.Trim(),
-                Cuit = string.IsNullOrWhiteSpace(dto.Cuit) ? null : dto.Cuit.Trim(),
-                PreferredPaymentMethodId = dto.PreferredPaymentMethodId ?? 0, 
-                IvaCondition = string.IsNullOrWhiteSpace(dto.IvaCondition) ? null : dto.IvaCondition.Trim(),
-                Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
-            };
-
-            int newId = await daoClient.CreateClientAsync(client);
-
-            var rental = new Rental
+            using (var connection = accessDB.GetConnectionClose()) 
             {
-                ClientId = newId,
-                StartDate = dto.StartDate,
-                ContractedM3 = dto.ContractedM3,
-            };
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        var client = new Client
+                        {
+                            PaymentIdentifier = dto.PaymentIdentifier,
+                            FirstName = dto.FirstName?.Trim(),
+                            LastName = dto.LastName?.Trim(),
+                            RegistrationDate = dto.RegistrationDate,
+                            Dni = string.IsNullOrWhiteSpace(dto.Dni) ? null : dto.Dni.Trim(),
+                            Cuit = string.IsNullOrWhiteSpace(dto.Cuit) ? null : dto.Cuit.Trim(),
+                            PreferredPaymentMethodId = dto.PreferredPaymentMethodId ?? 0,
+                            IvaCondition = string.IsNullOrWhiteSpace(dto.IvaCondition) ? null : dto.IvaCondition.Trim(),
+                            Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
+                        };
 
-            int rentalId = await rentalService.CreateRentalAsync(rental);
+                        int newId = await daoClient.CreateClientAsync(client);
 
-            var rentalAmountHistory = new RentalAmountHistory
-            {
-                RentalId = rentalId,
-                Amount = dto.Amount,
-                StartDate = dto.StartDate,
-            };
+                        var rental = new Rental
+                        {
+                            ClientId = newId,
+                            StartDate = dto.StartDate,
+                            ContractedM3 = dto.ContractedM3,
+                        };
 
-            return newId;
+                        int rentalId = await rentalService.CreateRentalTransactionAsync(rental,connection,transaction);
+
+                        var rentalAmountHistory = new RentalAmountHistory
+                        {
+                            RentalId = rentalId,
+                            Amount = dto.Amount,
+                            StartDate = dto.StartDate,
+                        };
+
+                        var rentalAmountHistoryId = await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(rentalAmountHistory,connection,transaction);
+
+                        transaction.Commit();
+
+                        return newId;
+                    }
+                    catch {
+
+                        transaction.Rollback();
+                        throw;
+                    }
+                }
+            }
+
+            
         }
 
     }

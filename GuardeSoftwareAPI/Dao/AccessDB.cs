@@ -2,11 +2,17 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 
+
 namespace GuardeSoftwareAPI.Dao
 {
     public class AccessDB
     {
         private readonly string routeDB = "Data Source=localhost\\SQLEXPRESS;Initial Catalog=GuardeSoftware;Integrated Security=True;TrustServerCertificate=True;";
+
+        public SqlConnection GetConnectionClose()
+        {
+            return new SqlConnection(routeDB);
+        }
 
         public SqlConnection GetConnection()
         {

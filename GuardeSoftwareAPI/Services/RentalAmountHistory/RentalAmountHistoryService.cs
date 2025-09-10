@@ -2,6 +2,8 @@
 using System.Data;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
+using Microsoft.Data.SqlClient;
+
 
 namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 {
@@ -69,5 +71,28 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 			if (_daoRentalAmountHistory.CreateRentalAmountHistory(rentalAmountHistory)) return true;
 			else return false;
 		}
-	}
+
+        public async Task<int> CreateRentalAmountHistoryAsync(RentalAmountHistory rentalAmountHistory)
+        {
+            if (rentalAmountHistory == null) throw new ArgumentNullException(nameof(rentalAmountHistory), "Rental amount history cannot be null.");
+            if (rentalAmountHistory.RentalId <= 0) throw new ArgumentException("Invalid rental ID.");
+            if (rentalAmountHistory.Amount <= 0) throw new ArgumentException("Amount must be greater than zero.");
+            if (rentalAmountHistory.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
+
+            return await _daoRentalAmountHistory.CreateRentalAmountHistoryAsync(rentalAmountHistory);
+        }
+
+
+        public async Task<int> CreateRentalAmountHistoryTransactionAsync(RentalAmountHistory rentalAmountHistory, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (rentalAmountHistory == null) throw new ArgumentNullException(nameof(rentalAmountHistory), "Rental amount history cannot be null.");
+            if (rentalAmountHistory.RentalId <= 0) throw new ArgumentException("Invalid rental ID.");
+            if (rentalAmountHistory.Amount <= 0) throw new ArgumentException("Amount must be greater than zero.");
+            if (rentalAmountHistory.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
+
+            return await _daoRentalAmountHistory.CreateRentalAmountHistoryTransactionAsync(rentalAmountHistory, connection, transaction);
+        }
+
+
+    }
 }

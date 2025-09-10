@@ -45,5 +45,60 @@ namespace GuardeSoftwareAPI.Dao
             };
             return accessDB.ExecuteCommand(query, parameters) > 0;
         }
+
+        public async Task<int> CreateRentalAmountHistoryAsync(RentalAmountHistory rentalAmountHistory)
+        {
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalAmountHistory.RentalId },
+                new SqlParameter("@amount", SqlDbType.Decimal)
+                {
+                    Precision = 10,
+                    Scale = 2,
+                    Value = rentalAmountHistory.Amount
+                },
+                new SqlParameter("@start_date", SqlDbType.DateTime) { Value = rentalAmountHistory.StartDate },
+            };
+
+            string query = @"
+                            INSERT INTO rental_amount_history (rental_id, amount, start_date)
+                            OUTPUT INSERTED.rental_amount_history_id
+                            VALUES (@rental_id, @amount, @start_date);";
+
+            object result = await accessDB.ExecuteScalarAsync(query, parameters);
+
+            return Convert.ToInt32(result);
+        }
+
+
+        //METHOD FOR TRANSACTION
+        public async Task<int> CreateRentalAmountHistoryTransactionAsync(RentalAmountHistory rentalAmountHistory,SqlConnection connection,SqlTransaction transaction)
+        {
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalAmountHistory.RentalId },
+                new SqlParameter("@amount", SqlDbType.Decimal)
+                {
+                    Precision = 10,
+                    Scale = 2,
+                    Value = rentalAmountHistory.Amount
+                },
+                new SqlParameter("@start_date", SqlDbType.DateTime) { Value = rentalAmountHistory.StartDate },
+            };
+
+            string query = @"
+                            INSERT INTO rental_amount_history (rental_id, amount, start_date)
+                            OUTPUT INSERTED.rental_amount_history_id
+                            VALUES (@rental_id, @amount, @start_date);";
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                object result = await command.ExecuteScalarAsync();
+                return Convert.ToInt32(result);
+            }
+        }
+
+
     }
 }

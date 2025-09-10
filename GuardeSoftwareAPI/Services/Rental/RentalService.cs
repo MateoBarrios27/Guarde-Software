@@ -2,6 +2,7 @@
 using System.Data;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
+using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Services.rental
 {
@@ -60,22 +61,31 @@ namespace GuardeSoftwareAPI.Services.rental
 			};
 		}
 
-        public async Task<int> CreateRentalAsync(Rental rental)
-		{
-			if (rental == null) throw new ArgumentNullException(nameof(rental), "Rental cannot be null.");
-			if (rental.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
-			if (rental.ContractedM3 <= 0) throw new ArgumentException("Contracted M3 must be greater than zero.");
-			if (rental.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
-
-            return await _daoRental.CreateRentalAsync(rental);
-        }
-
 		public bool DeleteRental(int rentalId)
 		{
 			if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.");
 			if (_daoRental.DeleteRental(rentalId)) return true;
 			else return false;
 		}
-		
-	}
+
+        public async Task<int> CreateRentalAsync(Rental rental)
+        {
+            if (rental == null) throw new ArgumentNullException(nameof(rental), "Rental cannot be null.");
+            if (rental.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
+            if (rental.ContractedM3 <= 0) throw new ArgumentException("Contracted M3 must be greater than zero.");
+            if (rental.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
+
+            return await _daoRental.CreateRentalAsync(rental);
+        }
+
+        public async Task<int> CreateRentalTransactionAsync(Rental rental, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (rental == null) throw new ArgumentNullException(nameof(rental), "Rental cannot be null.");
+            if (rental.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
+            if (rental.ContractedM3 <= 0) throw new ArgumentException("Contracted M3 must be greater than zero.");
+            if (rental.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
+
+            return await _daoRental.CreateRentalTransactionAsync(rental,connection,transaction);
+        }
+    }
 }

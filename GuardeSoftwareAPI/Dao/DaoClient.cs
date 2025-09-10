@@ -110,6 +110,49 @@ namespace GuardeSoftwareAPI.Dao
             return Convert.ToInt32(result);
         }
 
+
+        //METHOD FOR TRANSACTION
+        public async Task<int> CreateClientTransactionAsync(Client client, SqlConnection connection, SqlTransaction transaction)
+        {
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@payment_identifier", SqlDbType.Decimal)
+                {
+                    Precision = 10,
+                    Scale = 2,
+                    Value = (object?)client.PaymentIdentifier ?? DBNull.Value
+                },
+                new SqlParameter("@first_name", SqlDbType.VarChar) { Value = (object?)client.FirstName?.Trim() ?? DBNull.Value },
+                new SqlParameter("@last_name", SqlDbType.VarChar) { Value = (object?)client.LastName?.Trim() ?? DBNull.Value },
+                new SqlParameter("@registration_date", SqlDbType.DateTime) { Value = client.RegistrationDate },
+                new SqlParameter("@dni", SqlDbType.VarChar) { Value = (object?)client.Dni?.Trim() ?? DBNull.Value },
+                new SqlParameter("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },
+                new SqlParameter("@preferred_payment_method_id", SqlDbType.Int)
+                {
+                    Value = client.PreferredPaymentMethodId > 0 ? (object)client.PreferredPaymentMethodId : DBNull.Value
+                },
+                new SqlParameter("@iva_condition", SqlDbType.VarChar) { Value = (object?)client.IvaCondition?.Trim() ?? DBNull.Value },
+                new SqlParameter("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
+            };
+
+            string query = @"
+                            INSERT INTO clients(payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes)
+                            OUTPUT INSERTED.client_id
+                            VALUES(@payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes);";
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                object result = await command.ExecuteScalarAsync();
+
+                if (result == null || result == DBNull.Value)
+                    throw new InvalidOperationException("The newly added customer id could not be returned.");
+
+                return Convert.ToInt32(result);
+            }
+        }
+
+
     }
 }
 
