@@ -4,6 +4,10 @@ GO
 USE GuardeSoftware;
 GO
 
+BEGIN TRANSACTION;
+GO
+
+BEGIN TRY
 -- Table: locker_types
 CREATE TABLE locker_types (
     locker_type_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -19,19 +23,6 @@ CREATE TABLE warehouses (
     name VARCHAR(100) NOT NULL,
     address VARCHAR(255),
     active BIT DEFAULT 1
-);
-
--- Table: lockers
-CREATE TABLE lockers (
-    locker_id INT IDENTITY(1,1) PRIMARY KEY,
-    warehouse_id INT NOT NULL,
-    locker_type_id INT NOT NULL,
-    identifier VARCHAR(100) UNIQUE,
-    features VARCHAR(MAX),
-    status VARCHAR(50) NOT NULL,
-    active BIT DEFAULT 1,
-    FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id),
-    FOREIGN KEY (locker_type_id) REFERENCES locker_types(locker_type_id)
 );
 
 -- Table: increase_policies
@@ -116,6 +107,20 @@ CREATE TABLE rentals (
     FOREIGN KEY (client_id) REFERENCES clients(client_id)
 );
 
+CREATE TABLE lockers (
+    locker_id INT IDENTITY(1,1) PRIMARY KEY,
+    warehouse_id INT NOT NULL,
+    locker_type_id INT NOT NULL,
+    identifier VARCHAR(100) UNIQUE,
+    features VARCHAR(MAX),
+    status VARCHAR(50) NOT NULL,
+    rental_id INT,
+    active BIT DEFAULT 1,
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id),
+    FOREIGN KEY (locker_type_id) REFERENCES locker_types(locker_type_id),
+    FOREIGN KEY (rental_id) REFERENCES rentals(rental_id)
+);
+
 -- Table: rental_amount_history
 CREATE TABLE rental_amount_history (
     rental_amount_history_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -145,7 +150,7 @@ CREATE TABLE account_movements (
     movement_type VARCHAR(10) CHECK (movement_type IN ('DEBITO','CREDITO')) NOT NULL,
     concept VARCHAR(255),
     amount DECIMAL(10,2) NOT NULL,
-    payment_id INT
+    payment_id INT,
     FOREIGN KEY (rental_id) REFERENCES rentals(rental_id),
     FOREIGN KEY (payment_id) REFERENCES payments(payment_id)
 );
@@ -181,3 +186,22 @@ CREATE TABLE activity_log (
     new_value NVARCHAR(MAX),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
+
+COMMIT TRANSACTION;
+    PRINT '¡Database and tables created successfully!';
+
+END TRY
+BEGIN CATCH
+
+
+    IF @@TRANCOUNT > 0
+    BEGIN
+        ROLLBACK TRANSACTION;
+    END
+
+    PRINT 'Error: Could not create tables. All changes have been rolled back. Database can be deleted';
+
+    DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+    RAISERROR (@ErrorMessage, 16, 1);
+END CATCH;
+GO

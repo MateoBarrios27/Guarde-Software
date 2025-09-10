@@ -1,3 +1,7 @@
+BEGIN TRANSACTION;
+GO
+
+BEGIN TRY
 -- Locker Types
 INSERT INTO locker_types (name, amount, m3, active) VALUES
 ('BAULERA ESTÁNDAR', 92000, 8.00, 1),
@@ -12,16 +16,6 @@ INSERT INTO warehouses (name, address, active) VALUES
 ('Borges', 'Francisco Borges 4280, Buenos Aires', 1),
 ('Libertad', 'Libertad 4764', 1),
 ('Guemes', 'Guemes 3670', 1);
-
--- Lockers
-INSERT INTO lockers (warehouse_id, locker_type_id, identifier, features, status, active) VALUES
-(1, 1, 'B-101', 'Baulera en planta baja, fácil acceso', 'DISPONIBLE', 1),
-(1, 2, 'XL-202', 'Baulera grande con ventilación', 'OCUPADO', 1),
-(2, 3, 'G-301', 'Baulera extra grande con estanterías', 'OCUPADO', 1),
-(2, 4, 'B-102', 'Box en planta baja', 'DISPONIBLE', 1),
-(3, 5, 'L-103', 'Locker con acceso digital', 'OCUPADO', 1),
-(3, 6, 'E-104', 'Espacio libre para almacenamiento flexible', 'DISPONIBLE', 1),
-(2, 3, 'G-305', 'Baulera extra grande', 'DISPONIBLE', 1);
 
 -- Increase Regimens
 INSERT INTO increase_regimens (frequency, percentage) VALUES
@@ -66,6 +60,16 @@ INSERT INTO rentals (client_id, start_date, end_date, contracted_m3, active) VAL
 (1, '2024-01-15', NULL, 8.00, 1),
 (2, '2024-02-20', NULL, 10.00, 1);
 
+-- Lockers
+INSERT INTO lockers (warehouse_id, locker_type_id, identifier, features, status, rental_id, active) VALUES
+(1, 1, 'B-101', 'Baulera en planta baja, fácil acceso', 'DISPONIBLE', NULL,1),
+(1, 2, 'XL-202', 'Baulera grande con ventilación', 'OCUPADO', 1, 1),
+(2, 3, 'G-301', 'Baulera extra grande con estanterías', 'OCUPADO', 1, 1),
+(2, 4, 'B-102', 'Box en planta baja', 'DISPONIBLE', NULL, 1),
+(3, 5, 'L-103', 'Locker con acceso digital', 'OCUPADO', 2, 1),
+(3, 6, 'E-104', 'Espacio libre para almacenamiento flexible', 'DISPONIBLE', NULL, 1),
+(2, 3, 'G-305', 'Baulera extra grande', 'DISPONIBLE', NULL, 1);
+
 -- Rental Amount History
 INSERT INTO rental_amount_history (rental_id, amount, start_date, end_date) VALUES
 (1, 92000, '2024-01-15', NULL),
@@ -94,3 +98,22 @@ INSERT INTO users (user_type_id, username, first_name, last_name, password, acti
 -- Activity Log (JSON in old_value and new_value)
 INSERT INTO activity_log (user_id, log_date, action, table_name, record_id, old_value, new_value) VALUES
 (1, GETDATE(), 'UPDATE', 'clients', 1, '{"name":"Juan"}', '{"name":"Juan Pablo"}');
+
+COMMIT TRANSACTION;
+    PRINT '¡Data inserted successfully!';
+
+END TRY
+BEGIN CATCH
+
+
+    IF @@TRANCOUNT > 0
+    BEGIN
+        ROLLBACK TRANSACTION;
+    END
+
+    PRINT 'Error: Could not insert the data. All changes have been rolled back.';
+
+    DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+    RAISERROR (@ErrorMessage, 16, 1);
+END CATCH;
+GO
