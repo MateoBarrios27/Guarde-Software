@@ -55,27 +55,27 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
-        [HttpPost]
-        public IActionResult CreateRental([FromBody] Rental rental)
-        {
-            try
-            {
-                if (rental == null)
-                    return BadRequest("Rental is null.");
-                bool isCreated = _rentalService.CreateRental(rental);
-                if (!isCreated)
-                    return StatusCode(500, "Failed to create the rental.");
-                return CreatedAtAction(nameof(GetRentalById), new { id = rental.Id }, rental);
-            }
-            catch (ArgumentException argEx)
-            {
-                return BadRequest(argEx.Message);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error creating rental: {ex.Message}");
-            }   
-        }
+        //[HttpPost]
+        //public IActionResult CreateRental([FromBody] Rental rental)
+        //{
+        //    try
+        //    {
+        //        if (rental == null)
+        //            return BadRequest("Rental is null.");
+        //        bool isCreated = _rentalService.CreateRental(rental);
+        //        if (!isCreated)
+        //            return StatusCode(500, "Failed to create the rental.");
+        //        return CreatedAtAction(nameof(GetRentalById), new { id = rental.Id }, rental);
+        //    }
+        //    catch (ArgumentException argEx)
+        //    {
+        //        return BadRequest(argEx.Message);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, $"Error creating rental: {ex.Message}");
+        //    }   
+        //}
 
         [HttpDelete("{id}")]
         public IActionResult DeleteRental(int id)

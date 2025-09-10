@@ -1,5 +1,6 @@
 ﻿using System;
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Dtos.Client;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -9,5 +10,7 @@ namespace GuardeSoftwareAPI.Services.client
         List<Client> GetClientsList();
 
 		List<Client> GetClientListById(int id);
- 	}
+
+        Task<int> CreateClientAsync(CreateClientDTO dto);
+    }
 }
