@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Data;
 using GuardeSoftwareAPI.Services.rental;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
+using GuardeSoftwareAPI.Services.locker;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -18,13 +19,16 @@ namespace GuardeSoftwareAPI.Services.client
 
         private readonly IRentalAmountHistoryService rentalAmountHistoryService;
 
+        private readonly ILockerService lockerService;
+
         private readonly AccessDB accessDB;
 
-        public ClientService(AccessDB _accessDB, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService)
+        public ClientService(AccessDB _accessDB, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, ILockerService _lockerService)
         {
             daoClient = new DaoClient(_accessDB);
             this.rentalService = _rentalService;
             this.rentalAmountHistoryService = _rentalAmountHistoryService;
+            this.lockerService = _lockerService;
             this.accessDB = _accessDB;
         }
 
@@ -130,6 +134,8 @@ namespace GuardeSoftwareAPI.Services.client
                         };
 
                         var rentalAmountHistoryId = await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(rentalAmountHistory,connection,transaction);
+
+                        await lockerService.SetRentalTransactionAsync(rentalId,dto.LockerIds, connection, transaction);
 
                         transaction.Commit();
 

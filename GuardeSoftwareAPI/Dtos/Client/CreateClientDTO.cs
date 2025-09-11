@@ -3,8 +3,8 @@
 namespace GuardeSoftwareAPI.Dtos.Client
 {
 
-	public class CreateClientDTO
-	{
+    public class CreateClientDTO
+    {
         //Client table
         public int? Id { get; set; }
         public decimal? PaymentIdentifier { get; set; }
@@ -24,5 +24,8 @@ namespace GuardeSoftwareAPI.Dtos.Client
 
         //rentalAmountHistory
         public decimal Amount { get; set; }
+        //id of locker rental
+        public List<int> LockerIds { get; set; } = new List<int>();
+
     }
 }

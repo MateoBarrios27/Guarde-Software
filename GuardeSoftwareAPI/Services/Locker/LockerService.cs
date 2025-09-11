@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
+using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Services.locker
 {
@@ -85,5 +86,24 @@ namespace GuardeSoftwareAPI.Services.locker
             if (daoLocker.CreateLocker(locker)) return true;
             else return false;
         }
+
+        public async Task<bool> SetRentalTransactionAsync(int rentalId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.");
+
+            if (lockerIds == null || lockerIds.Count == 0)
+                throw new ArgumentException("At least one lockerId must be provided.", nameof(lockerIds));
+
+            if (lockerIds.Any(id => id <= 0))
+                throw new ArgumentException("All lockerIds must be positive integers.", nameof(lockerIds));
+
+            if (lockerIds.Distinct().Count() != lockerIds.Count)
+                throw new ArgumentException("Duplicate lockerIds are not allowed.", nameof(lockerIds));
+
+            return await daoLocker.SetRentalTransactionAsync(rentalId, lockerIds, connection, transaction); 
+        }
+
+
+
     }
 }
