@@ -32,7 +32,8 @@ namespace GuardeSoftwareAPI.Dtos.Client
 
         //Locker Information
         //If the client no longer rents lockers, this list will be empty
-        public List<GetLockerUserDetailDTO>? LockersList { get; set; }
+        public List<GetLockerClientDetailDTO>? LockersList { get; set; }
+        public decimal ContractedM3 { get; set; }
 
         //Other Information
         public string Notes { get; set; } = string.Empty;

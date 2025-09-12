@@ -83,5 +83,30 @@ namespace GuardeSoftwareAPI.Dao
             }
             return true;
         }
+
+        public async Task<DataTable> GetLockersByClientIdAsync(int clientId)
+        {
+           
+            string query = @"
+                SELECT 
+                    lt.name AS locker_type, l.identifier, w.name AS warehouse
+                FROM 
+                    lockers l
+                INNER JOIN 
+                    warehouses w ON l.warehouse_id = w.warehouse_id
+                INNER JOIN
+                    rentals r ON l.rental_id = r.rental_id
+                INNER JOIN
+                    locker_types lt ON l.locker_type_id = lt.locker_type_id
+                WHERE
+                    r.client_id = 1 AND r.active = 1";
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId }
+            };
+
+            return await accessDB.GetTableAsync("lockers_by_client", query, parameters);
+        }
     }
 }

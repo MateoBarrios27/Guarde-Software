@@ -123,7 +123,7 @@ namespace GuardeSoftwareAPI.Dao
                     }
 
                     await connection.OpenAsync();
-                    object result = await command.ExecuteScalarAsync();
+                    object result = await command.ExecuteScalarAsync() ?? DBNull.Value;
                     return result;
                 }
             }

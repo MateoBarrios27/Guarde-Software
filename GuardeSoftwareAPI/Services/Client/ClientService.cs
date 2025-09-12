@@ -7,6 +7,7 @@ using System.Data;
 using GuardeSoftwareAPI.Services.rental;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
 using GuardeSoftwareAPI.Services.locker;
+using GuardeSoftwareAPI.Dtos.Locker;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -59,7 +60,7 @@ namespace GuardeSoftwareAPI.Services.client
             return clients;
         }
 
-        public List<Client> GetClientListById(int  id)
+        public List<Client> GetClientListById(int id)
         {
             DataTable clientTable = daoClient.GetClientById(id);
             List<Client> clients = new List<Client>();
@@ -95,18 +96,18 @@ namespace GuardeSoftwareAPI.Services.client
 
             if (dto.RegistrationDate == default) dto.RegistrationDate = DateTime.UtcNow;
 
-            using (var connection = accessDB.GetConnectionClose()) 
+            using (var connection = accessDB.GetConnectionClose())
             {
                 await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
                     {
-                        var client = new Client
+                        Client client = new Client
                         {
                             PaymentIdentifier = dto.PaymentIdentifier,
-                            FirstName = dto.FirstName?.Trim(),
-                            LastName = dto.LastName?.Trim(),
+                            FirstName = dto.FirstName?.Trim() ?? string.Empty,
+                            LastName = dto.LastName?.Trim() ?? string.Empty,
                             RegistrationDate = dto.RegistrationDate,
                             Dni = string.IsNullOrWhiteSpace(dto.Dni) ? null : dto.Dni.Trim(),
                             Cuit = string.IsNullOrWhiteSpace(dto.Cuit) ? null : dto.Cuit.Trim(),
@@ -117,43 +118,90 @@ namespace GuardeSoftwareAPI.Services.client
 
                         int newId = await daoClient.CreateClientAsync(client);
 
-                        var rental = new Rental
+                        Rental rental = new Rental
                         {
                             ClientId = newId,
                             StartDate = dto.StartDate,
                             ContractedM3 = dto.ContractedM3,
                         };
 
-                        int rentalId = await rentalService.CreateRentalTransactionAsync(rental,connection,transaction);
+                        int rentalId = await rentalService.CreateRentalTransactionAsync(rental, connection, transaction);
 
-                        var rentalAmountHistory = new RentalAmountHistory
+                        RentalAmountHistory rentalAmountHistory = new RentalAmountHistory
                         {
                             RentalId = rentalId,
                             Amount = dto.Amount,
                             StartDate = dto.StartDate,
                         };
 
-                        var rentalAmountHistoryId = await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(rentalAmountHistory,connection,transaction);
+                        var rentalAmountHistoryId = await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(rentalAmountHistory, connection, transaction);
 
-                        await lockerService.SetRentalTransactionAsync(rentalId,dto.LockerIds, connection, transaction);
+                        await lockerService.SetRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
 
                         transaction.Commit();
 
                         return newId;
                     }
-                    catch {
+                    catch
+                    {
 
                         transaction.Rollback();
                         throw;
                     }
                 }
             }
-
-            
         }
+        public async Task<GetClientDetailDTO> GetClientDetailByIdAsync(int id)
+        {
+            if (id <= 0) throw new ArgumentException("Invalid client ID.");
 
+            DataTable clientDetailTable = await daoClient.GetClientDetailByIdAsync(id);
+
+            if (clientDetailTable == null || clientDetailTable.Rows.Count == 0) throw new ArgumentException("No client found with the given ID."); 
+
+            DataRow row = clientDetailTable.Rows[0];
+
+            GetClientDetailDTO clientDetail = new GetClientDetailDTO
+            {
+                // Personal information
+                Id = Convert.ToInt32(row["client_id"]),
+                PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
+                Name = row["first_name"]?.ToString() ?? string.Empty,
+                LastName = row["last_name"]?.ToString() ?? string.Empty,
+                City = row["city"]?.ToString() ?? string.Empty,
+                State = row["province"]?.ToString() ?? string.Empty,
+                Cuit = row["cuit"]?.ToString() ?? string.Empty,
+                Dni = row["dni"]?.ToString() ?? string.Empty,
+                RegistrationDate = Convert.ToDateTime(row["registration_date"]),
+
+                // Contact Information
+                Email = row["address"]?.ToString() ?? string.Empty,
+                Phone = row["number"]?.ToString() ?? string.Empty,
+                Address = row["address"]?.ToString() ?? string.Empty,
+
+                // Payment & rental Information
+                IvaCondition = row["iva_condition"]?.ToString() ?? string.Empty,
+                PreferredPaymentMethod = row["preferred_payment_method"]?.ToString() ?? "No especificado",
+                IncresePerentage = row["percentage"] != DBNull.Value ? Convert.ToDecimal(row["percentage"]) : 0,
+                IncreaseFrequency = row["frequency"] != DBNull.Value ? Convert.ToInt32(row["frequency"]) : 0,
+                NextIncreaseDay = row["end_date"] != DBNull.Value ? Convert.ToDateTime(row["end_date"]) : DateTime.MinValue,
+                NextPaymentDay = DateTime.MinValue,
+                ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
+                Balance = 0,
+                PaymentStatus = "Desconocido",
+
+                // Other information
+                Notes = row["notes"]?.ToString() ?? string.Empty,
+            };
+
+            List<GetLockerClientDetailDTO> lockers = await lockerService.GetLockersByClientIdAsync(id);
+            clientDetail.LockersList = lockers;
+
+            return clientDetail;
+        }
     }
 }
+
 
 
 

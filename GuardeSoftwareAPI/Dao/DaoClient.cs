@@ -2,13 +2,14 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
+using System.Threading.Tasks;
 
 
 namespace GuardeSoftwareAPI.Dao
 {
 
-	public class DaoClient
-	{
+    public class DaoClient
+    {
         private readonly AccessDB accessDB;
 
         public DaoClient(AccessDB _accessDB)
@@ -16,7 +17,8 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetClients() {
+        public DataTable GetClients()
+        {
 
             string query = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes FROM clients WHERE active=1";
 
@@ -57,7 +59,8 @@ namespace GuardeSoftwareAPI.Dao
         }
 
 
-        public bool DeleteClientById(int id) {
+        public bool DeleteClientById(int id)
+        {
 
             string query = "UPDATE clients SET active = 0 WHERE client_id = @client_id";
 
@@ -65,9 +68,9 @@ namespace GuardeSoftwareAPI.Dao
             {
                 new SqlParameter("@client_id", SqlDbType.Int){Value = id},
             };
-            
+
             return accessDB.ExecuteCommand(query, parameters) > 0;
-        
+
         }
 
         public async Task<int> CreateClientAsync(Client client)
@@ -143,7 +146,7 @@ namespace GuardeSoftwareAPI.Dao
             using (var command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.AddRange(parameters);
-                object result = await command.ExecuteScalarAsync();
+                object result = await command.ExecuteScalarAsync() ?? DBNull.Value;
 
                 if (result == null || result == DBNull.Value)
                     throw new InvalidOperationException("The newly added customer id could not be returned.");
@@ -151,8 +154,42 @@ namespace GuardeSoftwareAPI.Dao
                 return Convert.ToInt32(result);
             }
         }
+        
+        //Here missing the method to get balance and payment status
+        public async Task<DataTable> GetClientDetailByIdAsync(int id)
+        {
+            string query = @"
+                SELECT 
+                    c.client_id, c.payment_identifier, c.first_name, c.last_name, c.registration_date,
+                    c.dni, c.cuit, c.iva_condition, c.notes,
+                    em.address, ph.number, ad.street, ad.city, ad.province,
+                    pm.name AS preferred_payment_method,
+                    r.contracted_m3, cir.end_date, ir.frequency, ir.percentage
+                FROM 
+                    clients c
+                LEFT JOIN
+                    addresses ad ON c.client_id = ad.client_id
+                LEFT JOIN
+                    emails em ON c.client_id = em.client_id
+                LEFT JOIN 
+                    phones ph ON c.client_id = ph.client_id
+                LEFT JOIN
+                    clients_x_increase_regimens cir ON c.client_id = cir.client_id
+                LEFT JOIN
+                    increase_regimens ir ON cir.regimen_id = ir.regimen_id
+                LEFT JOIN 
+                    payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
+                LEFT JOIN 
+                    rentals r ON c.client_id = r.client_id AND r.active = 1 
+                WHERE 
+                    c.client_id = @client_id AND c.active = 1;";
 
+            SqlParameter[] parameters = new SqlParameter[] {
+                new SqlParameter("@client_id", SqlDbType.Int) { Value = id },
+            };
 
+            return await accessDB.GetTableAsync("client_details", query, parameters);
+        }
     }
 }
 

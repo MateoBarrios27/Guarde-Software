@@ -4,6 +4,8 @@ using System.Data;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
 using Microsoft.Data.SqlClient;
+using GuardeSoftwareAPI.Dtos.Locker;
+using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Services.locker
 {
@@ -103,7 +105,24 @@ namespace GuardeSoftwareAPI.Services.locker
             return await daoLocker.SetRentalTransactionAsync(rentalId, lockerIds, connection, transaction); 
         }
 
+        public async Task<List<GetLockerClientDetailDTO>> GetLockersByClientIdAsync(int clientId)
+        {
+            DataTable lockersTable = await daoLocker.GetLockersByClientIdAsync(clientId);
+            List<GetLockerClientDetailDTO> lockersList = [];
 
+            foreach (DataRow row in lockersTable.Rows)
+            {
+                GetLockerClientDetailDTO lockerDto = new()
+                {
+                    LockerType = row["locker_type"]?.ToString() ?? string.Empty,
+                    Identifier = row["identifier"]?.ToString() ?? string.Empty,
+                    Warehouse = row["warehouse"]?.ToString() ?? string.Empty,
+                };
+                lockersList.Add(lockerDto);
+            }
+
+            return lockersList;
+        }
 
     }
 }

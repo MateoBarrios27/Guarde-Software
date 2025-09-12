@@ -48,7 +48,7 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 return StatusCode(500, $"Error getting the client: {ex.Message}");
             }
-        }    
+        }
 
         [HttpPost]
         public async Task<ActionResult<Client>> CreateClient([FromBody] CreateClientDTO dto)
@@ -63,6 +63,25 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 return StatusCode(500, $"Error loading the client: {ex.Message}");
             }
-        }    
+        }
+
+        [HttpGet("detail/{id}")]
+        public async Task<ActionResult<GetClientDetailDTO>> GetClientDetailById(int id)
+        {
+            try
+            {
+                GetClientDetailDTO clientDetail = await _clientService.GetClientDetailByIdAsync(id);
+
+                if (clientDetail == null)
+                {
+                    return NotFound($"Client id n°{id} not found ");
+                }
+                return Ok(clientDetail);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error getting the client detail: {ex.Message}");
+            }
+        }
     }
 }

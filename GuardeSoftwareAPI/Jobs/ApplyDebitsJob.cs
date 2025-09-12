@@ -14,8 +14,8 @@ namespace GuardeSoftwareAPI.Jobs
         {
             _logger = logger;
             _accountMovementService = accountMovementService;
-        }
 
+        }
         public async Task Execute(IJobExecutionContext context)
         {
             _logger.LogInformation("--- Initializing debit applier job ---");
