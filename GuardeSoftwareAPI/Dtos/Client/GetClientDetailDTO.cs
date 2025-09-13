@@ -29,6 +29,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public DateTime NextPaymentDay { get; set; }
         public decimal Balance { get; set; }
         public string PaymentStatus { get; set; } = string.Empty;
+        public decimal RentAmount { get; set; }
 
         //Locker Information
         //If the client no longer rents lockers, this list will be empty

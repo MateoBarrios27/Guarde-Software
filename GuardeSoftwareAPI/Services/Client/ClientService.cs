@@ -175,20 +175,21 @@ namespace GuardeSoftwareAPI.Services.client
                 RegistrationDate = Convert.ToDateTime(row["registration_date"]),
 
                 // Contact Information
-                Email = row["address"]?.ToString() ?? string.Empty,
-                Phone = row["number"]?.ToString() ?? string.Empty,
-                Address = row["address"]?.ToString() ?? string.Empty,
+                Email = row["email_address"]?.ToString() ?? string.Empty,
+                Phone = row["phone_number"]?.ToString() ?? string.Empty,
+                Address = row["street"]?.ToString() ?? string.Empty,
 
                 // Payment & rental Information
                 IvaCondition = row["iva_condition"]?.ToString() ?? string.Empty,
                 PreferredPaymentMethod = row["preferred_payment_method"]?.ToString() ?? "No especificado",
-                IncresePerentage = row["percentage"] != DBNull.Value ? Convert.ToDecimal(row["percentage"]) : 0,
-                IncreaseFrequency = row["frequency"] != DBNull.Value ? Convert.ToInt32(row["frequency"]) : 0,
+                IncresePerentage = row["increase_percentage"] != DBNull.Value ? Convert.ToDecimal(row["increase_percentage"]) : 0,
+                IncreaseFrequency = row["increase_frequency"] != DBNull.Value ? Convert.ToInt32(row["increase_frequency"]) : 0,
                 NextIncreaseDay = row["end_date"] != DBNull.Value ? Convert.ToDateTime(row["end_date"]) : DateTime.MinValue,
-                NextPaymentDay = DateTime.MinValue,
+                NextPaymentDay = row["next_payment_day"] != DBNull.Value ? Convert.ToDateTime(row["next_payment_day"]) : DateTime.MinValue,
                 ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
-                Balance = 0,
-                PaymentStatus = "Desconocido",
+                Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0,
+                PaymentStatus = row["payment_status"]?.ToString() ?? "Desconocido",
+                RentAmount = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m,
 
                 // Other information
                 Notes = row["notes"]?.ToString() ?? string.Empty,

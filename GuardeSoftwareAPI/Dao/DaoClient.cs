@@ -29,28 +29,28 @@ namespace GuardeSoftwareAPI.Dao
         {
             string query = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes FROM clients WHERE client_id = @client_id";
 
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
 
-                new SqlParameter("@client_id",SqlDbType.Int) {Value = id},
-            };
+                new("@client_id",SqlDbType.Int) {Value = id},
+            ];
 
             return accessDB.GetTable("clients", query, parameters);
         }
 
         public bool CreateClient(Client client)
         {
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
 
-                new SqlParameter("@payment_identifier",SqlDbType.Decimal) {Value = client.PaymentIdentifier},
-                new SqlParameter("@first_name",SqlDbType.VarChar) {Value = client.FirstName },
-                new SqlParameter("@last_name",SqlDbType.VarChar) {Value = client.LastName},
-                new SqlParameter("@registration_date",SqlDbType.DateTime) {Value = client.RegistrationDate},
-                new SqlParameter("@dni",SqlDbType.VarChar) {Value = client.Dni},
-                new SqlParameter("@cuit",SqlDbType.VarChar) {Value = client.Cuit},
-                new SqlParameter("@preferred_payment_method_id",SqlDbType.Int) {Value = client.PreferredPaymentMethodId},
-                new SqlParameter("@iva_condition",SqlDbType.VarChar) {Value = client.IvaCondition},
-                new SqlParameter("@notes",SqlDbType.VarChar) {Value = client.Notes},
-            };
+                new("@payment_identifier",SqlDbType.Decimal) {Value = client.PaymentIdentifier},
+                new("@first_name",SqlDbType.VarChar) {Value = client.FirstName },
+                new("@last_name",SqlDbType.VarChar) {Value = client.LastName},
+                new("@registration_date",SqlDbType.DateTime) {Value = client.RegistrationDate},
+                new("@dni",SqlDbType.VarChar) {Value = client.Dni},
+                new("@cuit",SqlDbType.VarChar) {Value = client.Cuit},
+                new("@preferred_payment_method_id",SqlDbType.Int) {Value = client.PreferredPaymentMethodId},
+                new("@iva_condition",SqlDbType.VarChar) {Value = client.IvaCondition},
+                new("@notes",SqlDbType.VarChar) {Value = client.Notes},
+            ];
 
             string query = "INSERT INTO clients(payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes)"
             + "VALUES(@payment_identifier,@first_name,@last_name,@registration_date,@dni,@cuit,@preferred_payment_method_id,@iva_condition, @notes)";
@@ -64,10 +64,10 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "UPDATE clients SET active = 0 WHERE client_id = @client_id";
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
-                new SqlParameter("@client_id", SqlDbType.Int){Value = id},
-            };
+            SqlParameter[] parameters =
+            [
+                new("@client_id", SqlDbType.Int){Value = id},
+            ];
 
             return accessDB.ExecuteCommand(query, parameters) > 0;
 
@@ -76,27 +76,27 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<int> CreateClientAsync(Client client)
         {
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
 
-                new SqlParameter("@payment_identifier", SqlDbType.Decimal)
+                new("@payment_identifier", SqlDbType.Decimal)
                 {
                     Precision = 10,
                     Scale = 2,
                     Value = (object?)client.PaymentIdentifier ?? DBNull.Value
                 },
-                new SqlParameter("@first_name", SqlDbType.VarChar) { Value = (object?)client.FirstName?.Trim() ?? DBNull.Value },
-                new SqlParameter("@last_name", SqlDbType.VarChar) { Value = (object?)client.LastName?.Trim() ?? DBNull.Value },
-                new SqlParameter("@registration_date", SqlDbType.DateTime) { Value = client.RegistrationDate },
-                new SqlParameter("@dni", SqlDbType.VarChar) { Value = (object?)client.Dni?.Trim() ?? DBNull.Value },
-                new SqlParameter("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },
-                new SqlParameter("@preferred_payment_method_id", SqlDbType.Int)
+                new("@first_name", SqlDbType.VarChar) { Value = (object?)client.FirstName?.Trim() ?? DBNull.Value },
+                new("@last_name", SqlDbType.VarChar) { Value = (object?)client.LastName?.Trim() ?? DBNull.Value },
+                new("@registration_date", SqlDbType.DateTime) { Value = client.RegistrationDate },
+                new("@dni", SqlDbType.VarChar) { Value = (object?)client.Dni?.Trim() ?? DBNull.Value },
+                new("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },
+                new("@preferred_payment_method_id", SqlDbType.Int)
                 {
                     Value = client.PreferredPaymentMethodId > 0 ? (object)client.PreferredPaymentMethodId : DBNull.Value
                 },
-                new SqlParameter("@iva_condition", SqlDbType.VarChar) { Value = (object?)client.IvaCondition?.Trim() ?? DBNull.Value },
-                new SqlParameter("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
-            };
+                new("@iva_condition", SqlDbType.VarChar) { Value = (object?)client.IvaCondition?.Trim() ?? DBNull.Value },
+                new("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
+            ];
 
             // Important: OUTPUT INSERTED.id returns the id even though there are triggers. 
             // instead: Identity scope can return the wrong ID if there are triggers
@@ -117,76 +117,113 @@ namespace GuardeSoftwareAPI.Dao
         //METHOD FOR TRANSACTION
         public async Task<int> CreateClientTransactionAsync(Client client, SqlConnection connection, SqlTransaction transaction)
         {
-            SqlParameter[] parameters = new SqlParameter[]
-            {
-                new SqlParameter("@payment_identifier", SqlDbType.Decimal)
+            SqlParameter[] parameters =
+            [
+                new("@payment_identifier", SqlDbType.Decimal)
                 {
                     Precision = 10,
                     Scale = 2,
                     Value = (object?)client.PaymentIdentifier ?? DBNull.Value
                 },
-                new SqlParameter("@first_name", SqlDbType.VarChar) { Value = (object?)client.FirstName?.Trim() ?? DBNull.Value },
-                new SqlParameter("@last_name", SqlDbType.VarChar) { Value = (object?)client.LastName?.Trim() ?? DBNull.Value },
-                new SqlParameter("@registration_date", SqlDbType.DateTime) { Value = client.RegistrationDate },
-                new SqlParameter("@dni", SqlDbType.VarChar) { Value = (object?)client.Dni?.Trim() ?? DBNull.Value },
-                new SqlParameter("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },
-                new SqlParameter("@preferred_payment_method_id", SqlDbType.Int)
+                new("@first_name", SqlDbType.VarChar) { Value = (object?)client.FirstName?.Trim() ?? DBNull.Value },
+                new("@last_name", SqlDbType.VarChar) { Value = (object?)client.LastName?.Trim() ?? DBNull.Value },
+                new("@registration_date", SqlDbType.DateTime) { Value = client.RegistrationDate },
+                new("@dni", SqlDbType.VarChar) { Value = (object?)client.Dni?.Trim() ?? DBNull.Value },
+                new("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },
+                new("@preferred_payment_method_id", SqlDbType.Int)
                 {
                     Value = client.PreferredPaymentMethodId > 0 ? (object)client.PreferredPaymentMethodId : DBNull.Value
                 },
-                new SqlParameter("@iva_condition", SqlDbType.VarChar) { Value = (object?)client.IvaCondition?.Trim() ?? DBNull.Value },
-                new SqlParameter("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
-            };
+                new("@iva_condition", SqlDbType.VarChar) { Value = (object?)client.IvaCondition?.Trim() ?? DBNull.Value },
+                new("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
+            ];
 
             string query = @"
                             INSERT INTO clients(payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes)
                             OUTPUT INSERTED.client_id
                             VALUES(@payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes);";
 
-            using (var command = new SqlCommand(query, connection, transaction))
-            {
-                command.Parameters.AddRange(parameters);
-                object result = await command.ExecuteScalarAsync() ?? DBNull.Value;
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.AddRange(parameters);
+            object result = await command.ExecuteScalarAsync() ?? DBNull.Value;
 
-                if (result == null || result == DBNull.Value)
-                    throw new InvalidOperationException("The newly added customer id could not be returned.");
+            if (result == null || result == DBNull.Value)
+                throw new InvalidOperationException("The newly added customer id could not be returned.");
 
-                return Convert.ToInt32(result);
-            }
+            return Convert.ToInt32(result);
         }
         
         //Here missing the method to get balance and payment status
         public async Task<DataTable> GetClientDetailByIdAsync(int id)
         {
+            // Consulta actualizada con el estado de pago "Moroso".
             string query = @"
+                WITH CurrentRentalAmount AS (
+                    SELECT rental_id, amount as CurrentRent
+                    FROM (
+                        SELECT 
+                            rental_id, 
+                            amount, 
+                            ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY start_date DESC) as rn
+                        FROM rental_amount_history
+                    ) as sub
+                    WHERE rn = 1
+                ),
+                AccountSummary AS (
+                    SELECT
+                        rental_id,
+                        SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END) AS Balance,
+                        MAX(CASE WHEN movement_type = 'DEBITO' THEN movement_date END) AS LastDebitDate
+                    FROM
+                        account_movements
+                    GROUP BY
+                        rental_id
+                )
                 SELECT 
                     c.client_id, c.payment_identifier, c.first_name, c.last_name, c.registration_date,
                     c.dni, c.cuit, c.iva_condition, c.notes,
-                    em.address, ph.number, ad.street, ad.city, ad.province,
+                    em.address AS email_address, 
+                    ph.number AS phone_number, 
+                    ad.street, ad.city, ad.province,
                     pm.name AS preferred_payment_method,
-                    r.contracted_m3, cir.end_date, ir.frequency, ir.percentage
+                    r.contracted_m3,
+                    cir.end_date,
+                    ir.frequency AS increase_frequency, 
+                    ir.percentage AS increase_percentage,
+                    cra.CurrentRent AS rent_amount,
+                    ISNULL(acc.Balance, 0) AS balance,
+                    CASE
+                        WHEN ISNULL(acc.Balance, 0) > 0 OR acc.LastDebitDate IS NULL OR cra.CurrentRent IS NULL OR cra.CurrentRent = 0 THEN
+                            CASE
+                                WHEN DAY(GETDATE()) <= 10 THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10)
+                                ELSE DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
+                            END
+                        ELSE
+                            DATEADD(month, 1 + FLOOR(-acc.Balance / cra.CurrentRent), acc.LastDebitDate)
+                    END AS next_payment_day,
+                    CASE 
+                        WHEN ISNULL(acc.Balance, 0) <= 0 THEN 'Al día'
+                        WHEN acc.Balance > cra.CurrentRent THEN 'Moroso'
+                        WHEN DAY(GETDATE()) > 10 AND acc.Balance > 0 THEN 'Vencido'
+                        WHEN acc.Balance > 0 THEN 'Pendiente'
+                        ELSE 'Revisar'
+                    END AS payment_status
                 FROM 
                     clients c
-                LEFT JOIN
-                    addresses ad ON c.client_id = ad.client_id
-                LEFT JOIN
-                    emails em ON c.client_id = em.client_id
-                LEFT JOIN 
-                    phones ph ON c.client_id = ph.client_id
-                LEFT JOIN
-                    clients_x_increase_regimens cir ON c.client_id = cir.client_id
-                LEFT JOIN
-                    increase_regimens ir ON cir.regimen_id = ir.regimen_id
-                LEFT JOIN 
-                    payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
-                LEFT JOIN 
-                    rentals r ON c.client_id = r.client_id AND r.active = 1 
-                WHERE 
-                    c.client_id = @client_id AND c.active = 1;";
+                LEFT JOIN addresses ad ON c.client_id = ad.client_id
+                LEFT JOIN emails em ON c.client_id = em.client_id AND em.active = 1
+                LEFT JOIN phones ph ON c.client_id = ph.client_id AND ph.active = 1
+                LEFT JOIN clients_x_increase_regimens cir ON c.client_id = cir.client_id
+                LEFT JOIN increase_regimens ir ON cir.regimen_id = ir.regimen_id
+                LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
+                LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1 
+                LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
+                LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
+                WHERE c.client_id = @client_id AND c.active = 1;";
 
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
                 new SqlParameter("@client_id", SqlDbType.Int) { Value = id },
-            };
+            ];
 
             return await accessDB.GetTableAsync("client_details", query, parameters);
         }
