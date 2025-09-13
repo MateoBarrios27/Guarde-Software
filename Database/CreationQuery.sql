@@ -93,6 +93,7 @@ CREATE TABLE addresses (
 CREATE TABLE payment_methods (
     payment_method_id INT IDENTITY(1,1) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
+    commission DECIMAL(5,2),
     active BIT DEFAULT 1
 );
 

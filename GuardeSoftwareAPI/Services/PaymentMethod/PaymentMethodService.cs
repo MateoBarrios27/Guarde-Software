@@ -29,7 +29,8 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 				PaymentMethod paymentMethod = new PaymentMethod
 				{
 					Id = paymentMethodId,
-					Name = row["name"]?.ToString() ?? string.Empty
+					Name = row["name"]?.ToString() ?? string.Empty,
+					Commission = row["commission"] != DBNull.Value ? (decimal)row["commission"] : 0m
 				};
 
 				paymentMethods.Add(paymentMethod);
@@ -50,7 +51,8 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 			return new PaymentMethod
 			{
 				Id = (int)row["payment_method_id"],
-				Name = row["name"]?.ToString() ?? string.Empty
+				Name = row["name"]?.ToString() ?? string.Empty,
+				Commission = row["commission"] != DBNull.Value ? (decimal)row["commission"] : 0m
 			};
 		}
 

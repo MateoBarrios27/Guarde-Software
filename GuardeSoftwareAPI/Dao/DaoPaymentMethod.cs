@@ -16,14 +16,14 @@ namespace GuardeSoftwareAPI.Dao
 
         public DataTable GetPaymentMethods()
         {
-            string query = "SELECT payment_method_id, name FROM payment_methods WHERE active = 1";
+            string query = "SELECT payment_method_id, name, commission FROM payment_methods WHERE active = 1";
 
             return accessDB.GetTable("payment_methods", query);
         }
 
         public DataTable GetPaymentMethodById(int id) { 
         
-            string query = "SELECT payment_method_id, name FROM payment_methods WHERE active = 1 AND payment_method_id = @payment_method_id";
+            string query = "SELECT payment_method_id, name, commission FROM payment_methods WHERE active = 1 AND payment_method_id = @payment_method_id";
 
             SqlParameter[] parameters = new SqlParameter[] {
 
@@ -34,9 +34,10 @@ namespace GuardeSoftwareAPI.Dao
 
         public bool CreatePaymentMethod(PaymentMethod paymentMethod) {
 
-            string query = "INSERT INTO payment_methods (name, active) VALUES (@name, 1)";
+            string query = "INSERT INTO payment_methods (name,commission, active) VALUES (@name, @commission, 1)";
             SqlParameter[] parameters = new SqlParameter[] {
                 new SqlParameter("@name", SqlDbType.NVarChar, 100){Value  = paymentMethod.Name},
+                new SqlParameter("@commission", SqlDbType.Decimal){Value  = paymentMethod.Commission},
             };
 
             return accessDB.ExecuteCommand(query, parameters) > 0;

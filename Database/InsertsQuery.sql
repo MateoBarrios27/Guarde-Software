@@ -50,10 +50,9 @@ INSERT INTO addresses (client_id, street, city, province) VALUES
 (2, 'Av. Libertador 456', 'San Isidro', 'Buenos Aires');
 
 -- Payment Methods
-INSERT INTO payment_methods (name, active) VALUES
-('Efectivo', 1),
-('Transferencia Bancaria', 1),
-('Tarjeta de Crédito', 1);
+INSERT INTO payment_methods (name, active, commission) VALUES
+('Efectivo', 1, 0.00),
+('Transferencia Bancaria', 1, 24.00);
 
 -- Rentals
 INSERT INTO rentals (client_id, start_date, end_date, contracted_m3, active) VALUES
