@@ -60,7 +60,20 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(jobKey)
         .WithIdentity("ApplyDebits-Trigger")
-        .WithCronSchedule("0 53 23 * * ?") 
+        .WithCronSchedule("0 53 23 * * ?")
+    );
+});
+
+builder.Services.AddQuartz(q =>
+{
+    var jobKey = new JobKey("ApplyRentIncreaseJob");
+
+    q.AddJob<ApplyRentIncreaseJob>(opts => opts.WithIdentity(jobKey));
+
+    q.AddTrigger(opts => opts
+        .ForJob(jobKey)
+        .WithIdentity("ApplyRentIncreaseJob-trigger") 
+        .WithCronSchedule("0 58 16 * * ?") 
     );
 });
 
