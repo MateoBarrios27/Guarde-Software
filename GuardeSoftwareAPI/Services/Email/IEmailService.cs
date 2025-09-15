@@ -13,5 +13,7 @@ namespace GuardeSoftwareAPI.Services.email
 
 		public bool CreateEmail(Email email);
 
-	}
+        public bool DeleteEmail(int id);
+
+    }
 }

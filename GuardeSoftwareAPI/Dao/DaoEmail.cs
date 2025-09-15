@@ -46,5 +46,18 @@ namespace GuardeSoftwareAPI.Dao
 
             return accessDB.ExecuteCommand(query, parameters) > 0;
         }
+
+        public bool DeleteEmail(int id)
+        {
+
+            string query = "UPDATE emails SET active = 0 WHERE email_id = @email_id";
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@email_id", SqlDbType.Int ) { Value = id},
+            };
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
+        }
     }
 }

@@ -48,5 +48,6 @@ namespace GuardeSoftwareAPI.Dao
 
             return accessDB.ExecuteCommand(query, parameters) > 0;
         }
+
     }
 }

@@ -108,5 +108,18 @@ namespace GuardeSoftwareAPI.Dao
 
             return await accessDB.GetTableAsync("lockers_by_client", query, parameters);
         }
+
+        public bool DeleteLocker(int id)
+        {
+
+            string query = "UPDATE lockers SET active = 0 WHERE locker_id = @locker_id";
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@locker_id", SqlDbType.Int ) { Value = id},
+            };
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
+        }
     }
 }

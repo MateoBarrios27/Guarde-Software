@@ -81,5 +81,14 @@ namespace GuardeSoftwareAPI.Services.email
             if (_daoEmail.CreateEmail(email)) return true;
             else return false;
         }
+
+        public bool DeleteEmail(int id)
+        {
+            if (id <= 0)
+                throw new ArgumentException("Invalid Email Id.");
+
+            if (_daoEmail.DeleteEmail(id)) return true;
+            else return false;
+        }
     }
 }

@@ -47,6 +47,17 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 return StatusCode(500, $"Error getting the email: {ex.Message}");
             }
-        }    
+        }
+
+        [HttpDelete("{id}")]
+        public IActionResult DeleteEmail(int id)
+        {
+            bool deleted = _emailService.DeleteEmail(id);
+
+            if (deleted)
+                return Ok(new { message = "Email deleted successfully." });
+            else
+                return NotFound(new { message = "No Email found with the given ID." });
+        }
     }
 }

@@ -46,5 +46,18 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.ExecuteCommand(query, parameters) > 0;
             
         }
+
+        public bool DeletePhone(int id)
+        {
+
+            string query = "UPDATE phones SET active = 0 WHERE phone_id = @phone_id";
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@phone_id", SqlDbType.Int ) { Value = id},
+            };
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
+        }
     }
 }

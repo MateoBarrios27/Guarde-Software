@@ -47,5 +47,16 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, $"Error getting the locker: {ex.Message}");
             }
         }
+
+        [HttpDelete("{id}")]
+        public IActionResult DeleteLocker(int id)
+        {
+            bool deleted = _lockerService.DeleteLocker(id);
+
+            if (deleted)
+                return Ok(new { message = "Locker deleted successfully." });
+            else
+                return NotFound(new { message = "No Locker found with the given ID." });
+        }
     }
 }

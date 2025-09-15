@@ -124,5 +124,14 @@ namespace GuardeSoftwareAPI.Services.locker
             return lockersList;
         }
 
+        public bool DeleteLocker(int id)
+        {
+            if (id <= 0)
+                throw new ArgumentException("Invalid Locker Id.");
+
+            if (daoLocker.DeleteLocker(id)) return true;
+            else return false;
+        }
+
     }
 }
