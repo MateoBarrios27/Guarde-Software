@@ -121,5 +121,16 @@ namespace GuardeSoftwareAPI.Dao
 
             return accessDB.ExecuteCommand(query, parameters) > 0;
         }
+
+        public async Task<bool> IsLockerIsAvailabeAsync(int lockerId, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = "SELECT COUNT(1) FROM lockers WHERE locker_id = @locker_id AND status = 'DISPONIBLE'";
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.Add(new SqlParameter("@locker_id", SqlDbType.Int) { Value = lockerId });
+                int count = (int)await command.ExecuteScalarAsync();
+                return count > 0;
+            }
+        }
     }
 }

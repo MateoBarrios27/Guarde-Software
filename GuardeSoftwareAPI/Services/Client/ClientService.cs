@@ -100,6 +100,13 @@ namespace GuardeSoftwareAPI.Services.client
             if (dto.LockerIds.Any(id => id <= 0)) throw new ArgumentException("LockerIds must be positive numbers.");
             if (dto.LockerIds.Distinct().Count() != dto.LockerIds.Count) throw new ArgumentException("Duplicate lockerIds are not allowed.");
             if (dto.UserID <= 0) throw new ArgumentException("Invalid UserID.");
+
+            if (!string.IsNullOrEmpty(dto.Dni) && string.IsNullOrWhiteSpace(dto.Dni))
+                throw new ArgumentException("DNI cannot be empty or whitespace.", nameof(dto.Dni));
+
+            if (!string.IsNullOrEmpty(dto.Cuit) && string.IsNullOrWhiteSpace(dto.Cuit))
+                throw new ArgumentException("CUIT cannot be empty or whitespace.", nameof(dto.Cuit));
+
             if (dto.RegistrationDate == default) dto.RegistrationDate = DateTime.UtcNow;
 
             using (var connection = accessDB.GetConnectionClose())
@@ -109,6 +116,17 @@ namespace GuardeSoftwareAPI.Services.client
                 {
                     try
                     {
+
+                        if (dto.Dni != null && await daoClient.ExistsByDniAsync(dto.Dni, connection, transaction))
+                        {
+                            throw new InvalidOperationException("A client with this DNI already exists.");
+                        }
+
+                        if (dto.Cuit != null && await daoClient.ExistsByCuitAsync(dto.Cuit, connection, transaction))
+                        {
+                            throw new InvalidOperationException("A client with this CUIT already exists.");
+                        }
+
                         Client client = new Client
                         {
                             PaymentIdentifier = dto.PaymentIdentifier,
@@ -141,6 +159,13 @@ namespace GuardeSoftwareAPI.Services.client
                         };
 
                         var rentalAmountHistoryId = await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(rentalAmountHistory, connection, transaction);
+
+
+                        foreach (var lockerId in dto.LockerIds)
+                        {
+                            if (!await lockerService.IsLockerAvailableAsync(lockerId, connection, transaction))
+                                throw new InvalidOperationException($"Locker {lockerId} is already occupied.");
+                        }
 
                         await lockerService.SetRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
 

@@ -133,5 +133,14 @@ namespace GuardeSoftwareAPI.Services.locker
             else return false;
         }
 
+        public async Task<bool> IsLockerAvailableAsync(int lockerId, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (lockerId <= 0)
+                throw new ArgumentException("Invalid locker ID.", nameof(lockerId));
+
+            return await daoLocker.IsLockerIsAvailabeAsync(lockerId, connection, transaction);
+        }
+
+
     }
 }

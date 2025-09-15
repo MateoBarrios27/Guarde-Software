@@ -227,6 +227,28 @@ namespace GuardeSoftwareAPI.Dao
 
             return await accessDB.GetTableAsync("client_details", query, parameters);
         }
+
+        public async Task<bool> ExistsByDniAsync(string dni, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = "SELECT COUNT(1) FROM clients WHERE dni = @dni";
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.Add(new SqlParameter("@dni", SqlDbType.VarChar) { Value = dni });
+                int count = (int)await command.ExecuteScalarAsync();
+                return count > 0;
+            }
+        }
+
+        public async Task<bool> ExistsByCuitAsync(string cuit, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = "SELECT COUNT(1) FROM clients WHERE cuit = @cuit";
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.Add(new SqlParameter("@cuit", SqlDbType.VarChar) { Value = cuit });
+                int count = (int)await command.ExecuteScalarAsync();
+                return count > 0;
+            }
+        }
     }
 }
 

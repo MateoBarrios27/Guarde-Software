@@ -22,5 +22,7 @@ namespace GuardeSoftwareAPI.Services.locker
 
 		public bool DeleteLocker(int id);
 
+		Task<bool> IsLockerAvailableAsync(int lockerId, SqlConnection connection, SqlTransaction transaction);
+
     }
 }
