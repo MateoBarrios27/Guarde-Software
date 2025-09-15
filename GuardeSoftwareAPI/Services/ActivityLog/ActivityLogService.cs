@@ -3,6 +3,8 @@ using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
 using System.Data;
 using System.Collections.Generic;
+using Microsoft.Data.SqlClient;
+
 
 namespace GuardeSoftwareAPI.Services.activityLog
 {
@@ -108,7 +110,31 @@ namespace GuardeSoftwareAPI.Services.activityLog
             if (_daoActivityLog.CreateActivityLog(activityLog)) return true;
             else return false;
         }
-        
+
+        public async Task<bool> CreateActivityLogTransactionAsync(ActivityLog activityLog, SqlConnection connection, SqlTransaction transaction)
+        {
+
+            if (activityLog == null)
+                throw new ArgumentNullException(nameof(activityLog));
+
+            if (activityLog.UserId <= 0)
+                throw new ArgumentException("Invalid UserId.");
+
+            if (string.IsNullOrWhiteSpace(activityLog.Action))
+                throw new ArgumentException("Action is required.");
+
+            if (string.IsNullOrWhiteSpace(activityLog.TableName))
+                throw new ArgumentException("TableName is required.");
+
+            if (activityLog.RecordId <= 0)
+                throw new ArgumentException("Invalid RecordId.");
+
+            activityLog.OldValue = string.IsNullOrWhiteSpace(activityLog.OldValue) ? null : activityLog.OldValue;
+            activityLog.NewValue = string.IsNullOrWhiteSpace(activityLog.NewValue) ? null : activityLog.NewValue;
+
+            return await _daoActivityLog.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
+        }
+
         public bool DeleteActivityLog(int id)
         {
             if (id <= 0)

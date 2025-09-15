@@ -26,6 +26,8 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public decimal Amount { get; set; }
         //id of locker rental
         public List<int> LockerIds { get; set; } = new List<int>();
+        //user id for activityLog
+        public int UserID { get; set; }
 
     }
 }

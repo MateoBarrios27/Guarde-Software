@@ -8,6 +8,7 @@ using GuardeSoftwareAPI.Services.rental;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
 using GuardeSoftwareAPI.Services.locker;
 using GuardeSoftwareAPI.Dtos.Locker;
+using GuardeSoftwareAPI.Services.activityLog;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -22,14 +23,17 @@ namespace GuardeSoftwareAPI.Services.client
 
         private readonly ILockerService lockerService;
 
+        private readonly IActivityLogService activityLogService;
+
         private readonly AccessDB accessDB;
 
-        public ClientService(AccessDB _accessDB, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, ILockerService _lockerService)
+        public ClientService(AccessDB _accessDB, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, ILockerService _lockerService, IActivityLogService _activityLogService)
         {
             daoClient = new DaoClient(_accessDB);
             this.rentalService = _rentalService;
             this.rentalAmountHistoryService = _rentalAmountHistoryService;
             this.lockerService = _lockerService;
+            this.activityLogService = _activityLogService;  
             this.accessDB = _accessDB;
         }
 
@@ -89,11 +93,13 @@ namespace GuardeSoftwareAPI.Services.client
         public async Task<int> CreateClientAsync(CreateClientDTO dto)
         {
             if (dto == null) throw new ArgumentNullException(nameof(dto));
-
             if (string.IsNullOrWhiteSpace(dto.FirstName)) throw new ArgumentException("FirstName is required.");
             if (string.IsNullOrWhiteSpace(dto.LastName)) throw new ArgumentException("LastName is required.");
-            //add more validations for customer
-
+            if (dto.Amount <= 0) throw new ArgumentException("Amount must be greater than 0.");
+            if (dto.LockerIds == null || dto.LockerIds.Count == 0) throw new ArgumentException("At least one lockerId is required.");
+            if (dto.LockerIds.Any(id => id <= 0)) throw new ArgumentException("LockerIds must be positive numbers.");
+            if (dto.LockerIds.Distinct().Count() != dto.LockerIds.Count) throw new ArgumentException("Duplicate lockerIds are not allowed.");
+            if (dto.UserID <= 0) throw new ArgumentException("Invalid UserID.");
             if (dto.RegistrationDate == default) dto.RegistrationDate = DateTime.UtcNow;
 
             using (var connection = accessDB.GetConnectionClose())
@@ -116,7 +122,7 @@ namespace GuardeSoftwareAPI.Services.client
                             Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
                         };
 
-                        int newId = await daoClient.CreateClientAsync(client);
+                        int newId = await daoClient.CreateClientTransactionAsync(client, connection, transaction);
 
                         Rental rental = new Rental
                         {
@@ -138,14 +144,25 @@ namespace GuardeSoftwareAPI.Services.client
 
                         await lockerService.SetRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
 
-                        transaction.Commit();
+                        ActivityLog activityLog = new ActivityLog
+                        {
+                            UserId = dto.UserID,
+                            LogDate = dto.StartDate,
+                            Action = "CREATE",
+                            TableName = "clients",
+                            RecordId = newId,
+                        };
+
+                        await activityLogService.CreateActivityLogTransactionAsync(activityLog,connection,transaction);
+
+                        transaction.CommitAsync();
 
                         return newId;
                     }
                     catch
                     {
 
-                        transaction.Rollback();
+                        transaction.RollbackAsync();
                         throw;
                     }
                 }
