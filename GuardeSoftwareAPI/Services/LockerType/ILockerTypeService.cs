@@ -10,6 +10,6 @@ namespace GuardeSoftwareAPI.Services.lockerType
 
         List<LockerType> GetLockerTypeListById(int id);
 
-		public bool CreateLockerType(LockerType lockerType);
+		public Task<bool> CreateLockerType(LockerType lockerType);
     }
 }

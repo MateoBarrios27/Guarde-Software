@@ -39,13 +39,36 @@ namespace GuardeSoftwareAPI.Controllers
 
                 if (lockerTypes == null)
                 {
-                    return NotFound($"locker type id n°{id} not found ");
+                    return NotFound($"locker type id nï¿½{id} not found ");
                 }
                 return Ok(lockerTypes);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Error getting the locker type: {ex.Message}");
+            }
+        }
+
+        [HttpPost]
+        public async Task<ActionResult> CreateLockerType([FromBody] LockerType lockerType)
+        {
+            try
+            {
+                if (lockerType == null)
+                {
+                    return BadRequest("Locker type data is null.");
+                }
+
+                await _lockerTypeService.CreateLockerType(lockerType);
+                return Ok("Locker type created successfully.");
+            }
+            catch (ArgumentException argEx)
+            {
+                return BadRequest(argEx.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating locker type: {ex.Message}");
             }
         }
     }

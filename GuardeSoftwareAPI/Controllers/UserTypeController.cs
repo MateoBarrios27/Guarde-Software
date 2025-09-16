@@ -56,13 +56,13 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreateUserType([FromBody] UserType userType)
+        public async Task<IActionResult> CreateUserType([FromBody] UserType userType)
         {
             try
             {
                 if (userType == null)
                     return BadRequest("User type is null.");
-                bool isCreated = _userTypeService.CreateUserType(userType);
+                bool isCreated = await _userTypeService.CreateUserType(userType);
                 if (!isCreated)
                     return StatusCode(500, "Failed to create the user type.");
                 return CreatedAtAction(nameof(GetUserTypeById), new { id = userType.Id }, userType);

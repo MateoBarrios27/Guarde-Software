@@ -34,13 +34,29 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.GetTable("user_types", query, parameters);
         }
         
-        public bool CreateUserType(UserType userType) {
+        public async Task<bool> CreateUserTypeAsync(UserType userType) {
             string query = "INSERT INTO user_types (name) VALUES (@name)";
             SqlParameter[] parameters = new SqlParameter[] {
                 new SqlParameter("@name", SqlDbType.NVarChar, 100){Value  = userType.Name},
             };
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
+
+        public async Task<bool> CheckIfUserTypeNameExistsAsync(string name)
+        {
+            string query = "SELECT COUNT(*) FROM user_types WHERE name = @name";
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@name", SqlDbType.NVarChar, 100) { Value = name }
+            };
+
+            object result = await accessDB.ExecuteScalarAsync(query, parameters);
+            int count = (result != null && int.TryParse(result.ToString(), out int tempCount)) ? tempCount : 0;
+
+            return count > 0;
+        }
+        
         
          public bool DeleteUserType(int userTypeId)
         {
