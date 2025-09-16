@@ -42,6 +42,21 @@ namespace GuardeSoftwareAPI.Dao
 
             return accessDB.ExecuteCommand(query, parameters) > 0;
         }
+
+        public async Task<bool> CheckIfPaymentMethodExists(string name)
+        {
+            string query = "SELECT COUNT(*) FROM payment_methods WHERE name = @name AND active = 1";
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@name", SqlDbType.NVarChar, 100) { Value = name }
+            };
+
+            object result = await accessDB.ExecuteScalarAsync(query, parameters);
+            int count = (result != null && int.TryParse(result.ToString(), out int tempCount)) ? tempCount : 0;
+
+            return count > 0;
+        }
         
         public bool DeletePaymentMethod(int id)
         {

@@ -79,7 +79,7 @@ namespace GuardeSoftwareAPI.Dao
                   AND MONTH(movement_date) = MONTH(GETDATE()) 
                   AND YEAR(movement_date) = YEAR(GETDATE());";
 
-            var parameters = new SqlParameter[]
+            SqlParameter[] parameters = new SqlParameter[]
             {
                 new SqlParameter("@rentalId", SqlDbType.Int) { Value = rentalId }
             };

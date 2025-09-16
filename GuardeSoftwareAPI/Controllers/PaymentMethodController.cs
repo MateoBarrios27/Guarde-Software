@@ -57,13 +57,13 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreatePaymentMethod([FromBody] PaymentMethod paymentMethod)
+        public async Task<IActionResult> CreatePaymentMethod([FromBody] PaymentMethod paymentMethod)
         {
             try
             {
                 if (paymentMethod == null)
                     return BadRequest("Payment method is null.");
-                bool isCreated  = _paymentMethodService.CreatePaymentMethod(paymentMethod);
+                bool isCreated  = await _paymentMethodService.CreatePaymentMethod(paymentMethod);
                 if (!isCreated)
                     return StatusCode(500, "Failed to create the payment.");
                 return CreatedAtAction(nameof(GetPaymenMethodById), new { id = paymentMethod.Id }, paymentMethod);

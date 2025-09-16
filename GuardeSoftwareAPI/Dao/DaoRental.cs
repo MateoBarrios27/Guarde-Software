@@ -177,7 +177,7 @@ namespace GuardeSoftwareAPI.Dao
             using (var command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.AddRange(parameters);
-                object result = await command.ExecuteScalarAsync();
+                object result = await command.ExecuteScalarAsync() ?? DBNull.Value;
 
                 if (result == null || result == DBNull.Value)
                     throw new InvalidOperationException("The newly added Rental id could not be returned.");
