@@ -32,7 +32,8 @@ namespace GuardeSoftwareAPI.Services.rental
 					ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
 					ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
 					StartDate = row["start_date"] != DBNull.Value ? (DateTime)row["start_date"] : DateTime.MinValue,
-					EndDate = row["end_date"] != DBNull.Value ? (DateTime)row["end_date"] : null
+					EndDate = row["end_date"] != DBNull.Value ? (DateTime)row["end_date"] : null,
+					MonthsUnpaid = row["months_unpaid"] != DBNull.Value ? (int)row["months_unpaid"] : 0
 				};
 
 				rentals.Add(rental);
@@ -57,7 +58,8 @@ namespace GuardeSoftwareAPI.Services.rental
 				ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
 				ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
 				StartDate = row["start_date"] != DBNull.Value ? (DateTime)row["start_date"] : DateTime.MinValue,
-				EndDate = row["end_date"] != DBNull.Value ? (DateTime)row["end_date"] : null
+				EndDate = row["end_date"] != DBNull.Value ? (DateTime)row["end_date"] : null,
+				MonthsUnpaid = row["months_unpaid"] != DBNull.Value ? (int)row["months_unpaid"] : 0
 			};
 		}
 
@@ -74,6 +76,7 @@ namespace GuardeSoftwareAPI.Services.rental
             if (rental.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
             if (rental.ContractedM3 <= 0) throw new ArgumentException("Contracted M3 must be greater than zero.");
             if (rental.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
+			if (rental.MonthsUnpaid < 0) throw new ArgumentException("Months unpaid cannot be negative.");
 
             return await _daoRental.CreateRentalAsync(rental);
         }
@@ -84,8 +87,9 @@ namespace GuardeSoftwareAPI.Services.rental
             if (rental.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
             if (rental.ContractedM3 <= 0) throw new ArgumentException("Contracted M3 must be greater than zero.");
             if (rental.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
+			if (rental.MonthsUnpaid < 0) throw new ArgumentException("Months unpaid cannot be negative.");
 
-            return await _daoRental.CreateRentalTransactionAsync(rental,connection,transaction);
+            return await _daoRental.CreateRentalTransactionAsync(rental, connection, transaction);
         }
     }
 }

@@ -55,9 +55,9 @@ INSERT INTO payment_methods (name, active, commission) VALUES
 ('Transferencia Bancaria', 1, 24.00);
 
 -- Rentals
-INSERT INTO rentals (client_id, start_date, end_date, contracted_m3, active) VALUES
-(1, '2024-01-15', NULL, 8.00, 1),
-(2, '2024-02-20', NULL, 10.00, 1);
+INSERT INTO rentals (client_id, start_date, end_date, contracted_m3, months_unpaid, active) VALUES
+(1, '2024-01-15', NULL, 8.00, 0, 1),
+(2, '2024-02-20', NULL, 10.00, 0, 1);
 
 -- Lockers
 INSERT INTO lockers (warehouse_id, locker_type_id, identifier, features, status, rental_id, active) VALUES

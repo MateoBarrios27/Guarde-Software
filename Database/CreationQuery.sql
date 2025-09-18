@@ -104,6 +104,7 @@ CREATE TABLE rentals (
     start_date DATE NOT NULL,
     end_date DATE,
     contracted_m3 DECIMAL(10,2),
+    months_unpaid INT DEFAULT 0,
     active BIT DEFAULT 1, -- We can use end_date to determine if the rental is active, but this can be useful for quick checks & performance
     FOREIGN KEY (client_id) REFERENCES clients(client_id)
 );

@@ -17,7 +17,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public DataTable GetRentals()
         {
-            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3 FROM rentals WHERE active = 1";
+            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid FROM rentals WHERE active = 1";
 
             return accessDB.GetTable("rentals", query);
         }
@@ -25,7 +25,7 @@ namespace GuardeSoftwareAPI.Dao
         public DataTable GetRentalById(int rentalId)
         {
 
-            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3 FROM rentals WHERE active = 1 AND rental_id = @rental_id";
+            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid FROM rentals WHERE active = 1 AND rental_id = @rental_id";
 
             SqlParameter[] parameters = new SqlParameter[] {
 
@@ -38,7 +38,7 @@ namespace GuardeSoftwareAPI.Dao
         public DataTable GetRentalsByClientId(int clientId)
         {
 
-            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3 FROM rentals WHERE active = 1 AND client_id = @client_id";
+            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid FROM rentals WHERE active = 1 AND client_id = @client_id";
 
             SqlParameter[] parameters = new SqlParameter[] {
 
@@ -51,11 +51,12 @@ namespace GuardeSoftwareAPI.Dao
         public bool CreateRental(Rental rental)
         {
 
-            string query = "INSERT INTO rentals (client_id, start_date, contracted_m3) VALUES (@client_id, @start_date, @contracted_m3)";
+            string query = "INSERT INTO rentals (client_id, start_date, contracted_m3, months_unpaid) VALUES (@client_id, @start_date, @contracted_m3, @months_unpaid)";
             SqlParameter[] parameters = new SqlParameter[] {
                 new SqlParameter("@client_id", SqlDbType.Int){Value  = rental.ClientId},
                 new SqlParameter("@start_date", SqlDbType.DateTime){Value  = rental.StartDate},
                 new SqlParameter("@contracted_m3", SqlDbType.Int){Value  = rental.ContractedM3},
+                new SqlParameter("@months_unpaid", SqlDbType.Int){Value  = rental.MonthsUnpaid},
             };
             return accessDB.ExecuteCommand(query, parameters) > 0;
         }
@@ -138,12 +139,13 @@ namespace GuardeSoftwareAPI.Dao
                 {
                     Value = rental.ContractedM3.HasValue ? (object)rental.ContractedM3.Value : DBNull.Value
                 },
+                new SqlParameter("@months_unpaid", SqlDbType.Int) { Value = rental.MonthsUnpaid }
             };
 
             string query = @"
-                            INSERT INTO rentals(client_id, start_date, contracted_m3)
+                            INSERT INTO rentals(client_id, start_date, contracted_m3, months_unpaid)
                             OUTPUT INSERTED.rental_id
-                            VALUES(@client_id, @start_date, @contracted_m3);";
+                            VALUES(@client_id, @start_date, @contracted_m3, @months_unpaid);";
 
             object result = await accessDB.ExecuteScalarAsync(query, parameters);
 
@@ -167,12 +169,13 @@ namespace GuardeSoftwareAPI.Dao
                 {
                    Value = rental.ContractedM3.HasValue ? (object)rental.ContractedM3.Value : DBNull.Value
                 },
+                new SqlParameter("@months_unpaid", SqlDbType.Int) { Value = rental.MonthsUnpaid }
             };
 
             string query = @"
-                            INSERT INTO rentals(client_id, start_date, contracted_m3)
+                            INSERT INTO rentals(client_id, start_date, contracted_m3, months_unpaid)
                             OUTPUT INSERTED.rental_id
-                            VALUES(@client_id, @start_date, @contracted_m3);";
+                            VALUES(@client_id, @start_date, @contracted_m3, months_unpaid);";
 
             using (var command = new SqlCommand(query, connection, transaction))
             {

@@ -7,5 +7,6 @@ namespace GuardeSoftwareAPI.Entities
         public DateTime StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public decimal? ContractedM3 { get; set; }
+        public int MonthsUnpaid { get; set; }
     }
 }
