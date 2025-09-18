@@ -1,5 +1,7 @@
 ﻿using System;
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Dtos.Address;
+
 
 namespace GuardeSoftwareAPI.Services.address
 {
@@ -11,5 +13,8 @@ namespace GuardeSoftwareAPI.Services.address
 		List<Address> GetAddressListByClientId(int id);
 
 		public bool CreateAddress(Address address);
-	}
+
+		public bool UpdateAddress(int clientId, UpdateAddressDto dto);
+
+    }
 }

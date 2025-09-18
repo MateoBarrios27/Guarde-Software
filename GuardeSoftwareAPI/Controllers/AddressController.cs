@@ -1,7 +1,8 @@
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.address;
 using Microsoft.AspNetCore.Mvc;
-using GuardeSoftwareAPI.Services.address;
+using GuardeSoftwareAPI.Dtos.Address;
+
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -44,6 +45,27 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 return StatusCode(500, $"Error getting addresses by client id: {ex.Message}");
             }
-        }    
+        }
+
+        [HttpPut("{clientId}")]
+        public ActionResult UpdateAddress(int clientId, [FromBody] UpdateAddressDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                    return BadRequest("Address data is required.");
+
+                bool updated = _addressService.UpdateAddress(clientId, dto);
+
+                if (!updated)
+                    return NotFound($"No address found with Id {dto.Id} for client {clientId}.");
+
+                return Ok("Address updated successfully.");
+            }   
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error updating address: {ex.Message}");
+            }
+        }
     }
 }

@@ -49,5 +49,21 @@ namespace GuardeSoftwareAPI.Dao
             return accessDB.ExecuteCommand(query, parameters) > 0;
         }
 
+        public bool UpdateAddress(int clientId, Address newAddress)
+        {
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@client_id", SqlDbType.Int){Value = clientId},
+                new SqlParameter("@street", SqlDbType.VarChar){Value = newAddress.Street},
+                new SqlParameter("@city", SqlDbType.VarChar){Value = newAddress.City},
+                new SqlParameter("@province", SqlDbType.VarChar){Value = (object?)newAddress.Province ?? DBNull.Value},
+                new SqlParameter("@address_id", SqlDbType.Int){Value = newAddress.Id}
+            };
+
+            string query = "UPDATE addresses SET street = @street, city = @city, province = @province WHERE address_id = @address_id AND client_id = @client_id";
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
+        }
+
     }
 }

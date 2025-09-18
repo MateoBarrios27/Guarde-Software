@@ -3,6 +3,8 @@ using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
 using System.Collections.Generic;
 using System.Data;
+using GuardeSoftwareAPI.Dtos.Address;
+
 
 
 namespace GuardeSoftwareAPI.Services.address
@@ -86,5 +88,35 @@ namespace GuardeSoftwareAPI.Services.address
             else return false;
 			
 		}
+
+        public bool UpdateAddress(int clientId, UpdateAddressDto dto)
+        {
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto));
+
+            if (clientId <= 0)
+                throw new ArgumentException("Invalid ClientId.");
+
+            if (dto.Id <= 0)
+                throw new ArgumentException("Invalid Address Id.");
+
+            if (string.IsNullOrWhiteSpace(dto.Street))
+                throw new ArgumentException("Street is required.");
+
+            if (string.IsNullOrWhiteSpace(dto.City))
+                throw new ArgumentException("City is required.");
+
+            var newAddress = new Address
+            {
+                Id = dto.Id,
+                ClientId = clientId,
+                Street = dto.Street.Trim(),
+                City = dto.City.Trim(),
+                Province = string.IsNullOrWhiteSpace(dto.Province) ? null : dto.Province.Trim()
+            };
+
+            return daoAddress.UpdateAddress(clientId, newAddress);
+        }
+
     }
 }
