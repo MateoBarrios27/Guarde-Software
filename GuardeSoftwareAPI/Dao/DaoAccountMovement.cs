@@ -105,9 +105,63 @@ namespace GuardeSoftwareAPI.Dao
                 // Validation for possible nulls for optional foreign key
                 new SqlParameter("@payment_id", SqlDbType.Int) { Value = (object)debit.PaymentId ?? DBNull.Value }
             };
-            
-            
+
+
             await accessDB.ExecuteCommandAsync(query, parameters);
         }
+        
+        // Método para obtener los alquileres con saldo deudor al día de hoy
+        // public async Task<DataTable> GetRentalsWithPositiveBalanceAsync()
+        // {
+        //     // Esta consulta usa los CTEs que ya conocemos para encontrar clientes
+        //     // con un balance > 0, y nos trae su monto de alquiler actual para calcular el interés.
+        //     string query = @"
+        //         WITH CurrentRentalAmount AS (
+        //             SELECT rental_id, amount as CurrentRent
+        //             FROM (
+        //                 SELECT 
+        //                     rental_id, 
+        //                     amount, 
+        //                     ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY start_date DESC) as rn
+        //                 FROM rental_amount_history
+        //             ) as sub
+        //             WHERE rn = 1
+        //         ),
+        //         AccountSummary AS (
+        //             SELECT rental_id, SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END) AS Balance
+        //             FROM account_movements
+        //             GROUP BY rental_id
+        //         )
+        //         SELECT 
+        //             r.rental_id,
+        //             cra.CurrentRent
+        //         FROM rentals r
+        //         JOIN AccountSummary acc ON r.rental_id = acc.rental_id
+        //         JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
+        //         WHERE 
+        //             r.active = 1
+        //             AND acc.Balance > 0; -- La condición clave: solo traemos a los que deben dinero.
+        //     ";
+
+        //     return await accessDB.GetTableAsync("debtor_rentals", query);
+        // }
+
+        // // Método para crear un nuevo débito por interés en la cuenta del cliente
+        // public async Task CreateInterestDebitAsync(int rentalId, decimal interestAmount, string concept)
+        // {
+        //     string query = @"
+        //         INSERT INTO account_movements (rental_id, movement_date, movement_type, concept, amount)
+        //         VALUES (@rental_id, @movement_date, 'DEBITO', @concept, @amount);";
+            
+        //     var parameters = new SqlParameter[]
+        //     {
+        //         new SqlParameter("@rental_id", rentalId),
+        //         new SqlParameter("@movement_date", DateTime.Now.Date),
+        //         new SqlParameter("@concept", concept),
+        //         new SqlParameter("@amount", interestAmount)
+        //     };
+
+        //     await accessDB.ExecuteCommandAsync(query, parameters);
+        // }
     }         
 }  

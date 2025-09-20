@@ -188,7 +188,7 @@ namespace GuardeSoftwareAPI.Dao
                 return Convert.ToInt32(result);
             }
         }
-        
+
         // Method to get rentals that need a rent increase today
         // This method is used in the ApplyRentIncreaseJob
         public async Task<DataTable> GetRentalsDueForIncreaseAsync()
@@ -260,10 +260,69 @@ namespace GuardeSoftwareAPI.Dao
                     catch
                     {
                         await transaction.RollbackAsync();
-                        throw; 
+                        throw;
                     }
                 }
             }
         }
+        
+        public async Task<DataTable> GetAllActiveRentalsWithStatusAsync()
+        {
+            string query = @"
+            WITH CurrentRentalAmount AS (
+                SELECT rental_id, amount as CurrentRent
+                FROM (
+                    SELECT rental_id, amount, ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY start_date DESC) as rn
+                    FROM rental_amount_history
+                ) as sub
+                WHERE rn = 1
+            ),
+            AccountSummary AS (
+                SELECT rental_id, SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END) AS Balance
+                FROM account_movements
+                GROUP BY rental_id
+            )
+            SELECT 
+                r.rental_id,
+                r.months_unpaid, -- Usamos tu nueva columna
+                ISNULL(acc.Balance, 0) AS balance,
+                cra.CurrentRent
+            FROM rentals r
+            LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
+            LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
+            WHERE r.active = 1;";
+
+            return await accessDB.GetTableAsync("all_active_rentals", query);
+        }
+
+        public async Task IncrementUnpaidMonthsAndApplyInterestAsync(int rentalId, decimal interestAmount, string concept)
+        {
+            string query = @"
+            BEGIN TRANSACTION;
+            
+            UPDATE rentals 
+            SET months_unpaid = months_unpaid + 1 
+            WHERE rental_id = @rental_id;
+            
+            INSERT INTO account_movements (rental_id, movement_date, movement_type, concept, amount)
+            VALUES (@rental_id, GETDATE(), 'DEBITO', @concept, @amount);
+            
+            COMMIT TRANSACTION;";
+
+            var parameters = new SqlParameter[]
+            {
+            new SqlParameter("@rental_id", rentalId),
+            new SqlParameter("@concept", concept),
+            new SqlParameter("@amount", interestAmount)
+            };
+            await accessDB.ExecuteCommandAsync(query, parameters);
+        }
+        public async Task ResetUnpaidMonthsAsync(int rentalId)
+        {
+            string query = "UPDATE rentals SET months_unpaid = 0 WHERE rental_id = @rental_id;";
+            var parameters = new SqlParameter[] { new SqlParameter("@rental_id", rentalId) };
+            await accessDB.ExecuteCommandAsync(query, parameters);
+        }
+    
     }
 }
