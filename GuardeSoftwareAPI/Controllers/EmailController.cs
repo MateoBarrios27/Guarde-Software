@@ -1,6 +1,7 @@
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.email; 
 using Microsoft.AspNetCore.Mvc;
+using GuardeSoftwareAPI.Dtos.Email;
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -58,6 +59,27 @@ namespace GuardeSoftwareAPI.Controllers
                 return Ok(new { message = "Email deleted successfully." });
             else
                 return NotFound(new { message = "No Email found with the given ID." });
+        }
+
+        [HttpPut("{clientId}")]
+        public ActionResult UpdateEmail(int clientId, [FromBody] UpdateEmailDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                    return BadRequest("Email data is required.");
+
+                bool updated = _emailService.UpdateEmail(clientId, dto);
+
+                if (!updated)
+                    return NotFound($"No Email found with Id {dto.Id} for client {clientId}.");
+
+                return Ok("Email updated successfully.");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error updating Email: {ex.Message}");
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
 using System.Collections.Generic;
 using System.Data;
+using GuardeSoftwareAPI.Dtos.Email;
 
 namespace GuardeSoftwareAPI.Services.email
 {
@@ -89,6 +90,34 @@ namespace GuardeSoftwareAPI.Services.email
 
             if (_daoEmail.DeleteEmail(id)) return true;
             else return false;
+        }
+
+        public bool UpdateEmail(int clientId, UpdateEmailDto dto)
+        {
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto));
+
+            if (clientId <= 0)
+                throw new ArgumentException("Invalid ClientId.");
+
+            if (dto.Id <= 0)
+                throw new ArgumentException("Invalid Email Id.");
+
+            if (string.IsNullOrWhiteSpace(dto.Address))
+                throw new ArgumentException("Email Address is required.");
+
+            if (string.IsNullOrWhiteSpace(dto.Type))
+                throw new ArgumentException("Email type is required.");
+
+            var Email = new Email
+            {
+                Id = dto.Id,
+                ClientId = clientId,
+                Address = dto.Address,
+                Type = dto.Type,
+            };
+
+            return _daoEmail.UpdateEmail(Email);
         }
     }
 }

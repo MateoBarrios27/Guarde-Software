@@ -59,5 +59,20 @@ namespace GuardeSoftwareAPI.Dao
 
             return accessDB.ExecuteCommand(query, parameters) > 0;
         }
+
+        public bool UpdateEmail(Email email) {
+
+            SqlParameter[] parameters = new SqlParameter[] {
+
+                new SqlParameter("@email_id", SqlDbType.Int) { Value = email.Id},
+                new SqlParameter("@client_id",SqlDbType.Int){Value = email.ClientId},
+                new SqlParameter("@address",SqlDbType.VarChar,150){Value = email.Address},
+                new SqlParameter("@type",SqlDbType.VarChar,50){Value = (object?)email.Type ?? DBNull.Value},
+            };
+
+            string query = "UPDATE emails SET address = @address, type = @type WHERE email_id = @email_id AND client_id = @client_id";
+
+            return accessDB.ExecuteCommand(query, parameters) > 0;
+        }
     }
 }

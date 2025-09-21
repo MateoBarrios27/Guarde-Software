@@ -115,7 +115,7 @@ namespace GuardeSoftwareAPI.Services.address
                 Province = string.IsNullOrWhiteSpace(dto.Province) ? null : dto.Province.Trim()
             };
 
-            return daoAddress.UpdateAddress(clientId, newAddress);
+            return daoAddress.UpdateAddress(newAddress);
         }
 
     }
