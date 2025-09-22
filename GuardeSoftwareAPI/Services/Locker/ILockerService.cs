@@ -3,6 +3,7 @@ using GuardeSoftwareAPI.Dtos.Locker;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
 
+
 namespace GuardeSoftwareAPI.Services.locker
 {
 
@@ -23,6 +24,8 @@ namespace GuardeSoftwareAPI.Services.locker
 		public bool DeleteLocker(int id);
 
 		Task<bool> IsLockerAvailableAsync(int lockerId, SqlConnection connection, SqlTransaction transaction);
+
+		public bool UpdateLocker(int lockerId, UpdateLockerDto dto);
 
     }
 }

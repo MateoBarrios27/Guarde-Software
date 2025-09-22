@@ -1,6 +1,7 @@
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.locker;
 using Microsoft.AspNetCore.Mvc;
+using GuardeSoftwareAPI.Dtos.Locker;
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -57,6 +58,28 @@ namespace GuardeSoftwareAPI.Controllers
                 return Ok(new { message = "Locker deleted successfully." });
             else
                 return NotFound(new { message = "No Locker found with the given ID." });
+        }
+
+
+        [HttpPut("{id}")]
+        public IActionResult UpdateLocker(int id, [FromBody] UpdateLockerDto dto)
+        {
+            if (dto == null)
+                return BadRequest(new { message = "Invalid locker ID." });
+
+            try
+            {
+                bool updated = _lockerService.UpdateLocker(id,dto);
+
+                if (updated)
+                    return Ok(new { message = "Locker updated successfully." });
+                else
+                    return NotFound(new { message = $"No locker found with ID {id}." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error updating locker: {ex.Message}");
+            }
         }
     }
 }

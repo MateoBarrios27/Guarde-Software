@@ -132,5 +132,33 @@ namespace GuardeSoftwareAPI.Dao
                 return count > 0;
             }
         }
+
+        public bool UpdateLocker(Locker locker)
+        {
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@locker_id",SqlDbType.Int) { Value = locker.Id },
+                new SqlParameter("@identifier",SqlDbType.VarChar,100){Value = (object?)locker.Identifier ?? DBNull.Value},
+                new SqlParameter("@features",SqlDbType.VarChar){Value = (object?)locker.Features ?? DBNull.Value},
+                new SqlParameter("@status",SqlDbType.VarChar,50){Value = locker.Status},
+            };
+
+            string query = "UPDATE lockers SET identifier = @identifier, features = @features, status = @status WHERE locker_id = @locker_id";
+
+            return accessDB.ExecuteCommand(query,parameters) > 0;   
+        }
+
+        public async Task<bool> UpdateLockerStatus(int lockerId, string status)
+        {
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@locker_id",SqlDbType.Int) {Value = lockerId},
+                new SqlParameter("@status",SqlDbType.VarChar,50){Value = status},
+            };
+
+            string query = "UPDATE lockers SET status = @status WHERE locker_id = @locker_id";
+
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+        }
     }
 }

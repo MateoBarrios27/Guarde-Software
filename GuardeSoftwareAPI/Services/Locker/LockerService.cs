@@ -141,6 +141,43 @@ namespace GuardeSoftwareAPI.Services.locker
             return await daoLocker.IsLockerIsAvailabeAsync(lockerId, connection, transaction);
         }
 
+        public bool UpdateLocker(int Id, UpdateLockerDto dto)
+        {
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto));
+
+            if (Id <= 0)
+                throw new ArgumentException("Invalid lockerId.");
+
+            if (string.IsNullOrWhiteSpace(dto.Identifier))
+                throw new ArgumentException("Locker identifier is required.");
+
+            if (string.IsNullOrWhiteSpace(dto.Features))
+                throw new ArgumentException("Locker Features is required.");
+
+            if (string.IsNullOrWhiteSpace(dto.Status))
+                throw new ArgumentException("Locker Status is required.");
+
+            var Locker = new Locker
+            {
+                Id = Id,
+                Identifier = dto.Identifier,
+                Features = dto.Features,
+                Status = dto.Status,
+            };
+
+            return daoLocker.UpdateLocker(Locker);  
+        }
+
+        public async Task<bool> UpdateLockerStatus(int lockerId, UpdateLockerStatusDto dto)
+        {
+            if (lockerId <= 0) throw new ArgumentException("Invalid locker ID.");
+            if (string.IsNullOrWhiteSpace(dto.Status)) throw new ArgumentException("Status is required.");
+
+            
+            return await daoLocker.UpdateLockerStatus(lockerId, dto.Status);
+        }
+
 
     }
 }
