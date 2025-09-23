@@ -6,10 +6,10 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 
 	public interface IPaymentMethodService
 	{
-		public List<PaymentMethod> GetPaymentMethodsList();
-		public PaymentMethod GetPaymentMethodById(int id);
-		public bool DeletePaymentMethod(int paymentMethodId);
-		public Task<bool> CreatePaymentMethod(PaymentMethod paymentMethod);
+		Task<List<PaymentMethod>> GetPaymentMethodsList();
+		Task<PaymentMethod> GetPaymentMethodById(int id);
+		Task<bool> DeletePaymentMethod(int paymentMethodId);
+		Task<bool> CreatePaymentMethod(PaymentMethod paymentMethod);
 		
 	}
 }

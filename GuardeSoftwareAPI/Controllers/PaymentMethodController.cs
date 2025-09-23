@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.paymentMethod;
 using Microsoft.AspNetCore.Mvc;
@@ -17,11 +18,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet]
-        public ActionResult<List<PaymentMethod>> GetPaymentMethods()
+        public async Task<ActionResult<List<PaymentMethod>>> GetPaymentMethods()
         {
             try
             {
-                List<PaymentMethod> paymentMethods = _paymentMethodService.GetPaymentMethodsList();
+                List<PaymentMethod> paymentMethods = await _paymentMethodService.GetPaymentMethodsList();
 
                 return Ok(paymentMethods);
             }
@@ -36,11 +37,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetPaymenMethodById(int id)
+        public async Task<IActionResult> GetPaymenMethodById(int id)
         {
             try
             {
-                PaymentMethod paymentMethod = _paymentMethodService.GetPaymentMethodById(id);
+                PaymentMethod paymentMethod = await _paymentMethodService.GetPaymentMethodById(id);
                 if (paymentMethod == null)
                     return NotFound("No payment method found with the given ID.");
 
@@ -79,9 +80,9 @@ namespace GuardeSoftwareAPI.Controllers
         }
         
         [HttpDelete("{id}")]
-        public IActionResult DeletePaymentMethod(int id)
+        public async Task<IActionResult> DeletePaymentMethod(int id)
         {
-            bool deleted = _paymentMethodService.DeletePaymentMethod(id);
+            bool deleted = await _paymentMethodService.DeletePaymentMethod(id);
 
             if (deleted)
                 return Ok(new { message = "Payment method deleted successfully." });

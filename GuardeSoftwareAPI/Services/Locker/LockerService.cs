@@ -19,9 +19,9 @@ namespace GuardeSoftwareAPI.Services.locker
 			daoLocker = new DaoLocker(accessDB);
 		}
 
-		public List<Locker> GetLockersList() {
+		public async Task<List<Locker>> GetLockersList() {
 
-			DataTable LockerTable = daoLocker.GetLockers();
+			DataTable LockerTable = await daoLocker.GetLockers();
 			List<Locker> lockersList = new List<Locker>();
 
 			foreach (DataRow row in LockerTable.Rows) {
@@ -40,10 +40,10 @@ namespace GuardeSoftwareAPI.Services.locker
 			return lockersList;
 		}
 
-        public List<Locker> GetLockerListById(int id)
+        public async Task<List<Locker>> GetLockerListById(int id)
         {
 
-            DataTable LockerTable = daoLocker.GetLockerById(id);
+            DataTable LockerTable = await daoLocker.GetLockerById(id);
             List<Locker> lockersList = new List<Locker>();
 
             foreach (DataRow row in LockerTable.Rows)
@@ -63,7 +63,7 @@ namespace GuardeSoftwareAPI.Services.locker
             return lockersList;
         }
 
-        public bool CreateLocker(Locker locker)
+        public async Task<bool> CreateLocker(Locker locker)
         {
             if (locker == null)
                 throw new ArgumentNullException(nameof(locker));
@@ -85,7 +85,7 @@ namespace GuardeSoftwareAPI.Services.locker
             if (string.IsNullOrWhiteSpace(locker.Status))
                 throw new ArgumentException("Locker status is required.");
 
-            if (daoLocker.CreateLocker(locker)) return true;
+            if (await daoLocker.CreateLocker(locker)) return true;
             else return false;
         }
 
@@ -124,12 +124,12 @@ namespace GuardeSoftwareAPI.Services.locker
             return lockersList;
         }
 
-        public bool DeleteLocker(int id)
+        public async Task<bool> DeleteLocker(int id)
         {
             if (id <= 0)
                 throw new ArgumentException("Invalid Locker Id.");
 
-            if (daoLocker.DeleteLocker(id)) return true;
+            if (await daoLocker.DeleteLocker(id)) return true;
             else return false;
         }
 
@@ -141,7 +141,7 @@ namespace GuardeSoftwareAPI.Services.locker
             return await daoLocker.IsLockerIsAvailabeAsync(lockerId, connection, transaction);
         }
 
-        public bool UpdateLocker(int Id, UpdateLockerDto dto)
+        public async Task<bool> UpdateLocker(int Id, UpdateLockerDto dto)
         {
             if (dto == null)
                 throw new ArgumentNullException(nameof(dto));
@@ -166,7 +166,7 @@ namespace GuardeSoftwareAPI.Services.locker
                 Status = dto.Status,
             };
 
-            return daoLocker.UpdateLocker(Locker);  
+            return await daoLocker.UpdateLocker(Locker);  
         }
 
         public async Task<bool> UpdateLockerStatus(int lockerId, UpdateLockerStatusDto dto)

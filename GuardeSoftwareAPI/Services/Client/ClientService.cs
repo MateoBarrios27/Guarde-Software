@@ -9,6 +9,7 @@ using GuardeSoftwareAPI.Services.rentalAmountHistory;
 using GuardeSoftwareAPI.Services.locker;
 using GuardeSoftwareAPI.Dtos.Locker;
 using GuardeSoftwareAPI.Services.activityLog;
+using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -37,10 +38,10 @@ namespace GuardeSoftwareAPI.Services.client
             this.accessDB = _accessDB;
         }
 
-        public List<Client> GetClientsList()
+        public async Task<List<Client>> GetClientsList()
         {
 
-            DataTable clientTable = daoClient.GetClients();
+            DataTable clientTable = await daoClient.GetClients();
             List<Client> clients = new List<Client>();
 
             foreach (DataRow row in clientTable.Rows)
@@ -64,9 +65,9 @@ namespace GuardeSoftwareAPI.Services.client
             return clients;
         }
 
-        public List<Client> GetClientListById(int id)
+        public async Task<List<Client>> GetClientListById(int id)
         {
-            DataTable clientTable = daoClient.GetClientById(id);
+            DataTable clientTable = await daoClient.GetClientById(id);
             List<Client> clients = new List<Client>();
 
             foreach (DataRow row in clientTable.Rows)
@@ -180,14 +181,14 @@ namespace GuardeSoftwareAPI.Services.client
 
                         await activityLogService.CreateActivityLogTransactionAsync(activityLog,connection,transaction);
 
-                        transaction.CommitAsync();
+                        await transaction.CommitAsync();
 
                         return newId;
                     }
                     catch
                     {
 
-                        transaction.RollbackAsync();
+                        await transaction.RollbackAsync();
                         throw;
                     }
                 }

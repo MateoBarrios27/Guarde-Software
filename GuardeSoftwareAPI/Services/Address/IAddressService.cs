@@ -8,13 +8,13 @@ namespace GuardeSoftwareAPI.Services.address
 
 	public interface IAddressService
 	{
-		List<Address> GetAddressList();
+		Task<List<Address>> GetAddressList();
 
-		List<Address> GetAddressListByClientId(int id);
+		Task<List<Address>> GetAddressListByClientId(int id);
 
-		public bool CreateAddress(Address address);
+		Task<bool> CreateAddress(Address address);
 
-		public bool UpdateAddress(int clientId, UpdateAddressDto dto);
+		Task<bool> UpdateAddress(int clientId, UpdateAddressDto dto);
 
     }
 }

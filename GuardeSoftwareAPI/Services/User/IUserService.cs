@@ -6,9 +6,9 @@ namespace GuardeSoftwareAPI.Services.user
 
 	public interface IUserService
 	{
-		public List<User> GetUserList();
-		public User GetUserById(int id);
-		public bool CreateUser(User user);
-		public bool DeleteUser(int userId);
+		Task<List<User>> GetUserList();
+		Task<User> GetUserById(int id);
+		Task<bool> CreateUser(User user);
+		Task<bool> DeleteUser(int userId);
 	}
 }

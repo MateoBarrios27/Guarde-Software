@@ -5,9 +5,9 @@ namespace GuardeSoftwareAPI.Services.warehouse
 {
 	public interface IWarehouseService
 	{
-		public List<Warehouse> GetWarehouseList();
-		public Warehouse GetWarehouseById(int id);
-		public bool CreateWarehouse(Warehouse warehouse);
-		public bool DeleteWarehouse(int warehouseId);
+		Task<List<Warehouse>> GetWarehouseList();
+		Task<Warehouse> GetWarehouseById(int id);
+		Task<bool> CreateWarehouse(Warehouse warehouse);
+		Task<bool> DeleteWarehouse(int warehouseId);
 	}
 }

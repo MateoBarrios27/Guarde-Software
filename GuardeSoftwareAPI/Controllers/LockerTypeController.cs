@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.lockerType;
 using Microsoft.AspNetCore.Mvc;
@@ -16,11 +17,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet]
-        public ActionResult<List<LockerType>> GetLockerTypes()
+        public async Task<ActionResult<List<LockerType>>> GetLockerTypes()
         {
             try
             {
-                List<LockerType> lockerTypes = _lockerTypeService.GetLockerTypesList();
+                List<LockerType> lockerTypes = await _lockerTypeService.GetLockerTypesList();
 
                 return Ok(lockerTypes);
             }
@@ -31,11 +32,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public ActionResult<LockerType> GetLockerTypeById(int id)
+        public async Task<ActionResult<LockerType>> GetLockerTypeById(int id)
         {
             try
             {
-                List<LockerType> lockerTypes = _lockerTypeService.GetLockerTypeListById(id);
+                List<LockerType> lockerTypes = await _lockerTypeService.GetLockerTypeListById(id);
 
                 if (lockerTypes == null)
                 {

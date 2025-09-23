@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
 
@@ -14,9 +15,9 @@ namespace GuardeSoftwareAPI.Services.warehouse
 			_daoWarehouse = new DaoWarehouse(accessDB);
 		}
 
-		public List<Warehouse> GetWarehouseList()
+		public async Task<List<Warehouse>> GetWarehouseList()
 		{
-			DataTable warehouseTable = _daoWarehouse.GetWarehouses();
+			DataTable warehouseTable = await _daoWarehouse.GetWarehouses();
 			List<Warehouse> warehouses = new List<Warehouse>();
 
 			if (warehouseTable.Rows.Count == 0) throw new ArgumentException("No warehouse found.");
@@ -38,11 +39,11 @@ namespace GuardeSoftwareAPI.Services.warehouse
 			return warehouses;
 		}
 
-		public Warehouse GetWarehouseById(int warehouseId)
+		public async Task<Warehouse> GetWarehouseById(int warehouseId)
 		{
 			if (warehouseId <= 0) throw new ArgumentException("Invalid warehouse ID.");
 
-			DataTable warehouseTable = _daoWarehouse.GetWarehouseById(warehouseId);
+			DataTable warehouseTable = await _daoWarehouse.GetWarehouseById(warehouseId);
 
 			if (warehouseTable.Rows.Count == 0) throw new ArgumentException("No warehouse found with the given ID.");
 
@@ -56,19 +57,19 @@ namespace GuardeSoftwareAPI.Services.warehouse
 			};
 		}
 		
-		public bool CreateWarehouse(Warehouse warehouse)
+		public async Task<bool> CreateWarehouse(Warehouse warehouse)
 		{
 			if (warehouse == null) throw new ArgumentNullException(nameof(warehouse), "Warehouse cannot be null.");
 			if (string.IsNullOrWhiteSpace(warehouse.Name)) throw new ArgumentException("Warehouse name cannot be empty.");
 			if (string.IsNullOrWhiteSpace(warehouse.Address)) throw new ArgumentException("Warehouse address cannot be empty.");
-			if (_daoWarehouse.CreateWarehouse(warehouse)) return true;
+			if (await _daoWarehouse.CreateWarehouse(warehouse)) return true;
 			else return false;
 		}
 
-		public bool DeleteWarehouse(int warehouseId)
+		public async Task<bool> DeleteWarehouse(int warehouseId)
 		{
 			if (warehouseId <= 0) throw new ArgumentException("Invalid warehouse ID.");
-			if (_daoWarehouse.DeleteWarehouse(warehouseId)) return true;
+			if (await _daoWarehouse.DeleteWarehouse(warehouseId)) return true;
 			else return false;
 		}
 	}

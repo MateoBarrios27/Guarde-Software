@@ -9,23 +9,23 @@ namespace GuardeSoftwareAPI.Services.locker
 
 	public interface ILockerService
 	{
-		List<Locker> GetLockersList();
+		Task<List<Locker>> GetLockersList();
 
 		//Implementar esto
 		//List<Locker> GetLockersAvailable();
-		List<Locker> GetLockerListById(int id);
+		Task<List<Locker>> GetLockerListById(int id);
 
-		public bool CreateLocker(Locker locker);
+		Task<bool> CreateLocker(Locker locker);
 
 		Task<bool> SetRentalTransactionAsync(int rentalId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction);
 
 		Task<List<GetLockerClientDetailDTO>> GetLockersByClientIdAsync(int clientId);
 
-		public bool DeleteLocker(int id);
+		Task<bool> DeleteLocker(int id);
 
 		Task<bool> IsLockerAvailableAsync(int lockerId, SqlConnection connection, SqlTransaction transaction);
 
-		public bool UpdateLocker(int lockerId, UpdateLockerDto dto);
+		Task<bool> UpdateLocker(int lockerId, UpdateLockerDto dto);
 
     }
 }

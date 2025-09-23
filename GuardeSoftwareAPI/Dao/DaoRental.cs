@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Data.SqlClient;
@@ -15,14 +16,14 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetRentals()
+        public async Task<DataTable> GetRentals()
         {
             string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid FROM rentals WHERE active = 1";
 
-            return accessDB.GetTable("rentals", query);
+            return await accessDB.GetTableAsync("rentals", query);
         }
 
-        public DataTable GetRentalById(int rentalId)
+        public async Task<DataTable> GetRentalById(int rentalId)
         {
 
             string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid FROM rentals WHERE active = 1 AND rental_id = @rental_id";
@@ -32,10 +33,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@rental_id", SqlDbType.Int){Value  = rentalId},
             };
 
-            return accessDB.GetTable("rentals", query, parameters);
+            return await accessDB.GetTableAsync("rentals", query, parameters);
         }
 
-        public DataTable GetRentalsByClientId(int clientId)
+        public async Task<DataTable> GetRentalsByClientId(int clientId)
         {
 
             string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid FROM rentals WHERE active = 1 AND client_id = @client_id";
@@ -45,10 +46,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@client_id", SqlDbType.Int){Value  = clientId},
             };
 
-            return accessDB.GetTable("rentals", query, parameters);
+            return await accessDB.GetTableAsync("rentals", query, parameters);
         }
 
-        public bool CreateRental(Rental rental)
+        public async Task<bool> CreateRental(Rental rental)
         {
 
             string query = "INSERT INTO rentals (client_id, start_date, contracted_m3, months_unpaid) VALUES (@client_id, @start_date, @contracted_m3, @months_unpaid)";
@@ -58,10 +59,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@contracted_m3", SqlDbType.Int){Value  = rental.ContractedM3},
                 new SqlParameter("@months_unpaid", SqlDbType.Int){Value  = rental.MonthsUnpaid},
             };
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
-        public bool DeleteRental(int rentalId)
+        public async Task<bool> DeleteRental(int rentalId)
         {
 
             string query = "UPDATE rentals SET active = 0 WHERE rental_id = @rental_id";
@@ -71,7 +72,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@rental_id", SqlDbType.Int){Value = rentalId},
             };
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
         public async Task<List<int>> GetActiveRentalsIdsAsync()

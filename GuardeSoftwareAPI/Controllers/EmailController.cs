@@ -2,6 +2,7 @@ using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.email; 
 using Microsoft.AspNetCore.Mvc;
 using GuardeSoftwareAPI.Dtos.Email;
+using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -17,11 +18,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet]
-        public ActionResult<List<Email>> GetEmails()
+        public async Task<ActionResult<List<Email>>> GetEmails()
         {
             try
             {
-                List<Email> emails = _emailService.GetEmailsList();
+                List<Email> emails = await _emailService.GetEmailsList();
 
                 return Ok(emails);
             }
@@ -32,11 +33,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public ActionResult<Email> GetEmailByClientId(int id)
+        public async Task<ActionResult<Email>> GetEmailByClientId(int id)
         {
             try
             {
-                List<Email> email = _emailService.GetEmailListByClientId(id);
+                List<Email> email = await _emailService.GetEmailListByClientId(id);
 
                 if (email == null)
                 {
@@ -51,9 +52,9 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteEmail(int id)
+        public async Task<IActionResult> DeleteEmail(int id)
         {
-            bool deleted = _emailService.DeleteEmail(id);
+            bool deleted = await _emailService.DeleteEmail(id);
 
             if (deleted)
                 return Ok(new { message = "Email deleted successfully." });
@@ -62,14 +63,14 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPut("{clientId}")]
-        public ActionResult UpdateEmail(int clientId, [FromBody] UpdateEmailDto dto)
+        public async Task<ActionResult> UpdateEmail(int clientId, [FromBody] UpdateEmailDto dto)
         {
             try
             {
                 if (dto == null)
                     return BadRequest("Email data is required.");
 
-                bool updated = _emailService.UpdateEmail(clientId, dto);
+                bool updated = await _emailService.UpdateEmail(clientId, dto);
 
                 if (!updated)
                     return NotFound($"No Email found with Id {dto.Id} for client {clientId}.");

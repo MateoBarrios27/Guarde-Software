@@ -2,6 +2,7 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
+using System.Threading.Tasks;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -16,14 +17,14 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetLockerTypes()
+        public async Task<DataTable> GetLockerTypes()
         {
             string query = "SELECT locker_type_id, name, amount, m3  FROM locker_types WHERE active = 1";
 
-            return accessDB.GetTable("locker_types", query);
+            return await accessDB.GetTableAsync("locker_types", query);
         }
 
-        public DataTable GetLockerTypeById(int id)
+        public async Task<DataTable> GetLockerTypeById(int id)
         {
 
             string query = "SELECT locker_type_id, name, amount, m3  FROM locker_types WHERE active = 1 AND locker_type_id = @locker_type_id";
@@ -33,10 +34,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@locker_type_id", SqlDbType.Int){Value  = id}
             };
 
-            return accessDB.GetTable("locker_types", query, parameters);
+            return await accessDB.GetTableAsync("locker_types", query, parameters);
         }
 
-        public bool DeleteLockerType(int id)
+        public async Task<bool> DeleteLockerType(int id)
         {
 
             string query = "UPDATE locker_types SET active = 0 WHERE locker_type_id = @locker_type_id";
@@ -46,7 +47,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@locker_type_id", SqlDbType.Int){Value  = id},
             };
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
         public async Task<bool> CreateLockerType(LockerType lockerType)

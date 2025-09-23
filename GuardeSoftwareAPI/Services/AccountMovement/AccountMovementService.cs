@@ -4,6 +4,7 @@ using GuardeSoftwareAPI.Dao;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
+using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Services.accountMovement {
 
@@ -20,10 +21,10 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             _logger = logger;
         }
 
-        public List<AccountMovement> GetAccountMovementList()
+        public async Task<List<AccountMovement>> GetAccountMovementList()
         {
 
-            DataTable AccountsTable = _daoAccountMovement.GetAccountMovement();
+            DataTable AccountsTable = await _daoAccountMovement.GetAccountMovement();
             List<AccountMovement> Accounts = new List<AccountMovement>();
 
             foreach (DataRow row in AccountsTable.Rows)
@@ -57,9 +58,9 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
 
         }
 
-        public List<AccountMovement> GetAccountMovementListByRentalId(int id)
+        public async Task<List<AccountMovement>> GetAccountMovementListByRentalId(int id)
         {
-            DataTable AccountsTable = _daoAccountMovement.GetAccountMovByRentalId(id);
+            DataTable AccountsTable = await _daoAccountMovement.GetAccountMovByRentalId(id);
             List<AccountMovement> Accounts = new List<AccountMovement>();
 
             foreach (DataRow row in AccountsTable.Rows)
@@ -93,7 +94,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
 
         }
 
-        public bool CreateAccountMovement(AccountMovement accountMovement)
+        public async Task<bool> CreateAccountMovement(AccountMovement accountMovement)
         {
 
             if (accountMovement == null)
@@ -108,7 +109,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             if (accountMovement.Amount <= 0)
                 throw new ArgumentException("Amount must to be > 0");
 
-            if (_daoAccountMovement.CreateAccountMovement(accountMovement)) return true;
+            if (await _daoAccountMovement.CreateAccountMovement(accountMovement)) return true;
             else return false;
         }
 

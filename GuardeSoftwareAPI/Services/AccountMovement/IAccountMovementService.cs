@@ -6,12 +6,12 @@ namespace GuardeSoftwareAPI.Services.accountMovement
 
 	public interface IAccountMovementService
 	{
-		List<AccountMovement> GetAccountMovementList();
+		Task<List<AccountMovement>> GetAccountMovementList();
 
-		List<AccountMovement> GetAccountMovementListByRentalId(int id);
+		Task<List<AccountMovement>> GetAccountMovementListByRentalId(int id);
 
-		public bool CreateAccountMovement(AccountMovement accountMovement);
-		public Task ApplyMonthlyDebitsAsync();
+		Task<bool> CreateAccountMovement(AccountMovement accountMovement);
+		Task ApplyMonthlyDebitsAsync();
 
     }
 }

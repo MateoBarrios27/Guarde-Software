@@ -4,6 +4,7 @@ using GuardeSoftwareAPI.Entities;
 using System.Data;
 using System.Collections.Generic;
 using Microsoft.Data.SqlClient;
+using System.Threading.Tasks;
 
 
 namespace GuardeSoftwareAPI.Services.activityLog
@@ -18,9 +19,9 @@ namespace GuardeSoftwareAPI.Services.activityLog
             _daoActivityLog = new DaoActivityLog(accessDB);
         }
 
-        public List<ActivityLog> GetActivityLogList()
+        public async Task<List<ActivityLog>> GetActivityLogList()
         {
-            DataTable activityTable = _daoActivityLog.GetActivityLog();
+            DataTable activityTable = await _daoActivityLog.GetActivityLog();
             List<ActivityLog> activityLog = new List<ActivityLog>();
 
             foreach (DataRow row in activityTable.Rows)
@@ -52,9 +53,9 @@ namespace GuardeSoftwareAPI.Services.activityLog
             return activityLog;
         }
 
-        public List<ActivityLog> GetActivityLoglistByUserId(int id)
+        public async Task<List<ActivityLog>> GetActivityLoglistByUserId(int id)
         {
-            DataTable activityTable = _daoActivityLog.GetActivityLogsByUserId(id);
+            DataTable activityTable = await _daoActivityLog.GetActivityLogsByUserId(id);
             List<ActivityLog> activityLog = new List<ActivityLog>();
 
             foreach (DataRow row in activityTable.Rows)
@@ -86,7 +87,7 @@ namespace GuardeSoftwareAPI.Services.activityLog
             return activityLog;
         }
 
-        public bool CreateActivityLog(ActivityLog activityLog)
+        public async Task<bool> CreateActivityLog(ActivityLog activityLog)
         {
 
             if (activityLog == null)
@@ -107,7 +108,7 @@ namespace GuardeSoftwareAPI.Services.activityLog
             activityLog.OldValue = string.IsNullOrWhiteSpace(activityLog.OldValue) ? null : activityLog.OldValue;
             activityLog.NewValue = string.IsNullOrWhiteSpace(activityLog.NewValue) ? null : activityLog.NewValue;
 
-            if (_daoActivityLog.CreateActivityLog(activityLog)) return true;
+            if (await _daoActivityLog.CreateActivityLog(activityLog)) return true;
             else return false;
         }
 
@@ -135,12 +136,12 @@ namespace GuardeSoftwareAPI.Services.activityLog
             return await _daoActivityLog.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
         }
 
-        public bool DeleteActivityLog(int id)
+        public async Task<bool> DeleteActivityLog(int id)
         {
             if (id <= 0)
                 throw new ArgumentException("Invalid ActivityLog Id.");
 
-            if (_daoActivityLog.DeleteActivityLog(id)) return true;
+            if (await _daoActivityLog.DeleteActivityLog(id)) return true;
             else return false;
         }
     }

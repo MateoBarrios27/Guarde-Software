@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
 
@@ -14,14 +15,14 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetPhones()
+        public async Task<DataTable> GetPhones()
         {
             string query = "SELECT phone_id, client_id, number, type, whatsapp FROM phones"
 ;
-            return accessDB.GetTable("phones", query);
+            return await accessDB.GetTableAsync("phones", query);
         }
 
-        public DataTable GetPhonesByClientId(int clientId)
+        public async Task<DataTable> GetPhonesByClientId(int clientId)
         {
 
             string query = "SELECT phone_id, client_id, number, type, whatsapp FROM phones WHERE client_id = @client_id";
@@ -31,10 +32,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@client_id", SqlDbType.Int){Value  = clientId},
             };
 
-            return accessDB.GetTable("phones", query, parameters);
+            return await accessDB.GetTableAsync("phones", query, parameters);
         }
 
-        public bool CreatePhone(Phone phone)
+        public async Task<bool> CreatePhone(Phone phone)
         {
             string query = "INSERT INTO phones (client_id, number, type, whatsapp) VALUES (@client_id, @number, @type, @whatsapp)";
             SqlParameter[] parameters = new SqlParameter[] {
@@ -43,11 +44,11 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@type", SqlDbType.NVarChar, 50){Value  = phone.Type},
                 new SqlParameter("@whatsapp", SqlDbType.Bit){Value  = phone.Whatsapp},
             };
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
             
         }
 
-        public bool DeletePhone(int id)
+        public async Task<bool> DeletePhone(int id)
         {
 
             string query = "UPDATE phones SET active = 0 WHERE phone_id = @phone_id";
@@ -57,7 +58,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@phone_id", SqlDbType.Int ) { Value = id},
             };
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
     }
 }

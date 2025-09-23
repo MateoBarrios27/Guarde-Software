@@ -3,6 +3,7 @@ using System.Data;
 using System.Collections.Generic;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
+using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Services.increaseRegimen
 {
@@ -17,9 +18,9 @@ namespace GuardeSoftwareAPI.Services.increaseRegimen
 			daoIncreaseRegimen = new DaoIncreaseRegimen(accessDB);
 		}
 		
-		public List<IncreaseRegimen> GetIncreaseRegimensList()
+		public async Task<List<IncreaseRegimen>> GetIncreaseRegimensList()
 		{
-			DataTable increaseRegimensTable = daoIncreaseRegimen.GetIncreaseRegimens();
+			DataTable increaseRegimensTable = await daoIncreaseRegimen.GetIncreaseRegimens();
 			List<IncreaseRegimen> increaseRegimensList = new List<IncreaseRegimen>();
 
 			foreach (DataRow row in increaseRegimensTable.Rows) {
@@ -36,9 +37,9 @@ namespace GuardeSoftwareAPI.Services.increaseRegimen
 
 		}
 
-        public List<IncreaseRegimen> GetIncreaseRegimenListById(int id)
+        public async Task<List<IncreaseRegimen>> GetIncreaseRegimenListById(int id)
         {
-            DataTable increaseRegimensTable = daoIncreaseRegimen.GetIncreaseRegimenById(id);
+            DataTable increaseRegimensTable = await daoIncreaseRegimen.GetIncreaseRegimenById(id);
             List<IncreaseRegimen> increaseRegimensList = new List<IncreaseRegimen>();
 
             foreach (DataRow row in increaseRegimensTable.Rows)
@@ -56,7 +57,7 @@ namespace GuardeSoftwareAPI.Services.increaseRegimen
 
         }
 
-        public bool CreateIncreaseRegimen(IncreaseRegimen increaseRegimen)
+        public async Task<bool> CreateIncreaseRegimen(IncreaseRegimen increaseRegimen)
         {
             if (increaseRegimen == null)
                 throw new ArgumentNullException(nameof(increaseRegimen));
@@ -67,7 +68,7 @@ namespace GuardeSoftwareAPI.Services.increaseRegimen
             if (increaseRegimen.Percentage <= 0)
                 throw new ArgumentException("Invalid Percentage.");
 
-            if (daoIncreaseRegimen.CreateIncreaseRegimen(increaseRegimen)) return true;
+            if (await daoIncreaseRegimen.CreateIncreaseRegimen(increaseRegimen)) return true;
             else return false;
         }
     }

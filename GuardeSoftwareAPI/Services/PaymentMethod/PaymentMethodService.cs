@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.IdentityModel.Tokens;
@@ -15,9 +16,9 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 			_daoPaymentMethod = new DaoPaymentMethod(accessDB);
 		}
 
-		public List<PaymentMethod> GetPaymentMethodsList()
+		public async Task<List<PaymentMethod>> GetPaymentMethodsList()
 		{
-			DataTable paymentMethodsTable = _daoPaymentMethod.GetPaymentMethods();
+			DataTable paymentMethodsTable = await _daoPaymentMethod.GetPaymentMethods();
 			List<PaymentMethod> paymentMethods = new List<PaymentMethod>();
 
 			if (paymentMethodsTable.Rows.Count == 0) throw new ArgumentException("No payments methods found.");
@@ -38,11 +39,11 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 			return paymentMethods;
 		}
 
-		public PaymentMethod GetPaymentMethodById(int paymentMethodId)
+		public async Task<PaymentMethod> GetPaymentMethodById(int paymentMethodId)
 		{
 			if (paymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
 
-			DataTable paymentMethodTable = _daoPaymentMethod.GetPaymentMethodById(paymentMethodId);
+			DataTable paymentMethodTable = await _daoPaymentMethod.GetPaymentMethodById(paymentMethodId);
 
 			if (paymentMethodTable.Rows.Count == 0) throw new ArgumentException("No payment method found with the given ID.");
 
@@ -62,14 +63,14 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 			if (paymentMethod == null) throw new ArgumentNullException(nameof(paymentMethod), "Payment method cannot be null.");
 			if (string.IsNullOrWhiteSpace(paymentMethod.Name)) throw new ArgumentException("Payment method name cannot be empty.");
 			if (await _daoPaymentMethod.CheckIfPaymentMethodExists(paymentMethod.Name)) throw new ArgumentException("A payment method with the same name already exists.");
-			if (_daoPaymentMethod.CreatePaymentMethod(paymentMethod)) return true;
+			if (await _daoPaymentMethod.CreatePaymentMethod(paymentMethod)) return true;
 			else return false;
 		}
 
-		public bool DeletePaymentMethod(int paymentMethodId)
+		public async Task<bool> DeletePaymentMethod(int paymentMethodId)
 		{
 			if (paymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
-			if (_daoPaymentMethod.DeletePaymentMethod(paymentMethodId)) return true;
+			if (await _daoPaymentMethod.DeletePaymentMethod(paymentMethodId)) return true;
 			else return false;
 		}
 	}

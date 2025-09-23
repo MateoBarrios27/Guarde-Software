@@ -2,6 +2,7 @@ using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.locker;
 using Microsoft.AspNetCore.Mvc;
 using GuardeSoftwareAPI.Dtos.Locker;
+using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -17,11 +18,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
         
         [HttpGet]
-        public ActionResult<List<Locker>> GetLockers()
+        public async Task<ActionResult<List<Locker>>> GetLockers()
         {
             try
             {
-                List<Locker> lockers = _lockerService.GetLockersList();
+                List<Locker> lockers = await _lockerService.GetLockersList();
                 return Ok(lockers);
             }
             catch (Exception ex)
@@ -31,15 +32,15 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public ActionResult<Locker> GetLockersById(int id)
+        public async Task<ActionResult<Locker>> GetLockersById(int id)
         {
             try
             {
-                List<Locker> locker = _lockerService.GetLockerListById(id);
+                List<Locker> locker = await _lockerService.GetLockerListById(id);
 
                 if (locker == null)
                 {
-                    return NotFound($"locker id n°{id} not found ");
+                    return NotFound($"locker id nï¿½{id} not found ");
                 }
                 return Ok(locker);
             }
@@ -50,9 +51,9 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteLocker(int id)
+        public async Task<IActionResult> DeleteLocker(int id)
         {
-            bool deleted = _lockerService.DeleteLocker(id);
+            bool deleted = await _lockerService.DeleteLocker(id);
 
             if (deleted)
                 return Ok(new { message = "Locker deleted successfully." });
@@ -62,14 +63,14 @@ namespace GuardeSoftwareAPI.Controllers
 
 
         [HttpPut("{id}")]
-        public IActionResult UpdateLocker(int id, [FromBody] UpdateLockerDto dto)
+        public async Task<IActionResult> UpdateLocker(int id, [FromBody] UpdateLockerDto dto)
         {
             if (dto == null)
                 return BadRequest(new { message = "Invalid locker ID." });
 
             try
             {
-                bool updated = _lockerService.UpdateLocker(id,dto);
+                bool updated = await _lockerService.UpdateLocker(id,dto);
 
                 if (updated)
                     return Ok(new { message = "Locker updated successfully." });

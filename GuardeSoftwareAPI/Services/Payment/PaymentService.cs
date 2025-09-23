@@ -2,6 +2,7 @@
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
 using System.Data;
+using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Services.payment
 {
@@ -14,9 +15,9 @@ namespace GuardeSoftwareAPI.Services.payment
 			_daoPayment = new DaoPayment(accessDB);
 		}
 
-		public List<Payment> GetPaymentsList()
+		public async Task<List<Payment>> GetPaymentsList()
 		{
-			DataTable paymentTable = _daoPayment.GetPayments();
+			DataTable paymentTable = await _daoPayment.GetPayments();
 			List<Payment> payments = new List<Payment>();
 
 			if (paymentTable.Rows.Count == 0) throw new ArgumentException("No payments found.");
@@ -40,11 +41,11 @@ namespace GuardeSoftwareAPI.Services.payment
 			return payments;
 		}
 
-		public Payment GetPaymentById(int id)
+		public async Task<Payment> GetPaymentById(int id)
 		{
 			if (id <= 0) throw new ArgumentException("Invalid payment ID.");
 
-			DataTable paymentTable = _daoPayment.GetPaymentById(id);
+			DataTable paymentTable = await _daoPayment.GetPaymentById(id);
 
 			if (paymentTable.Rows.Count == 0) throw new ArgumentException("No payment found with the given ID.");
 
@@ -60,11 +61,11 @@ namespace GuardeSoftwareAPI.Services.payment
 			};
 		}
 
-		public List<Payment> GetPaymentsByClientId(int clientId)
+		public async Task<List<Payment>> GetPaymentsByClientId(int clientId)
 		{
 			if (clientId <= 0) throw new ArgumentException("The client ID must be a positive integer.");
 
-			DataTable paymentTable = _daoPayment.GetPaymentsByClientId(clientId);
+			DataTable paymentTable = await _daoPayment.GetPaymentsByClientId(clientId);
 			List<Payment> payments = new List<Payment>();
 
 			foreach (DataRow row in paymentTable.Rows)
@@ -84,14 +85,14 @@ namespace GuardeSoftwareAPI.Services.payment
 			return payments;
 		}
 
-		public bool CreatePayment(Payment payment)
+		public async Task<bool> CreatePayment(Payment payment)
 		{
 			if (payment == null) throw new ArgumentNullException(nameof(payment), "Payment cannot be null.");
 			if (payment.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
 			if (payment.PaymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
 			if (payment.Amount <= 0) throw new ArgumentException("Amount must be greater than zero.");
 			if (payment.PaymentDate == DateTime.MinValue) throw new ArgumentException("Invalid payment date.");
-			return _daoPayment.CreatePayment(payment);
+			return await _daoPayment.CreatePayment(payment);
 		}
 	}
 }

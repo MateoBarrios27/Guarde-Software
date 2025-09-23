@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
@@ -15,9 +16,9 @@ namespace GuardeSoftwareAPI.Services.rental
 			_daoRental = new DaoRental(accessDB);
 		}
 
-		public List<Rental> GetRentalsList()
+		public async Task<List<Rental>> GetRentalsList()
 		{
-			DataTable rentalTable = _daoRental.GetRentals();
+			DataTable rentalTable = await _daoRental.GetRentals();
 			List<Rental> rentals = new List<Rental>();
 
 			if (rentalTable.Rows.Count == 0) throw new ArgumentException("No rentals found.");
@@ -42,11 +43,11 @@ namespace GuardeSoftwareAPI.Services.rental
 			return rentals;
 		}
 
-		public Rental GetRentalById(int rentalId)
+		public async Task<Rental> GetRentalById(int rentalId)
 		{
 			if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.");
 
-			DataTable rentalTable = _daoRental.GetRentalById(rentalId);
+			DataTable rentalTable = await _daoRental.GetRentalById(rentalId);
 
 			if (rentalTable.Rows.Count == 0) throw new ArgumentException("No rental found with the given ID.");
 
@@ -63,10 +64,10 @@ namespace GuardeSoftwareAPI.Services.rental
 			};
 		}
 
-		public bool DeleteRental(int rentalId)
+		public async Task<bool> DeleteRental(int rentalId)
 		{
 			if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.");
-			if (_daoRental.DeleteRental(rentalId)) return true;
+			if (await _daoRental.DeleteRental(rentalId)) return true;
 			else return false;
 		}
 

@@ -2,6 +2,7 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
+using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -14,14 +15,14 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetActivityLog()
+        public async Task<DataTable> GetActivityLog()
         {
             string query = "SELECT activity_log_id, user_id, log_date, action, table_name, record_id, old_value, new_value FROM activity_log";
 
-            return accessDB.GetTable("activity_log", query);
+            return await accessDB.GetTableAsync("activity_log", query);
         }
 
-        public DataTable GetActivityLogsByUserId(int userId)
+        public async Task<DataTable> GetActivityLogsByUserId(int userId)
         {
 
             string query = "SELECT activity_log_id, user_id, log_date, action, table_name, record_id, old_value, new_value FROM activity_log WHERE user_id = @user_id";
@@ -31,10 +32,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@user_id", SqlDbType.Int){Value  = userId},
             };
 
-            return accessDB.GetTable("activity_log", query, parameters);
+            return await accessDB.GetTableAsync("activity_log", query, parameters);
         }
 
-        public bool CreateActivityLog(ActivityLog activityLog)
+        public async Task<bool> CreateActivityLog(ActivityLog activityLog)
         {
 
             SqlParameter[] parameters = new SqlParameter[]
@@ -51,10 +52,10 @@ namespace GuardeSoftwareAPI.Dao
             string query = "INSERT INTO activity_log (user_id, log_date, action, table_name, record_id, old_value, new_value)"
                 + "VALUES(@user_id, @log_date, @action, @table_name, @record_id, @old_value, @new_value)";
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
         
-        public bool DeleteActivityLog(int activityLogId)
+        public async Task<bool> DeleteActivityLog(int activityLogId)
         {
             SqlParameter[] parameters = new SqlParameter[]
             {
@@ -63,7 +64,7 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "DELETE FROM activity_log WHERE activity_log_id = @activity_log_id";
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
         public async Task<bool> CreateActivityLogTransactionAsync(ActivityLog activityLog, SqlConnection connection, SqlTransaction transaction)

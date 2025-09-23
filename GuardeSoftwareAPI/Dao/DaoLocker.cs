@@ -2,6 +2,7 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
+using System.Threading.Tasks;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -16,14 +17,14 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetLockers()
+        public async Task<DataTable> GetLockers()
         {
             string query = "SELECT locker_id, warehouse_id,locker_type_id, identifier, features, status, rental_id FROM lockers WHERE active = 1";
 
-            return accessDB.GetTable("lockers", query);
+            return await accessDB.GetTableAsync("lockers", query);
         }
 
-        public DataTable GetLockerById(int id)
+        public async Task<DataTable> GetLockerById(int id)
         {
 
             string query = "SELECT locker_id, warehouse_id,locker_type_id, identifier, features, status, rental_id FROM lockers WHERE locker_id = @locker_id";
@@ -33,17 +34,17 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@locker_id", SqlDbType.Int){Value = id},
             };
 
-            return accessDB.GetTable("lockers", query, parameters);
+            return await accessDB.GetTableAsync("lockers", query, parameters);
         }
 
-        public DataTable GetLockersAvailable()
+        public async Task<DataTable> GetLockersAvailable()
         {
             string query = "SELECT locker_id, warehouse_id,locker_type_id, identifier, features, status, rental_id FROM lockers WHERE active = 1 AND status = 'DISPONIBLE'";
 
-            return accessDB.GetTable("lockers", query);
+            return await accessDB.GetTableAsync("lockers", query);
         }
 
-        public bool CreateLocker(Locker locker)
+        public async Task<bool> CreateLocker(Locker locker)
         {
 
             SqlParameter[] parameters = new SqlParameter[]
@@ -57,7 +58,7 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "INSERT INTO lockers(warehouse_id,locker_type_id, identifier, features, status)VALUES(@warehouse_id,@locker_type_id, @identifier, @features, @status)";
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
         public async Task<bool> SetRentalTransactionAsync(int rentalId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
@@ -109,7 +110,7 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.GetTableAsync("lockers_by_client", query, parameters);
         }
 
-        public bool DeleteLocker(int id)
+        public async Task<bool> DeleteLocker(int id)
         {
 
             string query = "UPDATE lockers SET active = 0 WHERE locker_id = @locker_id";
@@ -119,7 +120,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@locker_id", SqlDbType.Int ) { Value = id},
             };
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
         public async Task<bool> IsLockerIsAvailabeAsync(int lockerId, SqlConnection connection, SqlTransaction transaction)
@@ -133,7 +134,7 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
 
-        public bool UpdateLocker(Locker locker)
+        public async Task<bool> UpdateLocker(Locker locker)
         {
             SqlParameter[] parameters = new SqlParameter[]
             {
@@ -145,7 +146,7 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "UPDATE lockers SET identifier = @identifier, features = @features, status = @status WHERE locker_id = @locker_id";
 
-            return accessDB.ExecuteCommand(query,parameters) > 0;   
+            return await accessDB.ExecuteCommandAsync(query,parameters) > 0;   
         }
 
         public async Task<bool> UpdateLockerStatus(int lockerId, string status)

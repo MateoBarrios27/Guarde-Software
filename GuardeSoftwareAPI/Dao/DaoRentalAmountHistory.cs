@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;    
 
@@ -14,14 +15,14 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetRentalAmountHistoriesList()
+        public async Task<DataTable> GetRentalAmountHistoriesList()
         {
             string query = "SELECT rental_amount_history_id, rental_id, amount, start_date, end_date FROM rental_amount_history";
 
-            return accessDB.GetTable("rental_amount_history", query);
+            return await accessDB.GetTableAsync("rental_amount_history", query);
         }
 
-        public DataTable GetRentalAmountHistoryByRentalId(int rentalId)
+        public async Task<DataTable> GetRentalAmountHistoryByRentalId(int rentalId)
         {
 
             string query = "SELECT rental_amount_history_id, rental_id, amount, start_date, end_date FROM rental_amount_history WHERE rental_id = @rental_id";
@@ -31,10 +32,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@rental_id", SqlDbType.Int){Value  = rentalId},
             };
 
-            return accessDB.GetTable("rental_amount_history", query, parameters);
+            return await accessDB.GetTableAsync("rental_amount_history", query, parameters);
         }
 
-        public bool CreateRentalAmountHistory(RentalAmountHistory rentalAmountHistory)
+        public async Task<bool> CreateRentalAmountHistory(RentalAmountHistory rentalAmountHistory)
         {
             string query = "INSERT INTO rental_amount_history (rental_id, amount, start_date) VALUES (@rental_id, @amount, @start_date)";
 
@@ -43,7 +44,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@amount", SqlDbType.Decimal){Value  = rentalAmountHistory.Amount},
                 new SqlParameter("@start_date", SqlDbType.DateTime){Value  = rentalAmountHistory.StartDate},
             };
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
         public async Task<int> CreateRentalAmountHistoryAsync(RentalAmountHistory rentalAmountHistory)
@@ -98,7 +99,5 @@ namespace GuardeSoftwareAPI.Dao
                 return Convert.ToInt32(result);
             }
         }
-
-
     }
 }

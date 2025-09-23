@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
 using Microsoft.AspNetCore.Mvc;
@@ -16,11 +17,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet]
-        public ActionResult<List<RentalAmountHistory>> GetRentalAmountHistories()
+        public async Task<ActionResult<List<RentalAmountHistory>>> GetRentalAmountHistories()
         {
             try
             {
-                List<RentalAmountHistory> rentalAmountHistories = _rentalAmountHistoryService.GetRentalAmountHistoriesList();
+                List<RentalAmountHistory> rentalAmountHistories = await _rentalAmountHistoryService.GetRentalAmountHistoriesList();
 
                 return Ok(rentalAmountHistories);
             }
@@ -35,11 +36,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("ByRental/{rentalId}")]
-        public IActionResult GetRentalAmountHistoryByRentalId(int rentalId)
+        public async Task<IActionResult> GetRentalAmountHistoryByRentalId(int rentalId)
         {
             try
             {
-                RentalAmountHistory rentalAmountHistory = _rentalAmountHistoryService.GetRentalAmountHistoryByRentalId(rentalId);
+                RentalAmountHistory rentalAmountHistory = await _rentalAmountHistoryService.GetRentalAmountHistoryByRentalId(rentalId);
                 if (rentalAmountHistory == null)
                     return NotFound("No rental amount history found with the given ID.");
 
@@ -56,13 +57,13 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreateRentalAmountHistory([FromBody] RentalAmountHistory rentalAmountHistory)
+        public async Task<IActionResult> CreateRentalAmountHistory([FromBody] RentalAmountHistory rentalAmountHistory)
         {
             try
             {
                 if (rentalAmountHistory == null)
                     return BadRequest("Rental amount history is null.");
-                bool isCreated = _rentalAmountHistoryService.CreateRentalAmountHistory(rentalAmountHistory);
+                bool isCreated = await _rentalAmountHistoryService.CreateRentalAmountHistory(rentalAmountHistory);
                 if (!isCreated)
                     return StatusCode(500, "Failed to create the rental amount history.");
                 return CreatedAtAction(nameof(GetRentalAmountHistoryByRentalId), new { id = rentalAmountHistory.Id }, rentalAmountHistory);

@@ -2,6 +2,7 @@ using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.client;
 using GuardeSoftwareAPI.Dtos.Client;
 using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -17,11 +18,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet]
-        public ActionResult<List<Client>> GetClients()
+        public async Task<ActionResult<List<Client>>> GetClients()
         {
             try
             {
-                List<Client> clients = _clientService.GetClientsList();
+                List<Client> clients = await _clientService.GetClientsList();
 
                 return Ok(clients);
             }
@@ -32,11 +33,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public ActionResult<Client> GetClientById(int id)
+        public async Task<ActionResult<Client>> GetClientById(int id)
         {
             try
             {
-                List<Client> client = _clientService.GetClientListById(id);
+                List<Client> client = await _clientService.GetClientListById(id);
 
                 if (client == null)
                 {
