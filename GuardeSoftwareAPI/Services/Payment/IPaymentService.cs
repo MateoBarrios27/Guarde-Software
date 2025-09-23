@@ -6,9 +6,9 @@ namespace GuardeSoftwareAPI.Services.payment
 
 	public interface IPaymentService
 	{
-		public List<Payment> GetPaymentsList();
-		public Payment GetPaymentById(int id);
-		public List<Payment> GetPaymentsByClientId(int clientId);
-		public bool CreatePayment(Payment payment);
+		Task<List<Payment>> GetPaymentsList();
+		Task<Payment> GetPaymentById(int id);
+		Task<List<Payment>> GetPaymentsByClientId(int clientId);
+		Task<bool> CreatePayment(Payment payment);
 	}
 }

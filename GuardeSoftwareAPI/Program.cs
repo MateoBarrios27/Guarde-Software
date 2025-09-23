@@ -85,7 +85,7 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(applyInterestsJobKey)
         .WithIdentity("ApplyInterestsJob-trigger")
-        .WithCronSchedule("0 42 00 20 * ?") 
+        .WithCronSchedule("0 50 03 * * ?") 
     );
 });
 

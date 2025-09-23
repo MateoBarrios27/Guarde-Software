@@ -7,11 +7,11 @@ namespace GuardeSoftwareAPI.Services.rental
 
 	public interface IRentalService
 	{
-		public List<Rental> GetRentalsList();
+		Task<List<Rental>> GetRentalsList();
 
-		public Rental GetRentalById(int id);
+		Task<Rental> GetRentalById(int id);
 
-		public bool DeleteRental(int rentalId);
+		Task<bool> DeleteRental(int rentalId);
 
         Task<int> CreateRentalAsync(Rental rental);
 

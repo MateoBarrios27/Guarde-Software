@@ -17,15 +17,15 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetClients()
+        public async Task<DataTable> GetClients()
         {
 
             string query = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes FROM clients WHERE active=1";
 
-            return accessDB.GetTable("clients", query);
+            return await accessDB.GetTableAsync("clients", query);
         }
 
-        public DataTable GetClientById(int id)
+        public async Task<DataTable> GetClientById(int id)
         {
             string query = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes FROM clients WHERE client_id = @client_id";
 
@@ -34,10 +34,10 @@ namespace GuardeSoftwareAPI.Dao
                 new("@client_id",SqlDbType.Int) {Value = id},
             ];
 
-            return accessDB.GetTable("clients", query, parameters);
+            return await accessDB.GetTableAsync("clients", query, parameters);
         }
 
-        public bool CreateClient(Client client)
+        public async Task<bool> CreateClient(Client client)
         {
             SqlParameter[] parameters = [
 
@@ -55,11 +55,11 @@ namespace GuardeSoftwareAPI.Dao
             string query = "INSERT INTO clients(payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes)"
             + "VALUES(@payment_identifier,@first_name,@last_name,@registration_date,@dni,@cuit,@preferred_payment_method_id,@iva_condition, @notes)";
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
 
-        public bool DeleteClientById(int id)
+        public async Task<bool> DeleteClientById(int id)
         {
 
             string query = "UPDATE clients SET active = 0 WHERE client_id = @client_id";
@@ -69,7 +69,7 @@ namespace GuardeSoftwareAPI.Dao
                 new("@client_id", SqlDbType.Int){Value = id},
             ];
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
 
         }
 

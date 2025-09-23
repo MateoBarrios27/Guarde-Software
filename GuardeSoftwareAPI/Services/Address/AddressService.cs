@@ -4,6 +4,7 @@ using GuardeSoftwareAPI.Dao;
 using System.Collections.Generic;
 using System.Data;
 using GuardeSoftwareAPI.Dtos.Address;
+using System.Threading.Tasks;
 
 
 
@@ -19,9 +20,9 @@ namespace GuardeSoftwareAPI.Services.address
 			daoAddress = new  DaoAddress(accessDB);
 		}
 
-		public List<Address> GetAddressList() {
+		public async Task<List<Address>> GetAddressList() {
 
-			DataTable addressTable = daoAddress.GetAddress();
+			DataTable addressTable = await daoAddress.GetAddress();
 			List<Address> addresses = new List<Address>();
 
 			foreach (DataRow row in addressTable.Rows)
@@ -43,10 +44,10 @@ namespace GuardeSoftwareAPI.Services.address
 			return addresses;
 		}
 
-        public List<Address> GetAddressListByClientId(int id)
+        public async Task<List<Address>> GetAddressListByClientId(int id)
         {
 
-            DataTable addressTable = daoAddress.GetAddressByClientId(id);
+            DataTable addressTable = await daoAddress.GetAddressByClientId(id);
             List<Address> addresses = new List<Address>();
 
             foreach (DataRow row in addressTable.Rows)
@@ -68,7 +69,7 @@ namespace GuardeSoftwareAPI.Services.address
             return addresses;
         }
 
-		public bool CreateAddress(Address address)
+		public async Task<bool> CreateAddress(Address address)
 		{
             if (address == null)
                 throw new ArgumentNullException(nameof(address));
@@ -84,12 +85,12 @@ namespace GuardeSoftwareAPI.Services.address
 
             address.Province = string.IsNullOrWhiteSpace(address.Province) ? null : address.Province.Trim();
 
-            if (daoAddress.CreateAddress(address)) return true;
+            if (await daoAddress.CreateAddress(address)) return true;
             else return false;
 			
 		}
 
-        public bool UpdateAddress(int clientId, UpdateAddressDto dto)
+        public async Task<bool> UpdateAddress(int clientId, UpdateAddressDto dto)
         {
             if (dto == null)
                 throw new ArgumentNullException(nameof(dto));
@@ -115,7 +116,7 @@ namespace GuardeSoftwareAPI.Services.address
                 Province = string.IsNullOrWhiteSpace(dto.Province) ? null : dto.Province.Trim()
             };
 
-            return daoAddress.UpdateAddress(newAddress);
+            return await daoAddress.UpdateAddress(newAddress);
         }
 
     }

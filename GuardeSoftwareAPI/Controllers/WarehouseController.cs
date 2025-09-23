@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.warehouse;
 using Microsoft.AspNetCore.Mvc;
@@ -16,11 +17,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet]
-        public ActionResult<List<Warehouse>> GetUserWarehouses()
+        public async Task<ActionResult<List<Warehouse>>> GetUserWarehouses()
         {
             try
             {
-                List<Warehouse> warehouses = _warehouseService.GetWarehouseList();
+                List<Warehouse> warehouses = await _warehouseService.GetWarehouseList();
 
                 return Ok(warehouses);
             }
@@ -35,11 +36,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetWarehouseById(int id)
+        public async Task<IActionResult> GetWarehouseById(int id)
         {
             try
             {
-                Warehouse warehouse = _warehouseService.GetWarehouseById(id);
+                Warehouse warehouse = await _warehouseService.GetWarehouseById(id);
                 if (warehouse == null)
                     return NotFound("No warehouse found with the given ID.");
 
@@ -56,13 +57,13 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreateWarehouse([FromBody] Warehouse warehouse)
+        public async Task<IActionResult> CreateWarehouse([FromBody] Warehouse warehouse)
         {
             try
             {
                 if (warehouse == null)
                     return BadRequest("Warehouse is null.");
-                bool isCreated = _warehouseService.CreateWarehouse(warehouse);
+                bool isCreated = await _warehouseService.CreateWarehouse(warehouse);
                 if (!isCreated)
                     return StatusCode(500, "Failed to create the warehouse.");
                 return CreatedAtAction(nameof(GetWarehouseById), new { id = warehouse.Id }, warehouse);
@@ -78,9 +79,9 @@ namespace GuardeSoftwareAPI.Controllers
         }
         
         [HttpDelete("{id}")]
-        public IActionResult DeleteWarehouse(int id)
+        public async Task<IActionResult> DeleteWarehouse(int id)
         {
-            bool deleted = _warehouseService.DeleteWarehouse(id);
+            bool deleted = await _warehouseService.DeleteWarehouse(id);
 
             if (deleted)
                 return Ok(new { message = "Warehouse deleted successfully." });

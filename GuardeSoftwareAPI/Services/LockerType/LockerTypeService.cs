@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
+using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Services.lockerType
 {
@@ -16,9 +17,9 @@ namespace GuardeSoftwareAPI.Services.lockerType
             daoLockerType = new DaoLockerType(accessDB);
         }
 
-        public List<LockerType> GetLockerTypesList()
+        public async Task<List<LockerType>> GetLockerTypesList()
         {
-            DataTable lockerstypeTable = daoLockerType.GetLockerTypes();
+            DataTable lockerstypeTable = await daoLockerType.GetLockerTypes();
             List<LockerType> lockerTypeList = new List<LockerType>();
 
             foreach (DataRow row in lockerstypeTable.Rows)
@@ -36,9 +37,9 @@ namespace GuardeSoftwareAPI.Services.lockerType
             return lockerTypeList;
         }
 
-        public List<LockerType> GetLockerTypeListById(int id)
+        public async Task<List<LockerType>> GetLockerTypeListById(int id)
         {
-            DataTable lockerstypeTable = daoLockerType.GetLockerTypeById(id);
+            DataTable lockerstypeTable = await daoLockerType.GetLockerTypeById(id);
             List<LockerType> lockerTypeList = new List<LockerType>();
 
             foreach (DataRow row in lockerstypeTable.Rows)

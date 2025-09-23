@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
 
@@ -15,9 +16,9 @@ namespace GuardeSoftwareAPI.Services.user
 		}
 
 		// Get a list of all users but without the password hash
-		public List<User> GetUserList()
+		public async Task<List<User>> GetUserList()
 		{
-			DataTable userTable = _daoUser.GetUsers();
+			DataTable userTable = await _daoUser.GetUsers();
 			List<User> users = new List<User>();
 
 			if (userTable.Rows.Count == 0) throw new ArgumentException("No users found.");
@@ -43,11 +44,11 @@ namespace GuardeSoftwareAPI.Services.user
 		}
 
 		// Get a user by ID but without the password hash
-		public User GetUserById(int userId)
+		public async Task<User> GetUserById(int userId)
 		{
 			if (userId <= 0) throw new ArgumentException("Invalid user ID.");
 
-			DataTable userTable = _daoUser.GetUserById(userId);
+			DataTable userTable = await _daoUser.GetUserById(userId);
 
 			if (userTable.Rows.Count == 0) throw new ArgumentException("No user found with the given ID.");
 
@@ -64,7 +65,7 @@ namespace GuardeSoftwareAPI.Services.user
 			};
 		}
 		
-		public bool CreateUser(User user)
+		public async Task<bool> CreateUser(User user)
 		{
 			if (user == null) throw new ArgumentNullException(nameof(user), "User cannot be null.");
 			if (user.UserTypeId <= 0) throw new ArgumentException("Invalid user type ID."); //Missing validation for user type existence
@@ -74,16 +75,16 @@ namespace GuardeSoftwareAPI.Services.user
 			if (string.IsNullOrWhiteSpace(user.PasswordHash)) throw new ArgumentException("Password hash cannot be empty.");
 			user.PasswordHash = Utilities.HashUtility.ComputeSha256Hash(user.PasswordHash);
 			// Check if username already exists
-			DataTable existingUserTable = _daoUser.GetUserByUsername(user.UserName);
+			DataTable existingUserTable = await _daoUser.GetUserByUsername(user.UserName);
 			if (existingUserTable.Rows.Count > 0) throw new ArgumentException("Username already exists.");
-			if (_daoUser.CreateUser(user)) return true;
+			if (await _daoUser.CreateUser(user)) return true;
 			else return false;
 		}
 
-		public bool DeleteUser(int userId)
+		public async Task<bool> DeleteUser(int userId)
 		{
 			if (userId <= 0) throw new ArgumentException("Invalid user ID.");
-			if (_daoUser.DeleteUser(userId)) return true;
+			if (await _daoUser.DeleteUser(userId)) return true;
 			else return false;
 		}
 	}

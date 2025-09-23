@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.payment;
 using Microsoft.AspNetCore.Mvc;
@@ -16,11 +17,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet]
-        public ActionResult<List<Payment>> GetPayments()
+        public async Task<ActionResult<List<Payment>>> GetPayments()
         {
             try
             {
-                List<Payment> payments = _paymentService.GetPaymentsList();
+                List<Payment> payments = await _paymentService.GetPaymentsList();
 
                 return Ok(payments);
             }
@@ -37,11 +38,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetPaymentById(int id)
+        public async Task<IActionResult> GetPaymentById(int id)
         {
             try
             {
-                Payment payment = _paymentService.GetPaymentById(id);
+                Payment payment = await _paymentService.GetPaymentById(id);
                 if (payment == null)
                     return NotFound("No payment found with the given ID.");
 
@@ -58,11 +59,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("ByClientId/{clientId}")]
-        public IActionResult GetPaymentsByClientId(int clientId)
+        public async Task<IActionResult> GetPaymentsByClientId(int clientId)
         {
             try
             {
-                List<Payment> payments = _paymentService.GetPaymentsByClientId(clientId);
+                List<Payment> payments = await _paymentService.GetPaymentsByClientId(clientId);
                 if (payments == null || payments.Count == 0)
                     return NotFound("No payment found with the given ID.");
 
@@ -79,13 +80,13 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreatePayment([FromBody] Payment payment)
+        public async Task<IActionResult> CreatePayment([FromBody] Payment payment)
         {
             try
             {
                 if (payment == null)
                     return BadRequest("Payment method is null.");
-                bool isCreated = _paymentService.CreatePayment(payment);
+                bool isCreated = await _paymentService.CreatePayment(payment);
                 if (!isCreated)
                     return StatusCode(500, "Failed to create the payment.");
                 return CreatedAtAction(nameof(GetPaymentById), new { id = payment.Id }, payment);

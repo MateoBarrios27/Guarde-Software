@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
 
@@ -15,14 +16,14 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetPayments()
+        public async Task<DataTable> GetPayments()
         {
             string query = "SELECT payment_id, client_id, payment_method_id, payment_date, amount FROM payments";
 
-            return accessDB.GetTable("payments", query);
+            return await accessDB.GetTableAsync("payments", query);
         }
 
-        public DataTable GetPaymentById(int id)
+        public async Task<DataTable> GetPaymentById(int id)
         {
 
             string query = "SELECT payment_id, client_id, payment_method_id, payment_date, amount FROM payments WHERE payment_id = @payment_id";
@@ -32,10 +33,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@payment_id", SqlDbType.Int){Value  = id},
             };
 
-            return accessDB.GetTable("payments", query, parameters);
+            return await accessDB.GetTableAsync("payments", query, parameters);
         }
 
-        public bool CreatePayment(Payment payment)
+        public async Task<bool> CreatePayment(Payment payment)
         {
             string query = "INSERT INTO payments (client_id, payment_method_id, payment_date, amount) VALUES (@client_id, @payment_method_id, @payment_date, @amount)";
 
@@ -46,10 +47,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@amount", SqlDbType.Decimal){Value  = payment.Amount},
             };
 
-            return  accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
-        public DataTable GetPaymentsByClientId(int clientId)
+        public async Task<DataTable> GetPaymentsByClientId(int clientId)
         {
 
             string query = "SELECT payment_id, client_id, payment_method_id, payment_date, amount FROM payments WHERE client_id = @client_id";
@@ -60,7 +61,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@client_id", SqlDbType.Int){Value  = clientId},
             };
 
-            return accessDB.GetTable("payments", query, parameters);
+            return await accessDB.GetTableAsync("payments", query, parameters);
 
         }
         

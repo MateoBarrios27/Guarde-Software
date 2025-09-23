@@ -2,6 +2,7 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
+using System.Threading.Tasks;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -15,14 +16,14 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetAddress()
+        public async Task<DataTable> GetAddress()
         {
             string query = "SELECT address_id, client_id, street, city, province FROM addresses";
 
-            return accessDB.GetTable("addresses", query);
+            return await accessDB.GetTableAsync("addresses", query);
         }
 
-        public DataTable GetAddressByClientId(int cliendId) {
+        public async Task<DataTable> GetAddressByClientId(int cliendId) {
 
             string query = "SELECT address_id, client_id, street, city, province FROM addresses WHERE client_id = @client_id ";
 
@@ -31,10 +32,10 @@ namespace GuardeSoftwareAPI.Dao
                new SqlParameter("@client_id", SqlDbType.Int ) {Value =  cliendId},
             };
 
-            return accessDB.GetTable("addresses",query, parameters);
+            return await accessDB.GetTableAsync("addresses",query, parameters);
         }
 
-        public bool CreateAddress(Address address) {
+        public async Task<bool> CreateAddress(Address address) {
 
             SqlParameter[] parameters = new SqlParameter[]
             {
@@ -46,10 +47,10 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "INSERT INTO addresses(client_id, street, city, province)VALUES(@client_id, @street, @city, @province)";
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
-        public bool UpdateAddress(Address newAddress)
+        public async Task<bool> UpdateAddress(Address newAddress)
         {
             SqlParameter[] parameters = new SqlParameter[]
             {
@@ -62,7 +63,7 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "UPDATE addresses SET street = @street, city = @city, province = @province WHERE address_id = @address_id AND client_id = @client_id";
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
     }

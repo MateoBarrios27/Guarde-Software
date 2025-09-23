@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
@@ -16,9 +17,9 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 			_daoRentalAmountHistory = new DaoRentalAmountHistory(accessDB);
 		}
 
-		public List<RentalAmountHistory> GetRentalAmountHistoriesList()
+		public async Task<List<RentalAmountHistory>> GetRentalAmountHistoriesList()
 		{
-			DataTable rentalAmountHistoryTable = _daoRentalAmountHistory.GetRentalAmountHistoriesList();
+			DataTable rentalAmountHistoryTable = await _daoRentalAmountHistory.GetRentalAmountHistoriesList();
 			List<RentalAmountHistory> rentalAmountHistories = new List<RentalAmountHistory>();
 
 			if (rentalAmountHistoryTable.Rows.Count == 0) throw new ArgumentException("No rental amount histories found.");
@@ -42,11 +43,11 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 			return rentalAmountHistories;
 		}
 
-		public RentalAmountHistory GetRentalAmountHistoryByRentalId(int id)
+		public async Task<RentalAmountHistory> GetRentalAmountHistoryByRentalId(int id)
 		{
 			if (id <= 0) throw new ArgumentException("Invalid rental amount history ID.");
 
-			DataTable rentalAmountHistoryTable = _daoRentalAmountHistory.GetRentalAmountHistoryByRentalId(id);
+			DataTable rentalAmountHistoryTable = await _daoRentalAmountHistory.GetRentalAmountHistoryByRentalId(id);
 
 			if (rentalAmountHistoryTable.Rows.Count == 0) throw new ArgumentException("No rental amouny history found with the given ID.");
 
@@ -62,13 +63,13 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 			};
 		}
 
-		public bool CreateRentalAmountHistory(RentalAmountHistory rentalAmountHistory)
+		public async Task<bool> CreateRentalAmountHistory(RentalAmountHistory rentalAmountHistory)
 		{
 			if (rentalAmountHistory == null) throw new ArgumentNullException(nameof(rentalAmountHistory), "Rental amount history cannot be null.");
 			if (rentalAmountHistory.RentalId <= 0) throw new ArgumentException("Invalid rental ID.");
 			if (rentalAmountHistory.Amount <= 0) throw new ArgumentException("Amount must be greater than zero.");
 			if (rentalAmountHistory.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
-			if (_daoRentalAmountHistory.CreateRentalAmountHistory(rentalAmountHistory)) return true;
+			if (await _daoRentalAmountHistory.CreateRentalAmountHistory(rentalAmountHistory)) return true;
 			else return false;
 		}
 

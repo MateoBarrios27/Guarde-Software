@@ -7,15 +7,15 @@ namespace GuardeSoftwareAPI.Services.email
 
 	public interface IEmailService
 	{
-		List<Email> GetEmailsList();
+		Task<List<Email>> GetEmailsList();
 
-		List<Email> GetEmailListByClientId(int id);
+		Task<List<Email>> GetEmailListByClientId(int id);
 
-		public bool CreateEmail(Email email);
+		Task<bool> CreateEmail(Email email);
 
-        public bool DeleteEmail(int id);
+	    Task<bool> DeleteEmail(int id);
 
-		public bool UpdateEmail(int clientId,UpdateEmailDto dto);
+		Task<bool> UpdateEmail(int clientId,UpdateEmailDto dto);
 
     }
 }

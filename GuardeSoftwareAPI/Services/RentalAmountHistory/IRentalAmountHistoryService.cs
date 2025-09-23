@@ -7,11 +7,11 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 
 	public interface IRentalAmountHistoryService
 	{
-		public List<RentalAmountHistory> GetRentalAmountHistoriesList();
+		Task<List<RentalAmountHistory>> GetRentalAmountHistoriesList();
 
-		public RentalAmountHistory GetRentalAmountHistoryByRentalId(int id);
+		Task<RentalAmountHistory> GetRentalAmountHistoryByRentalId(int id);
 
-		public bool CreateRentalAmountHistory(RentalAmountHistory rentalAmountHistory);
+		Task<bool> CreateRentalAmountHistory(RentalAmountHistory rentalAmountHistory);
 
 		Task<int> CreateRentalAmountHistoryAsync(RentalAmountHistory rentalAmountHistory);
 

@@ -2,6 +2,7 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
+using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -14,14 +15,14 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetEmails()
+        public async Task<DataTable> GetEmails()
         {
             string query = "SELECT email_id, client_id, address, type FROM emails WHERE active = 1";
 
-            return accessDB.GetTable("emails", query);
+            return await accessDB.GetTableAsync("emails", query);
         }
 
-        public DataTable GetEmailsByClientId(int clientId) {
+        public async Task<DataTable> GetEmailsByClientId(int clientId) {
 
             string query = "SELECT email_id, client_id, address, type FROM emails WHERE client_id = @client_id";
 
@@ -30,10 +31,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@client_id", SqlDbType.Int){Value =  clientId},
             };
             
-            return accessDB.GetTable("emails", query, parameters);
+            return await accessDB.GetTableAsync("emails", query, parameters);
         }
 
-        public bool CreateEmail(Email email) {
+        public async Task<bool> CreateEmail(Email email) {
 
             SqlParameter[] parameters = new SqlParameter[] {
 
@@ -44,10 +45,10 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "INSERT INTO emails(client_id, address, type)VALUES(@client_id, @address, @type)";
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
-        public bool DeleteEmail(int id)
+        public async Task<bool> DeleteEmail(int id)
         {
 
             string query = "UPDATE emails SET active = 0 WHERE email_id = @email_id";
@@ -57,10 +58,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@email_id", SqlDbType.Int ) { Value = id},
             };
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
-        public bool UpdateEmail(Email email) {
+        public async Task<bool> UpdateEmail(Email email) {
 
             SqlParameter[] parameters = new SqlParameter[] {
 
@@ -72,7 +73,7 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "UPDATE emails SET address = @address, type = @type WHERE email_id = @email_id AND client_id = @client_id";
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
     }
 }

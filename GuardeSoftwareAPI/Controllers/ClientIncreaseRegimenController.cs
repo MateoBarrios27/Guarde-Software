@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.clientIncreaseRegimen;
 using Microsoft.AspNetCore.Mvc;
@@ -16,11 +17,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
         
         [HttpGet]
-        public ActionResult<List<ClientIncreaseRegimen>> GetClientIncreaseRegimens()
+        public async Task<ActionResult<List<ClientIncreaseRegimen>>> GetClientIncreaseRegimens()
         {
             try
             {
-                List<ClientIncreaseRegimen> clientIncreaseRegimens = _clientIncreaseRegimenService.GetClientIncreaseRegimensList();
+                List<ClientIncreaseRegimen> clientIncreaseRegimens = await _clientIncreaseRegimenService.GetClientIncreaseRegimensList();
 
                 return Ok(clientIncreaseRegimens);
             }
@@ -31,11 +32,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public ActionResult<ClientIncreaseRegimen> GetClientIncreaseRegimenById(int id)
+        public async Task<ActionResult<ClientIncreaseRegimen>> GetClientIncreaseRegimenById(int id)
         {
             try
             {
-                List<ClientIncreaseRegimen> clientIncreaseRegimen = _clientIncreaseRegimenService.GetClientIncreaseRegimensListByClientId(id);
+                List<ClientIncreaseRegimen> clientIncreaseRegimen = await _clientIncreaseRegimenService.GetClientIncreaseRegimensListByClientId(id);
 
                 if (clientIncreaseRegimen == null)
                 {

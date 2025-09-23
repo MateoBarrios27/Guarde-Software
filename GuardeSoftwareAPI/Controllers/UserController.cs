@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.user;
 using Microsoft.AspNetCore.Mvc;
@@ -16,11 +17,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet]
-        public ActionResult<List<User>> GetUsers()
+        public async Task<ActionResult<List<User>>> GetUsers()
         {
             try
             {
-                List<User> users = _userService.GetUserList();
+                List<User> users = await _userService.GetUserList();
 
                 return Ok(users);
             }
@@ -35,11 +36,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetUserById(int id)
+        public async Task<IActionResult> GetUserById(int id)
         {
             try
             {
-                User user = _userService.GetUserById(id);
+                User user = await _userService.GetUserById(id);
                 if (user == null)
                     return NotFound("No user found with the given ID.");
 
@@ -56,13 +57,13 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreateUser([FromBody] User user)
+        public async Task<IActionResult> CreateUser([FromBody] User user)
         {
             try
             {
                 if (user == null)
                     return BadRequest("User is null.");
-                bool isCreated = _userService.CreateUser(user); 
+                bool isCreated = await _userService.CreateUser(user); 
                 if (!isCreated)
                     return StatusCode(500, "Failed to create the user.");
                 user.PasswordHash = string.Empty; // Do not expose password hash
@@ -79,9 +80,9 @@ namespace GuardeSoftwareAPI.Controllers
         }
         
         [HttpDelete("{id}")]
-        public IActionResult DeleteUser(int id)
+        public async Task<IActionResult> DeleteUser(int id)
         {
-            bool deleted = _userService.DeleteUser(id);
+            bool deleted = await _userService.DeleteUser(id);
 
             if (deleted)
                 return Ok(new { message = "User deleted successfully." });

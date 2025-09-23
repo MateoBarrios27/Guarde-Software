@@ -2,6 +2,7 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
+using System.Threading.Tasks;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -15,14 +16,14 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetClientIncreaseRegimens()
+        public async Task<DataTable> GetClientIncreaseRegimens()
         {
             string query = "SELECT client_id, regimen_id, start_date, end_date FROM clients_x_increase_regimens";
 
-            return accessDB.GetTable("clients_x_increase_regimens", query);
+            return await accessDB.GetTableAsync("clients_x_increase_regimens", query);
         }
 
-        public DataTable GetClientIncreaseRegimensByClientId(int clientId) {
+        public async Task<DataTable> GetClientIncreaseRegimensByClientId(int clientId) {
 
             string query = "SELECT client_id, regimen_id, start_date, end_date FROM clients_x_increase_regimens WHERE client_id = @client_id";
 
@@ -31,10 +32,10 @@ namespace GuardeSoftwareAPI.Dao
                new SqlParameter("@client_id", SqlDbType.Int ) {Value =  clientId},
             };
 
-            return accessDB.GetTable("clients_x_increase_regimens", query, parameters);
+            return await accessDB.GetTableAsync("clients_x_increase_regimens", query, parameters);
         }
 
-        public bool CreateClientIncreaseRegimen(ClientIncreaseRegimen clientIncrease)
+        public async Task<bool> CreateClientIncreaseRegimen(ClientIncreaseRegimen clientIncrease)
         {
             SqlParameter[] parameters = new SqlParameter[]
             {
@@ -45,7 +46,7 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "INSERT INTO clients_x_increase_regimens(client_id, start_date, end_date)VALUES(@client_id, @start_date, @end_date)";
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
     }
 }

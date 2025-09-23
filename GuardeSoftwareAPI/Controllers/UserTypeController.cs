@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.userType;
 using Microsoft.AspNetCore.Mvc;
@@ -16,11 +17,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet]
-        public ActionResult<List<UserType>> GetUserTypes()
+        public async Task<ActionResult<List<UserType>>> GetUserTypes()
         {
             try
             {
-                List<UserType> userTypes = _userTypeService.GetUserTypeList();
+                List<UserType> userTypes = await _userTypeService.GetUserTypeList();
 
                 return Ok(userTypes);
             }
@@ -35,11 +36,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetUserTypeById(int id)
+        public async Task<IActionResult> GetUserTypeById(int id)
         {
             try
             {
-                UserType userType = _userTypeService.GetUserTypeById(id);
+                UserType userType = await _userTypeService.GetUserTypeById(id);
                 if (userType == null)
                     return NotFound("No user type found with the given ID.");
 
@@ -78,9 +79,9 @@ namespace GuardeSoftwareAPI.Controllers
         }
         
         [HttpDelete("{id}")]
-        public IActionResult DeleteUserType(int id)
+        public async Task<IActionResult> DeleteUserType(int id)
         {
-            bool deleted = _userTypeService.DeleteUserType(id);
+            bool deleted = await _userTypeService.DeleteUserType(id);
 
             if (deleted)
                 return Ok(new { message = "User deleted successfully." });

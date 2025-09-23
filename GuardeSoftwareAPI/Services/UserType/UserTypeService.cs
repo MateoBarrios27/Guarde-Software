@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
 
@@ -14,9 +15,9 @@ namespace GuardeSoftwareAPI.Services.userType
 			_daoUserType = new DaoUserType(accessDB);
 		}
 
-		public List<UserType> GetUserTypeList()
+		public async Task<List<UserType>> GetUserTypeList()
 		{
-			DataTable userTypeTable = _daoUserType.GetUserTypes();
+			DataTable userTypeTable = await _daoUserType.GetUserTypes();
 			List<UserType> userTypes = new List<UserType>();
 
 			if (userTypeTable.Rows.Count == 0) throw new ArgumentException("No user types found.");
@@ -37,11 +38,11 @@ namespace GuardeSoftwareAPI.Services.userType
 			return userTypes;
 		}
 
-		public UserType GetUserTypeById(int userTypeId)
+		public async Task<UserType> GetUserTypeById(int userTypeId)
 		{
 			if (userTypeId <= 0) throw new ArgumentException("Invalid user type ID.");
 
-			DataTable userTypeTable = _daoUserType.GetUserTypeById(userTypeId);
+			DataTable userTypeTable = await _daoUserType.GetUserTypeById(userTypeId);
 
 			if (userTypeTable.Rows.Count == 0) throw new ArgumentException("No user type found with the given ID.");
 
@@ -63,10 +64,10 @@ namespace GuardeSoftwareAPI.Services.userType
 			else return false;
 		}
 
-		public bool DeleteUserType(int userTypeId)
+		public async Task<bool> DeleteUserType(int userTypeId)
 		{
 			if (userTypeId <= 0) throw new ArgumentException("Invalid user type ID.");
-			if (_daoUserType.DeleteUserType(userTypeId)) return true;
+			if (await _daoUserType.DeleteUserType(userTypeId)) return true;
 			else return false;
 		}
 	}

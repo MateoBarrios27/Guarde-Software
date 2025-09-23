@@ -2,6 +2,7 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
+using System.Threading.Tasks;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -15,14 +16,14 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetIncreaseRegimens()
+        public async Task<DataTable> GetIncreaseRegimens()
         {
             string query = "SELECT regimen_id, frequency, percentage FROM increase_regimens";
 
-            return accessDB.GetTable("increase_regimens",query);
+            return await accessDB.GetTableAsync("increase_regimens",query);
         }
 
-        public DataTable GetIncreaseRegimenById(int id) { 
+        public async Task<DataTable> GetIncreaseRegimenById(int id) { 
         
             string query = "SELECT regimen_id, frequency, percentage FROM increase_regimens WHERE regimen_id = @regimen_id";
 
@@ -31,10 +32,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@regimen_id", SqlDbType.Int){Value = id},
             };
 
-            return accessDB.GetTable("increase_regimens", query,parameters);
+            return await accessDB.GetTableAsync("increase_regimens", query,parameters);
         }
 
-        public bool CreateIncreaseRegimen(IncreaseRegimen increaseRegimen)
+        public async Task<bool> CreateIncreaseRegimen(IncreaseRegimen increaseRegimen)
         {
             SqlParameter[] parameters = new SqlParameter[]
             {
@@ -44,7 +45,7 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "INSERT INTO increase_regimens(frequency, percentage)VALUES(@frequency, @percentage)";
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
 
         }
     }

@@ -2,6 +2,7 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
+using System.Threading.Tasks;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -15,14 +16,14 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public DataTable GetAccountMovement()
+        public async Task<DataTable> GetAccountMovement()
         {
             string query = "SELECT movement_id, rental_id,movement_date,movement_type,concept,amount, payment_id FROM account_movements";
 
-            return accessDB.GetTable("account_movements", query);
+            return await accessDB.GetTableAsync("account_movements", query);
         }
 
-        public DataTable GetAccountMovById(int id)
+        public async Task<DataTable> GetAccountMovById(int id)
         {
 
             string query = "SELECT movement_id, rental_id,movement_date,movement_type,concept,amount, payment_id FROM account_movements WHERE movement_id = @movement_id";
@@ -32,10 +33,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@movement_id", SqlDbType.Int) {Value = id},
             };
 
-            return accessDB.GetTable("account_movements", query, parameters);
+            return await accessDB.GetTableAsync("account_movements", query, parameters);
         }
 
-        public DataTable GetAccountMovByRentalId(int id)
+        public async Task<DataTable> GetAccountMovByRentalId(int id)
         {
             string query = "SELECT movement_id, rental_id,movement_date,movement_type,concept,amount, payment_id FROM account_movements WHERE rental_id = @rental_id";
 
@@ -44,11 +45,11 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@rental_id", SqlDbType.Int) {Value = id},
             };
 
-            return accessDB.GetTable("account_movements", query, parameters);
+            return await accessDB.GetTableAsync("account_movements", query, parameters);
 
         }
 
-        public bool CreateAccountMovement(AccountMovement accountMovement)
+        public async Task<bool> CreateAccountMovement(AccountMovement accountMovement)
         {
             SqlParameter[] parameters = new SqlParameter[]
             {
@@ -63,7 +64,7 @@ namespace GuardeSoftwareAPI.Dao
             string query = "INSERT INTO account_movements(rental_id, movement_date, movement_type, concept, amount, payment_id)"
             + "VALUES(@rental_id, @movement_date, @movement_type, @concept, @amount, @payment_id)";
 
-            return accessDB.ExecuteCommand(query, parameters) > 0;
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
         //This method checks if a debit entry exists for the current month for a given rental ID
@@ -103,7 +104,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@concept", SqlDbType.VarChar) { Value = debit.Concept },
                 new SqlParameter("@amount", SqlDbType.Decimal) { Value = debit.Amount },
                 // Validation for possible nulls for optional foreign key
-                new SqlParameter("@payment_id", SqlDbType.Int) { Value = (object)debit.PaymentId ?? DBNull.Value }
+                new SqlParameter("@payment_id", SqlDbType.Int) { Value = debit.PaymentId as object ?? DBNull.Value }
             };
 
 

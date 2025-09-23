@@ -2,6 +2,7 @@ using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.address;
 using Microsoft.AspNetCore.Mvc;
 using GuardeSoftwareAPI.Dtos.Address;
+using System.Threading.Tasks;
 
 
 namespace GuardeSoftwareAPI.Controllers
@@ -18,11 +19,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet]
-        public ActionResult<List<Address>> GetAddresses()
+        public async Task<ActionResult<List<Address>>> GetAddresses()
         {
             try
             {
-                List<Address> addresses = _addressService.GetAddressList();
+                List<Address> addresses = await _addressService.GetAddressList();
 
                 return Ok(addresses);
             }
@@ -33,11 +34,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public ActionResult<Address> GetAddressById(int id)
+        public async Task<ActionResult<Address>> GetAddressById(int id)
         {
             try
             {
-                List<Address> addresses = _addressService.GetAddressListByClientId(id);
+                List<Address> addresses = await _addressService.GetAddressListByClientId(id);
 
                 return Ok(addresses);
             }
@@ -48,14 +49,14 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPut("{clientId}")]
-        public ActionResult UpdateAddress(int clientId, [FromBody] UpdateAddressDto dto)
+        public async Task<ActionResult> UpdateAddress(int clientId, [FromBody] UpdateAddressDto dto)
         {
             try
             {
                 if (dto == null)
                     return BadRequest("Address data is required.");
 
-                bool updated = _addressService.UpdateAddress(clientId, dto);
+                bool updated = await _addressService.UpdateAddress(clientId, dto);
 
                 if (!updated)
                     return NotFound($"No address found with Id {dto.Id} for client {clientId}.");

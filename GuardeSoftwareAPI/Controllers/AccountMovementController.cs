@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.accountMovement;
 using Microsoft.AspNetCore.Mvc;
@@ -16,11 +17,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet]
-        public ActionResult<List<AccountMovement>> GetAccountMovements()
+        public async Task<ActionResult<List<AccountMovement>>> GetAccountMovements()
         {
             try
             {
-                List<AccountMovement> accountMovements = _accountMovementService.GetAccountMovementList();
+                List<AccountMovement> accountMovements = await _accountMovementService.GetAccountMovementList();
 
                 return Ok(accountMovements);
             }
@@ -31,11 +32,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public ActionResult<AccountMovement> GetAccountMovementById(int id)
+        public async Task<ActionResult<AccountMovement>> GetAccountMovementById(int id)
         {
             try
             {
-                List<AccountMovement> accountMovement = _accountMovementService.GetAccountMovementListByRentalId(id);
+                List<AccountMovement> accountMovement = await _accountMovementService.GetAccountMovementListByRentalId(id);
 
                 if (accountMovement == null)
                 {

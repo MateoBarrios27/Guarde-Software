@@ -4,6 +4,7 @@ using GuardeSoftwareAPI.Dao;
 using System.Collections.Generic;
 using System.Data;
 using GuardeSoftwareAPI.Dtos.Email;
+using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Services.email
 {
@@ -17,10 +18,10 @@ namespace GuardeSoftwareAPI.Services.email
 			_daoEmail = new DaoEmail(accessDB);
 		}
 
-		public List<Email> GetEmailsList()
+		public async Task<List<Email>> GetEmailsList()
 		{
 
-			DataTable emailsTable = _daoEmail.GetEmails();
+			DataTable emailsTable = await _daoEmail.GetEmails();
 			List<Email> emails = new List<Email>();
 
 			foreach (DataRow row in emailsTable.Rows)
@@ -41,10 +42,10 @@ namespace GuardeSoftwareAPI.Services.email
 			return emails;
 		}
 
-        public List<Email> GetEmailListByClientId(int id)
+        public async Task<List<Email>> GetEmailListByClientId(int id)
         {
 
-            DataTable emailsTable = _daoEmail.GetEmailsByClientId(id);
+            DataTable emailsTable = await _daoEmail.GetEmailsByClientId(id);
             List<Email> emails = new List<Email>();
 
             foreach (DataRow row in emailsTable.Rows)
@@ -65,7 +66,7 @@ namespace GuardeSoftwareAPI.Services.email
             return emails;
         }
 
-		public bool CreateEmail(Email email)
+		public async Task<bool> CreateEmail(Email email)
 		{
             if (email == null)
                 throw new ArgumentNullException(nameof(email));
@@ -79,20 +80,20 @@ namespace GuardeSoftwareAPI.Services.email
             if (string.IsNullOrWhiteSpace(email.Type))
                 throw new ArgumentException("Email type is required.");
 
-            if (_daoEmail.CreateEmail(email)) return true;
+            if (await _daoEmail.CreateEmail(email)) return true;
             else return false;
         }
 
-        public bool DeleteEmail(int id)
+        public async Task<bool> DeleteEmail(int id)
         {
             if (id <= 0)
                 throw new ArgumentException("Invalid Email Id.");
 
-            if (_daoEmail.DeleteEmail(id)) return true;
+            if (await _daoEmail.DeleteEmail(id)) return true;
             else return false;
         }
 
-        public bool UpdateEmail(int clientId, UpdateEmailDto dto)
+        public async Task<bool> UpdateEmail(int clientId, UpdateEmailDto dto)
         {
             if (dto == null)
                 throw new ArgumentNullException(nameof(dto));
@@ -117,7 +118,7 @@ namespace GuardeSoftwareAPI.Services.email
                 Type = dto.Type,
             };
 
-            return _daoEmail.UpdateEmail(Email);
+            return await _daoEmail.UpdateEmail(Email);
         }
     }
 }

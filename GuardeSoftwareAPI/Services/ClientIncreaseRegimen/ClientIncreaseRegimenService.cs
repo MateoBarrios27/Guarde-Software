@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
 
@@ -16,9 +17,9 @@ namespace GuardeSoftwareAPI.Services.clientIncreaseRegimen
 			daoClientIncreaseRegimen = new DaoClientIncreaseRegimen(accessDB);
 		}
 
-		public List<ClientIncreaseRegimen> GetClientIncreaseRegimensList() {
+		public async Task<List<ClientIncreaseRegimen>> GetClientIncreaseRegimensList() {
 
-			DataTable ClientIncreaseTable = daoClientIncreaseRegimen.GetClientIncreaseRegimens();
+			DataTable ClientIncreaseTable = await daoClientIncreaseRegimen.GetClientIncreaseRegimens();
 			List<ClientIncreaseRegimen> clientIncrease = new List<ClientIncreaseRegimen>();
 
 			foreach (DataRow row in ClientIncreaseTable.Rows)
@@ -42,10 +43,10 @@ namespace GuardeSoftwareAPI.Services.clientIncreaseRegimen
 		}
 
         
-        public List<ClientIncreaseRegimen> GetClientIncreaseRegimensListByClientId(int id)
+        public async Task<List<ClientIncreaseRegimen>> GetClientIncreaseRegimensListByClientId(int id)
         {
 
-            DataTable ClientIncreaseTable = daoClientIncreaseRegimen.GetClientIncreaseRegimensByClientId(id);
+            DataTable ClientIncreaseTable = await daoClientIncreaseRegimen.GetClientIncreaseRegimensByClientId(id);
             List<ClientIncreaseRegimen> clientIncrease = new List<ClientIncreaseRegimen>();
 
             foreach (DataRow row in ClientIncreaseTable.Rows)
@@ -68,7 +69,7 @@ namespace GuardeSoftwareAPI.Services.clientIncreaseRegimen
             return clientIncrease;
         }
 
-        public bool CreateClientIncreaseRegimen(ClientIncreaseRegimen clientIncreaseRegimen)
+        public async Task<bool> CreateClientIncreaseRegimen(ClientIncreaseRegimen clientIncreaseRegimen)
         {
             if (clientIncreaseRegimen == null)
                 throw new ArgumentNullException(nameof(clientIncreaseRegimen));
@@ -79,7 +80,7 @@ namespace GuardeSoftwareAPI.Services.clientIncreaseRegimen
             if (clientIncreaseRegimen.StartDate == default)
                 throw new ArgumentException("StartDate is required.");
 
-            if (daoClientIncreaseRegimen.CreateClientIncreaseRegimen(clientIncreaseRegimen)) return true;
+            if (await daoClientIncreaseRegimen.CreateClientIncreaseRegimen(clientIncreaseRegimen)) return true;
             else return false;
 
         }
