@@ -106,3 +106,31 @@
     </div>
   </div>
 </div> -->
+
+
+<div class="p-4">
+  <h2 class="text-xl font-bold mb-4">Clientes</h2>
+
+  <table class="min-w-full border border-gray-300">
+    <thead class="bg-gray-100">
+      <tr>
+        <th class="px-4 py-2">ID</th>
+        <th class="px-4 py-2">Nombre</th>
+        <th class="px-4 py-2">Apellido</th>
+        <th class="px-4 py-2">DNI</th>
+        <th class="px-4 py-2">CUIT</th>
+        <th class="px-4 py-2">Condición IVA</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let c of clients" class="border-t">
+        <td class="px-4 py-2">{{ c.id }}</td>
+        <td class="px-4 py-2">{{ c.firstName }}</td>
+        <td class="px-4 py-2">{{ c.lastName }}</td>
+        <td class="px-4 py-2">{{ c.dni }}</td>
+        <td class="px-4 py-2">{{ c.cuit }}</td>
+        <td class="px-4 py-2">{{ c.ivaCondition }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
