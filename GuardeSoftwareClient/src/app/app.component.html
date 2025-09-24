@@ -1,3 +1,9 @@
-<h1 class="text-2xl">Guarde Software Client</h1>
+<div class="flex h-screen bg-gray-100">
+  <app-sidebar class="w-64 flex-shrink-0"></app-sidebar>
 
-<router-outlet />
+  <main class="flex-1 overflow-y-auto">
+    <div class="p-8">
+      <router-outlet></router-outlet>
+    </div>
+  </main>
+</div>
