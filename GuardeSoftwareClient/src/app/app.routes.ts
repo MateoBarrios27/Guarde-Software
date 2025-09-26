@@ -11,13 +11,13 @@ export const routes: Routes = [
   // Redirect the root path to /clients by default
   { path: '', redirectTo: '/clients', pathMatch: 'full' }, 
   
-  { path: 'dashboard', component: DashboardComponent },
-  { path: 'lockers', component: LockersComponent },
-  { path: 'clients', component: ClientsComponent },
-  { path: 'finances', component: FinancesComponent },
-  { path: 'communications', component: CommunicationsComponent },
-  { path: 'reports', component: ReportsComponent },
-  { path: 'settings', component: SettingsComponent },
+  { path: 'dashboard', component: DashboardComponent, data: { title: 'Dashboard' } },
+  { path: 'lockers', component: LockersComponent, data: { title: 'Bauleras' } },
+  { path: 'clients', component: ClientsComponent, data: { title: 'Clientes' } },
+  { path: 'finances', component: FinancesComponent, data: { title: 'Finanzas' } },
+  { path: 'communications', component: CommunicationsComponent, data: { title: 'Comunicaciones' } },
+  { path: 'reports', component: ReportsComponent, data: { title: 'Reportes' } },
+  { path: 'settings', component: SettingsComponent, data: { title: 'Configuración' } },
   
   // Wildcard route to handle not-found URLs
   { path: '**', redirectTo: '/clients' } 

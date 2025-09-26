@@ -1,10 +1,32 @@
+<div class="h-screen w-full bg-gray-100 flex overflow-hidden">
+  
+  <app-sidebar 
+    [isOpen]="isSidebarOpen" 
+    (closeSidebar)="closeSidebar()">
+  </app-sidebar>
 
-<div class="flex h-screen bg-gray-100">
-  <app-sidebar class="w-64 flex-shrink-0"></app-sidebar>
+  <div class="flex-1 flex flex-col transition-all duration-300 ease-in-out ml-0 lg:ml-64 min-w-0">
+    
+    <header class="flex h-16 items-center gap-4 border-b bg-white px-6 shadow-sm flex-shrink-0">
+      <button
+        (click)="toggleSidebar()"
+        class="text-gray-600 hover:text-gray-900 lg:hidden"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      </button>
 
-  <main class="flex-1 overflow-y-auto">
-    <div class="p-8">
+      <h1 class="text-lg font-semibold text-gray-900">{{ pageTitle }}</h1>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-6">
       <router-outlet></router-outlet>
-    </div>
-  </main>
+    </main>
+  </div>
+
+  <div 
+    *ngIf="isSidebarOpen"
+    (click)="closeSidebar()"
+    class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+  ></div>
+
 </div>
