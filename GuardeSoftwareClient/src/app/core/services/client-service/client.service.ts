@@ -15,4 +15,6 @@ export class ClientService {
   public getClients(): Observable<Client[]>{
     return this.httpCliente.get<Client[]>(`${this.url}/Client`);
   }
+
+  
 }
