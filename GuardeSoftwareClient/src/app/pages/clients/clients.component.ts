@@ -1,25 +1,12 @@
 // import { Component } from '@angular/core';
 // import { CommonModule } from '@angular/common';
 // import { Client } from '../../core/models/client';
-// import { ClientService } from '../../core/services/client.service';
+// import { ClientService } from '../../core/services/client-service/client.service';
+// import { CreateClientDTO } from '../../core/dtos/client/CreateClientDTO';
+// import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO';
 
 // // Define an interface for strong typing of our client data
 // type ClientStatus = 'Up to date' | 'Overdue' | 'Pending';
-
-// // interface Client {
-// //   id: string;
-// //   name: string;
-// //   email: string;
-// //   phone: string;
-// //   storageUnit: string;
-// //   document: string;
-// //   status: ClientStatus;
-// //   nextPayment: string;
-// //   avatar: {
-// //     initial: string;
-// //     color: string;
-// //   };
-// // }
 
 // @Component({
 //   selector: 'app-clients',
@@ -30,6 +17,7 @@
 // export class ClientsComponent {
 
 //  clients: Client[] = [];
+//   clientDetail?: ClientDetailDTO;
 
 //  constructor(private clientService: ClientService) {}
 
@@ -44,6 +32,49 @@
 //       }
 //     });
 //   }
+
+//   // Validar GET by Id
+//   loadClientDetail(id: number): void {
+//     this.clientService.getClientDetailById(id).subscribe({
+//       next: (detail) => {
+//         this.clientDetail = detail;
+//         console.log('Detalle cliente:', this.clientDetail);
+//       },
+//       error: (err) => {
+//         console.error('Error al obtener detalle:', err);
+//       }
+//     });
+//   }
+
+//   // Validar POST
+//   createClient(): void {
+//     const newClient: CreateClientDTO = {
+//       paymentIdentifier: 123,
+//       firstName: 'Mateo',
+//       lastName: 'Barrios',
+//       registrationDate: new Date(),
+//       notes: 'Cliente de prueba',
+//       dni: '12345678',
+//       cuit: '20-12345678-9',
+//       preferredPaymentMethodId: 1,
+//       ivaCondition: 'Responsable Inscripto',
+//       startDate: new Date(),
+//       contractedM3: 10,
+//       amount: 5000,
+//       lockerIds: [1],
+//       userID: 1
+//     };
+
+//     this.clientService.CreateClient(newClient).subscribe({
+//       next: (res) => {
+//         console.log('Cliente creado, ID devuelto:', res.id);
+//       },
+//       error: (err) => {
+//         console.error('Error al crear cliente:', err);
+//       }
+//     });
+//   }
+
 //   // Method to get the corresponding CSS class for each status
 //   getStatusClass(status: ClientStatus): string {
 //     switch (status) {
@@ -57,7 +88,8 @@
 //   }
 // }
 
-// src/app/pages/clients/clients.component.ts
+// ------------------------------
+
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms'; // <-- ¡IMPORTANTE! Importa FormsModule

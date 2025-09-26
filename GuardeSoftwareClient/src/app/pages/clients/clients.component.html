@@ -106,12 +106,23 @@
     </div>
   </div>
 </div> -->
-<!-- 
 
-<div class="p-4">
+<!-- ----------------------------------------------------->
+
+<!-- USED TO TEST SERVICES METHODS -->
+
+<!-- <div class="p-4">
   <h2 class="text-xl font-bold mb-4">Clientes</h2>
 
-  <table class="min-w-full border border-gray-300">
+  <button (click)="createClient()" class="px-3 py-1 bg-blue-600 text-white rounded mr-2">
+    Crear cliente de prueba
+  </button>
+
+  <button (click)="loadClientDetail(1)" class="px-3 py-1 bg-green-600 text-white rounded">
+    Cargar detalle de cliente con ID 1
+  </button>
+
+  <table class="min-w-full border border-gray-300 mt-4">
     <thead class="bg-gray-100">
       <tr>
         <th class="px-4 py-2">ID</th>
@@ -133,7 +144,14 @@
       </tr>
     </tbody>
   </table>
+
+  <div *ngIf="clientDetail" class="mt-6 p-4 border rounded bg-gray-50">
+    <h3 class="font-bold">Detalle del cliente:</h3>
+    <pre>{{ clientDetail | json }}</pre>
+  </div>
 </div> -->
+
+<!-- ----------------------------------- -->
 
 <div class="space-y-6">
   <div>
