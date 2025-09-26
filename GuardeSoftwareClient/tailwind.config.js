@@ -5,10 +5,10 @@ module.exports = {
   ],
   theme: {
     extend: {
-    fontFamily: {
-      sans: ['Inter', 'sans-serif'] // <-- La línea clave
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
       },
     },
   },
   plugins: [],
-}
+};
