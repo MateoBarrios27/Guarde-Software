@@ -4,7 +4,11 @@ module.exports = {
     "./src/**/*.{html,ts}",
   ],
   theme: {
-    extend: {},
+    extend: {
+    fontFamily: {
+      sans: ['Inter', 'sans-serif'] // <-- La línea clave
+      },
+    },
   },
   plugins: [],
 }
