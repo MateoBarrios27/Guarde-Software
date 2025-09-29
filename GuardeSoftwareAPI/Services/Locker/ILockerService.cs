@@ -27,5 +27,6 @@ namespace GuardeSoftwareAPI.Services.locker
 
 		Task<bool> UpdateLocker(int lockerId, UpdateLockerDto dto);
 
+		Task<bool> UpdateLockerStatus(int lockerId, UpdateLockerStatusDto dto);
     }
 }

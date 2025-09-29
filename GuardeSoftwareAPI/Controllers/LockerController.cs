@@ -82,5 +82,26 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, $"Error updating locker: {ex.Message}");
             }
         }
+
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> UpdateLockerStatus(int id, [FromBody] UpdateLockerStatusDto dto)
+        {
+            if (dto == null)
+                return BadRequest(new { message = "Invalid locker ID." });
+
+            try
+            {
+                bool updated = await _lockerService.UpdateLockerStatus(id,dto);
+
+                if (updated)
+                    return Ok(new { message = "Locker updated successfully." });
+                else
+                    return NotFound(new { message = $"No locker found with ID {id}." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error updating locker: {ex.Message}");
+            }
+        }
     }
 }
