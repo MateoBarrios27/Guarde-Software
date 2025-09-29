@@ -22,11 +22,11 @@ export class LockerService {
     return this.httpCliente.get<Locker>(`${this.url}/Locker/${id}`);
   }
 
-  public UpdateLocker(id: number, dto: LockerUpdateDTO): Observable<any>{
+  public updateLocker(id: number, dto: LockerUpdateDTO): Observable<any>{
      return this.httpCliente.put<any>(`${this.url}/Locker/${id}`, dto);
   }
 
-  public UpdateLockerStatus(id: number, dto: LockerUpdateStatusDTO): Observable<any>{
+  public updateLockerStatus(id: number, dto: LockerUpdateStatusDTO): Observable<any>{
     return this.httpCliente.patch<any>(`${this.url}/Locker/${id}`, dto);
   }
 

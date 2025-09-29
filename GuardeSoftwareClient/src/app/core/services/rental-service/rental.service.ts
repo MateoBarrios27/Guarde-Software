@@ -15,4 +15,12 @@ export class RentalService {
   public getRental(): Observable<rental[]>{
         return this.httpCliente.get<rental[]>(`${this.url}/Rental`);
   }
+
+   public getRentalById(id: number): Observable<rental>{
+        return this.httpCliente.get<rental>(`${this.url}/Rental/${id}`);
+  }
+
+  public deleteRental(id: number): Observable<any>{
+        return this.httpCliente.delete<any>(`${this.url}/Rental/${id}`);
+  }
 }

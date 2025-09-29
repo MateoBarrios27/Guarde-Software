@@ -15,4 +15,8 @@ export class LockerTypeService {
   public getLockerType(): Observable<LockerType[]>{
         return this.httpCliente.get<LockerType[]>(`${this.url}/LockerType`);
   }
+
+  public getLockerTypeById(id: number): Observable<LockerType>{
+        return this.httpCliente.get<LockerType>(`${this.url}/LockerType/${id}`);
+  }
 }

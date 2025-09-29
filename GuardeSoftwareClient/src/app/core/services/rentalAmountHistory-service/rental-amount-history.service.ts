@@ -15,4 +15,8 @@ export class RentalAmountHistoryService {
   public getRentalAmountHistory(): Observable<RentalAmountHistory[]>{
         return this.httpCliente.get<RentalAmountHistory[]>(`${this.url}/RentalAmountHistory`);
   }
+
+   public getRentalAmountHistoryByRental(id: number): Observable<RentalAmountHistory>{
+        return this.httpCliente.get<RentalAmountHistory>(`${this.url}/RentalAmountHistory/ByRental/${id}`);
+  }
 }

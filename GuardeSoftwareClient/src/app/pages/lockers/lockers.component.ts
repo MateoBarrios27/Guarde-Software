@@ -33,7 +33,7 @@ export class LockersComponent implements OnInit {
 
   liberarLocker(locker: Locker): void {
     if (!locker.id) return;
-    this.lockerService.UpdateLockerStatus(locker.id, { status: 'DISPONIBLE' }).subscribe({
+    this.lockerService.updateLockerStatus(locker.id, { status: 'DISPONIBLE' }).subscribe({
       next: () => {
         this.loadLockers();
       },

@@ -15,4 +15,13 @@ export class PaymentService {
   public getPayment(): Observable<Payment[]>{
         return this.httpCliente.get<Payment[]>(`${this.url}/Payment`);
   }
+
+  public getPaymentById(id: number): Observable<Payment>{
+    return this.httpCliente.get<Payment>(`${this.url}/Payment/${id}`);
+  }
+
+  public getPaymentByClientId(id: number): Observable<Payment[]> {
+    return this.httpCliente.get<Payment[]>(`${this.url}/Payment/ByClientId${id}`);
+  }
+  
 }

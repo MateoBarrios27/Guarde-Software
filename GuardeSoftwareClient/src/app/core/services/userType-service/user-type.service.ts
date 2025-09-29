@@ -15,4 +15,12 @@ export class UserTypeService {
   public getUserType(): Observable<UserType[]>{
         return this.httpCliente.get<UserType[]>(`${this.url}/UserType`);
   }
+
+  public getUserTypeById(id: number): Observable<UserType>{
+        return this.httpCliente.get<UserType>(`${this.url}/UserType/${id}`);
+  }
+
+  public deleteUserType(id: number): Observable<any>{
+        return this.httpCliente.delete<any>(`${this.url}/UserType/${id}`);
+  }
 }

@@ -15,4 +15,8 @@ export class AddressService {
   public getAddress(): Observable<Address[]>{
         return this.httpCliente.get<Address[]>(`${this.url}/Address`);
   }
+
+   public getAddressById(id: number): Observable<Address>{
+        return this.httpCliente.get<Address>(`${this.url}/Address/${id}`);
+  }
 }

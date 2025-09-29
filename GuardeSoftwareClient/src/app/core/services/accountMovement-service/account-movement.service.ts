@@ -15,4 +15,8 @@ export class AccountMovementService {
   public getAccountMovement(): Observable<AccountMovement[]>{
       return this.httpCliente.get<AccountMovement[]>(`${this.url}/AccountMovement`);
     }
+
+  public getAccountMovementById(id: number): Observable<AccountMovement>{
+      return this.httpCliente.get<AccountMovement>(`${this.url}/AccountMovement/${id}`);
+    }  
 }

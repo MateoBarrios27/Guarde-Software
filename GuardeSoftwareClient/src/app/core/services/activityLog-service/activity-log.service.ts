@@ -15,4 +15,12 @@ export class ActivityLogService {
   public getActivityLog(): Observable<ActivityLog[]>{
         return this.httpCliente.get<ActivityLog[]>(`${this.url}/ActivityLog`);
   }
+  
+  public getActivityLogById(id: number): Observable<ActivityLog>{
+        return this.httpCliente.get<ActivityLog>(`${this.url}/ActivityLog/${id}`);
+  }
+
+  public deleteActivityLog(id: number): Observable<any>{
+        return this.httpCliente.delete<any>(`${this.url}/ActivityLog/${id}`);
+  }
 }

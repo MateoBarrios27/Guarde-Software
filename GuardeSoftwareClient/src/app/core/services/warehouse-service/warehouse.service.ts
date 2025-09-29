@@ -15,4 +15,12 @@ export class WarehouseService {
   public getWarehouse(): Observable<Warehouse[]>{
         return this.httpCliente.get<Warehouse[]>(`${this.url}/Warehouse`);
   }
+
+   public getWarehouseById(id: number): Observable<Warehouse>{
+        return this.httpCliente.get<Warehouse>(`${this.url}/Warehouse/${id}`);
+  }
+
+  public deleteWarehouse(id: number): Observable<any>{
+        return this.httpCliente.delete<any>(`${this.url}/Warehouse/${id}`);
+  }
 }

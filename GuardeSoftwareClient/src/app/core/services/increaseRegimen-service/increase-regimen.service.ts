@@ -15,4 +15,8 @@ export class IncreaseRegimenService {
   public getIncreaseRegimen(): Observable<IncreaseRegimen[]>{
         return this.httpCliente.get<IncreaseRegimen[]>(`${this.url}/IncreaseRegimen`);
   }
+
+  public getIncreaseRegimenById(id: number): Observable<IncreaseRegimen>{
+        return this.httpCliente.get<IncreaseRegimen>(`${this.url}/IncreaseRegimen/${id}`);
+  }
 }

@@ -15,4 +15,12 @@ export class PaymentMethodService {
   public getPaymentMethod(): Observable<PaymentMethod[]>{
         return this.httpCliente.get<PaymentMethod[]>(`${this.url}/PaymentMethod`);
   }
+
+  public getPaymentMethodById(id: number): Observable<PaymentMethod>{
+        return this.httpCliente.get<PaymentMethod>(`${this.url}/PaymentMethod/${id}`);
+  }
+
+  public deletePaymentMethod(id: number): Observable<any>{
+        return this.httpCliente.delete<any>(`${this.url}/PaymentMethod/${id}`);
+  }
 }

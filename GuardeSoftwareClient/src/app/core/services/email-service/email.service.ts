@@ -15,4 +15,12 @@ export class EmailService {
   public getEmail(): Observable<Email[]>{
         return this.httpCliente.get<Email[]>(`${this.url}/Email`);
   }
+
+  public getEmailbyId(id: number): Observable<Email>{
+        return this.httpCliente.get<Email>(`${this.url}/Email/${id}`);
+  }
+
+  public deleteEmail(id: number): Observable<any>{
+        return this.httpCliente.delete<any>(`${this.url}/Email/${id}`);
+  }
 }
