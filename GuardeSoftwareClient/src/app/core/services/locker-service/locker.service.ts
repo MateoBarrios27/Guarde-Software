@@ -3,6 +3,8 @@ import { environment } from '../../../../environments/environmets';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Locker } from '../../models/locker';
+import { LockerUpdateDTO } from '../../dtos/locker/LockerUpdateDTO';
+import { LockerUpdateStatusDTO } from '../../dtos/locker/LockerUpdateStatusDTO';
 
 @Injectable({
   providedIn: 'root'
@@ -16,4 +18,19 @@ export class LockerService {
     return this.httpCliente.get<Locker[]>(`${this.url}/Locker`);
   }
 
+  public getLockerById(id: number): Observable<Locker>{
+    return this.httpCliente.get<Locker>(`${this.url}/Locker/${id}`);
+  }
+
+  public UpdateLocker(id: number, dto: LockerUpdateDTO): Observable<any>{
+     return this.httpCliente.put<any>(`${this.url}/Locker/${id}`, dto);
+  }
+
+  public UpdateLockerStatus(id: number, dto: LockerUpdateStatusDTO): Observable<any>{
+    return this.httpCliente.patch<any>(`${this.url}/Locker/${id}`, dto);
+  }
+
+  public deleteLocker(id: number): Observable<any> {
+  return this.httpCliente.delete<any>(`${this.url}/Locker/${id}`);
+  }
 }
