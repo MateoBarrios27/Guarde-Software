@@ -1,44 +1,84 @@
-<div class="p-6 space-y-6">
-  <!-- Estadísticas -->
+
+ <div class="p-6 space-y-6">
+
+  <!-- Dashboard -->
   <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
     <div class="p-4 bg-blue-50 rounded shadow">
-      <div class="text-2xl">{{ lockers.length }}</div>
+      <div class="text-2xl">{{ filteredLockers.length }}</div>
       <p class="text-gray-500 text-sm">Total</p>
     </div>
     <div class="p-4 bg-red-50 rounded shadow">
-    <div class="text-2xl">{{ ocupados }}</div>
-    <p class="text-gray-500 text-sm">Ocupados</p>
+      <div class="text-2xl">{{ ocupados }}</div>
+      <p class="text-gray-500 text-sm">Ocupados</p>
     </div>
     <div class="p-4 bg-green-50 rounded shadow">
-    <div class="text-2xl">{{ libres }}</div>
-    <p class="text-gray-500 text-sm">Libres</p>
-</div>
-  </div>
-
-  <!-- Lista de lockers -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <div *ngFor="let locker of lockers"
-         class="p-4 rounded-lg border shadow cursor-pointer hover:shadow-lg transition"
-         [ngClass]="{
-           'bg-green-100 border-green-300': locker.status === 'DISPONIBLE',
-           'bg-red-100 border-red-300': locker.status === 'OCUPADO',
-           'bg-yellow-100 border-yellow-300': locker.status === 'MANTENIMIENTO'
-         }">
-
-      <h3 class="font-bold text-sm">{{ locker.identifier }}</h3>
-      <p class="text-xs text-gray-600">Estado: {{ locker.status }}</p>
-
-      <div class="mt-2 flex gap-2">
-        <button (click)="liberarLocker(locker)"
-                class="px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600">
-          Liberar
-        </button>
-        <button (click)="borrarLocker(locker)"
-                class="px-2 py-1 text-xs rounded bg-red-500 text-white hover:bg-red-600">
-          Borrar
-        </button>
-      </div>
+      <div class="text-2xl">{{ libres }}</div>
+      <p class="text-gray-500 text-sm">Libres</p>
     </div>
+    <div class="p-4 bg-yellow-50 rounded shadow">
+      <div class="text-2xl">{{ mantenimiento }}</div>
+      <p class="text-gray-500 text-sm">Mantenimiento</p>
+    </div>
+
+  </div>
+
+  <!-- Filtros -->
+  <div class="flex flex-col md:flex-row md:items-center gap-4 mt-4">
+    <input type="text"
+           [(ngModel)]="searchTerm"
+           placeholder="Buscar por código o características..."
+           class="border rounded px-3 py-2 w-full md:w-1/3"/>
+
+    <select [(ngModel)]="selectedWarehouse"
+            class="border rounded px-3 py-2 w-full md:w-1/4">
+      <option value="">Todos los depósitos</option>
+      <option *ngFor="let w of warehouses" [value]="w.id">{{ w.name }}</option>
+    </select>
+
+    <select [(ngModel)]="selectedStatus"
+            class="border rounded px-3 py-2 w-full md:w-1/4">
+      <option value="">Todos los estados</option>
+      <option value="DISPONIBLE">Disponible</option>
+      <option value="OCUPADO">Ocupado</option>
+      <option value="MANTENIMIENTO">Mantenimiento</option>
+    </select>
+  </div>
+
+  <!-- Tabla -->
+  <div class="overflow-x-auto mt-6">
+    <table class="min-w-full border border-gray-200 bg-white rounded-lg">
+      <thead class="bg-gray-100">
+        <tr>
+          <th class="px-4 py-2 text-left text-sm font-medium">Código</th>
+          <th class="px-4 py-2 text-left text-sm font-medium">Depósito</th>
+          <th class="px-4 py-2 text-left text-sm font-medium">Características</th>
+          <th class="px-4 py-2 text-left text-sm font-medium">Estado</th>
+          <th class="px-4 py-2 text-left text-sm font-medium">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let locker of filteredLockers"
+            [ngClass]="{
+              'bg-green-50': locker.status === 'DISPONIBLE',
+              'bg-red-50': locker.status === 'OCUPADO',
+              'bg-yellow-50': locker.status === 'MANTENIMIENTO'        
+            }">
+          <td class="px-4 py-2">{{ locker.identifier }}</td>
+          <td class="px-4 py-2">{{ getWarehouseName(locker.warehouseId) }}</td>
+          <td class="px-4 py-2">{{ locker.features }}</td>
+          <td class="px-4 py-2 font-semibold">{{ locker.status }}</td>
+          <td class="px-4 py-2">
+            <button (click)="releaseLocker(locker)"
+                    class="px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600">
+              Liberar
+            </button>
+            <button (click)="deleteLocker(locker)"
+                    class="ml-2 px-2 py-1 text-xs rounded bg-red-500 text-white hover:bg-red-600">
+              Borrar
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </div>
-
