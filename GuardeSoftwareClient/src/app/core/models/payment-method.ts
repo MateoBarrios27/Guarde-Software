@@ -1,6 +1,6 @@
 
 export interface PaymentMethod{
     id: number;
-    comission: number;
+    commission: number;
     name: string;
 }

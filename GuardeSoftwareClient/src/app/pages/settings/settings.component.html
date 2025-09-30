@@ -1,1 +1,126 @@
-<p>settings works!</p>
+<div class="space-y-6">
+  <!-- Header -->
+  <div class="mb-6 mt-0">
+    <h1 class="text-2xl text-gray-900 mb-2">Gestiona usuarios y configuraciones del sistema</h1>
+  </div>
+
+  <div class="grid grid-cols-12 gap-6">
+    <!-- Sidebar -->
+    <div class="col-span-12 lg:col-span-3">
+      <div class="border rounded-lg shadow bg-white">
+        <div class="p-4 font-semibold border-b flex items-center gap-2 text-gray-700 text-sm">
+          Configuraciones
+        </div>
+        <nav>
+            <button
+                *ngFor="let section of configSections"
+                (click)="setActive(section.id)"
+                class="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors focus:outline-none"
+                [ngClass]="activeSection === section.id
+                    ? 'text-blue-700 bg-blue-50 border-r-2 border-blue-600 font-medium'
+                    : 'text-gray-600 hover:bg-gray-50 border-r-0'">
+                <span>{{ section.title }}</span>
+            </button>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Contenido principal -->
+    <div class="col-span-12 lg:col-span-9">
+      <!-- Sección Usuarios -->
+      <div *ngIf="activeSection === 'usuarios'" class="border rounded-lg shadow bg-white">
+        <div class="p-4 flex justify-between items-center border-b">
+          <div class="font-semibold flex items-center gap-2 text-gray-700">
+            Gestión de Usuarios
+          </div>
+          <button class="px-3 py-1 rounded bg-blue-600 text-white text-sm hover:bg-blue-700">
+            + Nuevo Usuario
+          </button>
+        </div>
+        <div class="p-4 overflow-x-auto">
+          <table class="min-w-full border text-sm">
+            <thead class="bg-gray-100 text-gray-600">
+              <tr>
+                <th class="px-4 py-2 text-left">Usuario</th>
+                <th class="px-4 py-2 text-left">Tipo</th>
+                <th class="px-4 py-2 text-left">Nombre</th>
+                <th class="px-4 py-2 text-left">Apellido</th>
+                <th class="px-4 py-2 text-left">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let user of users">
+                <td class="px-4 py-2">{{user.userName}}</td>
+                <td class="px-4 py-2">{{user.userTypeId}}</td>
+                <td class="px-4 py-2">{{user.firstName}}</td>
+                <td class="px-4 py-2">{{user.lastName}}</td>     
+                <td class="px-4 py-2 flex gap-2">
+                  <button class="px-2 py-1 border rounded text-xs">Editar</button>
+                  <button class="px-2 py-1 border rounded text-xs text-red-600">Eliminar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Medios de pago -->
+      <div *ngIf="activeSection === 'medios-pago'" class="border rounded-lg shadow bg-white">
+        <div class="p-4 flex justify-between items-center border-b">
+          <div class="font-semibold flex items-center gap-2 text-gray-700">
+            Medios de Pago
+          </div>
+          <button class="px-3 py-1 rounded bg-blue-600 text-white text-sm hover:bg-blue-700">
+            + Nuevo Medio de Pago
+          </button>
+        </div>
+        <div class="p-4 overflow-x-auto">
+          <table class="min-w-full border text-sm">
+            <thead class="bg-gray-100 text-gray-600">
+              <tr>
+                <th class="px-4 py-2 text-left">Nombre</th>
+                <th class="px-4 py-2 text-left">Comisión</th>
+                <th class="px-4 py-2 text-left">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let paymentmeth of paymentMethods">
+                <td class="px-4 py-2">{{paymentmeth.name}}</td>
+                <td class="px-4 py-2">{{paymentmeth.commission}} %</td>
+                <td class="px-4 py-2 flex gap-2">
+                  <button class="px-2 py-1 border rounded text-xs">Editar</button>
+                  <button class="px-2 py-1 border rounded text-xs text-red-600">Eliminar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Sección Datos -->
+      <div *ngIf="activeSection === 'datos'" class="border rounded-lg shadow bg-white">
+        <div class="p-4 border-b font-semibold text-gray-700">Datos de la Empresa</div>
+        <div class="p-4 space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium">Nombre Empresa</label>
+              <input type="text" class="w-full border rounded px-3 py-2" placeholder="GuardeSoftware"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium">CUIT</label>
+              <input type="text" class="w-full border rounded px-3 py-2" placeholder="20-12345678-9"/>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium">Dirección</label>
+            <input type="text" class="w-full border rounded px-3 py-2" placeholder="Av. Principal 1234"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium">Teléfono</label>
+            <input type="text" class="w-full border rounded px-3 py-2" placeholder="+54 11 1234-5678"/>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
