@@ -56,6 +56,22 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+         [HttpGet("Pending")]
+        public async Task<ActionResult<List<PendingRentalDTO>>> GetPendingPayments()
+        {
+            try
+            {
+                List<PendingRentalDTO> rentals = await _rentalService.GetPendingPaymentsAsync();
+
+                return Ok(rentals);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error getting pending rentals: {ex.Message}");
+            }
+        }
+        
+
         //[HttpPost]
         //public IActionResult CreateRental([FromBody] Rental rental)
         //{

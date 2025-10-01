@@ -9,6 +9,8 @@ namespace GuardeSoftwareAPI.Services.rental
 	{
 		Task<List<Rental>> GetRentalsList();
 
+		Task<List<PendingRentalDTO>> GetPendingPaymentsAsync();
+
 		Task<Rental> GetRentalById(int id);
 
 		Task<bool> DeleteRental(int rentalId);

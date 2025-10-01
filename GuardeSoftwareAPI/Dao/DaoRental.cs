@@ -325,5 +325,38 @@ namespace GuardeSoftwareAPI.Dao
             await accessDB.ExecuteCommandAsync(query, parameters);
         }
     
+        public async Task<DataTable> GetPendingPaymentsAsync()
+        {
+            string query = @"
+                WITH CurrentRentalAmount AS (
+                    SELECT rental_id, amount as CurrentRent
+                    FROM (
+                        SELECT rental_id, amount, 
+                            ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY start_date DESC) as rn
+                        FROM rental_amount_history
+                    ) as sub
+                    WHERE rn = 1
+                ),
+                AccountSummary AS (
+                    SELECT rental_id, 
+                    SUM(CASE WHEN movement_type = 'CREDITO' THEN amount ELSE -amount END) AS Balance
+                        FROM account_movements
+                        GROUP BY rental_id
+                )
+                SELECT 
+                    r.rental_id,
+                    r.client_id,
+                    r.months_unpaid,
+                    ISNULL(acc.Balance, 0) AS balance,
+                    cra.CurrentRent
+                FROM rentals r
+                LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
+                LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
+                WHERE r.active = 1
+                AND (r.months_unpaid > 0 OR ISNULL(acc.Balance,0) < cra.CurrentRent);";
+
+            return await accessDB.GetTableAsync("pending_rentals", query);
+        }
+
     }
 }

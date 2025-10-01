@@ -92,5 +92,28 @@ namespace GuardeSoftwareAPI.Services.rental
 
             return await _daoRental.CreateRentalTransactionAsync(rental, connection, transaction);
         }
+
+		public async Task<List<PendingRentalDTO>> GetPendingPaymentsAsync()
+		{
+			DataTable pendingRentalTable = await _daoRental.GetPendingPaymentsAsync();
+			List<PendingRentalDTO> pendingRentals = new List<PendingRentalDTO>();
+
+			if (pendingRentalTable.Rows.Count == 0)
+				return pendingRentals; 
+
+			foreach (DataRow row in pendingRentalTable.Rows)
+			{
+				PendingRentalDTO rental = new PendingRentalDTO
+				{
+					Id = (int)row["rental_id"],
+					ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
+					MonthsUnpaid = row["months_unpaid"] != DBNull.Value ? (int)row["months_unpaid"] : 0,
+					CurrentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0m,
+					Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0m
+				};
+				pendingRentals.Add(rental);
+			}
+			return pendingRentals;
+		}
     }
 }
