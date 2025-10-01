@@ -25,7 +25,7 @@ namespace GuardeSoftwareAPI.Dao {
         public async Task<DataTable> GetWarehouseById(int id)
         {
 
-            string query = "SELECT warehouse_id, name, address FROM warehouses WHERE warehouse_id = @warehouse_id";
+            string query = "SELECT warehouse_id, name, address FROM warehouses WHERE warehouse_id = @warehouse_id AND active = 1";
 
             SqlParameter[] parameters = new SqlParameter[]
             {
@@ -34,14 +34,23 @@ namespace GuardeSoftwareAPI.Dao {
             return await accessDB.GetTableAsync("warehouses", query, parameters);
         }
 
-        public async Task<bool> CreateWarehouse(Warehouse warehouse)
+        public async Task<Warehouse> CreateWarehouse(Warehouse warehouse)
         {
-            string query = "INSERT INTO warehouses (name, address) VALUES (@name, @address)";
+            string query = "INSERT INTO warehouses (name, address) VALUES (@name, @address); SELECT SCOPE_IDENTITY();";
             SqlParameter[] parameters = new SqlParameter[] {
                 new SqlParameter("@name", SqlDbType.NVarChar, 100){Value  = warehouse.Name},
                 new SqlParameter("@address", SqlDbType.NVarChar, 200){Value  = warehouse.Address},
             };
-            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+            
+             object newId = await accessDB.ExecuteScalarAsync(query, parameters);
+
+            if (newId != null && newId != DBNull.Value)
+            {
+                //Assign the newly generated ID to the warehouse object
+                warehouse.Id = Convert.ToInt32(newId);
+            }
+
+            return warehouse;
         }
         
         public async Task<bool> DeleteWarehouse(int id)

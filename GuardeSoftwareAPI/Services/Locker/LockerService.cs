@@ -65,7 +65,7 @@ namespace GuardeSoftwareAPI.Services.locker
             return lockersList;
         }
 
-        public async Task<bool> CreateLocker(Locker locker)
+        public async Task<Locker> CreateLocker(Locker locker)
         {
             if (locker == null)
                 throw new ArgumentNullException(nameof(locker));
@@ -87,8 +87,7 @@ namespace GuardeSoftwareAPI.Services.locker
             if (string.IsNullOrWhiteSpace(locker.Status))
                 throw new ArgumentException("Locker status is required.");
 
-            if (await daoLocker.CreateLocker(locker)) return true;
-            else return false;
+            return await daoLocker.CreateLocker(locker);
         }
 
         public async Task<bool> SetRentalTransactionAsync(int rentalId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)

@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using GuardeSoftwareAPI.Dtos.UserType;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.userType;
 using Microsoft.AspNetCore.Mvc;
@@ -35,7 +36,7 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id}", Name = "GetUserTypeById")]
         public async Task<IActionResult> GetUserTypeById(int id)
         {
             try
@@ -57,15 +58,27 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateUserType([FromBody] UserType userType)
+        public async Task<IActionResult> CreateUserType([FromBody] CreateUserTypeDTO userTypeToCreate)
         {
+            if (userTypeToCreate == null)
+                return BadRequest("User type is null.");
+
+            UserType userType = new()
+            {
+                Name = userTypeToCreate.Name
+            };
+            
             try
             {
+
+
+                userType = await _userTypeService.CreateUserType(userType);
+
                 if (userType == null)
-                    return BadRequest("User type is null.");
-                bool isCreated = await _userTypeService.CreateUserType(userType);
-                if (!isCreated)
-                    return StatusCode(500, "Failed to create the user type.");
+                    return StatusCode(500, "A problem happened while handling your request.");
+                if (userType.Id == 0)
+                    return StatusCode(500, "A problem happened while handling your request. No ID was returned for the new user type.");
+
                 return CreatedAtAction(nameof(GetUserTypeById), new { id = userType.Id }, userType);
             }
             catch (ArgumentException argEx)

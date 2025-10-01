@@ -15,7 +15,7 @@ namespace GuardeSoftwareAPI.Services.locker
 		//List<Locker> GetLockersAvailable();
 		Task<List<Locker>> GetLockerListById(int id);
 
-		Task<bool> CreateLocker(Locker locker);
+		Task<Locker> CreateLocker(Locker locker);
 
 		Task<bool> SetRentalTransactionAsync(int rentalId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction);
 

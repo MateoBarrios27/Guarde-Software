@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.User;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.user;
@@ -69,20 +68,25 @@ namespace GuardeSoftwareAPI.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateUser([FromBody] CreateUserDTO userToCreate)
         {
-            // 1. Mapear del DTO de creación al modelo de dominio (User)
+            // Mapping from CreateUserDTO to User entity
             User user = new()
             {
                 UserName = userToCreate.UserName,
                 FirstName = userToCreate.FirstName,
                 LastName = userToCreate.LastName,
-                UserTypeId = 1,
+                UserTypeId = 2, // Default to employee user
                 PasswordHash = string.Empty // Password will be handled separately
             };
 
-            // 2. Enviar el modelo de dominio al servicio
+            // Send the user entity and password to the service
             User createdUser = await _userService.CreateUser(user, userToCreate.Password);
+
+            if (createdUser == null)
+            {
+                return BadRequest("Failed to create user.");
+            }
             
-            // 3. Mapear el resultado (modelo de dominio) al DTO de respuesta
+            // Mapping from User entity to GetUserDTO
             GetUserDTO userToReturn = new()
             {
                 Id = createdUser.Id,
@@ -92,7 +96,6 @@ namespace GuardeSoftwareAPI.Controllers
                 UserTypeId = createdUser.UserTypeId
             };
 
-            // 4. Devolver el DTO en el CreatedAtAction
             return CreatedAtAction(nameof(GetUserById), new { id = userToReturn.Id }, userToReturn);
         }
         

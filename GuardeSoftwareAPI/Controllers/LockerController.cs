@@ -50,6 +50,32 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpPost]
+        public async Task<IActionResult> CreateLocker([FromBody] CreateLockerDTO LockerToCreate)
+        {
+            if (LockerToCreate == null)
+                return BadRequest(new { message = "Invalid locker data." });
+
+            Locker locker = new()
+            {
+                WarehouseId = LockerToCreate.WarehouseId,
+                LockerTypeId = LockerToCreate.LockerTypeId,
+                Identifier = LockerToCreate.Identifier,
+                Features = LockerToCreate.Features,
+                Status = LockerToCreate.Status
+            };
+
+            try
+            {
+                locker = await _lockerService.CreateLocker(locker);
+                return CreatedAtAction(nameof(GetLockersById), new { id = locker.Id }, locker);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating locker: {ex.Message}");
+            }
+        }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteLocker(int id)
         {

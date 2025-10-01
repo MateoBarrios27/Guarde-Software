@@ -8,7 +8,7 @@ namespace GuardeSoftwareAPI.Services.userType
 	{
 		Task<List<UserType>> GetUserTypeList();
 		Task<UserType> GetUserTypeById(int id);
-		Task<bool> CreateUserType(UserType userType);
+		Task<UserType> CreateUserType(UserType userType);
 		Task<bool> DeleteUserType(int userTypeId);
 		
 	}

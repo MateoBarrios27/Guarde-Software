@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using GuardeSoftwareAPI.Dtos.WareHouse;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.warehouse;
 using Microsoft.AspNetCore.Mvc;
@@ -35,7 +36,7 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id}", Name = "GetWarehouseById")]
         public async Task<IActionResult> GetWarehouseById(int id)
         {
             try
@@ -57,15 +58,26 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateWarehouse([FromBody] Warehouse warehouse)
+        public async Task<IActionResult> CreateWarehouse([FromBody] CreateWareHouseDTO warehouseToCreate)
         {
+            if (warehouseToCreate == null)
+                return BadRequest("Warehouse is null.");
+
+            Warehouse warehouse = new()
+            {
+                Name = warehouseToCreate.Name,
+                Address = warehouseToCreate.Address
+            };
+            
             try
             {
+                warehouse = await _warehouseService.CreateWarehouse(warehouse);
+
                 if (warehouse == null)
-                    return BadRequest("Warehouse is null.");
-                bool isCreated = await _warehouseService.CreateWarehouse(warehouse);
-                if (!isCreated)
-                    return StatusCode(500, "Failed to create the warehouse.");
+                    return StatusCode(500, "A problem happened while handling your request.");
+                if (warehouse.Id == 0)
+                    return StatusCode(500, "A problem happened while handling your request.");
+
                 return CreatedAtAction(nameof(GetWarehouseById), new { id = warehouse.Id }, warehouse);
             }
             catch (ArgumentException ex)

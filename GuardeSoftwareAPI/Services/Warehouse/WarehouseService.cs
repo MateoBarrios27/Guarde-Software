@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Data;
-using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
 
@@ -56,14 +55,13 @@ namespace GuardeSoftwareAPI.Services.warehouse
 				Address = row["address"]?.ToString() ?? string.Empty
 			};
 		}
-		
-		public async Task<bool> CreateWarehouse(Warehouse warehouse)
+
+		public async Task<Warehouse> CreateWarehouse(Warehouse warehouse)
 		{
 			if (warehouse == null) throw new ArgumentNullException(nameof(warehouse), "Warehouse cannot be null.");
 			if (string.IsNullOrWhiteSpace(warehouse.Name)) throw new ArgumentException("Warehouse name cannot be empty.");
 			if (string.IsNullOrWhiteSpace(warehouse.Address)) throw new ArgumentException("Warehouse address cannot be empty.");
-			if (await _daoWarehouse.CreateWarehouse(warehouse)) return true;
-			else return false;
+			return await _daoWarehouse.CreateWarehouse(warehouse);
 		}
 
 		public async Task<bool> DeleteWarehouse(int warehouseId)

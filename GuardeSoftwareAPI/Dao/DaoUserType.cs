@@ -17,7 +17,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<DataTable> GetUserTypes()
         {
-            string query = "SELECT user_type_id, name FROM user_types";
+            string query = "SELECT user_type_id, name FROM user_types WHERE active = 1";
 
             return await accessDB.GetTableAsync("user_types", query);
         }
@@ -25,7 +25,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<DataTable> GetUserTypeById(int userTypeId)
         {
 
-            string query = "SELECT user_type_id, name FROM user_types WHERE user_type_id = @user_type_id";
+            string query = "SELECT user_type_id, name FROM user_types WHERE user_type_id = @user_type_id AND active = 1";
 
             SqlParameter[] parameters = new SqlParameter[] {
 
@@ -35,12 +35,21 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.GetTableAsync("user_types", query, parameters);
         }
         
-        public async Task<bool> CreateUserTypeAsync(UserType userType) {
-            string query = "INSERT INTO user_types (name) VALUES (@name)";
+        public async Task<UserType> CreateUserTypeAsync(UserType userType) {
+            string query = "INSERT INTO user_types (name) VALUES (@name); SELECT SCOPE_IDENTITY();";
             SqlParameter[] parameters = new SqlParameter[] {
                 new SqlParameter("@name", SqlDbType.NVarChar, 100){Value  = userType.Name},
             };
-            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+
+            object newId = await accessDB.ExecuteScalarAsync(query, parameters);
+
+            if (newId != null && newId != DBNull.Value)
+            {
+                //Assign the newly generated ID to the user type object
+                userType.Id = Convert.ToInt32(newId);
+            }
+
+            return userType;
         }
 
         public async Task<bool> CheckIfUserTypeNameExistsAsync(string name)

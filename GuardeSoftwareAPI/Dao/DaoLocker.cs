@@ -27,7 +27,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<DataTable> GetLockerById(int id)
         {
 
-            string query = "SELECT locker_id, warehouse_id,locker_type_id, identifier, features, status, rental_id FROM lockers WHERE locker_id = @locker_id";
+            string query = "SELECT locker_id, warehouse_id,locker_type_id, identifier, features, status, rental_id FROM lockers WHERE locker_id = @locker_id AND active = 1";
 
             SqlParameter[] parameters = new SqlParameter[] {
 
@@ -44,21 +44,29 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.GetTableAsync("lockers", query);
         }
 
-        public async Task<bool> CreateLocker(Locker locker)
+        public async Task<Locker> CreateLocker(Locker locker)
         {
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new SqlParameter("@warehouse_id",SqlDbType.Int){Value = locker.WarehouseId},
                 new SqlParameter("@locker_type_id",SqlDbType.Int){Value = locker.LockerTypeId},
                 new SqlParameter("@identifier",SqlDbType.VarChar,100){Value = (object?)locker.Identifier ?? DBNull.Value},
                 new SqlParameter("@features",SqlDbType.VarChar){Value = (object?)locker.Features ?? DBNull.Value},
                 new SqlParameter("@status",SqlDbType.VarChar,50){Value = locker.Status},
-            };
+            ];
 
-            string query = "INSERT INTO lockers(warehouse_id,locker_type_id, identifier, features, status)VALUES(@warehouse_id,@locker_type_id, @identifier, @features, @status)";
+            string query = "INSERT INTO lockers(warehouse_id,locker_type_id, identifier, features, status)VALUES(@warehouse_id,@locker_type_id, @identifier, @features, @status); SELECT SCOPE_IDENTITY();";
 
-            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+             object newId = await accessDB.ExecuteScalarAsync(query, parameters);
+
+            if (newId != null && newId != DBNull.Value)
+            {
+                //Assign the newly generated ID to the locker object
+                locker.Id = Convert.ToInt32(newId);
+            }
+
+            return locker;
         }
 
         public async Task<bool> SetRentalTransactionAsync(int rentalId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
@@ -68,11 +76,11 @@ namespace GuardeSoftwareAPI.Dao
 
             foreach (var lockerId in lockerIds)
             {
-                SqlParameter[] parameters = new SqlParameter[] {
+                SqlParameter[] parameters = [
 
                     new SqlParameter("@locker_id", SqlDbType.Int){ Value =  lockerId},
                     new SqlParameter("@rental_id", SqlDbType.Int){ Value = rentalId},
-                };
+                ];
 
                 using (var command = new SqlCommand(query, connection, transaction))
                 {
@@ -102,10 +110,10 @@ namespace GuardeSoftwareAPI.Dao
                 WHERE
                     r.client_id = 1 AND r.active = 1";
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId }
-            };
+            ];
 
             return await accessDB.GetTableAsync("lockers_by_client", query, parameters);
         }
@@ -115,10 +123,10 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "UPDATE lockers SET active = 0 WHERE locker_id = @locker_id";
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new SqlParameter("@locker_id", SqlDbType.Int ) { Value = id},
-            };
+            ];
 
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
@@ -151,11 +159,11 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<bool> UpdateLockerStatus(int lockerId, string status)
         {
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new SqlParameter("@locker_id",SqlDbType.Int) {Value = lockerId},
                 new SqlParameter("@status",SqlDbType.VarChar,50){Value = status},
-            };
+            ];
 
             string query = "UPDATE lockers SET status = @status WHERE locker_id = @locker_id";
 
