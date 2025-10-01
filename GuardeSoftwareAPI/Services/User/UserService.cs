@@ -65,20 +65,22 @@ namespace GuardeSoftwareAPI.Services.user
 			};
 		}
 		
-		public async Task<bool> CreateUser(User user)
+		public async Task<User> CreateUser(User user, string password)
 		{
 			if (user == null) throw new ArgumentNullException(nameof(user), "User cannot be null.");
 			if (user.UserTypeId <= 0) throw new ArgumentException("Invalid user type ID."); //Missing validation for user type existence
 			if (string.IsNullOrWhiteSpace(user.UserName)) throw new ArgumentException("Username cannot be empty.");
 			// if (string.IsNullOrWhiteSpace(user.FirstName)) throw new ArgumentException("First name cannot be empty."); Now, first name can be null
 			// if (string.IsNullOrWhiteSpace(user.LastName)) throw new ArgumentException("Last name cannot be empty."); Now, last name can be null
-			if (string.IsNullOrWhiteSpace(user.PasswordHash)) throw new ArgumentException("Password hash cannot be empty.");
-			user.PasswordHash = Utilities.HashUtility.ComputeSha256Hash(user.PasswordHash);
+			if (string.IsNullOrWhiteSpace(password)) throw new ArgumentException("Password cannot be empty.");
+
 			// Check if username already exists
 			DataTable existingUserTable = await _daoUser.GetUserByUsername(user.UserName);
 			if (existingUserTable.Rows.Count > 0) throw new ArgumentException("Username already exists.");
-			if (await _daoUser.CreateUser(user)) return true;
-			else return false;
+
+			// Hash the password before storing it
+			user.PasswordHash = Utilities.HashUtility.ComputeSha256Hash(password);
+			return await _daoUser.CreateUser(user);
 		}
 
 		public async Task<bool> DeleteUser(int userId)

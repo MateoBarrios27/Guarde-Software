@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using GuardeSoftwareAPI.Dtos.User;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.user;
 using Microsoft.AspNetCore.Mvc;
@@ -17,13 +18,22 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<User>>> GetUsers()
+        public async Task<ActionResult<List<GetUserDTO>>> GetUsers()
         {
             try
             {
                 List<User> users = await _userService.GetUserList();
 
-                return Ok(users);
+                List<GetUserDTO> usersList = users.Select(user => new GetUserDTO
+                {
+                    Id = user.Id,
+                    UserName = user.UserName,
+                    FirstName = user.FirstName ?? string.Empty,
+                    LastName = user.LastName ?? string.Empty,
+                    UserTypeId = user.UserTypeId
+                }).ToList();
+
+                return Ok(usersList);
             }
             catch (ArgumentException ex)
             {
@@ -35,48 +45,55 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetUserById(int id)
+        [HttpGet("{id}", Name = "GetUserById")]
+        public async Task<ActionResult<GetUserDTO>> GetUserById(int id)
         {
-            try
+            User userFromService = await _userService.GetUserById(id);
+            if (userFromService == null)
             {
-                User user = await _userService.GetUserById(id);
-                if (user == null)
-                    return NotFound("No user found with the given ID.");
+                return NotFound();
+            }
 
-                return Ok(user);
-            }
-            catch (ArgumentException ex)
+            GetUserDTO userDto = new GetUserDTO
             {
-                return BadRequest(ex.Message);
-            }
-            catch (Exception)
-            {
-                return StatusCode(500, "Internal server error");
-            }
+                Id = userFromService.Id,
+                UserName = userFromService.UserName,
+                FirstName = userFromService.FirstName ?? string.Empty,
+                LastName = userFromService.LastName ?? string.Empty,
+                UserTypeId = userFromService.UserTypeId
+            };
+
+            return Ok(userDto);
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateUser([FromBody] User user)
+        public async Task<IActionResult> CreateUser([FromBody] CreateUserDTO userToCreate)
         {
-            try
+            // 1. Mapear del DTO de creación al modelo de dominio (User)
+            User user = new()
             {
-                if (user == null)
-                    return BadRequest("User is null.");
-                bool isCreated = await _userService.CreateUser(user); 
-                if (!isCreated)
-                    return StatusCode(500, "Failed to create the user.");
-                user.PasswordHash = string.Empty; // Do not expose password hash
-                return CreatedAtAction(nameof(GetUserById), new { id = user.Id}, user);
-            }
-            catch (ArgumentException argEx)
+                UserName = userToCreate.UserName,
+                FirstName = userToCreate.FirstName,
+                LastName = userToCreate.LastName,
+                UserTypeId = 1,
+                PasswordHash = string.Empty // Password will be handled separately
+            };
+
+            // 2. Enviar el modelo de dominio al servicio
+            User createdUser = await _userService.CreateUser(user, userToCreate.Password);
+            
+            // 3. Mapear el resultado (modelo de dominio) al DTO de respuesta
+            GetUserDTO userToReturn = new()
             {
-                return BadRequest(argEx.Message);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error creating user: {ex.Message}");
-            }
+                Id = createdUser.Id,
+                UserName = createdUser.UserName,
+                FirstName = createdUser.FirstName ?? string.Empty,
+                LastName = createdUser.LastName ?? string.Empty,
+                UserTypeId = createdUser.UserTypeId
+            };
+
+            // 4. Devolver el DTO en el CreatedAtAction
+            return CreatedAtAction(nameof(GetUserById), new { id = userToReturn.Id }, userToReturn);
         }
         
         [HttpDelete("{id}")]

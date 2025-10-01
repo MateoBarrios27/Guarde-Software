@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using System.Threading.Tasks;
+using GuardeSoftwareAPI.Dtos.User;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
 
@@ -46,18 +47,26 @@ namespace GuardeSoftwareAPI.Dao
 
         //This method creates a new user in the database with password
         //The password should be hashed before calling this method
-        public async Task<bool> CreateUser(User user)
+        public async Task<User> CreateUser(User user)
         {
+            string query = "INSERT INTO users (user_type_id, username, first_name, last_name, password) VALUES (@user_type_id, @username, @first_name, @last_name, @password); SELECT SCOPE_IDENTITY();";
 
-            string query = "INSERT INTO users (user_type_id, username, first_name, last_name, password) VALUES (@user_type_id, @username, @first_name, @last_name, @password)";
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
                 new SqlParameter("user_type_id", SqlDbType.Int){Value = user.UserTypeId},
                 new SqlParameter("username", SqlDbType.NVarChar, 100){Value = user.UserName},
                 new SqlParameter("first_name", SqlDbType.NVarChar, 100){Value = user.FirstName},
                 new SqlParameter("last_name", SqlDbType.NVarChar, 100){Value = user.LastName},
                 new SqlParameter("password", SqlDbType.NVarChar, 255){Value = user.PasswordHash},
-            };
-            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+            ];
+            object newId = await accessDB.ExecuteScalarAsync(query, parameters);
+
+            if (newId != null && newId != DBNull.Value)
+            {
+                //Assign the newly generated ID to the user object
+                user.Id = Convert.ToInt32(newId);
+            }
+
+            return user;
         }
 
         public async Task<bool> DeleteUser(int userId)

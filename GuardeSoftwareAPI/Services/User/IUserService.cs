@@ -1,4 +1,5 @@
 ﻿using System;
+using GuardeSoftwareAPI.Dtos.User;
 using GuardeSoftwareAPI.Entities;
 
 namespace GuardeSoftwareAPI.Services.user
@@ -8,7 +9,7 @@ namespace GuardeSoftwareAPI.Services.user
 	{
 		Task<List<User>> GetUserList();
 		Task<User> GetUserById(int id);
-		Task<bool> CreateUser(User user);
+		Task<User> CreateUser(User user, string password);
 		Task<bool> DeleteUser(int userId);
 	}
 }
