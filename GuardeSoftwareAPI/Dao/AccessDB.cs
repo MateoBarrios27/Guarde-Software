@@ -15,7 +15,7 @@ namespace GuardeSoftwareAPI.Dao
         }
         //This method realizes commands that do not return results (INSERT, UPDATE, DELETE)
         //Returns the number of affected rows
-        public async Task<int> ExecuteCommandAsync(string query, SqlParameter[] parameters)
+        public async Task<int> ExecuteCommandAsync(string query, SqlParameter[]? parameters = null)
         {
             using (SqlConnection connection = new SqlConnection(routeDB))
             {
@@ -38,7 +38,7 @@ namespace GuardeSoftwareAPI.Dao
         //Example of use:
         //string query = "INSERT INTO table_name(column1, column2) VALUES(@value1, @value2); SELECT SCOPE_IDENTITY();";
         //object result = await accessDB.ExecuteScalarAsync(query, parameters);
-        public async Task<object> ExecuteScalarAsync(string query, SqlParameter[] parameters = null)
+        public async Task<object> ExecuteScalarAsync(string query, SqlParameter[]? parameters = null)
         {
             using (SqlConnection connection = new SqlConnection(routeDB))
             {
@@ -59,7 +59,7 @@ namespace GuardeSoftwareAPI.Dao
         //This method is useful for SELECT queries
         //Returns a DataTable with the results of the query
         //It'a an async version of GetTable, it is used in DaoRental to realize jobs with Quartz
-        public async Task<DataTable> GetTableAsync(string tableName, string query, SqlParameter[] parameters = null)
+        public async Task<DataTable> GetTableAsync(string tableName, string query, SqlParameter[]? parameters = null)
         {
             using (SqlConnection connection = new SqlConnection(routeDB))
             using (SqlCommand command = new SqlCommand(query, connection))
