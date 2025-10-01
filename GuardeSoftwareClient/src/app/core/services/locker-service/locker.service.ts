@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import { Locker } from '../../models/locker';
 import { LockerUpdateDTO } from '../../dtos/locker/LockerUpdateDTO';
 import { LockerUpdateStatusDTO } from '../../dtos/locker/LockerUpdateStatusDTO';
+import { CreateLockerDTO } from '../../dtos/locker/CreateLockerDTO';
 
 @Injectable({
   providedIn: 'root'
@@ -32,5 +33,9 @@ export class LockerService {
 
   public deleteLocker(id: number): Observable<any> {
   return this.httpCliente.delete<any>(`${this.url}/Locker/${id}`);
+  }
+
+  public createLocker(createLockerDto: CreateLockerDTO): Observable<Locker> {
+    return this.httpCliente.post<Locker>(`${this.url}/locker`, createLockerDto);
   }
 }

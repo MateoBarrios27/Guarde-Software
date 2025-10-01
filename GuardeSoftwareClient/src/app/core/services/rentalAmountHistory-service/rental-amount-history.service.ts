@@ -19,4 +19,11 @@ export class RentalAmountHistoryService {
    public getRentalAmountHistoryByRental(id: number): Observable<RentalAmountHistory>{
         return this.httpCliente.get<RentalAmountHistory>(`${this.url}/RentalAmountHistory/ByRental/${id}`);
   }
+
+
+  //CAMBIAR POR DTO LUEGO DE HACERLO EN BACK
+  public createRentalAmountHistory(rentalAmountHist: RentalAmountHistory):Observable<RentalAmountHistory>{
+      return this.httpCliente.post<RentalAmountHistory>(`${this.url}/RentalAmountHistory`, rentalAmountHist);
+  }
+  
 }

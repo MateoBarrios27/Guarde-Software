@@ -19,4 +19,9 @@ export class LockerTypeService {
   public getLockerTypeById(id: number): Observable<LockerType>{
         return this.httpCliente.get<LockerType>(`${this.url}/LockerType/${id}`);
   }
+
+  //CAMBIAR A DTO
+  public createLockerType(lockerType: LockerType): Observable<LockerType>{
+      return this.httpCliente.post<LockerType>(`${this.url}/LockerType`,lockerType);
+  }
 }

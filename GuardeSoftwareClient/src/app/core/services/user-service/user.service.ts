@@ -3,6 +3,7 @@ import { User } from '../../models/user';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environmets';
+import { CreateUserDTO } from '../../dtos/user/CreateUserDTO';
 
 @Injectable({
   providedIn: 'root'
@@ -23,5 +24,10 @@ export class UserService {
    public deleteUser(id: number): Observable<any>{
       return this.httpCliente.delete<any>(`${this.url}/User/${id}`);
   }
+
+  public createUser(createUserDto: CreateUserDTO): Observable<User>{
+    return this.httpCliente.post<User>(`${this.url}/User`,createUserDto);
+  }
+
 
 }

@@ -23,5 +23,11 @@ export class PaymentService {
   public getPaymentByClientId(id: number): Observable<Payment[]> {
     return this.httpCliente.get<Payment[]>(`${this.url}/Payment/ByClientId${id}`);
   }
+
+  //CAMBIAR A DTO
+  public CreatePayment(payment: Payment): Observable<Payment>{
+    return this.httpCliente.post<Payment>(`${this.url}/Payment`, payment);
+  }
+  
   
 }
