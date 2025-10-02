@@ -162,8 +162,8 @@ namespace GuardeSoftwareAPI.Dao
         {
             if (rental == null) throw new ArgumentNullException(nameof(rental));
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new SqlParameter("@client_id", SqlDbType.Int) { Value = rental.ClientId },
                 new SqlParameter("@start_date", SqlDbType.DateTime) { Value = rental.StartDate },
                 new SqlParameter("@contracted_m3", SqlDbType.Int)
@@ -171,12 +171,12 @@ namespace GuardeSoftwareAPI.Dao
                    Value = rental.ContractedM3.HasValue ? (object)rental.ContractedM3.Value : DBNull.Value
                 },
                 new SqlParameter("@months_unpaid", SqlDbType.Int) { Value = rental.MonthsUnpaid }
-            };
+            ];
 
             string query = @"
                             INSERT INTO rentals(client_id, start_date, contracted_m3, months_unpaid)
                             OUTPUT INSERTED.rental_id
-                            VALUES(@client_id, @start_date, @contracted_m3, months_unpaid);";
+                            VALUES(@client_id, @start_date, @contracted_m3, @months_unpaid);";
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
@@ -312,9 +312,9 @@ namespace GuardeSoftwareAPI.Dao
 
             var parameters = new SqlParameter[]
             {
-            new SqlParameter("@rental_id", rentalId),
-            new SqlParameter("@concept", concept),
-            new SqlParameter("@amount", interestAmount)
+            new("@rental_id", rentalId),
+            new("@concept", concept),
+            new("@amount", interestAmount)
             };
             await accessDB.ExecuteCommandAsync(query, parameters);
         }
@@ -353,7 +353,8 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
                 LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
                 WHERE r.active = 1
-                AND (r.months_unpaid > 0 OR ISNULL(acc.Balance,0) < cra.CurrentRent);";
+                -- La única línea que cambia es la siguiente:
+                AND (r.months_unpaid > 0 OR ISNULL(acc.Balance, 0) < 0);";
 
             return await accessDB.GetTableAsync("pending_rentals", query);
         }
