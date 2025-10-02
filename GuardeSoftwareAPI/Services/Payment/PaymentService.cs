@@ -3,6 +3,8 @@ using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
 using System.Data;
 using System.Threading.Tasks;
+using GuardeSoftwareAPI.Dtos.Payment;
+using GuardeSoftwareAPI.Services.accountMovement;
 
 namespace GuardeSoftwareAPI.Services.payment
 {
@@ -10,9 +12,14 @@ namespace GuardeSoftwareAPI.Services.payment
 	public class PaymentService : IPaymentService
 	{
 		private readonly DaoPayment _daoPayment;
-		public PaymentService(AccessDB accessDB)
+		private readonly IAccountMovementService accountMovementService;
+		private readonly AccessDB accessDB;
+
+		public PaymentService(AccessDB _accessDB, IAccountMovementService _accountMovementService)
 		{
-			_daoPayment = new DaoPayment(accessDB);
+			_daoPayment = new DaoPayment(_accessDB);
+			this.accountMovementService = _accountMovementService;
+			this.accessDB = _accessDB;
 		}
 
 		public async Task<List<Payment>> GetPaymentsList()
@@ -94,5 +101,52 @@ namespace GuardeSoftwareAPI.Services.payment
 			if (payment.PaymentDate == DateTime.MinValue) throw new ArgumentException("Invalid payment date.");
 			return await _daoPayment.CreatePayment(payment);
 		}
+
+		public async Task<bool> CreatePaymentWithMovementAsync(CreatePaymentTransaction dto)
+		{
+			if (dto == null) throw new ArgumentNullException(nameof(dto), "DTO cannot be null.");
+			if (dto.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
+			if (dto.PaymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
+			if (dto.Amount <= 0) throw new ArgumentException("Amount must be greater than 0.");
+			if (dto.RentalId <= 0) throw new ArgumentException("Invalid rental ID.");
+
+			using var connection = accessDB.GetConnectionClose();
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+
+			try
+			{
+				var payment = new Payment
+				{
+					ClientId = dto.ClientId,
+					PaymentMethodId = dto.PaymentMethodId,
+					Amount = dto.Amount,
+					PaymentDate = DateTime.Now
+				};
+
+				int paymentId = await _daoPayment.CreatePaymentTransactionAsync(payment, connection, transaction);
+
+				var movement = new AccountMovement
+				{
+					RentalId = dto.RentalId,
+					PaymentId = paymentId,
+					MovementDate = DateTime.Now,
+					MovementType = string.IsNullOrWhiteSpace(dto.MovementType) ? "CREDITO" : dto.MovementType,
+					Concept = string.IsNullOrWhiteSpace(dto.Concept) ? "Pago de alquiler" : dto.Concept,
+					Amount = dto.Amount
+				};
+
+				await accountMovementService.CreateAccountMovementTransactionAsync(movement, connection, transaction);
+
+				await transaction.CommitAsync();
+				return true;
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
+		
 	}
 }

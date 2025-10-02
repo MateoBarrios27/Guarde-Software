@@ -149,6 +149,7 @@ namespace GuardeSoftwareAPI.Services.client
                             StartDate = dto.StartDate,
                             ContractedM3 = dto.ContractedM3,
                             MonthsUnpaid = 0
+
                         };
 
                         int rentalId = await rentalService.CreateRentalTransactionAsync(rental, connection, transaction);

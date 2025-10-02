@@ -1,5 +1,7 @@
 ﻿using System;
 using GuardeSoftwareAPI.Entities;
+using Microsoft.Data.SqlClient;
+
 
 namespace GuardeSoftwareAPI.Services.accountMovement
 {
@@ -12,6 +14,8 @@ namespace GuardeSoftwareAPI.Services.accountMovement
 
 		Task<bool> CreateAccountMovement(AccountMovement accountMovement);
 		Task ApplyMonthlyDebitsAsync();
+
+		Task<bool> CreateAccountMovementTransactionAsync(AccountMovement accountMovement, SqlConnection connection, SqlTransaction transaction);
 
     }
 }

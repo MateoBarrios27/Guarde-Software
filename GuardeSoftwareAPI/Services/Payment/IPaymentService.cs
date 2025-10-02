@@ -1,5 +1,6 @@
 ﻿using System;
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Dtos.Payment;
 
 namespace GuardeSoftwareAPI.Services.payment
 {
@@ -10,5 +11,7 @@ namespace GuardeSoftwareAPI.Services.payment
 		Task<Payment> GetPaymentById(int id);
 		Task<List<Payment>> GetPaymentsByClientId(int clientId);
 		Task<bool> CreatePayment(Payment payment);
+
+		Task<bool> CreatePaymentWithMovementAsync(CreatePaymentTransaction dto);
 	}
 }

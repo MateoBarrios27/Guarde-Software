@@ -67,6 +67,33 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
+        //using for payment transaction
+        public async Task<bool> CreateAccountMovementTransactionAsync(AccountMovement accountMovement, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (accountMovement == null) throw new ArgumentNullException(nameof(accountMovement));
+
+            string query = @"
+                INSERT INTO account_movements (rental_id, movement_date, movement_type, concept, amount, payment_id)
+                VALUES (@rental_id, @movement_date, @movement_type, @concept, @amount, @payment_id);";
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new("@rental_id", SqlDbType.Int) { Value = accountMovement.RentalId },
+                new("@movement_date", SqlDbType.DateTime) { Value = accountMovement.MovementDate },
+                new("@movement_type", SqlDbType.NVarChar) { Value = accountMovement.MovementType },
+                new("@concept", SqlDbType.NVarChar) { Value = accountMovement.Concept },
+                new("@amount", SqlDbType.Decimal) { Value = accountMovement.Amount },
+                new("@payment_id", SqlDbType.Int) { Value = accountMovement.PaymentId }
+            };
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.AddRange(parameters);
+
+            int affectedRows = await command.ExecuteNonQueryAsync();
+            return affectedRows > 0;
+        }
+
+
         //This method checks if a debit entry exists for the current month for a given rental ID
         //It returns true if the entry debit exists, otherwise false.
         //Is used in DebitService and is a verification

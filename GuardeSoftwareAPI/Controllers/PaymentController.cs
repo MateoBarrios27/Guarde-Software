@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.payment;
 using Microsoft.AspNetCore.Mvc;
+using GuardeSoftwareAPI.Dtos.Payment;
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -80,25 +81,25 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreatePayment([FromBody] Payment payment)
+        public async Task<ActionResult<Payment>> CreatePaymentTransaction([FromBody] CreatePaymentTransaction dto)
         {
             try
             {
-                if (payment == null)
-                    return BadRequest("Payment method is null.");
-                bool isCreated = await _paymentService.CreatePayment(payment);
-                if (!isCreated)
-                    return StatusCode(500, "Failed to create the payment.");
-                return CreatedAtAction(nameof(GetPaymentById), new { id = payment.Id }, payment);
-            }
-            catch (ArgumentException argEx)
-            {
-                return BadRequest(argEx.Message);
+               if (dto == null)
+                    return BadRequest("Payment data is required.");
+
+                bool result = await _paymentService.CreatePaymentWithMovementAsync(dto);
+
+                if (result)
+                    return Ok(new { Message = "Payment and account movement created successfully." });
+
+                return BadRequest("Could not create payment transaction.");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error creating the payment: {ex.Message}");
+                return StatusCode(500, $"Error creating payment transaction: {ex.Message}");
             }
         }
+
     }
 }

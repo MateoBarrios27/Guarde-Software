@@ -50,6 +50,34 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
+        public async Task<int> CreatePaymentTransactionAsync(Payment payment, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (payment == null) throw new ArgumentNullException(nameof(payment));
+
+            string query = @"
+                INSERT INTO payments (client_id, payment_method_id, payment_date, amount)
+                OUTPUT INSERTED.payment_id
+                VALUES (@client_id, @payment_method_id, @payment_date, @amount);";
+
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new("@client_id", SqlDbType.Int) { Value = payment.ClientId },
+                new("@payment_method_id", SqlDbType.Int) { Value = payment.PaymentMethodId },
+                new("@payment_date", SqlDbType.DateTime) { Value = payment.PaymentDate },
+                new("@amount", SqlDbType.Decimal) { Value = payment.Amount }
+            };
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.AddRange(parameters);
+
+            object result = await command.ExecuteScalarAsync() ?? DBNull.Value;
+
+            if (result == null || result == DBNull.Value)
+                throw new InvalidOperationException("No se pudo obtener el ID del nuevo Payment.");
+
+            return Convert.ToInt32(result);
+        }
+
         public async Task<DataTable> GetPaymentsByClientId(int clientId)
         {
 

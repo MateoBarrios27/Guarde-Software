@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Services.accountMovement {
 
@@ -111,6 +112,23 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
 
             if (await _daoAccountMovement.CreateAccountMovement(accountMovement)) return true;
             else return false;
+        }
+
+        public async Task<bool> CreateAccountMovementTransactionAsync(AccountMovement accountMovement, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (accountMovement == null)
+                throw new ArgumentNullException(nameof(accountMovement));
+
+            if (accountMovement.RentalId <= 0)
+                throw new ArgumentException("Invalid rental ID.");
+
+            if (string.IsNullOrWhiteSpace(accountMovement.MovementType))
+                throw new ArgumentException("MovementType required.");
+
+            if (accountMovement.Amount <= 0)
+                throw new ArgumentException("Amount must be > 0");
+
+            return await _daoAccountMovement.CreateAccountMovementTransactionAsync(accountMovement, connection, transaction);
         }
 
         public async Task ApplyMonthlyDebitsAsync()
