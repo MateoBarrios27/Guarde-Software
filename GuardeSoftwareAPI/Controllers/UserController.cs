@@ -68,7 +68,11 @@ namespace GuardeSoftwareAPI.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateUser([FromBody] CreateUserDTO userToCreate)
         {
-            // Mapping from CreateUserDTO to User entity
+            if (userToCreate == null)
+                return BadRequest("User data is required.");
+            try
+            {
+                // Mapping from CreateUserDTO to User entity
             User user = new()
             {
                 UserName = userToCreate.UserName,
@@ -97,6 +101,15 @@ namespace GuardeSoftwareAPI.Controllers
             };
 
             return CreatedAtAction(nameof(GetUserById), new { id = userToReturn.Id }, userToReturn);
+            }
+            catch (ArgumentException argEx)
+            {
+                return BadRequest(argEx.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating user: {ex.Message}");
+            }
         }
         
         [HttpDelete("{id}")]

@@ -11,7 +11,7 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 
 		Task<RentalAmountHistory> GetRentalAmountHistoryByRentalId(int id);
 
-		Task<bool> CreateRentalAmountHistory(RentalAmountHistory rentalAmountHistory);
+		Task<RentalAmountHistory> CreateRentalAmountHistory(RentalAmountHistory rentalAmountHistory);
 
 		Task<int> CreateRentalAmountHistoryAsync(RentalAmountHistory rentalAmountHistory);
 

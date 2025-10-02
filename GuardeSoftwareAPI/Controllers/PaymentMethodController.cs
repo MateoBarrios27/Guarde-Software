@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using GuardeSoftwareAPI.Dtos.PaymentMethod;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.paymentMethod;
 using Microsoft.AspNetCore.Mvc;
@@ -36,9 +37,10 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id}", Name = "GetPaymenMethodById")]
         public async Task<IActionResult> GetPaymenMethodById(int id)
         {
+            if (id <= 0) return BadRequest("Invalid payment method ID.");
             try
             {
                 PaymentMethod paymentMethod = await _paymentMethodService.GetPaymentMethodById(id);
@@ -58,15 +60,24 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreatePaymentMethod([FromBody] PaymentMethod paymentMethod)
+        public async Task<IActionResult> CreatePaymentMethod([FromBody] CreatePaymentMethodDto paymentMethodToCreate)
         {
+            if (paymentMethodToCreate == null)
+                return BadRequest("Payment method data is null.");
+
+            PaymentMethod paymentMethod = new()
+            {
+                Name = paymentMethodToCreate.Name,
+                Commission = paymentMethodToCreate.Commission ?? 0m // Default to 0 if null
+            };
+
             try
             {
-                if (paymentMethod == null)
-                    return BadRequest("Payment method is null.");
-                bool isCreated  = await _paymentMethodService.CreatePaymentMethod(paymentMethod);
-                if (!isCreated)
-                    return StatusCode(500, "Failed to create the payment.");
+                paymentMethod = await _paymentMethodService.CreatePaymentMethod(paymentMethod);
+
+                if (paymentMethod == null || paymentMethod.Id <= 0)
+                    return StatusCode(500, "A problem happened while handling your request.");
+
                 return CreatedAtAction(nameof(GetPaymenMethodById), new { id = paymentMethod.Id }, paymentMethod);
             }
             catch (ArgumentException ex)

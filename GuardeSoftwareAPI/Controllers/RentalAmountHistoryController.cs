@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using GuardeSoftwareAPI.Dtos.RentalAmountHistoryDto;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
 using Microsoft.AspNetCore.Mvc;
@@ -35,7 +36,7 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
-        [HttpGet("ByRental/{rentalId}")]
+        [HttpGet("ByRentalId/{rentalId}")]
         public async Task<IActionResult> GetRentalAmountHistoryByRentalId(int rentalId)
         {
             try
@@ -57,15 +58,25 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateRentalAmountHistory([FromBody] RentalAmountHistory rentalAmountHistory)
+        public async Task<IActionResult> CreateRentalAmountHistory([FromBody] CreateRentalAmountHistoryDto RentalAmountHistoryToCreate)
         {
+            if (RentalAmountHistoryToCreate == null)
+                return BadRequest("Rental amount history is null.");
+                
+            RentalAmountHistory rentalAmountHistory = new()
+            {
+                RentalId = RentalAmountHistoryToCreate.RentalId,
+                Amount = RentalAmountHistoryToCreate.Amount,
+                StartDate = RentalAmountHistoryToCreate.StartDate
+            };
+
             try
             {
-                if (rentalAmountHistory == null)
-                    return BadRequest("Rental amount history is null.");
-                bool isCreated = await _rentalAmountHistoryService.CreateRentalAmountHistory(rentalAmountHistory);
-                if (!isCreated)
-                    return StatusCode(500, "Failed to create the rental amount history.");
+                rentalAmountHistory = await _rentalAmountHistoryService.CreateRentalAmountHistory(rentalAmountHistory);
+
+                if (rentalAmountHistory == null || rentalAmountHistory.Id <= 0)
+                    return StatusCode(500, "A problem happened while handling your request.");
+
                 return CreatedAtAction(nameof(GetRentalAmountHistoryByRentalId), new { id = rentalAmountHistory.Id }, rentalAmountHistory);
             }
             catch (ArgumentException argEx)

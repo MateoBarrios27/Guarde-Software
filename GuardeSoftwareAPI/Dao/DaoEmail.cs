@@ -34,18 +34,26 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.GetTableAsync("emails", query, parameters);
         }
 
-        public async Task<bool> CreateEmail(Email email) {
+        public async Task<Email> CreateEmail(Email email) {
 
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
 
                 new SqlParameter("@client_id",SqlDbType.Int){Value = email.ClientId},
                 new SqlParameter("@address",SqlDbType.VarChar,150){Value = email.Address},
                 new SqlParameter("@type",SqlDbType.VarChar,50){Value = (object?)email.Type ?? DBNull.Value},
-            };
+            ];
 
-            string query = "INSERT INTO emails(client_id, address, type)VALUES(@client_id, @address, @type)";
+            string query = "INSERT INTO emails(client_id, address, type)VALUES(@client_id, @address, @type); SELECT SCOPE_IDENTITY()";
 
-            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+            object newId = await accessDB.ExecuteScalarAsync(query, parameters);
+
+            if (newId != null && newId != DBNull.Value)
+            {
+                //Assign the newly generated ID to the email object
+                email.Id = Convert.ToInt32(newId);
+            }
+
+            return email;
         }
 
         public async Task<bool> DeleteEmail(int id)

@@ -11,7 +11,7 @@ namespace GuardeSoftwareAPI.Services.email
 
 		Task<List<Email>> GetEmailListByClientId(int id);
 
-		Task<bool> CreateEmail(Email email);
+		Task<Email> CreateEmail(Email email);
 
 	    Task<bool> DeleteEmail(int id);
 

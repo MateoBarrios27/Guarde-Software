@@ -1,5 +1,4 @@
-﻿using System;
-using GuardeSoftwareAPI.Entities;
+﻿using GuardeSoftwareAPI.Entities;
 
 namespace GuardeSoftwareAPI.Services.paymentMethod
 {
@@ -8,8 +7,7 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 	{
 		Task<List<PaymentMethod>> GetPaymentMethodsList();
 		Task<PaymentMethod> GetPaymentMethodById(int id);
+		Task<PaymentMethod> CreatePaymentMethod(PaymentMethod paymentMethod);
 		Task<bool> DeletePaymentMethod(int paymentMethodId);
-		Task<bool> CreatePaymentMethod(PaymentMethod paymentMethod);
-		
 	}
 }

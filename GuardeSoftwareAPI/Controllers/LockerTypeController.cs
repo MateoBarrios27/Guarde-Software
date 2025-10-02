@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using GuardeSoftwareAPI.Dtos.LockerType;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.lockerType;
 using Microsoft.AspNetCore.Mvc;
@@ -31,7 +32,7 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id}", Name = "GetLockerTypeById")]
         public async Task<ActionResult<LockerType>> GetLockerTypeById(int id)
         {
             try
@@ -51,17 +52,24 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult> CreateLockerType([FromBody] LockerType lockerType)
+        public async Task<ActionResult> CreateLockerType([FromBody] CreateLockerTypeDto lockerTypeToCreate)
         {
+            if (lockerTypeToCreate == null)
+            {
+                return BadRequest("Locker type data is null.");
+            }
+
+            LockerType lockerType = new()
+            {
+                Name = lockerTypeToCreate.Name,
+                Amount = lockerTypeToCreate.Amount,
+                M3 = lockerTypeToCreate.M3
+            };
+            
             try
             {
-                if (lockerType == null)
-                {
-                    return BadRequest("Locker type data is null.");
-                }
-
-                await _lockerTypeService.CreateLockerType(lockerType);
-                return Ok("Locker type created successfully.");
+                lockerType = await _lockerTypeService.CreateLockerType(lockerType);
+                return CreatedAtAction(nameof(GetLockerTypeById), new { id = lockerType.Id }, lockerType);
             }
             catch (ArgumentException argEx)
             {

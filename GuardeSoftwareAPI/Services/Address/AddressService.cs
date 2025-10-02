@@ -52,24 +52,22 @@ namespace GuardeSoftwareAPI.Services.address
 
             foreach (DataRow row in addressTable.Rows)
             {
-                int idAdress = (int)row["address_id"];
+                int addressId = (int)row["address_id"];
 
-                Address adress = new Address
+                Address address = new Address
                 {
-                    Id = idAdress,
-                    ClientId = row["client_id"] != DBNull.Value
-                    ? (int)row["client_id"] : 0,
+                    Id = addressId,
+                    ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
                     Street = row["street"]?.ToString() ?? string.Empty,
                     City = row["city"]?.ToString() ?? string.Empty,
                     Province = row["province"]?.ToString() ?? string.Empty,
-
                 };
-                addresses.Add(adress);
+                addresses.Add(address);
             }
             return addresses;
         }
 
-		public async Task<bool> CreateAddress(Address address)
+		public async Task<Address> CreateAddress(Address address)
 		{
             if (address == null)
                 throw new ArgumentNullException(nameof(address));
@@ -85,8 +83,7 @@ namespace GuardeSoftwareAPI.Services.address
 
             address.Province = string.IsNullOrWhiteSpace(address.Province) ? null : address.Province.Trim();
 
-            if (await daoAddress.CreateAddress(address)) return true;
-            else return false;
+            return await daoAddress.CreateAddress(address);
 			
 		}
 

@@ -33,8 +33,8 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Address>> GetAddressById(int id)
+        [HttpGet("ByClientId/{id}", Name = "GetAddressByClientId")]
+        public async Task<ActionResult<Address>> GetAddressByClientId(int id)
         {
             try
             {
@@ -45,6 +45,36 @@ namespace GuardeSoftwareAPI.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"Error getting addresses by client id: {ex.Message}");
+            }
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<int>> CreateAddress([FromBody] CreateAddressDto addressToCreate)
+        {
+            if (addressToCreate == null)
+                    return BadRequest("Address data is required.");
+
+            Address address = new()
+            {
+                ClientId = addressToCreate.ClientId,
+                Street = addressToCreate.Street,
+                City = addressToCreate.City,
+                Province = addressToCreate.Province
+            };
+
+            try
+            {
+                address = await _addressService.CreateAddress(address);
+
+                return CreatedAtAction(nameof(GetAddressByClientId), new { id = address.Id }, address);
+            }
+                catch (ArgumentException argEx)
+            {
+                return BadRequest(argEx.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating address: {ex.Message}");
             }
         }
 

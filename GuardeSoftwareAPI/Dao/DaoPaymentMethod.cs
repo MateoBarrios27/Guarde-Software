@@ -26,32 +26,40 @@ namespace GuardeSoftwareAPI.Dao
         
             string query = "SELECT payment_method_id, name, commission FROM payment_methods WHERE active = 1 AND payment_method_id = @payment_method_id";
 
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
 
                 new SqlParameter("@payment_method_id", SqlDbType.Int){Value  = id},
-            };
+            ];
             return await accessDB.GetTableAsync("payment_methods", query, parameters);
         }
 
-        public async Task<bool> CreatePaymentMethod(PaymentMethod paymentMethod) {
+        public async Task<PaymentMethod> CreatePaymentMethod(PaymentMethod paymentMethod) {
 
-            string query = "INSERT INTO payment_methods (name,commission, active) VALUES (@name, @commission, 1)";
-            SqlParameter[] parameters = new SqlParameter[] {
+            string query = "INSERT INTO payment_methods (name,commission, active) VALUES (@name, @commission, 1); SELECT SCOPE_IDENTITY()";
+            SqlParameter[] parameters = [
                 new SqlParameter("@name", SqlDbType.NVarChar, 100){Value  = paymentMethod.Name},
                 new SqlParameter("@commission", SqlDbType.Decimal){Value  = paymentMethod.Commission},
-            };
+            ];
 
-            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+            object newId = await accessDB.ExecuteScalarAsync(query, parameters);
+
+            if (newId != null && newId != DBNull.Value)
+            {
+                //Assign the newly generated ID to the payment method object
+                paymentMethod.Id = Convert.ToInt32(newId);
+            }
+
+            return paymentMethod;
         }
 
         public async Task<bool> CheckIfPaymentMethodExists(string name)
         {
             string query = "SELECT COUNT(*) FROM payment_methods WHERE name = @name AND active = 1";
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new SqlParameter("@name", SqlDbType.NVarChar, 100) { Value = name }
-            };
+            ];
 
             object result = await accessDB.ExecuteScalarAsync(query, parameters);
             int count = (result != null && int.TryParse(result.ToString(), out int tempCount)) ? tempCount : 0;
@@ -64,10 +72,10 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "UPDATE payment_methods SET active = 0 WHERE payment_method_id = @payment_method_id";
 
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
 
                 new SqlParameter("@payment_method_id", SqlDbType.Int){Value  = id},
-            };
+            ];
 
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }

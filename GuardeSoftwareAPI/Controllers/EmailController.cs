@@ -32,7 +32,7 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("ByClientId/{id}", Name = "GetEmailByClientId")]
         public async Task<ActionResult<Email>> GetEmailByClientId(int id)
         {
             try
@@ -48,6 +48,31 @@ namespace GuardeSoftwareAPI.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"Error getting the email: {ex.Message}");
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateEmail([FromBody] CreateEmailDto emailToCreate)
+        {
+            if (emailToCreate == null)
+                    return BadRequest("Email data is required.");
+
+            Email email = new()
+            {
+                ClientId = emailToCreate.ClientId,
+                Address = emailToCreate.Address,
+                Type = emailToCreate.Type
+            };
+
+            try
+            {
+                email = await _emailService.CreateEmail(email);
+
+                return CreatedAtAction(nameof(GetEmailByClientId), new { id = email.Id }, email);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating Email: {ex.Message}");
             }
         }
 

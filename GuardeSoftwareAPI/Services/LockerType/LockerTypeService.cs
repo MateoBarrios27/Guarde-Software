@@ -57,7 +57,7 @@ namespace GuardeSoftwareAPI.Services.lockerType
             return lockerTypeList;
         }
 
-        public async Task<bool> CreateLockerType(LockerType lockerType)
+        public async Task<LockerType> CreateLockerType(LockerType lockerType)
         {
             if (lockerType == null)
                 throw new ArgumentNullException(nameof(lockerType));
@@ -74,8 +74,7 @@ namespace GuardeSoftwareAPI.Services.lockerType
             if (await daoLockerType.CheckIfLockerTypeNameExistsAsync(lockerType.Name))
                 throw new ArgumentException("Locker type name already exists.");
 
-            if (await daoLockerType.CreateLockerType(lockerType)) return true;
-            else return false;
+            return await daoLockerType.CreateLockerType(lockerType);
         }
     }
 }

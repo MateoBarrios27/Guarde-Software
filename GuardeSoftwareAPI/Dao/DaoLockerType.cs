@@ -29,10 +29,10 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "SELECT locker_type_id, name, amount, m3  FROM locker_types WHERE active = 1 AND locker_type_id = @locker_type_id";
 
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
 
                 new SqlParameter("@locker_type_id", SqlDbType.Int){Value  = id}
-            };
+            ];
 
             return await accessDB.GetTableAsync("locker_types", query, parameters);
         }
@@ -42,36 +42,44 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "UPDATE locker_types SET active = 0 WHERE locker_type_id = @locker_type_id";
 
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
 
                 new SqlParameter("@locker_type_id", SqlDbType.Int){Value  = id},
-            };
+            ];
 
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
-        public async Task<bool> CreateLockerType(LockerType lockerType)
+        public async Task<LockerType> CreateLockerType(LockerType lockerType)
         {
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                new SqlParameter("@name", SqlDbType.VarChar) {Value = lockerType.Name},
                new SqlParameter("@amount", SqlDbType.Decimal) {Value = lockerType.Amount},
                new SqlParameter("@m3", SqlDbType.Decimal) {Value = (object?)lockerType.M3 ?? DBNull.Value},
-            };
+            ];
 
-            string query = "INSERT INTO locker_types(name, amount, m3)VALUES(@name, @amount, @m3)";
+            string query = "INSERT INTO locker_types(name, amount, m3)VALUES(@name, @amount, @m3); SELECT SCOPE_IDENTITY()";
 
-            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+            object newId = await accessDB.ExecuteScalarAsync(query, parameters);
+
+            if (newId != null && newId != DBNull.Value)
+            {
+                //Assign the newly generated ID to the locker type object
+                lockerType.Id = Convert.ToInt32(newId);
+            }
+
+            return lockerType;
         }
         
         public async Task<bool> CheckIfLockerTypeNameExistsAsync(string name)
         {
             string query = "SELECT COUNT(*) FROM locker_types WHERE name = @name AND active = 1";
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new SqlParameter("@name", SqlDbType.VarChar) { Value = name }
-            };
+            ];
 
             object result = await accessDB.ExecuteScalarAsync(query, parameters);
             int count = Convert.ToInt32(result);

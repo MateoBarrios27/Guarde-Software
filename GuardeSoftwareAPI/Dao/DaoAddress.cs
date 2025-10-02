@@ -23,43 +23,51 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.GetTableAsync("addresses", query);
         }
 
-        public async Task<DataTable> GetAddressByClientId(int cliendId) {
+        public async Task<DataTable> GetAddressByClientId(int clientId) {
 
             string query = "SELECT address_id, client_id, street, city, province FROM addresses WHERE client_id = @client_id ";
 
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
 
-               new SqlParameter("@client_id", SqlDbType.Int ) {Value =  cliendId},
-            };
+               new SqlParameter("@client_id", SqlDbType.Int ) {Value =  clientId},
+            ];
 
             return await accessDB.GetTableAsync("addresses",query, parameters);
         }
 
-        public async Task<bool> CreateAddress(Address address) {
+        public async Task<Address> CreateAddress(Address address) {
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new SqlParameter("@client_id", SqlDbType.Int){Value = address.ClientId },
                 new SqlParameter("@street", SqlDbType.VarChar){Value = address.Street },
                 new SqlParameter("@city", SqlDbType.VarChar){Value = address.City },
                 new SqlParameter("@province", SqlDbType.VarChar){Value = address.Province },
-            };
+            ];
 
-            string query = "INSERT INTO addresses(client_id, street, city, province)VALUES(@client_id, @street, @city, @province)";
+            string query = "INSERT INTO addresses (client_id, street, city, province) VALUES (@client_id, @street, @city, @province); SELECT SCOPE_IDENTITY();";
 
-            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+            object newId = await accessDB.ExecuteScalarAsync(query, parameters);
+
+            if (newId != null && newId != DBNull.Value)
+            {
+                //Assign the newly generated ID to the address object
+                address.Id = Convert.ToInt32(newId);
+            }
+
+            return address;
         }
 
         public async Task<bool> UpdateAddress(Address newAddress)
         {
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new SqlParameter("@client_id", SqlDbType.Int){Value = newAddress.ClientId},
                 new SqlParameter("@street", SqlDbType.VarChar){Value = newAddress.Street},
                 new SqlParameter("@city", SqlDbType.VarChar){Value = newAddress.City},
                 new SqlParameter("@province", SqlDbType.VarChar){Value = (object?)newAddress.Province ?? DBNull.Value},
                 new SqlParameter("@address_id", SqlDbType.Int){Value = newAddress.Id}
-            };
+            ];
 
             string query = "UPDATE addresses SET street = @street, city = @city, province = @province WHERE address_id = @address_id AND client_id = @client_id";
 

@@ -12,7 +12,7 @@ namespace GuardeSoftwareAPI.Services.address
 
 		Task<List<Address>> GetAddressListByClientId(int id);
 
-		Task<bool> CreateAddress(Address address);
+		Task<Address> CreateAddress(Address address);
 
 		Task<bool> UpdateAddress(int clientId, UpdateAddressDto dto);
 

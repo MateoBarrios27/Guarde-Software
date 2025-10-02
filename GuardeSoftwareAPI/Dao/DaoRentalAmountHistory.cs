@@ -27,30 +27,39 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "SELECT rental_amount_history_id, rental_id, amount, start_date, end_date FROM rental_amount_history WHERE rental_id = @rental_id";
 
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
 
                 new SqlParameter("@rental_id", SqlDbType.Int){Value  = rentalId},
-            };
+            ];
 
             return await accessDB.GetTableAsync("rental_amount_history", query, parameters);
         }
 
-        public async Task<bool> CreateRentalAmountHistory(RentalAmountHistory rentalAmountHistory)
+        public async Task<RentalAmountHistory> CreateRentalAmountHistory(RentalAmountHistory rentalAmountHistory)
         {
-            string query = "INSERT INTO rental_amount_history (rental_id, amount, start_date) VALUES (@rental_id, @amount, @start_date)";
+            string query = "INSERT INTO rental_amount_history (rental_id, amount, start_date) VALUES (@rental_id, @amount, @start_date); SELECT SCOPE_IDENTITY()";
 
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
                 new SqlParameter("@rental_id", SqlDbType.Int){Value  = rentalAmountHistory.RentalId},
                 new SqlParameter("@amount", SqlDbType.Decimal){Value  = rentalAmountHistory.Amount},
                 new SqlParameter("@start_date", SqlDbType.DateTime){Value  = rentalAmountHistory.StartDate},
-            };
-            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+            ];
+            
+            object newId = await accessDB.ExecuteScalarAsync(query, parameters);
+
+            if (newId != null && newId != DBNull.Value)
+            {
+                //Assign the newly generated ID to the rental amount history object
+                rentalAmountHistory.Id = Convert.ToInt32(newId);
+            }
+
+            return rentalAmountHistory;
         }
 
         public async Task<int> CreateRentalAmountHistoryAsync(RentalAmountHistory rentalAmountHistory)
         {
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalAmountHistory.RentalId },
                 new SqlParameter("@amount", SqlDbType.Decimal)
                 {
@@ -59,7 +68,7 @@ namespace GuardeSoftwareAPI.Dao
                     Value = rentalAmountHistory.Amount
                 },
                 new SqlParameter("@start_date", SqlDbType.DateTime) { Value = rentalAmountHistory.StartDate },
-            };
+            ];
 
             string query = @"
                             INSERT INTO rental_amount_history (rental_id, amount, start_date)
@@ -75,8 +84,8 @@ namespace GuardeSoftwareAPI.Dao
         //METHOD FOR TRANSACTION
         public async Task<int> CreateRentalAmountHistoryTransactionAsync(RentalAmountHistory rentalAmountHistory,SqlConnection connection,SqlTransaction transaction)
         {
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalAmountHistory.RentalId },
                 new SqlParameter("@amount", SqlDbType.Decimal)
                 {
@@ -85,7 +94,7 @@ namespace GuardeSoftwareAPI.Dao
                     Value = rentalAmountHistory.Amount
                 },
                 new SqlParameter("@start_date", SqlDbType.DateTime) { Value = rentalAmountHistory.StartDate },
-            };
+            ];
 
             string query = @"
                             INSERT INTO rental_amount_history (rental_id, amount, start_date)

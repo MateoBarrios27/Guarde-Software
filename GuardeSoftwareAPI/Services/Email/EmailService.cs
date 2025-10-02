@@ -66,7 +66,7 @@ namespace GuardeSoftwareAPI.Services.email
             return emails;
         }
 
-		public async Task<bool> CreateEmail(Email email)
+		public async Task<Email> CreateEmail(Email email)
 		{
             if (email == null)
                 throw new ArgumentNullException(nameof(email));
@@ -77,11 +77,7 @@ namespace GuardeSoftwareAPI.Services.email
             if(string.IsNullOrWhiteSpace(email.Address))
                 throw new ArgumentException("Email Address is required.");
 
-            if (string.IsNullOrWhiteSpace(email.Type))
-                throw new ArgumentException("Email type is required.");
-
-            if (await _daoEmail.CreateEmail(email)) return true;
-            else return false;
+            return await _daoEmail.CreateEmail(email);
         }
 
         public async Task<bool> DeleteEmail(int id)

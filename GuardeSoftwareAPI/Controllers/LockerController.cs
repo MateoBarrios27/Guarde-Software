@@ -31,7 +31,7 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id}", Name = "GetLockerById")]
         public async Task<ActionResult<Locker>> GetLockersById(int id)
         {
             try
