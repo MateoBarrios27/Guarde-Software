@@ -1,251 +1,129 @@
-<!-- <div class="space-y-8">
-  <div>
-    <h1 class="text-3xl font-bold text-gray-800">Clients & Payments Management</h1>
-    <p class="text-gray-500 mt-1">Manage all your client information and their payments</p>
-  </div>
-
-  <div class="bg-white p-2 rounded-xl shadow-sm inline-flex items-center space-x-2">
-    <button class="px-6 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg">
-      Client Management
-    </button>
-    <button class="px-6 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg">
-      Payment Management
-    </button>
-  </div>
-
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-    <div class="bg-white p-5 rounded-xl shadow-sm flex items-center space-x-4">
-      <div class="bg-blue-100 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.124-1.282-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.124-1.282.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg></div>
-      <div><p class="text-2xl font-bold">4</p><p class="text-sm text-gray-500">Total Clients</p></div>
-    </div>
-    <div class="bg-white p-5 rounded-xl shadow-sm flex items-center space-x-4">
-      <div class="bg-green-100 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
-      <div><p class="text-2xl font-bold">2</p><p class="text-sm text-gray-500">Up to date</p></div>
-    </div>
-    <div class="bg-white p-5 rounded-xl shadow-sm flex items-center space-x-4">
-      <div class="bg-red-100 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></div>
-      <div><p class="text-2xl font-bold">1</p><p class="text-sm text-gray-500">Overdue</p></div>
-    </div>
-    <div class="bg-white p-5 rounded-xl shadow-sm flex items-center space-x-4">
-      <div class="bg-yellow-100 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
-      <div><p class="text-2xl font-bold">1</p><p class="text-sm text-gray-500">Pending</p></div>
-    </div>
-    <div class="bg-white p-5 rounded-xl shadow-sm flex items-center space-x-4">
-      <div class="bg-gray-200 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zm12-2h-3a1 1 0 00-1 1v2a1 1 0 001 1h3a1 1 0 001-1v-2a1 1 0 00-1-1z" /></svg></div>
-      <div><p class="text-2xl font-bold">1</p><p class="text-sm text-gray-500">Deactivated</p></div>
-    </div>
-  </div>
-
-  <div class="bg-white rounded-xl shadow-sm p-6">
-    <div class="flex items-center justify-between mb-6">
-      <h3 class="text-xl font-semibold text-gray-800">Client List</h3>
-      <div class="flex items-center space-x-4">
-        <div class="relative">
-          <input type="text" placeholder="Search client..." class="pl-10 pr-4 py-2 border rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <svg class="h-5 w-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-        </div>
-        <select class="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option>All</option>
-        </select>
-        <button class="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 border rounded-lg hover:bg-gray-200">View Deactivated</button>
-        <button class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">+ New Client</button>
-      </div>
-    </div>
-
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm text-left text-gray-500">
-        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-          <tr>
-            <th scope="col" class="px-6 py-3">Client</th>
-            <th scope="col" class="px-6 py-3">Contact</th>
-            <th scope="col" class="px-6 py-3">Storage Unit</th>
-            <th scope="col" class="px-6 py-3">Document</th>
-            <th scope="col" class="px-6 py-3">Status</th>
-            <th scope="col" class="px-6 py-3">Next Payment</th>
-            <th scope="col" class="px-6 py-3">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let client of clients" class="bg-white border-b hover:bg-gray-50">
-            <td class="px-6 py-4">
-              <div class="flex items-center">
-                <div [class]="'h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold ' + client.avatar.color">
-                  {{ client.avatar.initial }}
-                </div>
-                <div class="ml-4">
-                  <div class="font-semibold text-gray-900">{{ client.name }}</div>
-                  <div class="text-gray-500">{{ client.id }}</div>
-                  <div class="text-gray-500">{{ client.email }}</div>
-                </div>
-              </div>
-            </td>
-            <td class="px-6 py-4">{{ client.phone }}</td>
-            <td class="px-6 py-4">{{ client.storageUnit }}</td>
-            <td class="px-6 py-4">
-              <span class="px-2 py-1 text-xs font-semibold text-gray-700 bg-gray-200 rounded-md">{{ client.document }}</span>
-            </td>
-            <td class="px-6 py-4">
-              <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + getStatusClass(client.status)">
-                <svg *ngIf="client.status === 'Up to date'" class="-ml-0.5 mr-1.5 h-2 w-2 text-green-500" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" /></svg>
-                <svg *ngIf="client.status === 'Overdue'" class="-ml-0.5 mr-1.5 h-2 w-2 text-red-500" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" /></svg>
-                <svg *ngIf="client.status === 'Pending'" class="-ml-0.5 mr-1.5 h-2 w-2 text-yellow-500" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" /></svg>
-                {{ client.status }}
-              </span>
-            </td>
-            <td class="px-6 py-4">{{ client.nextPayment }}</td>
-            <td class="px-6 py-4">
-              <div class="flex items-center space-x-3">
-                <button class="text-gray-400 hover:text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fill-rule="evenodd" d="M.458 10C3.732 4.943 9.522 3 10 3s6.268 1.943 9.542 7c-3.274 5.057-9.03 7-9.542 7S3.274 15.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" /></svg></button>
-                <button class="text-gray-400 hover:text-green-600"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg></button>
-                <button class="text-gray-400 hover:text-red-600"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg></button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div> -->
-
-<!-- ----------------------------------------------------->
-
-<!-- USED TO TEST SERVICES METHODS -->
-
-<!-- <div class="p-4">
-  <h2 class="text-xl font-bold mb-4">Clientes</h2>
-
-  <button (click)="createClient()" class="px-3 py-1 bg-blue-600 text-white rounded mr-2">
-    Crear cliente de prueba
-  </button>
-
-  <button (click)="loadClientDetail(1)" class="px-3 py-1 bg-green-600 text-white rounded">
-    Cargar detalle de cliente con ID 1
-  </button>
-
-  <table class="min-w-full border border-gray-300 mt-4">
-    <thead class="bg-gray-100">
-      <tr>
-        <th class="px-4 py-2">ID</th>
-        <th class="px-4 py-2">Nombre</th>
-        <th class="px-4 py-2">Apellido</th>
-        <th class="px-4 py-2">DNI</th>
-        <th class="px-4 py-2">CUIT</th>
-        <th class="px-4 py-2">Condición IVA</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let c of clients" class="border-t">
-        <td class="px-4 py-2">{{ c.id }}</td>
-        <td class="px-4 py-2">{{ c.firstName }}</td>
-        <td class="px-4 py-2">{{ c.lastName }}</td>
-        <td class="px-4 py-2">{{ c.dni }}</td>
-        <td class="px-4 py-2">{{ c.cuit }}</td>
-        <td class="px-4 py-2">{{ c.ivaCondition }}</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div *ngIf="clientDetail" class="mt-6 p-4 border rounded bg-gray-50">
-    <h3 class="font-bold">Detalle del cliente:</h3>
-    <pre>{{ clientDetail | json }}</pre>
-  </div>
-</div> -->
-
-<!-- ----------------------------------- -->
-
 <div class="space-y-6">
-  <div>
+  <!-- <div>
     <h1 class="text-2xl font-bold text-gray-900">Gestión de Clientes y Pagos</h1>
-    <p class="text-gray-600">Administra toda la información de tus clientes y sus pagos.</p>
-  </div>
+    <p class="text-gray-500">Administra toda la información de tus clientes y sus pagos.</p>
+  </div> -->
 
-  <div class="space-y-6">
-    <div class="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-lg">
-      <button 
-        (click)="activeTab = 'clientes'" 
-        [ngClass]="{'bg-white shadow-sm text-gray-900': activeTab === 'clientes', 'text-gray-600': activeTab !== 'clientes'}"
-        class="flex items-center justify-center gap-2 px-4 py-2 rounded-md font-semibold text-sm transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Gestión de Clientes
-      </button>
-      <button 
-        (click)="activeTab = 'pagos'"
-        [ngClass]="{'bg-white shadow-sm text-gray-900': activeTab === 'pagos', 'text-gray-600': activeTab !== 'pagos'}"
-        class="flex items-center justify-center gap-2 px-4 py-2 rounded-md font-semibold text-sm transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-        Gestión de Pagos
-      </button>
-    </div>
+<div class="grid w-full grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
+  <button 
+    (click)="activeTab = 'clientes'"
+    [ngClass]="{ 'bg-white text-gray-900 shadow-sm': activeTab === 'clientes' }"
+    class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold transition-all">
+    <app-icon name="users" class="h-4 w-4"></app-icon>
+    Gestión de Clientes
+  </button>
+  <button 
+    (click)="activeTab = 'pagos'"
+    [ngClass]="{ 'bg-white text-gray-900 shadow-sm': activeTab === 'pagos' }"
+    class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold transition-all">
+    <app-icon name="dollar-sign" class="h-4 w-4"></app-icon>
+    Gestión de Pagos
+  </button>
+</div>
 
-    <div *ngIf="activeTab === 'clientes'" class="space-y-6">
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div class="bg-white p-4 rounded-lg shadow-sm border"><div class="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-blue-600"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <div><div class="text-2xl font-bold text-gray-900">{{ stats.total }}</div><p class="text-gray-500 text-sm">Total</p></div>
-        </div></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border"><div class="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-green-600"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          <div><div class="text-2xl font-bold text-gray-900">{{ stats.alDia }}</div><p class="text-gray-500 text-sm">Al Día</p></div>
-        </div></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border"><div class="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-red-600"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
-          <div><div class="text-2xl font-bold text-gray-900">{{ stats.morosos }}</div><p class="text-gray-500 text-sm">Morosos</p></div>
-        </div></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border"><div class="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-yellow-600"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
-          <div><div class="text-2xl font-bold text-gray-900">{{ stats.pendientes }}</div><p class="text-gray-500 text-sm">Pendientes</p></div>
-        </div></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border"><div class="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-gray-600"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" x2="16" y1="11" y2="11"/><line x1="19" x2="19" y1="8" y2="14"/></svg>
-          <div><div class="text-2xl font-bold text-gray-900">{{ stats.dadosBaja }}</div><p class="text-gray-500 text-sm">Dados de Baja</p></div>
-        </div></div>
+  <div *ngIf="activeTab === 'clientes'" class="space-y-6">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+  <div class="bg-white p-4 rounded-xl border shadow-sm">
+    <div class="flex items-start gap-3">
+      <app-icon name="users" class="h-6 w-6 text-blue-500"></app-icon>
+      <div>
+        <p class="text-2xl font-bold text-blue-900">{{ clientes.length }}</p>
+        <p class="text-sm text-gray-500">Total Clientes</p>
       </div>
+    </div>
+  </div>
+  <div class="bg-white p-4 rounded-xl border shadow-sm">
+    <div class="flex items-start gap-3">
+      <app-icon name="check-circle" class="h-6 w-6 text-green-500"></app-icon>
+      <div>
+        <p class="text-2xl font-bold text-green-900">{{ clientes.length }}</p>
+        <p class="text-sm text-gray-500">Al Día</p>
+      </div>
+    </div>
+  </div>
+  <div class="bg-white p-4 rounded-xl border shadow-sm">
+    <div class="flex items-start gap-3">
+      <app-icon name="alert-triangle" class="h-6 w-6 text-red-500"></app-icon>
+      <div>
+        <p class="text-2xl font-bold text-red-900">{{ clientes.length }}</p>
+        <p class="text-sm text-gray-500">Morosos</p>
+      </div>
+    </div>
+  </div>
+  <div class="bg-white p-4 rounded-xl border shadow-sm">
+    <div class="flex items-start gap-3">
+      <app-icon name="clock" class="h-6 w-6 text-orange-500"></app-icon>
+      <div>
+        <p class="text-2xl font-bold text-orange-900">{{ clientes.length }}</p>
+        <p class="text-sm text-gray-500">Pendientes</p>
+      </div>
+    </div>
+  </div>
+  <div class="bg-white p-4 rounded-xl border shadow-sm">
+    <div class="flex items-start gap-3">
+      <app-icon name="user-x" class="h-6 w-6 text-gray-500"></app-icon>
+      <div>
+        <p class="text-2xl font-bold text-gray-900">{{ clientes.length }}</p>
+        <p class="text-sm text-gray-500">Dados de Baja</p>
+      </div>
+    </div>
+  </div>
+</div>
 
-      <div class="bg-white rounded-lg shadow-sm border">
-        <div class="p-4 border-b">
-          <div class="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-800 flex-shrink-0">Lista de Clientes</h3>
-            <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-              <div class="relative"><input [(ngModel)]="searchTerm" placeholder="Buscar cliente..." class="pl-10 pr-4 py-2 border rounded-lg w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
-              <select [(ngModel)]="statusFilter" class="border rounded-lg px-3 py-2 w-full sm:w-40 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="Todos">Todos</option><option value="Al día">Al día</option><option value="Moroso">Moroso</option><option value="Pendiente">Pendiente</option>
-              </select>
-              <button (click)="showInactive = !showInactive" class="px-4 py-2 text-sm font-semibold border rounded-lg whitespace-nowrap" [ngClass]="showInactive ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'">Ver {{ showInactive ? 'Activos' : 'Dados de Baja' }}</button>
-              <button class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 whitespace-nowrap">Nuevo Cliente</button>
-            </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div class="p-4 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2"><app-icon name="users" class="h-5 w-5"></app-icon> Lista de Clientes <span class="text-sm font-normal bg-gray-100 px-2 py-0.5 rounded-md">{{ filteredClientes.length }} resultados</span></h3>
+          <div class="flex items-center gap-2">
+            <button class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"><app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Cliente</button>
+            <button class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-50 flex items-center gap-2"><app-icon name="rotate-ccw" class="h-4 w-4"></app-icon> Actualizar</button>
+            <button class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-50 flex items-center gap-2"><app-icon name="download" class="h-4 w-4"></app-icon> Exportar</button>
           </div>
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm text-left text-gray-500">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-50"><tr>
-              <th scope="col" class="px-6 py-3">Cliente</th><th scope="col" class="px-6 py-3">Contacto</th><th scope="col" class="px-6 py-3">Baulera</th><th scope="col" class="px-6 py-3">Estado</th><th scope="col" class="px-6 py-3">Próximo Pago</th><th scope="col" class="px-6 py-3">Acciones</th>
-            </tr></thead>
-            <tbody>
-              <tr *ngFor="let client of filteredClients" class="bg-white border-b hover:bg-gray-50">
-                <td class="px-6 py-4"><div class="flex items-center gap-3">
-                  <div class="h-9 w-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0"><span class="text-blue-800 font-semibold">{{ client.nombre.charAt(0).toUpperCase() }}</span></div>
-                  <div><div class="font-semibold text-gray-900">{{ client.nombre }}</div><div class="text-gray-500">{{ client.email }}</div></div>
-                </div></td>
-                <td class="px-6 py-4">{{ client.telefono }}</td>
-                <td class="px-6 py-4">{{ client.baulera }}</td>
-                <td class="px-6 py-4"><span [ngClass]="getStatusBadgeClass(client.estado)" class="px-2 py-1 text-xs font-semibold rounded-full">{{ client.estado }}</span></td>
-                <td class="px-6 py-4">{{ client.proximoPago ?? 'N/A' }}</td>
-                <td class="px-6 py-4"><div class="flex gap-2">
-                  <button class="p-1.5 border rounded-md hover:bg-gray-100"><svg class="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.522 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.478 0-8.268-2.943-9.542-7z"/></svg></button>
-                  <button *ngIf="client.activo" class="p-1.5 border rounded-md hover:bg-gray-100"><svg class="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
-                  <button *ngIf="client.activo" class="p-1.5 border rounded-md hover:bg-red-50"><svg class="h-4 w-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                  <button *ngIf="!client.activo" class="p-1.5 border rounded-md hover:bg-green-50"><svg class="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></button>
-                </div></td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="flex items-center gap-3">
+          <div class="relative flex-grow"><app-icon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"></app-icon><input [(ngModel)]="searchClientes" placeholder="Buscar cliente..." class="w-full pl-10 pr-4 py-2 border rounded-lg"/></div>
+          <select [(ngModel)]="filterEstadoClientes" class="border rounded-lg px-3 py-2 w-40"><option value="Todos">Todos</option><option value="Al día">Al día</option><option value="Moroso">Moroso</option><option value="Pendiente">Pendiente</option></select>
+          <button (click)="showInactivos = !showInactivos" class="px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2" [ngClass]="showInactivos ? 'bg-gray-100' : 'bg-white'"><app-icon name="user-x" class="h-4 w-4"></app-icon> Ver Dados de Baja</button>
+          <button (click)="handleResetFilters()" class="px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-2">Limpiar Filtros</button>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2"><span class="text-sm text-gray-600">Mostrar:</span><select [(ngModel)]="itemsPerPageClientes" class="border rounded-lg px-2 py-1 w-20"><option *ngFor="let option of itemsPerPageOptions" [value]="option">{{ option }}</option></select></div>
+          <div class="text-sm text-gray-600">Mostrando {{ paginatedClientes.length > 0 ? ((currentPageClientes - 1) * itemsPerPageClientes) + 1 : 0 }} a {{ Math.min(currentPageClientes * itemsPerPageClientes, filteredClientes.length) }} de {{ filteredClientes.length }} clientes</div>
         </div>
       </div>
-    </div>
-    
-    <div *ngIf="activeTab === 'pagos'" class="bg-white rounded-lg shadow-sm border p-6">
-      <h3 class="text-lg font-semibold text-gray-800">Gestión de Pagos</h3>
-      <p class="text-gray-600 mt-2">Esta sección está en desarrollo.</p>
+      
+      <div class="relative w-full overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+            <tr class="border-b">
+              <th class="p-4 w-12"><input type="checkbox"/></th>
+              <th class="p-4 text-left font-medium"><button (click)="handleSort('nombre')" class="flex items-center gap-1">Cliente <app-icon [name]="sortFieldClientes === 'nombre' ? (sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down'"></app-icon></button></th>
+              <th class="p-4 text-left font-medium">Contacto</th>
+              <th class="p-4 text-left font-medium"><button (click)="handleSort('baulera')" class="flex items-center gap-1">Baulera <app-icon [name]="sortFieldClientes === 'baulera' ? (sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down'"></app-icon></button></th>
+              <th class="p-4 text-left font-medium">Documento</th>
+              <th class="p-4 text-left font-medium"><button (click)="handleSort('estado')" class="flex items-center gap-1">Estado <app-icon [name]="sortFieldClientes === 'estado' ? (sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down'"></app-icon></button></th>
+              <th class="p-4 text-left font-medium"><button (click)="handleSort('precioRenta')" class="flex items-center gap-1">Renta <app-icon [name]="sortFieldClientes === 'precioRenta' ? (sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down'"></app-icon></button></th>
+              <th class="p-4 text-left font-medium">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let cliente of paginatedClientes" class="border-b hover:bg-gray-50">
+              <td class="p-4"><input type="checkbox"/></td>
+              <td class="p-4"><div class="flex items-center gap-3"><div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0"><span class="text-blue-800 text-sm font-semibold">{{ cliente.nombre.charAt(0) }}</span></div><div><div class="font-semibold text-gray-900">{{ cliente.nombre }}</div><div class="text-xs text-gray-500">{{ cliente.email[0] }}</div></div></div></td>
+              <td class="p-4"><div class="font-medium text-gray-800">{{ cliente.telefono[0] }}</div><div class="text-xs text-gray-500">{{ cliente.ciudad }}</div></td>
+              <td class="p-4 font-mono text-gray-700">{{ cliente.baulera }}</td>
+              <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="getDocumentoBadgeColor(cliente.documento)">{{ cliente.documento }}</span></td>
+              <td class="p-4"><span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full" [ngClass]="getEstadoBadgeColor(cliente.estado)"><app-icon [name]="cliente.estado === 'Moroso' ? 'alert-triangle' : (cliente.estado === 'Pendiente' ? 'clock' : '')" class="h-3 w-3"></app-icon> {{ cliente.estado }}</span></td>
+              <td class="p-4"><div class="font-medium text-gray-800">{{ cliente.precioRenta | currency:'ARS':'symbol-narrow':'1.0-0' }}</div><div class="text-xs text-gray-500">{{ cliente.m3Contratados }} m³</div></td>
+              <td class="p-4"><div class="flex items-center gap-2">
+                <button class="p-1 hover:text-blue-600"><app-icon name="eye" class="h-4 w-4"></app-icon></button>
+                <button class="p-1 hover:text-blue-600"><app-icon name="edit" class="h-4 w-4"></app-icon></button>
+                <button class="p-1 hover:text-red-600"><app-icon name="trash" class="h-4 w-4"></app-icon></button>
+              </div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>

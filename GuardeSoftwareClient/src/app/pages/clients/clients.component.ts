@@ -1,180 +1,120 @@
-// import { Component } from '@angular/core';
-// import { CommonModule } from '@angular/common';
-// import { Client } from '../../core/models/client';
-// import { ClientService } from '../../core/services/client-service/client.service';
-// import { CreateClientDTO } from '../../core/dtos/client/CreateClientDTO';
-// import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO';
-
-// // Define an interface for strong typing of our client data
-// type ClientStatus = 'Up to date' | 'Overdue' | 'Pending';
-
-// @Component({
-//   selector: 'app-clients',
-//   standalone: true,
-//   imports: [CommonModule],
-//   templateUrl: './clients.component.html',
-// })
-// export class ClientsComponent {
-
-//  clients: Client[] = [];
-//   clientDetail?: ClientDetailDTO;
-
-//  constructor(private clientService: ClientService) {}
-
-//   ngOnInit(): void {
-//     this.clientService.getClients().subscribe({
-//       next: (data) => {
-//         this.clients = data;
-//         console.log('Clientes cargados:', this.clients);
-//       },
-//       error: (err) => {
-//         console.error('Error al obtener clientes:', err);
-//       }
-//     });
-//   }
-
-//   // Validar GET by Id
-//   loadClientDetail(id: number): void {
-//     this.clientService.getClientDetailById(id).subscribe({
-//       next: (detail) => {
-//         this.clientDetail = detail;
-//         console.log('Detalle cliente:', this.clientDetail);
-//       },
-//       error: (err) => {
-//         console.error('Error al obtener detalle:', err);
-//       }
-//     });
-//   }
-
-//   // Validar POST
-//   createClient(): void {
-//     const newClient: CreateClientDTO = {
-//       paymentIdentifier: 123,
-//       firstName: 'Mateo',
-//       lastName: 'Barrios',
-//       registrationDate: new Date(),
-//       notes: 'Cliente de prueba',
-//       dni: '12345678',
-//       cuit: '20-12345678-9',
-//       preferredPaymentMethodId: 1,
-//       ivaCondition: 'Responsable Inscripto',
-//       startDate: new Date(),
-//       contractedM3: 10,
-//       amount: 5000,
-//       lockerIds: [1],
-//       userID: 1
-//     };
-
-//     this.clientService.CreateClient(newClient).subscribe({
-//       next: (res) => {
-//         console.log('Cliente creado, ID devuelto:', res.id);
-//       },
-//       error: (err) => {
-//         console.error('Error al crear cliente:', err);
-//       }
-//     });
-//   }
-
-//   // Method to get the corresponding CSS class for each status
-//   getStatusClass(status: ClientStatus): string {
-//     switch (status) {
-//       case 'Up to date':
-//         return 'bg-green-100 text-green-800';
-//       case 'Overdue':
-//         return 'bg-red-100 text-red-800';
-//       case 'Pending':
-//         return 'bg-yellow-100 text-yellow-800';
-//     }
-//   }
-// }
-
-// ------------------------------
-
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms'; // <-- ¡IMPORTANTE! Importa FormsModule
+import { CommonModule, CurrencyPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { IconComponent } from '../../shared/components/icon/icon.component'; // Asegúrate de que la ruta sea correcta
 
-// --- Definimos nuestras interfaces (tipos de datos) ---
-type ClientStatus = 'Al día' | 'Moroso' | 'Pendiente';
-
-interface Client {
+interface Cliente {
   id: number;
-  nombre: string;
   numeroIdentificacion: string;
-  email: string;
-  telefono: string;
+  nombre: string;
+  email: string[];
+  telefono: string[];
+  ciudad: string;
   baulera: string;
   documento: string;
-  estado: ClientStatus;
-  proximoPago: string | null;
+  estado: string;
+  precioRenta: number;
+  m3Contratados: number;
   activo: boolean;
+  [key: string]: any;
 }
 
-interface ClientStats {
-  total: number;
-  alDia: number;
-  morosos: number;
-  pendientes: number;
-  dadosBaja: number;
-}
-
+const clientesData = [
+    { id: 1, numeroIdentificacion: 'PAG-017', nombre: 'Alejandro Torres', email: ['alejandro.torres@gmail.com'], telefono: ['+54 11 8888-9999'], ciudad: 'Buenos Aires', baulera: 'C-90', documento: 'FA', estado: 'Moroso', precioRenta: 4700, m3Contratados: 7.3, activo: true },
+    { id: 2, numeroIdentificacion: 'PAG-004', nombre: 'Ana Martínez', email: ['ana.martinez@gmail.com'], telefono: ['+54 11 7777-8888'], ciudad: 'Quilmes', baulera: 'A-23', documento: 'FBN', estado: 'Pendiente', precioRenta: 2500, m3Contratados: 4, activo: true },
+    { id: 3, numeroIdentificacion: 'PAG-009', nombre: 'Andrés Gonzalez', email: ['andres.gonzalez@gmail.com'], telefono: ['+54 11 5555-6666'], ciudad: 'Rosario', baulera: 'B-33', documento: 'FA', estado: 'Pendiente', precioRenta: 4200, m3Contratados: 5.5, activo: true },
+    { id: 4, numeroIdentificacion: 'PAG-018', nombre: 'Beatriz Jiménez', email: ['beatriz.jimenez@gmail.com'], telefono: ['+54 11 2222-3333'], ciudad: 'CABA', baulera: 'B-45', documento: 'FBN', estado: 'Pendiente', precioRenta: 3100, m3Contratados: 3, activo: true },
+    { id: 5, numeroIdentificacion: 'PAG-001', nombre: 'Juan Pérez', email: ['juan.perez@email.com'], telefono: ['+54 11 1234-5678'], ciudad: 'Springfield', baulera: 'A-01', documento: 'SF', estado: 'Al día', precioRenta: 5000, m3Contratados: 10, activo: true },
+    // A ESTOS DOS LES FALTABAN LAS PROPIEDADES
+    { id: 6, numeroIdentificacion: 'PAG-002', nombre: 'María García', email: ['maria.garcia@email.com'], telefono: ['+54 11 9876-5432'], ciudad: 'La Plata', baulera: 'B-15', documento: 'FB', estado: 'Moroso', precioRenta: 7500, m3Contratados: 15, activo: true },
+    { id: 7, numeroIdentificacion: 'PAG-010', nombre: 'Lucía Fernández', email: ['lucia.fdz@email.com'], telefono: ['+54 11 4444-5555'], ciudad: 'Rosario', baulera: 'D-05', documento: 'SF', estado: 'Baja', precioRenta: 6000, m3Contratados: 12, activo: false },
+];
 
 @Component({
   selector: 'app-clients',
   standalone: true,
-  imports: [CommonModule, FormsModule], // <-- ¡IMPORTANTE! Añade FormsModule aquí
+  imports: [CommonModule, FormsModule, IconComponent, CurrencyPipe],
   templateUrl: './clients.component.html',
 })
 export class ClientsComponent {
-  // --- Estado de la Interfaz ---
-  activeTab: 'clientes' | 'pagos' = 'clientes';
-  searchTerm = '';
-  statusFilter: ClientStatus | 'Todos' = 'Todos';
-  showInactive = false;
+  public activeTab: 'clientes' | 'pagos' = 'clientes';
+  public clientes: Cliente[] = clientesData;
+
+  // Estados de Filtro, Ordenamiento y Paginación
+  public searchClientes = '';
+  public filterEstadoClientes = 'Todos';
+  public showInactivos = false;
+  public currentPageClientes = 1;
+  public itemsPerPageClientes = 10;
+  public itemsPerPageOptions = [10, 20, 50];
+  public sortFieldClientes = 'nombre';
+  public sortDirectionClientes: 'asc' | 'desc' = 'asc';
+public readonly Math = Math;
   
-  // --- Datos de Ejemplo ---
-  stats: ClientStats = {
-    total: 4,
-    alDia: 2,
-    morosos: 1,
-    pendientes: 1,
-    dadosBaja: 1,
-  };
-
-  allClients: Client[] = [
-    { id: 1, nombre: 'Juan Pérez', numeroIdentificacion: 'PAG-001', email: 'juan.perez@email.com', telefono: '+54 11 1234-5678', baulera: 'A-01', documento: 'SF', estado: 'Al día', proximoPago: '2025-09-15', activo: true },
-    { id: 2, nombre: 'María García', numeroIdentificacion: 'PAG-002', email: 'maria.garcia@email.com', telefono: '+54 11 9876-5432', baulera: 'B-15', documento: 'FB', estado: 'Moroso', proximoPago: '2025-07-01', activo: true },
-    { id: 3, nombre: 'Carlos López', numeroIdentificacion: 'PAG-003', email: 'carlos.lopez@email.com', telefono: '+54 11 5555-1234', baulera: 'C-08', documento: 'FA', estado: 'Al día', proximoPago: '2025-09-01', activo: true },
-    { id: 4, nombre: 'Ana Martínez', numeroIdentificacion: 'PAG-004', email: 'ana.martinez@email.com', telefono: '+54 11 7777-8888', baulera: 'A-23', documento: 'FBN', estado: 'Pendiente', proximoPago: '2025-08-20', activo: true },
-    { id: 5, nombre: 'Lucía Fernández', numeroIdentificacion: 'PAG-005', email: 'lucia.fernandez@email.com', telefono: '+54 11 3333-4444', baulera: 'D-05', documento: 'SF', estado: 'Al día', proximoPago: '2025-10-01', activo: false },
-  ];
-
-  // --- Lógica de Filtro (propiedad computada) ---
-  get filteredClients(): Client[] {
-    return this.allClients.filter(client => {
-      // Filtro por actividad (activo/inactivo)
-      const activityMatch = this.showInactive ? !client.activo : client.activo;
-
-      // Filtro por estado (Al día, Moroso, etc.)
-      const statusMatch = this.statusFilter === 'Todos' || client.estado === this.statusFilter;
-
-      // Filtro por término de búsqueda (nombre, email, etc.)
-      const searchMatch = this.searchTerm.trim() === '' || 
-        client.nombre.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        client.email.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        client.numeroIdentificacion.toLowerCase().includes(this.searchTerm.toLowerCase());
-
-      return activityMatch && statusMatch && searchMatch;
+  // Getters para datos derivados (equivalente a useMemo)
+  get filteredClientes(): Cliente[] {
+    return this.clientes.filter(cliente => {
+      const searchMatch = this.searchClientes === '' || 
+        Object.values(cliente).some(val => 
+          String(val).toLowerCase().includes(this.searchClientes.toLowerCase())
+        );
+      const estadoMatch = this.filterEstadoClientes === 'Todos' || cliente.estado === this.filterEstadoClientes;
+      const activoMatch = this.showInactivos ? !cliente.activo : cliente.activo;
+      return searchMatch && estadoMatch && activoMatch;
     });
   }
 
-  // --- Métodos de ayuda para los estilos ---
-  getStatusBadgeClass(status: ClientStatus): string {
-    switch (status) {
-      case 'Al día': return 'bg-green-100 text-green-800';
-      case 'Moroso': return 'bg-red-100 text-red-800';
-      case 'Pendiente': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+  get sortedClientes(): Cliente[] {
+    return [...this.filteredClientes].sort((a, b) => {
+      const aValue = a[this.sortFieldClientes];
+      const bValue = b[this.sortFieldClientes];
+      if (aValue < bValue) return this.sortDirectionClientes === 'asc' ? -1 : 1;
+      if (aValue > bValue) return this.sortDirectionClientes === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  get paginatedClientes(): Cliente[] {
+    const startIndex = (this.currentPageClientes - 1) * this.itemsPerPageClientes;
+    return this.sortedClientes.slice(startIndex, startIndex + this.itemsPerPageClientes);
+  }
+
+  // Métodos de acción
+  handleSort(field: string) {
+    if (this.sortFieldClientes === field) {
+      this.sortDirectionClientes = this.sortDirectionClientes === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortFieldClientes = field;
+      this.sortDirectionClientes = 'asc';
     }
+    this.currentPageClientes = 1;
+  }
+  
+  handleResetFilters() {
+    this.searchClientes = '';
+    this.filterEstadoClientes = 'Todos';
+    this.showInactivos = false;
+    this.currentPageClientes = 1;
+    this.sortFieldClientes = 'nombre';
+    this.sortDirectionClientes = 'asc';
+  }
+
+  // Helpers para estilos (igual que en tu código de React)
+  getEstadoBadgeColor(estado: string): string {
+    const colors: Record<string, string> = {
+      'Al día': 'bg-green-100 text-green-800',
+      'Moroso': 'bg-red-100 text-red-800',
+      'Pendiente': 'bg-yellow-100 text-yellow-800',
+      'Baja': 'bg-gray-200 text-gray-800',
+    };
+    return colors[estado] || 'bg-gray-100 text-gray-800';
+  }
+
+  getDocumentoBadgeColor(documento: string): string {
+    const colors: Record<string, string> = {
+      'SF': 'bg-blue-100 text-blue-800', 'FB': 'bg-green-100 text-green-800',
+      'FA': 'bg-purple-100 text-purple-800', 'FBN': 'bg-orange-100 text-orange-800',
+    };
+    return colors[documento] || 'bg-gray-100 text-gray-800';
   }
 }
