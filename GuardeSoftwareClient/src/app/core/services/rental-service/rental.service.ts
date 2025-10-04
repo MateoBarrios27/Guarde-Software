@@ -3,6 +3,7 @@ import { rental } from '../../models/rental';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environmets';
+import { PendingRentalDTO } from '../../dtos/rental/pendingRentalDTO';
 
 @Injectable({
   providedIn: 'root'
@@ -18,6 +19,10 @@ export class RentalService {
 
    public getRentalById(id: number): Observable<rental>{
         return this.httpCliente.get<rental>(`${this.url}/Rental/${id}`);
+  }
+
+  public getPendingRental(): Observable<PendingRentalDTO[]>{
+        return this.httpCliente.get<PendingRentalDTO[]>(`${this.url}/Rental/Pending`);
   }
 
   public deleteRental(id: number): Observable<any>{

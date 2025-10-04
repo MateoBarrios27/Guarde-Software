@@ -107,9 +107,15 @@ namespace GuardeSoftwareAPI.Services.rental
 				{
 					Id = (int)row["rental_id"],
 					ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
+					ClientName = row["client_name"] != DBNull.Value ? row["client_name"].ToString()! : string.Empty,
+					PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
 					MonthsUnpaid = row["months_unpaid"] != DBNull.Value ? (int)row["months_unpaid"] : 0,
 					CurrentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0m,
-					Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0m
+					Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0m,
+					LockerIdentifiers = row["locker_identifiers"] != DBNull.Value 
+						? row["locker_identifiers"].ToString()! 
+						: string.Empty
+        
 				};
 				pendingRentals.Add(rental);
 			}

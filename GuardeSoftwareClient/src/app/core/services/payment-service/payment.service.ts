@@ -3,6 +3,7 @@ import { Payment } from '../../models/payment';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environmets';
+import { CreatePaymentDTO } from '../../dtos/payment/CreatePaymentDTO';
 
 @Injectable({
   providedIn: 'root'
@@ -24,9 +25,8 @@ export class PaymentService {
     return this.httpCliente.get<Payment[]>(`${this.url}/Payment/ByClientId${id}`);
   }
 
-  //CAMBIAR A DTO
-  public CreatePayment(payment: Payment): Observable<Payment>{
-    return this.httpCliente.post<Payment>(`${this.url}/Payment`, payment);
+  public CreatePayment(dto: CreatePaymentDTO): Observable<any>{
+    return this.httpCliente.post<any>(`${this.url}/Payment`, dto);
   }
   
   

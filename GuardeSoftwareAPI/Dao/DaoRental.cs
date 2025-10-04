@@ -329,35 +329,50 @@ namespace GuardeSoftwareAPI.Dao
         {
             string query = @"
                 WITH CurrentRentalAmount AS (
-                    SELECT rental_id, amount as CurrentRent
+                    SELECT rental_id, amount AS CurrentRent
                     FROM (
-                        SELECT rental_id, amount, 
-                            ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY start_date DESC) as rn
+                        SELECT rental_id, amount,
+                            ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY start_date DESC) AS rn
                         FROM rental_amount_history
-                    ) as sub
+                    ) AS sub
                     WHERE rn = 1
                 ),
                 AccountSummary AS (
-                    SELECT rental_id, 
-                    SUM(CASE WHEN movement_type = 'CREDITO' THEN amount ELSE -amount END) AS Balance
-                        FROM account_movements
-                        GROUP BY rental_id
+                    SELECT rental_id,
+                        SUM(CASE WHEN movement_type = 'CREDITO' THEN amount ELSE -amount END) AS Balance
+                    FROM account_movements
+                    GROUP BY rental_id
+                ),
+                LockerList AS (
+                    SELECT 
+                        l.rental_id,
+                        STRING_AGG(l.identifier, ', ') AS LockerIdentifiers
+                    FROM lockers l
+                    WHERE l.rental_id IS NOT NULL
+                    GROUP BY l.rental_id
                 )
                 SELECT 
                     r.rental_id,
                     r.client_id,
+                    c.first_name AS client_name, 
+                    c.payment_identifier, 
                     r.months_unpaid,
                     ISNULL(acc.Balance, 0) AS balance,
-                    cra.CurrentRent
+                    cra.CurrentRent,
+                    ISNULL(ll.LockerIdentifiers, '') AS locker_identifiers
                 FROM rentals r
+                INNER JOIN clients c ON r.client_id = c.client_id
                 LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
                 LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
+                LEFT JOIN LockerList ll ON r.rental_id = ll.rental_id
                 WHERE r.active = 1
-                -- La única línea que cambia es la siguiente:
                 AND (r.months_unpaid > 0 OR ISNULL(acc.Balance, 0) < 0);";
 
             return await accessDB.GetTableAsync("pending_rentals", query);
         }
+
+
+
 
     }
 }
