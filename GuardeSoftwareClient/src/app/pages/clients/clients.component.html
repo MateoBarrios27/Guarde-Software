@@ -1,128 +1,80 @@
 <div class="space-y-6">
-  <!-- <div>
-    <h1 class="text-2xl font-bold text-gray-900">Gestión de Clientes y Pagos</h1>
-    <p class="text-gray-500">Administra toda la información de tus clientes y sus pagos.</p>
-  </div> -->
-
-<div class="grid w-full grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
-  <button 
-    (click)="activeTab = 'clientes'"
-    [ngClass]="{ 'bg-white text-gray-900 shadow-sm': activeTab === 'clientes' }"
-    class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold transition-all">
-    <app-icon name="users" class="h-4 w-4"></app-icon>
-    Gestión de Clientes
-  </button>
-  <button 
-    (click)="activeTab = 'pagos'"
-    [ngClass]="{ 'bg-white text-gray-900 shadow-sm': activeTab === 'pagos' }"
-    class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold transition-all">
-    <app-icon name="dollar-sign" class="h-4 w-4"></app-icon>
-    Gestión de Pagos
-  </button>
-</div>
+  <div class="grid w-full grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
+    <button (click)="activeTab = 'clientes'" [ngClass]="{ 'bg-white text-gray-900 shadow-sm': activeTab === 'clientes' }" class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold transition-all">
+      <app-icon name="users" class="h-4 w-4"></app-icon> Gestión de Clientes
+    </button>
+    <button (click)="activeTab = 'pagos'" [ngClass]="{ 'bg-white text-gray-900 shadow-sm': activeTab === 'pagos' }" class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold transition-all">
+      <app-icon name="dollar-sign" class="h-4 w-4"></app-icon> Gestión de Pagos
+    </button>
+  </div>
 
   <div *ngIf="activeTab === 'clientes'" class="space-y-6">
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-  <div class="bg-white p-4 rounded-xl border shadow-sm">
-    <div class="flex items-start gap-3">
-      <app-icon name="users" class="h-6 w-6 text-blue-500"></app-icon>
-      <div>
-        <p class="text-2xl font-bold text-blue-900">{{ clientes.length }}</p>
-        <p class="text-sm text-gray-500">Total Clientes</p>
-      </div>
+      <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="flex items-start gap-3"><app-icon name="users" class="h-6 w-6 text-blue-500"></app-icon><div><p class="text-2xl font-bold text-blue-900">{{ estadisticas.total }}</p><p class="text-sm text-gray-500">Total Clientes</p></div></div></div>
+      <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="flex items-start gap-3"><app-icon name="check-circle" class="h-6 w-6 text-green-500"></app-icon><div><p class="text-2xl font-bold text-green-900">{{ estadisticas.alDia }}</p><p class="text-sm text-gray-500">Al Día</p></div></div></div>
+      <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="flex items-start gap-3"><app-icon name="alert-triangle" class="h-6 w-6 text-red-500"></app-icon><div><p class="text-2xl font-bold text-red-900">{{ estadisticas.morosos }}</p><p class="text-sm text-gray-500">Morosos</p></div></div></div>
+      <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="flex items-start gap-3"><app-icon name="clock" class="h-6 w-6 text-orange-500"></app-icon><div><p class="text-2xl font-bold text-orange-900">{{ estadisticas.pendientes }}</p><p class="text-sm text-gray-500">Pendientes</p></div></div></div>
+      <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="flex items-start gap-3"><app-icon name="user-x" class="h-6 w-6 text-gray-500"></app-icon><div><p class="text-2xl font-bold text-gray-900">{{ estadisticas.dadosBaja }}</p><p class="text-sm text-gray-500">Dados de Baja</p></div></div></div>
     </div>
-  </div>
-  <div class="bg-white p-4 rounded-xl border shadow-sm">
-    <div class="flex items-start gap-3">
-      <app-icon name="check-circle" class="h-6 w-6 text-green-500"></app-icon>
-      <div>
-        <p class="text-2xl font-bold text-green-900">{{ clientes.length }}</p>
-        <p class="text-sm text-gray-500">Al Día</p>
-      </div>
-    </div>
-  </div>
-  <div class="bg-white p-4 rounded-xl border shadow-sm">
-    <div class="flex items-start gap-3">
-      <app-icon name="alert-triangle" class="h-6 w-6 text-red-500"></app-icon>
-      <div>
-        <p class="text-2xl font-bold text-red-900">{{ clientes.length }}</p>
-        <p class="text-sm text-gray-500">Morosos</p>
-      </div>
-    </div>
-  </div>
-  <div class="bg-white p-4 rounded-xl border shadow-sm">
-    <div class="flex items-start gap-3">
-      <app-icon name="clock" class="h-6 w-6 text-orange-500"></app-icon>
-      <div>
-        <p class="text-2xl font-bold text-orange-900">{{ clientes.length }}</p>
-        <p class="text-sm text-gray-500">Pendientes</p>
-      </div>
-    </div>
-  </div>
-  <div class="bg-white p-4 rounded-xl border shadow-sm">
-    <div class="flex items-start gap-3">
-      <app-icon name="user-x" class="h-6 w-6 text-gray-500"></app-icon>
-      <div>
-        <p class="text-2xl font-bold text-gray-900">{{ clientes.length }}</p>
-        <p class="text-sm text-gray-500">Dados de Baja</p>
-      </div>
-    </div>
-  </div>
-</div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
       <div class="p-4 space-y-4">
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2"><app-icon name="users" class="h-5 w-5"></app-icon> Lista de Clientes <span class="text-sm font-normal bg-gray-100 px-2 py-0.5 rounded-md">{{ filteredClientes.length }} resultados</span></h3>
+          <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2"><app-icon name="users" class="h-5 w-5"></app-icon> Lista de Clientes <span class="text-sm font-normal bg-gray-100 px-2 py-0.5 rounded-md">{{ totalClientes }} resultados</span></h3>
           <div class="flex items-center gap-2">
             <button class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"><app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Cliente</button>
-            <button class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-50 flex items-center gap-2"><app-icon name="rotate-ccw" class="h-4 w-4"></app-icon> Actualizar</button>
-            <button class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-50 flex items-center gap-2"><app-icon name="download" class="h-4 w-4"></app-icon> Exportar</button>
+            <!-- <button (click)="loadClients()" class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-50 flex items-center gap-2"><app-icon name="rotate-ccw" class="h-4 w-4"></app-icon> Actualizar</button> -->
           </div>
         </div>
         <div class="flex items-center gap-3">
-          <div class="relative flex-grow"><app-icon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"></app-icon><input [(ngModel)]="searchClientes" placeholder="Buscar cliente..." class="w-full pl-10 pr-4 py-2 border rounded-lg"/></div>
-          <select [(ngModel)]="filterEstadoClientes" class="border rounded-lg px-3 py-2 w-40"><option value="Todos">Todos</option><option value="Al día">Al día</option><option value="Moroso">Moroso</option><option value="Pendiente">Pendiente</option></select>
-          <button (click)="showInactivos = !showInactivos" class="px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2" [ngClass]="showInactivos ? 'bg-gray-100' : 'bg-white'"><app-icon name="user-x" class="h-4 w-4"></app-icon> Ver Dados de Baja</button>
+          <div class="relative flex-grow"><app-icon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"></app-icon><input [(ngModel)]="searchClientes" (ngModelChange)="onSearchChange()" placeholder="Buscar cliente..." class="w-80 pl-10 pr-4 py-2 border rounded-lg"/></div>
+          <select [(ngModel)]="filterEstadoClientes" (ngModelChange)="onFilterChange()" class="border rounded-lg px-3 py-2 w-40"><option value="Todos">Todos</option><option value="Al día">Al día</option><option value="Moroso">Moroso</option><option value="Pendiente">Pendiente</option></select>
+          <button (click)="showInactivos = !showInactivos; onFilterChange()" class="px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2" [ngClass]="showInactivos ? 'bg-gray-100' : 'bg-white'"><app-icon name="user-x" class="h-4 w-4"></app-icon> Ver Dados de Baja</button>
           <button (click)="handleResetFilters()" class="px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-2">Limpiar Filtros</button>
         </div>
         <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2"><span class="text-sm text-gray-600">Mostrar:</span><select [(ngModel)]="itemsPerPageClientes" class="border rounded-lg px-2 py-1 w-20"><option *ngFor="let option of itemsPerPageOptions" [value]="option">{{ option }}</option></select></div>
-          <div class="text-sm text-gray-600">Mostrando {{ paginatedClientes.length > 0 ? ((currentPageClientes - 1) * itemsPerPageClientes) + 1 : 0 }} a {{ Math.min(currentPageClientes * itemsPerPageClientes, filteredClientes.length) }} de {{ filteredClientes.length }} clientes</div>
+          <div class="flex items-center gap-2"><span class="text-sm text-gray-600">Mostrar:</span><select [(ngModel)]="itemsPerPageClientes" (ngModelChange)="onItemsPerPageChange()" class="border rounded-lg px-2 py-1 w-20"><option *ngFor="let option of itemsPerPageOptions" [value]="option">{{ option }}</option></select></div>
+          <div class="text-sm text-gray-600">Mostrando {{ clientes.length > 0 ? ((currentPageClientes - 1) * itemsPerPageClientes) + 1 : 0 }} a {{ Math.min(currentPageClientes * itemsPerPageClientes, totalClientes) }} de {{ totalClientes }} clientes</div>
         </div>
       </div>
       
       <div class="relative w-full overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+          <thead class="text-xs text-gray-700 bg-gray-50">
             <tr class="border-b">
               <th class="p-4 w-12"><input type="checkbox"/></th>
-              <th class="p-4 text-left font-medium"><button (click)="handleSort('nombre')" class="flex items-center gap-1">Cliente <app-icon [name]="sortFieldClientes === 'nombre' ? (sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down'"></app-icon></button></th>
+              <th class="p-4 text-left font-medium"><button (click)="handleSort('FirstName')" class="flex items-center gap-1">Cliente <app-icon [name]="sortFieldClientes === 'FirstName' ? (sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down'"></app-icon></button></th>
               <th class="p-4 text-left font-medium">Contacto</th>
-              <th class="p-4 text-left font-medium"><button (click)="handleSort('baulera')" class="flex items-center gap-1">Baulera <app-icon [name]="sortFieldClientes === 'baulera' ? (sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down'"></app-icon></button></th>
+              <th class="p-4 text-left font-medium">Baulera</th>
               <th class="p-4 text-left font-medium">Documento</th>
-              <th class="p-4 text-left font-medium"><button (click)="handleSort('estado')" class="flex items-center gap-1">Estado <app-icon [name]="sortFieldClientes === 'estado' ? (sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down'"></app-icon></button></th>
-              <th class="p-4 text-left font-medium"><button (click)="handleSort('precioRenta')" class="flex items-center gap-1">Renta <app-icon [name]="sortFieldClientes === 'precioRenta' ? (sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down'"></app-icon></button></th>
+              <th class="p-4 text-left font-medium">Estado</th>
+              <th class="p-4 text-left font-medium">Balance</th>
               <th class="p-4 text-left font-medium">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let cliente of paginatedClientes" class="border-b hover:bg-gray-50">
+            <tr *ngFor="let cliente of clientes" class="border-b hover:bg-gray-50">
               <td class="p-4"><input type="checkbox"/></td>
-              <td class="p-4"><div class="flex items-center gap-3"><div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0"><span class="text-blue-800 text-sm font-semibold">{{ cliente.nombre.charAt(0) }}</span></div><div><div class="font-semibold text-gray-900">{{ cliente.nombre }}</div><div class="text-xs text-gray-500">{{ cliente.email[0] }}</div></div></div></td>
-              <td class="p-4"><div class="font-medium text-gray-800">{{ cliente.telefono[0] }}</div><div class="text-xs text-gray-500">{{ cliente.ciudad }}</div></td>
-              <td class="p-4 font-mono text-gray-700">{{ cliente.baulera }}</td>
-              <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="getDocumentoBadgeColor(cliente.documento)">{{ cliente.documento }}</span></td>
-              <td class="p-4"><span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full" [ngClass]="getEstadoBadgeColor(cliente.estado)"><app-icon [name]="cliente.estado === 'Moroso' ? 'alert-triangle' : (cliente.estado === 'Pendiente' ? 'clock' : '')" class="h-3 w-3"></app-icon> {{ cliente.estado }}</span></td>
-              <td class="p-4"><div class="font-medium text-gray-800">{{ cliente.precioRenta | currency:'ARS':'symbol-narrow':'1.0-0' }}</div><div class="text-xs text-gray-500">{{ cliente.m3Contratados }} m³</div></td>
-              <td class="p-4"><div class="flex items-center gap-2">
-                <button class="p-1 hover:text-blue-600"><app-icon name="eye" class="h-4 w-4"></app-icon></button>
-                <button class="p-1 hover:text-blue-600"><app-icon name="edit" class="h-4 w-4"></app-icon></button>
-                <button class="p-1 hover:text-red-600"><app-icon name="trash" class="h-4 w-4"></app-icon></button>
-              </div></td>
+              <td class="p-4"><div class="flex items-center gap-3"><div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0"><span class="text-blue-800 text-sm font-semibold">{{ cliente.firstName.charAt(0) }}</span></div><div><div class="font-semibold text-gray-900">{{ cliente.firstName }} {{ cliente.lastName }}</div><div class="text-xs text-gray-500">{{ cliente.email }}</div></div></div></td>
+              <td class="p-4"><div class="font-medium text-gray-800">{{ cliente.phone }}</div><div class="text-xs text-gray-500">{{ cliente.city }}</div></td>
+              <td class="p-4 font-mono text-gray-700">{{ cliente.lockers?.join(', ') }}</td>
+              <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="getDocumentoBadgeColor(cliente.document || '')">{{ cliente.document }}</span></td>
+              <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded-full" [ngClass]="getEstadoBadgeColor('Al día')">Al día</span></td>
+              <td class="p-4 font-medium text-gray-800">{{ cliente.balance | currency:'ARS':'symbol-narrow':'1.0-0' }}</td>
+              <td class="p-4"><div class="flex items-center gap-2"><button class="p-1 hover:text-blue-600"><app-icon name="eye" class="h-4 w-4"></app-icon></button><button class="p-1 hover:text-blue-600"><app-icon name="edit" class="h-4 w-4"></app-icon></button><button class="p-1 hover:text-red-600"><app-icon name="trash" class="h-4 w-4"></app-icon></button></div></td>
             </tr>
           </tbody>
         </table>
+      </div>
+      
+      <div class="p-4 flex items-center justify-center">
+        <div *ngIf="totalPages > 1" class="flex items-center justify-center space-x-1">
+          <button (click)="onPageChange(currentPageClientes - 1)" [disabled]="currentPageClientes === 1" class="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 w-9 disabled:opacity-50 hover:bg-gray-100"><app-icon name="caret-left" class="h-4 w-4"></app-icon></button>
+          <ng-container *ngFor="let i of [].constructor(totalPages); let idx = index">
+            <button (click)="onPageChange(idx + 1)" [ngClass]="{ 'bg-blue-600 text-white': currentPageClientes === (idx + 1) }" class="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 w-9 hover:bg-gray-100">{{ idx + 1 }}</button>
+          </ng-container>
+          <button (click)="onPageChange(currentPageClientes + 1)" [disabled]="currentPageClientes === totalPages" class="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 w-9 disabled:opacity-50 hover:bg-gray-100"><app-icon name="caret-right" class="h-4 w-4"></app-icon></button>
+        </div>
       </div>
     </div>
   </div>
