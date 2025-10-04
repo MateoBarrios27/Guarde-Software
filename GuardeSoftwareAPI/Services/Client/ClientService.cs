@@ -10,6 +10,7 @@ using GuardeSoftwareAPI.Services.locker;
 using GuardeSoftwareAPI.Dtos.Locker;
 using GuardeSoftwareAPI.Services.activityLog;
 using System.Threading.Tasks;
+using GuardeSoftwareAPI.Dtos.Common;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -34,7 +35,7 @@ namespace GuardeSoftwareAPI.Services.client
             this.rentalService = _rentalService;
             this.rentalAmountHistoryService = _rentalAmountHistoryService;
             this.lockerService = _lockerService;
-            this.activityLogService = _activityLogService;  
+            this.activityLogService = _activityLogService;
             this.accessDB = _accessDB;
         }
 
@@ -181,7 +182,7 @@ namespace GuardeSoftwareAPI.Services.client
                             RecordId = newId,
                         };
 
-                        await activityLogService.CreateActivityLogTransactionAsync(activityLog,connection,transaction);
+                        await activityLogService.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
 
                         await transaction.CommitAsync();
 
@@ -202,7 +203,7 @@ namespace GuardeSoftwareAPI.Services.client
 
             DataTable clientDetailTable = await daoClient.GetClientDetailByIdAsync(id);
 
-            if (clientDetailTable == null || clientDetailTable.Rows.Count == 0) throw new ArgumentException("No client found with the given ID."); 
+            if (clientDetailTable == null || clientDetailTable.Rows.Count == 0) throw new ArgumentException("No client found with the given ID.");
 
             DataRow row = clientDetailTable.Rows[0];
 
@@ -244,6 +245,19 @@ namespace GuardeSoftwareAPI.Services.client
             clientDetail.LockersList = lockers;
 
             return clientDetail;
+        }
+        
+        public async Task<PaginatedResultDto<GetTableClientsDto>> GetClientsTableAsync(GetClientsRequestDto request)
+        {
+            var (clients, totalCount) = await daoClient.GetTableClientsAsync(request);
+
+            return new PaginatedResultDto<GetTableClientsDto>
+            {
+                Items = clients,
+                TotalCount = totalCount,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize
+            };
         }
     }
 }

@@ -3,6 +3,8 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
 using System.Threading.Tasks;
+using GuardeSoftwareAPI.Dtos.Client;
+using System.Text;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -152,11 +154,10 @@ namespace GuardeSoftwareAPI.Dao
 
             return Convert.ToInt32(result);
         }
-        
+
         //Here missing the method to get balance and payment status
         public async Task<DataTable> GetClientDetailByIdAsync(int id)
         {
-            // Consulta actualizada con el estado de pago "Moroso".
             string query = @"
                 WITH CurrentRentalAmount AS (
                     SELECT rental_id, amount as CurrentRent
@@ -234,7 +235,8 @@ namespace GuardeSoftwareAPI.Dao
             using (var command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.Add(new SqlParameter("@dni", SqlDbType.VarChar) { Value = dni });
-                int count = (int)await command.ExecuteScalarAsync();
+                object result = await command.ExecuteScalarAsync();
+                int count = (result != null && result != DBNull.Value) ? Convert.ToInt32(result) : 0;
                 return count > 0;
             }
         }
@@ -248,6 +250,127 @@ namespace GuardeSoftwareAPI.Dao
                 int count = (int)await command.ExecuteScalarAsync();
                 return count > 0;
             }
+        }
+
+        //This method returns a tuple with the list of clients and the total count for pagination
+        //Not returns a datatable like the others because we need to map it to a dto, the method is
+        //below this (MapDataTableToDto)
+        
+        //Sure this method needs a improvement to calculate the balance and payment status
+        public async Task<(List<GetTableClientsDto> clients, int totalCount)> GetTableClientsAsync(GetClientsRequestDto request)
+        {
+            var queryBuilder = new StringBuilder();
+            var countQueryBuilder = new StringBuilder();
+            var filterParameters = new List<SqlParameter>();
+
+
+            string baseQuery = @"
+                FROM 
+                    clients c
+                OUTER APPLY (
+                    SELECT TOP 1 e.address
+                    FROM emails e
+                    WHERE e.client_id = c.client_id AND e.active = 1
+                    ORDER BY e.email_id
+                ) AS first_email
+                OUTER APPLY (
+                    SELECT TOP 1 p.number
+                    FROM phones p
+                    WHERE p.client_id = c.client_id AND p.active = 1
+                    ORDER BY p.phone_id
+                ) AS first_phone
+                LEFT JOIN 
+                    addresses a ON c.client_id = a.client_id
+                LEFT JOIN (
+                    SELECT 
+                        r.client_id, 
+                        SUM(am.amount * CASE WHEN am.movement_type = 'DEBITO' THEN 1 ELSE -1 END) as balance
+                    FROM rentals r
+                    JOIN account_movements am ON r.rental_id = am.rental_id
+                    GROUP BY r.client_id
+                ) balance_sub ON c.client_id = balance_sub.client_id
+                LEFT JOIN (
+                    SELECT r.client_id, STRING_AGG(l.identifier, ', ') as lockers
+                    FROM rentals r 
+                    JOIN lockers l ON r.rental_id = l.rental_id
+                    GROUP BY r.client_id
+                ) locker_sub ON c.client_id = locker_sub.client_id
+            ";
+
+            var whereClause = new StringBuilder("WHERE 1=1 ");
+            if (request.Active.HasValue)
+            {
+                whereClause.Append("AND c.active = @Active ");
+                filterParameters.Add(new SqlParameter("@Active", request.Active.Value));
+            }
+            if (!string.IsNullOrEmpty(request.SearchTerm))
+            {
+                whereClause.Append("AND (c.first_name LIKE @SearchTerm OR c.last_name LIKE @SearchTerm OR first_email.address LIKE @SearchTerm) ");
+                filterParameters.Add(new SqlParameter("@SearchTerm", $"%{request.SearchTerm}%"));
+            }
+
+            countQueryBuilder.Append("SELECT COUNT(c.client_id) ").Append(baseQuery).Append(whereClause);
+            int totalCount = Convert.ToInt32(await accessDB.ExecuteScalarAsync(countQueryBuilder.ToString(), filterParameters.ToArray()));
+
+            queryBuilder.Append(@"
+                SELECT
+                    c.client_id AS Id,
+                    c.payment_identifier AS PaymentIdentifier,
+                    c.first_name AS FirstName,
+                    c.last_name AS LastName,
+                    first_email.address AS Email,  -- Se usa el alias de la subconsulta
+                    first_phone.number AS Phone,   -- Se usa el alias de la subconsulta
+                    a.city AS City,
+                    ISNULL(balance_sub.balance, 0) as Balance,
+                    c.preferred_payment_method_id AS PreferredPaymentMethodId,
+                    c.dni AS Document, 
+                    locker_sub.lockers as Lockers,
+                    c.active AS Active
+            ").Append(baseQuery).Append(whereClause);
+
+            var validSortFields = new Dictionary<string, string> {
+                { "FirstName", "c.first_name" }, { "LastName", "c.last_name" }
+            };
+            string sortColumn = validSortFields.ContainsKey(request.SortField) ? validSortFields[request.SortField] : "c.client_id";
+            string sortDirection = request.SortDirection.Equals("desc", StringComparison.OrdinalIgnoreCase) ? "DESC" : "ASC";
+            queryBuilder.Append($" ORDER BY {sortColumn} {sortDirection} ");
+            queryBuilder.Append("OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
+
+            var dataParameters = new List<SqlParameter>();
+            dataParameters.AddRange(filterParameters.Select(p => new SqlParameter(p.ParameterName, p.Value)));
+            dataParameters.Add(new SqlParameter("@Offset", (request.PageNumber - 1) * request.PageSize));
+            dataParameters.Add(new SqlParameter("@PageSize", request.PageSize));
+
+            DataTable dataTable = await accessDB.GetTableAsync("Clients", queryBuilder.ToString(), dataParameters.ToArray());
+            var clients = MapDataTableToDto(dataTable);
+
+            return (clients, totalCount);
+        }
+
+        private List<GetTableClientsDto> MapDataTableToDto(DataTable table)
+        {
+            var clients = new List<GetTableClientsDto>();
+            if (table == null) return clients;
+
+            foreach (DataRow row in table.Rows)
+            {
+                clients.Add(new GetTableClientsDto
+                {
+                    Id = Convert.ToInt32(row["Id"]),
+                    PaymentIdentifier = row["PaymentIdentifier"] != DBNull.Value ? Convert.ToDecimal(row["PaymentIdentifier"]) : null,
+                    FirstName = row["FirstName"]?.ToString() ?? string.Empty,
+                    LastName = row["LastName"]?.ToString() ?? string.Empty,
+                    Email = row["Email"]?.ToString(),
+                    Phone = row["Phone"]?.ToString(),
+                    City = row["City"]?.ToString() ?? string.Empty,
+                    Balance = Convert.ToDecimal(row["Balance"]),
+                    PreferredPaymentMethodId = row["PreferredPaymentMethodId"] != DBNull.Value ? Convert.ToInt32(row["PreferredPaymentMethodId"]) : null,
+                    Document = row["Document"]?.ToString(),
+                    Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,
+                    Active = Convert.ToBoolean(row["Active"])
+                });
+            }
+            return clients;
         }
     }
 }

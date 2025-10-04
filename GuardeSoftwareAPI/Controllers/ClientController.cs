@@ -84,5 +84,12 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, $"Error getting the client detail: {ex.Message}");
             }
         }
+
+        [HttpGet("table")]
+        public async Task<IActionResult> GetClients([FromQuery] GetClientsRequestDto request)
+        {
+            var result = await _clientService.GetClientsTableAsync(request);
+            return Ok(result);
+        }
     }
 }
