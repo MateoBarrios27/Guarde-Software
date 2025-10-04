@@ -19,35 +19,74 @@ INSERT INTO warehouses (name, address, active) VALUES
 
 -- Increase Regimens
 INSERT INTO increase_regimens (frequency, percentage) VALUES
-(6, 10.00),
-(12, 20.00);
+(4, 10.00),
+(4, 15.00),
+(4, 20.00),
+(4, 40.00);
 
 -- Clients
 INSERT INTO clients (payment_identifier, first_name, last_name, registration_date, notes, dni, cuit, preferred_payment_method_id, active, iva_condition) VALUES
-(0.01, 'Juan', 'Pérez', '2024-01-10', 'Cliente puntual', '30123456', '20-30123456-7', NULL, 1, 'Consumidor Final'),
-(0.02, 'María', 'González', '2024-02-15', 'Solicitó espacio adicional', '28987654', '27-28987654-8', NULL, 1, 'Responsable Inscripto');
+(0.01, 'Carmen', 'Veghitti ', '2012-04-28', 'Perfumeria Liliana Fredy, PAGO DESDE MAYO 2025 HASTA MAYO 2026', '', '', 1, 1, NULL),
+(0.03, 'Susana', 'Galante', '2012-10-20', '', '10508492', '27105084922', 2, 1, 'Consumidor Final'),
+(0.04, 'Maria Jose', 'Battafarano', '2013-02-02', '', '18084787', '27180847877', 2, 1, 'Consumidor Final Factura'),
+(0.05, 'Mariano', 'Sturmer', '2013-02-22', '', '27768913', NULL, 1, 1, 'Consumidor Final Factura'),
+(0.06, 'Ellison', 'Craig', '2013-03-19', 'DEPOSITA POR CAJERO LACROZE, Bravo Paula', '95052439', '20062358484', 2, 1, 'Consumidor Final'),
+(0.09, 'Martin', 'Rodriguez', '2013-09-03', '', '25182349', '23251823499', 2, 1, 'Consumidor Final'),
+(0.10, 'Alicia', 'Rodriguez', '2013-09-26', '', '13145717', '27131457176', 2, 1, 'Consumidor Final'),
+(0.11, 'Fabian Eduardo', 'Chedrese', '2013-10-22', 'PAGO DESDE SEPTIEMBRE 2024 HASTA AGOSTO 2025 INCLUSIVE', '17538603', '20175386034', 1, 1, NULL),
+(0.12, 'Eduardo', 'Palomero', '2013-10-25', 'Tiene alquiler en dos depositos', '7657286', '20076572861', 2, 1, 'Responsable Inscripto');
 
 -- Clients x Regimens
 INSERT INTO clients_x_increase_regimens (client_id, regimen_id, start_date, end_date) VALUES
-(1, 1, '2024-01-10', NULL),
-(2, 2, '2024-02-15', NULL);
+(3, 2, '2025-09-01', NULL),
+(4, 3, '2025-09-01', NULL),
+(5, 2, '2025-09-01', NULL),
+(6, 2, '2025-09-01', NULL),
+(8, 4, '2025-09-01', NULL),
+(9, 2, '2025-09-01', NULL);
 
 -- Phones
 INSERT INTO phones (client_id, number, type, whatsapp, active) VALUES
-(1, '1160244907', 'Móvil', 1, 1),
-(1, '1160265907','Casa', 0, 1),
-(2, '1145678901', 'Trabajo', 0, 1),
-(2, '1161474907','Móvil', 1, 1);
+(1, '47492670', NULL, 0, 1),
+(2, '1540898915', 'Móvil', 1, 1),
+(3, '1540860883','Móvil', 1, 1),
+(3, '4822-6164', NULL, 0, 1),
+(4, '1535920505','Móvil', 1, 1),
+(4, '4794-1628', NULL, 0, 1),
+(5, '4786-4618', NULL, 0, 1),
+(6, '4760-5741', NULL, 0, 1),
+(7, '1540709430','Móvil', 1, 1),
+(8, '47426033', NULL, 0, 1),
+(8, '1544066676','Móvil', 1, 1),
+(9, '1552488655', 'Móvil', 1, 1),
+(9, '43716464', NULL, 0, 1),
+(9, '4371-0431', NULL, 0, 1);
 
 -- Emails
 INSERT INTO emails (client_id, address, type, active) VALUES
-(1, 'juan.perez@mail.com', 'Personal', 1),
-(2, 'maria.gonzalez@mail.com', 'Trabajo', 1);
+(1, 'silto72@hotmail.com', NULL, 1),
+(2, 'telecenter2002@hotmail.com', NULL, 1),
+(3, 'mjbattafarano@me.com', NULL, 1),
+(3, 'mjbattafarano@yahoo.com.ar', NULL, 1),
+(4, 'msturmer@sinectis.com.ar', NULL, 1),
+(5, 'manubravo36@hotmail.com', NULL, 1),
+(6, 'martinalejandrorodriguez201@gmail.com', NULL, 1),
+(7, 'aliziar32@gmail.com', NULL, 1),
+(8, 'info@ecoproductos.com.ar', NULL, 1),
+(9, 'ealp@fibertel.com.ar', NULL, 1),
+(9, 'estudiolpvt@fibertel.com.ar', NULL, 1);
 
 -- Addresses
 INSERT INTO addresses (client_id, street, city, province) VALUES
-(1, 'Calle Falsa 123', 'Buenos Aires', 'Buenos Aires'),
-(2, 'Av. Libertador 456', 'San Isidro', 'Buenos Aires');
+(1, 'Vacio', 'Tigre', 'Buenos Aires'),
+(2, 'Independencia 1020', 'Lobos', 'Buenos Aires'),
+(3, 'Azcuenaga 884', 'Vicente Lopez', 'Buenos Aires'),
+(4, 'Acassuso 2689', 'Olivos', 'Buenos Aires'),
+(5, 'Aguilar 2476 6ª A', 'CABA', 'CABA'),
+(6, 'Peru 1241 Dto 5', 'Florida', 'Buenos Aires'),
+(7, 'Carlos Tejedor 3216', 'Carapachay', 'Buenos Aires'),
+(8, 'Laprida 311', 'San Isidro', 'Buenos Aires'),
+(9, 'Pte Quintana 260 6to P B', 'CABA', 'CABA');
 
 -- Payment Methods
 INSERT INTO payment_methods (name, active, commission) VALUES
@@ -56,33 +95,55 @@ INSERT INTO payment_methods (name, active, commission) VALUES
 
 -- Rentals
 INSERT INTO rentals (client_id, start_date, end_date, contracted_m3, months_unpaid, active) VALUES
-(1, '2024-01-15', NULL, 8.00, 0, 1),
-(2, '2024-02-20', NULL, 10.00, 0, 1);
+(1, '2012-04-28', NULL, NULL, 0, 1),
+(2, '2012-10-20', NULL, 6, 0, 1),
+(3, '2013-02-02', NULL, 4, 0, 1),
+(4, '2013-02-22', NULL, 8, 0, 1),
+(5, '2013-03-19', NULL, 8, 0, 1),
+(6, '2013-09-03', NULL, 4, 0, 1),
+(7, '2013-09-26', NULL, 8, 0, 1),
+(8, '2013-10-22', NULL, NULL, 0, 1),
+(9, '2013-10-25', NULL, 4, 0, 1);
 
 -- Lockers
 INSERT INTO lockers (warehouse_id, locker_type_id, identifier, features, status, rental_id, active) VALUES
-(1, 1, 'B-101', 'Baulera en planta baja, fácil acceso', 'DISPONIBLE', NULL,1),
-(1, 2, 'XL-202', 'Baulera grande con ventilación', 'OCUPADO', 1, 1),
-(2, 3, 'G-301', 'Baulera extra grande con estanterías', 'OCUPADO', 1, 1),
-(2, 4, 'B-102', 'Box en planta baja', 'DISPONIBLE', NULL, 1),
-(3, 5, 'L-103', 'Locker con acceso digital', 'OCUPADO', 2, 1),
-(3, 6, 'E-104', 'Espacio libre para almacenamiento flexible', 'DISPONIBLE', NULL, 1),
-(2, 3, 'G-305', 'Baulera extra grande', 'DISPONIBLE', NULL, 1);
+(1, 4, 'OH', 'OHIGGIGUINS TIPO? ', 'OCUPADO', 1, 1),
+(1, 4, 'PA-B', 'Planta alta borgues TIPO?', 'OCUPADO', 1, 1),
+(1, 4, 'B-302', 'BOX 302', 'OCUPADO', 2, 1),
+(3, 5, 'G-96', '96 TIPO?', 'OCUPADO', 3, 1),
+(3, 5, 'G-99', '99 TIPO?', 'OCUPADO', 3, 1),
+(3, 4, 'G-45', '45 TIPO?', 'OCUPADO', 4, 1),
+(3, 1, 'G-83', '83 TIPO?', 'OCUPADO', 5, 1),
+(3, 5, 'G-61', '61 TIPO?', 'OCUPADO', 6, 1),
+(1, 5, 'B-202', '202 TIPO?', 'OCUPADO', 7, 1),
+(1, 5, 'B-PS', 'Primer Salon TIPO?', 'OCUPADO', 7, 1),
+(1, 2, 'B-PA', 'PASILLO BORGUES TIPO?', 'OCUPADO', 8, 1),
+(1, 2, 'B-OFI1', 'OFI TIPO?', 'OCUPADO', 8, 1),
+(3, 1, 'G-64', '64 TIPO?', 'OCUPADO', 9, 1),
+(3, 1, 'G-67', '67 TIPO?', 'OCUPADO', 9, 1),
+(1, 6, 'EL', 'ESPACIO LIBRE', 'OCUPADO', 9, 1);
 
 -- Rental Amount History
 INSERT INTO rental_amount_history (rental_id, amount, start_date, end_date) VALUES
-(1, 92000, '2024-01-15', NULL),
-(2, 115000, '2024-02-20', NULL);
+(1, 60000, '2025-09-01', NULL),
+(2, 31900, '2025-09-01', NULL),
+(3, 94000, '2025-09-01', NULL),
+(4, 84300, '2025-09-01', NULL),
+(5, 91900, '2025-09-01', NULL),
+(6, 62300, '2025-09-01', NULL),
+(7, 109100, '2025-09-01', NULL),
+(8, 237300, '2025-09-01', NULL),
+(9, 278600, '2025-09-01', NULL);
 
--- Payments
-INSERT INTO payments (client_id, payment_method_id, payment_date, amount) VALUES
-(1, 1, '2024-01-20', 92000),
-(2, 2, '2024-02-25', 115000);
+-- -- Payments
+-- INSERT INTO payments (client_id, payment_method_id, payment_date, amount) VALUES
+-- (1, 1, '2024-01-20', 92000),
+-- (2, 2, '2024-02-25', 115000);
 
--- Account Movements
-INSERT INTO account_movements (rental_id, movement_date, movement_type, concept, amount, payment_id) VALUES
-(1, '2024-01-20', 'CREDITO', 'Pago alquiler enero', 60000, 1),
-(2, '2024-02-25', 'CREDITO', 'Pago alquiler febrero', 15000, 2);
+-- -- Account Movements
+-- INSERT INTO account_movements (rental_id, movement_date, movement_type, concept, amount, payment_id) VALUES
+-- (1, '2024-01-20', 'CREDITO', 'Pago alquiler enero', 60000, 1),
+-- (2, '2024-02-25', 'CREDITO', 'Pago alquiler febrero', 15000, 2);
 
 -- User Types
 INSERT INTO user_types (name, active) VALUES
@@ -95,8 +156,8 @@ INSERT INTO users (user_type_id, username, first_name, last_name, password, acti
 (2, 'robert', 'Roberto', 'Filgueira', 'claveRoberto456', 1);
 
 -- Activity Log (JSON in old_value and new_value)
-INSERT INTO activity_log (user_id, log_date, action, table_name, record_id, old_value, new_value) VALUES
-(1, GETDATE(), 'UPDATE', 'clients', 1, '{"name":"Juan"}', '{"name":"Juan Pablo"}');
+-- INSERT INTO activity_log (user_id, log_date, action, table_name, record_id, old_value, new_value) VALUES
+-- (1, GETDATE(), 'UPDATE', 'clients', 1, '{"name":"Juan"}', '{"name":"Juan Pablo"}');
 
 COMMIT TRANSACTION;
     PRINT '¡Data inserted successfully!';
