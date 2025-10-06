@@ -7,5 +7,8 @@ namespace GuardeSoftwareAPI.Entities
         public int ClientId { get; set; }
         public decimal Amount { get; set; }
         public DateTime PaymentDate { get; set; }
+        public decimal? PaymentIdentifier { get; set; } //using for dashboard
+        public string? ClientName {get; set;}
+
     }
 }

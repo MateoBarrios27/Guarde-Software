@@ -16,9 +16,28 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
+        // public async Task<DataTable> GetPayments()
+        // {
+        //     string query = "SELECT payment_id, client_id, payment_method_id, payment_date, amount FROM payments";
+
+        //     return await accessDB.GetTableAsync("payments", query);
+        // }
+
         public async Task<DataTable> GetPayments()
         {
-            string query = "SELECT payment_id, client_id, payment_method_id, payment_date, amount FROM payments";
+            string query = @"
+                SELECT 
+                    p.payment_id,
+                    p.client_id,
+                    c.payment_identifier,
+                    c.first_name,
+                    p.payment_method_id,
+                    p.payment_date,
+                    p.amount
+                FROM payments p
+                INNER JOIN clients c ON p.client_id = c.client_id
+                WHERE MONTH(p.payment_date) = MONTH(GETDATE())
+                AND YEAR(p.payment_date) = YEAR(GETDATE())";
 
             return await accessDB.GetTableAsync("payments", query);
         }

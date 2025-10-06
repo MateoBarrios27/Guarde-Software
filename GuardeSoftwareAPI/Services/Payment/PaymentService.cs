@@ -39,7 +39,9 @@ namespace GuardeSoftwareAPI.Services.payment
 					Amount = row["amount"] != DBNull.Value ? Convert.ToDecimal(row["amount"]) : 0m,
 					PaymentDate = row["payment_date"] != DBNull.Value ? (DateTime)row["payment_date"] : DateTime.MinValue,
 					PaymentMethodId = row["payment_method_id"] != DBNull.Value ? (int)row["payment_method_id"] : 0,
-					ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0
+					ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
+					ClientName = row["first_name"]?.ToString() ?? string.Empty,
+					PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
 				};
 
 				payments.Add(payment);
