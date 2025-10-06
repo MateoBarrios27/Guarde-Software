@@ -5,11 +5,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Warehouse } from '../../core/models/warehouse';
 import { WarehouseService } from '../../core/services/warehouse-service/warehouse.service';
+import { NgxPaginationModule } from 'ngx-pagination';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-lockers',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent],
   templateUrl: './lockers.component.html',
   styleUrls: ['./lockers.component.css']
 })
@@ -24,7 +26,8 @@ export class LockersComponent implements OnInit {
   selectedWarehouse = '';
   selectedStatus = '';
 
- 
+  page: number = 1;
+  itemsPerPage: number = 10;
 
   constructor(private lockerService: LockerService, private warehouseService: WarehouseService) {}
 

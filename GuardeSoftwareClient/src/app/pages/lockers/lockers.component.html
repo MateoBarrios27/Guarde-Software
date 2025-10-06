@@ -3,21 +3,32 @@
 
   <!-- Dashboard -->
   <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-    <div class="p-4 bg-blue-50 rounded shadow">
-      <div class="text-2xl">{{ filteredLockers.length }}</div>
-      <p class="text-gray-500 text-sm">Total</p>
+    <div class="p-4 bg-white rounded-xl border shadow-sm">
+      <div class="text-2xl flex items-center gap-2">
+        <app-icon name="check-circle" class="h-6 w-6 text-gray-700"></app-icon>
+        {{ filteredLockers.length }}
+      </div>
+      <p class="text-gray-500 text-sm pl-8">Total</p>
     </div>
-    <div class="p-4 bg-red-50 rounded shadow">
-      <div class="text-2xl">{{ ocupados }}</div>
-      <p class="text-gray-500 text-sm">Ocupados</p>
+
+    <div class="p-4 bg-white rounded-xl border shadow-sm ">
+      <div class="text-2xl flex items-center gap-2">
+        <app-icon name="lock" class="h-6 w-6 text-red-500"></app-icon>
+        {{ ocupados }}</div>
+      <p class="text-gray-500 text-sm pl-8">Ocupados</p>
     </div>
-    <div class="p-4 bg-green-50 rounded shadow">
-      <div class="text-2xl">{{ libres }}</div>
-      <p class="text-gray-500 text-sm">Libres</p>
+
+    <div class="p-4 bg-white rounded-xl border shadow-sm">
+      <div class="text-2xl flex items-center gap-2">
+        <app-icon name="unlock" class="h-6 w-6 text-green-500"></app-icon>
+        {{ libres }}</div>
+      <p class="text-gray-500 text-sm pl-8">Libres</p>
     </div>
-    <div class="p-4 bg-yellow-50 rounded shadow">
-      <div class="text-2xl">{{ mantenimiento }}</div>
-      <p class="text-gray-500 text-sm">Mantenimiento</p>
+    <div class="p-4 bg-white rounded-xl border shadow-sm">
+      <div class="text-2xl flex items-center gap-2">
+        <app-icon name="wrench" class="h-6 w-6 text-yellow-500"></app-icon>
+        {{ mantenimiento }}</div>
+      <p class="text-gray-500 text-sm pl-8">Mantenimiento</p>
     </div>
 
   </div>
@@ -42,12 +53,19 @@
       <option value="OCUPADO">Ocupado</option>
       <option value="MANTENIMIENTO">Mantenimiento</option>
     </select>
+
+    <div class="flex justify-end">
+      <select [(ngModel)]="itemsPerPage" (change)="page = 1"
+              class="p-2 border border-gray-300 rounded bg-white text-gray-800">
+        <option *ngFor="let size of [5, 10, 20, 50]" [value]="size">{{ size }}</option>
+      </select>
+    </div>
   </div>
 
   <!-- Tabla -->
   <div class="overflow-x-auto mt-6">
     <table class="min-w-full border border-gray-200 bg-white rounded-lg">
-      <thead class="bg-gray-100">
+      <thead class="bg-white">
         <tr>
           <th class="px-4 py-2 text-left text-sm font-medium">Código</th>
           <th class="px-4 py-2 text-left text-sm font-medium">Depósito</th>
@@ -57,7 +75,8 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let locker of filteredLockers">
+        <tr *ngFor="let locker of filteredLockers | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'lockers' }">
+
           <td class="px-4 py-2">{{ locker.identifier }}</td>
           <td class="px-4 py-2">{{ getWarehouseName(locker.warehouseId) }}</td>
           <td class="px-4 py-2">{{ locker.features }}</td>
@@ -76,4 +95,12 @@
       </tbody>
     </table>
   </div>
+
+  <pagination-template [id]="'lockers'" #p="paginationApi" (pageChange)="page = $event">
+    <div class="mt-4 flex justify-center items-center gap-3">
+      <button (click)="p.previous()" [disabled]="p.isFirstPage()" class="px-2 py-1 border rounded disabled:opacity-40">«</button>
+      <span class="px-3 py-1 border rounded">{{ p.getCurrent() }}</span>
+      <button (click)="p.next()" [disabled]="p.isLastPage()" class="px-2 py-1 border rounded disabled:opacity-40">»</button>
+    </div>
+  </pagination-template>
 </div>
