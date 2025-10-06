@@ -1,112 +1,227 @@
 <div class="space-y-8">
-  <!-- Encabezado -->
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
     <div>
-
       <h2 class="text-gray-500 mt-1">
-        Resumen general de alquileres y estado financiero
+        Resumen general de alquileres y pagos
       </h2>
     </div>
   </div>
 
-  <!-- Tarjetas resumen -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <div class="bg-white p-4 rounded-xl border shadow-sm">
-      <div class="flex items-start gap-3">
-        <app-icon name="users" class="h-6 w-6 text-blue-500"></app-icon>
-        <div>
-          <p class="text-2xl font-bold text-blue-900">128</p>
-          <p class="text-sm text-gray-500">Clientes Activos</p>
-        </div>
-      </div>
+  <!-- pagos pendientes-->
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+    <div class="p-4 flex items-center justify-between border-b">
+      <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+        <app-icon name="clock" class="h-5 w-5 text-yellow-500"></app-icon>
+        Pagos Pendientes
+        <span class="text-sm font-normal bg-gray-100 px-2 py-0.5 rounded-md">
+          {{ pendingRentals.length }} resultados
+        </span>
+      </h2>
+      <span class="text-sm text-gray-500">Actualizado hoy</span>
     </div>
 
-    <div class="bg-white p-4 rounded-xl border shadow-sm">
-      <div class="flex items-start gap-3">
-        <app-icon name="package" class="h-6 w-6 text-indigo-500"></app-icon>
-        <div>
-          <p class="text-2xl font-bold text-indigo-900">340</p>
-          <p class="text-sm text-gray-500">Lockers Ocupados</p>
-        </div>
-      </div>
-    </div>
+    <div class="relative w-full overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="text-xs text-gray-700 bg-gray-50 uppercase">
+          <tr class="border-b">
+            <th class="px-5 py-3 text-left font-medium">Cliente</th>
+            <th class="px-5 py-3 text-left font-medium">Identificador</th>
+            <th class="px-5 py-3 text-left font-medium">Lockers</th>
+            <th class="px-5 py-3 text-left font-medium">Meses Impagos</th>
+            <th class="px-5 py-3 text-left font-medium">Saldo</th>
+            <th class="px-5 py-3 text-left font-medium">Pago Mensual</th>
+            <th class="px-5 py-3 text-center font-medium">Acción</th>
+          </tr>
+        </thead>
 
-    <div class="bg-white p-4 rounded-xl border shadow-sm">
-      <div class="flex items-start gap-3">
-        <app-icon name="wallet" class="h-6 w-6 text-green-500"></app-icon>
-        <div>
-          <p class="text-2xl font-bold text-green-900">$ 1.254.000</p>
-          <p class="text-sm text-gray-500">Recaudación del Mes</p>
-        </div>
-      </div>
-    </div>
+        <tbody>
+          <tr *ngFor="let item of pendingRentals" class="border-b hover:bg-gray-50 transition">
+            <td class="px-5 py-3 font-medium text-gray-800">{{ item.clientName }}</td>
+            <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier }}</td>
+            <td class="px-5 py-3 text-gray-700">{{ item.lockerIdentifiers }}</td>
+            <td class="px-5 py-3 text-center text-gray-800 font-medium">{{ item.monthsUnpaid }}</td>
+            <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.balance | number:'1.2-2' }}</td>
+            <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.currentRent | number:'1.2-2' }}</td>
+            <td class="px-5 py-3 text-center">
+              <button
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
+                 (click)="openPaymentModalWith(item)">
+                <app-icon name="dollar-sign" class="h-4 w-4"></app-icon>
+                Registrar Pago
+              </button>
+            </td>
+          </tr>
 
-    <div class="bg-white p-4 rounded-xl border shadow-sm">
-      <div class="flex items-start gap-3">
-        <app-icon name="alert-triangle" class="h-6 w-6 text-red-500"></app-icon>
-        <div>
-          <p class="text-2xl font-bold text-red-900">14</p>
-          <p class="text-sm text-gray-500">Alquileres Pendientes</p>
-        </div>
-      </div>
+          <tr *ngIf="pendingRentals.length === 0">
+            <td colspan="7" class="text-center py-6 text-gray-400">
+              No hay alquileres pendientes.
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <!-- Tabla de alquileres pendientes -->
-<div class="bg-white rounded-xl border border-gray-200 shadow-sm">
-  <div class="p-4 flex items-center justify-between border-b">
-    <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-      <app-icon name="clock" class="h-5 w-5 text-yellow-500"></app-icon>
-      Pagos Pendientes
-      <span class="text-sm font-normal bg-gray-100 px-2 py-0.5 rounded-md">
-        {{ pendingRentals.length }} resultados
-      </span>
-    </h2>
-    <span class="text-sm text-gray-500">Actualizado hoy</span>
-  </div>
+  <div class="grid grid-cols-1 xl:grid-cols-[3fr_1fr] gap-6 items-start">
+    <!--historial de pagos -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+      <div class="p-4 flex items-center justify-between border-b">
+        <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+          <app-icon name="wallet" class="h-5 w-5 text-green-600"></app-icon>
+          Historial de Pagos
+        </h2>
+        <span class="text-sm text-gray-500">Actualizado del último mes</span>
+      </div>
 
-  <div class="relative w-full overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="text-xs text-gray-700 bg-gray-50 uppercase">
-        <tr class="border-b">
-          <th class="px-5 py-3 text-left font-medium">Cliente</th>
-          <th class="px-5 py-3 text-left font-medium">Identificador</th>
-          <th class="px-5 py-3 text-left font-medium">Lockers</th>
-          <th class="px-5 py-3 text-left font-medium">Meses Impagos</th>
-          <th class="px-5 py-3 text-left font-medium">Saldo</th>
-          <th class="px-5 py-3 text-left font-medium">Pago Mensual</th>
-          <th class="px-5 py-3 text-center font-medium">Acción</th>
-        </tr>
-      </thead>
+      <div class="relative w-full overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-xs text-gray-700 bg-gray-50 uppercase">
+            <tr class="border-b">
+              <th class="px-5 py-3 text-left font-medium">Cliente</th>
+              <th class="px-5 py-3 text-left font-medium">Identificador</th>
+              <th class="px-5 py-3 text-left font-medium">Método de pago</th>
+              <th class="px-5 py-3 text-left font-medium">Monto</th>
+            </tr>
+          </thead>
 
-      <tbody>
-        <tr *ngFor="let item of pendingRentals" class="border-b hover:bg-gray-50 transition">
-          <td class="px-5 py-3 font-medium text-gray-800">{{ item.clientName }}</td>
-          <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier }}</td>
-          <td class="px-5 py-3 text-gray-700">{{ item.lockerIdentifiers }}</td>
-          <td class="px-5 py-3 text-center text-gray-800 font-medium">{{ item.monthsUnpaid }}</td>
-          <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.balance | number:'1.2-2' }}</td>
-          <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.currentRent | number:'1.2-2' }}</td>
+          <tbody>
+            <tr *ngFor="let item of payments" class="border-b hover:bg-gray-50 transition">
+              <td class="px-5 py-3 font-medium text-gray-800">{{ item.clientName }}</td>
+              <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier }}</td>
+              <td class="px-5 py-3 text-gray-700">{{ item.paymentMethodId }}</td>
+              <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.amount | number:'1.2-2' }}</td>
+            </tr>
 
-          <!-- Botón dentro de la fila -->
-          <td class="px-5 py-3 text-center">
-            <button
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
-            >
-              <app-icon name="dollar-sign" class="h-4 w-4"></app-icon>
-              Registrar Pago
-            </button>
-          </td>
-        </tr>
+            <tr *ngIf="payments.length === 0">
+              <td colspan="4" class="text-center py-6 text-gray-400">
+                No hay pagos realizados este mes.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-        <tr *ngIf="pendingRentals.length === 0">
-          <td colspan="7" class="text-center py-6 text-gray-400">
-            No hay alquileres pendientes.
-          </td>
-        </tr>
-      </tbody>
-    </table>
+   <!-- cards datos-->
+    <div class="flex flex-col gap-3 w-full max-w-[250px] ml-auto">
+      <!-- Pendientes -->
+      <div class="bg-white p-3 rounded-lg border shadow-sm flex items-center justify-between h-[68px]">
+        <div class="flex items-center gap-2">
+          <app-icon name="alert-triangle" class="h-6 w-6 text-red-500"></app-icon>
+          <span class="text-xs text-gray-500">Pendientes</span>
+        </div>
+        <p class="text-lg font-bold text-red-900 mr-3">14</p>
+      </div>
+      <!-- Recaudación -->
+      <div class="bg-white p-3 rounded-lg border shadow-sm flex items-center justify-between h-[68px]">
+        <div class="flex items-center gap-2">
+          <app-icon name="check-circle" class="h-6 w-6 text-green-500"></app-icon>
+          <span class="text-xs text-gray-500">Realizados</span>
+        </div>
+        <p class="text-lg font-bold text-green-900 mr-3">24</p>
+      </div>
+      <!-- Clientes -->
+      <div class="bg-white p-3 rounded-lg border shadow-sm flex items-center justify-between h-[68px]">
+        <div class="flex items-center gap-2">
+          <app-icon name="users" class="h-6 w-6 text-blue-500"></app-icon>
+          <span class="text-xs text-gray-500">Clientes</span>
+        </div>
+        <p class="text-lg font-bold text-blue-900 mr-3">128</p>
+      </div>
+      <!-- Lockers -->
+      <div class="bg-white p-3 rounded-lg border shadow-sm flex items-center justify-between h-[68px]">
+        <div class="flex items-center gap-2">
+          <app-icon name="package" class="h-6 w-6 text-indigo-500"></app-icon>
+          <span class="text-xs text-gray-500">Lockers</span>
+        </div>
+        <p class="text-lg font-bold text-indigo-900 mr-3">340</p>
+      </div>
+    </div>
   </div>
 </div>
 
+
+
+<!-- Modal de pago -->
+<div *ngIf="showPaymentModal"
+     class="fixed inset-0 z-50"
+     (keydown.escape)="closePaymentModal()"
+     tabindex="-1">
+
+  <!-- Backdrop (cierra al click) -->
+  <div class="absolute inset-0 bg-black/40" (click)="closePaymentModal()"></div>
+
+  <!-- Panel -->
+  <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-xl border shadow-lg p-5 relative"
+         (click)="$event.stopPropagation()">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <app-icon name="wallet" class="h-5 w-5 text-green-600"></app-icon>
+          <h3 class="text-lg font-semibold text-gray-800">Registrar pago</h3>
+        </div>
+        <button type="button"
+                (click)="closePaymentModal()"
+                class="text-gray-500 hover:text-gray-700 text-xl leading-none">×</button>
+      </div>
+
+      <!-- Body (solo diseño, sin bindings) -->
+      <div class="space-y-4">
+        <!-- Cliente / Rental -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="flex items-center gap-2 text-sm text-gray-600">
+              <app-icon name="users" class="h-4 w-4 text-blue-500"></app-icon>
+              <span class="font-medium text-gray-800">{{ selectedClientName }}</span>
+            </div>
+          <div class="mt-1 flex items-center gap-2 text-sm text-gray-600">
+              <app-icon name="file-text" class="h-4 w-4 text-gray-500"></app-icon>
+              <span class="font-mono">ID: {{ selectedPaymentIdentifier }}</span>
+            </div>
+        </div>
+
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Movimiento</label>
+            <div class="inline-flex items-center gap-2">
+              <span class="px-2 py-1 rounded-md text-xs font-semibold bg-green-100 text-green-700">
+                CRÉDITO
+              </span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Monto</label>
+            <div class="flex items-center border rounded-lg overflow-hidden">
+              <span class="px-3 text-gray-500 select-none">$</span>
+              <input type="number" [(ngModel)]="paymentDto.amount" min="0.01" step="0.01"
+                    class="w-full px-3 py-2 focus:outline-none" placeholder="0.00">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">Concepto</label>
+          <input type="text" [(ngModel)]="paymentDto.concept"
+                class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-gray-200"
+                placeholder="Pago de alquiler">
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button"
+                (click)="closePaymentModal()"
+                class="px-3 py-2 rounded-lg border text-gray-700 hover:bg-gray-200">
+          Cancelar
+        </button>
+        <button type="button"
+                class="px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+          Guardar pago
+        </button>
+      </div>
+
+    </div>
+  </div>
 </div>
