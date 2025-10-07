@@ -1,12 +1,12 @@
 <div class="space-y-6">
-  <div class="grid w-full grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
+  <!-- <div class="grid w-full grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
     <button (click)="activeTab = 'clientes'" [ngClass]="{ 'bg-white text-gray-900 shadow-sm': activeTab === 'clientes' }" class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold transition-all">
       <app-icon name="users" class="h-4 w-4"></app-icon> Gestión de Clientes
     </button>
     <button (click)="activeTab = 'pagos'" [ngClass]="{ 'bg-white text-gray-900 shadow-sm': activeTab === 'pagos' }" class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold transition-all">
       <app-icon name="recipt" class="h-4 w-4"></app-icon> Gestión de Pagos
     </button>
-  </div>
+  </div> -->
 
   <div *ngIf="activeTab === 'clientes'" class="space-y-6">
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -42,7 +42,6 @@
         <table class="w-full text-sm">
           <thead class="text-xs text-gray-700 bg-gray-50">
             <tr class="border-b">
-              <th class="p-4 w-12"><input type="checkbox"/></th>
               <th class="p-4 text-left font-medium"><button (click)="handleSort('FirstName')" class="flex items-center gap-1">Cliente <app-icon [name]="sortFieldClientes === 'FirstName' ? (sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down'"></app-icon></button></th>
               <th class="p-4 text-left font-medium">Contacto</th>
               <th class="p-4 text-left font-medium">Baulera</th>
@@ -53,10 +52,32 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let cliente of clientes" class="border-b hover:bg-gray-50">
-              <td class="p-4"><input type="checkbox"/></td>
-              <td class="p-4"><div class="flex items-center gap-3"><div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0"><span class="text-blue-800 text-sm font-semibold">{{ cliente.firstName.charAt(0) }}</span></div><div><div class="font-semibold text-gray-900">{{ cliente.firstName }} {{ cliente.lastName }}</div><div class="text-xs text-gray-500">{{ cliente.email }}</div></div></div></td>
-              <td class="p-4"><div class="font-medium text-gray-800">{{ cliente.phone }}</div><div class="text-xs text-gray-500">{{ cliente.city }}</div></td>
+            <tr *ngFor="let cliente of clientes | paginate: { 
+              itemsPerPage: itemsPerPageClientes, 
+              currentPage: currentPageClientes, 
+              totalItems: totalClientes 
+            }" 
+            class="border-b hover:bg-gray-50">
+              <td class="py-2 px-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-blue-800 text-sm font-semibold">{{ cliente.firstName.charAt(0) }}</span>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-semibold text-gray-900">{{ cliente.firstName }} {{ cliente.lastName }}</span>
+                      
+                      <span *ngIf="cliente.paymentIdentifier" 
+                            class="inline-flex items-center font-medium text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md border border-gray-300">
+                        N° {{ cliente.paymentIdentifier | number:'1.2-2'  }}
+                      </span>
+                    </div>
+                    
+                    <div class="text-xs text-gray-500">{{ cliente.email }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="p-4"><div class="font-medium text-gray-800">{{ cliente.phone | phone }}</div><div class="text-xs text-gray-500">{{ cliente.city }}</div></td>
               <td class="p-4 font-mono text-gray-700">{{ cliente.lockers?.join(', ') }}</td>
               <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="getDocumentoBadgeColor(cliente.document || '')">{{ cliente.document }}</span></td>
               <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded-full" [ngClass]="getEstadoBadgeColor('Al día')">Al día</span></td>
@@ -67,15 +88,15 @@
         </table>
       </div>
       
+      <!-- Pagination Controls with ngx-pagination -->
       <div class="p-4 flex items-center justify-center">
-        <div *ngIf="totalPages > 1" class="flex items-center justify-center space-x-1">
-          <button (click)="onPageChange(currentPageClientes - 1)" [disabled]="currentPageClientes === 1" class="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 w-9 disabled:opacity-50 hover:bg-gray-100"><app-icon name="caret-left" class="h-4 w-4"></app-icon></button>
-          <ng-container *ngFor="let i of [].constructor(totalPages); let idx = index">
-            <button (click)="onPageChange(idx + 1)" [ngClass]="{ 'bg-blue-600 text-white': currentPageClientes === (idx + 1) }" class="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 w-9 hover:bg-gray-100">{{ idx + 1 }}</button>
-          </ng-container>
-          <button (click)="onPageChange(currentPageClientes + 1)" [disabled]="currentPageClientes === totalPages" class="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 w-9 disabled:opacity-50 hover:bg-gray-100"><app-icon name="caret-right" class="h-4 w-4"></app-icon></button>
-        </div>
+        <pagination-controls 
+          (pageChange)="onPageChange($event)"
+          previousLabel="Anterior"
+          nextLabel="Siguiente">
+        </pagination-controls>
       </div>
+
     </div>
   </div>
 </div>

@@ -7,11 +7,13 @@ import { ClientService } from '../../core/services/client-service/client.service
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { TableClient } from '../../core/dtos/client/TableClientDto';
+import { NgxPaginationModule } from 'ngx-pagination';
+import { PhonePipe } from '../../shared/pipes/phone.pipe';
 
 @Component({
   selector: 'app-clients',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, CurrencyPipe],
+  imports: [CommonModule, FormsModule, IconComponent, CurrencyPipe, NgxPaginationModule, PhonePipe],
   templateUrl: './clients.component.html',
 })
 export class ClientsComponent implements OnInit {
