@@ -6,7 +6,7 @@
       </h2>
     </div>
   </div>
-
+    
   <!-- pagos pendientes-->
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
     <div class="p-4 flex items-center justify-between border-b">
@@ -17,7 +17,17 @@
           {{ pendingRentals.length }} resultados
         </span>
       </h2>
-      <span class="text-sm text-gray-500">Actualizado hoy</span>
+      <div class="flex items-center gap-3">
+        <input type="text"
+           placeholder="Buscar..."
+           class="p-1.5 border border-gray-300 rounded bg-white text-gray-700 text-sm"
+          />
+        <span class="text-sm text-gray-500">Actualizado hoy</span>
+         <select [(ngModel)]="itemsPerPage2" (change)="page2 = 1"
+                    class="p-1 border border-gray-300 rounded bg-white text-gray-700">
+              <option *ngFor="let size of [5, 10, 20, 50]" [value]="size">{{ size }}</option>
+          </select>
+      </div>
     </div>
 
     <div class="relative w-full overflow-x-auto">
@@ -35,7 +45,7 @@
         </thead>
 
         <tbody>
-          <tr *ngFor="let item of pendingRentals" class="border-b hover:bg-gray-50 transition">
+          <tr *ngFor="let item of pendingRentals | paginate:{ itemsPerPage: itemsPerPage, currentPage: page, id: 'pendings' }" class="border-b hover:bg-gray-50 transition">
             <td class="px-5 py-3 font-medium text-gray-800">{{ item.clientName }}</td>
             <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier }}</td>
             <td class="px-5 py-3 text-gray-700">{{ item.lockerIdentifiers }}</td>
@@ -60,47 +70,79 @@
         </tbody>
       </table>
     </div>
+
+    <pagination-template [id]="'pendings'" #p="paginationApi" (pageChange)="page = $event">
+          <div class="flex justify-center items-center gap-3">
+            <button (click)="p.previous()" [disabled]="p.isFirstPage()" class="px-2 py-1 rounded disabled:opacity-40">«</button>
+            <span class="px-3 py-1 rounded">{{ p.getCurrent() }}</span>
+            <button (click)="p.next()" [disabled]="p.isLastPage()" class="px-2 py-1  rounded disabled:opacity-40">»</button>
+          </div>
+    </pagination-template>
   </div>
+
+  
 
   <div class="grid grid-cols-1 xl:grid-cols-[3fr_1fr] gap-6 items-start">
     <!--historial de pagos -->
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
-      <div class="p-4 flex items-center justify-between border-b">
-        <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-          <app-icon name="wallet" class="h-5 w-5 text-green-600"></app-icon>
-          Historial de Pagos
-        </h2>
-        <span class="text-sm text-gray-500">Actualizado del último mes</span>
-      </div>
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div class="p-4 flex items-center justify-between border-b">
+          <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <app-icon name="wallet" class="h-5 w-5 text-green-600"></app-icon>
+            Historial de Pagos
+          </h2>
 
-      <div class="relative w-full overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="text-xs text-gray-700 bg-gray-50 uppercase">
-            <tr class="border-b">
-              <th class="px-5 py-3 text-left font-medium">Cliente</th>
-              <th class="px-5 py-3 text-left font-medium">Identificador</th>
-              <th class="px-5 py-3 text-left font-medium">Método de pago</th>
-              <th class="px-5 py-3 text-left font-medium">Monto</th>
-            </tr>
-          </thead>
+          <div class="flex items-center gap-3">
+           
+            <input type="text"
+              placeholder="Buscar..."
+              class="p-1.5 border border-gray-300 rounded bg-white text-gray-700 text-sm"
+              />
+            <span class="text-sm text-gray-500">Actualizado del último mes</span>
 
-          <tbody>
-            <tr *ngFor="let item of payments" class="border-b hover:bg-gray-50 transition">
-              <td class="px-5 py-3 font-medium text-gray-800">{{ item.clientName }}</td>
-              <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier }}</td>
-              <td class="px-5 py-3 text-gray-700">{{ item.paymentMethodId }}</td>
-              <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.amount | number:'1.2-2' }}</td>
-            </tr>
+            <select [(ngModel)]="itemsPerPage" (change)="page = 1"
+                    class="p-1 border border-gray-300 rounded bg-white text-gray-700">
+              <option *ngFor="let size of [5, 10, 20, 50]" [value]="size">{{ size }}</option>
+            </select>
+          </div>
+        </div>
 
-            <tr *ngIf="payments.length === 0">
-              <td colspan="4" class="text-center py-6 text-gray-400">
-                No hay pagos realizados este mes.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="relative w-full overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-xs text-gray-700 bg-gray-50 uppercase">
+              <tr class="border-b">
+                <th class="px-5 py-3 text-left font-medium">Cliente</th>
+                <th class="px-5 py-3 text-left font-medium">Identificador</th>
+                <th class="px-5 py-3 text-left font-medium">Método de pago</th>
+                <th class="px-5 py-3 text-left font-medium">Monto</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr *ngFor="let item of payments | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'paymenthistory' }" class="border-b hover:bg-gray-50 transition">
+                <td class="px-5 py-3 font-medium text-gray-800">{{ item.clientName }}</td>
+                <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier }}</td>
+                <td class="px-5 py-3 text-gray-700">{{ item.paymentMethodId }}</td>
+                <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.amount | number:'1.2-2' }}</td>
+              </tr>
+
+              <tr *ngIf="payments.length === 0">
+                <td colspan="4" class="text-center py-6 text-gray-400">
+                  No hay pagos realizados este mes.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+       <pagination-template [id]="'paymenthistory'" #p="paginationApi" (pageChange)="page = $event">
+          <div class="mt-4 flex justify-center items-center gap-3">
+            <button (click)="p.previous()" [disabled]="p.isFirstPage()" class="px-2 py-1 rounded disabled:opacity-40">«</button>
+            <span class="px-3 py-1  rounded">{{ p.getCurrent() }}</span>
+            <button (click)="p.next()" [disabled]="p.isLastPage()" class="px-2 py-1 rounded disabled:opacity-40">»</button>
+          </div>
+        </pagination-template>
     </div>
+    
 
    <!-- cards datos-->
     <div class="flex flex-col gap-3 w-full max-w-[250px] ml-auto">
@@ -174,11 +216,11 @@
           <div class="flex items-center gap-2 text-sm text-gray-600">
               <app-icon name="users" class="h-4 w-4 text-blue-500"></app-icon>
               <span class="font-medium text-gray-800">{{ selectedClientName }}</span>
-            </div>
+          </div>
           <div class="mt-1 flex items-center gap-2 text-sm text-gray-600">
               <app-icon name="file-text" class="h-4 w-4 text-gray-500"></app-icon>
-              <span class="font-mono">ID: {{ selectedPaymentIdentifier }}</span>
-            </div>
+              <span class="font-mono text-gray-800">ID: {{ selectedPaymentIdentifier }}</span>
+          </div>
         </div>
 
 
@@ -191,22 +233,34 @@
               </span>
             </div>
           </div>
+
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Concepto</label>
+            <span class="px-2 py-1 rounded-md text-sm bg-gray-200 text-gray-700">{{ paymentDto.concept }}</span>
+          </div>
+
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Balance actual</label>
+            <span class="px-2 py-1 rounded-md text-sm text-gray-700">${{ selectedBalance | number:'1.2-2'}}</span>
+          </div>
+
+           <div>
+            <label class="block text-sm text-gray-600 mb-1">Pago Mensual</label>
+            <span class="px-2 py-1 rounded-md text-sm text-gray-700">${{ selectedCurrentRent | number:'1.2-2'}}</span>
+          </div>
+
           <div>
             <label class="block text-sm text-gray-600 mb-1">Monto</label>
             <div class="flex items-center border rounded-lg overflow-hidden">
               <span class="px-3 text-gray-500 select-none">$</span>
-              <input type="number" [(ngModel)]="paymentDto.amount" min="0.01" step="0.01"
+              <input type="number" min="0.01" step="0.01"
+                    [(ngModel)]="paymentDto.amount"
                     class="w-full px-3 py-2 focus:outline-none" placeholder="0.00">
             </div>
           </div>
         </div>
 
-        <div>
-          <label class="block text-sm text-gray-600 mb-1">Concepto</label>
-          <input type="text" [(ngModel)]="paymentDto.concept"
-                class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-gray-200"
-                placeholder="Pago de alquiler">
-        </div>
+        
       </div>
 
       <!-- Footer -->
@@ -217,6 +271,7 @@
           Cancelar
         </button>
         <button type="button"
+                (click)="savePayment(paymentDto)"
                 class="px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
           Guardar pago
         </button>

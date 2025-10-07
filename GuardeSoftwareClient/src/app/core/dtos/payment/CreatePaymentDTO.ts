@@ -5,4 +5,5 @@ export interface CreatePaymentDTO{
     movementType: string;
     concept: string;
     amount: number;
+    paymentMethodId: number;
 }
