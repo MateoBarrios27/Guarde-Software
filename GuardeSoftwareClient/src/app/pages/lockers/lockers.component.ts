@@ -7,6 +7,7 @@ import { Warehouse } from '../../core/models/warehouse';
 import { WarehouseService } from '../../core/services/warehouse-service/warehouse.service';
 import { NgxPaginationModule } from 'ngx-pagination';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { LockerUpdateDTO } from '../../core/dtos/locker/LockerUpdateDTO';
 
 @Component({
   selector: 'app-lockers',
@@ -20,6 +21,22 @@ export class LockersComponent implements OnInit {
   selectedLocker: Locker | null = null;
 
   warehouses: Warehouse[] = [];
+
+  lockerUpdate : LockerUpdateDTO = {
+    identifier: '',
+    status: '',
+    features: ''
+  }
+
+  lockerOriginal : LockerUpdateDTO = {
+    identifier: '',
+    status: '',
+    features: ''
+  }
+
+  showUpdateLockerModal = false;
+  idLockerUpdated = 0;
+  warehouseId = 0;
 
   // filtros
   searchTerm = '';
@@ -40,6 +57,7 @@ export class LockersComponent implements OnInit {
     this.lockerService.getLockers().subscribe({
       next: (data) => {
         this.lockers = data;
+        console.log(data);
       },
       error: (err) => {
         console.error('Error cargando lockers', err);
@@ -51,14 +69,13 @@ export class LockersComponent implements OnInit {
     this.warehouseService.getWarehouses().subscribe({
       next: (data) => {
         this.warehouses = data;
-        console.log('depositos: ',data);
       },
       error: (err) => {
         console.error('Error al cargar warehouses', err);
       }
     });
   }
-
+ 
   releaseLocker(locker: Locker): void {
     if (!locker.id) return;
     this.lockerService.updateLockerStatus(locker.id, { status: 'DISPONIBLE' }).subscribe({
@@ -102,6 +119,47 @@ export class LockersComponent implements OnInit {
   getWarehouseName(id: number): string {
     const w = this.warehouses.find(w => w.id === id);
     return w ? w.name : 'N/A';
+  }
+
+  closeUpdateLockerModal() { this.showUpdateLockerModal = false; }
+
+  openUpdateLockerModal(item: Locker){
+    this.lockerUpdate = {
+      identifier : item.identifier,
+      status : item.status,
+      features: item.features
+    };
+    this.lockerOriginal = {
+      identifier : item.identifier,
+      status : item.status,
+      features: item.features
+    }
+    this.idLockerUpdated = item.id;
+    this.warehouseId = item.warehouseId;
+    this.showUpdateLockerModal = true;
+  }
+
+  saveLockerUpdated(id: number,dto: LockerUpdateDTO): void{
+
+    if (!dto.identifier || dto.identifier.trim() === '') {
+      alert('⚠️ Debes ingresar un identificador antes de guardar el pago.');
+      return;
+    }
+
+    const hasChanged = JSON.stringify(dto) !== JSON.stringify(this.lockerOriginal);
+
+    if (!hasChanged) {
+      alert('⚠️ No se detectaron cambios para actualizar.');
+      return;
+    }
+
+    this.lockerService.updateLocker(id,dto).subscribe({
+      next: () => {
+        alert('✅ locker actualizado correctamente.');
+        this.closeUpdateLockerModal();
+      },
+      error: (err) => console.error('Error locker update', err)
+    });
   }
 }
 
