@@ -8,6 +8,8 @@ import { Payment } from '../../core/models/payment';
 import { FormsModule } from '@angular/forms';
 import { CreatePaymentDTO } from '../../core/dtos/payment/CreatePaymentDTO';
 import { NgxPaginationModule } from 'ngx-pagination';
+import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
+import { PaymentMethod } from '../../core/models/payment-method';
 
 @Component({
   selector: 'app-dashboard',
@@ -27,6 +29,9 @@ export class DashboardComponent {
   //load tables
   pendingRentals: PendingRentalDTO[] = [];
   payments: Payment[] = [];
+
+  //load the payment methods
+  paymentMethods: PaymentMethod[] = [];
 
   //filters
   searchPending: string = '';
@@ -53,11 +58,16 @@ export class DashboardComponent {
     paymentMethodId: 0
   };
  
-  constructor(private rentalService: RentalService, private paymentService: PaymentService) {}
+  constructor(
+    private rentalService: RentalService,
+    private paymentService: PaymentService,
+    private paymentMethodService: PaymentMethodService
+  ) {}
 
   ngOnInit(): void {
     this.LoadPedingRentals();
     this.LoadPayments();
+    this.loadPaymentMethods();
   }
 
   LoadPedingRentals(): void{
@@ -78,6 +88,21 @@ export class DashboardComponent {
       },
        error: (err) => console.error('Error al cargar payments:', err)
     });
+  }
+
+  loadPaymentMethods(): void {
+    this.paymentMethodService.getPaymentMethods().subscribe({
+      next: (data) =>{
+        this.paymentMethods = data;
+        console.log(data);
+      },
+      error: (err) => console.error('error al cargar los metodos de pago',err)
+    });
+  }
+
+  getNamePaymentMethodById(id: number): string {
+  const method = this.paymentMethods.find(m => m.id === id);
+  return method ? method.name : 'Desconocido';
   }
 
   openPaymentModalWith(item: PendingRentalDTO) {
@@ -109,8 +134,13 @@ export class DashboardComponent {
   savePayment(dto: CreatePaymentDTO): void {
 
     if (!dto.amount || dto.amount <= 0) {
-    alert('⚠️ Debes ingresar un monto válido antes de guardar el pago.');
-    return;
+      alert('⚠️ Debes ingresar un monto válido antes de guardar el pago.');
+      return;
+    }
+
+    if (!dto.paymentMethodId) {
+      alert('⚠️ Debes seleccionar un método de pago.');
+      return;
     }
      
     this.paymentService.CreatePayment(dto).subscribe({
