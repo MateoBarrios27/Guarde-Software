@@ -13,7 +13,7 @@ export class UserTypeService {
   private url: string = environment.apiUrl
   constructor(private httpCliente: HttpClient) { }
 
-  public getUserType(): Observable<UserType[]>{
+  public getUserTypes(): Observable<UserType[]>{
         return this.httpCliente.get<UserType[]>(`${this.url}/UserType`);
   }
 

@@ -12,7 +12,7 @@ export class AccountMovementService {
   private url: string = environment.apiUrl
   constructor(private httpCliente: HttpClient) { }
 
-  public getAccountMovement(): Observable<AccountMovement[]>{
+  public getAccountMovements(): Observable<AccountMovement[]>{
       return this.httpCliente.get<AccountMovement[]>(`${this.url}/AccountMovement`);
     }
 

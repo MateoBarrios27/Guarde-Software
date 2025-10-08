@@ -12,7 +12,7 @@ export class AddressService {
   private url: string = environment.apiUrl
   constructor(private httpCliente: HttpClient) { }
 
-  public getAddress(): Observable<Address[]>{
+  public getAddresses(): Observable<Address[]>{
         return this.httpCliente.get<Address[]>(`${this.url}/Address`);
   }
 

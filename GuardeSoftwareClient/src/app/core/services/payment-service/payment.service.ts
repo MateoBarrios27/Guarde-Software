@@ -13,7 +13,7 @@ export class PaymentService {
   private url: string = environment.apiUrl
   constructor(private httpCliente: HttpClient) { }
 
-  public getPayment(): Observable<Payment[]>{
+  public getPayments(): Observable<Payment[]>{
         return this.httpCliente.get<Payment[]>(`${this.url}/Payment`);
   }
 

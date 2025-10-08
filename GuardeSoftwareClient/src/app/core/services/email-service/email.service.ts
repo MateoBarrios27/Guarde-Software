@@ -12,7 +12,7 @@ export class EmailService {
   private url: string = environment.apiUrl
   constructor(private httpCliente: HttpClient) { }
 
-  public getEmail(): Observable<Email[]>{
+  public getEmails(): Observable<Email[]>{
         return this.httpCliente.get<Email[]>(`${this.url}/Email`);
   }
 

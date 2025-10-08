@@ -48,7 +48,7 @@ export class LockersComponent implements OnInit {
   }
 
   loadWarehouses(): void {
-    this.warehouseService.getWarehouse().subscribe({
+    this.warehouseService.getWarehouses().subscribe({
       next: (data) => {
         this.warehouses = data;
         console.log('depositos: ',data);

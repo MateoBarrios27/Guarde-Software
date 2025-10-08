@@ -12,7 +12,7 @@ export class IncreaseRegimenService {
   private url: string = environment.apiUrl
   constructor(private httpCliente: HttpClient) { }
 
-  public getIncreaseRegimen(): Observable<IncreaseRegimen[]>{
+  public getIncreaseRegimens(): Observable<IncreaseRegimen[]>{
         return this.httpCliente.get<IncreaseRegimen[]>(`${this.url}/IncreaseRegimen`);
   }
 

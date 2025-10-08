@@ -51,6 +51,9 @@ const ICONS: Record<string, string> = {
     <path d="M120 144h16a8 8 0 0 1 8 8v40" fill="none"
           stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/>
   </svg>`,
+  'save': `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256"><path d="M208,48H48A16,16,0,0,0,32,64V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V64A16,16,0,0,0,208,48Zm-42,24a8,8,0,0,1,8,8V96a8,8,0,0,1-16,0V80A8,8,0,0,1,166,72ZM96,192a24,24,0,1,1,24-24A24,24,0,0,1,96,192Z"></path></svg>`,
+  'x': `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256"><path d="M208.49,191.51a12,12,0,0,1-17,17L128,145,64.49,208.49a12,12,0,0,1-17-17L111,128,47.51,64.49a12,12,0,0,1,17-17L128,111l63.51-63.52a12,12,0,0,1,17,17L145,128Z"></path></svg>`,
+  'map-pin': `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24a88.1,88.1,0,0,0-88,88c0,75.45,80.55,132.47,83.17,134.65a8,8,0,0,0,9.66,0C135.45,244.47,216,187.45,216,112A88.1,88.1,0,0,0,128,24Zm0,120a32,32,0,1,1,32-32A32,32,0,0,1,128,144Z"></path></svg>`,
 };
 
 @Component({

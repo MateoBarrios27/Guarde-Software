@@ -26,7 +26,7 @@ export class SettingsComponent implements OnInit {
   }
 
   loadUsers(): void{
-    this.userService.getUser().subscribe({
+    this.userService.getUsers().subscribe({
       next: (data) =>{
         this.users = data;
         console.log(data);
@@ -38,7 +38,7 @@ export class SettingsComponent implements OnInit {
   }
 
   loadPaymentMethods(): void{
-    this.paymentMethodService.getPaymentMethod().subscribe({
+    this.paymentMethodService.getPaymentMethods().subscribe({
       next: (data) => {
         this.paymentMethods = data;
         console.log(data);

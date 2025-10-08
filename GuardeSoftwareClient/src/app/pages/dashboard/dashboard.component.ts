@@ -53,7 +53,7 @@ export class DashboardComponent {
   }
 
   LoadPedingRentals(): void{
-    this.rentalService.getPendingRental().subscribe({
+    this.rentalService.getPendingRentals().subscribe({
       next: (data) => {
         this.pendingRentals = data;
         console.log('Pendientes cargados:', data);
@@ -63,7 +63,7 @@ export class DashboardComponent {
   }
 
   LoadPayments(): void{
-    this.paymentService.getPayment().subscribe({
+    this.paymentService.getPayments().subscribe({
       next: (data) => {
         this.payments = data;
       },

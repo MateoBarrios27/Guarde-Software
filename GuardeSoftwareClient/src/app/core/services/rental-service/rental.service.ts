@@ -13,7 +13,7 @@ export class RentalService {
   private url: string = environment.apiUrl
   constructor(private httpCliente: HttpClient) { }
 
-  public getRental(): Observable<rental[]>{
+  public getRentals(): Observable<rental[]>{
         return this.httpCliente.get<rental[]>(`${this.url}/Rental`);
   }
 
@@ -21,7 +21,7 @@ export class RentalService {
         return this.httpCliente.get<rental>(`${this.url}/Rental/${id}`);
   }
 
-  public getPendingRental(): Observable<PendingRentalDTO[]>{
+  public getPendingRentals(): Observable<PendingRentalDTO[]>{
         return this.httpCliente.get<PendingRentalDTO[]>(`${this.url}/Rental/Pending`);
   }
 

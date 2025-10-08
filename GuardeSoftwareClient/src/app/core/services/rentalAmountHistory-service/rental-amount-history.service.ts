@@ -12,7 +12,7 @@ export class RentalAmountHistoryService {
   private url: string = environment.apiUrl
   constructor(private httpCliente: HttpClient) { }
 
-  public getRentalAmountHistory(): Observable<RentalAmountHistory[]>{
+  public getRentalAmountHistories(): Observable<RentalAmountHistory[]>{
         return this.httpCliente.get<RentalAmountHistory[]>(`${this.url}/RentalAmountHistory`);
   }
 

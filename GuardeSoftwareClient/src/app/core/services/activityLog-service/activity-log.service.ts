@@ -12,7 +12,7 @@ export class ActivityLogService {
   private url: string = environment.apiUrl
   constructor(private httpCliente: HttpClient) { }
 
-  public getActivityLog(): Observable<ActivityLog[]>{
+  public getActivityLogs(): Observable<ActivityLog[]>{
         return this.httpCliente.get<ActivityLog[]>(`${this.url}/ActivityLog`);
   }
   

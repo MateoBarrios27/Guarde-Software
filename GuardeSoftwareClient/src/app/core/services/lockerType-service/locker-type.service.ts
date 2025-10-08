@@ -12,7 +12,7 @@ export class LockerTypeService {
   private url: string = environment.apiUrl
   constructor(private httpCliente: HttpClient) { }
 
-  public getLockerType(): Observable<LockerType[]>{
+  public getLockerTypes(): Observable<LockerType[]>{
         return this.httpCliente.get<LockerType[]>(`${this.url}/LockerType`);
   }
 

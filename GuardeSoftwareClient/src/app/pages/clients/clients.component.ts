@@ -98,7 +98,7 @@ export class ClientsComponent implements OnInit {
   loadInitialData(): void {
     this.loadClients();
     this.warehouseService
-      .getWarehouse()
+      .getWarehouses()
       .subscribe((data) => (this.warehouses = data));
     this.lockerService
       .getLockers()
@@ -109,13 +109,13 @@ export class ClientsComponent implements OnInit {
           ))
       );
     this.lockerTypeService
-      .getLockerType()
+      .getLockerTypes()
       .subscribe((data) => (this.lockerTypes = data));
     this.paymentMethodService
-      .getPaymentMethod()
+      .getPaymentMethods()
       .subscribe((data) => (this.paymentMethods = data));
     this.increaseRegimenService
-      .getIncreaseRegimen()
+      .getIncreaseRegimens()
       .subscribe((data) => (this.increaseRegimens = data));
   }
   private initNewClientForm(): void {

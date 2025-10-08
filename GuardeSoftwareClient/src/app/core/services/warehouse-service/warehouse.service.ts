@@ -13,7 +13,7 @@ export class WarehouseService {
   private url: string = environment.apiUrl
   constructor(private httpCliente: HttpClient) { }
 
-  public getWarehouse(): Observable<Warehouse[]>{
+  public getWarehouses(): Observable<Warehouse[]>{
         return this.httpCliente.get<Warehouse[]>(`${this.url}/Warehouse`);
   }
 
