@@ -118,29 +118,50 @@ export class ClientsComponent implements OnInit {
       .getIncreaseRegimens()
       .subscribe((data) => (this.increaseRegimens = data));
   }
-  private initNewClientForm(): void {
+
+
+private initNewClientForm(): void {
     this.newClientForm = this.fb.group({
-      numeroIdentificacion: [''],
+      // --- CAMPO AÑADIDO ---
+      numeroIdentificacion: [''], 
+      
       nombre: ['', Validators.required],
+      apellido: ['', Validators.required],
       tipoDocumento: ['DNI'],
       numeroDocumento: ['', Validators.required],
-      emails: this.fb.array([
-        this.fb.control('', [Validators.required, Validators.email]),
-      ]),
+      emails: this.fb.array([this.fb.control('', [Validators.required, Validators.email])]),
       telefonos: this.fb.array([this.fb.control('')]),
       direccion: ['', Validators.required],
       ciudad: ['', Validators.required],
-      codigoPostal: [''],
       provincia: ['', Validators.required],
       condicionIVA: [null, Validators.required],
       metodoPago: ['efectivo'],
       documento: [null, Validators.required],
       observaciones: [''],
       lockersAsignados: this.fb.array([], Validators.required),
-      // Controllers to manage locker filtering
       lockerSearch: [''],
       selectedWarehouse: ['all'],
       selectedLockerType: ['all'],
+      periodicidadAumento: ['4'],
+      porcentajeAumento: [''],
+
+      // --- CAMPO AÑADIDO PARA EL MONTO MANUAL ---
+      montoManual: [0, [Validators.required, Validators.min(0)]]
+    });
+
+    // --- LÓGICA AÑADIDA: Actualiza el monto manual cuando cambian los lockers ---
+    const lockersAsignados = this.newClientForm.get('lockersAsignados') as FormArray;
+    lockersAsignados.valueChanges.subscribe((ids: number[]) => {
+      let totalAmount = 0;
+      ids.forEach(id => {
+        const locker = this.availableLockers.find(l => l.id === id);
+        const type = this.lockerTypes.find(lt => lt.id === locker?.lockerTypeId);
+        if (type) {
+          totalAmount += type.amount;
+        }
+      });
+      // Actualiza el campo del formulario con el nuevo total calculado
+      this.newClientForm.get('montoManual')?.setValue(totalAmount);
     });
   }
 
@@ -184,33 +205,28 @@ export class ClientsComponent implements OnInit {
     });
   }
 
-  get costSummary() {
+ get costSummary() {
     const assignedIds = this.newClientForm.value.lockersAsignados;
     if (!assignedIds || assignedIds.length === 0) {
-      return { totalAmount: 0, totalM3: 0, avgPricePerM3: 0 };
+      return { totalM3: 0 };
     }
-
-    let totalAmount = 0;
+    
     let totalM3 = 0;
-
     assignedIds.forEach((id: number) => {
-      const locker = this.availableLockers.find((l) => l.id === id);
-      const type = this.lockerTypes.find(
-        (lt) => lt.id === locker?.lockerTypeId
-      );
+      const locker = this.availableLockers.find(l => l.id === id);
+      const type = this.lockerTypes.find(lt => lt.id === locker?.lockerTypeId);
       if (type) {
-        totalAmount += type.amount;
         totalM3 += type.m3;
       }
     });
 
-    const avgPricePerM3 = totalM3 > 0 ? totalAmount / totalM3 : 0;
-    return { totalAmount, totalM3, avgPricePerM3 };
+    return { totalM3 };
   }
 
   getLockerDetails(lockerId: number) {
     const locker = this.availableLockers.find((l) => l.id === lockerId);
     return {
+      locker: locker,
       warehouse: this.warehouses.find((w) => w.id === locker?.warehouseId),
       lockerType: this.lockerTypes.find((lt) => lt.id === locker?.lockerTypeId),
     };
