@@ -22,7 +22,7 @@
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2"><app-icon name="users" class="h-5 w-5"></app-icon> Lista de Clientes <span class="text-sm font-normal bg-gray-100 px-2 py-0.5 rounded-md">{{ totalClientes }} resultados</span></h3>
           <div class="flex items-center gap-2">
-            <button class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"><app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Cliente</button>
+            <button (click)="openNewClientModal()" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"><app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Cliente</button>
             <!-- <button (click)="loadClients()" class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-50 flex items-center gap-2"><app-icon name="rotate-ccw" class="h-4 w-4"></app-icon> Actualizar</button> -->
           </div>
         </div>
@@ -99,4 +99,96 @@
 
     </div>
   </div>
+</div>
+
+<div *ngIf="showNewClientModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" (click)="closeNewClientModal()">
+  <form [formGroup]="newClientForm" (ngSubmit)="onSubmit()" (click)="$event.stopPropagation()" 
+        class="flex flex-col max-h-[90vh] w-full max-w-7xl bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg shadow-2xl">
+    
+    <header class="flex-shrink-0 relative bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 text-white p-4">
+      <button type="button" (click)="closeNewClientModal()" class="absolute top-3 right-3 p-2 text-white rounded-full hover:bg-white/20">
+        <app-icon name="x" class="h-5 w-5"></app-icon>
+      </button>
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center"><app-icon name="plus" class="h-6 w-6 text-white"></app-icon></div>
+        <div>
+          <h2 class="text-2xl font-bold">Nuevo Cliente</h2>
+          <p class="text-blue-100 text-sm">Registra un nuevo cliente en el sistema</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-4">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        
+        <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border"><div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-t-lg"><h3 class="flex items-center gap-2 font-semibold text-base"><app-icon name="user" class="h-5 w-5"></app-icon>Información Personal</h3></div><div class="p-4 space-y-4">
+          <div><label class="text-sm font-medium">Nombre Completo *</label><input formControlName="nombre" class="w-full mt-1 p-2 border rounded-md"/></div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="text-sm font-medium">Tipo Doc. *</label><select formControlName="tipoDocumento" class="w-full mt-1 p-2 border rounded-md"><option>DNI</option><option>CUIT</option></select></div>
+            <div><label class="text-sm font-medium">Nº Doc. *</label><input formControlName="numeroDocumento" class="w-full mt-1 p-2 border rounded-md"/></div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="text-sm font-medium">Condición IVA *</label><select formControlName="condicionIVA" class="w-full mt-1 p-2 border rounded-md"><option [ngValue]="null">Seleccionar</option><option>Monotributista</option></select></div>
+            <div><label class="text-sm font-medium">Método de Pago</label><select formControlName="metodoPago" class="w-full mt-1 p-2 border rounded-md"><option>Efectivo</option></select></div>
+          </div>
+          <div><label class="text-sm font-medium">Tipo Facturación *</label><select formControlName="documento" class="w-full mt-1 p-2 border rounded-md"><option [ngValue]="null">Seleccionar</option><option value="SF">Sin Factura</option></select></div>
+        </div></div>
+
+        <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border"><div class="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-t-lg"><h3 class="flex items-center gap-2 font-semibold text-base"><app-icon name="mail" class="h-5 w-5"></app-icon>Contacto y Ubicación</h3></div><div class="p-4 space-y-4">
+          <div formArrayName="emails">
+            <label class="text-sm font-medium">Emails *</label>
+            <div *ngFor="let email of emails.controls; let i=index" class="flex gap-2 mt-1"><input [formControlName]="i" class="w-full p-2 border rounded-md"/><button *ngIf="emails.length > 1" type="button" (click)="removeEmail(i)" class="p-1 text-red-500"><app-icon name="x" class="h-4 w-4"></app-icon></button></div>
+            <button type="button" (click)="addEmail()" class="text-sm text-blue-600 mt-2 font-semibold">+ Agregar Email</button>
+          </div>
+          <div><label class="text-sm font-medium">Dirección *</label><input formControlName="direccion" class="w-full mt-1 p-2 border rounded-md"/></div>
+          <div class="grid grid-cols-3 gap-4">
+            <div><label class="text-sm font-medium">Ciudad *</label><input formControlName="ciudad" class="w-full mt-1 p-2 border rounded-md"/></div>
+            <div><label class="text-sm font-medium">Provincia *</label><input formControlName="provincia" class="w-full mt-1 p-2 border rounded-md"/></div>
+            <div><label class="text-sm font-medium">Cód. Postal</label><input formControlName="codigoPostal" class="w-full mt-1 p-2 border rounded-md"/></div>
+          </div>
+        </div></div>
+
+        <div class="space-y-4">
+          <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border"><div class="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-t-lg"><h3 class="flex items-center gap-2 font-semibold text-base"><app-icon name="dollar-sign" class="h-5 w-5"></app-icon>Información Financiera</h3></div><div class="p-4 space-y-4">
+            <p class="text-sm text-gray-500 text-center py-4">Los costos se calculan en la sección de selección de lockers.</p>
+          </div></div>
+          <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border"><div class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-t-lg"><h3 class="flex items-center gap-2 font-semibold text-base"><app-icon name="file-text" class="h-5 w-5"></app-icon>Observaciones</h3></div><div class="p-4">
+            <textarea formControlName="observaciones" rows="3" class="w-full p-2 border rounded-md"></textarea>
+          </div></div>
+        </div>
+
+        <div class="lg:col-span-3">
+          <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
+            <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-4 rounded-t-lg"><h3 class="flex items-center gap-2 font-semibold text-base"><app-icon name="package" class="h-5 w-5"></app-icon>Selección de Lockers</h3></div>
+            <div class="p-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div class="relative sm:col-span-3"><app-icon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"></app-icon><input formControlName="lockerSearch" placeholder="Buscar por identificador..." class="pl-10 w-full p-2 border rounded-md"/></div>
+                  <select formControlName="selectedWarehouse" class="p-2 border rounded-md"><option value="all">Todos los depósitos</option><option *ngFor="let wh of warehouses" [value]="wh.id">{{wh.name}}</option></select>
+                  <select formControlName="selectedLockerType" class="p-2 border rounded-md"><option value="all">Todos los tipos</option><option *ngFor="let type of lockerTypes" [value]="type.id">{{type.name}}</option></select>
+                </div>
+                <div class="max-h-80 overflow-y-auto space-y-2 border rounded-md p-2 bg-gray-50">
+                  <div *ngFor="let locker of filteredLockers" (click)="handleLockerToggle(locker.id)" [ngClass]="{'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200': newClientForm.value.lockersAsignados.includes(locker.id)}" class="p-3 rounded-lg border bg-white cursor-pointer hover:bg-gray-50">
+                    </div>
+                </div>
+              </div>
+              <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200">
+                <h4 class="font-medium text-indigo-900 mb-3 flex items-center gap-2"><app-icon name="dollar-sign" class="h-4 w-4"></app-icon>Resumen de Costos</h4>
+                <div *ngIf="costSummary.totalAmount === 0" class="text-center py-8 text-gray-500">...</div>
+                <div *ngIf="costSummary.totalAmount > 0" class="space-y-3">
+                   <div class="pt-3 border-t border-indigo-200"><div class="flex justify-between items-center"><span class="font-medium text-indigo-900">Subtotal Mensual:</span><span class="text-lg font-bold text-green-600">{{ costSummary.totalAmount | currency:'ARS':'symbol-narrow':'1.0-0' }}</span></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+    
+    <footer class="flex-shrink-0 p-4 flex justify-end gap-4 bg-gray-50 border-t">
+      <button type="button" (click)="closeNewClientModal()" class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-100">Cancelar</button>
+      <button type="submit" [disabled]="newClientForm.invalid" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">Guardar Cliente</button>
+    </footer>
+  </form>
 </div>
