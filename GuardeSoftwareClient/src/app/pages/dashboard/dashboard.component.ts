@@ -28,6 +28,14 @@ export class DashboardComponent {
   pendingRentals: PendingRentalDTO[] = [];
   payments: Payment[] = [];
 
+  //filters
+  searchPending: string = '';
+  searchPayment: string = '';
+
+  // Arrays filtered
+  filteredPendingRentals: PendingRentalDTO[] = [];
+  filteredPayments: Payment[] = [];
+
   //payments and modal
   showPaymentModal = false;
   selectedClientName = '';
@@ -55,8 +63,8 @@ export class DashboardComponent {
   LoadPedingRentals(): void{
     this.rentalService.getPendingRentals().subscribe({
       next: (data) => {
+        this.filteredPendingRentals = data;
         this.pendingRentals = data;
-        console.log('Pendientes cargados:', data);
       },
       error: (err) => console.error('Error al cargar pendientes:', err)
     });
@@ -66,6 +74,7 @@ export class DashboardComponent {
     this.paymentService.getPayments().subscribe({
       next: (data) => {
         this.payments = data;
+        this.filteredPayments = data;
       },
        error: (err) => console.error('Error al cargar payments:', err)
     });
@@ -103,7 +112,7 @@ export class DashboardComponent {
     alert('⚠️ Debes ingresar un monto válido antes de guardar el pago.');
     return;
     }
-    
+     
     this.paymentService.CreatePayment(dto).subscribe({
       next: () => {
         alert('✅ Pago registrado correctamente.');
@@ -113,5 +122,38 @@ export class DashboardComponent {
       error: (err) => console.error('Error al guardar payment:', err)
     });
   }
+
+ filterPendingRentals(): void {
+  const term = this.searchPending.toLowerCase().trim();
+
+  this.filteredPendingRentals = this.pendingRentals.filter(item => {
+    const clientName = (item.clientName ?? '').toString().toLowerCase();
+    const paymentIdentifier = (item.paymentIdentifier ?? '').toString().toLowerCase();
+    const lockerIdentifiers = (item.lockerIdentifiers ?? '').toString().toLowerCase();
+
+    return (
+      clientName.includes(term) ||
+      paymentIdentifier.includes(term) ||
+      lockerIdentifiers.includes(term)
+    );
+  });
+}
+
+
+filterPayments(): void {
+  const term = this.searchPayment.toLowerCase().trim();
+
+  this.filteredPayments = this.payments.filter(item => {
+    const clientName = (item.clientName ?? '').toString().toLowerCase();
+    const paymentIdentifier = (item.paymentIdentifier ?? '').toString().toLowerCase();
+    const paymentMethodId = (item.paymentMethodId ?? '').toString().toLowerCase();
+
+    return (
+      clientName.includes(term) ||
+      paymentIdentifier.includes(term) ||
+      paymentMethodId.includes(term)
+    );
+  });
+}
   
 }
