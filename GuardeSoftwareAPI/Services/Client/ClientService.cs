@@ -11,6 +11,7 @@ using GuardeSoftwareAPI.Dtos.Locker;
 using GuardeSoftwareAPI.Services.activityLog;
 using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.Common;
+using Microsoft.IdentityModel.Tokens;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -124,7 +125,7 @@ namespace GuardeSoftwareAPI.Services.client
                             throw new InvalidOperationException("A client with this DNI already exists.");
                         }
 
-                        if (dto.Cuit != null && await daoClient.ExistsByCuitAsync(dto.Cuit, connection, transaction))
+                        if (dto.Cuit != null && !dto.Cuit.IsNullOrEmpty() && await daoClient.ExistsByCuitAsync(dto.Cuit, connection, transaction))
                         {
                             throw new InvalidOperationException("A client with this CUIT already exists.");
                         }
