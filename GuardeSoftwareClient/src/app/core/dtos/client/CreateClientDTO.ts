@@ -8,7 +8,7 @@ export interface CreateClientDTO{
     registrationDate: Date;
     notes: string;
     dni: string;
-    cuit: string;
+    cuit?: string;
     preferredPaymentMethodId: number;
     ivaCondition: string;
     startDate: Date;
@@ -16,4 +16,13 @@ export interface CreateClientDTO{
     amount: number;
     lockerIds: number[];
     userID: number;
+
+    emails: string[];
+    phones: string[];
+    address: string;
+    province: string;
+    city: string;
+
+    increaseFrequency: string;
+    increasePercentage: number;
 }

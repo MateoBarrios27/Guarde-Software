@@ -1,3 +1,16 @@
+<div *ngIf="showToast" 
+     class="fixed top-5 right-5 z-50 flex items-center p-4 rounded-lg shadow-lg text-white animate-fade-in-out"
+     [ngClass]="{
+       'bg-green-500': toastType === 'success',
+       'bg-red-500': toastType === 'error'
+     }">
+  <app-icon [name]="toastType === 'success' ? 'check-circle' : 'alert-triangle'" class="h-5 w-5 mr-3"></app-icon>
+  <span>{{ toastMessage }}</span>
+</div>
+
+<div class="space-y-6">
+  </div>
+
 <div class="space-y-6">
   <!-- <div class="grid w-full grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
     <button (click)="activeTab = 'clientes'" [ngClass]="{ 'bg-white text-gray-900 shadow-sm': activeTab === 'clientes' }" class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold transition-all">
@@ -45,7 +58,7 @@
               <th class="p-4 text-left font-medium"><button (click)="handleSort('FirstName')" class="flex items-center gap-1">Cliente <app-icon [name]="sortFieldClientes === 'FirstName' ? (sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down'"></app-icon></button></th>
               <th class="p-4 text-left font-medium">Contacto</th>
               <th class="p-4 text-left font-medium">Baulera</th>
-              <th class="p-4 text-left font-medium">Documento</th>
+              <!-- <th class="p-4 text-left font-medium">Documento</th> -->
               <th class="p-4 text-left font-medium">Estado</th>
               <th class="p-4 text-left font-medium">Balance</th>
               <th class="p-4 text-left font-medium">Acciones</th>
@@ -79,7 +92,7 @@
               </td>
               <td class="p-4"><div class="font-medium text-gray-800">{{ cliente.phone | phone }}</div><div class="text-xs text-gray-500">{{ cliente.city }}</div></td>
               <td class="p-4 font-mono text-gray-700">{{ cliente.lockers?.join(', ') }}</td>
-              <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="getDocumentoBadgeColor(cliente.document || '')">{{ cliente.document }}</span></td>
+              <!-- <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="getDocumentoBadgeColor(cliente.document || '')">{{ cliente.document }}</span></td> -->
               <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded-full" [ngClass]="getEstadoBadgeColor('Al día')">Al día</span></td>
               <td class="p-4 font-medium text-gray-800">{{ cliente.balance | currency:'ARS':'symbol-narrow':'1.0-0' }}</td>
               <td class="p-4"><div class="flex items-center gap-2"><button class="p-1 hover:text-blue-600"><app-icon name="eye" class="h-4 w-4"></app-icon></button><button class="p-1 hover:text-blue-600"><app-icon name="edit" class="h-4 w-4"></app-icon></button><button class="p-1 hover:text-red-600"><app-icon name="trash" class="h-4 w-4"></app-icon></button></div></td>
