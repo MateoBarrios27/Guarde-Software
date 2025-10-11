@@ -1,6 +1,7 @@
 ﻿using System;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dtos.Address;
+using Microsoft.Data.SqlClient;
 
 
 namespace GuardeSoftwareAPI.Services.address
@@ -15,6 +16,7 @@ namespace GuardeSoftwareAPI.Services.address
 		Task<Address> CreateAddress(Address address);
 
 		Task<bool> UpdateAddress(int clientId, UpdateAddressDto dto);
+		Task<Address> CreateAddressTransaction(Address address,SqlConnection sqlConnection, SqlTransaction transaction);
 
     }
 }

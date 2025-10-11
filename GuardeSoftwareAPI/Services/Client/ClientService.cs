@@ -12,6 +12,10 @@ using GuardeSoftwareAPI.Services.activityLog;
 using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.Common;
 using Microsoft.IdentityModel.Tokens;
+using GuardeSoftwareAPI.Services.email;
+using Quartz.Util;
+using GuardeSoftwareAPI.Services.phone;
+using GuardeSoftwareAPI.Services.address;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -19,38 +23,39 @@ namespace GuardeSoftwareAPI.Services.client
     public class ClientService : IClientService
     {
         private readonly DaoClient daoClient;
-
+        private readonly IAddressService addressService;
         private readonly IRentalService rentalService;
-
         private readonly IRentalAmountHistoryService rentalAmountHistoryService;
-
         private readonly ILockerService lockerService;
-
         private readonly IActivityLogService activityLogService;
-
+        private readonly IEmailService emailService;
+        private readonly IPhoneService phoneService;
         private readonly AccessDB accessDB;
 
-        public ClientService(AccessDB _accessDB, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, ILockerService _lockerService, IActivityLogService _activityLogService)
+        public ClientService(AccessDB _accessDB, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, ILockerService _lockerService, IActivityLogService _activityLogService, IEmailService _emailService, IPhoneService _phoneService, IAddressService _addressService)
         {
             daoClient = new DaoClient(_accessDB);
-            this.rentalService = _rentalService;
-            this.rentalAmountHistoryService = _rentalAmountHistoryService;
-            this.lockerService = _lockerService;
-            this.activityLogService = _activityLogService;
-            this.accessDB = _accessDB;
+            addressService = _addressService;
+            rentalService = _rentalService;
+            rentalAmountHistoryService = _rentalAmountHistoryService;
+            lockerService = _lockerService;
+            activityLogService = _activityLogService;
+            emailService = _emailService;
+            phoneService = _phoneService;
+            accessDB = _accessDB;
         }
 
         public async Task<List<Client>> GetClientsList()
         {
 
             DataTable clientTable = await daoClient.GetClients();
-            List<Client> clients = new List<Client>();
+            List<Client> clients = [];
 
             foreach (DataRow row in clientTable.Rows)
             {
                 int clientId = (int)row["client_id"];
 
-                Client client = new Client
+                Client client = new()
                 {
                     Id = clientId,
                     PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
@@ -70,13 +75,13 @@ namespace GuardeSoftwareAPI.Services.client
         public async Task<List<Client>> GetClientListById(int id)
         {
             DataTable clientTable = await daoClient.GetClientById(id);
-            List<Client> clients = new List<Client>();
+            List<Client> clients = [];
 
             foreach (DataRow row in clientTable.Rows)
             {
                 int clientId = (int)row["client_id"];
 
-                Client client = new Client
+                Client client = new()
                 {
                     Id = clientId,
                     PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
@@ -107,8 +112,8 @@ namespace GuardeSoftwareAPI.Services.client
             if (!string.IsNullOrEmpty(dto.Dni) && string.IsNullOrWhiteSpace(dto.Dni))
                 throw new ArgumentException("DNI cannot be empty or whitespace.", nameof(dto.Dni));
 
-            if (!string.IsNullOrEmpty(dto.Cuit) && string.IsNullOrWhiteSpace(dto.Cuit))
-                throw new ArgumentException("CUIT cannot be empty or whitespace.", nameof(dto.Cuit));
+            // if (!string.IsNullOrEmpty(dto.Cuit) && string.IsNullOrWhiteSpace(dto.Cuit))
+            //     throw new ArgumentException("CUIT cannot be empty or whitespace.", nameof(dto.Cuit));
 
             if (dto.RegistrationDate == default) dto.RegistrationDate = DateTime.UtcNow;
 
@@ -130,7 +135,7 @@ namespace GuardeSoftwareAPI.Services.client
                             throw new InvalidOperationException("A client with this CUIT already exists.");
                         }
 
-                        Client client = new Client
+                        Client client = new()
                         {
                             PaymentIdentifier = dto.PaymentIdentifier,
                             FirstName = dto.FirstName?.Trim() ?? string.Empty,
@@ -145,7 +150,7 @@ namespace GuardeSoftwareAPI.Services.client
 
                         int newId = await daoClient.CreateClientTransactionAsync(client, connection, transaction);
 
-                        Rental rental = new Rental
+                        Rental rental = new()
                         {
                             ClientId = newId,
                             StartDate = dto.StartDate,
@@ -156,7 +161,7 @@ namespace GuardeSoftwareAPI.Services.client
 
                         int rentalId = await rentalService.CreateRentalTransactionAsync(rental, connection, transaction);
 
-                        RentalAmountHistory rentalAmountHistory = new RentalAmountHistory
+                        RentalAmountHistory rentalAmountHistory = new()
                         {
                             RentalId = rentalId,
                             Amount = dto.Amount,
@@ -174,7 +179,46 @@ namespace GuardeSoftwareAPI.Services.client
 
                         await lockerService.SetRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
 
-                        ActivityLog activityLog = new ActivityLog
+                        foreach (string email in dto.Emails)
+                        {
+                            if (!email.IsNullOrWhiteSpace())
+                            {
+                                Email emailEntity = new()
+                                {
+                                    ClientId = newId,
+                                    Address = email.Trim(),
+                                    Type = ""
+                                };
+                                await emailService.CreateEmailTransaction(emailEntity, connection, transaction);
+                            }
+                        }
+
+                        foreach (string phone in dto.Phones)
+                        {
+                            if (!phone.IsNullOrWhiteSpace())
+                            {
+                                Phone phoneEntity = new()
+                                {
+                                    ClientId = newId,
+                                    Number = phone.Trim(),
+                                    Type = "",
+                                    Whatsapp = false
+                                };
+                                await phoneService.CreatePhoneTransaction(phoneEntity, connection, transaction);
+                            }
+                        }
+
+                        Address address = new()
+                        {
+                            ClientId = newId,
+                            Street = dto.AddressDto.Street?.Trim() ?? string.Empty,
+                            City = dto.AddressDto.City?.Trim() ?? string.Empty,
+                            Province = dto.AddressDto.Province?.Trim() ?? string.Empty,
+                        };
+                        
+                        await addressService.CreateAddressTransaction(address, connection, transaction);
+
+                        ActivityLog activityLog = new()
                         {
                             UserId = dto.UserID,
                             LogDate = dto.StartDate,
@@ -208,7 +252,7 @@ namespace GuardeSoftwareAPI.Services.client
 
             DataRow row = clientDetailTable.Rows[0];
 
-            GetClientDetailDTO clientDetail = new GetClientDetailDTO
+            GetClientDetailDTO clientDetail = new()
             {
                 // Personal information
                 Id = Convert.ToInt32(row["client_id"]),
@@ -216,7 +260,7 @@ namespace GuardeSoftwareAPI.Services.client
                 Name = row["first_name"]?.ToString() ?? string.Empty,
                 LastName = row["last_name"]?.ToString() ?? string.Empty,
                 City = row["city"]?.ToString() ?? string.Empty,
-                State = row["province"]?.ToString() ?? string.Empty,
+                Province = row["province"]?.ToString() ?? string.Empty,
                 Cuit = row["cuit"]?.ToString() ?? string.Empty,
                 Dni = row["dni"]?.ToString() ?? string.Empty,
                 RegistrationDate = Convert.ToDateTime(row["registration_date"]),

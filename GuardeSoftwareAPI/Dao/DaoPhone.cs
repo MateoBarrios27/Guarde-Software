@@ -60,5 +60,31 @@ namespace GuardeSoftwareAPI.Dao
 
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
+
+        public async Task<Phone> CreatePhoneTransaction(Phone phone, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = "INSERT INTO phones (client_id, number, type, whatsapp) VALUES (@client_id, @number, @type, @whatsapp); SELECT SCOPE_IDENTITY()";
+
+            SqlParameter[] parameters =
+            [
+                new SqlParameter("@client_id", SqlDbType.Int){Value  = phone.ClientId},
+                new SqlParameter("@number", SqlDbType.NVarChar, 20){Value  = phone.Number},
+                new SqlParameter("@type", SqlDbType.NVarChar, 50){Value  = (object?)phone.Type ?? DBNull.Value},
+                new SqlParameter("@whatsapp", SqlDbType.Bit){Value  = (object?)phone.Whatsapp ?? DBNull.Value},
+            ];
+
+            using (SqlCommand command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                object newId = await command.ExecuteScalarAsync();
+
+                if (newId != null && newId != DBNull.Value)
+                {
+                    //Assign the newly generated ID to the phone object
+                    phone.Id = Convert.ToInt32(newId);
+                }
+            }
+            return phone;
+        }
     }
 }

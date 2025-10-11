@@ -69,7 +69,8 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
-        public async Task<bool> UpdateEmail(Email email) {
+        public async Task<bool> UpdateEmail(Email email)
+        {
 
             SqlParameter[] parameters = new SqlParameter[] {
 
@@ -82,6 +83,33 @@ namespace GuardeSoftwareAPI.Dao
             string query = "UPDATE emails SET address = @address, type = @type WHERE email_id = @email_id AND client_id = @client_id";
 
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+        }
+
+        public async Task<Email> CreateEmailTransaction(Email email, SqlConnection connection, SqlTransaction transaction)
+        {
+            SqlParameter[] parameters = [
+
+                new SqlParameter("@client_id",SqlDbType.Int){Value = email.ClientId},
+                new SqlParameter("@address",SqlDbType.VarChar,150){Value = email.Address},
+                new SqlParameter("@type",SqlDbType.VarChar,50){Value = (object?)email.Type ?? DBNull.Value},
+            ];
+
+            string query = "INSERT INTO emails(client_id, address, type)VALUES(@client_id, @address, @type); SELECT SCOPE_IDENTITY()";
+
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                object newId = await command.ExecuteScalarAsync();
+
+                if (newId != null && newId != DBNull.Value)
+                {
+                    //Assign the newly generated ID to the email object
+                    email.Id = Convert.ToInt32(newId);
+                }
+
+            return email;
+            }
         }
     }
 }

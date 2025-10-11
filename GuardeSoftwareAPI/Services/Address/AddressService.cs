@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Data;
 using GuardeSoftwareAPI.Dtos.Address;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 
 
 
@@ -114,6 +115,25 @@ namespace GuardeSoftwareAPI.Services.address
             };
 
             return await daoAddress.UpdateAddress(newAddress);
+        }
+
+        public async Task<Address> CreateAddressTransaction(Address address, SqlConnection sqlConnection, SqlTransaction transaction)
+        {
+            if (address == null)
+                throw new ArgumentNullException(nameof(address));
+
+            if (address.ClientId <= 0)
+                throw new ArgumentException("Invalid ClientId.");
+
+            if (string.IsNullOrWhiteSpace(address.Street))
+                throw new ArgumentException("Street is required.");
+
+            if (string.IsNullOrWhiteSpace(address.City))
+                throw new ArgumentException("City is required.");
+
+            address.Province = string.IsNullOrWhiteSpace(address.Province) ? null : address.Province.Trim();
+
+            return await daoAddress.CreateAddressTransaction(address, sqlConnection, transaction);
         }
 
     }

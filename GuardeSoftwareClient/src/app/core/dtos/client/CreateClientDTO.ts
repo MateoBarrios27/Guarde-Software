@@ -1,3 +1,4 @@
+import { CreateAddressDto } from "../address/CreateAddressDto";
 
 export interface CreateClientDTO{
     
@@ -19,9 +20,7 @@ export interface CreateClientDTO{
 
     emails: string[];
     phones: string[];
-    address: string;
-    province: string;
-    city: string;
+    addressDto: CreateAddressDto,
 
     increaseFrequency: string;
     increasePercentage: number;

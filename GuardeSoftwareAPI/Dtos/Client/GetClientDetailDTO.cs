@@ -10,7 +10,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public string Name { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
-        public string State { get; set; } = string.Empty;
+        public string Province { get; set; } = string.Empty;
         public string Cuit { get; set; } = string.Empty;
         public string Dni { get; set; } = string.Empty;
         public DateTime RegistrationDate { get; set; }

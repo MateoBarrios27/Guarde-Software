@@ -74,5 +74,32 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
+        public async Task<Address> CreateAddressTransaction(Address address, SqlConnection sqlConnection, SqlTransaction transaction)
+        {
+            string query = "INSERT INTO addresses (client_id, street, city, province) VALUES (@client_id, @street, @city, @province); SELECT SCOPE_IDENTITY();";
+
+            SqlParameter[] parameters =
+            [
+                new SqlParameter("@client_id", SqlDbType.Int){Value = address.ClientId },
+                new SqlParameter("@street", SqlDbType.VarChar){Value = address.Street },
+                new SqlParameter("@city", SqlDbType.VarChar){Value = address.City },
+                new SqlParameter("@province", SqlDbType.VarChar){Value = (object?)address.Province ?? DBNull.Value },
+            ];
+
+            using (SqlCommand command = new SqlCommand(query, sqlConnection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                object newId = await command.ExecuteScalarAsync();
+
+                if (newId != null && newId != DBNull.Value)
+                {
+                    //Assign the newly generated ID to the address object
+                    address.Id = Convert.ToInt32(newId);
+                }
+            }
+
+            return address;
+        }
+
     }
 }

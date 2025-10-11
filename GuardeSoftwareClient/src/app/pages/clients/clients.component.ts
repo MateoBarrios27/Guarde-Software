@@ -277,9 +277,11 @@ onSubmit(): void {
       userID: 1, // Esto debería venir del usuario logueado
       emails: formValue.emails,
       phones: formValue.telefonos,
-      address: formValue.direccion,
-      province: formValue.provincia,
-      city: formValue.ciudad,
+      addressDto: { 
+        street: formValue.direccion,
+        province: formValue.provincia,
+        city: formValue.ciudad
+      },
       cuit: formValue.cuit,
       increaseFrequency: formValue.periodicidadAumento,
       increasePercentage: formValue.porcentajeAumento ? Number(formValue.porcentajeAumento) : 0,

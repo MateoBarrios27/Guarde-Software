@@ -19,6 +19,7 @@ using GuardeSoftwareAPI.Services.userType;
 using GuardeSoftwareAPI.Services.warehouse;
 using Quartz;
 using GuardeSoftwareAPI.Jobs;
+using GuardeSoftwareAPI.Services.phone;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,6 +55,7 @@ builder.Services.AddScoped<ILockerService, LockerService>();
 builder.Services.AddScoped<ILockerTypeService, LockerTypeService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddScoped<IPhoneService, PhoneService>();
 builder.Services.AddScoped<IRentalService, RentalService>();
 builder.Services.AddScoped<IRentalAmountHistoryService, RentalAmountHistoryService>();
 builder.Services.AddScoped<IUserService, UserService>();

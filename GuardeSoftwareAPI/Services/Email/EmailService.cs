@@ -5,42 +5,43 @@ using System.Collections.Generic;
 using System.Data;
 using GuardeSoftwareAPI.Dtos.Email;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Services.email
 {
 
-	public class EmailService : IEmailService
-	{
-		private readonly DaoEmail _daoEmail;
+    public class EmailService : IEmailService
+    {
+        private readonly DaoEmail _daoEmail;
 
-		public EmailService(AccessDB accessDB)
-		{
-			_daoEmail = new DaoEmail(accessDB);
-		}
+        public EmailService(AccessDB accessDB)
+        {
+            _daoEmail = new DaoEmail(accessDB);
+        }
 
-		public async Task<List<Email>> GetEmailsList()
-		{
+        public async Task<List<Email>> GetEmailsList()
+        {
 
-			DataTable emailsTable = await _daoEmail.GetEmails();
-			List<Email> emails = new List<Email>();
+            DataTable emailsTable = await _daoEmail.GetEmails();
+            List<Email> emails = new List<Email>();
 
-			foreach (DataRow row in emailsTable.Rows)
-			{
-				int idEmail = (int)row["email_id"];
+            foreach (DataRow row in emailsTable.Rows)
+            {
+                int idEmail = (int)row["email_id"];
 
-				Email email = new Email
-				{
-					Id = idEmail,
-					ClientId = row["client_id"] != DBNull.Value
-					? (int)row["client_id"] : 0,
-					Address = row["address"]?.ToString() ?? string.Empty,
-					Type = row["type"]?.ToString() ?? string.Empty,
+                Email email = new Email
+                {
+                    Id = idEmail,
+                    ClientId = row["client_id"] != DBNull.Value
+                    ? (int)row["client_id"] : 0,
+                    Address = row["address"]?.ToString() ?? string.Empty,
+                    Type = row["type"]?.ToString() ?? string.Empty,
 
-				};
-				emails.Add(email);
-			}
-			return emails;
-		}
+                };
+                emails.Add(email);
+            }
+            return emails;
+        }
 
         public async Task<List<Email>> GetEmailListByClientId(int id)
         {
@@ -66,15 +67,15 @@ namespace GuardeSoftwareAPI.Services.email
             return emails;
         }
 
-		public async Task<Email> CreateEmail(Email email)
-		{
+        public async Task<Email> CreateEmail(Email email)
+        {
             if (email == null)
                 throw new ArgumentNullException(nameof(email));
 
             if (email.ClientId <= 0)
                 throw new ArgumentException("Invalid ClientId.");
 
-            if(string.IsNullOrWhiteSpace(email.Address))
+            if (string.IsNullOrWhiteSpace(email.Address))
                 throw new ArgumentException("Email Address is required.");
 
             return await _daoEmail.CreateEmail(email);
@@ -115,6 +116,21 @@ namespace GuardeSoftwareAPI.Services.email
             };
 
             return await _daoEmail.UpdateEmail(Email);
+        }
+    
+    
+    public async Task<Email> CreateEmailTransaction(Email email, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (email == null)
+                throw new ArgumentNullException(nameof(email));
+
+            if (email.ClientId <= 0)
+                throw new ArgumentException("Invalid ClientId.");
+
+            if (string.IsNullOrWhiteSpace(email.Address))
+                throw new ArgumentException("Email Address is required.");
+
+            return await _daoEmail.CreateEmailTransaction(email, connection, transaction);
         }
     }
 }

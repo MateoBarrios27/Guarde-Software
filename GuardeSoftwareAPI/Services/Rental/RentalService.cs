@@ -27,8 +27,8 @@ namespace GuardeSoftwareAPI.Services.rental
 			{
 				int rentalId = (int)row["rental_id"];
 
-				Rental rental = new Rental
-				{
+				Rental rental = new()
+                {
 					Id = rentalId,
 					ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
 					ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
@@ -96,15 +96,15 @@ namespace GuardeSoftwareAPI.Services.rental
 		public async Task<List<PendingRentalDTO>> GetPendingPaymentsAsync()
 		{
 			DataTable pendingRentalTable = await _daoRental.GetPendingPaymentsAsync();
-			List<PendingRentalDTO> pendingRentals = new List<PendingRentalDTO>();
+			List<PendingRentalDTO> pendingRentals = [];
 
 			if (pendingRentalTable.Rows.Count == 0)
 				return pendingRentals; 
 
 			foreach (DataRow row in pendingRentalTable.Rows)
 			{
-				PendingRentalDTO rental = new PendingRentalDTO
-				{
+				PendingRentalDTO rental = new()
+                {
 					Id = (int)row["rental_id"],
 					ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
 					ClientName = row["client_name"] != DBNull.Value ? row["client_name"].ToString()! : string.Empty,
