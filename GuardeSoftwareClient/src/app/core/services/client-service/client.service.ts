@@ -34,6 +34,10 @@ export class ClientService {
     return this.httpCliente.post<any>(`${this.url}/Client`, dto);
   }
 
+  public updateClient(id: number, dto: CreateClientDTO): Observable<any> {
+    return this.httpCliente.put<any>(`${this.url}/Client/${id}`, dto);
+  }
+
   /**
    * Obtains a paginated list of clients from the backend.
    * @param request - An object containing pagination, sorting, and filtering parameters.

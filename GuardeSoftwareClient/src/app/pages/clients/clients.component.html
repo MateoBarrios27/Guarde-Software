@@ -1,15 +1,19 @@
-<div *ngIf="showToast" 
-     class="fixed top-5 right-5 z-50 flex items-center p-4 rounded-lg shadow-lg text-white animate-fade-in-out"
-     [ngClass]="{
-       'bg-green-500': toastType === 'success',
-       'bg-red-500': toastType === 'error'
-     }">
-  <app-icon [name]="toastType === 'success' ? 'check-circle' : 'alert-triangle'" class="h-5 w-5 mr-3"></app-icon>
+<div
+  *ngIf="showToast"
+  class="fixed top-5 right-5 z-50 flex items-center p-4 rounded-lg shadow-lg text-white animate-fade-in-out"
+  [ngClass]="{
+    'bg-green-500': toastType === 'success',
+    'bg-red-500': toastType === 'error'
+  }"
+>
+  <app-icon
+    [name]="toastType === 'success' ? 'check-circle' : 'alert-triangle'"
+    class="h-5 w-5 mr-3"
+  ></app-icon>
   <span>{{ toastMessage }}</span>
 </div>
 
-<div class="space-y-6">
-  </div>
+<div class="space-y-6"></div>
 
 <div class="space-y-6">
   <!-- <div class="grid w-full grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
@@ -23,39 +27,184 @@
 
   <div *ngIf="activeTab === 'clientes'" class="space-y-6">
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-      <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="flex items-start gap-3"><app-icon name="users" class="h-6 w-6 text-blue-500"></app-icon><div><p class="text-2xl font-bold text-blue-900">{{ estadisticas.total }}</p><p class="text-sm text-gray-500">Total Clientes</p></div></div></div>
-      <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="flex items-start gap-3"><app-icon name="check-circle" class="h-6 w-6 text-green-500"></app-icon><div><p class="text-2xl font-bold text-green-900">{{ estadisticas.alDia }}</p><p class="text-sm text-gray-500">Al Día</p></div></div></div>
-      <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="flex items-start gap-3"><app-icon name="alert-triangle" class="h-6 w-6 text-red-500"></app-icon><div><p class="text-2xl font-bold text-red-900">{{ estadisticas.morosos }}</p><p class="text-sm text-gray-500">Morosos</p></div></div></div>
-      <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="flex items-start gap-3"><app-icon name="clock" class="h-6 w-6 text-orange-500"></app-icon><div><p class="text-2xl font-bold text-orange-900">{{ estadisticas.pendientes }}</p><p class="text-sm text-gray-500">Pendientes</p></div></div></div>
-      <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="flex items-start gap-3"><app-icon name="user-x" class="h-6 w-6 text-gray-500"></app-icon><div><p class="text-2xl font-bold text-gray-900">{{ estadisticas.dadosBaja }}</p><p class="text-sm text-gray-500">Dados de Baja</p></div></div></div>
+      <div class="bg-white p-4 rounded-xl border shadow-sm">
+        <div class="flex items-start gap-3">
+          <app-icon name="users" class="h-6 w-6 text-blue-500"></app-icon>
+          <div>
+            <p class="text-2xl font-bold text-blue-900">
+              {{ estadisticas.total }}
+            </p>
+            <p class="text-sm text-gray-500">Total Clientes</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl border shadow-sm">
+        <div class="flex items-start gap-3">
+          <app-icon
+            name="check-circle"
+            class="h-6 w-6 text-green-500"
+          ></app-icon>
+          <div>
+            <p class="text-2xl font-bold text-green-900">
+              {{ estadisticas.alDia }}
+            </p>
+            <p class="text-sm text-gray-500">Al Día</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl border shadow-sm">
+        <div class="flex items-start gap-3">
+          <app-icon
+            name="alert-triangle"
+            class="h-6 w-6 text-red-500"
+          ></app-icon>
+          <div>
+            <p class="text-2xl font-bold text-red-900">
+              {{ estadisticas.morosos }}
+            </p>
+            <p class="text-sm text-gray-500">Morosos</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl border shadow-sm">
+        <div class="flex items-start gap-3">
+          <app-icon name="clock" class="h-6 w-6 text-orange-500"></app-icon>
+          <div>
+            <p class="text-2xl font-bold text-orange-900">
+              {{ estadisticas.pendientes }}
+            </p>
+            <p class="text-sm text-gray-500">Pendientes</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl border shadow-sm">
+        <div class="flex items-start gap-3">
+          <app-icon name="user-x" class="h-6 w-6 text-gray-500"></app-icon>
+          <div>
+            <p class="text-2xl font-bold text-gray-900">
+              {{ estadisticas.dadosBaja }}
+            </p>
+            <p class="text-sm text-gray-500">Dados de Baja</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
       <div class="p-4 space-y-4">
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2"><app-icon name="users" class="h-5 w-5"></app-icon> Lista de Clientes <span class="text-sm font-normal bg-gray-100 px-2 py-0.5 rounded-md">{{ totalClientes }} resultados</span></h3>
+          <h3
+            class="text-lg font-semibold text-gray-800 flex items-center gap-2"
+          >
+            <app-icon name="users" class="h-5 w-5"></app-icon> Lista de Clientes
+            <span class="text-sm font-normal bg-gray-100 px-2 py-0.5 rounded-md"
+              >{{ totalClientes }} resultados</span
+            >
+          </h3>
           <div class="flex items-center gap-2">
-            <button (click)="openNewClientModal()" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"><app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Cliente</button>
+            <button
+              (click)="openNewClientModal()"
+              class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Cliente
+            </button>
             <!-- <button (click)="loadClients()" class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-50 flex items-center gap-2"><app-icon name="rotate-ccw" class="h-4 w-4"></app-icon> Actualizar</button> -->
           </div>
         </div>
         <div class="flex items-center gap-3">
-          <div class="relative flex-grow"><app-icon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"></app-icon><input [(ngModel)]="searchClientes" (ngModelChange)="onSearchChange()" placeholder="Buscar cliente..." class="w-80 pl-10 pr-4 py-2 border rounded-lg"/></div>
-          <select [(ngModel)]="filterEstadoClientes" (ngModelChange)="onFilterChange()" class="border rounded-lg px-3 py-2 w-40"><option value="Todos">Todos</option><option value="Al día">Al día</option><option value="Moroso">Moroso</option><option value="Pendiente">Pendiente</option></select>
-          <button (click)="showInactivos = !showInactivos; onFilterChange()" class="px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2" [ngClass]="showInactivos ? 'bg-gray-100' : 'bg-white'"><app-icon name="user-x" class="h-4 w-4"></app-icon> Ver Dados de Baja</button>
-          <button (click)="handleResetFilters()" class="px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-2">Limpiar Filtros</button>
+          <div class="relative flex-grow">
+            <app-icon
+              name="search"
+              class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"
+            ></app-icon
+            ><input
+              [(ngModel)]="searchClientes"
+              (ngModelChange)="onSearchChange()"
+              placeholder="Buscar cliente..."
+              class="w-80 pl-10 pr-4 py-2 border rounded-lg"
+            />
+          </div>
+          <select
+            [(ngModel)]="filterEstadoClientes"
+            (ngModelChange)="onFilterChange()"
+            class="border rounded-lg px-3 py-2 w-40"
+          >
+            <option value="Todos">Todos</option>
+            <option value="Al día">Al día</option>
+            <option value="Moroso">Moroso</option>
+            <option value="Pendiente">Pendiente</option>
+          </select>
+          <button
+            (click)="showInactivos = !showInactivos; onFilterChange()"
+            class="px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2"
+            [ngClass]="showInactivos ? 'bg-gray-100' : 'bg-white'"
+          >
+            <app-icon name="user-x" class="h-4 w-4"></app-icon> Ver Dados de
+            Baja
+          </button>
+          <button
+            (click)="handleResetFilters()"
+            class="px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-2"
+          >
+            Limpiar Filtros
+          </button>
         </div>
         <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2"><span class="text-sm text-gray-600">Mostrar:</span><select [(ngModel)]="itemsPerPageClientes" (ngModelChange)="onItemsPerPageChange()" class="border rounded-lg px-2 py-1 w-20"><option *ngFor="let option of itemsPerPageOptions" [value]="option">{{ option }}</option></select></div>
-          <div class="text-sm text-gray-600">Mostrando {{ clientes.length > 0 ? ((currentPageClientes - 1) * itemsPerPageClientes) + 1 : 0 }} a {{ Math.min(currentPageClientes * itemsPerPageClientes, totalClientes) }} de {{ totalClientes }} clientes</div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600">Mostrar:</span
+            ><select
+              [(ngModel)]="itemsPerPageClientes"
+              (ngModelChange)="onItemsPerPageChange()"
+              class="border rounded-lg px-2 py-1 w-20"
+            >
+              <option
+                *ngFor="let option of itemsPerPageOptions"
+                [value]="option"
+              >
+                {{ option }}
+              </option>
+            </select>
+          </div>
+          <div class="text-sm text-gray-600">
+            Mostrando
+            {{
+              clientes.length > 0
+                ? (currentPageClientes - 1) * itemsPerPageClientes + 1
+                : 0
+            }}
+            a
+            {{
+              Math.min(
+                currentPageClientes * itemsPerPageClientes,
+                totalClientes
+              )
+            }}
+            de {{ totalClientes }} clientes
+          </div>
         </div>
       </div>
-      
+
       <div class="relative w-full overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="text-xs text-gray-700 bg-gray-50">
             <tr class="border-b">
-              <th class="p-4 text-left font-medium"><button (click)="handleSort('FirstName')" class="flex items-center gap-1">Cliente <app-icon [name]="sortFieldClientes === 'FirstName' ? (sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down'"></app-icon></button></th>
+              <th class="p-4 text-left font-medium">
+                <button
+                  (click)="handleSort('FirstName')"
+                  class="flex items-center gap-1"
+                >
+                  Cliente
+                  <app-icon
+                    [name]="
+                      sortFieldClientes === 'FirstName'
+                        ? sortDirectionClientes === 'asc'
+                          ? 'arrow-up'
+                          : 'arrow-down'
+                        : 'arrow-up-down'
+                    "
+                  ></app-icon>
+                </button>
+              </th>
               <th class="p-4 text-left font-medium">Contacto</th>
               <th class="p-4 text-left font-medium">Baulera</th>
               <!-- <th class="p-4 text-left font-medium">Documento</th> -->
@@ -65,204 +214,100 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let cliente of clientes | paginate: { 
-              itemsPerPage: itemsPerPageClientes, 
-              currentPage: currentPageClientes, 
-              totalItems: totalClientes 
-            }" 
-            class="border-b hover:bg-gray-50">
+            <tr
+              *ngFor="
+                let cliente of clientes
+                  | paginate
+                    : {
+                        itemsPerPage: itemsPerPageClientes,
+                        currentPage: currentPageClientes,
+                        totalItems: totalClientes
+                      }
+              "
+              class="border-b hover:bg-gray-50"
+            >
               <td class="py-2 px-4">
                 <div class="flex items-center gap-3">
-                  <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span class="text-blue-800 text-sm font-semibold">{{ cliente.firstName.charAt(0) }}</span>
+                  <div
+                    class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0"
+                  >
+                    <span class="text-blue-800 text-sm font-semibold">{{
+                      cliente.firstName.charAt(0)
+                    }}</span>
                   </div>
                   <div>
                     <div class="flex items-center gap-2">
-                      <span class="font-semibold text-gray-900">{{ cliente.firstName }} {{ cliente.lastName }}</span>
-                      
-                      <span *ngIf="cliente.paymentIdentifier" 
-                            class="inline-flex items-center font-medium text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md border border-gray-300">
-                        N° {{ cliente.paymentIdentifier | number:'1.2-2'  }}
+                      <span class="font-semibold text-gray-900"
+                        >{{ cliente.firstName }} {{ cliente.lastName }}</span
+                      >
+
+                      <span
+                        *ngIf="cliente.paymentIdentifier"
+                        class="inline-flex items-center font-medium text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md border border-gray-300"
+                      >
+                        N° {{ cliente.paymentIdentifier | number : "1.2-2" }}
                       </span>
                     </div>
-                    
+
                     <div class="text-xs text-gray-500">{{ cliente.email }}</div>
                   </div>
                 </div>
               </td>
-              <td class="p-4"><div class="font-medium text-gray-800">{{ cliente.phone | phone }}</div><div class="text-xs text-gray-500">{{ cliente.city }}</div></td>
-              <td class="p-4 font-mono text-gray-700">{{ cliente.lockers?.join(', ') }}</td>
+              <td class="p-4">
+                <div class="font-medium text-gray-800">
+                  {{ cliente.phone | phone }}
+                </div>
+                <div class="text-xs text-gray-500">{{ cliente.city }}</div>
+              </td>
+              <td class="p-4 font-mono text-gray-700">
+                {{ cliente.lockers?.join(", ") }}
+              </td>
               <!-- <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="getDocumentoBadgeColor(cliente.document || '')">{{ cliente.document }}</span></td> -->
-              <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded-full" [ngClass]="getEstadoBadgeColor('Al día')">Al día</span></td>
-              <td class="p-4 font-medium text-gray-800">{{ cliente.balance | currency:'ARS':'symbol-narrow':'1.0-0' }}</td>
-              <td class="p-4"><div class="flex items-center gap-2"><button class="p-1 hover:text-blue-600"><app-icon name="eye" class="h-4 w-4"></app-icon></button><button class="p-1 hover:text-blue-600"><app-icon name="edit" class="h-4 w-4"></app-icon></button><button class="p-1 hover:text-red-600"><app-icon name="trash" class="h-4 w-4"></app-icon></button></div></td>
+              <td class="p-4">
+                <span
+                  class="text-xs font-semibold px-2 py-1 rounded-full"
+                  [ngClass]="getEstadoBadgeColor('Al día')"
+                  >Al día</span
+                >
+              </td>
+              <td class="p-4 font-medium text-gray-800">
+                {{
+                  cliente.balance | currency : "ARS" : "symbol-narrow" : "1.0-0"
+                }}
+              </td>
+              <td class="p-4">
+                <div class="flex items-center gap-2">
+                  <!-- <button class="p-1 hover:text-blue-600"><app-icon name="eye" class="h-4 w-4"></app-icon></button> -->
+                  <button
+                    (click)="openEditClientModal(cliente.id)"
+                    class="p-1 hover:text-blue-600"
+                  >
+                    <app-icon name="edit" class="h-4 w-4"></app-icon>
+                  </button>
+                  <!-- <button class="p-1 hover:text-red-600"><app-icon name="trash" class="h-4 w-4"></app-icon></button> -->
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
-      
+
       <!-- Pagination Controls with ngx-pagination -->
       <div class="p-4 flex items-center justify-center">
-        <pagination-controls 
+        <pagination-controls
           (pageChange)="onPageChange($event)"
           previousLabel="Anterior"
-          nextLabel="Siguiente">
+          nextLabel="Siguiente"
+        >
         </pagination-controls>
       </div>
-
     </div>
   </div>
 </div>
 
-<div *ngIf="showNewClientModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" (click)="closeNewClientModal()">
-  <form [formGroup]="newClientForm" (ngSubmit)="onSubmit()" (click)="$event.stopPropagation()" 
-        class="flex flex-col max-h-[90vh] w-full max-w-7xl bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg shadow-2xl">
-    
-    <header class="flex-shrink-0 relative bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 text-white p-4">
-      <button type="button" (click)="closeNewClientModal()" class="absolute top-3 right-3 p-2 text-white rounded-full hover:bg-white/20">
-        <app-icon name="x" class="h-5 w-5"></app-icon>
-      </button>
-      <div class="flex items-center gap-3">
-        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center"><app-icon name="user-plus" class="h-6 w-6 text-white"></app-icon></div>
-        <div>
-          <h2 class="text-2xl font-bold">Nuevo Cliente</h2>
-          <p class="text-blue-100 text-sm">Registra un nuevo cliente en el sistema</p>
-        </div>
-      </div>
-    </header>
-
-    <main class="flex-1 overflow-y-auto p-4">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        
-        <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border"><div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-t-lg"><h3 class="flex items-center gap-2 font-semibold text-base"><app-icon name="users" class="h-5 w-5"></app-icon>Información Personal</h3></div><div class="p-4 space-y-4">
-          <div>
-            <label class="text-sm font-medium text-blue-700">Número de Identificación</label>
-            <input formControlName="numeroIdentificacion" placeholder="Ej: CLI-001 (Se auto-genera si se deja vacío)" class="w-full mt-1 p-2 border rounded-md"/>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div><label class="text-sm font-medium text-blue-700">Nombre *</label><input formControlName="nombre" class="w-full mt-1 p-2 border rounded-md"/></div>
-            <div><label class="text-sm font-medium text-blue-700">Apellido *</label><input formControlName="apellido" class="w-full mt-1 p-2 border rounded-md"/></div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div><label class="text-sm font-medium text-blue-700">Tipo Doc. *</label><select formControlName="tipoDocumento" class="w-full mt-1 p-2 border rounded-md bg-white"><option>DNI</option><option>CUIT</option></select></div>
-            <div><label class="text-sm font-medium text-blue-700">Nº Doc. *</label><input formControlName="numeroDocumento" class="w-full mt-1 p-2 border rounded-md"/></div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div><label class="text-sm font-medium text-blue-700">Condición IVA *</label><select formControlName="condicionIVA" class="w-full mt-1 p-2 border rounded-md bg-white"><option [ngValue]="null">Seleccionar</option><option>Monotributista</option></select></div>
-            <div><label class="text-sm font-medium text-blue-700">Método de Pago</label><select formControlName="metodoPago" class="w-full mt-1 p-2 border rounded-md bg-white"><option>Efectivo</option></select></div>
-          </div>
-          <div><label class="text-sm font-medium text-blue-700">Tipo Facturación *</label><select formControlName="documento" class="w-full mt-1 p-2 border rounded-md bg-white"><option [ngValue]="null">Seleccionar</option><option value="SF">Sin Factura</option></select></div>
-        </div></div>
-
-        <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border"><div class="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-t-lg"><h3 class="flex items-center gap-2 font-semibold text-base"><app-icon name="envelope" class="h-5 w-5"></app-icon>Contacto y Ubicación</h3></div><div class="p-4 space-y-4">
-          <div formArrayName="emails">
-            <label class="text-sm font-medium text-green-700">Emails *</label>
-            <div *ngFor="let email of emails.controls; let i=index" class="flex gap-2 mt-1"><input [formControlName]="i" class="w-full p-2 border rounded-md"/><button *ngIf="emails.length > 1" type="button" (click)="removeEmail(i)" class="p-1 text-red-500"><app-icon name="x" class="h-4 w-4"></app-icon></button></div>
-            <button type="button" (click)="addEmail()" class="text-sm text-blue-600 mt-2 font-semibold">+ Agregar Email</button>
-          </div>
-          <div formArrayName="telefonos">
-            <label class="text-sm font-medium text-green-700">Teléfonos</label>
-            <div *ngFor="let tel of telefonos.controls; let i=index" class="flex gap-2 mt-1">
-              <input [formControlName]="i" placeholder="+54 11 1234-5678" class="w-full p-2 border rounded-md"/>
-              <button *ngIf="telefonos.length > 1" type="button" (click)="removeTelefono(i)" class="p-1 text-red-500"><app-icon name="x" class="h-4 w-4"></app-icon></button>
-            </div>
-            <button type="button" (click)="addTelefono()" class="text-sm text-blue-600 mt-2 font-semibold">+ Agregar Teléfono</button>
-          </div>
-          <div><label class="text-sm font-medium text-green-700">Dirección *</label><input formControlName="direccion" class="w-full mt-1 p-2 border rounded-md"/></div>
-          <div class="grid grid-cols-2 gap-4">
-            <div><label class="text-sm font-medium text-green-700">Ciudad *</label><input formControlName="ciudad" class="w-full mt-1 p-2 border rounded-md"/></div>
-            <div><label class="text-sm font-medium text-green-700">Provincia *</label><input formControlName="provincia" class="w-full mt-1 p-2 border rounded-md"/></div>
-          </div>
-        </div></div>
-
-        <div class="space-y-4">
-          <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border"><div class="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-t-lg"><h3 class="flex items-center gap-2 font-semibold text-base"><app-icon name="dollar-sign" class="h-5 w-5"></app-icon>Información Financiera</h3></div>
-            <div class="p-4 space-y-4">
-              <p class="text-xs text-gray-500">Los costos se calculan en la sección de lockers. Edita el subtotal si necesitas un precio personalizado.</p>
-              <div class="grid grid-cols-2 gap-4 border-t pt-4">
-                <div>
-                  <label class="text-sm font-medium text-purple-700">Periodicidad Aumento</label>
-                  <input type="number" formControlName="periodicidadAumento" placeholder="meses" class="w-full mt-1 p-2 border rounded-md"/>
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-purple-700">Aumento (%)</label>
-                  <input type="number" formControlName="porcentajeAumento" placeholder="%" class="w-full mt-1 p-2 border rounded-md"/>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
-            <div class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-t-lg">
-              <h3 class="flex items-center gap-2 font-semibold text-base">
-                <app-icon name="file-text" class="h-5 w-5"></app-icon>Observaciones</h3>
-              </div>
-              <div class="p-4">
-            <label class="text-sm font-medium text-orange-700">Notas del cliente</label>
-            <textarea formControlName="observaciones" rows="3" class="w-full p-2 border rounded-md"></textarea>
-          </div></div>
-        </div>
-
-        <div class="lg:col-span-3">
-          <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
-            <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-4 rounded-t-lg"><h3 class="flex items-center gap-2 font-semibold text-base"><app-icon name="package" class="h-5 w-5"></app-icon>Selección de Lockers</h3></div>
-            <div class="p-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div class="space-y-4">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div class="relative sm:col-span-2"><app-icon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"></app-icon><input formControlName="lockerSearch" placeholder="Buscar por identificador..." class="pl-10 w-full p-2 border rounded-md"/></div>
-                  <select formControlName="selectedWarehouse" class="p-2 border rounded-md bg-white"><option value="all">Todos los depósitos</option><option *ngFor="let wh of warehouses" [value]="wh.id">{{wh.name}}</option></select>
-                  <select formControlName="selectedLockerType" class="p-2 border rounded-md bg-white"><option value="all">Todos los tipos</option><option *ngFor="let type of lockerTypes" [value]="type.id">{{type.name}}</option></select>
-                </div>
-                <div class="max-h-80 overflow-y-auto space-y-2 border rounded-md p-2 bg-gray-50/50">
-                  <p *ngIf="filteredLockers.length === 0" class="text-center py-8 text-gray-500">No se encontraron lockers disponibles.</p>
-                  <div *ngFor="let locker of filteredLockers" (click)="handleLockerToggle(locker.id)" [ngClass]="{'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200': newClientForm.value.lockersAsignados.includes(locker.id)}" class="p-3 rounded-lg border bg-white cursor-pointer hover:border-indigo-300">
-                    <div class="flex items-start space-x-3">
-                      <input type="checkbox" [checked]="newClientForm.value.lockersAsignados.includes(locker.id)" readonly class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
-                      <div class="flex-1">
-                        <div class="flex justify-between items-center mb-1"><span class="font-medium text-indigo-900">{{ locker.identifier }}</span><span *ngIf="getLockerDetails(locker.id).lockerType" class="text-green-600 font-semibold text-sm">${{ getLockerDetails(locker.id).lockerType?.amount | number:'1.0-0' }}</span></div>
-                        <div class="flex items-center gap-4 text-sm text-gray-600"><span *ngIf="getLockerDetails(locker.id).warehouse" class="flex items-center gap-1"><app-icon name="building" class="h-3 w-3"></app-icon>{{ getLockerDetails(locker.id).warehouse?.name }}</span><span *ngIf="getLockerDetails(locker.id).lockerType">{{ getLockerDetails(locker.id).lockerType?.name }}</span><span *ngIf="getLockerDetails(locker.id).lockerType">{{ getLockerDetails(locker.id).lockerType?.m3 }}m³</span></div>
-                        <p *ngIf="locker.features" class="text-xs text-gray-500 mt-1">{{ locker.features }}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200">
-                <h4 class="font-medium text-indigo-900 mb-3 flex items-center gap-2"><app-icon name="dollar-sign" class="h-4 w-4"></app-icon>Resumen de Costos</h4>
-                <div *ngIf="!newClientForm.value.lockersAsignados || newClientForm.value.lockersAsignados.length === 0" class="text-center py-8 text-gray-500"><div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3"><app-icon name="package" class="h-8 w-8 text-gray-300"></app-icon></div><p class="font-medium">Ningún locker seleccionado</p><p class="text-sm">Selecciona lockers para ver el resumen</p></div>
-                <div *ngIf="newClientForm.value.lockersAsignados?.length > 0" class="space-y-3">
-                  <div class="text-sm font-semibold text-indigo-700 mb-2">{{ newClientForm.value.lockersAsignados.length }} locker(s) seleccionado(s)</div>
-                  <div class="space-y-2 max-h-52 overflow-y-auto border-t border-b py-2">
-                    <div *ngFor="let lockerId of newClientForm.value.lockersAsignados" class="flex justify-between items-center p-2 bg-white/50 rounded">
-                      <div>
-                        <div class="font-medium text-sm text-indigo-900">{{ getLockerDetails(lockerId).locker?.identifier }}</div>
-                        <div class="text-xs text-gray-600">{{ getLockerDetails(lockerId).warehouse?.name }} • {{ getLockerDetails(lockerId).lockerType?.name }}</div>
-                      </div>
-                      <div class="text-green-600 font-semibold text-sm">${{ getLockerDetails(lockerId).lockerType?.amount | number:'1.0-0' }}</div>
-                    </div>
-                  </div>
-                  <div class="pt-3">
-                    <div class="flex justify-between items-center mb-2">
-                      <label for="montoManual" class="font-semibold text-indigo-900">Subtotal Mensual:</label>
-                      <div class="relative">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                        <input id="montoManual" type="number" formControlName="montoManual" class="w-32 text-right pl-6 pr-2 py-1 border rounded-md text-lg font-bold text-green-600"/>
-                      </div>
-                    </div>
-                    <div class="text-xs text-gray-600 space-y-1">
-                      <div class="flex justify-between"><span>Total m³ contratados:</span><span>{{ costSummary.totalM3 }} m³</span></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </main>
-    <footer class="flex-shrink-0 p-4 flex justify-end gap-4 bg-gray-50 border-t">
-      <button type="button" (click)="closeNewClientModal()" class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-100">Cancelar</button>
-      <button type="submit" [disabled]="newClientForm.invalid" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">Guardar Cliente</button>
-    </footer>
-  </form>
-</div>
+<app-create-client-modal 
+  *ngIf="showNewClientModal"
+  [clientData]="clientToEdit" 
+  (closeModal)="closeNewClientModal()"
+  (saveSuccess)="onClientSaveSuccess()">
+</app-create-client-modal>
