@@ -78,7 +78,7 @@ namespace GuardeSoftwareAPI.Controllers
                 UserName = userToCreate.UserName,
                 FirstName = userToCreate.FirstName,
                 LastName = userToCreate.LastName,
-                UserTypeId = 2, // Default to employee user
+                UserTypeId = userToCreate.UserTypeId, // Default to employee user
                 PasswordHash = string.Empty // Password will be handled separately
             };
 
