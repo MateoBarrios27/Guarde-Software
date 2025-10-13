@@ -101,5 +101,26 @@ namespace GuardeSoftwareAPI.Controllers
                 return NotFound(new { message = "No payment method found with the given ID." });
         }
 
+        [HttpPatch("{paymentMethodId}")]
+        public async Task<IActionResult> UpdatePaymentMethod(int paymentMethodId, [FromBody] UpdatePaymentMethodDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                    return BadRequest("payment method data is required.");
+
+                bool updated = await _paymentMethodService.UpdatePaymentMethod(paymentMethodId, dto);
+
+                if (!updated)
+                    return NotFound($"No payment method found with Id {paymentMethodId}");
+
+                return Ok(new { message = "Payment Method updated successfully." });
+            }   
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error updating payment method: {ex.Message}");
+            }
+        }
+
     }
 }

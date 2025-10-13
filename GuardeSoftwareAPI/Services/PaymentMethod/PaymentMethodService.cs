@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.IdentityModel.Tokens;
+using GuardeSoftwareAPI.Dtos.PaymentMethod;
 
 namespace GuardeSoftwareAPI.Services.paymentMethod
 {
@@ -70,6 +71,14 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 		{
 			if (paymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
 			if (await _daoPaymentMethod.DeletePaymentMethod(paymentMethodId)) return true;
+			else return false;
+		}
+
+		public async Task<bool> UpdatePaymentMethod(int paymentMethodId, UpdatePaymentMethodDto dto)
+		{
+			if (paymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
+			if (dto.Commission < 0m) throw new ArgumentException("Comission cannot be negative.");
+			if (await _daoPaymentMethod.UpdatePaymentMethod(paymentMethodId, dto)) return true;
 			else return false;
 		}
 	}
