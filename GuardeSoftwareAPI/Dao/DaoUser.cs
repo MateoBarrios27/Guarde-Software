@@ -81,5 +81,20 @@ namespace GuardeSoftwareAPI.Dao
 
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
+
+        public async Task<bool> UpdateUser(User user){
+
+            SqlParameter[] parameters = new SqlParameter[]{
+                new SqlParameter("user_id", SqlDbType.Int) { Value = user.Id},
+                new SqlParameter("user_type_id", SqlDbType.Int){Value = user.UserTypeId},
+                new SqlParameter("username", SqlDbType.NVarChar, 100){Value = user.UserName},
+                new SqlParameter("first_name", SqlDbType.NVarChar, 100){Value = user.FirstName},
+                new SqlParameter("last_name", SqlDbType.NVarChar, 100){Value = user.LastName},
+            };
+
+            string query = "UPDATE users SET user_type_id = @user_type_id , username = @username, first_name = @first_name, last_name = @last_name WHERE user_id = @user_id";
+
+             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+        }
     }
 }

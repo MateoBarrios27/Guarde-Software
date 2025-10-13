@@ -89,5 +89,16 @@ namespace GuardeSoftwareAPI.Services.user
 			if (await _daoUser.DeleteUser(userId)) return true;
 			else return false;
 		}
+
+		public async Task<bool> UpdateUser(User user){
+			if (user == null) throw new ArgumentNullException(nameof(user), "User cannot be null.");
+			if (user.UserTypeId <= 0) throw new ArgumentException("Invalid user type ID."); 
+			if (string.IsNullOrWhiteSpace(user.UserName)) throw new ArgumentException("Username cannot be empty.");
+			if (string.IsNullOrWhiteSpace(user.FirstName)) throw new ArgumentException("First name cannot be empty.");
+			if (string.IsNullOrWhiteSpace(user.LastName)) throw new ArgumentException("Last name cannot be empty."); 
+
+			if(await _daoUser.UpdateUser(user)) return true;
+			else return false;
+		}
 	}
 }

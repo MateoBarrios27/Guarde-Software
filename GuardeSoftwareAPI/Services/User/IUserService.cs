@@ -11,5 +11,6 @@ namespace GuardeSoftwareAPI.Services.user
 		Task<User> GetUserById(int id);
 		Task<User> CreateUser(User user, string password);
 		Task<bool> DeleteUser(int userId);
+		Task<bool> UpdateUser(User user);
 	}
 }

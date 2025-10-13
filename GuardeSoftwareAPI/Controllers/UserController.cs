@@ -122,5 +122,34 @@ namespace GuardeSoftwareAPI.Controllers
             else
                 return NotFound(new { message = "No user found with the given ID." });
         }
+
+        [HttpPut("{userId}")]
+        public async Task<IActionResult> UpdatePaymentMethod(int userId, [FromBody] UpdateUserDTO dto)
+        {
+            try
+            {
+                if (dto == null)
+                    return BadRequest("user method data is required.");
+
+                User user = new()
+                {
+                    UserName = dto.UserName,
+                    FirstName = dto.FirstName,
+                    LastName = dto.LastName,
+                    UserTypeId = dto.UserTypeId, 
+                    Id = userId,
+                };
+                bool updated = await _userService.UpdateUser(user);
+
+                if (!updated)
+                    return NotFound($"No user found with Id {userId}");
+
+                return Ok(new { message = "User updated successfully." });
+            }   
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error updating user: {ex.Message}");
+            }
+        }
     }
 }
