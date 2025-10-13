@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environmets';
 import { CreateUserDTO } from '../../dtos/user/CreateUserDTO';
+import { UpdateUserDTO } from '../../dtos/user/UpdateUserDTO';
  
 @Injectable({
   providedIn: 'root'
@@ -29,5 +30,8 @@ export class UserService {
     return this.httpCliente.post<User>(`${this.url}/User`,createUserDto);
   }
 
+  public updateUser(id: number, dto: UpdateUserDTO): Observable<any>{
+    return this.httpCliente.put<any>(`${this.url}/User/${id}`, dto);
+  }
 
 }
