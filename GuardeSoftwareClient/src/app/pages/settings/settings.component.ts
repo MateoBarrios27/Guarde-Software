@@ -9,6 +9,10 @@ import { CreateUserDTO } from '../../core/dtos/user/CreateUserDTO';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { UserTypeService } from '../../core/services/userType-service/user-type.service';
 import { UserType } from '../../core/models/user-type';
+import { UpdatePaymentMethodDTO } from '../../core/dtos/paymentMethod/UpdatePaymentMethodDTO';
+import { CreatePaymentMethodDTO } from '../../core/dtos/paymentMethod/CreatePaymentMethodDTO';
+import { UpdateUserDTO } from '../../core/dtos/user/UpdateUserDTO';
+
 
 @Component({
   selector: 'app-settings',
@@ -42,12 +46,38 @@ export class SettingsComponent implements OnInit {
     userName: '',
     firstName: '',
     lastName: '',
-    password: '',
     userTypeId: 0,
   }
 
+  userUpdated: UpdateUserDTO = {
+    userName: '',
+    firstName: '',
+    lastName: '',
+    userTypeId: 0,
+  }
+
+  SelectedUserId = 0;
+
   showCreateUserModal = false;
   showEditUserModal = false;
+
+  //payment method update
+  paymentMethodUpdate: UpdatePaymentMethodDTO = {
+    commission: 0,
+  }
+
+  SelectedPaymentMethodId = 0;
+  SelectedPaymentMethodName = '';
+  showUpdatePaymentMethodModal = false;
+
+  //create Payment method
+
+  createPaymentMethodDto: CreatePaymentMethodDTO = {
+    name: '',
+    commission: 0,
+  }
+
+  showCreatePaymentMethod = false;
 
   ngOnInit(): void {
     this.loadUsers();
@@ -67,7 +97,6 @@ export class SettingsComponent implements OnInit {
     this.userService.getUsers().subscribe({
       next: (data) =>{
         this.users = data;
-        console.log(data);
       },
       error: (err) => {
         console.error('error: ', err)
@@ -79,7 +108,6 @@ export class SettingsComponent implements OnInit {
     this.paymentMethodService.getPaymentMethods().subscribe({
       next: (data) => {
         this.paymentMethods = data;
-        console.log(data);
       },
       error: (err) => {
         console.error('error: ',err);
@@ -97,9 +125,17 @@ export class SettingsComponent implements OnInit {
     this.activeSection = section;
   }
 
+  getUserTypeName(userTypeId: number): string {
+    if (!userTypeId || this.userTypes.length === 0) {
+      return 'Desconocido';
+    }
+    const type = this.userTypes.find(t => t.id === userTypeId);
+    return type ? type.name : 'Desconocido';
+  }
+
   closeCreateUserModal() { this.showCreateUserModal = false; }
   
-  openUpdateUserModal(){ this.showCreateUserModal = true; }
+  openCreateUserModal(){ this.showCreateUserModal = true; }
 
   saveCreateUser(dto: CreateUserDTO){
 
@@ -168,17 +204,147 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  closeEditUserModal() { this.showEditUserModal = false; }
+    closeEditUserModal() { this.showEditUserModal = false; }
   
-  openEditModalModal(item: User){
-    this.userEdit = {
-      id: item.id,
-      userTypeId: item.userTypeId,
-      userName: item.userName,
-      firstName: item.firstName,
-      lastName: item.lastName,
-      password: item.password
+    openEditModalModal(item: User){
+      this.userEdit = {
+        id: item.id,
+        userTypeId: item.userTypeId,
+        userName: item.userName,
+        firstName: item.firstName,
+        lastName: item.lastName,
+      }
+      this.showEditUserModal = true; 
     }
-     this.showEditUserModal = true; 
+
+    SaveUpdateUserModal(item: User){
+      if (!item) {
+        alert('Error: no se recibió la información del usuario.');
+        return;
+      }
+
+      if (!item.userName || item.userName.trim() === '') {
+        alert('El nombre de usuario es obligatorio.');
+        return;
+      }
+
+      if (!item.firstName || item.firstName.trim() === '') {
+        alert('El nombre es obligatorio.');
+        return;
+      }
+
+      if (!item.lastName || item.lastName.trim() === '') {
+        alert('El apellido es obligatorio.');
+        return;
+      }
+
+      if (!item.userTypeId || item.userTypeId <= 0) {
+        alert('Debe seleccionar un tipo de usuario válido.');
+        return;
+      }
+
+      this.userUpdated = {
+        userTypeId: item.userTypeId,
+        userName: item.userName,
+        firstName: item.firstName,
+        lastName: item.lastName,
+      }
+      this.SelectedUserId = item.id;
+ 
+      this.userService.updateUser(this.SelectedUserId, this.userUpdated).subscribe({
+        next: () => {
+          alert('Usuario actualizado correctamente');
+          setTimeout(() => this.loadUsers(), 100); 
+          this.showEditUserModal = false; 
+        },
+        error: (err) => {console.log('error actualizando el usuario.', err)}
+      });
     }
+
+    closeUpdatePaymentMethodModal() { this.showUpdatePaymentMethodModal = false; }
+
+    openUpdatePaymentModal(item: PaymentMethod){
+
+      this.paymentMethodUpdate = {
+        commission : item.commission,
+      }
+      this.SelectedPaymentMethodId = item.id;
+      this.SelectedPaymentMethodName = item.name;
+      this.showUpdatePaymentMethodModal = true;
+    }
+    
+    updatePaymentMethod(id: number,dto: UpdatePaymentMethodDTO){
+
+      if (!id) {
+      alert('⚠️ Debes seleccionar un método de pago.');
+      return;
+      }
+      if (dto.commission === undefined || dto.commission < 0 || dto.commission > 100) {
+        alert('⚠️ La comisión debe ser un valor entre 0 y 100.');
+        return;
+      }
+
+      this.paymentMethodService.UpdatePaymentMethod(id,dto).subscribe({
+        next: () => {
+          alert('metodo de pago actualizado!');
+          setTimeout(() => this.loadPaymentMethods(), 100); 
+        },
+        error: (err) =>{console.log('error al actualizar el metodo de pago: ',err)} 
+      });
+      this.closeUpdatePaymentMethodModal();
+    }
+
+    closeCreatePaymentMethodModal() { 
+      this.createPaymentMethodDto = {
+        name: '',
+        commission: 0,
+      }
+      this.showCreatePaymentMethod = false; 
+    }
+
+    openCreatePaymentMethod(){ 
+      this.showCreatePaymentMethod = true;
+    }
+
+    createPaymentMethod(dto: CreatePaymentMethodDTO){
+
+      dto.name = dto.name?.trim() || '';
+
+      if (!dto.name) {
+        alert('⚠️ Debes ingresar un nombre de metodo de pago.');
+        return;
+      }
+
+      if (dto.commission === undefined || dto.commission < 0 || dto.commission > 100) {
+        alert('⚠️ La comisión debe ser un valor entre 0 y 100.');
+        return;
+      }
+
+      this.paymentMethodService.createPaymentMethod(dto).subscribe({
+        next: () => {
+          alert('Metodo de pago creado con exito!');
+          setTimeout(() => this.loadPaymentMethods(), 100); 
+          this.closeCreatePaymentMethodModal();
+        },
+        error: (err) => {console.log('error al crear metodo de pago', err)}
+      });
+    }
+
+  deletePaymentMethod(id: number){
+      if (!id) {
+      console.log('id de medio de pago no valido.');
+      return;
+      }
+
+      if (confirm(`¿Seguro que quieres borrar el metodo de pago?`)){ 
+      this.paymentMethodService.deletePaymentMethod(id).subscribe({
+        next: () => {
+          alert('Metodo de pago eliminao con exito.');
+          setTimeout(() => this.loadPaymentMethods(), 100); 
+        },
+        error: (err) => {console.log('error al eliminar el metodo de pago', err)}
+      });
+      }
+  }
+  
 }

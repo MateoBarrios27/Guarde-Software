@@ -34,7 +34,7 @@
             Gestión de Usuarios
           </div>
           <button class="px-3 py-1 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
-          (click)="openUpdateUserModal()">
+          (click)="openCreateUserModal()">
             + Nuevo Usuario
           </button>
         </div>
@@ -52,7 +52,7 @@
             <tbody>
               <tr *ngFor="let user of users">
                 <td class="px-4 py-2">{{user.userName}}</td>
-                <td class="px-4 py-2">{{user.userTypeId}}</td>
+                <td class="px-4 py-2">{{getUserTypeName(user.userTypeId)}}</td>
                 <td class="px-4 py-2">{{user.firstName}}</td>
                 <td class="px-4 py-2">{{user.lastName}}</td>     
                 <td class="px-4 py-2 flex gap-2">
@@ -71,8 +71,9 @@
           <div class="font-semibold flex items-center gap-2 text-gray-700">
             Medios de Pago
           </div>
-          <button class="px-3 py-1 rounded bg-blue-600 text-white text-sm hover:bg-blue-700">
-            + Nuevo Medio de Pago
+           <button class="px-3 py-1 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+            (click)="openCreatePaymentMethod()">
+              + Nuevo Metodo de pago
           </button>
         </div>
         <div class="p-4 overflow-x-auto">
@@ -89,8 +90,9 @@
                 <td class="px-4 py-2">{{paymentmeth.name}}</td>
                 <td class="px-4 py-2">{{paymentmeth.commission}} %</td>
                 <td class="px-4 py-2 flex gap-2">
-                  <button class="px-2 py-1 border rounded text-xs">Editar</button>
-                  <button class="px-2 py-1 border rounded text-xs text-red-600">Eliminar</button>
+                  <button class="px-2 py-1 border rounded text-xs" (click)="openUpdatePaymentModal(paymentmeth)">Editar</button>
+                  <button class="px-2 py-1 border rounded text-xs text-red-600" (click)="deletePaymentMethod(paymentmeth.id)">Eliminar</button>
+                  
                 </td>
               </tr>
             </tbody>
@@ -223,7 +225,7 @@
 </div>
 
 
-
+ 
   <!-- EDIT USER MODAL-->
 <div *ngIf="showEditUserModal"
      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
@@ -277,13 +279,6 @@
                    [(ngModel)]="userEdit.userName"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"/>
           </div>
-
-          <div>
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Contraseña</label>
-            <input type="password"
-                   [(ngModel)]="userEdit.password"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"/>
-          </div>
         </div>
       </div>
 
@@ -307,7 +302,150 @@
         Cancelar
       </button>
       <button type="button"
-              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">
+              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
+              (click)="SaveUpdateUserModal(userEdit)">
+        Actualizar
+      </button>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- CREATE PAYMENT METHOD MODAL -->
+<div *ngIf="showCreatePaymentMethod"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+     (keydown.escape)="closeCreatePaymentMethodModal()"
+     tabindex="-1">
+
+  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
+       (click)="$event.stopPropagation()">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b pb-3 mb-5">
+      <div class="flex items-center gap-2">
+        <app-icon name="plus-circle" class="h-6 w-6 text-green-600"></app-icon>
+        <h3 class="text-xl font-semibold text-gray-800">Crear método de pago</h3>
+      </div>
+      <button type="button"
+              (click)="closeCreatePaymentMethodModal()"
+              class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+    </div>
+
+    <!-- Body -->
+    <div class="space-y-6">
+      <!-- Información general -->
+      <div>
+        <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Datos del método</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Nombre -->
+          <div class="md:col-span-2">
+            <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre del método</label>
+            <input type="text"
+                   [(ngModel)]="createPaymentMethodDto.name"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 "
+                   placeholder="Ej: Transferencia, Efectivo, Mercado Pago..." />
+          </div>
+
+          <!-- Comisión -->
+          <div class="md:col-span-2">
+            <label class="block text-sm text-gray-600 mb-1 font-medium">Comisión (%)</label>
+            <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
+              <input type="number"
+                     min="0"
+                     max="100"
+                     step="0.01"
+                     [(ngModel)]="createPaymentMethodDto.commission"
+                     class="w-full px-3 py-2 focus:outline-none text-gray-800"
+                     placeholder="Ej: 1.50" />
+              <span class="px-3 text-gray-500 select-none">%</span>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Debe ser un valor entre 0 y 100.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+      <button type="button"
+              (click)="closeCreatePaymentMethodModal()"
+              class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">
+        Cancelar
+      </button>
+      <button type="button"
+              (click)="createPaymentMethod(createPaymentMethodDto)"
+              class="px-4 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700">
+        Crear
+      </button>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- UPDATE PAYMENT METHOD MODAL -->
+<div *ngIf="showUpdatePaymentMethodModal"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+     (keydown.escape)="closeUpdatePaymentMethodModal()"
+     tabindex="-1">
+
+  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
+       (click)="$event.stopPropagation()">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b pb-3 mb-5">
+      <div class="flex items-center gap-2">
+        <app-icon name="credit-card" class="h-6 w-6 text-indigo-600"></app-icon>
+        <h3 class="text-xl font-semibold text-gray-800">Editar método de pago</h3>
+      </div>
+      <button type="button"
+              (click)="closeUpdatePaymentMethodModal()"
+              class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+    </div>
+
+    <!-- Body -->
+    <div class="space-y-6">
+
+      <!-- Información general -->
+      <div>
+        <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Información general</h4>
+        <div class="bg-gray-50 rounded-lg px-3 py-3 text-sm text-gray-700 border flex justify-between items-center">
+          <span class="font-medium text-gray-600">Método de pago:</span>
+          <span class="font-semibold text-gray-600">{{ SelectedPaymentMethodName }}</span>
+        </div>
+      </div>
+
+      <!-- Configuración de comisión -->
+      <div>
+        <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Configuración</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1 font-medium">Comisión (%)</label>
+            <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white focus-within:ring-2 focus-within:ring-indigo-400">
+              <input type="number"
+                     min="0"
+                     max="100"
+                     step="0.01"
+                     [(ngModel)]="paymentMethodUpdate.commission"
+                     class="w-full px-3 py-2 focus:outline-none text-gray-800"
+                     placeholder="Ej: 2.50" />
+              <span class="px-3 text-gray-500 select-none">%</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+      <button type="button"
+              (click)="closeUpdatePaymentMethodModal()"
+              class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">
+        Cancelar
+      </button>
+      <button type="button"
+              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
+              (click)="updatePaymentMethod(SelectedPaymentMethodId, paymentMethodUpdate)">
         Actualizar
       </button>
     </div>
