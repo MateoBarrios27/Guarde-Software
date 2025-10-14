@@ -1,1 +1,142 @@
-<p>finances works!</p>
+<div class="p-6 space-y-8">
+ <!-- === CARDS DE ESTADÍSTICAS === -->
+   <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+    <!-- Total Pagos -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-4 flex items-center gap-3">
+        <app-icon name="file-text" class="w-5 h-5 text-blue-500"></app-icon>
+        <div class="flex flex-col leading-tight">
+        <span class="text-lg font-semibold text-gray-900">{{ payments.length }}</span>
+        <span class="text-sm text-gray-500">Total Pagos</span>
+        </div>
+    </div>
+
+    <!-- Total Recaudado -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-4 flex items-center gap-3">
+        <app-icon name="dollar-sign" class="w-5 h-5 text-green-600"></app-icon>
+        <div class="flex flex-col leading-tight">
+        <span class="text-lg font-semibold text-green-700">
+            ${{ getTotalRecaudado() | number:'1.0-2' }}
+        </span>
+        <span class="text-sm text-gray-500">Total Recaudado</span>
+        </div>
+    </div>
+
+    <!-- Pagos este mes -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-4 flex items-center gap-3">
+        <app-icon name="clock" class="w-5 h-5 text-amber-500"></app-icon>
+        <div class="flex flex-col leading-tight">
+        <span class="text-lg font-semibold text-gray-900">{{ getPagosMesActual() }}</span>
+        <span class="text-sm text-gray-500">Pagos este mes</span>
+        </div>
+    </div>
+
+    <!-- Transferencias -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-4 flex items-center gap-3">
+        <app-icon name="wallet" class="w-5 h-5 text-yellow-600"></app-icon>
+        <div class="flex flex-col leading-tight">
+        <span class="text-lg font-semibold text-gray-900">{{ getPagosPorMetodo('Transferencia') }}</span>
+        <span class="text-sm text-gray-500">Transferencias</span>
+        </div>
+    </div>
+
+    <!-- Efectivo -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-4 flex items-center gap-3">
+        <app-icon name="package" class="w-5 h-5 text-purple-600"></app-icon>
+        <div class="flex flex-col leading-tight">
+        <span class="text-lg font-semibold text-gray-900">{{ getPagosPorMetodo('Efectivo') }}</span>
+        <span class="text-sm text-gray-500">Pagos en Efectivo</span>
+        </div>
+    </div>
+
+    <!-- Clientes distintos -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-4 flex items-center gap-3">
+        <app-icon name="users" class="w-5 h-5 text-indigo-600"></app-icon>
+        <div class="flex flex-col leading-tight">
+        <span class="text-lg font-semibold text-gray-900">{{ uniqueClientsCount() }}</span>
+        <span class="text-sm text-gray-500">Clientes distintos</span>
+        </div>
+    </div>
+</div>
+
+
+
+  <!-- === FILTROS Y BÚSQUEDA === -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+      <input
+        type="text"
+        [(ngModel)]="searchPayment"
+        (input)="filterPayments()"
+        placeholder="Buscar cliente o identificador..."
+        class="p-2 border border-gray-300 rounded-md text-sm w-full md:w-64 focus:ring-2 focus:ring-blue-500 outline-none"
+      />
+
+      <select
+        [(ngModel)]="selectedMethodFilter"
+        (change)="filterPayments()"
+        class="p-2 border border-gray-300 rounded-md text-sm bg-white"
+      >
+        <option value="">Método: Todos</option>
+        <option *ngFor="let method of paymentMethods" [value]="method.name">
+          {{ method.name }}
+        </option>
+      </select>
+
+      <input
+        type="month"
+        [(ngModel)]="selectedMonth"
+        (change)="filterPayments()"
+        class="p-2 border border-gray-300 rounded-md text-sm bg-white"
+      />
+
+      <button
+        (click)="resetFilters()"
+        class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md px-3 py-1"
+      >
+        Limpiar filtros
+      </button>
+    </div>
+  </div>
+
+  <!-- === TABLA DE PAGOS === -->
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+    <table class="w-full text-sm border-collapse">
+      <thead class="bg-gray-50 text-gray-700 uppercase text-xs">
+        <tr class="border-b">
+          <th class="py-3 px-4 text-left font-medium">Cliente</th>
+          <th class="py-3 px-4 text-left font-medium">Identificador</th>
+          <th class="py-3 px-4 text-left font-medium">Locker</th>
+          <th class="py-3 px-4 text-left font-medium">Método</th>
+          <th class="py-3 px-4 text-left font-medium">Concepto</th>
+          <th class="py-3 px-4 text-right font-medium">Monto</th>
+          <th class="py-3 px-4 text-left font-medium">Fecha</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr
+          *ngFor="let p of filteredPayments"
+          class="border-b hover:bg-gray-50 transition"
+        >
+          <td class="py-3 px-4 font-medium text-gray-800">{{ p.clientName }}</td>
+          <td class="py-3 px-4 text-gray-700">{{ p.paymentIdentifier }}</td>
+          <td class="py-3 px-4 text-gray-700">{{ p.lockerIdentifier || '—' }}</td>
+          <td class="py-3 px-4 text-gray-700">{{ p.paymentMethodName || '—' }}</td>
+          <td class="py-3 px-4 text-gray-700">{{ p.concept }}</td>
+          <td class="py-3 px-4 text-right font-semibold text-gray-900">
+            ${{ p.amount | number: '1.2-2' }}
+          </td>
+          <td class="py-3 px-4 text-gray-600 font-mono text-xs">
+            {{ p.paymentDate | date: 'dd/MM/yyyy' }}
+          </td>
+        </tr>
+
+        <tr *ngIf="filteredPayments.length === 0">
+          <td colspan="7" class="text-center py-6 text-gray-400">
+            No se encontraron pagos.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
