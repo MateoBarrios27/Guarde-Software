@@ -122,18 +122,19 @@ INSERT INTO lockers (warehouse_id, locker_type_id, identifier, features, status,
 (3, 1, 'G-64', '64 TIPO?', 'OCUPADO', 9, 1),
 (3, 1, 'G-67', '67 TIPO?', 'OCUPADO', 9, 1),
 (1, 6, 'EL', 'ESPACIO LIBRE', 'OCUPADO', 9, 1),
+
 (1, 1, 'T-1', 'Baulera de test', 'DISPONIBLE', NULL, 1),
 (1, 1, 'T-2', 'Baulera de test', 'DISPONIBLE', NULL, 1),
-(2, 1, 'T-3', 'Baulera de test', 'DISPONIBLE', NULL, 1),
-(2, 3, 'T-4', 'Baulera de test', 'DISPONIBLE', NULL, 1),
-(2, 1, 'T-5', 'Baulera de test', 'DISPONIBLE', NULL, 1),
-(2, 1, 'T-6', 'Baulera de test', 'DISPONIBLE', NULL, 1),
-(3, 2, 'T-7', 'Baulera de test', 'DISPONIBLE', NULL, 1),
-(3, 2, 'T-8', 'Baulera de test', 'DISPONIBLE', NULL, 1),
-(4, 1, 'T-9', 'Baulera de test', 'DISPONIBLE', NULL, 1),
-(4, 3, 'T-10', 'Baulera de test', 'DISPONIBLE', NULL, 1),
-(5, 2, 'T-11', 'Baulera de test', 'DISPONIBLE', NULL, 1),
-(6, 3, 'T-12', 'Baulera de test', 'DISPONIBLE', NULL, 1);
+(1, 2, 'T-3', 'Baulera de test', 'DISPONIBLE', NULL, 1),
+(3, 2, 'T-4', 'Baulera de test', 'DISPONIBLE', NULL, 1),
+(1, 2, 'T-5', 'Baulera de test', 'DISPONIBLE', NULL, 1),
+(1, 2, 'T-6', 'Baulera de test', 'DISPONIBLE', NULL, 1),
+(2, 3, 'T-7', 'Baulera de test', 'DISPONIBLE', NULL, 1),
+(2, 3, 'T-8', 'Baulera de test', 'DISPONIBLE', NULL, 1),
+(1, 4, 'T-9', 'Baulera de test', 'DISPONIBLE', NULL, 1),
+(3, 4, 'T-10', 'Baulera de test', 'DISPONIBLE', NULL, 1),
+(2, 5, 'T-11', 'Baulera de test', 'DISPONIBLE', NULL, 1),
+(3, 6, 'T-12', 'Baulera de test', 'DISPONIBLE', NULL, 1);
 
 -- Rental Amount History
 INSERT INTO rental_amount_history (rental_id, amount, start_date, end_date) VALUES
