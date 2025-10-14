@@ -13,9 +13,8 @@
   <span>{{ toastMessage }}</span>
 </div>
 
-<div class="space-y-6"></div>
 
-<div class="space-y-6">
+<!-- <div class="space-y-6"> -->
   <!-- <div class="grid w-full grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
     <button (click)="activeTab = 'clientes'" [ngClass]="{ 'bg-white text-gray-900 shadow-sm': activeTab === 'clientes' }" class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold transition-all">
       <app-icon name="users" class="h-4 w-4"></app-icon> Gestión de Clientes
@@ -142,12 +141,12 @@
             <app-icon name="user-x" class="h-4 w-4"></app-icon> Ver Dados de
             Baja
           </button>
-          <button
+          <!-- <button
             (click)="handleResetFilters()"
             class="px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-2"
           >
             Limpiar Filtros
-          </button>
+          </button> -->
         </div>
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
@@ -165,7 +164,7 @@
               </option>
             </select>
           </div>
-          <div class="text-sm text-gray-600">
+          <!-- <div class="text-sm text-gray-600">
             Mostrando
             {{
               clientes.length > 0
@@ -180,7 +179,7 @@
               )
             }}
             de {{ totalClientes }} clientes
-          </div>
+          </div> -->
         </div>
       </div>
 
@@ -303,7 +302,7 @@
       </div>
     </div>
   </div>
-</div>
+<!-- </div> -->
 
 <app-create-client-modal 
   *ngIf="showNewClientModal"

@@ -25,7 +25,7 @@ export class SidebarComponent {
     { path: '/clients', title: 'Clientes', icon: 'users' },
     { path: '/finances', title: 'Finanzas', icon: 'dollar-sign' },
     { path: '/communications', title: 'Comunicaciones', icon: 'message-circle' },
-    { path: '/reports', title: 'Reportes', icon: 'file-text' },
+    // { path: '/reports', title: 'Reportes', icon: 'file-text' },
     { path: '/settings', title: 'Configuración', icon: 'settings' }
   ];
 
