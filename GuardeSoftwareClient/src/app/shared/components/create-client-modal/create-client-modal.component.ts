@@ -36,7 +36,7 @@ import { ClientService } from '../../../core/services/client-service/client.serv
 @Component({
   selector: 'app-create-client-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, IconComponent, CurrencyPipe],
+  imports: [CommonModule, ReactiveFormsModule, IconComponent],
   templateUrl: './create-client-modal.component.html',
 })
 export class CreateClientModalComponent implements OnInit {
