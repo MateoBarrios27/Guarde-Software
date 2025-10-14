@@ -80,6 +80,27 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpGet("detailed")]
+        public async Task<IActionResult> GetDetailedPayments()
+        {
+            try
+            {
+                List<DetailedPaymentDto> payments = await _paymentService.GetDetailedPaymentsAsync();
+
+                return Ok(payments);
+            }
+
+            catch (ArgumentException argEx)
+            {
+                return BadRequest(argEx.Message);
+            }
+
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error getting payments: {ex.Message}");
+            }
+        }
+
         [HttpPost]
         public async Task<ActionResult<Payment>> CreatePaymentTransaction([FromBody] CreatePaymentTransaction dto)
         {

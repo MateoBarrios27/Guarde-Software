@@ -13,5 +13,7 @@ namespace GuardeSoftwareAPI.Services.payment
 		Task<bool> CreatePayment(Payment payment);
 
 		Task<bool> CreatePaymentWithMovementAsync(CreatePaymentTransaction dto);
+		Task<List<DetailedPaymentDto>> GetDetailedPaymentsAsync();
+
 	}
 }

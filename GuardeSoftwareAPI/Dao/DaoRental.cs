@@ -370,6 +370,7 @@ namespace GuardeSoftwareAPI.Dao
 
             return await accessDB.GetTableAsync("pending_rentals", query);
         }
+        
 
 
 

@@ -23,6 +23,7 @@ namespace GuardeSoftwareAPI.Dao
         //     return await accessDB.GetTableAsync("payments", query);
         // }
 
+        //CAMBIAR ESTE METODO QUE TRAE SOLO LOS PAGOS DEL MES, HACERLO A PARTE
         public async Task<DataTable> GetPayments()
         {
             string query = @"
@@ -111,6 +112,33 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.GetTableAsync("payments", query, parameters);
 
         }
+
+        public async Task<DataTable> GetDetailedPaymentsAsync()
+        {
+            string query = @"
+                SELECT 
+                    p.payment_id,
+                    c.first_name + ' ' + c.last_name AS client_name,
+                    c.payment_identifier,
+                    ISNULL(l.identifier, '') AS locker_identifier,
+                    p.amount,
+                    p.payment_date,
+                    pm.name AS payment_method_name,
+                    ISNULL(am.concept, 'Pago de alquiler') AS concept,
+                    am.movement_type
+                FROM payments p
+                INNER JOIN clients c ON p.client_id = c.client_id
+                LEFT JOIN payment_methods pm ON p.payment_method_id = pm.payment_method_id
+                LEFT JOIN account_movements am ON p.payment_id = am.payment_id
+                LEFT JOIN rentals r ON p.client_id = r.client_id
+                LEFT JOIN lockers l ON r.rental_id = l.rental_id
+                WHERE am.movement_type = 'CREDITO'   -- 👈 filtro agregado
+                ORDER BY p.payment_date DESC";
+
+            return await accessDB.GetTableAsync("detailed_payments", query);
+        }
+
+
         
     }
 }
