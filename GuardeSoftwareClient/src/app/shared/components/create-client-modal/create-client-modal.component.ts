@@ -122,7 +122,7 @@ export class CreateClientModalComponent implements OnInit {
       codigoPostal: [''],
       provincia: ['', Validators.required],
       condicionIVA: [null, Validators.required],
-      metodoPago: ['efectivo'],
+      metodoPago: [null, Validators.required],
       documento: [null, Validators.required],
       observaciones: [''],
       lockersAsignados: this.fb.array([], Validators.required),

@@ -51,7 +51,7 @@
               >
               <input
                 formControlName="numeroIdentificacion"
-                placeholder="Ej: CLI-001 (Se auto-genera si se deja vacío)"
+                placeholder="Ej: 0.14 (Se auto-genera si se deja vacío)"
                 class="w-full mt-1 p-2 border rounded-md"
               />
             </div>
@@ -106,13 +106,15 @@
                 </select>
               </div>
               <div>
-                <label class="text-sm font-medium text-blue-700"
-                  >Método de Pago</label
-                ><select
+                <label class="text-sm font-medium text-blue-700">Método de Pago *</label>
+                <select
                   formControlName="metodoPago"
                   class="w-full mt-1 p-2 border rounded-md bg-white"
                 >
-                  <option>Efectivo</option>
+                  <option [ngValue]="null" disabled>Seleccionar método</option>
+                  <option *ngFor="let method of paymentMethods" [ngValue]="method">
+                    {{ method.name }}
+                  </option>
                 </select>
               </div>
             </div>
