@@ -295,6 +295,14 @@ namespace GuardeSoftwareAPI.Dao
                     JOIN lockers l ON r.rental_id = l.rental_id
                     GROUP BY r.client_id
                 ) locker_sub ON c.client_id = locker_sub.client_id
+                LEFT JOIN (
+                    SELECT 
+                        r.client_id, 
+                        SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid
+                    FROM rentals r
+                    WHERE r.active = 1
+                    GROUP BY r.client_id
+                ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
             ";
 
             var whereClause = new StringBuilder("WHERE 1=1 ");
@@ -325,7 +333,13 @@ namespace GuardeSoftwareAPI.Dao
                     c.preferred_payment_method_id AS PreferredPaymentMethodId,
                     c.dni AS Document, 
                     locker_sub.lockers as Lockers,
-                    c.active AS Active
+                    c.active AS Active,
+                    CASE
+                        WHEN c.active = 0 THEN 'Baja'
+                        WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso'
+                        WHEN ISNULL(balance_sub.balance, 0) <= 0 THEN 'Al día'
+                        ELSE 'Pendiente'
+                    END AS Status
             ").Append(baseQuery).Append(whereClause);
 
             var validSortFields = new Dictionary<string, string> {
@@ -364,6 +378,7 @@ namespace GuardeSoftwareAPI.Dao
                     Phone = row["Phone"]?.ToString(),
                     City = row["City"]?.ToString() ?? string.Empty,
                     Balance = Convert.ToDecimal(row["Balance"]),
+                    Status = row["Status"]?.ToString() ?? "Pendiente",
                     PreferredPaymentMethodId = row["PreferredPaymentMethodId"] != DBNull.Value ? Convert.ToInt32(row["PreferredPaymentMethodId"]) : null,
                     Document = row["Document"]?.ToString(),
                     Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,

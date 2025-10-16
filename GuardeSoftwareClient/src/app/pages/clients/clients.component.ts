@@ -169,8 +169,17 @@ export class ClientsComponent implements OnInit {
       Pendiente: 'bg-yellow-100 text-yellow-800',
       Baja: 'bg-gray-200 text-gray-800',
     };
-
     return colors[estado] || 'bg-gray-100 text-gray-800';
+  }
+
+  getEstadoIcon(estado: string): string {
+    const icons: Record<string, string> = {
+      'Al día': 'check-circle',
+      Moroso: 'alert-triangle',
+      Pendiente: 'clock',
+      Baja: 'user-x',
+    };
+    return icons[estado] || 'help-circle'; // Un ícono por defecto
   }
 
   getDocumentoBadgeColor(documento: string): string {

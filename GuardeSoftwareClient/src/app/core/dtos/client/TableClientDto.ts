@@ -8,6 +8,7 @@ export interface TableClient {
   phone: string | null;
   city: string;
   balance: number;
+  status: string; // "Al día", "Moroso", "Pendiente", "Baja"
   preferredPaymentMethodId: number | null;
   document: string | null;
   lockers: string[] | null;

@@ -164,7 +164,7 @@
               </option>
             </select>
           </div>
-          <!-- <div class="text-sm text-gray-600">
+          <div class="text-sm text-gray-600">
             Mostrando
             {{
               clientes.length > 0
@@ -179,7 +179,7 @@
               )
             }}
             de {{ totalClientes }} clientes
-          </div> -->
+          </div>
         </div>
       </div>
 
@@ -264,10 +264,15 @@
               <!-- <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="getDocumentoBadgeColor(cliente.document || '')">{{ cliente.document }}</span></td> -->
               <td class="p-4">
                 <span
-                  class="text-xs font-semibold px-2 py-1 rounded-full"
-                  [ngClass]="getEstadoBadgeColor('Al día')"
-                  >Al día</span
+                  class="inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full"
+                  [ngClass]="getEstadoBadgeColor(cliente.status)"
                 >
+                  <app-icon
+                    [name]="getEstadoIcon(cliente.status)"
+                    class="h-3 w-3"
+                  ></app-icon>
+                  {{ cliente.status }}
+                </span>
               </td>
               <td class="p-4 font-medium text-gray-800">
                 {{
@@ -281,7 +286,7 @@
                     (click)="openEditClientModal(cliente.id)"
                     class="p-1 hover:text-blue-600"
                   >
-                    <app-icon name="edit" class="h-4 w-4"></app-icon>
+                    <app-icon name="Edit" class="h-4 w-4"></app-icon>
                   </button>
                   <!-- <button class="p-1 hover:text-red-600"><app-icon name="trash" class="h-4 w-4"></app-icon></button> -->
                 </div>

@@ -10,6 +10,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public string? Phone { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
         public decimal Balance { get; set; }
+        public string Status { get; set; } = string.Empty; // 'Al Día', 'Pendiente', 'Moroso', 'Baja'
         public int? PreferredPaymentMethodId { get; set; }
         public string? Document { get; set; } = string.Empty;
         public List<string>? Lockers { get; set; } = null;
