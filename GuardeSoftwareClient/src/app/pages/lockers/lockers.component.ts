@@ -8,6 +8,7 @@ import { WarehouseService } from '../../core/services/warehouse-service/warehous
 import { NgxPaginationModule } from 'ngx-pagination';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { LockerUpdateDTO } from '../../core/dtos/locker/LockerUpdateDTO';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-lockers',
@@ -85,17 +86,64 @@ export class LockersComponent implements OnInit {
   }
 
   deleteLocker(locker: Locker): void {
+
     if (!locker.id) return;
+
     if(locker.status == 'OCUPADO') {
-      alert('⚠️ No puedes eliminar un locker ocupado');
+       Swal.fire({
+            icon: 'warning',
+            title: 'Error al eliminar locker',
+            text: 'No puedes dar de baja un locker actualmente ocupado.',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#2563eb'
+          });
       return;
     }
-    if (confirm(`¿Seguro que quieres borrar el locker ${locker.identifier}?`)) {
-      this.lockerService.deleteLocker(locker.id).subscribe({
-        next: () => setTimeout(() => this.loadLockers(), 100),
-        error: (err) => console.error('Error eliminando locker', err)
-      });
-    }
+
+    Swal.fire({
+        title: '¿Seguro que quieres dar de baja la baulera?',
+        html: `<p class="text-gray-700">Deposito: <b>${this.getWarehouseName(locker.warehouseId)}</b></p>
+        <p class="text-gray-700">Identificador: <b>${locker.identifier}</b></p>`,
+        icon: 'question',
+        showCancelButton: true, 
+        confirmButtonText: 'Confirmar',
+        cancelButtonText: 'Cancelar',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton:
+            'bg-blue-600 text-white px-4 py-2 p-2 rounded-md hover:bg-blue-700 transition-all duration-150',
+          cancelButton:
+            'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
+           actions:
+            'flex justify-center gap-4 mt-4',
+          popup: 'rounded-xl shadow-lg'
+        }
+        }).then((result) => {
+          if (result.isConfirmed) {
+          this.lockerService.deleteLocker(locker.id).subscribe({
+            next: () => {
+              Swal.fire({
+                          title: 'Baulera eliminada',
+                          text: 'la baulera fue dada de baja correctamente.',
+                          icon: 'success',
+                          confirmButtonText: 'Aceptar',
+                          confirmButtonColor: '#2563eb'
+                        });
+              setTimeout(() => this.loadLockers(), 100)
+            },
+            error: (err) => {
+              console.error('Error eliminando baulera', err)
+              Swal.fire({
+                          title: 'Error',
+                          text: 'Hubo un problema al eliminar la baulera.',
+                          icon: 'error',
+                          confirmButtonText: 'Aceptar',
+                          confirmButtonColor: '#2563eb'
+                        });
+            }
+          });
+        }
+        });
   }
 
   
@@ -147,24 +195,51 @@ export class LockersComponent implements OnInit {
   saveLockerUpdated(id: number,dto: LockerUpdateDTO): void{
 
     if (!dto.identifier || dto.identifier.trim() === '') {
-      alert('⚠️ Debes ingresar un identificador antes de guardar el pago.');
+      Swal.fire({
+            icon: 'warning',
+            title: 'Error actualizando baulera',
+            text: 'Debes ingresar un identificador antes de guardar.',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#2563eb'
+          });
       return;
     }
 
     const hasChanged = JSON.stringify(dto) !== JSON.stringify(this.lockerOriginal);
 
     if (!hasChanged) {
-      alert('⚠️ No se detectaron cambios para actualizar.');
+      Swal.fire({
+            icon: 'warning',
+            title: 'Error actualizando baulera',
+            text: 'No se detectaron cambios para actualizar..',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#2563eb'
+          });
       return;
     }
 
     this.lockerService.updateLocker(id,dto).subscribe({
       next: () => {
-        alert('✅ locker actualizado correctamente.');
+        Swal.fire({
+                          title: 'Baulera actualizada',
+                          text: 'la baulera fue actualizada correctamente.',
+                          icon: 'success',
+                          confirmButtonText: 'Aceptar',
+                          confirmButtonColor: '#2563eb'
+                        });
         this.closeUpdateLockerModal();
         setTimeout(() => this.loadLockers(), 100); 
       },
-      error: (err) => console.error('Error locker update', err)
+      error: (err) => {
+        console.error('Error locker update', err)
+        Swal.fire({
+                          title: 'Error',
+                          text: 'Hubo un problema al actualizar la baulera.',
+                          icon: 'error',
+                          confirmButtonText: 'Aceptar',
+                          confirmButtonColor: '#2563eb'
+                        });
+      }
     });
   }
 }
