@@ -83,8 +83,15 @@ export class DashboardComponent {
   LoadPayments(): void{
     this.paymentService.getPayments().subscribe({
       next: (data) => {
-        this.payments = data;
-        this.filteredPayments = data;
+        const sorted = data.sort((a, b) => {
+        const dateA = new Date(a.paymentDate).getTime();
+        const dateB = new Date(b.paymentDate).getTime();
+        return dateB - dateA; 
+      });
+
+      this.payments = sorted;
+      this.filteredPayments = sorted;
+        console.log(data);
       },
        error: (err) => console.error('Error al cargar payments:', err)
     });
@@ -94,7 +101,6 @@ export class DashboardComponent {
     this.paymentMethodService.getPaymentMethods().subscribe({
       next: (data) =>{
         this.paymentMethods = data;
-        console.log(data);
       },
       error: (err) => console.error('error al cargar los metodos de pago',err)
     });
@@ -184,6 +190,12 @@ filterPayments(): void {
       paymentIdentifier.includes(term) ||
       paymentMethodId.includes(term)
     );
+  });
+
+  this.filteredPayments.sort((a, b) => {
+    const dateA = new Date(a.paymentDate).getTime();
+    const dateB = new Date(b.paymentDate).getTime();
+    return dateB - dateA;
   });
 }
   

@@ -114,6 +114,7 @@
               <tr class="border-b">
                 <th class="px-5 py-3 text-left font-medium">Cliente</th>
                 <th class="px-5 py-3 text-left font-medium">Identificador</th>
+                <th class="px-5 py-3 text-left font-medium">Fecha</th>
                 <th class="px-5 py-3 text-left font-medium">Método de pago</th>
                 <th class="px-5 py-3 text-left font-medium">Monto</th>
               </tr>
@@ -123,6 +124,7 @@
               <tr *ngFor="let item of filteredPayments | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'paymenthistory' }" class="border-b hover:bg-gray-50 transition">
                 <td class="px-5 py-3 font-medium text-gray-800">{{ item.clientName }}</td>
                 <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier }}</td>
+                <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentDate | date:'dd/MM/yyyy' }}</td>
                 <td class="px-5 py-3 text-gray-700">{{getNamePaymentMethodById(item.paymentMethodId)}}</td>
                 <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.amount | number:'1.2-2' }}</td>
               </tr>
