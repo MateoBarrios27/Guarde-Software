@@ -86,14 +86,19 @@ export class LockersComponent implements OnInit {
 
   deleteLocker(locker: Locker): void {
     if (!locker.id) return;
+    if(locker.status == 'OCUPADO') {
+      alert('⚠️ No puedes eliminar un locker ocupado');
+      return;
+    }
     if (confirm(`¿Seguro que quieres borrar el locker ${locker.identifier}?`)) {
       this.lockerService.deleteLocker(locker.id).subscribe({
-        next: () => this.loadLockers(),
+        next: () => setTimeout(() => this.loadLockers(), 100),
         error: (err) => console.error('Error eliminando locker', err)
       });
     }
   }
 
+  
   get ocupados(): number {
     return this.filteredLockers.filter(l => l.status === 'OCUPADO').length;
   }
@@ -157,6 +162,7 @@ export class LockersComponent implements OnInit {
       next: () => {
         alert('✅ locker actualizado correctamente.');
         this.closeUpdateLockerModal();
+        setTimeout(() => this.loadLockers(), 100); 
       },
       error: (err) => console.error('Error locker update', err)
     });
