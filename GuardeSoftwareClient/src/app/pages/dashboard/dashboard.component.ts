@@ -10,10 +10,11 @@ import { CreatePaymentDTO } from '../../core/dtos/payment/CreatePaymentDTO';
 import { NgxPaginationModule } from 'ngx-pagination';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
 import { PaymentMethod } from '../../core/models/payment-method';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, IconComponent, FormsModule, NgxPaginationModule],
+  imports: [CommonModule, IconComponent, FormsModule, NgxPaginationModule,],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
@@ -140,24 +141,74 @@ export class DashboardComponent {
   savePayment(dto: CreatePaymentDTO): void {
 
     if (!dto.amount || dto.amount <= 0) {
-      alert('⚠️ Debes ingresar un monto válido antes de guardar el pago.');
+      Swal.fire({
+      icon: 'warning',
+      title: 'Monto inválido',
+      text: 'Debes ingresar un monto válido antes de guardar el pago.',
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#2563eb', 
+    });
       return;
     }
 
     if (!dto.paymentMethodId) {
-      alert('⚠️ Debes seleccionar un método de pago.');
+       Swal.fire({
+      icon: 'warning',
+      title: 'Método de pago requerido',
+      text: 'Debes seleccionar un método de pago antes de continuar.',
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#2563eb'
+    });
       return;
     }
-     
-    this.paymentService.CreatePayment(dto).subscribe({
-      next: () => {
-        alert('✅ Pago registrado correctamente.');
-        this.closePaymentModal();
-        setTimeout(() => this.LoadPayments(), 100); 
-        setTimeout(() => this.LoadPedingRentals(), 100);
-      },
-      error: (err) => console.error('Error al guardar payment:', err)
+    
+    Swal.fire({
+    title: '¿Deseas registrar este pago?',
+    html: `<p class="text-gray-700">Medio de pago: <b>${this.getNamePaymentMethodById(dto.paymentMethodId)}</b></p>
+           <p class="text-gray-700">Importe: <b>$${dto.amount}</b></p>`,
+    icon: 'question',
+    showCancelButton: true, 
+    confirmButtonText: 'Confirmar',
+    cancelButtonText: 'Cancelar',
+    buttonsStyling: false,
+    customClass: {
+      confirmButton:
+        'bg-blue-600 text-white px-4 py-2 p-2 rounded-md hover:bg-blue-700 transition-all duration-150',
+      cancelButton:
+        'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
+       actions:
+        'flex justify-center gap-4 mt-4',
+      popup: 'rounded-xl shadow-lg'
+    }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.paymentService.CreatePayment(dto).subscribe({
+          next: () => {
+            Swal.fire({
+            title: 'Pago registrado',
+            text: 'El pago fue registrado correctamente.',
+            icon: 'success',
+            confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#2563eb'
+          });
+            this.closePaymentModal();
+            setTimeout(() => this.LoadPayments(), 100); 
+            setTimeout(() => this.LoadPedingRentals(), 100);
+          },
+          error: (err) => {
+          console.error('Error al guardar payment:', err);
+          Swal.fire({
+            title: 'Error',
+            text: 'Hubo un problema al registrar el pago.',
+            icon: 'error',
+            confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#2563eb'
+          });
+          }
+        });  
+      }
     });
+    
   }
 
  filterPendingRentals(): void {
