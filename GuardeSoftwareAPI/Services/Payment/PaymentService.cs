@@ -163,6 +163,7 @@ namespace GuardeSoftwareAPI.Services.payment
 					ClientName = row["client_name"]?.ToString() ?? string.Empty,
 					PaymentIdentifier = row["payment_identifier"]?.ToString() ?? string.Empty,
 					LockerIdentifier = row["locker_identifier"]?.ToString() ?? string.Empty,
+					Warehouse_name = row["Warehouse_name"]?.ToString() ?? string.Empty,
 					Amount = Convert.ToDecimal(row["amount"]),
 					PaymentDate = Convert.ToDateTime(row["payment_date"]),
 					PaymentMethodName = row["payment_method_name"]?.ToString() ?? string.Empty,

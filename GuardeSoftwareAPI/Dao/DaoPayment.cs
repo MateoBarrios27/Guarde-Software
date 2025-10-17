@@ -121,6 +121,7 @@ namespace GuardeSoftwareAPI.Dao
                     c.first_name + ' ' + c.last_name AS client_name,
                     c.payment_identifier,
                     ISNULL(l.identifier, '') AS locker_identifier,
+                    ISNULL(w.name, '') AS warehouse_name, 
                     p.amount,
                     p.payment_date,
                     pm.name AS payment_method_name,
@@ -132,7 +133,8 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN account_movements am ON p.payment_id = am.payment_id
                 LEFT JOIN rentals r ON p.client_id = r.client_id
                 LEFT JOIN lockers l ON r.rental_id = l.rental_id
-                WHERE am.movement_type = 'CREDITO'   -- 👈 filtro agregado
+                 LEFT JOIN warehouses w ON l.warehouse_id = w.warehouse_id 
+                WHERE am.movement_type = 'CREDITO' 
                 ORDER BY p.payment_date DESC";
 
             return await accessDB.GetTableAsync("detailed_payments", query);
