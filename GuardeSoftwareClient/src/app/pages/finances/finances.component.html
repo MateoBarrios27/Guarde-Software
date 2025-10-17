@@ -89,12 +89,21 @@
         class="p-2 border border-gray-300 rounded-md text-sm bg-white"
       />
 
+      <div class="flex justify-end">
+        <select [(ngModel)]="itemsPerPage" (change)="page = 1"
+                class="p-2 border border-gray-300 rounded bg-white text-gray-800">
+          <option *ngFor="let size of [5, 10, 20, 50]" [value]="size">{{ size }}</option>
+        </select>
+      </div>
+
       <button
         (click)="resetFilters()"
         class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md px-3 py-1"
       >
         Limpiar filtros
       </button>
+
+      
     </div>
   </div>
 
@@ -105,6 +114,7 @@
         <tr class="border-b">
           <th class="py-3 px-4 text-left font-medium">Cliente</th>
           <th class="py-3 px-4 text-left font-medium">Identificador</th>
+          <th class="py-3 px-4 text-left font-medium">Deposito</th>
           <th class="py-3 px-4 text-left font-medium">Locker</th>
           <th class="py-3 px-4 text-left font-medium">Método</th>
           <th class="py-3 px-4 text-left font-medium">Concepto</th>
@@ -115,11 +125,12 @@
 
       <tbody>
         <tr
-          *ngFor="let p of filteredPayments"
+          *ngFor="let p of filteredPayments| paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'payments' }"
           class="border-b hover:bg-gray-50 transition"
         >
           <td class="py-3 px-4 font-medium text-gray-800">{{ p.clientName }}</td>
           <td class="py-3 px-4 text-gray-700">{{ p.paymentIdentifier }}</td>
+          <td class="py-3 px-4 text-gray-700">{{ p.warehouse_name }}</td>
           <td class="py-3 px-4 text-gray-700">{{ p.lockerIdentifier || '—' }}</td>
           <td class="py-3 px-4 text-gray-700">{{ p.paymentMethodName || '—' }}</td>
           <td class="py-3 px-4 text-gray-700">{{ p.concept }}</td>
@@ -137,6 +148,17 @@
           </td>
         </tr>
       </tbody>
+
+      
     </table>
+
+    <pagination-template [id]="'payments'" #p="paginationApi" (pageChange)="page = $event">
+        <div class="flex justify-center items-center gap-3">
+          <button (click)="p.previous()" [disabled]="p.isFirstPage()" class="px-2 py-1 border rounded disabled:opacity-40">«</button>
+          <span class="px-3 py-1 border rounded">{{ p.getCurrent() }}</span>
+          <button (click)="p.next()" [disabled]="p.isLastPage()" class="px-2 py-1 border rounded disabled:opacity-40">»</button>
+        </div>
+      </pagination-template>
+
   </div>
 </div>

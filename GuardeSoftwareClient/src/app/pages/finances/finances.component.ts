@@ -9,10 +9,11 @@ import { DetailedPaymentDTO } from '../../core/dtos/payment/DetailedPaymentDTO';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { NgxPaginationModule } from 'ngx-pagination';
 
 @Component({
   selector: 'app-finances',
-  imports: [FormsModule, CommonModule, IconComponent],
+  imports: [FormsModule, CommonModule, IconComponent,NgxPaginationModule],
   templateUrl: './finances.component.html',
   styleUrl: './finances.component.css'
 })
@@ -31,6 +32,9 @@ export class FinancesComponent{
 
   filteredPayments: DetailedPaymentDTO[] = [];
   searchPayment: string = '';
+
+  page: number = 1;
+  itemsPerPage: number = 10;
 
   ngOnInit(): void {
     this.LoadPayments();
@@ -118,29 +122,38 @@ export class FinancesComponent{
       return uniqueClients.size;
     }
 
-    filterPayments(): void {
-      const term = this.searchPayment.toLowerCase().trim();
-      const method = this.selectedMethodFilter.toLowerCase();
-      const month = this.selectedMonth;
+   filterPayments(): void {
+  const term = this.searchPayment.toLowerCase().trim();
+  const method = this.selectedMethodFilter.toLowerCase();
+  const month = this.selectedMonth;
 
-      this.filteredPayments = this.payments.filter(p => {
-        const matchesSearch =
-          p.clientName.toLowerCase().includes(term) ||
-          p.paymentIdentifier.toLowerCase().includes(term);
+  this.filteredPayments = this.payments.filter(p => {
+    const clientName = p.clientName?.toLowerCase() || '';
+    const paymentIdentifier = p.paymentIdentifier?.toLowerCase() || '';
+    const warehouseName = p.warehouse_name?.toLowerCase() || '';
+    const lockerIdentifier = p.lockerIdentifier?.toLowerCase() || '';
+    const paymentMethodName = p.paymentMethodName?.toLowerCase() || '';
 
-        const matchesMethod =
-          !method || p.paymentMethodName?.toLowerCase() === method;
+    const matchesSearch =
+      clientName.includes(term) ||
+      paymentIdentifier.includes(term) ||
+      warehouseName.includes(term) ||   // 🆕 filtra por depósito
+      lockerIdentifier.includes(term);  // 🆕 filtra por locker
 
-        const matchesMonth =
-          !month ||
-          new Date(p.paymentDate).toISOString().startsWith(month);
+    const matchesMethod =
+      !method || paymentMethodName === method;
 
-        return matchesSearch && matchesMethod && matchesMonth;
-      });
+    const matchesMonth =
+      !month ||
+      new Date(p.paymentDate).toISOString().startsWith(month);
 
-      this.filteredPayments.sort(
-        (a, b) =>
-          new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
-      );
-    }
+    return matchesSearch && matchesMethod && matchesMonth;
+  });
+
+  this.filteredPayments.sort(
+    (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
+  );
+}
+
+
 }
