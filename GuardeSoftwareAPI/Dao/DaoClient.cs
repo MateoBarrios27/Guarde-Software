@@ -259,106 +259,117 @@ namespace GuardeSoftwareAPI.Dao
         //Sure this method needs a improvement to calculate the balance and payment status
         public async Task<(List<GetTableClientsDto> clients, int totalCount)> GetTableClientsAsync(GetClientsRequestDto request)
         {
-            var queryBuilder = new StringBuilder();
-            var countQueryBuilder = new StringBuilder();
             var filterParameters = new List<SqlParameter>();
-
-
-            string baseQuery = @"
-                FROM 
-                    clients c
-                OUTER APPLY (
-                    SELECT TOP 1 e.address
-                    FROM emails e
-                    WHERE e.client_id = c.client_id AND e.active = 1
-                    ORDER BY e.email_id
-                ) AS first_email
-                OUTER APPLY (
-                    SELECT TOP 1 p.number
-                    FROM phones p
-                    WHERE p.client_id = c.client_id AND p.active = 1
-                    ORDER BY p.phone_id
-                ) AS first_phone
-                LEFT JOIN 
-                    addresses a ON c.client_id = a.client_id
-                LEFT JOIN (
-                    SELECT 
-                        r.client_id, 
-                        SUM(am.amount * CASE WHEN am.movement_type = 'DEBITO' THEN 1 ELSE -1 END) as balance
-                    FROM rentals r
-                    JOIN account_movements am ON r.rental_id = am.rental_id
-                    GROUP BY r.client_id
-                ) balance_sub ON c.client_id = balance_sub.client_id
-                LEFT JOIN (
-                    SELECT r.client_id, STRING_AGG(l.identifier, ', ') as lockers
-                    FROM rentals r 
-                    JOIN lockers l ON r.rental_id = l.rental_id
-                    GROUP BY r.client_id
-                ) locker_sub ON c.client_id = locker_sub.client_id
-                LEFT JOIN (
-                    SELECT 
-                        r.client_id, 
-                        SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid
-                    FROM rentals r
-                    WHERE r.active = 1
-                    GROUP BY r.client_id
-                ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
-            ";
-
             var whereClause = new StringBuilder("WHERE 1=1 ");
+
+            // --- LÓGICA DE FILTROS ---
             if (request.Active.HasValue)
             {
-                whereClause.Append("AND c.active = @Active ");
+                whereClause.Append("AND Active = @Active ");
                 filterParameters.Add(new SqlParameter("@Active", request.Active.Value));
             }
+
+            // Filtro del buscador potente
             if (!string.IsNullOrEmpty(request.SearchTerm))
             {
-                whereClause.Append("AND (c.first_name LIKE @SearchTerm OR c.last_name LIKE @SearchTerm OR first_email.address LIKE @SearchTerm) ");
+                whereClause.Append(@"
+                    AND (
+                        ISNULL(FirstName, '') + ' ' + ISNULL(LastName, '') LIKE @SearchTerm OR
+                        ISNULL(Email, '') LIKE @SearchTerm OR
+                        ISNULL(Document, '') LIKE @SearchTerm OR
+                        CAST(PaymentIdentifier AS NVARCHAR(50)) LIKE @SearchTerm
+                    ) ");
                 filterParameters.Add(new SqlParameter("@SearchTerm", $"%{request.SearchTerm}%"));
             }
 
-            countQueryBuilder.Append("SELECT COUNT(c.client_id) ").Append(baseQuery).Append(whereClause);
-            int totalCount = Convert.ToInt32(await accessDB.ExecuteScalarAsync(countQueryBuilder.ToString(), filterParameters.ToArray()));
+            // Filtro de estado (Moroso, Al día, etc.)
+            if (!string.IsNullOrEmpty(request.StatusFilter) && request.StatusFilter != "Todos")
+            {
+                whereClause.Append("AND Status = @StatusFilter ");
+                filterParameters.Add(new SqlParameter("@StatusFilter", request.StatusFilter));
+            }
 
-            queryBuilder.Append(@"
-                SELECT
-                    c.client_id AS Id,
-                    c.payment_identifier AS PaymentIdentifier,
-                    c.first_name AS FirstName,
-                    c.last_name AS LastName,
-                    first_email.address AS Email,  -- Se usa el alias de la subconsulta
-                    first_phone.number AS Phone,   -- Se usa el alias de la subconsulta
-                    a.city AS City,
-                    ISNULL(balance_sub.balance, 0) as Balance,
-                    c.preferred_payment_method_id AS PreferredPaymentMethodId,
-                    c.dni AS Document, 
-                    locker_sub.lockers as Lockers,
-                    c.active AS Active,
-                    CASE
-                        WHEN c.active = 0 THEN 'Baja'
-                        WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso'
-                        WHEN ISNULL(balance_sub.balance, 0) <= 0 THEN 'Al día'
-                        ELSE 'Pendiente'
-                    END AS Status
-            ").Append(baseQuery).Append(whereClause);
-
-            var validSortFields = new Dictionary<string, string> {
-                { "FirstName", "c.first_name" }, { "LastName", "c.last_name" }
-            };
-            string sortColumn = validSortFields.ContainsKey(request.SortField) ? validSortFields[request.SortField] : "c.client_id";
-            string sortDirection = request.SortDirection.Equals("desc", StringComparison.OrdinalIgnoreCase) ? "DESC" : "ASC";
-            queryBuilder.Append($" ORDER BY {sortColumn} {sortDirection} ");
-            queryBuilder.Append("OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY");
+            // --- CONSTRUCCIÓN DE LA QUERY CON CTE ---
+            string fullQuery = $@"
+                WITH ClientData AS (
+                    SELECT
+                        c.client_id AS Id,
+                        c.payment_identifier AS PaymentIdentifier,
+                        c.first_name AS FirstName,
+                        c.last_name AS LastName,
+                        first_email.address AS Email,
+                        first_phone.number AS Phone,
+                        a.city AS City,
+                        ISNULL(balance_sub.balance, 0) as Balance,
+                        c.preferred_payment_method_id AS PreferredPaymentMethodId,
+                        c.dni AS Document, 
+                        locker_sub.lockers as Lockers,
+                        c.active AS Active,
+                        CASE
+                            WHEN c.active = 0 THEN 'Baja'
+                            WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso'
+                            WHEN ISNULL(balance_sub.balance, 0) <= 0 THEN 'Al día'
+                            ELSE 'Pendiente'
+                        END AS Status
+                    FROM 
+                        clients c
+                    OUTER APPLY ( SELECT TOP 1 e.address FROM emails e WHERE e.client_id = c.client_id AND e.active = 1 ORDER BY e.email_id ) AS first_email
+                    OUTER APPLY ( SELECT TOP 1 p.number FROM phones p WHERE p.client_id = c.client_id AND p.active = 1 ORDER BY p.phone_id ) AS first_phone
+                    LEFT JOIN addresses a ON c.client_id = a.client_id
+                    LEFT JOIN ( SELECT r.client_id, SUM(am.amount * CASE WHEN am.movement_type = 'DEBITO' THEN 1 ELSE -1 END) as balance FROM rentals r JOIN account_movements am ON r.rental_id = am.rental_id GROUP BY r.client_id ) balance_sub ON c.client_id = balance_sub.client_id
+                    LEFT JOIN ( SELECT r.client_id, STRING_AGG(l.identifier, ', ') as lockers FROM rentals r JOIN lockers l ON r.rental_id = l.rental_id GROUP BY r.client_id ) locker_sub ON c.client_id = locker_sub.client_id
+                    LEFT JOIN ( SELECT r.client_id, SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid FROM rentals r WHERE r.active = 1 GROUP BY r.client_id ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
+                ),
+                FilteredCount AS (
+                    SELECT COUNT(*) AS TotalRows FROM ClientData {whereClause}
+                )
+                SELECT * FROM ClientData, FilteredCount
+                {whereClause}
+                ORDER BY {GetSortColumn(request.SortField)} {GetSortDirection(request.SortDirection)}
+                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+            ";
 
             var dataParameters = new List<SqlParameter>();
             dataParameters.AddRange(filterParameters.Select(p => new SqlParameter(p.ParameterName, p.Value)));
             dataParameters.Add(new SqlParameter("@Offset", (request.PageNumber - 1) * request.PageSize));
             dataParameters.Add(new SqlParameter("@PageSize", request.PageSize));
 
-            DataTable dataTable = await accessDB.GetTableAsync("Clients", queryBuilder.ToString(), dataParameters.ToArray());
+            DataTable dataTable = await accessDB.GetTableAsync("Clients", fullQuery, dataParameters.ToArray());
+            
+            int totalCount = 0;
+            if (dataTable.Rows.Count > 0)
+            {
+                totalCount = Convert.ToInt32(dataTable.Rows[0]["TotalRows"]);
+            }
+            
             var clients = MapDataTableToDto(dataTable);
 
             return (clients, totalCount);
+        }
+
+        // Helper methods to avoid SQL injection
+       // En tu método GetTableClientsAsync del DAO
+
+        private string GetSortColumn(string sortField)
+        {
+            // Usamos un diccionario que ignora mayúsculas/minúsculas
+            var validSortFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) 
+            {
+                // "Clave del Front-end", "Nombre de la Columna en la CTE"
+                { "FirstName", "FirstName" },
+                { "LastName", "LastName" },
+                { "Baulera", "Lockers" },
+                { "Estado", "Status" },
+                { "Balance", "Balance" } // "Renta" en la imagen, "Balance" en el código
+            };
+            
+            // Si el campo existe en el diccionario, lo devuelve. Si no, devuelve "Id" por defecto.
+            return validSortFields.TryGetValue(sortField, out var dbColumn) ? dbColumn : "Id";
+        }
+
+        private string GetSortDirection(string sortDirection)
+        {
+            return sortDirection.Equals("desc", StringComparison.OrdinalIgnoreCase) ? "DESC" : "ASC";
         }
 
         private List<GetTableClientsDto> MapDataTableToDto(DataTable table)

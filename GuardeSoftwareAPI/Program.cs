@@ -73,7 +73,7 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(jobKey)
         .WithIdentity("ApplyDebits-Trigger")
-        .WithCronSchedule("0 06 13 * * ?")
+        .WithCronSchedule("0 14 02 * * ?")
     );
 });
 

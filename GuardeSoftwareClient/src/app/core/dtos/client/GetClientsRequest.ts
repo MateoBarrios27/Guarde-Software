@@ -4,5 +4,6 @@ export interface GetClientsRequest {
   sortField?: string;
   sortDirection?: 'asc' | 'desc';
   searchTerm?: string;
+  statusFilter?: string;
   active?: boolean;
 }

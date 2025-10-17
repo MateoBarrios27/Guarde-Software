@@ -63,7 +63,17 @@ export class ClientsComponent implements OnInit {
   public toastMessage = '';
   public toastType: 'success' | 'error' = 'success';
 
-  constructor(private clientService: ClientService) {}
+  constructor(private clientService: ClientService) 
+  {
+    // La suscripción se hace en el constructor
+    this.searchSubject.pipe(
+      debounceTime(400), // Espera 400ms después de la última pulsación
+      distinctUntilChanged() // No busca si el texto no ha cambiado
+    ).subscribe(() => {
+      this.currentPageClientes = 1; // Resetea a la primera página con cada nueva búsqueda
+      this.loadClients();
+    });
+  }
 
   ngOnInit(): void {
     this.loadClients();
@@ -74,15 +84,11 @@ export class ClientsComponent implements OnInit {
 
     const request: GetClientsRequest = {
       pageNumber: this.currentPageClientes,
-
       pageSize: this.itemsPerPageClientes,
-
       sortField: this.sortFieldClientes,
-
       sortDirection: this.sortDirectionClientes,
-
       searchTerm: this.searchClientes || undefined,
-
+      statusFilter: this.filterEstadoClientes === 'Todos' ? undefined : this.filterEstadoClientes,
       active: !this.showInactivos,
     };
 
@@ -127,10 +133,11 @@ export class ClientsComponent implements OnInit {
   }
 
   onFilterChange(): void {
-    this.currentPageClientes = 1;
-
-    this.loadClients();
-  }
+  // Ya no llama a loadClients() directamente.
+  // Solo notifica al Subject que algo cambió.
+  // La suscripción en el constructor se encargará del resto.
+  this.searchSubject.next(''); 
+}
 
   onItemsPerPageChange(): void {
     this.currentPageClientes = 1;
@@ -230,5 +237,12 @@ export class ClientsComponent implements OnInit {
     setTimeout(() => {
       this.showToast = false;
     }, 3000);
+  }
+
+  getSortIcon(field: string): string {
+    if (this.sortFieldClientes !== field) {
+      return 'arrow-up-down'; // Ícono neutral para columnas no activas
+    }
+    return this.sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down';
   }
 }

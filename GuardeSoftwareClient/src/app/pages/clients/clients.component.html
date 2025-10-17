@@ -188,27 +188,34 @@
           <thead class="text-xs text-gray-700 bg-gray-50">
             <tr class="border-b">
               <th class="p-4 text-left font-medium">
-                <button
-                  (click)="handleSort('FirstName')"
-                  class="flex items-center gap-1"
-                >
+                <button (click)="handleSort('FirstName')" class="flex items-center gap-1">
                   Cliente
-                  <app-icon
-                    [name]="
-                      sortFieldClientes === 'FirstName'
-                        ? sortDirectionClientes === 'asc'
-                          ? 'arrow-up'
-                          : 'arrow-down'
-                        : 'arrow-up-down'
-                    "
-                  ></app-icon>
+                  <app-icon [name]="getSortIcon('FirstName')"></app-icon>
                 </button>
               </th>
+
               <th class="p-4 text-left font-medium">Contacto</th>
-              <th class="p-4 text-left font-medium">Baulera</th>
-              <!-- <th class="p-4 text-left font-medium">Documento</th> -->
-              <th class="p-4 text-left font-medium">Estado</th>
-              <th class="p-4 text-left font-medium">Balance</th>
+
+              <th class="p-4 text-left font-medium">
+                <button (click)="handleSort('Baulera')" class="flex items-center gap-1">
+                  Baulera
+                  <app-icon [name]="getSortIcon('Baulera')"></app-icon>
+                </button>
+              </th>
+
+              <th class="p-4 text-left font-medium">
+                <button (click)="handleSort('Estado')" class="flex items-center gap-1">
+                  Estado
+                  <app-icon [name]="getSortIcon('Estado')"></app-icon>
+                </button>
+              </th>
+
+              <th class="p-4 text-left font-medium">
+                <button (click)="handleSort('Balance')" class="flex items-center gap-1">
+                  Balance
+                  <app-icon [name]="getSortIcon('Balance')"></app-icon>
+                </button>
+              </th>
               <th class="p-4 text-left font-medium">Acciones</th>
             </tr>
           </thead>
