@@ -147,7 +147,8 @@ export class DashboardComponent {
       next: () => {
         alert('✅ Pago registrado correctamente.');
         this.closePaymentModal();
-        this.LoadPayments();
+        setTimeout(() => this.LoadPayments(), 100); 
+        setTimeout(() => this.LoadPedingRentals(), 100);
       },
       error: (err) => console.error('Error al guardar payment:', err)
     });

@@ -123,7 +123,7 @@ namespace GuardeSoftwareAPI.Services.payment
 					ClientId = dto.ClientId,
 					PaymentMethodId = dto.PaymentMethodId,
 					Amount = dto.Amount,
-					PaymentDate = DateTime.Now
+					PaymentDate = DateTime.UtcNow
 				};
 
 				int paymentId = await _daoPayment.CreatePaymentTransactionAsync(payment, connection, transaction);
@@ -132,7 +132,7 @@ namespace GuardeSoftwareAPI.Services.payment
 				{
 					RentalId = dto.RentalId,
 					PaymentId = paymentId,
-					MovementDate = DateTime.Now,
+					MovementDate = DateTime.UtcNow,
 					MovementType = string.IsNullOrWhiteSpace(dto.MovementType) ? "CREDITO" : dto.MovementType,
 					Concept = string.IsNullOrWhiteSpace(dto.Concept) ? "Pago de alquiler" : dto.Concept,
 					Amount = dto.Amount

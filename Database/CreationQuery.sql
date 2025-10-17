@@ -138,7 +138,7 @@ CREATE TABLE payments (
     payment_id INT IDENTITY(1,1) PRIMARY KEY,
     client_id INT NOT NULL,
     payment_method_id INT NOT NULL,
-    payment_date DATE NOT NULL,
+    payment_date DATETIME NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
     FOREIGN KEY (client_id) REFERENCES clients(client_id),
     FOREIGN KEY (payment_method_id) REFERENCES payment_methods(payment_method_id)
