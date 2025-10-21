@@ -61,7 +61,7 @@ namespace GuardeSoftwareAPI.Services.communication
                         // Step 2: Loop and insert channels
                         foreach (var channel in request.Channels)
                         {
-                            await _communicationDao.InsertCommunicationChannelContentAsync(newId, channel, request, connection, transaction);
+                            await _communicationDao.InsertCommunicationChannelAsync(newId, channel, request, connection, transaction);
                         }
 
                         // Step 3: Insert all recipients
