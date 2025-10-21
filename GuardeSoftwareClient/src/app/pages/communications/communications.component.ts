@@ -1,7 +1,9 @@
-import { Component, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, signal, computed, ChangeDetectionStrategy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from "../../shared/components/icon/icon.component";
+import { CommunicationService } from '../../core/services/communication-service/communication.service';
+import { ComunicacionDto, UpsertComunicacionRequest } from '../../core/dtos/communications/communicationDto';
 
 // --- Type Definitions (English Code) ---
 
@@ -137,11 +139,26 @@ const ICON_SVGS: { [key: string]: string } = {
   styleUrl: './communications.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CommunicationsComponent {
+export class CommunicationsComponent implements OnInit {
   // --- Signals (State Management) ---
+
+  communications = signal<ComunicacionDto[]>([]); // Inicia vacío
   
+  constructor(private commService: CommunicationService) {}
+
+  ngOnInit(): void {
+    this.loadCommunications();
+  }
+
+  loadCommunications(): void {
+    this.commService.getComunicaciones().subscribe({
+      next: (data) => this.communications.set(data),
+      error: (err) => this.showToast('Error de Carga', 'No se pudieron cargar los datos', '❌', 'error')
+    });
+  }
+
   // List of all communications
-  communications = signal<Communication[]>(MOCK_COMMUNICATIONS);
+  // communications = signal<Communication[]>(MOCK_COMMUNICATIONS);
   
   // Data for the Add/Edit form
   formData = signal<FormDataState>({
@@ -272,65 +289,63 @@ export class CommunicationsComponent {
   /** Adds a new communication (either scheduled or draft). */
   addCommunication(): void {
     const data = this.formData();
-    
-    if (!this.isFormValid()) {
-      this.showToast('Campos incompletos', 'Por favor completa todos los campos requeridos', '❌', 'error');
-      return;
-    }
+    if (!this.isFormValid()) { /* ... (tu validación) ... */ return; }
 
-    const channelString = data.channels.length === 2 ? 'Email + WhatsApp' : data.channels[0];
-    const newId = Math.max(0, ...this.communications().map(c => c.id)) + 1;
-    
-    const newCommunication: Communication = {
-      id: newId,
+    // Mapea del formulario al DTO de la API
+    const request: UpsertComunicacionRequest = {
+      id: null,
       title: data.title,
       content: data.content,
-      sendDate: data.type === 'programar' ? data.sendDate : '',
-      sendTime: data.type === 'programar' ? data.sendTime : '',
-      channel: channelString,
+      sendDate: data.type === 'programar' ? data.sendDate : null,
+      sendTime: data.type === 'programar' ? data.sendTime : null,
+      channels: data.channels,
       recipients: data.recipients,
-      status: data.type === 'programar' ? 'Programado' : 'Borrador',
-      creationDate: new Date().toISOString().split('T')[0]
+      type: data.type
     };
-    
-    this.communications.update(comms => [newCommunication, ...comms]);
-    this.closeModal();
 
-    this.showToast(
-      '¡Comunicado creado!',
-      data.type === 'programar' ? `Se enviará por ${channelString} el ${data.sendDate}` : 'Guardado como borrador',
-      '📨',
-      'success'
-    );
+    this.commService.createComunicacion(request).subscribe({
+      next: (newCommunication) => { // La API debería devolver el DTO creado
+        // Actualiza el signal local
+        this.communications.update(comms => [newCommunication, ...comms]);
+        this.closeModal();
+        this.showToast(
+          '¡Comunicado creado!',
+          data.type === 'programar' ? `Se programó el envío` : 'Guardado como borrador',
+          '📨', 'success'
+        );
+      },
+      error: (err) => this.showToast('Error', 'No se pudo crear el comunicado', '❌', 'error')
+    });
   }
 
   /** Edits an existing communication. */
   editCommunication(): void {
     const data = this.formData();
     const commId = data.id;
+    if (!commId || !this.isFormValid()) { /* ... (tu validación) ... */ return; }
 
-    if (!commId || !this.isFormValid()) {
-      this.showToast('Error de edición', 'Verifica los campos antes de guardar', '❌', 'error');
-      return;
-    }
+    const request: UpsertComunicacionRequest = {
+      id: commId,
+      title: data.title,
+      content: data.content,
+      sendDate: data.type === 'programar' ? data.sendDate : null,
+      sendTime: data.type === 'programar' ? data.sendTime : null,
+      channels: data.channels,
+      recipients: data.recipients,
+      type: data.type
+    };
 
-    const channelString = data.channels.length === 2 ? 'Email + WhatsApp' : data.channels[0];
-
-    this.communications.update(comms => comms.map(c =>
-      c.id === commId ? {
-        ...c,
-        title: data.title,
-        content: data.content,
-        sendDate: data.type === 'programar' ? data.sendDate : '',
-        sendTime: data.type === 'programar' ? data.sendTime : '',
-        channel: channelString,
-        recipients: data.recipients,
-        status: data.type === 'programar' ? 'Programado' : 'Borrador'
-      } : c
-    ));
-    
-    this.closeModal();
-    this.showToast('¡Comunicado actualizado!', 'Los cambios se guardaron correctamente', '✏️', 'success');
+    this.commService.updateComunicacion(commId, request).subscribe({
+      next: (updatedComm) => {
+        // Actualiza el signal local
+        this.communications.update(comms => comms.map(c =>
+          c.id === commId ? updatedComm : c
+        ));
+        this.closeModal();
+        this.showToast('¡Comunicado actualizado!', 'Los cambios se guardaron', '✏️', 'success');
+      },
+      error: (err) => this.showToast('Error', 'No se pudo actualizar', '❌', 'error')
+    });
   }
 
   /**
@@ -338,39 +353,30 @@ export class CommunicationsComponent {
    * @param communicationId ID of the communication to delete.
    */
   handleDeleteCommunication(communicationId: number): void {
-    this.communications.update(comms => comms.filter(c => c.id !== communicationId));
-    this.closeModal();
-    this.showToast('Comunicado eliminado', 'El comunicado ha sido eliminado correctamente', '🗑️', 'success');
+    this.commService.deleteComunicacion(communicationId).subscribe({
+      next: () => {
+        // Actualiza el signal local
+        this.communications.update(comms => comms.filter(c => c.id !== communicationId));
+        this.closeModal();
+        this.showToast('Comunicado eliminado', 'Se eliminó correctamente', '🗑️', 'success');
+      },
+      error: (err) => this.showToast('Error', 'No se pudo eliminar', '❌', 'error')
+    });
   }
 
-  /**
-   * Sends a draft communication immediately.
-   * @param communicationId ID of the communication to send.
-   */
+  /** REFACTORIZADO: Llama a la API para enviar ahora */
   handleSendCommunication(communicationId: number): void {
-    const communication = this.communications().find(c => c.id === communicationId);
-    
-    if (!communication) return;
-
-    const sentDate = new Date().toISOString().split('T')[0];
-    const sentTime = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-
-    this.communications.update(comms => comms.map(c =>
-      c.id === communicationId ? {
-        ...c,
-        status: 'Enviado',
-        sendDate: sentDate,
-        sendTime: sentTime
-      } : c
-    ));
-    
-    this.closeModal();
-    this.showToast(
-      '¡Comunicado enviado!',
-      `Enviado a ${communication.recipients.length} destinatario(s) por ${communication.channel}`,
-      '✅',
-      'success'
-    );
+    this.commService.sendDraftNow(communicationId).subscribe({
+      next: (sentComm) => {
+        // Actualiza el signal local con el nuevo estado 'Enviado'
+        this.communications.update(comms => comms.map(c =>
+          c.id === communicationId ? sentComm : c
+        ));
+        this.closeModal();
+        this.showToast('¡Comunicado enviado!', 'El envío se ha procesado', '✅', 'success');
+      },
+      error: (err) => this.showToast('Error', 'No se pudo enviar', '❌', 'error')
+    });
   }
 
   /**

@@ -189,6 +189,59 @@ CREATE TABLE activity_log (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
+-- Communication channels (Email, WhatsApp, etc.)
+CREATE TABLE communication_channels (
+    channel_id INT PRIMARY KEY IDENTITY(1,1),
+    name VARCHAR(50) NOT NULL UNIQUE,
+    is_active BIT NOT NULL DEFAULT 1
+);
+
+-- The main communication or "campaign"
+CREATE TABLE communications (
+    communication_id INT PRIMARY KEY IDENTITY(1,1),
+    creator_user_id INT NOT NULL, -- FK to your Users table
+    title VARCHAR(255) NOT NULL,
+    creation_date DATETIME NOT NULL DEFAULT GETDATE(),
+    scheduled_date DATETIME NOT NULL,
+    -- 'Draft', 'Scheduled', 'Processing', 'Finished'
+    status VARCHAR(30) NOT NULL DEFAULT 'Draft',
+    FOREIGN KEY (creator_user_id) REFERENCES users(user_id)
+);
+
+-- Defines the specific content for each channel within a communication
+CREATE TABLE communication_channel_content (
+    comm_channel_content_id INT PRIMARY KEY IDENTITY(1,1),
+    communication_id INT NOT NULL,
+    channel_id INT NOT NULL,
+    subject VARCHAR(255), -- Used mainly for email
+    content NVARCHAR(MAX) NOT NULL, -- HTML for email, text for WhatsApp
+    attachments NVARCHAR(MAX), -- Store a JSON array of file paths
+    FOREIGN KEY (communication_id) REFERENCES communications(communication_id),
+    FOREIGN KEY (channel_id) REFERENCES communication_channels(channel_id)
+);
+
+-- NEW TABLE: Defines which clients will receive the communication
+CREATE TABLE communication_recipients (
+    communication_recipient_id INT PRIMARY KEY IDENTITY(1,1),
+    communication_id INT NOT NULL,
+    client_id INT NOT NULL,
+    FOREIGN KEY (communication_id) REFERENCES communications(communication_id),
+    FOREIGN KEY (client_id) REFERENCES clients(client_id)
+);
+
+-- Logs every send attempt to a client via a specific channel
+CREATE TABLE dispatches (
+    dispatch_id BIGINT PRIMARY KEY IDENTITY(1,1),
+    comm_channel_content_id INT NOT NULL, -- FK to communication_channel_content
+    client_id INT NOT NULL,
+    dispatch_date DATETIME,
+    -- 'Pending', 'In Progress', 'Successful', 'Failed'
+    status VARCHAR(20) NOT NULL DEFAULT 'Pending',
+    provider_response NVARCHAR(500), -- To save the MessageID or error
+    FOREIGN KEY (comm_channel_content_id) REFERENCES communication_channel_content(comm_channel_content_id),
+    FOREIGN KEY (client_id) REFERENCES clients(client_id)
+);
+
 COMMIT TRANSACTION;
     PRINT '¡Database and tables created successfully!';
 

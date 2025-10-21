@@ -20,6 +20,7 @@ using GuardeSoftwareAPI.Services.warehouse;
 using Quartz;
 using GuardeSoftwareAPI.Jobs;
 using GuardeSoftwareAPI.Services.phone;
+using GuardeSoftwareAPI.Services.communication;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -49,6 +50,7 @@ builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IClientIncreaseRegimenService, ClientIncreaseRegimenService>();
+builder.Services.AddScoped<ICommunicationService, CommunicationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IIncreaseRegimenService, IncreaseRegimenService>();
 builder.Services.AddScoped<ILockerService, LockerService>();
@@ -67,41 +69,40 @@ builder.Services.AddQuartz(q =>
 {
     q.UseMicrosoftDependencyInjectionJobFactory();
 
-    var jobKey = new JobKey("ApplyDebitsJob");
-    q.AddJob<ApplyDebitsJob>(opts => opts.WithIdentity(jobKey));
-
+    // --- Job 1: ApplyDebitsJob (with trigger) ---
+    var applyDebitsJobKey = new JobKey("ApplyDebitsJob");
+    q.AddJob<ApplyDebitsJob>(opts => opts.WithIdentity(applyDebitsJobKey));
     q.AddTrigger(opts => opts
-        .ForJob(jobKey)
+        .ForJob(applyDebitsJobKey)
         .WithIdentity("ApplyDebits-Trigger")
-        .WithCronSchedule("0 14 02 * * ?")
+        .WithCronSchedule("0 14 02 * * ?") // 02:14 AM
     );
-});
 
-builder.Services.AddQuartz(q =>
-{
-    var jobKey = new JobKey("ApplyRentIncreaseJob");
-
-    q.AddJob<ApplyRentIncreaseJob>(opts => opts.WithIdentity(jobKey));
-
+    // --- Job 2: ApplyRentIncreaseJob (with trigger) ---
+    var applyRentIncreaseJobKey = new JobKey("ApplyRentIncreaseJob");
+    q.AddJob<ApplyRentIncreaseJob>(opts => opts.WithIdentity(applyRentIncreaseJobKey));
     q.AddTrigger(opts => opts
-        .ForJob(jobKey)
+        .ForJob(applyRentIncreaseJobKey)
         .WithIdentity("ApplyRentIncreaseJob-trigger")
-        .WithCronSchedule("0 58 16 * * ?")
+        .WithCronSchedule("0 58 16 * * ?") // 16:58 (4:58 PM)
     );
-});
 
-builder.Services.AddQuartz(q =>
-{
-
+    // --- Job 3: ApplyInterestsJob (with trigger) ---
     var applyInterestsJobKey = new JobKey("ApplyInterestsJob");
     q.AddJob<ApplyInterestsJob>(opts => opts.WithIdentity(applyInterestsJobKey));
     q.AddTrigger(opts => opts
         .ForJob(applyInterestsJobKey)
         .WithIdentity("ApplyInterestsJob-trigger")
-        .WithCronSchedule("0 50 03 * * ?") 
+        .WithCronSchedule("0 50 03 * * ?") // 03:50 AM
+    );
+
+    // --- Job 4: SendCommunicationJob (durable, no trigger) ---
+    var sendCommJobKey = new JobKey(nameof(SendCommunicationJob));
+    q.AddJob<SendCommunicationJob>(opts => opts
+        .WithIdentity(sendCommJobKey)
+        .StoreDurably() // <-- THE FIX IS HERE
     );
 });
-
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

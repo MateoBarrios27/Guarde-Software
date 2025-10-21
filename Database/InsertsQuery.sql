@@ -148,6 +148,8 @@ INSERT INTO rental_amount_history (rental_id, amount, start_date, end_date) VALU
 (8, 237300, '2025-09-01', NULL),
 (9, 278600, '2025-09-01', NULL);
 
+INSERT INTO communication_channels (name) VALUES ('Email'), ('WhatsApp');
+
 -- -- Payments
 -- INSERT INTO payments (client_id, payment_method_id, payment_date, amount) VALUES
 -- (1, 1, '2024-01-20', 92000),
