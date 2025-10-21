@@ -11,14 +11,17 @@ namespace GuardeSoftwareAPI.Services.communication
         private readonly CommunicationDao _communicationDao;
         private readonly AccessDB accessDB; // To get the connection
         private readonly ISchedulerFactory _schedulerFactory;
+        private readonly ILogger<CommunicationService> logger;
 
         public CommunicationService(
             AccessDB _accessDB, // Inject your AccessDB
-            ISchedulerFactory schedulerFactory)
+            ISchedulerFactory schedulerFactory,
+            ILogger<CommunicationService> _logger)
         {
             _communicationDao = new CommunicationDao(_accessDB);
             accessDB = _accessDB;
             _schedulerFactory = schedulerFactory;
+            logger = _logger;
         }
 
         public async Task<List<CommunicationDto>> GetCommunications()
@@ -95,7 +98,7 @@ namespace GuardeSoftwareAPI.Services.communication
         private async Task ScheduleJobAsync(int communicationId, DateTime runTime)
         {
             var scheduler = await _schedulerFactory.GetScheduler();
-            
+
             var job = JobBuilder.Create<SendCommunicationJob>() // Use your actual Job class
                 .WithIdentity($"comm-job-{communicationId}")
                 .UsingJobData("CommunicationId", communicationId)
@@ -107,6 +110,105 @@ namespace GuardeSoftwareAPI.Services.communication
                 .Build();
 
             await scheduler.ScheduleJob(job, trigger);
+        }
+        
+        public async Task<CommunicationDto> UpdateCommunicationAsync(int communicationId, UpsertCommunicationRequest request, int userId)
+        {
+            // An 'Update' is a 'Delete' followed by a 'Create'
+            // This is much safer than trying to delta-compare channels and recipients
+            
+            using (SqlConnection connection = accessDB.GetConnectionClose())
+            {
+                await connection.OpenAsync();
+                using (SqlTransaction transaction = (SqlTransaction)await connection.BeginTransactionAsync())
+                {
+                    try
+                    {
+                        // Step 1: Delete all child records for this communication
+                        string deleteQuery = @"
+                            DELETE FROM dispatches WHERE comm_channel_content_id IN (SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id);
+                            DELETE FROM communication_recipients WHERE communication_id = @Id;
+                            DELETE FROM communication_channel_content WHERE communication_id = @Id;
+                        ";
+                        using (var cmdDelete = new SqlCommand(deleteQuery, connection, transaction))
+                        {
+                            cmdDelete.Parameters.AddWithValue("@Id", communicationId);
+                            await cmdDelete.ExecuteNonQueryAsync();
+                        }
+
+                        // Step 2: Update the main communication record
+                        DateTime? scheduledAt = null;
+                        if (request.Type == "schedule" && !string.IsNullOrEmpty(request.SendDate) && !string.IsNullOrEmpty(request.SendTime))
+                        {
+                            scheduledAt = DateTime.Parse($"{request.SendDate}T{request.SendTime}");
+                        }
+                        string status = request.Type == "schedule" ? "Scheduled" : "Draft";
+                        
+                        string updateQuery = @"
+                            UPDATE communications 
+                            SET title = @Title, scheduled_date = @ScheduledDate, status = @Status
+                            WHERE communication_id = @Id";
+                        
+                        using (var cmdUpdate = new SqlCommand(updateQuery, connection, transaction))
+                        {
+                            cmdUpdate.Parameters.AddWithValue("@Id", communicationId);
+                            cmdUpdate.Parameters.AddWithValue("@Title", request.Title);
+                            cmdUpdate.Parameters.AddWithValue("@ScheduledDate", (object)scheduledAt ?? DBNull.Value);
+                            cmdUpdate.Parameters.AddWithValue("@Status", status);
+                            await cmdUpdate.ExecuteNonQueryAsync();
+                        }
+
+                        // Step 3: Re-insert channels
+                        foreach (var channel in request.Channels)
+                        {
+                            await _communicationDao.InsertCommunicationChannelAsync(communicationId, channel, request, connection, transaction);
+                        }
+
+                        // Step 4: Re-insert recipients
+                        await _communicationDao.InsertCommunicationRecipientsAsync(communicationId, request.Recipients, connection, transaction);
+
+                        // Commit
+                        await transaction.CommitAsync();
+
+                        // Schedule job if needed
+                        if (status == "Scheduled" && scheduledAt.HasValue)
+                        {
+                            await ScheduleJobAsync(communicationId, scheduledAt.Value);
+                        }
+                        
+                        return await _communicationDao.GetCommunicationByIdAsync(communicationId);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Transaction failed for UPDATE on communication ID: {CommunicationId}. Rolling back.", communicationId);
+                        try { await transaction.RollbackAsync(); }
+                        catch (Exception rbEx) { logger.LogWarning(rbEx, "Error during update transaction rollback."); }
+                        throw new Exception("Transaction failed. Rolling back changes.", ex);
+                    }
+                }
+            }
+        }
+
+        public async Task<bool> DeleteCommunicationAsync(int communicationId)
+        {
+            return await _communicationDao.DeleteCommunicationAsync(communicationId);
+        }
+
+        public async Task<CommunicationDto> SendDraftNowAsync(int communicationId)
+        {
+            // To send 'now', we set the status to 'Scheduled'
+            // and the date to 1 minute from now (to give Quartz time to pick it up)
+            var scheduleTime = DateTime.UtcNow.AddMinutes(1); // Or DateTime.Now if your server is local
+            
+            bool success = await _communicationDao.UpdateCommunicationStatusAndDateAsync(communicationId, "Scheduled", scheduleTime);
+            
+            if (success)
+            {
+                await ScheduleJobAsync(communicationId, scheduleTime);
+                return await _communicationDao.GetCommunicationByIdAsync(communicationId);
+            }
+            
+            throw new Exception("Failed to update communication status for sending.");
         }
     }
 }

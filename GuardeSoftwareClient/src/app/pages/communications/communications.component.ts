@@ -16,9 +16,6 @@ interface Channel {
   icon: string;
 }
 
-// -----------------------------------------------------------------
-// ❌ REMOVED: The local 'Communication' interface. We will use 'ComunicacionDto' directly.
-// -----------------------------------------------------------------
 
 /** State for the Add/Edit form */
 interface FormDataState {

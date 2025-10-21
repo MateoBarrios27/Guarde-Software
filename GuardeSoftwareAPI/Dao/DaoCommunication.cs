@@ -286,12 +286,50 @@ namespace GuardeSoftwareAPI.Dao
                 Status = row["Status"]?.ToString() ?? "Draft",
                 CreationDate = row["CreationDate"]?.ToString() ?? "",
                 Channel = row["Channel"]?.ToString() ?? "",
-                
+
                 // Splits the string into a List<string>
-                Recipients = string.IsNullOrEmpty(recipientsCsv) 
-                             ? new List<string>()                 
-                             : recipientsCsv.Split(',').ToList()  
+                Recipients = string.IsNullOrEmpty(recipientsCsv)
+                             ? new List<string>()
+                             : recipientsCsv.Split(',').ToList()
             };
         }
+        
+        // This method is simple, it just deletes
+        public async Task<bool> DeleteCommunicationAsync(int communicationId)
+        {
+            // Deleting the main communication should cascade delete all related content
+            // if your database FOREIGN KEYs are set up with ON DELETE CASCADE.
+            // If not, you must delete from child tables first.
+            
+            // Deleting child rows first to be safe
+            string query = @"
+                DELETE FROM dispatches WHERE comm_channel_content_id IN (SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id);
+                DELETE FROM communication_recipients WHERE communication_id = @Id;
+                DELETE FROM communication_channel_content WHERE communication_id = @Id;
+                DELETE FROM communications WHERE communication_id = @Id;
+            ";
+            
+            var parameters = new[] { new SqlParameter("@Id", communicationId) };
+            int rows = await _accessDB.ExecuteCommandAsync(query, parameters);
+            return rows > 0;
+        }
+
+        // This method will be used for 'send now'
+        public async Task<bool> UpdateCommunicationStatusAndDateAsync(int communicationId, string status, DateTime scheduledDate)
+        {
+            string query = "UPDATE communications SET status = @Status, scheduled_date = @Date WHERE communication_id = @Id";
+            var parameters = new[]
+            {
+                new SqlParameter("@Status", status),
+                new SqlParameter("@Date", scheduledDate),
+                new SqlParameter("@Id", communicationId)
+            };
+            int rows = await _accessDB.ExecuteCommandAsync(query, parameters);
+            return rows > 0;
+        }
+
+        // Note: The main 'Update' (for edit) is complex because it uses a transaction
+        // to delete old channels/recipients and add new ones.
+        // We will add this logic in the *Service* layer.
     }
 }
