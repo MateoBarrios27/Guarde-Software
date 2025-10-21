@@ -1,32 +1,36 @@
-import { Injectable } from '@angular/core';
-import { Client } from '../../models/client';
-import { Observable, of } from 'rxjs';
-import { Cliente, CreateCommunicationRequest } from '../../models/communications';
-import { environment } from '../../../../environments/environmets';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { ComunicacionDto, UpsertComunicacionRequest } from './../../dtos/communications/communicationDto';
 
 @Injectable({
   providedIn: 'root'
 })
 export class CommunicationService {
+  private http = inject(HttpClient);
+  // Ajusta la URL base a tu API
+  private apiUrl = '/api/comunicaciones'; 
 
-  private url: string = environment.apiUrl
-  constructor(private httpCliente: HttpClient) { }
+  constructor() { }
 
-  createCommunication(comunicado: CreateCommunicationRequest): Observable<any> {
-    return this.httpCliente.post(this.url, comunicado);
+  getComunicaciones(): Observable<ComunicacionDto[]> {
+    return this.http.get<ComunicacionDto[]>(this.apiUrl);
   }
 
-  // Método para obtener clientes (simulado)
-  getClients(): Observable<Cliente[]> {
-    const mockClientes: Cliente[] = [
-      { id: 101, name: 'Cliente Fiel S.A.' },
-      { id: 102, name: 'Negocios Rápidos SRL' },
-      { id: 103, name: 'Innovaciones Tecnológicas' },
-      { id: 104, name: 'Consultora Global' }
-    ];
-    // En un caso real, esto sería una llamada HTTP:
-    // return this.http.get<Cliente[]>('/api/clientes');
-    return of(mockClientes);
+  createComunicacion(request: UpsertComunicacionRequest): Observable<ComunicacionDto> {
+    return this.http.post<ComunicacionDto>(this.apiUrl, request);
+  }
+
+  updateComunicacion(id: number, request: UpsertComunicacionRequest): Observable<ComunicacionDto> {
+    return this.http.put<ComunicacionDto>(`${this.apiUrl}/${id}`, request);
+  }
+
+  deleteComunicacion(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  sendDraftNow(id: number): Observable<ComunicacionDto> {
+    // Endpoint especial para forzar el envío de un borrador
+    return this.http.post<ComunicacionDto>(`${this.apiUrl}/${id}/send`, {});
   }
 }

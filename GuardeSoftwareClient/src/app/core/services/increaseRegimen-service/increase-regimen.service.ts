@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { IncreaseRegimen } from '../../models/increase-regimen';
 import { Observable } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../../environments/environmets';
+import { environment } from '../../../../environments/environments';
 
 @Injectable({
   providedIn: 'root'

@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { rental } from '../../models/rental';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environmets';
+import { environment } from '../../../../environments/environments';
 import { PendingRentalDTO } from '../../dtos/rental/PendingRentalDTO';
 
 @Injectable({

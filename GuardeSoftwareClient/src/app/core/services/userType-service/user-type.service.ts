@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { UserType } from '../../models/user-type';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environmets';
+import { environment } from '../../../../environments/environments';
 import { CreateUserTypeDTO } from '../../dtos/userType/CreateUserTypeDTO';
 
 @Injectable({

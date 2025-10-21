@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { User } from '../../models/user';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environmets';
+import { environment } from '../../../../environments/environments';
 import { CreateUserDTO } from '../../dtos/user/CreateUserDTO';
 import { UpdateUserDTO } from '../../dtos/user/UpdateUserDTO';
  

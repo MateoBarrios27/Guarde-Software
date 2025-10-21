@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Warehouse } from '../../models/warehouse';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environmets';
+import { environment } from '../../../../environments/environments';
 import { CreateWarehouseDTO } from '../../dtos/warehouse/CreateWarehouseDTO';
 
 @Injectable({
