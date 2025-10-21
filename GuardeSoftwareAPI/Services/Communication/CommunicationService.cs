@@ -114,9 +114,7 @@ namespace GuardeSoftwareAPI.Services.communication
         
         public async Task<CommunicationDto> UpdateCommunicationAsync(int communicationId, UpsertCommunicationRequest request, int userId)
         {
-            // An 'Update' is a 'Delete' followed by a 'Create'
-            // This is much safer than trying to delta-compare channels and recipients
-            
+            // An 'Update' is complex. It's safer to treat it as a 'Delete children + Re-create children' transaction.
             using (SqlConnection connection = accessDB.GetConnectionClose())
             {
                 await connection.OpenAsync();
@@ -124,7 +122,7 @@ namespace GuardeSoftwareAPI.Services.communication
                 {
                     try
                     {
-                        // Step 1: Delete all child records for this communication
+                        // Step 1: Delete all child records
                         string deleteQuery = @"
                             DELETE FROM dispatches WHERE comm_channel_content_id IN (SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id);
                             DELETE FROM communication_recipients WHERE communication_id = @Id;
@@ -167,10 +165,9 @@ namespace GuardeSoftwareAPI.Services.communication
                         // Step 4: Re-insert recipients
                         await _communicationDao.InsertCommunicationRecipientsAsync(communicationId, request.Recipients, connection, transaction);
 
-                        // Commit
                         await transaction.CommitAsync();
 
-                        // Schedule job if needed
+                        // Re-schedule job if needed
                         if (status == "Scheduled" && scheduledAt.HasValue)
                         {
                             await ScheduleJobAsync(communicationId, scheduledAt.Value);
@@ -180,9 +177,9 @@ namespace GuardeSoftwareAPI.Services.communication
                     }
                     catch (Exception ex)
                     {
-                        logger.LogError(ex, "Transaction failed for UPDATE on communication ID: {CommunicationId}. Rolling back.", communicationId);
+                        logger.LogError(ex, "Transaction failed for UPDATE on ID: {CommunicationId}", communicationId);
                         try { await transaction.RollbackAsync(); }
-                        catch (Exception rbEx) { logger.LogWarning(rbEx, "Error during update transaction rollback."); }
+                        catch (Exception rbEx) { logger.LogWarning(rbEx, "Error during update rollback."); }
                         throw new Exception("Transaction failed. Rolling back changes.", ex);
                     }
                 }
@@ -191,14 +188,15 @@ namespace GuardeSoftwareAPI.Services.communication
 
         public async Task<bool> DeleteCommunicationAsync(int communicationId)
         {
+            // You already implemented this, but I include it for completeness
             return await _communicationDao.DeleteCommunicationAsync(communicationId);
         }
 
         public async Task<CommunicationDto> SendDraftNowAsync(int communicationId)
         {
-            // To send 'now', we set the status to 'Scheduled'
-            // and the date to 1 minute from now (to give Quartz time to pick it up)
-            var scheduleTime = DateTime.UtcNow.AddMinutes(1); // Or DateTime.Now if your server is local
+            // To 'send now', we set its status to 'Scheduled'
+            // and the date to 1 minute from now, so Quartz can pick it up.
+            var scheduleTime = DateTime.Now.AddMinutes(1); 
             
             bool success = await _communicationDao.UpdateCommunicationStatusAndDateAsync(communicationId, "Scheduled", scheduleTime);
             
@@ -208,7 +206,7 @@ namespace GuardeSoftwareAPI.Services.communication
                 return await _communicationDao.GetCommunicationByIdAsync(communicationId);
             }
             
-            throw new Exception("Failed to update communication status for sending.");
+            throw new Exception("Failed to update status for sending.");
         }
     }
 }

@@ -315,6 +315,7 @@ namespace GuardeSoftwareAPI.Dao
         }
 
         // This method will be used for 'send now'
+        // Add this method inside your CommunicationDao class
         public async Task<bool> UpdateCommunicationStatusAndDateAsync(int communicationId, string status, DateTime scheduledDate)
         {
             string query = "UPDATE communications SET status = @Status, scheduled_date = @Date WHERE communication_id = @Id";

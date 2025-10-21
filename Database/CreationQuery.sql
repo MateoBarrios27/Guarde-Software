@@ -202,7 +202,7 @@ CREATE TABLE communications (
     creator_user_id INT NOT NULL, -- FK to your Users table
     title VARCHAR(255) NOT NULL,
     creation_date DATETIME NOT NULL DEFAULT GETDATE(),
-    scheduled_date DATETIME NOT NULL,
+    scheduled_date DATETIME NULL,
     -- 'Draft', 'Scheduled', 'Processing', 'Finished'
     status VARCHAR(30) NOT NULL DEFAULT 'Draft',
     FOREIGN KEY (creator_user_id) REFERENCES users(user_id)
