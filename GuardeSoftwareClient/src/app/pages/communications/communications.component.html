@@ -1,444 +1,424 @@
-<div class=" space-y-6 bg-gray-50 min-h-screen font-inter">
-      <!-- Header with Add Button -->
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-white rounded-xl shadow-lg">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900">Comunicaciones</h1>
-          <p class="text-gray-600 mt-1">Gestiona los comunicados a tus clientes</p>
-        </div>
-        <button
-          (click)="openModal('add')"
-          class="mt-4 sm:mt-0 px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition duration-200 flex items-center"
-        >
-           <app-icon name="Plus" class="h-4 w-4 mr-2"></app-icon>
-          Agregar Comunicado
-        </button>
-      </div>
+<!--
+  This is the corrected HTML template. All internal logic now uses the English status names
+  (e.g., 'Scheduled', 'Finished') that come from the backend.
+  Only the text displayed to the user remains in Spanish.
+-->
+<div class="space-y-6 bg-gray-50 min-h-screen font-inter p-4">
+  <!-- Header with Add Button -->
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-white rounded-xl shadow-lg">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Comunicaciones</h1>
+      <p class="text-gray-600 mt-1">Gestiona los comunicados a tus clientes</p>
+    </div>
+    <button (click)="openModal('add')"
+      class="mt-4 sm:mt-0 px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition duration-200 flex items-center">
+      <app-icon name="Plus" class="h-4 w-4 mr-2"></app-icon>
+      Agregar Comunicado
+    </button>
+  </div>
 
-      <!-- Scheduled Communications Section -->
-      <div class="bg-white p-4 rounded-xl shadow-lg">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
-           <app-icon name="Clock" class="h-5 w-5 text-blue-600"></app-icon>
-          Comunicados Programados ({{ scheduledCommunications().length }})
-        </h2>
-        <div *ngIf="scheduledCommunications().length === 0" class="text-gray-500 text-center py-8">
-          <p>No hay comunicados programados</p>
-        </div>
-        <div *ngIf="scheduledCommunications().length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          @for (comm of scheduledCommunications(); track comm.id) {
-            <!-- FIX: Use ngTemplateOutlet instead of calling a non-existent function -->
-            <ng-container 
-              [ngTemplateOutlet]="communicationCardTemplate"
-              [ngTemplateOutletContext]="{ communication: comm, isDraft: false, isPast: false }"
-            ></ng-container>
-          }
-        </div>
-      </div>
+  <!-- Scheduled Communications Section -->
+  <div class="bg-white p-4 rounded-xl shadow-lg">
+    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
+      <app-icon name="Clock" class="h-5 w-5 text-blue-600"></app-icon>
+      Comunicados Programados ({{ scheduledCommunications().length }})
+    </h2>
+    <div *ngIf="scheduledCommunications().length === 0" class="text-gray-500 text-center py-8">
+      <p>No hay comunicados programados</p>
+    </div>
+    <div *ngIf="scheduledCommunications().length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      @for (comm of scheduledCommunications(); track comm.id) {
+        <ng-container
+          [ngTemplateOutlet]="communicationCardTemplate"
+          [ngTemplateOutletContext]="{ communication: comm, isDraft: false, isPast: false }">
+        </ng-container>
+      }
+    </div>
+  </div>
 
-      <!-- Draft/Saved Communications Section -->
-      <div class="bg-white p-4 rounded-xl shadow-lg">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
-           <app-icon name="FileText" class="h-5 w-5 text-gray-600"></app-icon>
-          Comunicaciones Guardadas ({{ draftCommunications().length }})
-        </h2>
-        <div *ngIf="draftCommunications().length === 0" class="text-gray-500 text-center py-8">
-          <p>No hay comunicaciones guardadas</p>
-        </div>
-        <div *ngIf="draftCommunications().length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          @for (comm of draftCommunications(); track comm.id) {
-            <!-- FIX: Use ngTemplateOutlet instead of calling a non-existent function -->
-            <ng-container 
-              [ngTemplateOutlet]="communicationCardTemplate"
-              [ngTemplateOutletContext]="{ communication: comm, isDraft: true, isPast: false }"
-            ></ng-container>
-          }
-        </div>
-      </div>
+  <!-- Draft/Saved Communications Section -->
+  <div class="bg-white p-4 rounded-xl shadow-lg">
+    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
+      <app-icon name="FileText" class="h-5 w-5 text-gray-600"></app-icon>
+      Comunicaciones Guardadas ({{ draftCommunications().length }})
+    </h2>
+    <div *ngIf="draftCommunications().length === 0" class="text-gray-500 text-center py-8">
+      <p>No hay comunicaciones guardadas</p>
+    </div>
+    <div *ngIf="draftCommunications().length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      @for (comm of draftCommunications(); track comm.id) {
+        <ng-container
+          [ngTemplateOutlet]="communicationCardTemplate"
+          [ngTemplateOutletContext]="{ communication: comm, isDraft: true, isPast: false }">
+        </ng-container>
+      }
+    </div>
+  </div>
 
-      <!-- Past Communications Section -->
-      <div class="bg-white p-4 rounded-xl shadow-lg">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
-           <app-icon name="MessageCircle" class="h-5 w-5 text-green-600"></app-icon>
-          Comunicados Anteriores ({{ pastCommunications().length }})
-        </h2>
-        <div *ngIf="pastCommunications().length === 0" class="text-gray-500 text-center py-8">
-          <p>No hay comunicados anteriores</p>
-        </div>
-        <div *ngIf="pastCommunications().length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          @for (comm of pastCommunications(); track comm.id) {
-            <!-- FIX: Use ngTemplateOutlet instead of calling a non-existent function -->
-            <ng-container 
-              [ngTemplateOutlet]="communicationCardTemplate"
-              [ngTemplateOutletContext]="{ communication: comm, isDraft: false, isPast: true }"
-            ></ng-container>
-          }
-        </div>
-      </div>
+  <!-- Past Communications Section -->
+  <div class="bg-white p-4 rounded-xl shadow-lg">
+    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
+      <app-icon name="MessageCircle" class="h-5 w-5 text-green-600"></app-icon>
+      Comunicados Anteriores ({{ pastCommunications().length }})
+    </h2>
+    <div *ngIf="pastCommunications().length === 0" class="text-gray-500 text-center py-8">
+      <p>No hay comunicados anteriores</p>
+    </div>
+    <div *ngIf="pastCommunications().length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      @for (comm of pastCommunications(); track comm.id) {
+        <ng-container
+          [ngTemplateOutlet]="communicationCardTemplate"
+          [ngTemplateOutletContext]="{ communication: comm, isDraft: false, isPast: true }">
+        </ng-container>
+      }
+    </div>
+  </div>
 
-      <!-- Floating Toast Notification -->
-      <div
-        *ngIf="toast().show"
-        class="fixed bottom-4 right-4 p-4 rounded-lg shadow-xl text-white max-w-sm transition-opacity duration-300 z-50"
-        [ngClass]="toast().color === 'success' ? 'bg-green-600' : 'bg-red-600'"
-      >
+  <!-- Floating Toast Notification -->
+  <div *ngIf="toast().show"
+    class="fixed bottom-4 right-4 p-4 rounded-lg shadow-xl text-white max-w-sm transition-opacity duration-300 z-50"
+    [ngClass]="toast().color === 'success' ? 'bg-green-600' : 'bg-red-600'">
+    <div class="flex items-center">
+      <span class="text-2xl mr-3">{{ toast().icon }}</span>
+      <div>
+        <p class="font-bold">{{ toast().message }}</p>
+        <p class="text-sm opacity-90">{{ toast().description }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals (Add, Edit, View, Confirm Delete/Send) -->
+@if (currentModal() !== 'none') {
+<div class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm h-full w-full" (click)="closeModal()"></div>
+<div
+  class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6 bg-white rounded-xl shadow-2xl w-[95%] max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-in-out">
+
+  <!-- Modal Header -->
+  <div class="flex justify-between items-center border-b pb-3 mb-4">
+    <h2 class="text-xl font-semibold text-gray-800">
+      @switch (currentModal()) {
+      @case ('add') { Agregar Nuevo Comunicado }
+      @case ('edit') { Editar Comunicado }
+      @case ('view') { Detalles del Comunicado }
+      @case ('delete-confirm') { Confirmar Eliminación }
+      @case ('send-confirm') { Confirmar Envío }
+      }
+    </h2>
+    <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600">
+      <app-icon name="x"></app-icon>
+    </button>
+  </div>
+
+  <!-- Modal Content: Add/Edit Form -->
+  @if (currentModal() === 'add' || currentModal() === 'edit') {
+  <div class="space-y-4">
+    <!-- Title -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Título del comunicado *</label>
+      <input type="text" [(ngModel)]="formData().title" placeholder="Ej: Aumento de tarifas 2024"
+        class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+    </div>
+
+    <!-- Channels -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-2">Canales de comunicación *</label>
+      <div class="flex flex-col sm:flex-row gap-4">
+        @for (channel of channels; track channel.id) {
+        <div
+          class="flex items-center space-x-2 p-3 bg-gray-50 border rounded-lg cursor-pointer hover:bg-gray-100 transition duration-150"
+          (click)="toggleChannel(channel.name)">
+          <input type="checkbox" [id]="'channel-' + channel.name" [checked]="formData().channels.includes(channel.name)"
+            class="rounded text-blue-600 focus:ring-blue-500" />
+          <label [for]="'channel-' + channel.name"
+            class="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-900">
+            <app-icon [name]="channel.icon" [ngClass]="channel.name === 'Email' ? 'text-blue-600' : 'text-green-600'"></app-icon>
+            <span>{{ channel.spanishLabel }}</span>
+          </label>
+        </div>
+        }
+      </div>
+      <p *ngIf="formData().channels.length === 0" class="text-xs text-red-500 mt-2">Selecciona al menos un canal</p>
+      <p *ngIf="formData().channels.length === 2" class="text-xs text-blue-600 mt-2">✓ Se enviará por ambos canales</p>
+    </div>
+
+    <!-- Recipients -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Destinatarios *</label>
+      <select (change)="addRecipient($event)"
+        class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white">
+        <option value="" disabled selected>Agregar destinatarios (grupos o individuales)</option>
+        @for (client of customerOptions; track client) {
+        <option [value]="client">{{ client }}</option>
+        }
+      </select>
+      @if (formData().recipients.length > 0) {
+      <div class="flex flex-wrap gap-2 mt-2 p-2 bg-gray-50 rounded-lg border">
+        @for (dest of formData().recipients; track dest) {
+        <span
+          class="inline-flex items-center text-xs font-medium bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full cursor-pointer hover:bg-blue-200 transition"
+          (click)="removeRecipient(dest)">
+          {{ dest }}
+          <span class="ml-1 font-bold">×</span>
+        </span>
+        }
+      </div>
+      }
+    </div>
+
+    <!-- Content -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Contenido *</label>
+      <p *ngIf="formData().channels.includes('WhatsApp')" class="text-xs text-gray-500 mb-2">💡 Para WhatsApp: Mantén
+        el mensaje breve y directo</p>
+      <textarea [(ngModel)]="formData().content" [rows]="formData().channels.includes('WhatsApp') ? 4 : 8"
+        placeholder="Contenido completo del mensaje..."
+        class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
+    </div>
+
+    <!-- Action Type -->
+    <div class="border-t pt-4">
+      <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de acción</label>
+      <div class="flex gap-4">
         <div class="flex items-center">
-          <span class="text-2xl mr-3">{{ toast().icon }}</span>
-          <div>
-            <p class="font-bold">{{ toast().message }}</p>
-            <p class="text-sm opacity-90">{{ toast().description }}</p>
-          </div>
+          <input type="radio" id="programar" name="type" value="programar" [(ngModel)]="formData().type"
+            class="text-blue-600 focus:ring-blue-500" />
+          <label for="programar" class="ml-2 text-sm text-gray-700">Programar envío</label>
+        </div>
+        <div class="flex items-center">
+          <input type="radio" id="borrador" name="type" value="borrador" [(ngModel)]="formData().type"
+            class="text-blue-600 focus:ring-blue-500" />
+          <label for="borrador" class="ml-2 text-sm text-gray-700">Guardar como borrador</label>
         </div>
       </div>
     </div>
 
-    <!-- Modals (Add, Edit, View, Confirm Delete/Send) -->
-    @if (currentModal() !== 'none') {
-      <!-- CORRECTION: Added h-full w-full to ensure overlay covers the entire viewport. -->
-      <div class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm h-full w-full" (click)="closeModal()"></div>
-      <div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6 bg-white rounded-xl shadow-2xl w-[95%] max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-in-out">
-        
-        <!-- Modal Header -->
-        <div class="flex justify-between items-center border-b pb-3 mb-4">
-          <h2 class="text-xl font-semibold text-gray-800">
-            @switch (currentModal()) {
-              @case ('add') { Agregar Nuevo Comunicado }
-              @case ('edit') { Editar Comunicado }
-              @case ('view') { Detalles del Comunicado }
-              @case ('delete-confirm') { Confirmar Eliminación }
-              @case ('send-confirm') { Confirmar Envío }
-            }
-          </h2>
-          <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600">
-             <app-icon name="x"></app-icon>
-          </button>
-        </div>
-
-        <!-- Modal Content: Add/Edit Form -->
-        @if (currentModal() === 'add' || currentModal() === 'edit') {
-          <div class="space-y-4">
-            <!-- Title -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Título del comunicado *</label>
-              <!-- Two-way binding (ngModel) can often handle the signal wrapper, but other accesses must use formData() -->
-              <input type="text" [(ngModel)]="formData().title" placeholder="Ej: Aumento de tarifas 2024" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"/>
-            </div>
-
-            <!-- Channels -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Canales de comunicación *</label>
-              <div class="flex flex-col sm:flex-row gap-4">
-                @for (channel of channels; track channel.id) {
-                  <div class="flex items-center space-x-2 p-3 bg-gray-50 border rounded-lg cursor-pointer hover:bg-gray-100 transition duration-150" (click)="toggleChannel(channel.name)">
-                    <!-- FIX: Use formData() for channel check in [checked] -->
-                    <input type="checkbox" [id]="'channel-' + channel.name" [checked]="formData().channels.includes(channel.name)" class="rounded text-blue-600 focus:ring-blue-500"/>
-                    <label [for]="'channel-' + channel.name" class="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-900">
-                       <app-icon name="channel.icon" [ngClass]="channel.name === 'Email' ? 'text-blue-600' : 'text-green-600'"></app-icon>
-                      <span>{{ channel.spanishLabel }}</span>
-                    </label>
-                  </div>
-                }
-              </div>
-              <!-- FIX: Use formData() to access properties -->
-              <p *ngIf="formData().channels.length === 0" class="text-xs text-red-500 mt-2">Selecciona al menos un canal</p>
-              <p *ngIf="formData().channels.length === 2" class="text-xs text-blue-600 mt-2">✓ Se enviará por ambos canales</p>
-            </div>
-
-            <!-- Recipients -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Destinatarios *</label>
-              <select (change)="addRecipient($event)" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white">
-                <option value="" disabled selected>Agregar destinatarios (grupos o individuales)</option>
-                @for (client of customerOptions; track client) {
-                  <option [value]="client">{{ client }}</option>
-                }
-              </select>
-              <!-- FIX: Use formData() to access properties -->
-              @if (formData().recipients.length > 0) {
-                <div class="flex flex-wrap gap-2 mt-2 p-2 bg-gray-50 rounded-lg border">
-                  <!-- FIX: Use formData() to access properties for the @for loop -->
-                  @for (dest of formData().recipients; track dest) {
-                    <span class="inline-flex items-center text-xs font-medium bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full cursor-pointer hover:bg-blue-200 transition" (click)="removeRecipient(dest)">
-                      {{ dest }}
-                      <span class="ml-1 font-bold">×</span>
-                    </span>
-                  }
-                </div>
-              }
-            </div>
-
-            <!-- Content -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Contenido *</label>
-              <!-- FIX: Use formData() for channel check -->
-              <p *ngIf="formData().channels.includes('WhatsApp')" class="text-xs text-gray-500 mb-2">💡 Para WhatsApp: Mantén el mensaje breve y directo</p>
-              <textarea [(ngModel)]="formData().content" [rows]="formData().channels.includes('WhatsApp') ? 4 : 6" placeholder="Contenido completo del mensaje..." class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
-              <!-- FIX: Use formData() for channel check and content length -->
-              <p *ngIf="formData().channels.includes('WhatsApp')" class="text-xs text-gray-500 mt-1">Caracteres: {{ formData().content.length }}/160</p>
-            </div>
-
-            <!-- Action Type -->
-            <div class="border-t pt-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de acción</label>
-              <div class="flex gap-4">
-                <div class="flex items-center">
-                  <input type="radio" id="programar" name="type" value="programar" [(ngModel)]="formData().type" class="text-blue-600 focus:ring-blue-500"/>
-                  <label for="programar" class="ml-2 text-sm text-gray-700">Programar envío</label>
-                </div>
-                <div class="flex items-center">
-                  <input type="radio" id="borrador" name="type" value="borrador" [(ngModel)]="formData().type" class="text-blue-600 focus:ring-blue-500"/>
-                  <label for="borrador" class="ml-2 text-sm text-gray-700">Guardar como borrador</label>
-                </div>
-              </div>
-            </div>
-
-            <!-- Schedule Fields (Conditional) -->
-            <!-- FIX: Use formData() for type check -->
-            @if (formData().type === 'programar') {
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de envío</label>
-                  <input type="date" [(ngModel)]="formData().sendDate" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"/>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Hora de envío</label>
-                  <input type="time" [(ngModel)]="formData().sendTime" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"/>
-                </div>
-              </div>
-            }
-
-            <!-- Footer Buttons -->
-            <div class="flex gap-2 pt-4">
-              <button
-                (click)="currentModal() === 'add' ? addCommunication() : editCommunication()"
-                [disabled]="!isFormValid()"
-                class="flex-1 px-4 py-2 rounded-full text-white shadow-md transition duration-200 disabled:opacity-50"
-                [ngClass]="isFormValid() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'"
-              >
-                <!-- FIX: Use formData() for type check -->
-                {{ formData().type === 'programar' ? 'Programar Comunicado' : 'Guardar Borrador' }}
-              </button>
-              <button
-                (click)="closeModal()"
-                class="flex-1 px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        }
-
-        <!-- Modal Content: View Details -->
-        @if (currentModal() === 'view' && selectedCommunication()) {
-          <div class="space-y-4">
-            <div class="p-4 rounded-lg space-y-3 border bg-gray-50">
-              <div class="flex items-center justify-between">
-                <h3 class="text-lg font-bold text-gray-900">{{ selectedCommunication()!.title }}</h3>
-                <span [ngClass]="getBadgeMeta(selectedCommunication()!.status).classes">
-                  <app-icon *ngIf="getBadgeMeta(selectedCommunication()!.status).icon" [name]="getBadgeMeta(selectedCommunication()!.status).icon"></app-icon>
-                  <span class="ml-2">{{ getBadgeMeta(selectedCommunication()!.status).text }}</span>
-                </span>
-              </div>
-              
-              <div class="flex items-center gap-2 text-sm text-gray-600">
-                <ng-container *ngFor="let ic of getChannelMeta(selectedCommunication()!.channel).icons">
-                  <app-icon [name]="ic.name" [ngClass]="ic.classes + ' h-4 w-4'" class="inline-block"></app-icon>
-                </ng-container>
-                <span>{{ selectedCommunication()!.channel }}</span>
-              </div>
-              
-              <div class="border-t pt-3">
-                <h4 class="text-sm font-medium text-gray-700 mb-2">Contenido:</h4>
-                <div class="bg-white p-3 rounded border text-sm whitespace-pre-wrap shadow-inner">
-                  {{ selectedCommunication()!.content }}
-                </div>
-              </div>
-              
-              <div class="border-t pt-3">
-                <h4 class="text-sm font-medium text-gray-700 mb-2">Destinatarios:</h4>
-                <div class="flex flex-wrap gap-1">
-                  @for (dest of selectedCommunication()!.recipients; track dest) {
-                    <span class="inline-flex items-center text-xs font-medium bg-gray-200 text-gray-800 px-2.5 py-0.5 rounded-full">{{ dest }}</span>
-                  }
-                </div>
-              </div>
-              
-              @if (selectedCommunication()!.status === 'Programado' || selectedCommunication()!.status === 'Enviado') {
-                <div class="border-t pt-3 text-sm text-gray-600">
-                  <strong>{{ selectedCommunication()!.status === 'Programado' ? 'Programado para' : 'Enviado el' }}:</strong> 
-                  {{ selectedCommunication()!.sendDate }} a las {{ selectedCommunication()!.sendTime }}
-                </div>
-              }
-              
-              <div class="border-t pt-3 text-sm text-gray-600">
-                <strong>Creado:</strong> {{ selectedCommunication()!.creationDate }}
-              </div>
-            </div>
-            
-            <button (click)="closeModal()" class="w-full px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200">
-              Cerrar
-            </button>
-          </div>
-        }
-
-        <!-- Modal Content: Delete Confirmation -->
-        @if (currentModal() === 'delete-confirm' && selectedCommunication()) {
-          <div class="space-y-6 text-center p-4">
-            <div class="text-red-500 text-6xl">
-              <span class="inline-block transform rotate-12">⚠️</span>
-            </div>
-            <h3 class="text-xl font-bold text-gray-900">¿Estás seguro de que quieres eliminar este comunicado?</h3>
-            <p class="text-gray-600">
-              Esta acción eliminará el comunicado "<strong>{{ selectedCommunication()!.title }}</strong>" de forma permanente.
-            </p>
-            <div class="flex gap-4">
-              <button (click)="handleDeleteCommunication(selectedCommunication()!.id)" class="flex-1 px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-md transition duration-200">
-                 <app-icon name="Trash2" class="h-4 w-4 mr-2"></app-icon>
-                Confirmar Eliminación
-              </button>
-              <button (click)="closeModal()" class="flex-1 px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200">
-                Cancelar
-              </button>
-            </div>
-          </div>
-        }
-
-        <!-- Modal Content: Send Confirmation (for Drafts) -->
-        @if (currentModal() === 'send-confirm' && selectedCommunication()) {
-          <div class="space-y-4">
-            <div class="bg-blue-50 p-4 rounded-lg space-y-2">
-              <h4 class="text-sm font-semibold text-gray-700">Resumen del comunicado:</h4>
-              <p class="text-sm"><strong>Título:</strong> {{ selectedCommunication()!.title }}</p>
-              <p class="text-sm"><strong>Canal:</strong> {{ selectedCommunication()!.channel }}</p>
-              <p class="text-sm"><strong>Destinatarios:</strong> {{ selectedCommunication()!.recipients.length }} destinatario(s)</p>
-            </div>
-            
-            <div class="bg-yellow-50 p-3 rounded text-sm border border-yellow-200">
-              <p class="text-yellow-800 font-medium flex items-center">
-                <span class="mr-2">⚠️</span>
-                <strong>Atención:</strong> El comunicado se enviará **inmediatamente**.
-              </p>
-            </div>
-
-            <div class="flex gap-2 pt-2">
-              <button
-                (click)="handleSendCommunication(selectedCommunication()!.id)"
-                class="flex-1 px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white shadow-md transition duration-200 flex items-center justify-center"
-              >
-                 <app-icon name="Send" class="h-4 w-4 mr-2"></app-icon>
-                Confirmar Envío
-              </button>
-              <button
-                (click)="closeModal()"
-                class="flex-1 px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        }
+    <!-- Schedule Fields (Conditional) -->
+    @if (formData().type === 'programar') {
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de envío</label>
+        <input type="date" [(ngModel)]="formData().sendDate"
+          class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
       </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Hora de envío</label>
+        <input type="time" [(ngModel)]="formData().sendTime"
+          class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+      </div>
+    </div>
     }
 
-    <!-- Helper for rendering communication cards -->
-    <ng-template #communicationCardTemplate let-comm="communication" let-isDraft="isDraft" let-isPast="isPast">
-      <!-- APLICAR FLEXBOX: flex flex-col h-full para que la tarjeta ocupe todo el espacio de su grid cell -->
-      <div class="p-4 pb-2 bg-white rounded-xl border border-gray-200 shadow hover:shadow-lg transition-shadow duration-200 flex flex-col h-full">
-        
-        <div class="flex items-start justify-between">
-          <h3 class="text-sm font-semibold text-gray-900 line-clamp-2 pr-4">{{ comm.title }}</h3>
-          <span [ngClass]="getBadgeMeta(comm.status).classes">
-            <app-icon *ngIf="getBadgeMeta(comm.status).icon" [name]="getBadgeMeta(comm.status).icon" class="h-3 w-3"></app-icon>
-            <span class="ml-1 text-xs">{{ getBadgeMeta(comm.status).text }}</span>
-          </span>
-        </div>
-        
-        <!-- Contenido principal que debe CRECER (flex-grow) para empujar las acciones hacia abajo -->
-        <div class="space-y-3 mt-3 flex-grow">
-          <p class="text-xs text-gray-600 line-clamp-2">
-            {{ getCommunicationPreview(comm.content, comm.channel) }}
-          </p>
-          
-          <div class="flex items-center gap-2 text-xs text-gray-500">
-            <ng-container *ngFor="let ic of getChannelMeta(comm.channel).icons">
-              <app-icon [name]="ic.name" [ngClass]="ic.classes + ' h-3 w-3'" class="inline-block"></app-icon>
-            </ng-container>
-            <span>{{ comm.channel }}</span>
-            <span>•</span>
-            @if (isDraft) {
-              <span>Creado: {{ comm.creationDate }}</span>
-            } @else {
-               <app-icon name="Calendar" class="h-3 w-3"></app-icon>
-              <span>{{ isPast ? 'Enviado' : 'Envío' }}: {{ comm.sendDate }} {{ comm.sendTime }}</span>
-            }
-          </div>
-          
-          <div class="flex items-center gap-1 text-xs text-gray-500">
-             <app-icon name="Users" class="h-3 w-3"></app-icon>
-            <span>{{ comm.recipients.length }} destinatario(s)</span>
-          </div>
-        </div>
-        
-        <!-- Actions (Se mantendrá pegado al fondo gracias al flex-grow anterior) -->
-        <div class="flex gap-1 pt-2 border-t mt-3">
-          <!-- View Button -->
-          <button
-            (click)="openModal('view', comm)"
-            title="Ver detalles"
-            class="flex-1 flex justify-center items-center p-2 rounded-full text-gray-600 hover:bg-gray-100 transition"
-          >
-             <app-icon name="Eye" class="h-4 w-4"></app-icon>
-          </button>
-          
-          <!-- Edit Button (Scheduled/Draft only) -->
-          @if (!isPast) {
-            <button
-              (click)="openModal('edit', comm)"
-              title="Editar comunicado"
-              class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition"
-            >
-               <app-icon name="edit" class="h-4 w-4"></app-icon>
-            </button>
-          }
+    <!-- Footer Buttons -->
+    <div class="flex gap-2 pt-4">
+      <button (click)="currentModal() === 'add' ? addCommunication() : editCommunication()" [disabled]="!isFormValid()"
+        class="flex-1 px-4 py-2 rounded-full text-white shadow-md transition duration-200 disabled:opacity-50"
+        [ngClass]="isFormValid() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'">
+        {{ formData().type === 'programar' ? 'Programar Comunicado' : 'Guardar Borrador' }}
+      </button>
+      <button (click)="closeModal()"
+        class="flex-1 px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200">
+        Cancelar
+      </button>
+    </div>
+  </div>
+  }
 
-          <!-- Send/Reschedule/Resend Button -->
-          @if (isDraft) {
-            <!-- Send (Draft) -->
-            <button
-              (click)="openModal('send-confirm', comm)"
-              title="Enviar ahora"
-              class="flex-1 flex justify-center items-center p-2 rounded-full text-green-600 hover:bg-green-100 transition"
-            >
-               <app-icon name="Send" class="h-4 w-4"></app-icon>
-            </button>
-          } @else if (isPast) {
-            <!-- Resend (Past) -->
-            <button
-              (click)="openModal('add', comm, true)"
-              title="Reenviar comunicado"
-              class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition"
-            >
-               <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
-            </button>
-          } @else if (comm.status === 'Programado') {
-            <!-- Force Send (Scheduled) -->
-            <button
-              (click)="openModal('send-confirm', comm)"
-              title="Enviar ahora (Cancelar programación)"
-              class="flex-1 flex justify-center items-center p-2 rounded-full text-green-600 hover:bg-green-100 transition"
-            >
-               <app-icon name="Send" class="h-4 w-4"></app-icon>
-            </button>
-          }
+  <!-- Modal Content: View Details -->
+  @if (currentModal() === 'view' && selectedCommunication()) {
+  <div class="space-y-4">
+    <div class="p-4 rounded-lg space-y-3 border bg-gray-50">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold text-gray-900">{{ selectedCommunication()!.title }}</h3>
+        <span [ngClass]="getBadgeMeta(selectedCommunication()!.status).classes">
+          <app-icon *ngIf="getBadgeMeta(selectedCommunication()!.status).icon"
+            [name]="getBadgeMeta(selectedCommunication()!.status).icon!"></app-icon>
+          <span class="ml-2">{{ getBadgeMeta(selectedCommunication()!.status).text }}</span>
+        </span>
+      </div>
 
-          <!-- Delete Button (Draft/Scheduled only) -->
-          @if (!isPast) {
-            <button
-              (click)="openModal('delete-confirm', comm)"
-              title="Eliminar comunicado"
-              class="flex-1 flex justify-center items-center p-2 rounded-full text-red-600 hover:bg-red-100 transition"
-            >
-               <app-icon name="Trash2" class="h-4 w-4"></app-icon>
-            </button>
+      <div class="flex items-center gap-2 text-sm text-gray-600">
+        <ng-container *ngFor="let ic of getChannelMeta(selectedCommunication()!.channel).icons">
+          <app-icon [name]="ic.name" [ngClass]="ic.classes + ' h-4 w-4'" class="inline-block"></app-icon>
+        </ng-container>
+        <span>{{ selectedCommunication()!.channel }}</span>
+      </div>
+
+      <div class="border-t pt-3">
+        <h4 class="text-sm font-medium text-gray-700 mb-2">Contenido:</h4>
+        <div class="bg-white p-3 rounded border text-sm whitespace-pre-wrap shadow-inner max-h-48 overflow-y-auto">
+          {{ selectedCommunication()!.content }}
+        </div>
+      </div>
+
+      <div class="border-t pt-3">
+        <h4 class="text-sm font-medium text-gray-700 mb-2">Destinatarios:</h4>
+        <div class="flex flex-wrap gap-1">
+          @for (dest of selectedCommunication()!.recipients; track dest) {
+          <span class="inline-flex items-center text-xs font-medium bg-gray-200 text-gray-800 px-2.5 py-0.5 rounded-full">{{ dest }}</span>
           }
         </div>
       </div>
-    </ng-template>
+      
+      <!-- **** CORRECTION 1: Using English statuses from the backend **** -->
+      @if (selectedCommunication()!.status === 'Scheduled' || selectedCommunication()!.status === 'Finished' || selectedCommunication()!.status === 'Finished w/ Errors') {
+      <div class="border-t pt-3 text-sm text-gray-600">
+        <strong>{{ selectedCommunication()!.status === 'Scheduled' ? 'Programado para' : 'Enviado el' }}:</strong>
+        {{ selectedCommunication()!.sendDate }} a las {{ selectedCommunication()!.sendTime }}
+      </div>
+      }
+
+      <div class="border-t pt-3 text-sm text-gray-600">
+        <strong>Creado:</strong> {{ selectedCommunication()!.creationDate }}
+      </div>
+    </div>
+
+    <button (click)="closeModal()"
+      class="w-full px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200">
+      Cerrar
+    </button>
+  </div>
+  }
+
+  <!-- Modal Content: Delete Confirmation -->
+  @if (currentModal() === 'delete-confirm' && selectedCommunication()) {
+    <div class="space-y-6 text-center p-4">
+      <div class="text-red-500 mx-auto text-5xl flex items-center justify-center h-16 w-16 bg-red-100 rounded-full">
+        <app-icon name="Trash2"></app-icon>
+      </div>
+      <h3 class="text-xl font-bold text-gray-900">¿Estás seguro?</h3>
+      <p class="text-gray-600">
+        Esta acción eliminará el comunicado "<strong>{{ selectedCommunication()!.title }}</strong>" de forma permanente.
+      </p>
+      <div class="flex gap-4">
+        <button (click)="handleDeleteCommunication(selectedCommunication()!.id)" class="flex-1 flex justify-center items-center px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-md transition duration-200">
+          Confirmar Eliminación
+        </button>
+        <button (click)="closeModal()" class="flex-1 px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Modal Content: Send Confirmation (for Drafts) -->
+  @if (currentModal() === 'send-confirm' && selectedCommunication()) {
+  <div class="space-y-4">
+    <div class="bg-blue-50 p-4 rounded-lg space-y-2 border border-blue-200">
+      <h4 class="text-sm font-semibold text-gray-700">Resumen del comunicado:</h4>
+      <p class="text-sm"><strong>Título:</strong> {{ selectedCommunication()!.title }}</p>
+      <p class="text-sm"><strong>Canal:</strong> {{ selectedCommunication()!.channel }}</p>
+      <p class="text-sm"><strong>Destinatarios:</strong> {{ selectedCommunication()!.recipients.length }} destinatario(s)
+      </p>
+    </div>
+
+    <div class="bg-yellow-50 p-3 rounded text-sm border border-yellow-200">
+      <p class="text-yellow-800 font-medium flex items-center">
+        <app-icon name="AlertTriangle" class="h-4 w-4 mr-2"></app-icon>
+        <strong>Atención:</strong> El comunicado se enviará <strong>inmediatamente</strong>.
+      </p>
+    </div>
+
+    <div class="flex gap-2 pt-2">
+      <button (click)="handleSendCommunication(selectedCommunication()!.id)"
+        class="flex-1 px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white shadow-md transition duration-200 flex items-center justify-center">
+        <app-icon name="Send" class="h-4 w-4 mr-2"></app-icon>
+        Confirmar Envío
+      </button>
+      <button (click)="closeModal()"
+        class="flex-1 px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200">
+        Cancelar
+      </button>
+    </div>
+  </div>
+  }
+</div>
+}
+
+<!-- Helper for rendering communication cards -->
+<ng-template #communicationCardTemplate let-comm="communication" let-isDraft="isDraft" let-isPast="isPast">
+  <div class="p-4 pb-2 bg-white rounded-xl border border-gray-200 shadow hover:shadow-lg transition-shadow duration-200 flex flex-col h-full">
+
+    <div class="flex items-start justify-between">
+      <h3 class="text-sm font-semibold text-gray-900 line-clamp-2 pr-4">{{ comm.title }}</h3>
+      <span [ngClass]="getBadgeMeta(comm.status).classes">
+        <app-icon *ngIf="getBadgeMeta(comm.status).icon" [name]="getBadgeMeta(comm.status).icon!" class="h-3 w-3"></app-icon>
+        <span class="ml-1 text-xs">{{ getBadgeMeta(comm.status).text }}</span>
+      </span>
+    </div>
+
+    <!-- Main content that grows to push actions to the bottom -->
+    <div class="space-y-3 mt-3 flex-grow">
+      <p class="text-xs text-gray-600 line-clamp-2">
+        {{ getCommunicationPreview(comm.content, comm.channel) }}
+      </p>
+
+      <div class="flex items-center gap-2 text-xs text-gray-500">
+        <ng-container *ngFor="let ic of getChannelMeta(comm.channel).icons">
+          <app-icon [name]="ic.name" [ngClass]="ic.classes + ' h-3 w-3'" class="inline-block"></app-icon>
+        </ng-container>
+        <span>{{ comm.channel }}</span>
+        <span>•</span>
+        @if (isDraft) {
+        <span>Creado: {{ comm.creationDate }}</span>
+        } @else {
+        <app-icon name="Calendar" class="h-3 w-3"></app-icon>
+        <span>{{ isPast ? 'Enviado' : 'Envío' }}: {{ comm.sendDate }} {{ comm.sendTime }}</span>
+        }
+      </div>
+
+      <div class="flex items-center gap-1 text-xs text-gray-500">
+        <app-icon name="Users" class="h-3 w-3"></app-icon>
+        <span>{{ comm.recipients.length }} destinatario(s)</span>
+      </div>
+    </div>
+
+    <!-- Actions (will stick to the bottom due to flex-grow) -->
+    <div class="flex gap-1 pt-2 border-t mt-3">
+      <!-- View Button -->
+      <button (click)="openModal('view', comm)" title="Ver detalles"
+        class="flex-1 flex justify-center items-center p-2 rounded-full text-gray-600 hover:bg-gray-100 transition">
+        <app-icon name="Eye" class="h-4 w-4"></app-icon>
+      </button>
+
+      <!-- Edit Button (Scheduled/Draft only) -->
+      @if (!isPast) {
+      <button (click)="openModal('edit', comm)" title="Editar comunicado"
+        class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition">
+        <app-icon name="edit" class="h-4 w-4"></app-icon>
+      </button>
+      }
+
+      <!-- Send/Reschedule/Resend Button -->
+      @if (isDraft) {
+      <!-- Send (Draft) -->
+      <button (click)="openModal('send-confirm', comm)" title="Enviar ahora"
+        class="flex-1 flex justify-center items-center p-2 rounded-full text-green-600 hover:bg-green-100 transition">
+        <app-icon name="Send" class="h-4 w-4"></app-icon>
+      </button>
+      } @else if (isPast) {
+      <!-- Resend (Past) -->
+      <button (click)="openModal('add', comm, true)" title="Reenviar comunicado"
+        class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition">
+        <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
+      </button>
+      } 
+      <!-- **** CORRECTION 2: Using English status 'Scheduled' **** -->
+      @else if (comm.status === 'Scheduled') {
+      <!-- Force Send (Scheduled) -->
+      <button (click)="openModal('send-confirm', comm)" title="Enviar ahora (Cancelar programación)"
+        class="flex-1 flex justify-center items-center p-2 rounded-full text-green-600 hover:bg-green-100 transition">
+        <app-icon name="Send" class="h-4 w-4"></app-icon>
+      </button>
+      }
+
+      <!-- Delete Button (Draft/Scheduled only) -->
+      @if (!isPast) {
+      <button (click)="openModal('delete-confirm', comm)" title="Eliminar comunicado"
+        class="flex-1 flex justify-center items-center p-2 rounded-full text-red-600 hover:bg-red-100 transition">
+        <app-icon name="Trash2" class="h-4 w-4"></app-icon>
+      </button>
+      }
+    </div>
+  </div>
+</ng-template>

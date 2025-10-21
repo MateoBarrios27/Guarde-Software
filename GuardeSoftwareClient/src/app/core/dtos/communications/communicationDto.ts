@@ -1,24 +1,33 @@
-// DTO para mostrar la lista de comunicaciones
+// core/dtos/communications/communicationDto.ts
+
+/**
+ * DTO for displaying a communication (matches backend)
+ * (Comentarios en español solo para aclarar el cambio)
+ */
 export interface ComunicacionDto {
   id: number;
   title: string;
-  content: string; // El contenido principal (el backend lo tomará de comunicados_x_canal)
+  content: string;
   sendDate: string | null;
   sendTime: string | null;
-  channel: string; // "Email", "WhatsApp", "Email + WhatsApp"
-  recipients: string[]; // ["Todos los clientes", "Juan Pérez"]
-  status: 'Enviado' | 'Programado' | 'Borrador';
+  channel: string;
+  recipients: string[];
+  // CORRECCIÓN: Los estados deben ser los que envía el backend
+  status: 'Draft' | 'Scheduled' | 'Processing' | 'Finished' | 'Finished w/ Errors' | 'Failed';
   creationDate: string;
 }
 
-// DTO para crear o editar una comunicación (basado en tu FormDataState)
+/**
+ * DTO for creating/editing a communication (matches backend)
+ */
 export interface UpsertComunicacionRequest {
-  id: number | null; // null para crear, ID para editar
+  id: number | null;
   title: string;
-  content: string; // El contenido único que el backend duplicará por canal
+  content: string;
   sendDate: string | null;
   sendTime: string | null;
   channels: ('Email' | 'WhatsApp')[];
-  recipients: string[]; // ["Todos los clientes", "Juan Pérez"]
-  type: 'programar' | 'borrador'; // 'schedule' or 'draft'
+  recipients: string[];
+  // CORRECCIÓN: El tipo debe ser el que espera el backend
+  type: 'schedule' | 'draft';
 }

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from "../../shared/components/icon/icon.component";
 import { CommunicationService } from '../../core/services/communication-service/communication.service';
+// Your DTOs are the source of truth
 import { ComunicacionDto, UpsertComunicacionRequest } from '../../core/dtos/communications/communicationDto';
 
 // --- Type Definitions (English Code) ---
@@ -11,33 +12,24 @@ import { ComunicacionDto, UpsertComunicacionRequest } from '../../core/dtos/comm
 interface Channel {
   id: number;
   name: 'Email' | 'WhatsApp';
-  spanishLabel: 'Email' | 'WhatsApp';
-  icon: string; // Lucide icon name
+  spanishLabel: 'Email' | 'WhatsApp'; // User-facing text
+  icon: string;
 }
 
-/** Represents a single communication record */
-interface Communication {
-  id: number;
-  title: string;
-  content: string;
-  sendDate: string; // Date string (YYYY-MM-DD) or empty
-  sendTime: string; // Time string (HH:MM) or empty
-  channel: string; // 'Email', 'WhatsApp', or 'Email + WhatsApp'
-  recipients: string[];
-  status: 'Enviado' | 'Programado' | 'Borrador'; // 'Sent', 'Scheduled', 'Draft'
-  creationDate: string;
-}
+// -----------------------------------------------------------------
+// ❌ REMOVED: The local 'Communication' interface. We will use 'ComunicacionDto' directly.
+// -----------------------------------------------------------------
 
 /** State for the Add/Edit form */
 interface FormDataState {
-  id: number | null; // Used for editing
+  id: number | null;
   title: string;
   content: string;
   sendDate: string;
   sendTime: string;
   channels: ('Email' | 'WhatsApp')[];
   recipients: string[];
-  type: 'programar' | 'borrador'; // 'schedule' or 'draft'
+  type: 'programar' | 'borrador'; // This is for the form's radio button (Spanish UI)
 }
 
 /** State for the notification toast */
@@ -51,73 +43,16 @@ interface ToastState {
 
 // --- Mock Data (English Code, Spanish Content) ---
 
-const MOCK_COMMUNICATIONS: Communication[] = [
-  {
-    id: 1,
-    title: 'Aumento de tarifas 2024',
-    content: 'Estimados clientes, les informamos que a partir del próximo mes, debido a ajustes de mercado, aplicaremos un pequeño aumento. ¡Gracias por su comprensión!',
-    sendDate: '2024-09-15',
-    sendTime: '10:00',
-    channel: 'Email',
-    recipients: ['Todos los clientes'],
-    status: 'Programado',
-    creationDate: '2024-08-12'
-  },
-  {
-    id: 2,
-    title: 'Mantenimiento programado',
-    content: 'Les informamos que el día sábado 20/09 de 09:00 a 11:00 realizaremos tareas de mantenimiento en el sistema.',
-    sendDate: '2024-09-18',
-    sendTime: '09:00',
-    channel: 'WhatsApp',
-    recipients: ['Clientes con deuda'],
-    status: 'Programado',
-    creationDate: '2024-08-10'
-  },
-  {
-    id: 3,
-    title: 'Recordatorio de pago',
-    content: 'Su pago está vencido. Por favor contacte a la administración para evitar suspensiones de servicio.',
-    sendDate: '',
-    sendTime: '',
-    channel: 'Email',
-    recipients: ['Clientes morosos'],
-    status: 'Borrador',
-    creationDate: '2024-08-11'
-  },
-  {
-    id: 4,
-    title: 'Bienvenida nuevos clientes',
-    content: '¡Bienvenidos a GuardeSoftware! Sus datos de acceso y un tutorial de inicio rápido han sido enviados a su correo.',
-    sendDate: '2024-08-01',
-    sendTime: '14:30',
-    channel: 'Email',
-    recipients: ['Juan Pérez', 'María García'],
-    status: 'Enviado',
-    creationDate: '2024-07-30'
-  },
-  {
-    id: 5,
-    title: 'Actualización de horarios',
-    content: 'Nuevos horarios de atención: Lunes a Viernes 8:00 a 18:00. ¡Esperamos verles!',
-    sendDate: '2024-07-15',
-    sendTime: '12:00',
-    channel: 'WhatsApp',
-    recipients: ['Todos los clientes'],
-    status: 'Enviado',
-    creationDate: '2024-07-14'
-  }
-];
-
 const CUSTOMER_OPTIONS = [
-  'Todos los clientes',
-  'Clientes con deuda',
-  'Clientes morosos',
-  'Clientes al día',
+  'Todos los clientes', // All Clients
+  'Clientes con deuda', // Clients with Debt
+  'Clientes morosos',   // Delinquent Clients
+  'Clientes al día',    // Clients in Good Standing
   'Juan Pérez',
   'María García',
   'Carlos López',
-  'Ana Martínez'
+  'Ana Martínez',
+  'Bruno Franco'
 ];
 
 const COMMUNICATION_CHANNELS: Channel[] = [
@@ -125,24 +60,20 @@ const COMMUNICATION_CHANNELS: Channel[] = [
   { id: 2, name: 'WhatsApp', spanishLabel: 'WhatsApp', icon: 'MessageSquare' }
 ];
 
-// --- Utility function to generate Lucide-like SVG icons inline ---
-const ICON_SVGS: { [key: string]: string } = {
-
-};
-
 @Component({
   selector: 'communications',
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
-  templateUrl: './communications.component.html'
-  ,
+  templateUrl: './communications.component.html',
   styleUrl: './communications.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CommunicationsComponent implements OnInit {
+
   // --- Signals (State Management) ---
 
-  communications = signal<ComunicacionDto[]>([]); // Inicia vacío
+  // This signal now holds the DTOs from the API
+  communications = signal<ComunicacionDto[]>([]); 
   
   constructor(private commService: CommunicationService) {}
 
@@ -151,16 +82,17 @@ export class CommunicationsComponent implements OnInit {
   }
 
   loadCommunications(): void {
-    this.commService.getComunicaciones().subscribe({
-      next: (data) => this.communications.set(data),
+    // Assumes your service method is 'getComunicaciones'
+    this.commService.getCommunications().subscribe({ 
+      next: (data) => {
+        this.communications.set(data);
+        console.log('Communications loaded:', data);
+      },
       error: (err) => this.showToast('Error de Carga', 'No se pudieron cargar los datos', '❌', 'error')
     });
   }
-
-  // List of all communications
-  // communications = signal<Communication[]>(MOCK_COMMUNICATIONS);
   
-  // Data for the Add/Edit form
+  // This signal is for the modal form
   formData = signal<FormDataState>({
     id: null,
     title: '',
@@ -172,13 +104,11 @@ export class CommunicationsComponent implements OnInit {
     type: 'programar'
   });
   
-  // Currently open modal ('add', 'edit', 'view', 'delete-confirm', 'send-confirm', 'none')
   currentModal = signal<'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm' | 'none'>('none');
   
-  // Communication selected for view, edit, or confirmation
-  selectedCommunication = signal<Communication | null>(null);
+  // ✅ CORRECTION: This signal must hold the DTO, not the old interface
+  selectedCommunication = signal<ComunicacionDto | null>(null);
 
-  // Toast notification state
   toast = signal<ToastState>({
     show: false,
     message: '',
@@ -193,19 +123,24 @@ export class CommunicationsComponent implements OnInit {
   
   // --- Computed Signals for Filtering (Derived State) ---
   
+  // ✅ CORRECTION: Filter using the ENGLISH status names from the API
   scheduledCommunications = computed(() => 
-    this.communications().filter(c => c.status === 'Programado')
+    this.communications().filter(c => c.status === 'Scheduled' || c.status === 'Processing')
   );
 
   draftCommunications = computed(() => 
-    this.communications().filter(c => c.status === 'Borrador')
+    this.communications().filter(c => c.status === 'Draft')
   );
 
   pastCommunications = computed(() => 
-    this.communications().filter(c => c.status === 'Enviado')
+    this.communications().filter(c => 
+      c.status === 'Finished' || 
+      c.status === 'Finished w/ Errors' ||
+      c.status === 'Failed'
+    )
   );
 
-  // Checks if form inputs are valid for submission
+  // This is valid, it checks the *form's* state
   isFormValid = computed(() => {
     const data = this.formData();
     let baseValid = data.title.trim().length > 0 && data.content.trim().length > 0 && data.channels.length > 0 && data.recipients.length > 0;
@@ -219,7 +154,6 @@ export class CommunicationsComponent implements OnInit {
 
   // --- Methods (Event Handlers and Logic) ---
 
-  /** Resets the form data to its initial state. */
   private resetForm(): void {
     this.formData.set({
       id: null,
@@ -233,65 +167,64 @@ export class CommunicationsComponent implements OnInit {
     });
   }
 
-  /**
-   * Displays a toast notification.
-   * @param message The main message.
-   * @param description Secondary description.
-   * @param icon Emoji icon.
-   * @param color 'success' or 'error'.
-   */
   private showToast(message: string, description: string, icon: string, color: 'success' | 'error'): void {
     this.toast.set({ show: true, message, description, icon, color });
     setTimeout(() => this.toast.set({ ...this.toast(), show: false }), 4000);
   }
 
-  /**
-   * Opens a specific modal, optionally pre-filling the form for edit/resend.
-   * @param modalType Type of modal to open.
-   * @param communication Optional communication object to load.
-   * @param isResend If true, loads communication data into a new 'add' form.
-   */
-  openModal(modalType: 'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm', communication: Communication | null = null, isResend: boolean = false): void {
+  // ✅ CORRECTION: Parameter 'communication' is now the DTO
+  openModal(modalType: 'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm', communication: ComunicacionDto | null = null, isResend: boolean = false): void {
     this.selectedCommunication.set(communication);
     this.resetForm();
 
+    let finalModalType = modalType;
+
     if (communication && (modalType === 'edit' || isResend)) {
-      // Convert channel string back to array for the form
+      // Convert channel string (e.g., "Email + WhatsApp") back to an array
       let channelsArray: ('Email' | 'WhatsApp')[] = [];
-      if (communication.channel.includes('Email')) channelsArray.push('Email');
-      if (communication.channel.includes('WhatsApp')) channelsArray.push('WhatsApp');
+      if (communication.channel.includes('Email')) {
+        channelsArray.push('Email');
+      }
+      if (communication.channel.includes('WhatsApp')) {
+        channelsArray.push('WhatsApp');
+      }
+
+      // Translate backend status (e.g., 'Scheduled') to form status ('programar')
+      const formType = (communication.status === 'Scheduled' || communication.status === 'Processing') 
+                       ? 'programar' 
+                       : 'borrador';
 
       this.formData.set({
         id: modalType === 'edit' ? communication.id : null,
         title: communication.title,
         content: communication.content,
-        sendDate: isResend ? '' : communication.sendDate,
-        sendTime: isResend ? '' : communication.sendTime,
+        sendDate: isResend ? '' : (communication.sendDate || ''),
+        sendTime: isResend ? '' : (communication.sendTime || ''),
         channels: channelsArray,
-        recipients: [...communication.recipients], // Copy recipients
-        type: isResend ? 'programar' : (communication.status === 'Programado' ? 'programar' : 'borrador')
+        recipients: [...communication.recipients],
+        type: isResend ? 'programar' : formType
       });
-      this.currentModal.set('add'); // Force 'add' modal for resend
-    } else if (communication && (modalType === 'view' || modalType === 'delete-confirm' || modalType === 'send-confirm')) {
-      // No form data needed, just the selected communication
+      
+      if (isResend) {
+        finalModalType = 'add'; // If it's a resend, force the modal to 'add'
+      }
+
     }
     
-    this.currentModal.set(modalType);
+    this.currentModal.set(finalModalType);
   }
 
-  /** Closes the currently open modal and resets related state. */
   closeModal(): void {
     this.currentModal.set('none');
     this.selectedCommunication.set(null);
     this.resetForm();
   }
 
-  /** Adds a new communication (either scheduled or draft). */
   addCommunication(): void {
     const data = this.formData();
-    if (!this.isFormValid()) { /* ... (tu validación) ... */ return; }
+    if (!this.isFormValid()) { return; }
 
-    // Mapea del formulario al DTO de la API
+    // Translate form type ('programar') to API type ('schedule')
     const request: UpsertComunicacionRequest = {
       id: null,
       title: data.title,
@@ -300,17 +233,17 @@ export class CommunicationsComponent implements OnInit {
       sendTime: data.type === 'programar' ? data.sendTime : null,
       channels: data.channels,
       recipients: data.recipients,
-      type: data.type
+      type: data.type === 'programar' ? 'schedule' : 'draft' // Translate
     };
 
-    this.commService.createComunicacion(request).subscribe({
-      next: (newCommunication) => { // La API debería devolver el DTO creado
-        // Actualiza el signal local
+    this.commService.createCommunication(request).subscribe({
+      next: (newCommunication) => {
+        // Add the new communication (which has an English status) to the signal
         this.communications.update(comms => [newCommunication, ...comms]);
         this.closeModal();
         this.showToast(
-          '¡Comunicado creado!',
-          data.type === 'programar' ? `Se programó el envío` : 'Guardado como borrador',
+          '¡Comunicado creado!', // UI in Spanish
+          data.type === 'programar' ? `Se programó el envío` : 'Guardado como borrador', // UI in Spanish
           '📨', 'success'
         );
       },
@@ -318,11 +251,10 @@ export class CommunicationsComponent implements OnInit {
     });
   }
 
-  /** Edits an existing communication. */
   editCommunication(): void {
     const data = this.formData();
     const commId = data.id;
-    if (!commId || !this.isFormValid()) { /* ... (tu validación) ... */ return; }
+    if (!commId || !this.isFormValid()) { return; }
 
     const request: UpsertComunicacionRequest = {
       id: commId,
@@ -332,12 +264,11 @@ export class CommunicationsComponent implements OnInit {
       sendTime: data.type === 'programar' ? data.sendTime : null,
       channels: data.channels,
       recipients: data.recipients,
-      type: data.type
+      type: data.type === 'programar' ? 'schedule' : 'draft' // Translate
     };
 
-    this.commService.updateComunicacion(commId, request).subscribe({
+    this.commService.updateCommunication(commId, request).subscribe({
       next: (updatedComm) => {
-        // Actualiza el signal local
         this.communications.update(comms => comms.map(c =>
           c.id === commId ? updatedComm : c
         ));
@@ -348,14 +279,9 @@ export class CommunicationsComponent implements OnInit {
     });
   }
 
-  /**
-   * Deletes a communication after confirmation.
-   * @param communicationId ID of the communication to delete.
-   */
   handleDeleteCommunication(communicationId: number): void {
-    this.commService.deleteComunicacion(communicationId).subscribe({
+    this.commService.deleteCommunication(communicationId).subscribe({
       next: () => {
-        // Actualiza el signal local
         this.communications.update(comms => comms.filter(c => c.id !== communicationId));
         this.closeModal();
         this.showToast('Comunicado eliminado', 'Se eliminó correctamente', '🗑️', 'success');
@@ -364,25 +290,21 @@ export class CommunicationsComponent implements OnInit {
     });
   }
 
-  /** REFACTORIZADO: Llama a la API para enviar ahora */
   handleSendCommunication(communicationId: number): void {
+    // Assumes your service has a 'sendDraftNow' method
     this.commService.sendDraftNow(communicationId).subscribe({
       next: (sentComm) => {
-        // Actualiza el signal local con el nuevo estado 'Enviado'
+        // API returns the updated communication, now set to 'Scheduled' or 'Processing'
         this.communications.update(comms => comms.map(c =>
           c.id === communicationId ? sentComm : c
         ));
         this.closeModal();
-        this.showToast('¡Comunicado enviado!', 'El envío se ha procesado', '✅', 'success');
+        this.showToast('¡Comunicado enviado!', 'El envío se ha puesto en cola', '✅', 'success');
       },
       error: (err) => this.showToast('Error', 'No se pudo enviar', '❌', 'error')
     });
   }
 
-  /**
-   * Toggles the selection of a channel in the form data.
-   * @param channelName 'Email' or 'WhatsApp'.
-   */
   toggleChannel(channelName: 'Email' | 'WhatsApp'): void {
     const currentChannels = this.formData().channels;
     const newChannels = currentChannels.includes(channelName)
@@ -392,47 +314,65 @@ export class CommunicationsComponent implements OnInit {
     this.formData.update(data => ({ ...data, channels: newChannels }));
   }
 
-  /**
-   * Adds a recipient to the form data from the select element.
-   * @param event The change event from the select element.
-   */
   addRecipient(event: Event): void {
     const value = (event.target as HTMLSelectElement).value;
     if (value && !this.formData().recipients.includes(value)) {
       this.formData.update(data => ({ ...data, recipients: [...data.recipients, value] }));
     }
-    (event.target as HTMLSelectElement).value = ''; // Reset select placeholder
+    (event.target as HTMLSelectElement).value = '';
   }
 
-  /**
-   * Removes a recipient from the form data.
-   * @param recipient The recipient name to remove.
-   */
   removeRecipient(recipient: string): void {
     this.formData.update(data => ({ ...data, recipients: data.recipients.filter(d => d !== recipient) }));
   }
   
   // --- Template Helpers ---
 
-  /**
-   * Returns metadata for a status badge so the template can render it using components.
-   * @param status Communication status.
-   */
-  getBadgeMeta(status: Communication['status']): { text: string; classes: string; icon?: string } {
+  // ✅ CORRECTION: Parameter 'status' is now from the DTO
+  getBadgeMeta(status: ComunicacionDto['status']): { text: string; classes: string; icon?: string } {
     let colorClass = '';
     let icon: string | undefined;
+    let text: string; // User-facing text in Spanish
+
     switch (status) {
-      case 'Enviado': colorClass = 'bg-green-100 text-green-800'; icon = 'check-circle'; break;
-      case 'Programado': colorClass = 'bg-blue-100 text-blue-800'; icon = 'clock'; break;
-      case 'Borrador': colorClass = 'bg-gray-100 text-gray-800'; icon = 'file-text'; break;
-      default: colorClass = 'bg-gray-100 text-gray-800';
+      case 'Finished': 
+        colorClass = 'bg-green-100 text-green-800'; 
+        icon = 'check-circle'; 
+        text = 'Enviado'; // Spanish UI
+        break;
+      case 'Scheduled': 
+        colorClass = 'bg-blue-100 text-blue-800'; 
+        icon = 'clock'; 
+        text = 'Programado'; // Spanish UI
+        break;
+      case 'Draft': 
+        colorClass = 'bg-gray-100 text-gray-800'; 
+        icon = 'file-text'; 
+        text = 'Borrador'; // Spanish UI
+        break;
+      case 'Processing':
+        colorClass = 'bg-yellow-100 text-yellow-800'; 
+        icon = 'refresh-cw'; 
+        text = 'Procesando'; // Spanish UI
+        break;
+      case 'Failed':
+      case 'Finished w/ Errors':
+        colorClass = 'bg-red-100 text-red-800'; 
+        icon = 'alert-triangle'; 
+        text = 'Error'; // Spanish UI
+        break;
+      default: 
+        colorClass = 'bg-gray-100 text-gray-800';
+        text = status; // Fallback
     }
-    return { text: status, classes: `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass} min-w-[70px] justify-center`, icon };
+    
+    return { 
+      text: text, 
+      classes: `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass} min-w-[70px] justify-center`, 
+      icon 
+    };
   }
 
-  /**
-   * Returns channel icon metadata so template can render one or two <app-icon> elements.
-   */
   getChannelMeta(channel: string): { icons: { name: string; classes?: string }[] } {
     const mail = { name: 'Mail', classes: 'text-blue-600' };
     const wa = { name: 'MessageSquare', classes: 'text-green-600' };
@@ -442,12 +382,6 @@ export class CommunicationsComponent implements OnInit {
     return { icons: [] };
   }
 
-  /**
-   * Provides a truncated preview of the content.
-   * @param content Full content string.
-   * @param channel Channel type (for special WhatsApp prefix).
-   * @returns Short preview string.
-   */
   getCommunicationPreview(content: string, channel: string): string {
     const maxLength = channel.includes('WhatsApp') ? 50 : 80;
     let preview = content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
@@ -455,19 +389,5 @@ export class CommunicationsComponent implements OnInit {
       return `📱 ${preview}`;
     }
     return preview;
-  }
-
-  /**
-   * Helper function to get an inline SVG icon.
-   * @param iconName Name of the Lucide icon.
-   * @returns SVG HTML string.
-   */
-  getIconSvg(iconName: string, size: number = 20): string {
-    const svg = ICON_SVGS[iconName];
-    if (svg) {
-      // Simple regex replacement to adjust size dynamically if needed, though most icons are pre-sized.
-      return svg.replace(/width="\d+"/, `width="${size}"`).replace(/height="\d+"/, `height="${size}"`);
-    }
-    return '❓';
   }
 }
