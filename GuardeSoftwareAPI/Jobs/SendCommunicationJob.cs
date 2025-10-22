@@ -60,14 +60,14 @@ namespace GuardeSoftwareAPI.Jobs
                 }
 
                 // Step 5: Set final status
-                string finalStatus = errorLog.Length > 0 ? "Finalizado con Errores" : "Finalizado";
+                string finalStatus = errorLog.Length > 0 ? "Finished w/ Errors" : "Finished";
                 await _communicationDao.UpdateCommunicationStatusAsync(comunicadoId, finalStatus);
                 _logger.LogInformation("Communication job for ID: {ComunicadoId} finished with status: {Status}", comunicadoId, finalStatus);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Fatal error in communication job for ID: {ComunicadoId}", comunicadoId);
-                await _communicationDao.UpdateCommunicationStatusAsync(comunicadoId, "Fallido");
+                await _communicationDao.UpdateCommunicationStatusAsync(comunicadoId, "Failed");
                 
                 // Rethrow to let Quartz know the job failed
                 throw new JobExecutionException("Job execution failed.", ex, false);
