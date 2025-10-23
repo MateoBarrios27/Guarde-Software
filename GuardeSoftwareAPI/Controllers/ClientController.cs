@@ -91,5 +91,30 @@ namespace GuardeSoftwareAPI.Controllers
             var result = await _clientService.GetClientsTableAsync(request);
             return Ok(result);
         }
+
+        [HttpGet("recipient-options")]
+        public async Task<IActionResult> GetRecipientOptions()
+        {
+            try
+            {
+                // We'll create this service method next
+                var names = await _clientService.GetClientRecipientNamesAsync(); 
+                
+                // Add the hardcoded groups
+                var options = new List<string>
+                {
+                    "Todos los clientes",
+                    "Clientes morosos",
+                    "Clientes al día"
+                };
+                
+                options.AddRange(names);
+                return Ok(options);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }

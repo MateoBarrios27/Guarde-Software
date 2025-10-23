@@ -398,6 +398,20 @@ namespace GuardeSoftwareAPI.Dao
             }
             return clients;
         }
+
+        public async Task<List<string>> GetActiveClientNamesAsync()
+        {
+            var names = new List<string>();
+            string query = "SELECT first_name, last_name FROM clients WHERE active = 1 ORDER BY first_name, last_name";
+            
+            DataTable table = await accessDB.GetTableAsync("ClientNames", query);
+
+            foreach (DataRow row in table.Rows)
+            {
+                names.Add($"{row["first_name"]} {row["last_name"]}");
+            }
+            return names;
+        }
     }
 }
 

@@ -291,7 +291,7 @@ namespace GuardeSoftwareAPI.Services.client
 
             return clientDetail;
         }
-        
+
         public async Task<PaginatedResultDto<GetTableClientsDto>> GetClientsTableAsync(GetClientsRequestDto request)
         {
             var (clients, totalCount) = await daoClient.GetTableClientsAsync(request);
@@ -303,6 +303,12 @@ namespace GuardeSoftwareAPI.Services.client
                 PageNumber = request.PageNumber,
                 PageSize = request.PageSize
             };
+        }
+        
+        public async Task<List<string>> GetClientRecipientNamesAsync()
+        {
+    
+            return await daoClient.GetActiveClientNamesAsync(); 
         }
     }
 }

@@ -13,5 +13,6 @@ namespace GuardeSoftwareAPI.Services.client
         Task<int> CreateClientAsync(CreateClientDTO dto);
         Task<GetClientDetailDTO> GetClientDetailByIdAsync(int id);
         Task<PaginatedResultDto<GetTableClientsDto>> GetClientsTableAsync(GetClientsRequestDto request);
+        Task<List<string>> GetClientRecipientNamesAsync();
     }
 }

@@ -3,7 +3,7 @@
   (e.g., 'Scheduled', 'Finished') that come from the backend.
   Only the text displayed to the user remains in Spanish.
 -->
-<div class="space-y-6 bg-gray-50 min-h-screen font-inter p-4">
+<div class="space-y-6 bg-gray-50 min-h-screen font-inter">
   <!-- Header with Add Button -->
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-white rounded-xl shadow-lg">
     <div>
@@ -145,12 +145,13 @@
     <!-- Recipients -->
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-1">Destinatarios *</label>
-      <select (change)="addRecipient($event)"
-        class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white">
+      <select (change)="addRecipient($event)" class="w-full ...">
         <option value="" disabled selected>Agregar destinatarios (grupos o individuales)</option>
-        @for (client of customerOptions; track client) {
-        <option [value]="client">{{ client }}</option>
+        
+        @for (client of recipientOptions(); track client) {
+          <option [value]="client">{{ client }}</option>
         }
+
       </select>
       @if (formData().recipients.length > 0) {
       <div class="flex flex-wrap gap-2 mt-2 p-2 bg-gray-50 rounded-lg border">

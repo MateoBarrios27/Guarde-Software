@@ -5,6 +5,7 @@ import { IconComponent } from "../../shared/components/icon/icon.component";
 import { CommunicationService } from '../../core/services/communication-service/communication.service';
 // Your DTOs are the source of truth
 import { ComunicacionDto, UpsertComunicacionRequest } from '../../core/dtos/communications/communicationDto';
+import { ClientService } from '../../core/services/client-service/client.service';
 
 // --- Type Definitions (English Code) ---
 
@@ -38,20 +39,6 @@ interface ToastState {
   color: 'success' | 'error';
 }
 
-// --- Mock Data (English Code, Spanish Content) ---
-
-const CUSTOMER_OPTIONS = [
-  'Todos los clientes', // All Clients
-  'Clientes con deuda', // Clients with Debt
-  'Clientes morosos',   // Delinquent Clients
-  'Clientes al día',    // Clients in Good Standing
-  'Juan Pérez',
-  'María García',
-  'Carlos López',
-  'Ana Martínez',
-  'Bruno Franco'
-];
-
 const COMMUNICATION_CHANNELS: Channel[] = [
   { id: 1, name: 'Email', spanishLabel: 'Email', icon: 'Mail' },
   { id: 2, name: 'WhatsApp', spanishLabel: 'WhatsApp', icon: 'MessageSquare' }
@@ -72,10 +59,11 @@ export class CommunicationsComponent implements OnInit {
   // This signal now holds the DTOs from the API
   communications = signal<ComunicacionDto[]>([]); 
   
-  constructor(private commService: CommunicationService) {}
+  constructor(private commService: CommunicationService, private clientService: ClientService) {}
 
   ngOnInit(): void {
     this.loadCommunications();
+    this.loadRecipientOptions();
   }
 
   loadCommunications(): void {
@@ -86,6 +74,24 @@ export class CommunicationsComponent implements OnInit {
         console.log('Communications loaded:', data);
       },
       error: (err) => this.showToast('Error de Carga', 'No se pudieron cargar los datos', '❌', 'error')
+    });
+  }
+
+  loadRecipientOptions(): void {
+    this.clientService.getRecipientOptions().subscribe({
+      next: (data) => {
+        this.recipientOptions.set(data);
+        console.log('Recipient options loaded:', data);
+      },
+      error: (err) => {
+        // Fallback to hardcoded list on error
+        this.recipientOptions.set([
+          'Todos los clientes',
+          'Clientes morosos',
+          'Clientes al día'
+        ]);
+        this.showToast('Error', 'No se pudieron cargar los destinatarios', '❌', 'error');
+      }
     });
   }
   
@@ -116,7 +122,7 @@ export class CommunicationsComponent implements OnInit {
 
   // --- Read-only data properties ---
   channels = COMMUNICATION_CHANNELS;
-  customerOptions = CUSTOMER_OPTIONS;
+  recipientOptions = signal<string[]>([]);
   
   // --- Computed Signals for Filtering (Derived State) ---
   

@@ -68,4 +68,8 @@ export class ClientService {
 
     return this.httpCliente.get<PaginatedResult<TableClient>>(`${this.url}/Client/table`, { params });
   }
+
+  public getRecipientOptions(): Observable<string[]> {
+    return this.httpCliente.get<string[]>(`${this.url}/Client/recipient-options`);
+  }
 }
