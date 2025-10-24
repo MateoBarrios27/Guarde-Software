@@ -152,14 +152,48 @@
     <!-- Recipients -->
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-1">Destinatarios *</label>
-      <select (change)="addRecipient($event)" class="w-full ...">
-        <option value="" disabled selected>Agregar destinatarios (grupos o individuales)</option>
+      
+      <div class="relative">
         
-        @for (client of recipientOptions(); track client) {
-          <option [value]="client">{{ client }}</option>
-        }
+        <input 
+          type="text" 
+          #recipientInput
+          placeholder="Buscar cliente o seleccionar grupo..."
+          (input)="onSearchInput($event)"
+          (focus)="isSearchFocused.set(true)"
+          (blur)="isSearchFocused.set(false)"
+          class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+        />
 
-      </select>
+        @if (isSearchFocused() && (searchResults().length > 0 || staticGroups().length > 0)) {
+        <ul 
+          class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          
+          @for (group of staticGroups(); track group) {
+          <li 
+            (mousedown)="addRecipientFromList(group, recipientInput)"
+            class="p-2 cursor-pointer hover:bg-blue-50 text-sm font-medium text-gray-700">
+            <app-icon name="Users" class="h-4 w-4 inline-block mr-2"></app-icon>
+            {{ group }}
+          </li>
+          }
+
+          @if(searchResults().length > 0 && staticGroups().length > 0) {
+            <li class="px-2 py-1 text-xs text-gray-400 uppercase">Clientes</li>
+          }
+
+          @for (result of searchResults(); track result) {
+          <li 
+            (mousedown)="addRecipientFromList(result, recipientInput)"
+            class="p-2 cursor-pointer hover:bg-blue-50 text-sm text-gray-900">
+            <app-icon name="User" class="h-4 w-4 inline-block mr-2"></app-icon>
+            {{ result }}
+          </li>
+          }
+        </ul>
+        }
+      </div>
+
       @if (formData().recipients.length > 0) {
       <div class="flex flex-wrap gap-2 mt-2 p-2 bg-gray-50 rounded-lg border">
         @for (dest of formData().recipients; track dest) {

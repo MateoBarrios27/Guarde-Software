@@ -403,8 +403,38 @@ namespace GuardeSoftwareAPI.Dao
         {
             var names = new List<string>();
             string query = "SELECT first_name, last_name FROM clients WHERE active = 1 ORDER BY first_name, last_name";
-            
+
             DataTable table = await accessDB.GetTableAsync("ClientNames", query);
+
+            foreach (DataRow row in table.Rows)
+            {
+                names.Add($"{row["first_name"]} {row["last_name"]}");
+            }
+            return names;
+        }
+        
+        public async Task<List<string>> SearchActiveClientNamesAsync(string query)
+        {
+            var names = new List<string>();
+            
+            // Buscamos coincidencias en nombre, apellido o nombre completo
+            string sqlQuery = @"
+                SELECT first_name, last_name 
+                FROM clients 
+                WHERE active = 1 AND 
+                    (first_name LIKE @Query OR 
+                    last_name LIKE @Query OR 
+                    (first_name + ' ' + last_name) LIKE @Query)
+                ORDER BY first_name, last_name
+                OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY; -- Limitamos a 10 resultados
+            ";
+            
+            var parameters = new[] { 
+                // Añadimos '%' para que funcione como un 'CONTAINS'
+                new SqlParameter("@Query", $"%{query}%") 
+            };
+
+            DataTable table = await accessDB.GetTableAsync("ClientSearch", sqlQuery, parameters);
 
             foreach (DataRow row in table.Rows)
             {

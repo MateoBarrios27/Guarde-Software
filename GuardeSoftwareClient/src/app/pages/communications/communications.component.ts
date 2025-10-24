@@ -6,6 +6,7 @@ import { CommunicationService } from '../../core/services/communication-service/
 // Your DTOs are the source of truth
 import { ComunicacionDto, UpsertComunicacionRequest } from '../../core/dtos/communications/communicationDto';
 import { ClientService } from '../../core/services/client-service/client.service';
+import { catchError, debounceTime, distinctUntilChanged, of, Subject, switchMap } from 'rxjs';
 
 // --- Type Definitions (English Code) ---
 
@@ -58,12 +59,24 @@ export class CommunicationsComponent implements OnInit {
 
   // This signal now holds the DTOs from the API
   communications = signal<ComunicacionDto[]>([]); 
+
+  //Client search signals
+
+  staticGroups = signal<string[]>([]); 
+  // Hold the get results
+  searchResults = signal<string[]>([]);
+  // Shows or hidden the search
+  isSearchFocused = signal(false);
+
+  // --- Subject de RxJS para manejar el "debounce" ---
+  private searchSubject = new Subject<string>();
   
   constructor(private commService: CommunicationService, private clientService: ClientService) {}
 
   ngOnInit(): void {
     this.loadCommunications();
     this.loadRecipientOptions();
+    this.setupSearchDebounce();  
   }
 
   loadCommunications(): void {
@@ -80,19 +93,46 @@ export class CommunicationsComponent implements OnInit {
   loadRecipientOptions(): void {
     this.clientService.getRecipientOptions().subscribe({
       next: (data) => {
-        this.recipientOptions.set(data);
-        console.log('Recipient options loaded:', data);
+        // Solo cargamos los grupos estáticos aquí
+        // Filtramos los nombres de clientes que venían antes
+        const groups = data.filter(d => 
+            d.startsWith("Todos los clientes") || 
+            d.startsWith("Clientes morosos") || 
+            d.startsWith("Clientes al día")
+        );
+        this.staticGroups.set(groups);
       },
       error: (err) => {
-        // Fallback to hardcoded list on error
-        this.recipientOptions.set([
-          'Todos los clientes',
-          'Clientes morosos',
-          'Clientes al día'
+        this.staticGroups.set([
+          'Todos los clientes', 'Clientes morosos', 'Clientes al día'
         ]);
-        this.showToast('Error', 'No se pudieron cargar los destinatarios', '❌', 'error');
+        this.showToast('Error', 'No se pudieron cargar los grupos de destinatarios', '❌', 'error');
       }
     });
+  }
+
+  setupSearchDebounce(): void {
+    this.searchSubject.pipe(
+      debounceTime(300), // Espera 300ms después de que dejas de teclear
+      distinctUntilChanged(), // Solo busca si el texto cambió
+      switchMap(query => { // Cancela búsquedas anteriores y hace una nueva
+        if (query.length < 2) {
+          return of([]); // Devuelve vacío si es muy corto
+        }
+        return this.clientService.searchClients(query).pipe(
+          catchError(() => of([])) // Si la API falla, devuelve vacío
+        );
+      })
+    ).subscribe(results => {
+      this.searchResults.set(results);
+    });
+  }
+
+  // --- NUEVO MÉTODO ---
+  // Se llama en CADA tecla presionada en el input
+  onSearchInput(event: Event): void {
+    const query = (event.target as HTMLInputElement).value;
+    this.searchSubject.next(query);
   }
   
   // This signal is for the modal form
@@ -317,12 +357,15 @@ export class CommunicationsComponent implements OnInit {
     this.formData.update(data => ({ ...data, channels: newChannels }));
   }
 
-  addRecipient(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (value && !this.formData().recipients.includes(value)) {
-      this.formData.update(data => ({ ...data, recipients: [...data.recipients, value] }));
+  addRecipientFromList(recipient: string, inputElement: HTMLInputElement): void {
+    if (recipient && !this.formData().recipients.includes(recipient)) {
+      this.formData.update(data => ({ ...data, recipients: [...data.recipients, recipient] }));
     }
-    (event.target as HTMLSelectElement).value = '';
+    
+    // Limpia el input y los resultados
+    inputElement.value = ''; 
+    this.searchResults.set([]);
+    this.isSearchFocused.set(false);
   }
 
   removeRecipient(recipient: string): void {

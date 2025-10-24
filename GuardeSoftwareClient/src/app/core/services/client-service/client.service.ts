@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../../../environments/environments';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { Client } from '../../models/client';
 import { ClientDetailDTO } from '../../dtos/client/ClientDetailDTO';
 import { CreateClientDTO } from '../../dtos/client/CreateClientDTO';
@@ -72,4 +72,14 @@ export class ClientService {
   public getRecipientOptions(): Observable<string[]> {
     return this.httpCliente.get<string[]>(`${this.url}/Client/recipient-options`);
   }
+
+  searchClients(query: string): Observable<string[]> {
+    if (!query.trim() || query.length < 2) {
+      // No busques si la consulta es muy corta
+      return of([]);
+    }
+    return this.httpCliente.get<string[]>(`${this.url}/Client/search`, {
+      params: { query }
+    })
+  };
 }

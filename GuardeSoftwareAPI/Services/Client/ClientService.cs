@@ -304,11 +304,20 @@ namespace GuardeSoftwareAPI.Services.client
                 PageSize = request.PageSize
             };
         }
-        
+
         public async Task<List<string>> GetClientRecipientNamesAsync()
         {
-    
-            return await daoClient.GetActiveClientNamesAsync(); 
+
+            return await daoClient.GetActiveClientNamesAsync();
+        }
+        
+        public async Task<List<string>> SearchClientNamesAsync(string query)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return new List<string>();
+            }
+            return await daoClient.SearchActiveClientNamesAsync(query);
         }
     }
 }

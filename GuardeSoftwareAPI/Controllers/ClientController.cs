@@ -98,8 +98,8 @@ namespace GuardeSoftwareAPI.Controllers
             try
             {
                 // We'll create this service method next
-                var names = await _clientService.GetClientRecipientNamesAsync(); 
-                
+                var names = await _clientService.GetClientRecipientNamesAsync();
+
                 // Add the hardcoded groups
                 var options = new List<string>
                 {
@@ -107,9 +107,23 @@ namespace GuardeSoftwareAPI.Controllers
                     "Clientes morosos",
                     "Clientes al día"
                 };
-                
+
                 options.AddRange(names);
                 return Ok(options);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+        
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchClients([FromQuery] string query)
+        {
+            try
+            {
+                var names = await _clientService.SearchClientNamesAsync(query);
+                return Ok(names);
             }
             catch (Exception ex)
             {
