@@ -173,7 +173,7 @@
           <li 
             (mousedown)="addRecipientFromList(group, recipientInput)"
             class="p-2 cursor-pointer hover:bg-blue-50 text-sm font-medium text-gray-700">
-            <app-icon name="Users" class="h-4 w-4 inline-block mr-2"></app-icon>
+            <app-icon name="users" class="h-4 w-4 inline-block mr-2"></app-icon>
             {{ group }}
           </li>
           }
@@ -186,7 +186,7 @@
           <li 
             (mousedown)="addRecipientFromList(result, recipientInput)"
             class="p-2 cursor-pointer hover:bg-blue-50 text-sm text-gray-900">
-            <app-icon name="User" class="h-4 w-4 inline-block mr-2"></app-icon>
+            <app-icon name="user" class="h-4 w-4 inline-block mr-2"></app-icon>
             {{ result }}
           </li>
           }
@@ -407,10 +407,13 @@
         <span>{{ comm.channel }}</span>
         <span>•</span>
         @if (isDraft) {
-        <span>Creado: {{ comm.creationDate }}</span>
+        <span>Creado: {{ comm.creationDate | date: 'dd/MM/yyyy'}}</span>
         } @else {
         <app-icon name="Calendar" class="h-3 w-3"></app-icon>
-        <span>{{ isPast ? 'Enviado' : 'Envío' }}: {{ comm.sendDate }} {{ comm.sendTime }}</span>
+        <span>
+          <!-- {{ isPast ? 'Enviado' : 'Envío' }}:  -->
+          {{ comm.sendDate | date: 'dd/MM/yyyy' }} {{ comm.sendTime }}
+        </span>
         }
       </div>
 

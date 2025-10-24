@@ -167,8 +167,8 @@ INSERT INTO user_types (name, active) VALUES
 
 -- Users
 INSERT INTO users (user_type_id, username, first_name, last_name, password, active) VALUES
-(1, 'chino', 'Augusto', 'Palastanga', 'claveSegura123', 1),
-(2, 'robert', 'Roberto', 'Filgueira', 'claveRoberto456', 1);
+(2, 'chino', 'Augusto', 'Palastanga', 'claveSegura123', 1),
+(1, 'robert', 'Roberto', 'Filgueira', 'claveRoberto456', 1);
 
 -- Activity Log (JSON in old_value and new_value)
 -- INSERT INTO activity_log (user_id, log_date, action, table_name, record_id, old_value, new_value) VALUES

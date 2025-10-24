@@ -22,7 +22,7 @@ export class SidebarComponent {
   menuItems: MenuItem[] = [
     { path: '/dashboard', title: 'Dashboard', icon: 'layout-dashboard' },
     { path: '/lockers', title: 'Bauleras', icon: 'package' },
-    { path: '/clients', title: 'Clientes', icon: 'users' },
+    { path: '/clients', title: 'Clientes', icon: 'user' },
     { path: '/finances', title: 'Finanzas', icon: 'dollar-sign' },
     { path: '/communications', title: 'Comunicaciones', icon: 'message-circle' },
     // { path: '/reports', title: 'Reportes', icon: 'file-text' },
