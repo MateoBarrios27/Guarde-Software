@@ -116,7 +116,8 @@
     <!-- Title -->
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-1">Título del comunicado *</label>
-      <input type="text" [(ngModel)]="formData().title" placeholder="Ej: Aumento de tarifas 2024"
+      <input type="text" [ngModel]="formData().title" 
+           (ngModelChange)="updateFormField('title', $event)" placeholder="Ej: Aumento de tarifas 2024"
         class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
     </div>
 
@@ -125,19 +126,25 @@
       <label class="block text-sm font-medium text-gray-700 mb-2">Canales de comunicación *</label>
       <div class="flex flex-col sm:flex-row gap-4">
         @for (channel of channels; track channel.id) {
-        <div
+        
+        <div 
           class="flex items-center space-x-2 p-3 bg-gray-50 border rounded-lg cursor-pointer hover:bg-gray-100 transition duration-150"
           (click)="toggleChannel(channel.name)">
-          <input type="checkbox" [id]="'channel-' + channel.name" [checked]="formData().channels.includes(channel.name)"
-            class="rounded text-blue-600 focus:ring-blue-500" />
-          <label [for]="'channel-' + channel.name"
-            class="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-900">
+          
+          <input 
+            type="checkbox" 
+            [id]="'channel-' + channel.name" 
+            [checked]="formData().channels.includes(channel.name)" 
+            class="rounded text-blue-600 focus:ring-blue-500 pointer-events-none"/> 
+
+          <label class="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-900">
             <app-icon [name]="channel.icon" [ngClass]="channel.name === 'Email' ? 'text-blue-600' : 'text-green-600'"></app-icon>
             <span>{{ channel.spanishLabel }}</span>
           </label>
         </div>
         }
       </div>
+      
       <p *ngIf="formData().channels.length === 0" class="text-xs text-red-500 mt-2">Selecciona al menos un canal</p>
       <p *ngIf="formData().channels.length === 2" class="text-xs text-blue-600 mt-2">✓ Se enviará por ambos canales</p>
     </div>
@@ -172,7 +179,9 @@
       <label class="block text-sm font-medium text-gray-700 mb-1">Contenido *</label>
       <p *ngIf="formData().channels.includes('WhatsApp')" class="text-xs text-gray-500 mb-2">💡 Para WhatsApp: Mantén
         el mensaje breve y directo</p>
-      <textarea [(ngModel)]="formData().content" [rows]="formData().channels.includes('WhatsApp') ? 4 : 8"
+      <textarea [ngModel]="formData().content" 
+              (ngModelChange)="updateFormField('content', $event)"
+              [rows]="formData().channels.includes('WhatsApp') ? 4 : 8"
         placeholder="Contenido completo del mensaje..."
         class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
     </div>
@@ -182,12 +191,14 @@
       <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de acción</label>
       <div class="flex gap-4">
         <div class="flex items-center">
-          <input type="radio" id="programar" name="type" value="programar" [(ngModel)]="formData().type"
+          <input type="radio" id="programar" name="type" value="programar" [ngModel]="formData().type"
+               (ngModelChange)="updateFormField('type', $event)"
             class="text-blue-600 focus:ring-blue-500" />
           <label for="programar" class="ml-2 text-sm text-gray-700">Programar envío</label>
         </div>
         <div class="flex items-center">
-          <input type="radio" id="borrador" name="type" value="borrador" [(ngModel)]="formData().type"
+          <input type="radio" id="borrador" name="type" value="borrador" [ngModel]="formData().type"
+               (ngModelChange)="updateFormField('type', $event)"
             class="text-blue-600 focus:ring-blue-500" />
           <label for="borrador" class="ml-2 text-sm text-gray-700">Guardar como borrador</label>
         </div>
@@ -199,12 +210,14 @@
     <div class="grid grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de envío</label>
-        <input type="date" [(ngModel)]="formData().sendDate"
+        <input type="date" [ngModel]="formData().sendDate"
+             (ngModelChange)="updateFormField('sendDate', $event)"
           class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Hora de envío</label>
-        <input type="time" [(ngModel)]="formData().sendTime"
+        <input type="time" [ngModel]="formData().sendTime"
+             (ngModelChange)="updateFormField('sendTime', $event)"
           class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
       </div>
     </div>
@@ -261,7 +274,6 @@
         </div>
       </div>
       
-      <!-- **** CORRECTION 1: Using English statuses from the backend **** -->
       @if (selectedCommunication()!.status === 'Scheduled' || selectedCommunication()!.status === 'Finished' || selectedCommunication()!.status === 'Finished w/ Errors') {
       <div class="border-t pt-3 text-sm text-gray-600">
         <strong>{{ selectedCommunication()!.status === 'Scheduled' ? 'Programado para' : 'Enviado el' }}:</strong>

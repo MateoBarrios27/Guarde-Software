@@ -393,4 +393,13 @@ export class CommunicationsComponent implements OnInit {
     }
     return preview;
   }
+
+//  A generic helper to update a single field in the formData signal.
+//  This is the correct way to update signals from form events.
+updateFormField<K extends keyof FormDataState>(field: K, value: FormDataState[K]) {
+  this.formData.update(currentData => ({
+    ...currentData,
+    [field]: value
+  }));
+}
 }
