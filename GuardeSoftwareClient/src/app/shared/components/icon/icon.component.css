@@ -1,0 +1,21 @@
+/* icon.component.css */
+:host {
+  display: inline-block;
+  line-height: 1; /* Ayuda a alinear el ícono */
+}
+
+/* Esto asume que tu 'icon.component.html' tiene un <span> o <div> 
+  que envuelve al [innerHTML]
+*/
+:host > ::ng-deep span,
+:host > ::ng-deep div {
+  display: inline-block;
+  width: 100%;
+  height: 100%;
+}
+
+:host > ::ng-deep svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

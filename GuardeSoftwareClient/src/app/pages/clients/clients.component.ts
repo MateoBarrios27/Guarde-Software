@@ -15,6 +15,7 @@ import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO'; // Asu
 
 import { Subject, Observable } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { ClientDetailModalComponent } from "../../shared/components/client-detail-modal/client-detail-modal.component";
 
 @Component({
   selector: 'app-clients',
@@ -27,7 +28,8 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
     NgxPaginationModule,
     PhonePipe,
     CreateClientModalComponent,
-  ],
+    ClientDetailModalComponent
+],
   templateUrl: './clients.component.html',
 })
 export class ClientsComponent implements OnInit {
@@ -54,11 +56,15 @@ export class ClientsComponent implements OnInit {
   public sortDirectionClientes: 'asc' | 'desc' = 'asc';
   public readonly Math = Math;
 
-  // --- Propiedades del Modal ---
+  // --- Create Client properties  ---
   public showNewClientModal = false;
   public clientToEdit: ClientDetailDTO | null = null;
 
-  // --- Propiedades para el Toast ---
+  // --- Detail Client properties  ---
+  public showDetailClientModal = false;
+  public clientToView: ClientDetailDTO | null = null;
+
+  // --- Toast properties ---
   public showToast = false;
   public toastMessage = '';
   public toastType: 'success' | 'error' = 'success';
@@ -244,5 +250,20 @@ export class ClientsComponent implements OnInit {
       return 'arrow-up-down'; // Ícono neutral para columnas no activas
     }
     return this.sortDirectionClientes === 'asc' ? 'arrow-up' : 'arrow-down';
+  }
+
+  // --- Methods for Detail Client Modal ---
+  openDetailClientModal(clientId: number): void {
+    this.clientService
+      .getClientDetailById(clientId)
+      .subscribe((clientDetail) => {
+        this.clientToView = clientDetail;
+        this.showDetailClientModal = true;
+      });
+  }
+
+  closeDetailClientModal(): void {
+    this.showDetailClientModal = false;
+    this.clientToView = null;
   }
 }

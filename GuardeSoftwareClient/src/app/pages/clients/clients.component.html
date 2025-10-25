@@ -288,14 +288,26 @@
               </td>
               <td class="p-4">
                 <div class="flex items-center gap-2">
-                  <!-- <button class="p-1 hover:text-blue-600"><app-icon name="eye" class="h-4 w-4"></app-icon></button> -->
                   <button
-                    (click)="openEditClientModal(cliente.id)"
-                    class="p-1 hover:text-blue-600"
+                    (click)="openDetailClientModal(cliente.id)"
+                    class="p-1 hover:text-blue-600 flex items-center justify-center"
+                    title="Ver Detalles"
                   >
-                    <app-icon name="Edit" class="h-4 w-4"></app-icon>
+                    <app-icon
+                      name="eye"
+                      class="h-4 w-4 inline-block text-black"
+                    ></app-icon>
                   </button>
-                  <!-- <button class="p-1 hover:text-red-600"><app-icon name="trash" class="h-4 w-4"></app-icon></button> -->
+
+                                    <button
+                    (click)="openEditClientModal(cliente.id)"
+                    class="p-1 hover:text-blue-600 flex items-center justify-center"
+                  >
+                    <app-icon
+                      name="edit"
+                      class="h-4 w-4 inline-block text-black"
+                    ></app-icon>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -322,3 +334,10 @@
   (closeModal)="closeNewClientModal()"
   (saveSuccess)="onClientSaveSuccess()">
 </app-create-client-modal>
+
+<app-client-detail-modal
+  *ngIf="showDetailClientModal"
+  [client]="clientToView"
+  (closeModal)="closeDetailClientModal()"
+>
+</app-client-detail-modal>
