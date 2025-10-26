@@ -65,3 +65,9 @@
 .animate-fade-in-out {
   animation: fade-in-out 3s ease-in-out forwards;
 }
+
+html,
+body {
+  height: 100%;
+  overflow: hidden; /* Disable the scroll */
+}
