@@ -16,6 +16,7 @@ import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO'; // Asu
 import { Subject, Observable } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { ClientDetailModalComponent } from "../../shared/components/client-detail-modal/client-detail-modal.component";
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-clients',
@@ -68,6 +69,9 @@ export class ClientsComponent implements OnInit {
   public showToast = false;
   public toastMessage = '';
   public toastType: 'success' | 'error' = 'success';
+
+  public showDeactivateModal = false;
+  public clientToDeactivateId: string | null = null;
 
   constructor(private clientService: ClientService) 
   {
@@ -266,4 +270,41 @@ export class ClientsComponent implements OnInit {
     this.showDetailClientModal = false;
     this.clientToView = null;
   }
+
+  public openDeactivateClientModal(clientId: number): void {
+
+  Swal.fire({
+    title: '¿Estás seguro?',
+    text: "El cliente será marcado como 'Dado de Baja'. Esta acción se puede revertir, pero deberás hacerlo manualmente.",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33', // Red to confirm
+    cancelButtonColor: '#6B7280', // Grey to cancel
+    confirmButtonText: 'Sí, dar de baja',
+    cancelButtonText: 'Cancelar',
+  }).then((result) => {
+    // 2. Check if the user confirmed the action
+    if (result.isConfirmed) {
+      // 3. Implements the deactivation logic here
+
+      // this.clientService.deactivateClient(clientId).subscribe({
+      //   next: () => {
+      //     // 4. Show success toast
+      //     this.toastMessage = 'Cliente dado de baja exitosamente.';
+      //     this.toastType = 'success';
+      //     this.showToast = true;
+
+      //     this.loadClients(); // Reload the clients list
+      //   },
+      //   error: (err) => {
+      //     // 5. Error
+      //     console.error('Error al dar de baja al cliente:', err);
+      //     this.toastMessage = 'Error al intentar dar de baja al cliente.';
+      //     this.toastType = 'error';
+      //     this.showToast = true;
+      //   },
+      // });
+    }
+  });
+}
 }

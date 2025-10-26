@@ -302,11 +302,21 @@
                                     <button
                     (click)="openEditClientModal(cliente.id)"
                     class="p-1 hover:text-blue-600 flex items-center justify-center"
+                    title="Editar"
                   >
                     <app-icon
                       name="edit"
                       class="h-4 w-4 inline-block text-black"
+                      
                     ></app-icon>
+                  </button>
+
+                  <button
+                    (click)="openDeactivateClientModal(cliente.id)"
+                    class="p-1 hover:text-red-600 flex items-center justify-center"
+                    title="Dar de Baja"
+                  >
+                    <app-icon name="Trash2" class="h-4 w-4 text-black"></app-icon>
                   </button>
                 </div>
               </td>
