@@ -13,13 +13,17 @@ namespace GuardeSoftwareAPI.Services.payment
 	{
 		private readonly DaoPayment _daoPayment;
 		private readonly IAccountMovementService accountMovementService;
+		private readonly ILogger<PaymentService> logger;
+		private readonly DaoRental daoRental;
 		private readonly AccessDB accessDB;
 
-		public PaymentService(AccessDB _accessDB, IAccountMovementService _accountMovementService)
+		public PaymentService(AccessDB _accessDB, IAccountMovementService _accountMovementService, ILogger<PaymentService> logger)
 		{
-			_daoPayment = new DaoPayment(_accessDB);
+			this._daoPayment = new DaoPayment(_accessDB);
 			this.accountMovementService = _accountMovementService;
 			this.accessDB = _accessDB;
+			this.daoRental = new DaoRental(_accessDB);
+			this.logger = logger;
 		}
 
 		public async Task<List<Payment>> GetPaymentsList()
@@ -123,7 +127,7 @@ namespace GuardeSoftwareAPI.Services.payment
 					ClientId = dto.ClientId,
 					PaymentMethodId = dto.PaymentMethodId,
 					Amount = dto.Amount,
-					PaymentDate = DateTime.UtcNow
+					PaymentDate = DateTime.UtcNow // Considera usar DateTime.Now si tu server está en Arg.
 				};
 
 				int paymentId = await _daoPayment.CreatePaymentTransactionAsync(payment, connection, transaction);
@@ -132,7 +136,7 @@ namespace GuardeSoftwareAPI.Services.payment
 				{
 					RentalId = dto.RentalId,
 					PaymentId = paymentId,
-					MovementDate = DateTime.UtcNow,
+					MovementDate = DateTime.UtcNow, // Igual que arriba
 					MovementType = string.IsNullOrWhiteSpace(dto.MovementType) ? "CREDITO" : dto.MovementType,
 					Concept = string.IsNullOrWhiteSpace(dto.Concept) ? "Pago de alquiler" : dto.Concept,
 					Amount = dto.Amount
@@ -140,12 +144,40 @@ namespace GuardeSoftwareAPI.Services.payment
 
 				await accountMovementService.CreateAccountMovementTransactionAsync(movement, connection, transaction);
 
+				// --- INICIO DE LA NUEVA LÓGICA ---
+				
+				// Solo chequeamos si es un "CREDITO" (un pago que reduce deuda)
+				if (movement.MovementType == "CREDITO")
+				{
+					// 1. Obtenemos el balance actualizado DENTRO de la transacción
+					decimal newBalance = await daoRental.GetBalanceByRentalIdTransactionAsync(dto.RentalId, connection, transaction);
+					
+					logger.LogInformation("Pago de ${Amount} registrado para Rental ID {RentalId}. Nuevo balance: ${NewBalance}", dto.Amount, dto.RentalId, newBalance);
+
+					// 2. Validamos el balance
+					// (Tu lógica de balance es DEBITO - CREDITO, así que > 0 significa que debe)
+					if (newBalance <= 0)
+					{
+						// 3. ¡El cliente saldó su deuda! Reseteamos el contador de mora.
+						await daoRental.ResetUnpaidMonthsTransactionAsync(dto.RentalId, connection, transaction);
+						logger.LogInformation("Balance saldado para Rental ID {RentalId}. Contador de meses impagos reseteado a 0.", dto.RentalId);
+					}
+					else
+					{
+						// El cliente pagó, pero sigue debiendo (pago parcial)
+						logger.LogInformation("Pago parcial registrado para Rental ID {RentalId}. El cliente aún debe ${NewBalance}. No se resetea el contador de mora.", dto.RentalId, newBalance);
+					}
+				}
+				
+				// --- FIN DE LA NUEVA LÓGICA ---
+
 				await transaction.CommitAsync();
 				return true;
 			}
-			catch
+			catch (Exception ex)
 			{
 				await transaction.RollbackAsync();
+				logger.LogError(ex, "Error en CreatePaymentWithMovementAsync. Transacción revertida.");
 				throw;
 			}
 		}

@@ -324,7 +324,7 @@ namespace GuardeSoftwareAPI.Dao
             var parameters = new SqlParameter[] { new SqlParameter("@rental_id", rentalId) };
             await accessDB.ExecuteCommandAsync(query, parameters);
         }
-    
+
         public async Task<DataTable> GetPendingPaymentsAsync()
         {
             string query = @"
@@ -371,9 +371,35 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.GetTableAsync("pending_rentals", query);
         }
         
+        //Obstains the balance of a rental inside a transaction
+        public async Task<decimal> GetBalanceByRentalIdTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = @"
+                SELECT ISNULL(SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END), 0) AS Balance
+                FROM account_movements
+                WHERE rental_id = @rental_id";
 
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddWithValue("@rental_id", rentalId);
+                object result = await command.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                {
+                    return Convert.ToDecimal(result);
+                }
+                return 0; // If not found amount, return 0
+            }
+        }
 
-
-
+        //Resets the unpaid months of a rental inside a transaction
+        public async Task ResetUnpaidMonthsTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = "UPDATE rentals SET months_unpaid = 0 WHERE rental_id = @rental_id;";
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddWithValue("@rental_id", rentalId);
+                await command.ExecuteNonQueryAsync();
+            }
+        }
     }
 }
