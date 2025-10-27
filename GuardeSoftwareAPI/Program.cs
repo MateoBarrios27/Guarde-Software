@@ -93,7 +93,7 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(applyInterestsJobKey)
         .WithIdentity("ApplyInterestsJob-trigger")
-        .WithCronSchedule("0 50 03 * * ?") // 03:50 AM
+        .WithCronSchedule("0 38 03 * * ?") // 03:50 AM
     );
 
     // --- Job 4: SendCommunicationJob (durable, no trigger) ---

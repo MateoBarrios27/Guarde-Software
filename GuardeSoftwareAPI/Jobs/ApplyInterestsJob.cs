@@ -1,8 +1,6 @@
+using System.Data;
 using GuardeSoftwareAPI.Dao;
 using Quartz;
-using System.Data;
-using System.Globalization;
-using System.Threading.Tasks;
 
 [DisallowConcurrentExecution]
 public class ApplyInterestsJob : IJob
@@ -18,16 +16,15 @@ public class ApplyInterestsJob : IJob
 
     public async Task Execute(IJobExecutionContext context)
     {
-        _logger.LogInformation("Iniciando Job de Gestión de Mora y Cobranzas. Hora: {time}", DateTimeOffset.Now);
+        _logger.LogInformation("Iniciando Job de Gestión de Mora. Hora: {time}", DateTimeOffset.Now);
 
-        const int TERMINATION_THRESHOLD = 4; // Límite de 4 meses para rescindir
+        const int TERMINATION_THRESHOLD = 4;
+        string concept = $"Interés por mora - {DateTime.Now:MMMM yyyy}";
 
         try
         {
             DataTable allRentals = await _daoRental.GetAllActiveRentalsWithStatusAsync();
             _logger.LogInformation("Procesando {count} alquileres activos.", allRentals.Rows.Count);
-
-            string concept = $"Interés por mora - {DateTime.Now:MMMM yyyy}";
 
             foreach (DataRow row in allRentals.Rows)
             {
@@ -36,9 +33,11 @@ public class ApplyInterestsJob : IJob
                 var monthsUnpaid = Convert.ToInt32(row["months_unpaid"]);
                 var currentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0;
 
+                // Query: SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END)
+                // So, balance > 0 means the client owes money.
                 if (balance > 0)
                 {
-                    // CASO 1: EL CLIENTE ESTÁ EN MORA
+                    // Case 1: Client is overdue
                     var newMonthsUnpaid = monthsUnpaid + 1;
                     _logger.LogWarning("Cliente del alquiler ID {rentalId} está en mora. Meses impagos actualizados a: {newMonthsUnpaid}.", rentalId, newMonthsUnpaid);
 
@@ -48,17 +47,12 @@ public class ApplyInterestsJob : IJob
 
                     if (newMonthsUnpaid >= TERMINATION_THRESHOLD)
                     {
-                        // _logger.LogError("¡ACCIÓN CRÍTICA! El alquiler ID {rentalId} ha alcanzado {newMonthsUnpaid} meses de mora. Se rescinde el contrato.", rentalId, newMonthsUnpaid);
-                        // await _daoRental.TerminateContractAsync(rentalId);
-                        // Opcional: Enviar una notificación
+                        _logger.LogError("¡ACCIÓN CRÍTICA! El alquiler ID {rentalId} ha alcanzado {newMonthsUnpaid} meses de mora.", rentalId, newMonthsUnpaid);
+                        // Logic to notify admin or take further action can be added here.
                     }
                 }
-                else if (monthsUnpaid > 0)
-                {
-                    // CASO 2: EL CLIENTE ESTABA EN MORA, PERO SE PUSO AL DÍA
-                    _logger.LogInformation("Cliente del alquiler ID {rentalId} se ha puesto al día. Reseteando contador de meses impagos a 0.", rentalId);
-                    await _daoRental.ResetUnpaidMonthsAsync(rentalId);
-                }
+                
+            
             }
             _logger.LogInformation("Job de Gestión de Mora finalizado con éxito.");
         }
