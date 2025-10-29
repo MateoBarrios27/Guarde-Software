@@ -98,18 +98,22 @@ namespace GuardeSoftwareAPI.Dao
         {
            
             string query = @"
-                SELECT 
-                    lt.name AS locker_type, l.identifier, w.name AS warehouse
-                FROM 
+                SELECT
+                    l.locker_id,
+                    lt.name AS locker_type,
+                    l.identifier,
+                    w.name AS warehouse,
+                    lt.amount
+                FROM
                     lockers l
-                INNER JOIN 
+                INNER JOIN
                     warehouses w ON l.warehouse_id = w.warehouse_id
                 INNER JOIN
                     rentals r ON l.rental_id = r.rental_id
                 INNER JOIN
                     locker_types lt ON l.locker_type_id = lt.locker_type_id
                 WHERE
-                    r.client_id = 1 AND r.active = 1";
+                    r.client_id = @client_id AND r.active = 1 AND l.active = 1";    
 
             SqlParameter[] parameters =
             [

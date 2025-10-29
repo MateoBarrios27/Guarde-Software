@@ -115,9 +115,12 @@ namespace GuardeSoftwareAPI.Services.locker
             {
                 GetLockerClientDetailDTO lockerDto = new()
                 {
-                    LockerType = row["locker_type"]?.ToString() ?? string.Empty,
+                    Id = Convert.ToInt32(row["locker_id"]),
                     Identifier = row["identifier"]?.ToString() ?? string.Empty,
                     Warehouse = row["warehouse"]?.ToString() ?? string.Empty,
+                    LockerType = row["locker_type"]?.ToString() ?? string.Empty,
+                    Amount = Convert.ToDecimal(row["amount"]),
+                    // M3 = Convert.ToDecimal(row["m3"]), // 
                 };
                 lockersList.Add(lockerDto);
             }

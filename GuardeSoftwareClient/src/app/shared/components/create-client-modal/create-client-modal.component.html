@@ -229,42 +229,23 @@
 
         <div class="space-y-4">
           <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
+            <!-- Header (Se mantiene igual) -->
             <div
               class="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-t-lg"
             >
               <h3 class="flex items-center gap-2 font-semibold text-base">
-                <app-icon name="dollar-sign" class="h-5 w-5"></app-icon
-                >Información Financiera
+                <app-icon name="dollar-sign" class="h-5 w-5"></app-icon>
+                Información Financiera
               </h3>
             </div>
-            <div class="p-4 space-y-4">
-              <p class="text-xs text-gray-500">
-                Los costos se calculan en la sección de lockers. Edita el
-                subtotal si necesitas un precio personalizado.
-              </p>
-              <div class="grid grid-cols-2 gap-4 border-t pt-4">
-                <div>
-                  <label class="text-sm font-medium text-purple-700"
-                    >Periodicidad Aumento</label
-                  >
-                  <input
-                    type="number"
-                    formControlName="periodicidadAumento"
-                    placeholder="meses"
-                    class="w-full mt-1 p-2 border rounded-md"
-                  />
-                </div>
-                <div>
-                  <label class="text-sm font-medium text-purple-700"
-                    >Aumento (%)</label
-                  >
-                  <input
-                    type="number"
-                    formControlName="porcentajeAumento"
-                    placeholder="%"
-                    class="w-full mt-1 p-2 border rounded-md"
-                  />
-                </div>
+            <!-- Contenido (Reemplazado con mensaje) -->
+            <div class="p-4">
+              <div class="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border border-dashed">
+                  <!-- <app-icon name="settings-2" class="h-8 w-8 mx-auto mb-2 text-gray-400"></app-icon> -->
+                  <p class="font-medium text-gray-600">Configuración de Aumentos</p>
+                  <p class="text-sm mt-1">
+                      Esta configuración está desactivada.
+                  </p>
               </div>
             </div>
           </div>

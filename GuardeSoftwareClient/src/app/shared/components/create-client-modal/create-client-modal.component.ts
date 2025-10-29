@@ -32,7 +32,7 @@ import { PaymentMethodService } from '../../../core/services/paymentMethod-servi
 import { IncreaseRegimenService } from '../../../core/services/increaseRegimen-service/increase-regimen.service';
 import { LockerTypeService } from '../../../core/services/lockerType-service/locker-type.service';
 import { ClientService } from '../../../core/services/client-service/client.service';
-import { Observable } from 'rxjs';
+import { forkJoin, Observable } from 'rxjs';
 
 @Component({
   selector: 'app-create-client-modal',
@@ -70,6 +70,7 @@ export class CreateClientModalComponent implements OnInit {
   public paymentMethods: PaymentMethod[] = [];
   public increaseRegimens: IncreaseRegimen[] = [];
   isLoading: boolean = false;
+  private areBasicDataLoaded = false;
 
   constructor(
     private fb: FormBuilder,
@@ -87,134 +88,161 @@ export class CreateClientModalComponent implements OnInit {
   }
 
   private loadFormData(): void {
-    // ... (cargas de warehouseService, lockerService, lockerTypeService, increaseRegimenService... van aquí)
-    this.warehouseService
-      .getWarehouses()
-      .subscribe((data) => (this.warehouses = data));
-    this.lockerService
-      .getLockers()
-      .subscribe(
-        (data) =>
-          (this.availableLockers = data.filter(
-            (l) => l.status.toLowerCase() === 'disponible'
-          ))
-      );
-    this.lockerTypeService
-      .getLockerTypes()
-      .subscribe((data) => (this.lockerTypes = data));
-    this.increaseRegimenService
-      .getIncreaseRegimens()
-      .subscribe((data) => (this.increaseRegimens = data));
+    this.isLoading = true; // Indicar carga
+    this.areBasicDataLoaded = false; // Resetear flag
 
-    // --- LÓGICA DE SINCRONIZACIÓN ---
-    // Esta es la llamada clave que debe ir al final
-    this.paymentMethodService
-      .getPaymentMethods()
-      .subscribe((data) => {
-        this.paymentMethods = data;
-        
-        // AHORA que tenemos los 'paymentMethods', revisamos si
-        // los datos del cliente ya habían llegado.
-        if (this.newClientForm && this.clientData) {
-          console.log('Selects cargados. Datos del cliente ya estaban. Poblando...');
-          this.populateForm(this.clientData);
-        }
-      });
+    // Usamos forkJoin para esperar a que TODAS las llamadas terminen
+    forkJoin({
+      warehouses: this.warehouseService.getWarehouses(),
+      lockers: this.lockerService.getLockers(), // Traer TODOS, filtraremos después
+      lockerTypes: this.lockerTypeService.getLockerTypes(),
+      paymentMethods: this.paymentMethodService.getPaymentMethods(),
+      // increaseRegimens: this.increaseRegimenService.getIncreaseRegimens() // Comentado si no se usa
+    }).subscribe({
+      next: (results) => {
+        this.warehouses = results.warehouses;
+        this.lockerTypes = results.lockerTypes;
+        this.paymentMethods = results.paymentMethods;
+
+        // Filtramos lockers disponibles + los del cliente actual
+        this.availableLockers = results.lockers.filter(
+          (l) => l.status.toLowerCase() === 'disponible' ||
+                 // Check si el ID del locker está en la lista que viene del clientData
+                 (this.clientData?.lockersList?.some(assignedLocker => assignedLocker.id === l.id) ?? false)
+        );
+
+        console.log('Datos básicos cargados');
+        this.areBasicDataLoaded = true;
+        this.isLoading = false;
+        this.tryPopulateForm(); // Intentar poblar ahora
+      },
+      error: (err) => {
+        console.error('Error cargando datos para el modal:', err);
+        this.isLoading = false;
+        // Mostrar un error al usuario
+        this.showToastNotification('Error al cargar datos necesarios.', 'error');
+      }
+    });
+  }
+
+  private tryPopulateForm(): void {
+    // Solo poblar si tenemos el formulario, los datos del cliente (si es edición) Y los datos básicos cargados
+    if (this.newClientForm && this.areBasicDataLoaded && this._clientData) {
+      console.log('Intentando poblar formulario ahora...');
+      this.populateForm(this._clientData);
+    } else if (this.newClientForm && this.areBasicDataLoaded && !this._clientData) {
+        console.log("Datos básicos cargados, modo creación.");
+        // Podrías resetear algo específico aquí si fuera necesario para 'Crear'
+    } else {
+        console.log("Esperando datos básicos o datos del cliente...");
+    }
   }
 
   private initNewClientForm(): void {
+      // ... (sin cambios aquí, asegúrate que 'telefonos' y 'emails' estén correctos) ...
     this.newClientForm = this.fb.group({
       numeroIdentificacion: [''],
       nombre: ['', Validators.required],
       apellido: ['', Validators.required],
       tipoDocumento: ['DNI'],
       numeroDocumento: ['', Validators.required],
-      // cuit: [''],
-      emails: this.fb.array([
-        this.fb.control('', [Validators.required, Validators.email]),
-      ]),
-      telefonos: this.fb.array([this.fb.control('')]),
+      cuit: [''], // Añadir si lo necesitas
+      emails: this.fb.array([ this.fb.control('', [Validators.required, Validators.email]), ]),
+      telefonos: this.fb.array([this.fb.control('')]), // Correcto: telefonos
       direccion: ['', Validators.required],
       ciudad: ['', Validators.required],
+      codigoPostal: [''],
       provincia: ['', Validators.required],
       condicionIVA: [null, Validators.required],
       metodoPago: [null, Validators.required],
-      documento: [null, Validators.required],
+      documento: [null, Validators.required], // ¿Qué es esto? Tipo Factura?
       observaciones: [''],
-      lockersAsignados: this.fb.array([], Validators.required),
+      lockersAsignados: this.fb.array([]), // SIN Validators.required aquí, puede estar vacío
       montoManual: [0, [Validators.required, Validators.min(0)]],
-      periodicidadAumento: ['4'],
-      porcentajeAumento: [''],
+      // periodicidadAumento: ['4'], // Comentado si no se usa
+      // porcentajeAumento: [''], // Comentado si no se usa
       lockerSearch: [''],
       selectedWarehouse: ['all'],
       selectedLockerType: ['all'],
     });
 
-    const lockersAsignados = this.newClientForm.get(
-      'lockersAsignados'
-    ) as FormArray;
-    lockersAsignados.valueChanges.subscribe((ids: number[]) => {
-      this.newClientForm
-        .get('montoManual')
-        ?.setValue(this.calculateTotalAmount(ids));
-    });
+     // Listener para recalcular monto (SIN CAMBIOS)
+     const lockersAsignados = this.newClientForm.get('lockersAsignados') as FormArray;
+     lockersAsignados.valueChanges.subscribe((ids: number[]) => {
+       // Filtramos IDs inválidos ANTES de calcular, por si acaso
+       const validIds = ids.filter(id => typeof id === 'number' && id > 0);
+       this.newClientForm.get('montoManual')?.setValue(this.calculateTotalAmount(validIds), { emitEvent: false }); // Evitar bucle infinito
+       // Recalcular m3 también
+       this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validIds), { emitEvent: false });
+     });
+
+      // Añadir cálculo inicial de m3
+      this.newClientForm.addControl('contractedM3', this.fb.control(0)); // Añadimos control para m3
+
   }
 
     private populateForm(data: ClientDetailDTO): void {
-    console.log('Poblando formulario con datos:', data);
+      console.log('Poblando formulario con datos:', data);
 
-    // 1. Limpiamos los FormArrays
-    this.emails.clear();
-    this.telefonos.clear();
-    (this.newClientForm.get('lockersAsignados') as FormArray).clear();
+      this.emails.clear();
+      this.telefonos.clear();
+      (this.newClientForm.get('lockersAsignados') as FormArray).clear(); // Asegúrate que el nombre coincide
 
-    // 2. Rellenamos FormArrays (¡Versión limpia!)
-    // 'data.email' ahora es un array gracias al fix de C#
-    if (data.email && data.email.length > 0) {
-      data.email.forEach(e => this.emails.push(this.fb.control(e, [Validators.required, Validators.email])));
-    } else {
-      this.addEmail(); // Agrega uno vacío si no hay ninguno
+      // Poblar emails
+      if (data.email && data.email.length > 0) {
+        data.email.forEach(e => this.emails.push(this.fb.control(e, [Validators.required, Validators.email])));
+      } else { this.addEmail(); }
+
+      // Poblar teléfonos
+      if (data.phone && data.phone.length > 0) {
+        data.phone.forEach(p => this.telefonos.push(this.fb.control(p)));
+      } else { this.addTelefono(); }
+
+      // Poblar lockers (Asegúrate que lockersList tenga 'id')
+       if (data.lockersList && data.lockersList.length > 0) {
+           data.lockersList.forEach(locker => {
+               // Verificar que locker.id exista y sea un número
+               if (locker && typeof locker.id === 'number' && locker.id > 0) {
+                   (this.newClientForm.get('lockersAsignados') as FormArray).push(this.fb.control(locker.id));
+                   console.log(`Pushed locker ID: ${locker.id} to form array`); // Log para confirmar
+               } else {
+                   console.warn("Locker inválido encontrado en ClientDetailDTO durante populateForm:", locker);
+               }
+           });
+           // Forzar actualización visual del form array (puede ayudar en algunos casos)
+           (this.newClientForm.get('lockersAsignados') as FormArray).updateValueAndValidity();
+           console.log("FormArray lockersAsignados después de poblar:", this.newClientForm.get('lockersAsignados')?.value);
+       }
+
+      const matchingPaymentMethod = this.paymentMethods.find(
+        method => method.name === data.preferredPaymentMethod // Buscar por nombre si el DTO trae nombre
+                 // O method => method.id === data.preferredPaymentMethodId // Si el DTO trae ID
+      );
+
+      this.newClientForm.patchValue({
+        numeroIdentificacion: data.paymentIdentifier,
+        nombre: data.name,
+        apellido: data.lastName,
+        numeroDocumento: data.dni,
+        cuit: data.cuit,
+        condicionIVA: data.ivaCondition,
+        metodoPago: matchingPaymentMethod || null,
+        direccion: data.address,
+        ciudad: data.city,
+        provincia: data.province, // Ajusta si usas 'Province' en C# DTO
+        observaciones: data.notes, // Asegúrate que ambos sean string
+        montoManual: data.rentAmount,
+        // No mapeamos lockersAsignados aquí, ya se hizo arriba
+        // No mapeamos campos de aumento
+      });
+
+      // Disparar cálculo de m3 inicial
+      const initialLockerIds = this.newClientForm.get('lockersAsignados')?.value || [];
+      const validInitialIds = initialLockerIds.filter((id: any): id is number => typeof id === 'number' && id > 0);
+      this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validInitialIds));
+
+
     }
-
-    // 'data.phone' ahora es un array gracias al fix de C#
-    if (data.phone && data.phone.length > 0) {
-      data.phone.forEach(p => this.telefonos.push(this.fb.control(p)));
-    } else {
-      this.addTelefono(); // Agrega uno vacío si no hay ninguno
-    }
-
-    if (data.lockersList) {
-      data.lockersList.forEach(locker => (this.newClientForm.get('lockersAsignados') as FormArray).push(this.fb.control(locker.id)));
-    }
-
-    // 3. Rellenamos los campos simples
-
-    // Buscamos el objeto PaymentMethod que coincida con el *nombre*
-    const matchingPaymentMethod = this.paymentMethods.find(
-      method => method.name === data.preferredPaymentMethod
-    );
-
-    this.newClientForm.patchValue({
-      numeroIdentificacion: data.paymentIdentifier,
-      nombre: data.name,
-      apellido: data.lastName,
-      numeroDocumento: data.dni,
-      // cuit: data.cuit, // Tu form no tiene 'cuit', pero el DTO sí.
-      condicionIVA: data.ivaCondition,
-      
-      metodoPago: matchingPaymentMethod || null, 
-      
-      direccion: data.address,
-      ciudad: data.city,
-      provincia: data.province, // Tu DTO de TS usa 'state', asegúrate que el de C# use 'Province' o 'State' y coincidan.
-      
-      observaciones: data.notes, // Ahora ambos son 'string'
-      
-      montoManual: data.rentAmount,
-      periodicidadAumento: data.increaseFrequency,
-      porcentajeAumento: data.increasePercentage, // Asegúrate que el DTO de C# y TS usen 'IncreasePercentage'
-    });
-  }
 
   get emails(): FormArray {
     return this.newClientForm.get('emails') as FormArray;
@@ -262,39 +290,42 @@ export class CreateClientModalComponent implements OnInit {
   }
 
   get costSummary() {
-    const assignedIds = this.newClientForm.value.lockersAsignados;
+      // Usar el FormArray directamente
+      const assignedIds = (this.newClientForm?.get('lockersAsignados')?.value as (number | null)[]) || [];
+      // Filtrar IDs inválidos (null, undefined, 0, etc.)
+      const validIds = assignedIds.filter((id): id is number => typeof id === 'number' && id > 0);
 
-    if (!assignedIds || assignedIds.length === 0) {
-      return { totalM3: 0 };
-    }
+      // Calcular m3 usando la función dedicada
+      const totalM3 = this.calculateTotalM3(validIds);
 
-    let totalM3 = 0;
-
-    assignedIds.forEach((id: number) => {
-      const locker = this.availableLockers.find((l) => l.id === id);
-
-      const type = this.lockerTypes.find(
-        (lt) => lt.id === locker?.lockerTypeId
-      );
-
-      if (type) {
-        totalM3 += type.m3;
-      }
-    });
-
-    return { totalM3 };
+      return { totalM3 }; // Ya no necesitamos calcular amount aquí
   }
 
-  getLockerDetails(lockerId: number) {
-    const locker = this.availableLockers.find((l) => l.id === lockerId);
+  getLockerDetails(lockerId: number | null) {
+      // Si el ID es inválido, devolver algo vacío
+      if (typeof lockerId !== 'number' || lockerId <= 0) {
+           console.warn(`getLockerDetails llamado con ID inválido: ${lockerId}`);
+          return { locker: null, warehouse: null, lockerType: null };
+      }
 
-    return {
-      locker: locker,
+      // Buscar locker en la lista de DISPONIBLES + los asignados originalmente
+      const locker = this.availableLockers.find((l) => l.id === lockerId);
+      if (!locker) {
+           console.warn(`No se encontró locker con ID ${lockerId} en availableLockers`);
+          return { locker: null, warehouse: null, lockerType: null };
+      }
 
-      warehouse: this.warehouses.find((w) => w.id === locker?.warehouseId),
+      const warehouse = this.warehouses.find((w) => w.id === locker.warehouseId);
+      const lockerType = this.lockerTypes.find((lt) => lt.id === locker.lockerTypeId);
 
-      lockerType: this.lockerTypes.find((lt) => lt.id === locker?.lockerTypeId),
-    };
+      if (!warehouse) console.warn(`No se encontró warehouse para locker ID ${lockerId} (warehouseId: ${locker.warehouseId})`);
+      if (!lockerType) console.warn(`No se encontró lockerType para locker ID ${lockerId} (lockerTypeId: ${locker.lockerTypeId})`);
+
+      return {
+          locker: locker,
+          warehouse: warehouse || null, // Devolver null si no se encuentra
+          lockerType: lockerType || null, // Devolver null si no se encuentra
+      };
   }
 
   handleLockerToggle(lockerId: number): void {
@@ -393,6 +424,18 @@ export class CreateClientModalComponent implements OnInit {
       },
     });
   }
+
+  private calculateTotalM3(ids: number[]): number {
+      let totalM3 = 0;
+      ids.forEach((id) => {
+          const details = this.getLockerDetails(id);
+          if (details.lockerType && details.lockerType.m3) { // Verificar que m3 exista
+              totalM3 += details.lockerType.m3;
+          }
+      });
+      // Redondear a 2 decimales si es necesario
+      return Math.round(totalM3 * 100) / 100;
+   }
 
   // Asegúrate de tener este método para mostrar toasts
   private showToastNotification(message: string, type: 'success' | 'error'): void {
