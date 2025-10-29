@@ -124,6 +124,19 @@ namespace GuardeSoftwareAPI.Services.client
                 {
                     try
                     {
+                        // set PaymentIdentifier
+                        if (dto.PaymentIdentifier == null || dto.PaymentIdentifier.Value <= 0)
+                        {
+                            // 1. Obtains the current maximum identifier
+                            decimal maxIdentifier = await daoClient.GetMaxPaymentIdentifierAsync(connection, transaction);
+                            
+                            // 2. Asign a new identifier incrementing the max by 0.01
+                            dto.PaymentIdentifier = maxIdentifier + 0.01m; 
+                            
+                            // NOTA: Si el primer cliente debe ser 0.1, considera esto en el DAO o aquí.
+                            // Si el máximo es 0.00, el nuevo será 0.01. Si es 0.14, el nuevo será 0.15.
+                            // Ajusta el incremento (0.01m) según tus necesidades de formato (ej: 1m si son enteros).
+                        }
 
                         if (dto.Dni != null && await daoClient.ExistsByDniAsync(dto.Dni, connection, transaction))
                         {

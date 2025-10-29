@@ -412,11 +412,11 @@ namespace GuardeSoftwareAPI.Dao
             }
             return names;
         }
-        
+
         public async Task<List<string>> SearchActiveClientNamesAsync(string query)
         {
             var names = new List<string>();
-            
+
             // Buscamos coincidencias en nombre, apellido o nombre completo
             string sqlQuery = @"
                 SELECT first_name, last_name 
@@ -428,10 +428,10 @@ namespace GuardeSoftwareAPI.Dao
                 ORDER BY first_name, last_name
                 OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY; -- Limitamos a 10 resultados
             ";
-            
+
             var parameters = new[] { 
                 // Añadimos '%' para que funcione como un 'CONTAINS'
-                new SqlParameter("@Query", $"%{query}%") 
+                new SqlParameter("@Query", $"%{query}%")
             };
 
             DataTable table = await accessDB.GetTableAsync("ClientSearch", sqlQuery, parameters);
@@ -441,6 +441,18 @@ namespace GuardeSoftwareAPI.Dao
                 names.Add($"{row["first_name"]} {row["last_name"]}");
             }
             return names;
+        }
+        
+        public async Task<decimal> GetMaxPaymentIdentifierAsync(SqlConnection connection, SqlTransaction transaction)
+        {
+            // We use ISNULL to handle the case where there are no clients yet.
+            // We use max to get the highest payment identifier.
+            string query = "SELECT ISNULL(MAX(payment_identifier), 0.00) FROM clients";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            object result = await command.ExecuteScalarAsync() ?? 0.00m;
+
+            return Convert.ToDecimal(result);
         }
     }
 }
