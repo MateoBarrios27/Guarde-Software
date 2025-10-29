@@ -8,14 +8,14 @@ export interface ClientDetailDTO{
     name: string;
     lastName: string;
     city: string;
-    state: string;
+    province: string;
     cuit: string;
     dni: string;
     registrationDate: Date;
 
     //contact information
-    email: string;
-    phone: string;
+    email: string[];
+    phone: string[];
     address: string;
 
     //payment and rental info
@@ -32,5 +32,5 @@ export interface ClientDetailDTO{
     //locker info
     lockersList?: LockerClientDetailDTO[];
     contractedM3: number;
-    notes: number;
+    notes: string;
 }

@@ -279,15 +279,17 @@ namespace GuardeSoftwareAPI.Services.client
                 RegistrationDate = Convert.ToDateTime(row["registration_date"]),
 
                 // Contact Information
-                Email = row["email_address"]?.ToString() ?? string.Empty,
-                Phone = row["phone_number"]?.ToString() ?? string.Empty,
                 Address = row["street"]?.ToString() ?? string.Empty,
+                // Las propiedades 'Email' y 'Phone' se cargarán a continuación
 
                 // Payment & rental Information
                 IvaCondition = row["iva_condition"]?.ToString() ?? string.Empty,
                 PreferredPaymentMethod = row["preferred_payment_method"]?.ToString() ?? "No especificado",
-                IncresePerentage = row["increase_percentage"] != DBNull.Value ? Convert.ToDecimal(row["increase_percentage"]) : 0,
+                
+                // CORREGÍ EL TYPO: Tu DTO dice 'IncresePerentage', lo cambié a 'IncreasePercentage'
+                IncreasePercentage = row["increase_percentage"] != DBNull.Value ? Convert.ToDecimal(row["increase_percentage"]) : 0, 
                 IncreaseFrequency = row["increase_frequency"] != DBNull.Value ? Convert.ToInt32(row["increase_frequency"]) : 0,
+                
                 NextIncreaseDay = row["end_date"] != DBNull.Value ? Convert.ToDateTime(row["end_date"]) : DateTime.MinValue,
                 NextPaymentDay = row["next_payment_day"] != DBNull.Value ? Convert.ToDateTime(row["next_payment_day"]) : DateTime.MinValue,
                 ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
@@ -296,11 +298,27 @@ namespace GuardeSoftwareAPI.Services.client
                 RentAmount = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m,
 
                 // Other information
-                Notes = row["notes"]?.ToString() ?? string.Empty,
+                Notes = row["notes"]?.ToString() ?? string.Empty, // Esto está bien
             };
 
+            // --- INICIO DE LA CORRECCIÓN ---
+
+            // 1. Cargar Lockers (esto ya estaba bien)
             List<GetLockerClientDetailDTO> lockers = await lockerService.GetLockersByClientIdAsync(id);
             clientDetail.LockersList = lockers;
+
+            // 2. Cargar Emails usando el servicio inyectado
+            var emailEntities = await emailService.GetEmailListByClientId(id);
+            // Convertimos la List<Email> (entidad) en un string[]
+            clientDetail.Email = emailEntities.Select(e => e.Address).ToArray();
+
+            // 3. Cargar Teléfonos usando el servicio inyectado
+            // (Asumo que tu IPhoneService tiene este método, igual que EmailService)
+            var phoneEntities = await phoneService.GetPhoneListByClientId(id); 
+            // Convertimos la List<Phone> (entidad) en un string[]
+            clientDetail.Phone = phoneEntities.Select(p => p.Number).ToArray();
+
+            // --- FIN DE LA CORRECCIÓN ---
 
             return clientDetail;
         }

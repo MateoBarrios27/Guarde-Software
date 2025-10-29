@@ -42,18 +42,21 @@ import { ClientService } from '../../../core/services/client-service/client.serv
 export class CreateClientModalComponent implements OnInit {
   // --- ENTRADAS Y SALIDAS ---
   private _clientData: ClientDetailDTO | null = null;
+
   @Input()
   set clientData(data: ClientDetailDTO | null) {
     this._clientData = data;
-    // Si el formulario ya está creado y recibimos datos, lo poblamos.
-    if (this.newClientForm && data) {
-      console.log('Datos recibidos en el modal, poblando formulario...');
+    // Solo poblamos el formulario si YA está listo Y los selects están cargados
+    if (this.newClientForm && data && this.paymentMethods.length > 0) {
+      console.log('Datos de cliente y selects listos. Poblando formulario...');
       this.populateForm(data);
     }
   }
+
   get clientData(): ClientDetailDTO | null {
     return this._clientData;
   }
+
   @Output() closeModal = new EventEmitter<void>();
   @Output() saveSuccess = new EventEmitter<void>();
 
@@ -83,6 +86,7 @@ export class CreateClientModalComponent implements OnInit {
   }
 
   private loadFormData(): void {
+    // ... (cargas de warehouseService, lockerService, lockerTypeService, increaseRegimenService... van aquí)
     this.warehouseService
       .getWarehouses()
       .subscribe((data) => (this.warehouses = data));
@@ -97,12 +101,24 @@ export class CreateClientModalComponent implements OnInit {
     this.lockerTypeService
       .getLockerTypes()
       .subscribe((data) => (this.lockerTypes = data));
-    this.paymentMethodService
-      .getPaymentMethods()
-      .subscribe((data) => (this.paymentMethods = data));
     this.increaseRegimenService
       .getIncreaseRegimens()
       .subscribe((data) => (this.increaseRegimens = data));
+
+    // --- LÓGICA DE SINCRONIZACIÓN ---
+    // Esta es la llamada clave que debe ir al final
+    this.paymentMethodService
+      .getPaymentMethods()
+      .subscribe((data) => {
+        this.paymentMethods = data;
+        
+        // AHORA que tenemos los 'paymentMethods', revisamos si
+        // los datos del cliente ya habían llegado.
+        if (this.newClientForm && this.clientData) {
+          console.log('Selects cargados. Datos del cliente ya estaban. Poblando...');
+          this.populateForm(this.clientData);
+        }
+      });
   }
 
   private initNewClientForm(): void {
@@ -119,7 +135,6 @@ export class CreateClientModalComponent implements OnInit {
       telefonos: this.fb.array([this.fb.control('')]),
       direccion: ['', Validators.required],
       ciudad: ['', Validators.required],
-      codigoPostal: [''],
       provincia: ['', Validators.required],
       condicionIVA: [null, Validators.required],
       metodoPago: [null, Validators.required],
@@ -145,44 +160,58 @@ export class CreateClientModalComponent implements OnInit {
   }
 
     private populateForm(data: ClientDetailDTO): void {
-      console.log('Poblando formulario con datos:', data);
+    console.log('Poblando formulario con datos:', data);
+
     // 1. Limpiamos los FormArrays
     this.emails.clear();
     this.telefonos.clear();
     (this.newClientForm.get('lockersAsignados') as FormArray).clear();
 
-    // 2. Rellenamos los FormArrays
-    if (data.email) {
-      data.email.split(',').forEach(e => this.emails.push(this.fb.control(e.trim(), [Validators.required, Validators.email])));
+    // 2. Rellenamos FormArrays (¡Versión limpia!)
+    // 'data.email' ahora es un array gracias al fix de C#
+    if (data.email && data.email.length > 0) {
+      data.email.forEach(e => this.emails.push(this.fb.control(e, [Validators.required, Validators.email])));
     } else {
-      this.addEmail(); // Si no hay email, agrega un campo vacío
+      this.addEmail(); // Agrega uno vacío si no hay ninguno
     }
 
-    if (data.phone) {
-        data.phone.split(',').forEach(p => this.telefonos.push(this.fb.control(p.trim())));
+    // 'data.phone' ahora es un array gracias al fix de C#
+    if (data.phone && data.phone.length > 0) {
+      data.phone.forEach(p => this.telefonos.push(this.fb.control(p)));
+    } else {
+      this.addTelefono(); // Agrega uno vacío si no hay ninguno
     }
 
     if (data.lockersList) {
-        data.lockersList.forEach(locker => (this.newClientForm.get('lockersAsignados') as FormArray).push(this.fb.control(locker.id)));
+      data.lockersList.forEach(locker => (this.newClientForm.get('lockersAsignados') as FormArray).push(this.fb.control(locker.id)));
     }
 
-    // 3. Rellenamos los campos simples usando patchValue
+    // 3. Rellenamos los campos simples
+
+    // Buscamos el objeto PaymentMethod que coincida con el *nombre*
+    const matchingPaymentMethod = this.paymentMethods.find(
+      method => method.name === data.preferredPaymentMethod
+    );
+
     this.newClientForm.patchValue({
       numeroIdentificacion: data.paymentIdentifier,
       nombre: data.name,
       apellido: data.lastName,
       numeroDocumento: data.dni,
-      cuit: data.cuit,
+      // cuit: data.cuit, // Tu form no tiene 'cuit', pero el DTO sí.
       condicionIVA: data.ivaCondition,
-      metodoPago: data.preferredPaymentMethod,
+      
+      metodoPago: matchingPaymentMethod || null, 
+      
       direccion: data.address,
       ciudad: data.city,
-      provincia: data.state,
-      observaciones: data.notes,
+      provincia: data.province, // Tu DTO de TS usa 'state', asegúrate que el de C# use 'Province' o 'State' y coincidan.
+      
+      observaciones: data.notes, // Ahora ambos son 'string'
+      
       montoManual: data.rentAmount,
       periodicidadAumento: data.increaseFrequency,
-      porcentajeAumento: data.increasePercentage,
-      // ... mapea aquí cualquier otro campo que falte
+      porcentajeAumento: data.increasePercentage, // Asegúrate que el DTO de C# y TS usen 'IncreasePercentage'
     });
   }
 

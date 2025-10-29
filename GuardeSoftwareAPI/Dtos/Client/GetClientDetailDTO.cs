@@ -16,14 +16,14 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public DateTime RegistrationDate { get; set; }
 
         //Contact Information
-        public string Email { get; set; } = string.Empty;
-        public string Phone { get; set; } = string.Empty;
+        public string[] Email { get; set; } = [];
+        public string[] Phone { get; set; } = [];
         public string Address { get; set; } = string.Empty;
 
         //Payment & rental Information
         public string IvaCondition { get; set; } = string.Empty;
         public string PreferredPaymentMethod { get; set; } = string.Empty;
-        public decimal IncresePerentage { get; set; }
+        public decimal IncreasePercentage { get; set; }
         public int IncreaseFrequency { get; set; }
         public DateTime NextIncreaseDay { get; set; }
         public DateTime NextPaymentDay { get; set; }
