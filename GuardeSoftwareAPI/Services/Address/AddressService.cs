@@ -136,5 +136,12 @@ namespace GuardeSoftwareAPI.Services.address
             return await daoAddress.CreateAddressTransaction(address, sqlConnection, transaction);
         }
 
+        public async Task<bool> DeleteAddressByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (clientId <= 0) throw new ArgumentException("Invalid Client ID.");
+            int rowsAffected = await daoAddress.DeleteAddressByClientIdTransactionAsync(clientId, connection, transaction);
+            return rowsAffected > 0; // Opcional: podrías no necesitar devolver bool si no te importa si existía o no
+        }
+
     }
 }

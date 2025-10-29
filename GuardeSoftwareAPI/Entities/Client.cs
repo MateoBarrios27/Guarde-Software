@@ -12,5 +12,6 @@
         public string? Cuit { get; set; } = string.Empty;
         public int? PreferredPaymentMethodId { get; set; }
         public string? IvaCondition { get; set; } = string.Empty;
+        public bool? Active { get; set; }
     }
 }

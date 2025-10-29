@@ -175,10 +175,40 @@ namespace GuardeSoftwareAPI.Services.locker
             if (lockerId <= 0) throw new ArgumentException("Invalid locker ID.");
             if (string.IsNullOrWhiteSpace(dto.Status)) throw new ArgumentException("Status is required.");
 
-            
+
             return await daoLocker.UpdateLockerStatus(lockerId, dto.Status);
         }
 
+        public async Task<List<int>> GetLockerIdsByRentalIdTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.");
+            return await daoLocker.GetLockerIdsByRentalIdTransactionAsync(rentalId, connection, transaction);
+        }
+
+        public async Task<bool> UnassignLockersFromRentalTransactionAsync(List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
+        {
+             if (lockerIds == null || !lockerIds.Any()) return true; // Nada que hacer
+             // Validar IDs si es necesario
+             int rowsAffected = await daoLocker.UnassignLockersFromRentalTransactionAsync(lockerIds, connection, transaction);
+             return rowsAffected == lockerIds.Count; // Verifica si se desasignaron todos los esperados
+        }
+
+        public async Task<bool> AssignLockersToRentalTransactionAsync(int rentalId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (lockerIds == null || !lockerIds.Any()) return true; // Nada que hacer
+            if (rentalId <= 0) throw new ArgumentException("Invalid rental ID for assignment.");
+             // Validar IDs si es necesario
+             // La verificación de disponibilidad ya se hace en UpdateClientAsync
+             int rowsAffected = await daoLocker.AssignLockersToRentalTransactionAsync(rentalId, lockerIds, connection, transaction);
+              return rowsAffected == lockerIds.Count; // Verifica si se asignaron todos los esperados
+        }
+
+        public async Task<decimal> CalculateTotalM3ForLockersAsync(List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
+        {
+             if (lockerIds == null || !lockerIds.Any()) return 0m;
+             // Validar IDs si es necesario
+             return await daoLocker.CalculateTotalM3ForLockersAsync(lockerIds, connection, transaction);
+        }
 
     }
 }

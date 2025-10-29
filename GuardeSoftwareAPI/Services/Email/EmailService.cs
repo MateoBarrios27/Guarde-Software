@@ -117,9 +117,9 @@ namespace GuardeSoftwareAPI.Services.email
 
             return await _daoEmail.UpdateEmail(Email);
         }
-    
-    
-    public async Task<Email> CreateEmailTransaction(Email email, SqlConnection connection, SqlTransaction transaction)
+
+
+        public async Task<Email> CreateEmailTransaction(Email email, SqlConnection connection, SqlTransaction transaction)
         {
             if (email == null)
                 throw new ArgumentNullException(nameof(email));
@@ -132,5 +132,12 @@ namespace GuardeSoftwareAPI.Services.email
 
             return await _daoEmail.CreateEmailTransaction(email, connection, transaction);
         }
+        
+        public async Task<bool> DeleteEmailsByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+         {
+             if (clientId <= 0) throw new ArgumentException("Invalid Client ID.");
+             int rowsAffected = await _daoEmail.DeleteEmailsByClientIdTransactionAsync(clientId, connection, transaction);
+             return rowsAffected > 0; // Opcional
+         }
     }
 }

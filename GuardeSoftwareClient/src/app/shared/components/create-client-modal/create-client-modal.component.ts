@@ -32,6 +32,7 @@ import { PaymentMethodService } from '../../../core/services/paymentMethod-servi
 import { IncreaseRegimenService } from '../../../core/services/increaseRegimen-service/increase-regimen.service';
 import { LockerTypeService } from '../../../core/services/lockerType-service/locker-type.service';
 import { ClientService } from '../../../core/services/client-service/client.service';
+import { Observable } from 'rxjs';
 
 @Component({
   selector: 'app-create-client-modal',
@@ -313,62 +314,94 @@ export class CreateClientModalComponent implements OnInit {
   // openNewClientModal(): void { this.showNewClientModal = true; }
   // closeNewClientModal(): void { this.showNewClientModal = false; this.newClientForm.reset(); /* Considerar reset a valores por defecto */ }
 
+  // Reemplaza este método en create-client-modal.component.ts
+
   onSubmit(): void {
     if (this.newClientForm.invalid) {
-      this.newClientForm.markAllAsTouched();
+      // ... (marcar como touched, mostrar toast de error) ...
+      console.warn('Formulario inválido:', this.newClientForm.value);
+      this.showToastNotification('Por favor, completa todos los campos requeridos.', 'error');
       return;
     }
 
     this.isLoading = true;
     const formValue = this.newClientForm.value;
+    console.log("Valores del formulario ANTES de mapear DTO:", formValue);
+    console.log("Lockers asignados en FormArray:", formValue.lockersAsignados);
 
-    // Mapea los datos del formulario al DTO
+
+    // Validación Adicional Método Pago
+    if (!formValue.metodoPago || !formValue.metodoPago.id) {
+        // ... (manejo de error método pago) ...
+        this.isLoading = false;
+        return;
+    }
+
+    // --- Mapeo de DTO ---
     const dto: CreateClientDTO = {
+      // ... (resto de propiedades id, firstName, lastName, etc.) ...
+      id: this.clientData ? this.clientData.id : undefined,
       paymentIdentifier: Number(formValue.numeroIdentificacion) || 0,
       firstName: formValue.nombre,
       lastName: formValue.apellido,
-      registrationDate: new Date(),
-      notes: formValue.observaciones,
-      dni: formValue.numeroDocumento,
-      emails: formValue.emails,
-      phones: formValue.telefonos,
-
+      notes: formValue.observaciones || null,
+      dni: formValue.numeroDocumento || null,
+      cuit: formValue.cuit || null,
+      emails: formValue.emails.filter((e: string | null): e is string => !!e && !!e.trim()),
+      phones: formValue.telefonos.filter((p: string | null): p is string => !!p && !!p.trim()),
       addressDto: {
         street: formValue.direccion,
-
-        province: formValue.provincia,
-
         city: formValue.ciudad,
+        province: formValue.provincia,
       },
-      increaseFrequency: formValue.periodicidadAumento,
-
-      increasePercentage: formValue.porcentajeAumento
-        ? Number(formValue.porcentajeAumento)
-        : 0,
-      cuit: formValue.cuit,
       preferredPaymentMethodId: formValue.metodoPago.id,
-      ivaCondition: formValue.condicionIVA,
-      startDate: new Date(),
+      ivaCondition: formValue.condicionIVA || null,
       contractedM3: this.costSummary.totalM3,
       amount: formValue.montoManual,
-      lockerIds: formValue.lockersAsignados,
-      userID: 1, // Placeholder, debería venir del usuario logueado
+
+      // === FILTRO IMPORTANTE ===
+      lockerIds: formValue.lockersAsignados.filter((id: any): id is number => typeof id === 'number' && id > 0),
+      // === FIN FILTRO ===
+
+      userID: 1, // Placeholder
+      registrationDate: this.clientData ? this.clientData.registrationDate : new Date(),
+      startDate: this.clientData ? this.clientData.registrationDate : new Date(),
     };
 
-    // Llama al servicio directamente desde el modal
-    this.clientService.CreateClient(dto).subscribe({
-      next: () => {
+    console.log('Enviando DTO:', dto);
+
+    // --- Llamada al Servicio (sin cambios en esta parte) ---
+    let apiCall: Observable<any>;
+
+    if (this.clientData) {
+      apiCall = this.clientService.updateClient(this.clientData.id, dto);
+    } else {
+      apiCall = this.clientService.CreateClient(dto);
+    }
+
+    apiCall.subscribe({
+      next: (response) => {
         this.isLoading = false;
-        this.saveSuccess.emit(); // Emite la señal de éxito al padre
+        console.log(this.clientData ? 'Cliente actualizado:' : 'Cliente creado:', response);
+        this.saveSuccess.emit();
       },
       error: (err) => {
         this.isLoading = false;
-        console.error('Error al crear el cliente:', err);
-        // Opcional: podrías emitir un evento de error para que el padre muestre un toast de error.
-        // this.saveError.emit(err);
+        console.error(this.clientData ? 'Error al actualizar el cliente:' : 'Error al crear el cliente:', err);
+        const errorMsg = err.error?.message || err.statusText || 'Ocurrió un error desconocido.';
+        this.showToastNotification(`Error: ${errorMsg}`, 'error');
       },
     });
   }
+
+  // Asegúrate de tener este método para mostrar toasts
+  private showToastNotification(message: string, type: 'success' | 'error'): void {
+      // Tu lógica de toast
+      console.log(`Toast (${type}): ${message}`); // Placeholder
+  }
+
+  // Asegúrate de tener este método para mostrar toasts (si no lo tienes ya)
+
 
   private calculateTotalAmount(ids: number[]): number {
     let totalAmount = 0;

@@ -86,5 +86,20 @@ namespace GuardeSoftwareAPI.Dao
             }
             return phone;
         }
+
+        public async Task<int> DeletePhonesByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            // OJO: Tu tabla phones tiene 'active' BIT. ¿Prefieres marcar como inactivo o borrar?
+            // Esta query BORRA los registros. Si prefieres marcar inactivo:
+            // string query = "UPDATE phones SET active = 0 WHERE client_id = @client_id";
+            string query = "DELETE FROM phones WHERE client_id = @client_id";
+            SqlParameter[] parameters = { new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId } };
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                return await command.ExecuteNonQueryAsync();
+            }
+        }
     }
 }

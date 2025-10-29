@@ -66,6 +66,44 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateClient(int id, [FromBody] CreateClientDTO dto)
+        {
+            // Validar que el ID de la ruta coincida si el DTO tiene ID (opcional pero bueno)
+            if (dto.Id.HasValue && dto.Id.Value != id)
+            {
+                return BadRequest(new { message = "El ID en la ruta no coincide con el ID en el cuerpo de la solicitud." });
+            }
+
+            try
+            {
+                bool success = await _clientService.UpdateClientAsync(id, dto);
+
+                if (success)
+                {
+                    return NoContent(); // Respuesta estándar para un PUT exitoso sin contenido que devolver
+                }
+                else
+                {
+                    // Si el servicio devuelve false, asumimos que no encontró el cliente
+                    return NotFound(new { message = $"Cliente con ID {id} no encontrado." });
+                }
+            }
+            catch (InvalidOperationException ex) // Captura excepciones específicas (ej: DNI duplicado en otro cliente)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (ArgumentException ex) // Captura errores de validación
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                // Log the exception details here
+                return StatusCode(500, new { message = $"Error al actualizar el cliente: {ex.Message}" });
+            }
+        }
+
         [HttpGet("detail/{id}")]
         public async Task<ActionResult<GetClientDetailDTO>> GetClientDetailById(int id)
         {

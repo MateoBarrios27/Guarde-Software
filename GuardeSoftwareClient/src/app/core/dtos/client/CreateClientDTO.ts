@@ -22,6 +22,6 @@ export interface CreateClientDTO{
     phones: string[];
     addressDto: CreateAddressDto,
 
-    increaseFrequency: string;
-    increasePercentage: number;
+    // increaseFrequency: string;
+    // increasePercentage: number;
 }

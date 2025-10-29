@@ -16,6 +16,7 @@ using GuardeSoftwareAPI.Services.email;
 using Quartz.Util;
 using GuardeSoftwareAPI.Services.phone;
 using GuardeSoftwareAPI.Services.address;
+using System.Text.Json;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -341,7 +342,7 @@ namespace GuardeSoftwareAPI.Services.client
 
             return await daoClient.GetActiveClientNamesAsync();
         }
-        
+
         public async Task<List<string>> SearchClientNamesAsync(string query)
         {
             if (string.IsNullOrWhiteSpace(query))
@@ -350,6 +351,128 @@ namespace GuardeSoftwareAPI.Services.client
             }
             return await daoClient.SearchActiveClientNamesAsync(query);
         }
+        
+        public async Task<bool> UpdateClientAsync(int id, CreateClientDTO dto)
+{
+    if (id <= 0) throw new ArgumentException("ID de cliente inválido.");
+    if (dto == null) throw new ArgumentNullException(nameof(dto));
+    // ... (otras validaciones básicas)
+
+    using (var connection = accessDB.GetConnectionClose())
+    {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
+        {
+            try
+            {
+                var existingClient = await daoClient.GetClientByIdTransactionAsync(id, connection, transaction);
+                if (existingClient == null) return false;
+
+                // string oldClientState = JsonSerializer.Serialize(existingClient); // Opcional para log
+
+                if (!string.IsNullOrWhiteSpace(dto.Dni) && await daoClient.ExistsByDniAsync(dto.Dni, id, connection, transaction))
+                    throw new InvalidOperationException("Ya existe otro cliente con este DNI.");
+                if (!string.IsNullOrWhiteSpace(dto.Cuit) && await daoClient.ExistsByCuitAsync(dto.Cuit, id, connection, transaction))
+                     throw new InvalidOperationException("Ya existe otro cliente con este CUIT.");
+
+                Client clientToUpdate = new Client { /* ... mapeo como antes ... */
+                    Id = id,
+                    PaymentIdentifier = dto.PaymentIdentifier,
+                    FirstName = dto.FirstName.Trim(),
+                    LastName = dto.LastName.Trim(),
+                    RegistrationDate = existingClient.RegistrationDate, // No cambiar
+                    Dni = string.IsNullOrWhiteSpace(dto.Dni) ? null : dto.Dni.Trim(),
+                    Cuit = string.IsNullOrWhiteSpace(dto.Cuit) ? null : dto.Cuit.Trim(),
+                    PreferredPaymentMethodId = dto.PreferredPaymentMethodId ?? existingClient.PreferredPaymentMethodId,
+                    IvaCondition = string.IsNullOrWhiteSpace(dto.IvaCondition) ? existingClient.IvaCondition : dto.IvaCondition.Trim(),
+                    Notes = string.IsNullOrWhiteSpace(dto.Notes) ? existingClient.Notes : dto.Notes.Trim(),
+                 };
+
+                if (!await daoClient.UpdateClientTransactionAsync(clientToUpdate, connection, transaction))
+                    throw new Exception("No se pudo actualizar la información principal del cliente.");
+
+                // Usar los MÉTODOS DE SERVICIO para borrar y crear
+                await emailService.DeleteEmailsByClientIdTransactionAsync(id, connection, transaction);
+                if (dto.Emails != null) {
+                    foreach (string emailAddr in dto.Emails.Where(e => !string.IsNullOrWhiteSpace(e))) {
+                        await emailService.CreateEmailTransaction(new Email { ClientId = id, Address = emailAddr.Trim(), Type = "" }, connection, transaction);
+                    }
+                }
+
+                await phoneService.DeletePhonesByClientIdTransactionAsync(id, connection, transaction);
+                if (dto.Phones != null) {
+                    foreach (string phoneNum in dto.Phones.Where(p => !string.IsNullOrWhiteSpace(p))) {
+                        await phoneService.CreatePhoneTransaction(new Phone { ClientId = id, Number = phoneNum.Trim(), Type = "", Whatsapp = false }, connection, transaction);
+                    }
+                }
+
+                await addressService.DeleteAddressByClientIdTransactionAsync(id, connection, transaction);
+                 if (dto.AddressDto != null && !string.IsNullOrWhiteSpace(dto.AddressDto.Street) && !string.IsNullOrWhiteSpace(dto.AddressDto.City)) {
+                    await addressService.CreateAddressTransaction(new Address { ClientId = id, Street = dto.AddressDto.Street.Trim(), City = dto.AddressDto.City.Trim(), Province = string.IsNullOrWhiteSpace(dto.AddressDto.Province) ? null : dto.AddressDto.Province.Trim() }, connection, transaction);
+                 }
+
+
+                // Lógica de Rental/Lockers/Amount usando MÉTODOS DE SERVICIO
+                var currentRental = await rentalService.GetRentalByClientIdTransactionAsync(id, connection, transaction);
+                if (currentRental != null)
+                {
+                    var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(currentRental.Id, connection, transaction);
+                    if (lastAmountHistory != null && dto.Amount != lastAmountHistory.Amount)
+                    {
+                        await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, currentRental.Id, dto.Amount, DateTime.UtcNow, connection, transaction);
+                    }
+
+                    var currentLockerIds = await lockerService.GetLockerIdsByRentalIdTransactionAsync(currentRental.Id, connection, transaction);
+                    var newLockerIds = dto.LockerIds ?? new List<int>();
+                    var lockersToRemove = currentLockerIds.Except(newLockerIds).ToList();
+                    var lockersToAdd = newLockerIds.Except(currentLockerIds).ToList();
+
+                    if (lockersToRemove.Any()) {
+                        await lockerService.UnassignLockersFromRentalTransactionAsync(lockersToRemove, connection, transaction);
+                    }
+                    if (lockersToAdd.Any()) {
+                         foreach(var lockerIdToAdd in lockersToAdd) {
+                              if (!await lockerService.IsLockerAvailableAsync(lockerIdToAdd, connection, transaction)) {
+                                  throw new InvalidOperationException($"El locker {lockerIdToAdd} ya no está disponible.");
+                              }
+                         }
+                        await lockerService.AssignLockersToRentalTransactionAsync(currentRental.Id, lockersToAdd, connection, transaction);
+                    }
+
+                    // Recalcular M3 si hubo cambios en lockers
+                    if (lockersToAdd.Any() || lockersToRemove.Any()) {
+                        decimal newContractedM3 = await lockerService.CalculateTotalM3ForLockersAsync(newLockerIds, connection, transaction);
+                        await rentalService.UpdateContractedM3TransactionAsync(currentRental.Id, newContractedM3, connection, transaction);
+                    }
+                } else if (dto.LockerIds != null && dto.LockerIds.Any()) {
+                     // Lógica para crear un nuevo rental si no existía y se asignan lockers?
+                     Console.WriteLine($"Advertencia: Se asignaron lockers al cliente {id} pero no tiene un rental activo.");
+                }
+
+                // Lógica para Régimen de Aumento (si aplica)
+
+                ActivityLog activityLog = new ActivityLog { /* ... mapeo como antes ... */
+                    UserId = dto.UserID,
+                    LogDate = DateTime.UtcNow,
+                    Action = "UPDATE",
+                    TableName = "clients",
+                    RecordId = id,
+                    // OldValue = oldClientState,
+                    NewValue = JsonSerializer.Serialize(dto)
+                 };
+                await activityLogService.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+    }
+}
     }
 }
 

@@ -101,5 +101,18 @@ namespace GuardeSoftwareAPI.Dao
             return address;
         }
 
+        public async Task<int> DeleteAddressByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            // Asumiendo que solo hay UNA dirección por cliente
+            string query = "DELETE FROM addresses WHERE client_id = @client_id";
+            SqlParameter[] parameters = { new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId } };
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                return await command.ExecuteNonQueryAsync();
+            }
+        }
+
     }
 }

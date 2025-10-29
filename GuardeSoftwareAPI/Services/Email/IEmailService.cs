@@ -14,6 +14,6 @@ namespace GuardeSoftwareAPI.Services.email
 	    Task<bool> DeleteEmail(int id);
 		Task<bool> UpdateEmail(int clientId, UpdateEmailDto dto);
 		Task<Email> CreateEmailTransaction(Email email, SqlConnection sqlConnection, SqlTransaction sqlTransaction);
-
+       	Task<bool> DeleteEmailsByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction);
     }
 }

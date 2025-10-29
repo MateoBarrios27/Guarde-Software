@@ -8,5 +8,6 @@ namespace GuardeSoftwareAPI.Services.phone
         Task<List<Phone>> GetPhonesList();
         Task<List<Phone>> GetPhoneListByClientId(int id);
         Task<Phone> CreatePhoneTransaction(Phone phone, SqlConnection connection, SqlTransaction transaction);
+        Task<bool> DeletePhonesByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction); // Añadido
     }
 }

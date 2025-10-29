@@ -108,7 +108,19 @@ namespace GuardeSoftwareAPI.Dao
                     email.Id = Convert.ToInt32(newId);
                 }
 
-            return email;
+                return email;
+            }
+        }
+        
+        public async Task<int> DeleteEmailsByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = "DELETE FROM emails WHERE client_id = @client_id";
+            SqlParameter[] parameters = { new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId } };
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                return await command.ExecuteNonQueryAsync(); // Devuelve el número de filas borradas
             }
         }
     }

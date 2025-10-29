@@ -75,5 +75,12 @@ namespace GuardeSoftwareAPI.Services.phone
 
             return await _daoPhone.CreatePhoneTransaction(phone, connection, transaction);
         }
+
+        public async Task<bool> DeletePhonesByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+         {
+             if (clientId <= 0) throw new ArgumentException("Invalid Client ID.");
+             int rowsAffected = await _daoPhone.DeletePhonesByClientIdTransactionAsync(clientId, connection, transaction);
+             return rowsAffected > 0; // Opcional
+         }
     }
 }

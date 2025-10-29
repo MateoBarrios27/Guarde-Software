@@ -401,5 +401,51 @@ namespace GuardeSoftwareAPI.Dao
                 await command.ExecuteNonQueryAsync();
             }
         }
+
+        public async Task<Rental?> GetRentalByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            // Busca el ÚLTIMO rental ACTIVO del cliente (podría tener históricos)
+            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
+            SqlParameter[] parameters = { new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId } };
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    if (await reader.ReadAsync())
+                    {
+                        return new Rental
+                        {
+                            Id = reader.GetInt32(reader.GetOrdinal("rental_id")),
+                            ClientId = reader.GetInt32(reader.GetOrdinal("client_id")),
+                            StartDate = reader.GetDateTime(reader.GetOrdinal("start_date")),
+                            EndDate = reader.IsDBNull(reader.GetOrdinal("end_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("end_date")),
+                            ContractedM3 = reader.IsDBNull(reader.GetOrdinal("contracted_m3")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("contracted_m3")),
+                            MonthsUnpaid = reader.IsDBNull(reader.GetOrdinal("months_unpaid")) ? 0 : reader.GetInt32(reader.GetOrdinal("months_unpaid")),
+                            Active = reader.GetBoolean(reader.GetOrdinal("active"))
+                        };
+                    }
+                }
+            }
+            return null; // No encontrado o no activo
+        }
+
+        public async Task<bool> UpdateContractedM3TransactionAsync(int rentalId, decimal newM3, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = "UPDATE rentals SET contracted_m3 = @contracted_m3 WHERE rental_id = @rental_id";
+            SqlParameter[] parameters =
+            {
+                new SqlParameter("@contracted_m3", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = newM3 },
+                new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId }
+            };
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                int rowsAffected = await command.ExecuteNonQueryAsync();
+                return rowsAffected > 0;
+            }
+        }
     }
 }

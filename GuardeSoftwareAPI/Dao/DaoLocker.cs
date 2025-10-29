@@ -3,6 +3,7 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
 using System.Threading.Tasks;
+using System.Text;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -168,6 +169,103 @@ namespace GuardeSoftwareAPI.Dao
             string query = "UPDATE lockers SET status = @status WHERE locker_id = @locker_id";
 
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+        }
+
+        public async Task<List<int>> GetLockerIdsByRentalIdTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
+        {
+            List<int> ids = new List<int>();
+            string query = "SELECT locker_id FROM lockers WHERE rental_id = @rental_id AND active = 1"; // Solo activos
+            SqlParameter[] parameters = { new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId } };
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        ids.Add(reader.GetInt32(0));
+                    }
+                }
+            }
+            return ids;
+        }
+
+        public async Task<int> UnassignLockersFromRentalTransactionAsync(List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (lockerIds == null || !lockerIds.Any()) return 0;
+
+            // Construir la cláusula IN dinámicamente para evitar SQL Injection
+            var parameters = new List<SqlParameter>();
+            var inClause = new StringBuilder();
+            for (int i = 0; i < lockerIds.Count; i++)
+            {
+                string paramName = $"@lockerId{i}";
+                inClause.Append(paramName).Append(i < lockerIds.Count - 1 ? "," : "");
+                parameters.Add(new SqlParameter(paramName, SqlDbType.Int) { Value = lockerIds[i] });
+            }
+
+            // Cambia status a 'DISPONIBLE' al desasignar
+            string query = $"UPDATE lockers SET rental_id = NULL, status = 'DISPONIBLE' WHERE locker_id IN ({inClause.ToString()})";
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters.ToArray());
+                return await command.ExecuteNonQueryAsync();
+            }
+        }
+
+        public async Task<int> AssignLockersToRentalTransactionAsync(int rentalId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (lockerIds == null || !lockerIds.Any()) return 0;
+             if (rentalId <= 0) throw new ArgumentException("Invalid rental ID for assignment.");
+
+            var parameters = new List<SqlParameter>();
+            parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+
+            var inClause = new StringBuilder();
+            for (int i = 0; i < lockerIds.Count; i++)
+            {
+                string paramName = $"@lockerId{i}";
+                inClause.Append(paramName).Append(i < lockerIds.Count - 1 ? "," : "");
+                parameters.Add(new SqlParameter(paramName, SqlDbType.Int) { Value = lockerIds[i] });
+            }
+
+            // Cambia status a 'OCUPADO' al asignar
+            string query = $"UPDATE lockers SET rental_id = @rental_id, status = 'OCUPADO' WHERE locker_id IN ({inClause.ToString()}) AND rental_id IS NULL AND status = 'DISPONIBLE'"; // Doble check de seguridad
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters.ToArray());
+                return await command.ExecuteNonQueryAsync();
+            }
+        }
+
+        public async Task<decimal> CalculateTotalM3ForLockersAsync(List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (lockerIds == null || !lockerIds.Any()) return 0m;
+
+            var parameters = new List<SqlParameter>();
+            var inClause = new StringBuilder();
+            for (int i = 0; i < lockerIds.Count; i++)
+            {
+                string paramName = $"@lockerId{i}";
+                inClause.Append(paramName).Append(i < lockerIds.Count - 1 ? "," : "");
+                parameters.Add(new SqlParameter(paramName, SqlDbType.Int) { Value = lockerIds[i] });
+            }
+
+            string query = $@"
+                SELECT ISNULL(SUM(lt.m3), 0)
+                FROM lockers l
+                JOIN locker_types lt ON l.locker_type_id = lt.locker_type_id
+                WHERE l.locker_id IN ({inClause.ToString()})";
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters.ToArray());
+                object result = await command.ExecuteScalarAsync();
+                return (result != null && result != DBNull.Value) ? Convert.ToDecimal(result) : 0m;
+            }
         }
     }
 }

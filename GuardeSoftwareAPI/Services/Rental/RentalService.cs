@@ -99,12 +99,12 @@ namespace GuardeSoftwareAPI.Services.rental
 			List<PendingRentalDTO> pendingRentals = [];
 
 			if (pendingRentalTable.Rows.Count == 0)
-				return pendingRentals; 
+				return pendingRentals;
 
 			foreach (DataRow row in pendingRentalTable.Rows)
 			{
 				PendingRentalDTO rental = new()
-                {
+				{
 					Id = (int)row["rental_id"],
 					ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
 					ClientName = row["client_name"] != DBNull.Value ? row["client_name"].ToString()! : string.Empty,
@@ -112,14 +112,27 @@ namespace GuardeSoftwareAPI.Services.rental
 					MonthsUnpaid = row["months_unpaid"] != DBNull.Value ? (int)row["months_unpaid"] : 0,
 					CurrentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0m,
 					Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0m,
-					LockerIdentifiers = row["locker_identifiers"] != DBNull.Value 
-						? row["locker_identifiers"].ToString()! 
+					LockerIdentifiers = row["locker_identifiers"] != DBNull.Value
+						? row["locker_identifiers"].ToString()!
 						: string.Empty
-        
+
 				};
 				pendingRentals.Add(rental);
 			}
 			return pendingRentals;
 		}
+		
+		public async Task<Rental?> GetRentalByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+             if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
+             return await _daoRental.GetRentalByClientIdTransactionAsync(clientId, connection, transaction);
+        }
+
+        public async Task<bool> UpdateContractedM3TransactionAsync(int rentalId, decimal newM3, SqlConnection connection, SqlTransaction transaction)
+        {
+             if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.");
+             if (newM3 < 0) throw new ArgumentException("Contracted M3 cannot be negative."); // O <= 0 si no puede ser cero
+             return await _daoRental.UpdateContractedM3TransactionAsync(rentalId, newM3, connection, transaction);
+        }
     }
 }

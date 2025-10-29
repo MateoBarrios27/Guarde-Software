@@ -82,7 +82,7 @@ namespace GuardeSoftwareAPI.Dao
 
 
         //METHOD FOR TRANSACTION
-        public async Task<int> CreateRentalAmountHistoryTransactionAsync(RentalAmountHistory rentalAmountHistory,SqlConnection connection,SqlTransaction transaction)
+        public async Task<int> CreateRentalAmountHistoryTransactionAsync(RentalAmountHistory rentalAmountHistory, SqlConnection connection, SqlTransaction transaction)
         {
             SqlParameter[] parameters =
             [
@@ -106,6 +106,50 @@ namespace GuardeSoftwareAPI.Dao
                 command.Parameters.AddRange(parameters);
                 object result = await command.ExecuteScalarAsync();
                 return Convert.ToInt32(result);
+            }
+        }
+        public async Task<RentalAmountHistory?> GetLatestRentalAmountHistoryTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
+        {
+            // Obtiene el registro de historial más reciente (por start_date) para un rental_id
+            string query = "SELECT TOP 1 rental_amount_history_id, rental_id, amount, start_date, end_date FROM rental_amount_history WHERE rental_id = @rental_id ORDER BY start_date DESC";
+            SqlParameter[] parameters = { new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId } };
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    if (await reader.ReadAsync())
+                    {
+                        return new RentalAmountHistory
+                        {
+                            Id = reader.GetInt32(reader.GetOrdinal("rental_amount_history_id")),
+                            RentalId = reader.GetInt32(reader.GetOrdinal("rental_id")),
+                            Amount = reader.GetDecimal(reader.GetOrdinal("amount")),
+                            StartDate = reader.GetDateTime(reader.GetOrdinal("start_date")),
+                            EndDate = reader.IsDBNull(reader.GetOrdinal("end_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("end_date"))
+                        };
+                    }
+                }
+            }
+            return null; // No encontrado
+        }
+
+        public async Task<bool> EndRentalAmountHistoryTransactionAsync(int historyId, DateTime endDate, SqlConnection connection, SqlTransaction transaction)
+        {
+            // Pone fecha de fin a un registro de historial específico
+            string query = "UPDATE rental_amount_history SET end_date = @end_date WHERE rental_amount_history_id = @history_id AND end_date IS NULL"; // Solo actualiza si no tiene ya fecha fin
+            SqlParameter[] parameters =
+            {
+                new SqlParameter("@end_date", SqlDbType.Date) { Value = endDate }, // Usar Date si solo guardas fecha
+                new SqlParameter("@history_id", SqlDbType.Int) { Value = historyId }
+            };
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                int rowsAffected = await command.ExecuteNonQueryAsync();
+                return rowsAffected > 0;
             }
         }
     }
