@@ -141,38 +141,49 @@ export class CreateClientModalComponent implements OnInit {
   private initNewClientForm(): void {
       // ... (sin cambios aquí, asegúrate que 'telefonos' y 'emails' estén correctos) ...
     this.newClientForm = this.fb.group({
+      // --- Sección Personal ---
       numeroIdentificacion: [''],
       nombre: ['', Validators.required],
       apellido: ['', Validators.required],
-      tipoDocumento: ['DNI'],
+      tipoDocumento: ['DNI'], // Lo mantenemos por lógica, pero lo ocultamos en HTML
       numeroDocumento: ['', Validators.required],
-      cuit: [''], // Añadir si lo necesitas
+      cuit: [''], // <-- 1. CAMBIO: CUIT añadido
+      
+      // --- Sección Contacto ---
       emails: this.fb.array([ this.fb.control('', [Validators.required, Validators.email]), ]),
-      telefonos: this.fb.array([this.fb.control('')]), // Correcto: telefonos
+      telefonos: this.fb.array([this.fb.control('')]),
       direccion: ['', Validators.required],
       ciudad: ['', Validators.required],
       codigoPostal: [''],
       provincia: ['', Validators.required],
+      
+      // --- Sección Pago ---
       condicionIVA: [null, Validators.required],
       metodoPago: [null, Validators.required],
-      documento: [null, Validators.required], // ¿Qué es esto? Tipo Factura?
+      documento: [null, Validators.required], // Tipo Factura
+      
+      // --- Sección Financiera (Nueva) ---
+      isLegacyClient: [false, Validators.required], // <-- 2. CAMBIO: Interruptor
+      legacyStartDate: [null], // <-- 3. CAMBIO: Fecha de ingreso manual
+      prepaidMonths: [0], // <-- 4. CAMBIO: Meses pagados
+      
+      // --- Sección Observaciones ---
       observaciones: [''],
-      lockersAsignados: this.fb.array([]), // SIN Validators.required aquí, puede estar vacío
+      
+      // --- Sección Lockers ---
+      lockersAsignados: this.fb.array([]),
       montoManual: [0, [Validators.required, Validators.min(0)]],
-      // periodicidadAumento: ['4'], // Comentado si no se usa
-      // porcentajeAumento: [''], // Comentado si no se usa
       lockerSearch: [''],
       selectedWarehouse: ['all'],
       selectedLockerType: ['all'],
+      contractedM3: [0],
     });
 
      // Listener para recalcular monto (SIN CAMBIOS)
      const lockersAsignados = this.newClientForm.get('lockersAsignados') as FormArray;
-     lockersAsignados.valueChanges.subscribe((ids: number[]) => {
-       // Filtramos IDs inválidos ANTES de calcular, por si acaso
-       const validIds = ids.filter(id => typeof id === 'number' && id > 0);
-       this.newClientForm.get('montoManual')?.setValue(this.calculateTotalAmount(validIds), { emitEvent: false }); // Evitar bucle infinito
-       // Recalcular m3 también
+     lockersAsignados.valueChanges.subscribe((ids: (number | null)[]) => {
+       const validIds = ids.filter((id): id is number => typeof id === 'number' && id > 0);
+       this.newClientForm.get('montoManual')?.setValue(this.calculateTotalAmount(validIds), { emitEvent: false });
        this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validIds), { emitEvent: false });
      });
 
@@ -349,7 +360,19 @@ export class CreateClientModalComponent implements OnInit {
 
   onSubmit(): void {
     if (this.newClientForm.invalid) {
-      // ... (marcar como touched, mostrar toast de error) ...
+      // ... (lógica para marcar como touched) ...
+      Object.values(this.newClientForm.controls).forEach(control => {
+        if (control.invalid) {
+          control.markAsTouched();
+          control.updateValueAndValidity({ onlySelf: true });
+        }
+        if (control instanceof FormArray) {
+           (control as FormArray).controls.forEach(arrayControl => {
+             arrayControl.markAsTouched();
+             arrayControl.updateValueAndValidity({ onlySelf: true });
+           });
+        }
+      });
       console.warn('Formulario inválido:', this.newClientForm.value);
       this.showToastNotification('Por favor, completa todos los campos requeridos.', 'error');
       return;
@@ -357,27 +380,26 @@ export class CreateClientModalComponent implements OnInit {
 
     this.isLoading = true;
     const formValue = this.newClientForm.value;
-    console.log("Valores del formulario ANTES de mapear DTO:", formValue);
-    console.log("Lockers asignados en FormArray:", formValue.lockersAsignados);
 
-
-    // Validación Adicional Método Pago
     if (!formValue.metodoPago || !formValue.metodoPago.id) {
-        // ... (manejo de error método pago) ...
+        console.error('Error: Método de pago no seleccionado o inválido.', formValue.metodoPago);
+        this.showToastNotification('Error: Método de pago inválido.', 'error');
         this.isLoading = false;
         return;
     }
+    
+    // --- 5. CAMBIO: Mapeo de DTO actualizado ---
+    const isEditing = !!this.clientData;
+    const isLegacy = formValue.isLegacyClient;
 
-    // --- Mapeo de DTO ---
     const dto: CreateClientDTO = {
-      // ... (resto de propiedades id, firstName, lastName, etc.) ...
-      id: this.clientData ? this.clientData.id : undefined,
+      id: isEditing ? this.clientData?.id : undefined,
       paymentIdentifier: Number(formValue.numeroIdentificacion) || 0,
       firstName: formValue.nombre,
       lastName: formValue.apellido,
       notes: formValue.observaciones || null,
       dni: formValue.numeroDocumento || null,
-      cuit: formValue.cuit || null,
+      cuit: formValue.cuit || null, // <-- CUIT añadido
       emails: formValue.emails.filter((e: string | null): e is string => !!e && !!e.trim()),
       phones: formValue.telefonos.filter((p: string | null): p is string => !!p && !!p.trim()),
       addressDto: {
@@ -389,23 +411,22 @@ export class CreateClientModalComponent implements OnInit {
       ivaCondition: formValue.condicionIVA || null,
       contractedM3: this.costSummary.totalM3,
       amount: formValue.montoManual,
-
-      // === FILTRO IMPORTANTE ===
       lockerIds: formValue.lockersAsignados.filter((id: any): id is number => typeof id === 'number' && id > 0),
-      // === FIN FILTRO ===
-
       userID: 1, // Placeholder
-      registrationDate: this.clientData ? this.clientData.registrationDate : new Date(),
-      startDate: this.clientData ? this.clientData.registrationDate : new Date(),
+
+      // --- Lógica de fechas y meses pagados ---
+      registrationDate: isLegacy ? formValue.legacyStartDate : (isEditing ? this.clientData?.registrationDate : new Date()),
+      startDate: isLegacy ? formValue.legacyStartDate : (isEditing ? this.clientData?.registrationDate : new Date()), // Asumiendo que startDate es igual a registrationDate
+      prepaidMonths: isLegacy ? Number(formValue.prepaidMonths) : 0, // <-- Campo nuevo
     };
 
     console.log('Enviando DTO:', dto);
 
-    // --- Llamada al Servicio (sin cambios en esta parte) ---
+    // --- Llamada al Servicio (sin cambios) ---
     let apiCall: Observable<any>;
 
-    if (this.clientData) {
-      apiCall = this.clientService.updateClient(this.clientData.id, dto);
+    if (isEditing) {
+      apiCall = this.clientService.updateClient(this.clientData!.id, dto);
     } else {
       apiCall = this.clientService.CreateClient(dto);
     }
@@ -413,17 +434,24 @@ export class CreateClientModalComponent implements OnInit {
     apiCall.subscribe({
       next: (response) => {
         this.isLoading = false;
-        console.log(this.clientData ? 'Cliente actualizado:' : 'Cliente creado:', response);
+        console.log(isEditing ? 'Cliente actualizado:' : 'Cliente creado:', response);
         this.saveSuccess.emit();
       },
       error: (err) => {
         this.isLoading = false;
-        console.error(this.clientData ? 'Error al actualizar el cliente:' : 'Error al crear el cliente:', err);
-        const errorMsg = err.error?.message || err.statusText || 'Ocurrió un error desconocido.';
-        this.showToastNotification(`Error: ${errorMsg}`, 'error');
+        console.error(isEditing ? 'Error al actualizar el cliente:' : 'Error al crear el cliente:', err);
+        let errorDetails = '';
+        if (err.error && err.error.errors) {
+            errorDetails = Object.entries(err.error.errors)
+                                 .map(([key, value]) => `${key}: ${(value as string[]).join(', ')}`)
+                                 .join('; ');
+        }
+        const errorMsg = errorDetails || err.error?.message || err.statusText || 'Ocurrió un error desconocido.';
+        this.showToastNotification(`Error al guardar: ${errorMsg}`, 'error');
       },
     });
   }
+
 
   private calculateTotalM3(ids: number[]): number {
       let totalM3 = 0;
