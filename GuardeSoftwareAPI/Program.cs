@@ -37,7 +37,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAngular",
         policy =>
         {
-            policy.WithOrigins("http://localhost:4200") // frontend Angular
+            policy.WithOrigins("http://localhost:4200", "http://filgueira.ar") 
                   .AllowAnyHeader()
                   .AllowAnyMethod();
         });
@@ -75,17 +75,17 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(applyDebitsJobKey)
         .WithIdentity("ApplyDebits-Trigger")
-        .WithCronSchedule("0 14 02 * * ?") // 02:14 AM
+        .WithCronSchedule("0 0 4 1 * ?") // 4:00 AM del día 1 de cada mes
     );
 
     // --- Job 2: ApplyRentIncreaseJob (with trigger) ---
-    var applyRentIncreaseJobKey = new JobKey("ApplyRentIncreaseJob");
-    q.AddJob<ApplyRentIncreaseJob>(opts => opts.WithIdentity(applyRentIncreaseJobKey));
-    q.AddTrigger(opts => opts
-        .ForJob(applyRentIncreaseJobKey)
-        .WithIdentity("ApplyRentIncreaseJob-trigger")
-        .WithCronSchedule("0 58 16 * * ?") // 16:58 (4:58 PM)
-    );
+    // var applyRentIncreaseJobKey = new JobKey("ApplyRentIncreaseJob");
+    // q.AddJob<ApplyRentIncreaseJob>(opts => opts.WithIdentity(applyRentIncreaseJobKey));
+    // q.AddTrigger(opts => opts
+    //     .ForJob(applyRentIncreaseJobKey)
+    //     .WithIdentity("ApplyRentIncreaseJob-trigger")
+    //     .WithCronSchedule("0 58 16 * * ?") // 16:58 (4:58 PM)
+    // );
 
     // --- Job 3: ApplyInterestsJob (with trigger) ---
     var applyInterestsJobKey = new JobKey("ApplyInterestsJob");
@@ -93,7 +93,7 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(applyInterestsJobKey)
         .WithIdentity("ApplyInterestsJob-trigger")
-        .WithCronSchedule("0 38 03 * * ?") // 03:50 AM
+        .WithCronSchedule("0 0 4 10 * ?") // 4:00 AM del día 10 de cada mes
     );
 
     // --- Job 4: SendCommunicationJob (durable, no trigger) ---

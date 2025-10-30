@@ -1,140 +1,189 @@
-
- <div class="space-y-6">
+<div class="space-y-6">
 
   <!-- Dashboard -->
-  <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-    <div class="p-4 bg-white rounded-xl border shadow-sm">
-      <div class="text-2xl flex items-center gap-2">
-        <app-icon name="check-circle" class="h-6 w-6 text-gray-700"></app-icon>
-        {{ filteredLockers.length }}
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    
+    <!-- Tarjeta Total -->
+    <div class="bg-white p-4 rounded-xl border shadow-sm">
+      <div class="flex items-start gap-3">
+        <app-icon name="package" class="h-6 w-6 text-blue-500"></app-icon>
+        <div>
+          <p class="text-2xl font-bold text-blue-900">
+            {{ filteredLockers.length }}
+          </p>
+          <p class="text-sm text-gray-500">Total</p>
+        </div>
       </div>
-      <p class="text-gray-500 text-sm pl-8">Total</p>
     </div>
 
-    <div class="p-4 bg-white rounded-xl border shadow-sm ">
-      <div class="text-2xl flex items-center gap-2">
+    <!-- Tarjeta Ocupados -->
+    <div class="bg-white p-4 rounded-xl border shadow-sm">
+      <div class="flex items-start gap-3">
         <app-icon name="lock" class="h-6 w-6 text-red-500"></app-icon>
-        {{ ocupados }}</div>
-      <p class="text-gray-500 text-sm pl-8">Ocupados</p>
+        <div>
+          <p class="text-2xl font-bold text-red-900">
+            {{ ocupados }}
+          </p>
+          <p class="text-sm text-gray-500">Ocupados</p>
+        </div>
+      </div>
     </div>
 
-    <div class="p-4 bg-white rounded-xl border shadow-sm">
-      <div class="text-2xl flex items-center gap-2">
+    <!-- Tarjeta Libres -->
+    <div class="bg-white p-4 rounded-xl border shadow-sm">
+      <div class="flex items-start gap-3">
         <app-icon name="unlock" class="h-6 w-6 text-green-500"></app-icon>
-        {{ libres }}</div>
-      <p class="text-gray-500 text-sm pl-8">Libres</p>
+        <div>
+          <p class="text-2xl font-bold text-green-900">
+            {{ libres }}
+          </p>
+          <p class="text-sm text-gray-500">Libres</p>
+        </div>
+      </div>
     </div>
-    <div class="p-4 bg-white rounded-xl border shadow-sm">
-      <div class="text-2xl flex items-center gap-2">
+
+    <!-- Tarjeta Mantenimiento -->
+    <div class="bg-white p-4 rounded-xl border shadow-sm">
+      <div class="flex items-start gap-3">
         <app-icon name="wrench" class="h-6 w-6 text-yellow-500"></app-icon>
-        {{ mantenimiento }}</div>
-      <p class="text-gray-500 text-sm pl-8">Mantenimiento</p>
+        <div>
+          <p class="text-2xl font-bold text-yellow-900">
+            {{ mantenimiento }}
+          </p>
+          <p class="text-sm text-gray-500">Mantenimiento</p>
+        </div>
+      </div>
     </div>
+    <!-- Dejamos el 5to espacio (si usas grid-cols-5) para alineación -->
 
   </div>
 
-  <!-- Filtros -->
-  <div class="flex flex-col md:flex-row md:items-center gap-4 mt-4">
-    <input type="text"
-           [(ngModel)]="searchTerm"
-           placeholder="Buscar por código o características..."
-           class="border rounded px-3 py-2 w-full md:w-1/3"/>
+  <!-- Filtros y Acciones -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4">
+    <!-- Grupo de Filtros -->
+    <div class="flex flex-col md:flex-row md:items-center gap-4 flex-grow">
+      <input type="text"
+             [(ngModel)]="searchTerm"
+             placeholder="Buscar por código o características..."
+             class="border rounded-lg px-3 py-2 w-full md:w-auto md:flex-grow"/>
 
-    <select [(ngModel)]="selectedWarehouse"
-            class="border rounded px-3 py-2 w-full md:w-1/4">
-      <option value="">Todos los depósitos</option>
-      <option *ngFor="let w of warehouses" [value]="w.id">{{ w.name }}</option>
-    </select>
-
-    <select [(ngModel)]="selectedStatus"
-            class="border rounded px-3 py-2 w-full md:w-1/4">
-      <option value="">Todos los estados</option>
-      <option value="DISPONIBLE">Disponible</option>
-      <option value="OCUPADO">Ocupado</option>
-      <option value="MANTENIMIENTO">Mantenimiento</option>
-    </select>
- 
-    <div class="flex justify-end">
-      <select [(ngModel)]="itemsPerPage" (change)="page = 1"
-              class="p-2 border border-gray-300 rounded bg-white text-gray-800">
-        <option *ngFor="let size of [5, 10, 20, 50]" [value]="size">{{ size }}</option>
+      <select [(ngModel)]="selectedWarehouse"
+              class="border rounded-lg px-3 py-2 w-full md:w-auto">
+        <option value="">Todos los depósitos</option>
+        <option *ngFor="let w of warehouses" [value]="w.id">{{ w.name }}</option>
       </select>
+
+      <select [(ngModel)]="selectedStatus"
+              class="border rounded-lg px-3 py-2 w-full md:w-auto">
+        <option value="">Todos los estados</option>
+        <option value="DISPONIBLE">Disponible</option>
+        <option value="OCUPADO">Ocupado</option>
+        <option value="MANTENIMIENTO">Mantenimiento</option>
+      </select>
+    </div>
+  
+    <!-- Grupo de Acciones (Botón y Paginación) -->
+    <div class="flex items-center gap-3 justify-end flex-shrink-0">
+      <select [(ngModel)]="itemsPerPage" (change)="page = 1"
+              class="p-2 border border-gray-300 rounded-lg bg-white text-gray-800">
+        <option *ngFor="let size of [10, 20, 50]" [value]="size">{{ size }} por pág.</option>
+      </select>
+      
+      <!-- === BOTÓN NUEVO AÑADIDO === -->
+      <button (click)="openCreateLockerModal()" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <app-icon name="plus" class="h-4 w-4"></app-icon>
+        Nuevo Locker
+      </button>
     </div>
   </div>
 
   
   <!-- Tabla -->
-  <div class="overflow-x-auto mt-6">
-    <table class="min-w-full border border-gray-200 bg-white rounded-lg">
-      <thead class="bg-white">
-        <tr>
-          <th class="px-4 py-2 text-left text-sm font-medium">Código</th>
-          <th class="px-4 py-2 text-left text-sm font-medium">Depósito</th>
-          <th class="px-4 py-2 text-left text-sm font-medium">Características</th>
-          <th class="px-4 py-2 text-left text-sm font-medium">Estado</th>
-          <th class="px-4 py-2 text-left text-sm font-medium">Acciones</th>
+  <div class="overflow-x-auto mt-6 bg-white rounded-xl shadow-sm border border-gray-200">
+    <table class="min-w-full">
+      <thead class="bg-gray-50">
+        <tr class="border-b">
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Código</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Depósito</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Tipo</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Características</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Estado</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Acciones</th>
         </tr>
       </thead>
-      <tbody> 
-        <tr *ngFor="let locker of filteredLockers | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'lockers' }">
-
-          <td class="px-4 py-2">{{ locker.identifier }}</td>
-          <td class="px-4 py-2">{{ getWarehouseName(locker.warehouseId) }}</td>
-          <td class="px-4 py-2">{{ locker.features }}</td>
-          <td class="px-4 py-2 font-semibold">{{ locker.status }}</td>
-          <td class="px-4 py-2"> 
-
+      <tbody class="divide-y divide-gray-200"> 
+        <tr *ngFor="let locker of filteredLockers | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'lockers' }" class="hover:bg-gray-50">
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{{ locker.identifier }}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{ getWarehouseName(locker.warehouseId) }}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{ getLockerTypeName(locker.lockerTypeId) }}</td> <!-- TIPO AÑADIDO -->
+          <td class="px-4 py-3 text-sm text-gray-600 truncate max-w-xs">{{ locker.features || '-' }}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium" [ngClass]="getStatusColor(locker.status)">
+              {{ locker.status }}
+            </span>
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium"> 
             <button (click)="openUpdateLockerModal(locker)" 
-              class="px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600"> 
-              Editar 
+                    class="p-1 text-black hover:text-blue-800" title="Editar"> 
+              <app-icon name="edit" class="h-4 w-4"></app-icon>
             </button> 
-
             <button (click)="deleteLocker(locker)" 
-              class="ml-2 px-2 py-1 text-xs rounded bg-red-500 text-white hover:bg-red-600">
-              Borrar 
+                    class="ml-2 p-1 text-black hover:text-red-600" title="Borrar">
+              <app-icon name="Trash2" class="h-4 w-4"></app-icon>
             </button>
           </td>
+        </tr>
+        <tr *ngIf="filteredLockers.length === 0">
+            <td colspan="6" class="px-4 py-6 text-center text-gray-500">
+                No se encontraron lockers con los filtros aplicados.
+            </td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <pagination-template [id]="'lockers'" #p="paginationApi" (pageChange)="page = $event">
-    <div class="mt-4 flex justify-center items-center gap-3">
-      <button (click)="p.previous()" [disabled]="p.isFirstPage()" class="px-2 py-1 border rounded disabled:opacity-40">«</button>
-      <span class="px-3 py-1 border rounded">{{ p.getCurrent() }}</span>
-      <button (click)="p.next()" [disabled]="p.isLastPage()" class="px-2 py-1 border rounded disabled:opacity-40">»</button>
-    </div>
-  </pagination-template>
+  <!-- Paginación -->
+  <pagination-controls [id]="'lockers'" (pageChange)="page = $event" previousLabel="Anterior" nextLabel="Siguiente" class="flex justify-center items-center mt-4 text-sm">
+  </pagination-controls>
+
 </div>
 
 
-
+<!-- ============================== -->
+<!-- === MODAL EDITAR (Existente) === -->
+<!-- ============================== -->
 <div *ngIf="showUpdateLockerModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
      (keydown.escape)="closeUpdateLockerModal()"
      tabindex="-1">
 
-  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
+  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl relative animate-fadeIn"
        (click)="$event.stopPropagation()">
-
+    
     <!-- Header -->
-    <div class="flex items-center justify-between border-b pb-3 mb-4">
-      <div class="flex items-center gap-2">
+    <div class="flex items-center justify-between border-b p-5">
+      <div class="flex items-center gap-3">
         <app-icon name="package" class="h-6 w-6 text-blue-600"></app-icon>
         <h3 class="text-xl font-semibold text-gray-800">Editar Baulera</h3>
       </div>
-      <button type="button"
-              (click)="closeUpdateLockerModal()"
-              class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+      <button type="button" (click)="closeUpdateLockerModal()" class="text-gray-400 hover:text-gray-600">
+        <app-icon name="x" class="h-5 w-5"></app-icon>
+      </button>
     </div>
-    <!-- contenido -->
-    <div class="space-y-5"> 
-      <div class="flex items-center justify-between text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
+    
+    <!-- Contenido -->
+    <div class="p-5 space-y-5"> 
+      <div class="flex items-center justify-between text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2 border">
         <div class="flex items-center gap-2">
           <app-icon name="map-pin" class="h-4 w-4 text-blue-500"></app-icon>
           <span class="font-medium text-gray-800">
             Ubicación: {{ getWarehouseName(warehouseId) }}
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <app-icon name="box" class="h-4 w-4 text-blue-500"></app-icon>
+          <span class="font-medium text-gray-800">
+            Tipo: {{ getLockerTypeName(lockerUpdate.lockerTypeId || 0) }} <!-- Asumiendo que lockerUpdate tiene lockerTypeId -->
           </span>
         </div>
       </div>
@@ -145,9 +194,8 @@
           <input type="text"
                  [(ngModel)]="lockerUpdate.identifier"
                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"
-                 placeholder="Ej: A-12" />
+                  />
         </div>
-
         <div>
           <label class="block text-sm text-gray-600 mb-1 font-medium">Estado</label>
           <select [(ngModel)]="lockerUpdate.status"
@@ -162,6 +210,99 @@
       <div>
         <label class="block text-sm text-gray-600 mb-1 font-medium">Características</label>
         <textarea [(ngModel)]="lockerUpdate.features"
+                  placeholder="Ej: Locker con seguridad."
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none resize-none"
+                  rows="3"></textarea>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-2 flex justify-end gap-3 border-t p-5 bg-gray-50 rounded-b-2xl">
+      <button type="button"
+              (click)="closeUpdateLockerModal()"
+              class="px-4 py-2 rounded-lg border text-gray-700 bg-white hover:bg-gray-100 font-medium text-sm">
+        Cancelar
+      </button>
+      <button type="button"
+              (click)="saveLockerUpdated(idLockerUpdated, lockerUpdate)"
+              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 text-sm">
+        Actualizar
+      </button>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ============================== -->
+<!-- === MODAL CREAR (Nuevo) === -->
+<!-- ============================== -->
+<div *ngIf="showCreateLockerModal"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+     (keydown.escape)="closeCreateLockerModal()"
+     tabindex="-1">
+
+  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl relative animate-fadeIn"
+       (click)="$event.stopPropagation()">
+    
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b p-5">
+      <div class="flex items-center gap-3">
+        <app-icon name="plus-square" class="h-6 w-6 text-blue-600"></app-icon>
+        <h3 class="text-xl font-semibold text-gray-800">Crear Nueva Baulera</h3>
+      </div>
+      <button type="button" (click)="closeCreateLockerModal()" class="text-gray-400 hover:text-gray-600">
+        <app-icon name="x" class="h-5 w-5"></app-icon>
+      </button>
+    </div>
+    
+    <!-- Contenido -->
+    <div class="p-5 space-y-5"> 
+
+      <!-- Fila 1: Depósito y Tipo -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1 font-medium">Depósito *</label>
+          <select [(ngModel)]="newLocker.warehouseId"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none">
+            <option [ngValue]="0" disabled>Seleccionar depósito...</option> <!-- Cambiado a 0 -->
+            <option *ngFor="let w of warehouses" [value]="w.id">{{ w.name }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1 font-medium">Tipo de Locker *</label>
+          <select [(ngModel)]="newLocker.lockerTypeId"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none">
+            <option [ngValue]="0" disabled>Seleccionar tipo...</option> <!-- Cambiado a 0 -->
+            <option *ngFor="let lt of lockerTypes" [value]="lt.id">{{ lt.name }} ({{ lt.amount | currency:'ARS':'$' }})</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Fila 2: Identificador y Estado -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1 font-medium">Identificador *</label>
+          <input type="text"
+                 [(ngModel)]="newLocker.identifier"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"
+                 placeholder="Ej: A-13" />
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1 font-medium">Estado Inicial</label>
+          <select [(ngModel)]="newLocker.status"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none">
+            <option value="DISPONIBLE">DISPONIBLE</option>
+            <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+            <!-- Ocupado no debería ser una opción inicial -->
+          </select>
+        </div>
+      </div>
+
+      <!-- Fila 3: Características -->
+      <div>
+        <label class="block text-sm text-gray-600 mb-1 font-medium">Características</label>
+        <textarea [(ngModel)]="newLocker.features"
                   placeholder="Ej: Locker con ventilación, candado magnético, etc."
                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none resize-none"
                   rows="3"></textarea>
@@ -169,19 +310,18 @@
     </div>
 
     <!-- Footer -->
-    <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+    <div class="mt-2 flex justify-end gap-3 border-t p-5 bg-gray-50 rounded-b-2xl">
       <button type="button"
-              (click)="closeUpdateLockerModal()"
-              class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">
+              (click)="closeCreateLockerModal()"
+              class="px-4 py-2 rounded-lg border text-gray-700 bg-white hover:bg-gray-100 font-medium text-sm">
         Cancelar
       </button>
       <button type="button"
-              (click)="saveLockerUpdated(idLockerUpdated,lockerUpdate)"
-              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">
-        Actualizar
+              (click)="saveNewLocker()"
+              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 text-sm">
+        Guardar Locker
       </button>
     </div>
-
   </div>
 </div>
 
