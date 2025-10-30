@@ -17,6 +17,7 @@ using Quartz.Util;
 using GuardeSoftwareAPI.Services.phone;
 using GuardeSoftwareAPI.Services.address;
 using System.Text.Json;
+using GuardeSoftwareAPI.Services.accountMovement;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -31,9 +32,11 @@ namespace GuardeSoftwareAPI.Services.client
         private readonly IActivityLogService activityLogService;
         private readonly IEmailService emailService;
         private readonly IPhoneService phoneService;
+        private readonly ILogger<ClientService> _logger;
+        private readonly IAccountMovementService accountMovementService;
         private readonly AccessDB accessDB;
 
-        public ClientService(AccessDB _accessDB, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, ILockerService _lockerService, IActivityLogService _activityLogService, IEmailService _emailService, IPhoneService _phoneService, IAddressService _addressService)
+        public ClientService(AccessDB _accessDB, ILogger<ClientService> logger, IAccountMovementService _accountMovementService, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, ILockerService _lockerService, IActivityLogService _activityLogService, IEmailService _emailService, IPhoneService _phoneService, IAddressService _addressService)
         {
             daoClient = new DaoClient(_accessDB);
             addressService = _addressService;
@@ -44,6 +47,8 @@ namespace GuardeSoftwareAPI.Services.client
             emailService = _emailService;
             phoneService = _phoneService;
             accessDB = _accessDB;
+            accountMovementService = _accountMovementService;
+            _logger = logger;
         }
 
         public async Task<List<Client>> GetClientsList()
@@ -116,7 +121,8 @@ namespace GuardeSoftwareAPI.Services.client
             // if (!string.IsNullOrEmpty(dto.Cuit) && string.IsNullOrWhiteSpace(dto.Cuit))
             //     throw new ArgumentException("CUIT cannot be empty or whitespace.", nameof(dto.Cuit));
 
-            if (dto.RegistrationDate == default) dto.RegistrationDate = DateTime.UtcNow;
+            if (dto.RegistrationDate == default) dto.RegistrationDate = DateTime.UtcNow.Date;
+            if (dto.StartDate == default) dto.StartDate = DateTime.UtcNow.Date; 
 
             using (var connection = accessDB.GetConnectionClose())
             {
@@ -164,16 +170,41 @@ namespace GuardeSoftwareAPI.Services.client
 
                         int newId = await daoClient.CreateClientTransactionAsync(client, connection, transaction);
 
+                        DateTime? priceLockDate = null;
+                        if (dto.PrepaidMonths >= 6)
+                        {
+                            // Calculamos la fecha fin del bloqueo sumando los meses PREPAGOS a la fecha de INICIO del alquiler
+                            // Usamos AddMonths para manejar correctamente fin de mes, años bisiestos, etc.
+                            priceLockDate = dto.StartDate.AddMonths(dto.PrepaidMonths);
+                            _logger.LogInformation($"Cliente {newId} tiene {dto.PrepaidMonths} meses prepagos. Precio bloqueado hasta {priceLockDate:yyyy-MM-dd}");
+                        }
+
                         Rental rental = new()
                         {
                             ClientId = newId,
                             StartDate = dto.StartDate,
-                            ContractedM3 = dto.ContractedM3,
-                            MonthsUnpaid = 0
-
+                            ContractedM3 = dto.ContractedM3 ?? 0m,
+                            MonthsUnpaid = 0,
+                            PriceLockEndDate = priceLockDate
                         };
 
                         int rentalId = await rentalService.CreateRentalTransactionAsync(rental, connection, transaction);
+
+                        if (dto.PrepaidMonths > 0 && dto.Amount > 0)
+                        {
+                            decimal totalCreditAmount = dto.PrepaidMonths * dto.Amount;
+                            AccountMovement creditMovement = new AccountMovement
+                            {
+                                RentalId = rentalId,
+                                MovementDate = dto.StartDate,
+                                MovementType = "CREDITO",
+                                Concept = $"Pago adelantado x{dto.PrepaidMonths} {(dto.PrepaidMonths == 1 ? "mes" : "meses")}",
+                                Amount = totalCreditAmount,
+                                PaymentId = null
+                            };
+                            await accountMovementService.CreateAccountMovementTransactionAsync(creditMovement, connection, transaction);
+                            _logger.LogInformation($"Crédito inicial de {totalCreditAmount:C} registrado para rental {rentalId} ({dto.PrepaidMonths} meses).");
+                        }
 
                         RentalAmountHistory rentalAmountHistory = new()
                         {
@@ -185,13 +216,13 @@ namespace GuardeSoftwareAPI.Services.client
                         var rentalAmountHistoryId = await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(rentalAmountHistory, connection, transaction);
 
 
-                        foreach (var lockerId in dto.LockerIds)
-                        {
-                            if (!await lockerService.IsLockerAvailableAsync(lockerId, connection, transaction))
-                                throw new InvalidOperationException($"Locker {lockerId} is already occupied.");
+                        if (dto.LockerIds != null && dto.LockerIds.Count != 0) {
+                            foreach (var lockerId in dto.LockerIds) {
+                                if (!await lockerService.IsLockerAvailableAsync(lockerId, connection, transaction))
+                                    throw new InvalidOperationException($"Locker {lockerId} is already occupied.");
+                            }
+                            await lockerService.SetRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
                         }
-
-                        await lockerService.SetRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
 
                         foreach (string email in dto.Emails)
                         {
@@ -247,9 +278,9 @@ namespace GuardeSoftwareAPI.Services.client
 
                         return newId;
                     }
-                    catch
+                    catch(Exception ex)
                     {
-
+                        _logger.LogError(ex, "Error en CreateClientAsync. Transacción revertida.");
                         await transaction.RollbackAsync();
                         throw;
                     }

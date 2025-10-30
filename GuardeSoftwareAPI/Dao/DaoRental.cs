@@ -98,7 +98,7 @@ namespace GuardeSoftwareAPI.Dao
             return idsList;
         }
 
-        public async Task<decimal> GetCurrentRentAmountAsync(int rentalId)
+        public async Task<decimal> GetCurrentRentAmountAsync(int rentalId, SqlConnection connection)
         {
             string query = @"
                 SELECT amount 
@@ -106,25 +106,27 @@ namespace GuardeSoftwareAPI.Dao
                 WHERE rental_id = @rentalId
                   AND GETDATE() BETWEEN start_date AND ISNULL(end_date, '9999-12-31');";
 
-            try
+            // NO usamos accessDB.ExecuteScalarAsync
+            using (var command = new SqlCommand(query, connection))
             {
-                var parameters = new[]
-                {
-                    new SqlParameter("@rentalId", rentalId)
-                };
-
-                object result = await accessDB.ExecuteScalarAsync(query, parameters);
-
-                if (result != null && result != DBNull.Value)
-                {
-                    return Convert.ToDecimal(result);
-                }
-
-                return 0; // If not found amount, return 0
+                command.Parameters.Add(new SqlParameter("@rentalId", rentalId));
+                object result = await command.ExecuteScalarAsync();
+                return (result != null && result != DBNull.Value) ? Convert.ToDecimal(result) : 0m;
             }
-            catch (Exception ex)
+        }
+
+        public async Task<decimal> GetBalanceByRentalIdAsync(int rentalId, SqlConnection connection)
+        {
+            string query = @"
+                SELECT ISNULL(SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END), 0) AS Balance
+                FROM account_movements
+                WHERE rental_id = @rental_id";
+
+            using (var command = new SqlCommand(query, connection))
             {
-                throw new Exception($"Error getting rental amount from rental {rentalId}", ex);
+                command.Parameters.AddWithValue("@rental_id", rentalId);
+                object result = await command.ExecuteScalarAsync();
+                return (result != null && result != DBNull.Value) ? Convert.ToDecimal(result) : 0m;
             }
         }
 
@@ -166,17 +168,19 @@ namespace GuardeSoftwareAPI.Dao
             [
                 new SqlParameter("@client_id", SqlDbType.Int) { Value = rental.ClientId },
                 new SqlParameter("@start_date", SqlDbType.DateTime) { Value = rental.StartDate },
-                new SqlParameter("@contracted_m3", SqlDbType.Int)
+                new SqlParameter("@contracted_m3", SqlDbType.Decimal) // Cambiado a Decimal
                 {
-                   Value = rental.ContractedM3.HasValue ? (object)rental.ContractedM3.Value : DBNull.Value
+                    Precision = 10, Scale = 2, // Ajusta precisión y escala si es necesario
+                    Value = rental.ContractedM3.HasValue ? (object)rental.ContractedM3.Value : DBNull.Value
                 },
-                new SqlParameter("@months_unpaid", SqlDbType.Int) { Value = rental.MonthsUnpaid }
+                new SqlParameter("@months_unpaid", SqlDbType.Int) { Value = rental.MonthsUnpaid },
+                new SqlParameter("@price_lock_end_date", SqlDbType.Date) { Value = rental.PriceLockEndDate.HasValue ? (object)rental.PriceLockEndDate.Value : DBNull.Value }
             ];
 
             string query = @"
-                            INSERT INTO rentals(client_id, start_date, contracted_m3, months_unpaid)
-                            OUTPUT INSERTED.rental_id
-                            VALUES(@client_id, @start_date, @contracted_m3, @months_unpaid);";
+                INSERT INTO rentals(client_id, start_date, contracted_m3, months_unpaid, price_lock_end_date)
+                OUTPUT INSERTED.rental_id
+                VALUES(@client_id, @start_date, @contracted_m3, @months_unpaid, @price_lock_end_date);";
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
@@ -404,14 +408,13 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<Rental?> GetRentalByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
         {
-            // Busca el ÚLTIMO rental ACTIVO del cliente (podría tener históricos)
-            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
+            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active, price_lock_end_date FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
             SqlParameter[] parameters = { new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId } };
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.AddRange(parameters);
-                using (var reader = await command.ExecuteReaderAsync())
+                using (var reader = await command.ExecuteReaderAsync(CommandBehavior.SingleRow)) // SingleRow es más eficiente
                 {
                     if (await reader.ReadAsync())
                     {
@@ -423,12 +426,13 @@ namespace GuardeSoftwareAPI.Dao
                             EndDate = reader.IsDBNull(reader.GetOrdinal("end_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("end_date")),
                             ContractedM3 = reader.IsDBNull(reader.GetOrdinal("contracted_m3")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("contracted_m3")),
                             MonthsUnpaid = reader.IsDBNull(reader.GetOrdinal("months_unpaid")) ? 0 : reader.GetInt32(reader.GetOrdinal("months_unpaid")),
-                            Active = reader.GetBoolean(reader.GetOrdinal("active"))
+                            Active = reader.GetBoolean(reader.GetOrdinal("active")),
+                            PriceLockEndDate = reader.IsDBNull(reader.GetOrdinal("price_lock_end_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("price_lock_end_date")) // <-- Leer la nueva columna
                         };
                     }
                 }
             }
-            return null; // No encontrado o no activo
+            return null;
         }
 
         public async Task<bool> UpdateContractedM3TransactionAsync(int rentalId, decimal newM3, SqlConnection connection, SqlTransaction transaction)

@@ -83,7 +83,7 @@ namespace GuardeSoftwareAPI.Dao
                 new("@movement_type", SqlDbType.NVarChar) { Value = accountMovement.MovementType },
                 new("@concept", SqlDbType.NVarChar) { Value = accountMovement.Concept },
                 new("@amount", SqlDbType.Decimal) { Value = accountMovement.Amount },
-                new("@payment_id", SqlDbType.Int) { Value = accountMovement.PaymentId }
+                new("@payment_id", SqlDbType.Int) { Value = accountMovement.PaymentId as object ?? DBNull.Value }
             };
 
             using var command = new SqlCommand(query, connection, transaction);
@@ -97,7 +97,7 @@ namespace GuardeSoftwareAPI.Dao
         //This method checks if a debit entry exists for the current month for a given rental ID
         //It returns true if the entry debit exists, otherwise false.
         //Is used in DebitService and is a verification
-        public async Task<bool> CheckIfDebitExistsForCurrentMonthAsync(int rentalId)
+       public async Task<bool> CheckIfDebitExistsForCurrentMonthAsync(int rentalId, SqlConnection connection)
         {
             string query = @"
                 SELECT COUNT(1) 
@@ -107,35 +107,37 @@ namespace GuardeSoftwareAPI.Dao
                   AND MONTH(movement_date) = MONTH(GETDATE()) 
                   AND YEAR(movement_date) = YEAR(GETDATE());";
 
-            SqlParameter[] parameters = new SqlParameter[]
+            // NO usamos accessDB.ExecuteScalarAsync, usamos un SqlCommand con la conexión existente
+            using (var command = new SqlCommand(query, connection))
             {
-                new SqlParameter("@rentalId", SqlDbType.Int) { Value = rentalId }
-            };
-
-            object result = await accessDB.ExecuteScalarAsync(query, parameters);
-
-            return Convert.ToInt32(result) > 0;
+                command.Parameters.Add(new SqlParameter("@rentalId", SqlDbType.Int) { Value = rentalId });
+                object result = await command.ExecuteScalarAsync();
+                return (result != null && result != DBNull.Value) ? Convert.ToInt32(result) > 0 : false;
+            }
         }
 
-        public async Task CreateDebitAsync(AccountMovement debit)
+        public async Task CreateDebitAsync(AccountMovement debit, SqlConnection connection)
         {
             string query = @"
-                INSERT INTO account_movements (rental_id, movement_date, movement_type, concept,amount, payment_id)
+                INSERT INTO account_movements (rental_id, movement_date, movement_type, concept, amount, payment_id)
                 VALUES (@rental_id, @movement_date, @movement_type, @concept, @amount, @payment_id);";
 
             var parameters = new SqlParameter[]
             {
-                new SqlParameter("@rental_id",SqlDbType.Int) { Value = debit.RentalId},
+                new SqlParameter("@rental_id", SqlDbType.Int) { Value = debit.RentalId },
                 new SqlParameter("@movement_date", SqlDbType.DateTime) { Value = debit.MovementDate },
                 new SqlParameter("@movement_type", SqlDbType.VarChar) { Value = debit.MovementType },
-                new SqlParameter("@concept", SqlDbType.VarChar) { Value = debit.Concept },
+                new SqlParameter("@concept", SqlDbType.VarChar) { Value = (object?)debit.Concept ?? DBNull.Value }, // Manejo de nulos
                 new SqlParameter("@amount", SqlDbType.Decimal) { Value = debit.Amount },
-                // Validation for possible nulls for optional foreign key
                 new SqlParameter("@payment_id", SqlDbType.Int) { Value = debit.PaymentId as object ?? DBNull.Value }
             };
 
-
-            await accessDB.ExecuteCommandAsync(query, parameters);
+            // NO usamos accessDB.ExecuteCommandAsync, usamos un SqlCommand con la conexión existente
+            using (var command = new SqlCommand(query, connection))
+            {
+                command.Parameters.AddRange(parameters);
+                await command.ExecuteNonQueryAsync();
+            }
         }
         
         // Método para obtener los alquileres con saldo deudor al día de hoy

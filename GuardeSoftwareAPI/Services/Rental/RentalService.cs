@@ -86,7 +86,7 @@ namespace GuardeSoftwareAPI.Services.rental
         {
             if (rental == null) throw new ArgumentNullException(nameof(rental), "Rental cannot be null.");
             if (rental.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
-            if (rental.ContractedM3 <= 0) throw new ArgumentException("Contracted M3 must be greater than zero.");
+            if (rental.ContractedM3.HasValue && rental.ContractedM3 < 0) throw new ArgumentException("Contracted M3 cannot be negative.");
             if (rental.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
 			if (rental.MonthsUnpaid < 0) throw new ArgumentException("Months unpaid cannot be negative.");
 

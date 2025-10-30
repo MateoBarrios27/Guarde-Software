@@ -22,6 +22,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public DateTime StartDate { get; set; }
         // Maybe add End date??
         public decimal? ContractedM3 { get; set; }
+        public int PrepaidMonths { get; set; } = 0;
 
         //rentalAmountHistory
         public decimal Amount { get; set; }
