@@ -180,7 +180,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                             skippedCount++;
                             continue; // Saltar al siguiente rental
                         }
-                        
+
                         // 4. Generar concepto
                         var culture = new CultureInfo("es-AR");
                         string monthName = culture.DateTimeFormat.GetMonthName(DateTime.Now.Month);
@@ -213,6 +213,55 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             _logger.LogInformation($"--- Job Aplicador de Débitos finalizado. Procesados: {processedCount}, Omitidos por crédito: {skippedCount} ---");
         }
         
+        /// <summary>
+        /// Obtiene los movimientos de cuenta usando el ID del cliente (buscando su rentalID primero).
+        /// </summary>
+        public async Task<List<AccountMovement>> GetAccountMovementListByClientIdAsync(int clientId)
+        {
+            // 1. Encontrar el rentalId activo para este cliente
+            // Usamos el método de DaoRental que ya existe
+            DataTable rentalTable = await _daoRental.GetRentalsByClientId(clientId);
+            
+            if (rentalTable.Rows.Count == 0)
+            {
+                _logger.LogWarning($"No se encontró un alquiler (rental) activo para el cliente ID {clientId}.");
+                return new List<AccountMovement>(); // Devolver lista vacía
+            }
+
+            // Asumimos que un cliente solo tiene un rental activo (o tomamos el primero)
+            int rentalId = Convert.ToInt32(rentalTable.Rows[0]["rental_id"]);
+
+            // 2. Reutilizar la lógica existente para obtener movimientos por rentalId
+            return await GetAccountMovementListByRentalId(rentalId);
+        }
+
+        /// <summary>
+        /// Elimina un movimiento de cuenta, solo si no está atado a un pago.
+        /// </summary>
+        public async Task<bool> DeleteAccountMovementAsync(int movementId)
+        {
+            // 1. Obtener el movimiento para verificar si está atado a un pago
+            DataTable movTable = await _daoAccountMovement.GetAccountMovById(movementId);
+            if (movTable.Rows.Count == 0)
+            {
+                _logger.LogWarning($"No se encontró el movimiento ID {movementId} para eliminar.");
+                return false; // No encontrado
+            }
+
+            DataRow row = movTable.Rows[0];
+            int? paymentId = row["payment_id"] != DBNull.Value ? (int)row["payment_id"] : null;
+
+            // 2. Regla de Negocio: No permitir borrar movimientos de "CREDITO" asociados a un pago
+            if (paymentId.HasValue && paymentId > 0)
+            {
+                _logger.LogError($"Intento de eliminar el movimiento ID {movementId}, pero está asociado al pago ID {paymentId}.");
+                throw new InvalidOperationException("No se puede eliminar un movimiento que está asociado a un pago registrado. Primero debe anular el pago.");
+            }
+
+            // 3. Si es seguro, proceder a eliminar
+            _logger.LogInformation($"Eliminando movimiento ID {movementId} (no asociado a pago).");
+            return await _daoAccountMovement.DeleteAccountMovementByIdAsync(movementId);
+        }
 
     }
 }

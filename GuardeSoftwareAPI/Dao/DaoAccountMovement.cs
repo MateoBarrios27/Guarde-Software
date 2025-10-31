@@ -139,6 +139,20 @@ namespace GuardeSoftwareAPI.Dao
                 await command.ExecuteNonQueryAsync();
             }
         }
+
+        public async Task<bool> DeleteAccountMovementByIdAsync(int movementId)
+        {
+            string query = "DELETE FROM account_movements WHERE movement_id = @movement_id";
+            
+            SqlParameter[] parameters = new SqlParameter[]
+            {
+                new SqlParameter("@movement_id", SqlDbType.Int) { Value = movementId }
+            };
+
+            // ExecuteCommandAsync devuelve el número de filas afectadas
+            int rowsAffected = await accessDB.ExecuteCommandAsync(query, parameters);
+            return rowsAffected > 0;
+        }
         
         // Método para obtener los alquileres con saldo deudor al día de hoy
         // public async Task<DataTable> GetRentalsWithPositiveBalanceAsync()

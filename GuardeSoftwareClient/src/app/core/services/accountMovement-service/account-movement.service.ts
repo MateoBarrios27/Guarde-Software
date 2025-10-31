@@ -3,6 +3,7 @@ import { environment } from '../../../../environments/environments';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AccountMovement } from '../../models/account-movement';
+import { AccountMovementDTO } from '../../dtos/accountMovement/account-movement.dto';
 
 @Injectable({
   providedIn: 'root'
@@ -19,4 +20,8 @@ export class AccountMovementService {
   public getAccountMovementById(id: number): Observable<AccountMovement>{
       return this.httpCliente.get<AccountMovement>(`${this.url}/AccountMovement/${id}`);
     }  
+
+  public getMovementsByClientId(clientId: number): Observable<AccountMovementDTO[]> {
+    return this.httpCliente.get<AccountMovementDTO[]>(`${this.url}/AccountMovement/client/${clientId}`);
+  }
 }

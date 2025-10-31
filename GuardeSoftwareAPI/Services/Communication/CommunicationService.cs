@@ -196,17 +196,35 @@ namespace GuardeSoftwareAPI.Services.communication
         {
             // To 'send now', we set its status to 'Scheduled'
             // and the date to 1 minute from now, so Quartz can pick it up.
-            var scheduleTime = DateTime.Now.AddMinutes(1); 
-            
+            var scheduleTime = DateTime.Now.AddMinutes(1);
+
             bool success = await _communicationDao.UpdateCommunicationStatusAndDateAsync(communicationId, "Scheduled", scheduleTime);
-            
+
             if (success)
             {
                 await ScheduleJobAsync(communicationId, scheduleTime);
                 return await _communicationDao.GetCommunicationByIdAsync(communicationId);
             }
-            
+
             throw new Exception("Failed to update status for sending.");
+        }
+        
+        public async Task<List<ClientCommunicationDto>> GetCommunicationsByClientIdAsync(int clientId)
+        {
+            if (clientId <= 0)
+            {
+                logger.LogWarning("Se solicitó historial de comunicación para un ID de cliente inválido: {ClientId}", clientId);
+                return new List<ClientCommunicationDto>(); // Devolver lista vacía
+            }
+            try
+            {
+                return await _communicationDao.GetCommunicationsByClientIdAsync(clientId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error al obtener historial de comunicación para el cliente ID {ClientId}", clientId);
+                throw; // Re-lanza para que el controlador lo capture
+            }
         }
     }
 }

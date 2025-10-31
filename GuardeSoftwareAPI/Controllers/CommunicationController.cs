@@ -117,5 +117,25 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        [HttpGet("client/{clientId}")]
+        public async Task<IActionResult> GetCommunicationsByClientId(int clientId)
+        {
+            if (clientId <= 0)
+            {
+                return BadRequest(new { message = "El ID del cliente es inválido." });
+            }
+
+            try
+            {
+                var communications = await _communicationService.GetCommunicationsByClientIdAsync(clientId);
+                return Ok(communications);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener el historial de comunicaciones para el cliente ID {ClientId}", clientId);
+                return StatusCode(500, new { message = "Error interno al obtener comunicaciones." });
+            }
+        }
     }
 }

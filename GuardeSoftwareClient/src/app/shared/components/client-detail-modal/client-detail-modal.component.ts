@@ -9,6 +9,10 @@ import {
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { IconComponent } from '../icon/icon.component';
 import { ClientDetailDTO } from '../../../core/dtos/client/ClientDetailDTO';
+import { AccountMovementService } from '../../../core/services/accountMovement-service/account-movement.service';
+import { CommunicationService } from '../../../core/services/communication-service/communication.service';
+import { forkJoin } from 'rxjs';
+import { AccountMovementDTO } from '../../../core/dtos/accountMovement/account-movement.dto';
 
 // --- Interfaces de ejemplo para los nuevos historiales ---
 export interface IClientMovement {
@@ -41,14 +45,14 @@ export class ClientDetailModalComponent implements OnChanges {
     'movimientos';
 
   // --- Datos para las nuevas pestañas ---
-  public historialMovimientos: IClientMovement[] = [];
+  public historialMovimientos: AccountMovementDTO[] = [];
   public historialComunicaciones: IClientCommunication[] = [];
   public isLoadingHistory = false;
+  public historyError: string | null = null;
 
-  constructor() {
-    // Aquí deberías inyectar tus nuevos servicios, por ejemplo:
-    // private paymentService: PaymentService,
-    // private communicationService: CommunicationService
+  constructor(private accountMovementService: AccountMovementService,
+    private communicationService: CommunicationService) {
+    
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -64,67 +68,34 @@ export class ClientDetailModalComponent implements OnChanges {
    */
   loadHistoriales(clientId: number): void {
     this.isLoadingHistory = true;
+    this.historyError = null; // Resetear error
+    this.historialMovimientos = [];
+    this.historialComunicaciones = [];
 
-    // --- EJEMPLO: Simulación de llamadas a servicios ---
-    // Deberías reemplazar esto con tus llamadas reales
-    // 1. Cargar Movimientos
-    // this.paymentService.getMovementHistory(clientId).subscribe(data => {
-    //   this.historialMovimientos = data;
-    // });
-    this.historialMovimientos = [
-      {
-        id: 1,
-        date: new Date('2025-10-01'),
-        concept: 'Pago mensual Alquiler',
-        amount: 25000,
-        type: 'in',
+    // Usamos forkJoin para esperar ambas llamadas
+    forkJoin({
+      movements: this.accountMovementService.getMovementsByClientId(clientId),
+      communications: this.communicationService.getCommunicationsByClientId(clientId)
+    }).subscribe({
+      next: (results) => {
+        // Ordenamos los movimientos por fecha, más reciente primero
+        this.historialMovimientos = results.movements.sort((a, b) => 
+          new Date(b.movementDate).getTime() - new Date(a.movementDate).getTime()
+        );
+        
+        // Ordenamos las comunicaciones por fecha, más reciente primero
+        this.historialComunicaciones = results.communications.sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        
+        this.isLoadingHistory = false;
       },
-      {
-        id: 2,
-        date: new Date('2025-10-05'),
-        concept: 'Ajuste por mora',
-        amount: -1500,
-        type: 'out',
-      },
-      {
-        id: 3,
-        date: new Date('2025-09-01'),
-        concept: 'Pago mensual Alquiler',
-        amount: 25000,
-        type: 'in',
-      },
-    ];
-
-    // 2. Cargar Comunicaciones
-    // this.communicationService.getCommunicationHistory(clientId).subscribe(data => {
-    //   this.historialComunicaciones = data;
-    // });
-    this.historialComunicaciones = [
-      {
-        id: 1,
-        date: new Date('2025-10-02'),
-        type: 'email',
-        subject: 'Confirmación de Pago',
-        snippet: 'Hemos recibido tu pago de $25.000...',
-      },
-      {
-        id: 2,
-        date: new Date('2025-09-25'),
-        type: 'email',
-        subject: 'Recordatorio de Vencimiento',
-        snippet: 'Te recordamos que tu factura vence pronto...',
-      },
-      {
-        id: 3,
-        date: new Date('2025-09-15'),
-        type: 'system',
-        subject: 'Actualización de Datos',
-        snippet: 'Se actualizó el número de teléfono.',
-      },
-    ];
-    // --- Fin de la simulación ---
-
-    this.isLoadingHistory = false;
+      error: (err) => {
+        console.error('Error cargando historiales:', err);
+        this.historyError = 'No se pudieron cargar los historiales. Intente más tarde.';
+        this.isLoadingHistory = false;
+      }
+    });
   }
 
   // --- Métodos para la gestión de Movimientos ---

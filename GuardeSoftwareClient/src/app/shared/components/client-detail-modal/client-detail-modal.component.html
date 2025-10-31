@@ -166,53 +166,128 @@
           </nav>
         </div>
 
-        <div class="p-6">
+        <div class="p-6 min-h-[400px] relative"> <!-- Añadido min-h y relative para el spinner -->
+
+          <!-- === INICIO SPINNER DE CARGA === -->
+          <div *ngIf="isLoadingHistory" class="absolute inset-0 bg-white/50 flex items-center justify-center rounded-b-lg">
+             <div class="flex flex-col items-center">
+                <app-icon name="loader" class="h-8 w-8 text-blue-600 animate-spin"></app-icon>
+                <span class="text-sm text-gray-600 mt-2">Cargando historial...</span>
+             </div>
+          </div>
+          <!-- === FIN SPINNER DE CARGA === -->
           
-          <div *ngIf="activeTab === 'movimientos'" class="space-y-4">
+          <!-- === INICIO MENSAJE DE ERROR === -->
+          <div *ngIf="historyError && !isLoadingHistory" class="absolute inset-0 flex items-center justify-center rounded-b-lg">
+             <div class="flex flex-col items-center text-center px-4">
+                <app-icon name="alert-triangle" class="h-8 w-8 text-red-500"></app-icon>
+                <span class="text-base font-medium text-gray-700 mt-2">Error</span>
+                <span class="text-sm text-gray-600">{{ historyError }}</span>
+             </div>
+          </div>
+          <!-- === FIN MENSAJE DE ERROR === -->
+
+          <!-- Pestaña: Movimientos (Actualizada) -->
+           <div *ngIf="activeTab === 'movimientos' && !isLoadingHistory && !historyError" class="space-y-4 animate-fade-in">
+
             <div class="flex justify-between items-center">
+
               <h3 class="text-lg font-semibold text-gray-800">
+
                 Historial de Movimientos
+
               </h3>
+
               <button (click)="openNewMovementModal()" class="px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+
                 <app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Movimiento
+
               </button>
+
             </div>
+
             <div class="relative w-full overflow-x-auto border rounded-lg">
+
               <table class="w-full text-sm">
+
                 <thead class="text-xs text-gray-700 bg-gray-50">
+
                   <tr class="border-b">
+
                     <th class="p-3 text-left font-medium">Fecha</th>
+
                     <th class="p-3 text-left font-medium">Concepto</th>
+
                     <th class="p-3 text-right font-medium">Monto</th>
+
                     <th class="p-3 text-center font-medium">Acciones</th>
+
                   </tr>
+
                 </thead>
+
                 <tbody>
+
                   <tr *ngIf="historialMovimientos.length === 0">
+
                     <td colspan="4" class="p-4 text-center text-gray-500">No hay movimientos registrados.</td>
+
                   </tr>
+
+                 
+
+                  <!-- === INICIO *ngFor CORREGIDO === -->
+
                   <tr *ngFor="let mov of historialMovimientos" class="border-b hover:bg-gray-50">
-                    <td class="p-3">{{ mov.date | date : "dd/MM/yyyy" }}</td>
+
+                    <td class="p-3 whitespace-nowrap">{{ mov.movementDate | date : "dd/MM/yyyy" }}</td>
+
                     <td class="p-3">{{ mov.concept }}</td>
-                    <td 
-                      class="p-3 text-right font-medium"
-                      [ngClass]="mov.type === 'in' ? 'text-green-600' : 'text-red-600'"
+
+                    <td
+
+                      class="p-3 text-right font-medium whitespace-nowrap"
+
+                      [ngClass]="mov.movementType === 'CREDITO' ? 'text-green-600' : 'text-red-600'"
+
                     >
-                      <span *ngIf="mov.type === 'in'">+</span>
+
+                      <!-- Crédito (pago) es positivo, Débito (deuda) es negativo -->
+
+                      <span *ngIf="mov.movementType === 'CREDITO'">+</span>
+
+                      <span *ngIf="mov.movementType === 'DEBITO'">-</span>
+
                       {{ mov.amount | currency : "ARS" : "symbol-narrow" : "1.0-0" }}
+
                     </td>
+
                     <td class="p-3 text-center">
+
                       <button (click)="deleteMovement(mov.id)" class="p-1 text-black hover:text-red-600" title="Eliminar Movimiento">
+
                         <app-icon name="Trash2" class="h-4 w-4"></app-icon>
+
                       </button>
+
                     </td>
+
                   </tr>
+
+                  <!-- === FIN *ngFor CORREGIDO === -->
+
+
+
                 </tbody>
+
               </table>
+
             </div>
+
           </div>
 
-          <div *ngIf="activeTab === 'comunicaciones'" class="space-y-4">
+          <!-- Pestaña: Comunicaciones (CORREGIDA) -->
+          <div *ngIf="activeTab === 'comunicaciones' && !isLoadingHistory && !historyError" class="space-y-4 animate-fade-in">
              <h3 class="text-lg font-semibold text-gray-800">
                 Historial de Comunicaciones
               </h3>
@@ -238,7 +313,8 @@
               </p>
           </div>
 
-          <div *ngIf="activeTab === 'detalles'" class="space-y-6">
+          <!-- Pestaña: Detalles (CORREGIDA) -->
+          <div *ngIf="activeTab === 'detalles' && !isLoadingHistory && !historyError" class="space-y-6 animate-fade-in">
             <div>
               <h4 class="text-base font-semibold text-gray-700 mb-2">Información Fiscal y de Pago</h4>
               <div class="grid grid-cols-2 gap-4 text-sm">
@@ -276,7 +352,8 @@
                    <li *ngFor="let locker of client.lockersList" class="p-3 grid grid-cols-3 gap-2">
                      <span class="font-medium text-indigo-800">{{ locker.identifier }}</span>
                      <span class="text-gray-600">{{ locker.warehouse }} - {{ locker.lockerType }}</span>
-                     <span class="text-green-700 font-medium text-right">{{ 4000 | currency : "ARS" : "symbol" : "1.0-0" }}</span>
+                     <!-- Aquí asumimos que el DTO 'LockerClientDetailDTO' incluirá el 'amount' -->
+                     <!-- <span class="text-green-700 font-medium text-right">{{ locker.amount | currency : "ARS" : "symbol" : "1.0-0" }}</span> -->
                    </li>
                  </ul>
                </div>

@@ -329,6 +329,51 @@ namespace GuardeSoftwareAPI.Dao
             return rows > 0;
         }
 
+        public async Task<List<ClientCommunicationDto>> GetCommunicationsByClientIdAsync(int clientId)
+        {
+            var communications = new List<ClientCommunicationDto>();
+            string query = @"
+                SELECT 
+                    d.dispatch_id AS Id,
+                    d.dispatch_date AS Date,
+                    LOWER(ch.name) AS Type, -- 'email', 'whatsapp'
+                    ccc.subject AS Subject,
+                    CASE 
+                        WHEN LEN(ccc.content) > 150 THEN LEFT(ccc.content, 150) + '...'
+                        ELSE ccc.content
+                    END AS Snippet
+                FROM dispatches d
+                JOIN communication_channel_content ccc ON d.comm_channel_content_id = ccc.comm_channel_content_id
+                JOIN communication_channels ch ON ccc.channel_id = ch.channel_id
+                WHERE d.client_id = @ClientId
+                  AND d.status = 'Exitoso'
+                ORDER BY d.dispatch_date DESC;";
+
+            var parameters = new[] { new SqlParameter("@ClientId", clientId) };
+            DataTable table = await _accessDB.GetTableAsync("ClientCommunications", query, parameters);
+
+            foreach (DataRow row in table.Rows)
+            {
+                communications.Add(MapDataRowToClientCommunicationDto(row));
+            }
+            return communications;
+        }
+
+        /// <summary>
+        /// Helper para mapear la fila del DAO al DTO del historial simple.
+        /// </summary>
+        private ClientCommunicationDto MapDataRowToClientCommunicationDto(DataRow row)
+        {
+            return new ClientCommunicationDto
+            {
+                Id = Convert.ToInt32(row["Id"]),
+                Date = Convert.ToDateTime(row["Date"]),
+                Type = row["Type"]?.ToString() ?? "system",
+                Subject = row["Subject"] is DBNull ? "" : row["Subject"].ToString(),
+                Snippet = row["Snippet"] is DBNull ? "" : row["Snippet"].ToString()
+            };
+        }
+
         // Note: The main 'Update' (for edit) is complex because it uses a transaction
         // to delete old channels/recipients and add new ones.
         // We will add this logic in the *Service* layer.

@@ -49,5 +49,58 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, $"Error getting the account movement: {ex.Message}");
             }
         }    
+
+        [HttpGet("client/{clientId}")]
+        public async Task<IActionResult> GetMovementsByClientId(int clientId)
+        {
+            try
+            {
+                if (clientId <= 0)
+                {
+                    return BadRequest("El ID del cliente es inválido.");
+                }
+
+                var movements = await _accountMovementService.GetAccountMovementListByClientIdAsync(clientId);
+                return Ok(movements);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception (ex)
+                return StatusCode(500, "Error al obtener los movimientos del cliente.");
+            }
+        }
+
+        /// <summary>
+        /// Elimina un movimiento de cuenta específico por su ID.
+        /// </summary>
+        [HttpDelete("{movementId}")]
+        public async Task<IActionResult> DeleteMovement(int movementId)
+        {
+            try
+            {
+                if (movementId <= 0)
+                {
+                    return BadRequest("El ID de movimiento es inválido.");
+                }
+
+                var success = await _accountMovementService.DeleteAccountMovementAsync(movementId);
+
+                if (!success)
+                {
+                    return NotFound("No se encontró el movimiento o no se pudo eliminar (ej. está asociado a un pago).");
+                }
+
+                return NoContent(); // Éxito (Sin contenido)
+            }
+            catch (InvalidOperationException ex) // Captura la regla de negocio
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                // Log the exception (ex)
+                return StatusCode(500, "Error al eliminar el movimiento.");
+            }
+        }
     }
 }
