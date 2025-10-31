@@ -451,5 +451,34 @@ namespace GuardeSoftwareAPI.Dao
                 return rowsAffected > 0;
             }
         }
+
+        public async Task<Rental?> GetActiveRentalByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = "SELECT TOP 1 * FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
+            
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.Add(new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId });
+                
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    if (await reader.ReadAsync())
+                    {
+                        return new Rental
+                        {
+                            Id = Convert.ToInt32(reader["rental_id"]),
+                            ClientId = Convert.ToInt32(reader["client_id"]),
+                            StartDate = Convert.ToDateTime(reader["start_date"]),
+                            EndDate = reader["end_date"] != DBNull.Value ? Convert.ToDateTime(reader["end_date"]) : null,
+                            ContractedM3 = reader["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(reader["contracted_m3"]) : null,
+                            MonthsUnpaid = Convert.ToInt32(reader["months_unpaid"]),
+                            Active = Convert.ToBoolean(reader["active"]),
+                            PriceLockEndDate = reader["price_lock_end_date"] != DBNull.Value ? Convert.ToDateTime(reader["price_lock_end_date"]) : null
+                        };
+                    }
+                }
+            }
+            return null; // No se encontró rental activo
+        }
     }
 }

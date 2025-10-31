@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using GuardeSoftwareAPI.Dtos.AccountMovement;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.accountMovement;
 using Microsoft.AspNetCore.Mvc;
@@ -10,10 +11,12 @@ namespace GuardeSoftwareAPI.Controllers
     public class AccountMovementController : ControllerBase
     {
         readonly IAccountMovementService _accountMovementService;
+        readonly ILogger<AccountMovementController> _logger;
 
-        public AccountMovementController(IAccountMovementService accountMovementService)
+        public AccountMovementController(IAccountMovementService accountMovementService, ILogger<AccountMovementController> logger)
         {
             _accountMovementService = accountMovementService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -100,6 +103,30 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 // Log the exception (ex)
                 return StatusCode(500, "Error al eliminar el movimiento.");
+            }
+        }
+        [HttpPost]
+        public async Task<IActionResult> CreateManualMovement([FromBody] CreateAccountMovementDTO dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            try
+            {
+                var createdMovement = await _accountMovementService.CreateManualMovementAsync(dto);
+                // Devolvemos el movimiento creado (opcional, pero bueno para el frontend)
+                return Ok(createdMovement);
+            }
+            catch (InvalidOperationException ex) // Ej: No se encontró rental
+            {
+                _logger.LogWarning(ex, "Error de lógica de negocio al crear movimiento manual.");
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al crear movimiento manual.");
+                return StatusCode(500, new { message = "Error interno al crear el movimiento." });
             }
         }
     }

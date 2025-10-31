@@ -1,4 +1,5 @@
 ﻿using System;
+using GuardeSoftwareAPI.Dtos.AccountMovement;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
 
@@ -14,6 +15,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement
 		Task ApplyMonthlyDebitsAsync();
 		Task<bool> CreateAccountMovementTransactionAsync(AccountMovement accountMovement, SqlConnection connection, SqlTransaction transaction);
 		Task<List<AccountMovement>> GetAccountMovementListByClientIdAsync(int clientId);
-        Task<bool> DeleteAccountMovementAsync(int movementId);
+		Task<bool> DeleteAccountMovementAsync(int movementId);
+		Task<AccountMovement> CreateManualMovementAsync(CreateAccountMovementDTO dto);
     }
 }

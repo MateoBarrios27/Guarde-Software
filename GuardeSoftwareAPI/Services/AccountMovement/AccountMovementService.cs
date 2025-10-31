@@ -6,6 +6,7 @@ using System.Data;
 using System.Globalization;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using GuardeSoftwareAPI.Dtos.AccountMovement;
 
 namespace GuardeSoftwareAPI.Services.accountMovement {
 
@@ -212,7 +213,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             }
             _logger.LogInformation($"--- Job Aplicador de Débitos finalizado. Procesados: {processedCount}, Omitidos por crédito: {skippedCount} ---");
         }
-        
+
         /// <summary>
         /// Obtiene los movimientos de cuenta usando el ID del cliente (buscando su rentalID primero).
         /// </summary>
@@ -221,7 +222,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             // 1. Encontrar el rentalId activo para este cliente
             // Usamos el método de DaoRental que ya existe
             DataTable rentalTable = await _daoRental.GetRentalsByClientId(clientId);
-            
+
             if (rentalTable.Rows.Count == 0)
             {
                 _logger.LogWarning($"No se encontró un alquiler (rental) activo para el cliente ID {clientId}.");
@@ -263,5 +264,63 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             return await _daoAccountMovement.DeleteAccountMovementByIdAsync(movementId);
         }
 
+
+        public async Task<AccountMovement> CreateManualMovementAsync(CreateAccountMovementDTO dto)
+        {
+            if (dto.Amount <= 0) throw new ArgumentException("Amount must be greater than 0.");
+            if (string.IsNullOrWhiteSpace(dto.Concept)) throw new ArgumentException("Concept is required.");
+
+            using var connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+            
+            try
+            {
+                // 1. Buscar el rentalId activo del cliente
+                var rental = await _daoRental.GetActiveRentalByClientIdTransactionAsync(dto.ClientId, connection, transaction);
+                if (rental == null)
+                {
+                    throw new InvalidOperationException("No se encontró un alquiler activo para este cliente.");
+                }
+
+                // 2. Crear la entidad AccountMovement
+                var movement = new AccountMovement
+                {
+                    RentalId = rental.Id,
+                    MovementDate = DateTime.Now,
+                    MovementType = dto.MovementType.ToUpper(), // "DEBITO" o "CREDITO"
+                    Concept = dto.Concept,
+                    Amount = dto.Amount,
+                    PaymentId = null // Es un movimiento manual
+                };
+
+                // 3. Guardar el movimiento en la BD
+                await _daoAccountMovement.CreateAccountMovementTransactionAsync(movement, connection, transaction);
+
+                // 4. REVISAR BALANCE Y MORA (Lógica clave)
+                // Si fue un CRÉDITO, chequear si saldó la deuda
+                if (movement.MovementType == "CREDITO")
+                {
+                    decimal newBalance = await _daoRental.GetBalanceByRentalIdTransactionAsync(rental.Id, connection, transaction);
+                    _logger.LogInformation($"Movimiento manual de {dto.Amount:C} registrado para Rental ID {rental.Id}. Nuevo balance: {newBalance:C}");
+
+                    // Si el balance es 0 o negativo (a favor), reseteamos la mora
+                    if (newBalance <= 0)
+                    {
+                        await _daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
+                        _logger.LogInformation($"Balance saldado para Rental ID {rental.Id}. Contador de meses impagos reseteado a 0.");
+                    }
+                }
+
+                await transaction.CommitAsync();
+                return movement; // Devuelve la entidad creada
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error en CreateManualMovementAsync. Transacción revertida.");
+                throw;
+            }
+        }
     }
 }

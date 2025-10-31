@@ -47,11 +47,10 @@
     </header>
 
     <main class="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-      
       <div class="lg:col-span-1 space-y-6">
         <div class="bg-white rounded-lg shadow-sm border p-5">
-          <h3 class="text-lg font-semibold text-gray-800 mb-4">Resumen</h3>
-          <div class="space-y-4">
+           <h3 class="text-lg font-semibold text-gray-800 mb-4">Resumen</h3>
+           <div class="space-y-4">
             <div>
               <label class="text-sm font-medium text-gray-500">Balance</label>
               <p class="text-2xl font-bold text-blue-700">
@@ -71,7 +70,6 @@
                 client.nextPaymentDay | date : "dd/MM/yyyy"
               }}</span>
             </div>
-            
             <div class="flex justify-between">
               <span class="text-sm text-gray-600">Próx. Aumento:</span>
               <span class="text-sm font-semibold text-gray-800">{{
@@ -84,81 +82,65 @@
                 client.preferredPaymentMethod
               }}</span>
             </div>
-          </div>
+           </div>
         </div>
 
         <div class="bg-white rounded-lg shadow-sm border p-5">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Contacto</h3>
             <div class="space-y-3">
-                
-                <div class="flex items-start gap-3">
+              <div class="flex items-start gap-3">
                 <app-icon name="envelope" class="h-4 w-4 text-gray-400 mt-1"></app-icon>
                 <div>
-                    <label class="text-sm font-medium text-gray-500">Email</label>
-                    <div *ngIf="!client.email || client.email.length === 0" class="text-sm text-gray-400 italic">N/A</div>
-                    <div *ngIf="client.email && client.email.length > 0" class="text-sm text-gray-800 break-all">
+                  <label class="text-sm font-medium text-gray-500">Email</label>
+                  <div *ngIf="!client.email || client.email.length === 0" class="text-sm text-gray-400 italic">N/A</div>
+                  <div *ngIf="client.email && client.email.length > 0" class="text-sm text-gray-800 break-all">
                     <p *ngFor="let email of client.email">{{ email }}</p>
-                    </div>
+                  </div>
                 </div>
-                </div>
-                
-                <div class="flex items-start gap-3">
+              </div>
+              <div class="flex items-start gap-3">
                 <app-icon name="phone" class="h-4 w-4 text-gray-400 mt-1"></app-icon>
                 <div>
-                    <label class="text-sm font-medium text-gray-500">Teléfono</label>
-                    <div *ngIf="!client.phone || client.phone.length === 0" class="text-sm text-gray-400 italic">N/A</div>
-                    <div *ngIf="client.phone && client.phone.length > 0" class="text-sm text-gray-800">
+                  <label class="text-sm font-medium text-gray-500">Teléfono</label>
+                  <div *ngIf="!client.phone || client.phone.length === 0" class="text-sm text-gray-400 italic">N/A</div>
+                  <div *ngIf="client.phone && client.phone.length > 0" class="text-sm text-gray-800">
                     <p *ngFor="let phone of client.phone">{{ phone }}</p>
-                    </div>
+                  </div>
                 </div>
-                </div>
-                
-                <div class="flex items-start gap-3">
+              </div>
+              <div class="flex items-start gap-3">
                 <app-icon name="map-pin" class="h-4 w-4 text-gray-400 mt-1"></app-icon>
                 <div>
-                    <label class="text-sm font-medium text-gray-500">Ubicación</label>
-                    <p class="text-sm text-gray-800">
+                  <label class="text-sm font-medium text-gray-500">Ubicación</label>
+                  <p class="text-sm text-gray-800">
                     {{ client.address }}, {{ client.city }}
-                    </p>
+                  </p>
                 </div>
-                </div>
-                
+              </div>
             </div>
-            </div>
+        </div>
       </div>
 
       <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border">
         <div class="border-b border-gray-200">
           <nav class="flex -mb-px px-6" aria-label="Tabs">
-            <button
+             <button
               (click)="activeTab = 'movimientos'"
-              [ngClass]="
-                activeTab === 'movimientos'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              "
+              [ngClass]="activeTab === 'movimientos' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
               class="w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-2"
             >
               <app-icon name="dollar-sign" class="h-4 w-4"></app-icon> Movimientos
             </button>
             <button
               (click)="activeTab = 'comunicaciones'"
-              [ngClass]="
-                activeTab === 'comunicaciones'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              "
+              [ngClass]="activeTab === 'comunicaciones' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
               class="w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-2"
             >
               <app-icon name="message-circle" class="h-4 w-4"></app-icon> Comunicaciones
             </button>
             <button
               (click)="activeTab = 'detalles'"
-              [ngClass]="
-                activeTab === 'detalles'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              "
+              [ngClass]="activeTab === 'detalles' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
               class="w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-2"
             >
               <app-icon name="file-text" class="h-4 w-4"></app-icon> Detalles
@@ -166,154 +148,134 @@
           </nav>
         </div>
 
-        <div class="p-6 min-h-[400px] relative"> <!-- Añadido min-h y relative para el spinner -->
+        <div class="p-6 min-h-[400px] relative">
 
-          <!-- === INICIO SPINNER DE CARGA === -->
-          <div *ngIf="isLoadingHistory" class="absolute inset-0 bg-white/50 flex items-center justify-center rounded-b-lg">
-             <div class="flex flex-col items-center">
-                <app-icon name="loader" class="h-8 w-8 text-blue-600 animate-spin"></app-icon>
-                <span class="text-sm text-gray-600 mt-2">Cargando historial...</span>
-             </div>
+          <div *ngIf="isLoadingHistory" class="absolute inset-0 bg-white/50 flex items-center justify-center rounded-b-lg z-10">
+           <div class="flex flex-col items-center">
+             <app-icon name="loader" class="h-8 w-8 text-blue-600 animate-spin"></app-icon>
+             <span class="text-sm text-gray-600 mt-2">Cargando historial...</span>
+           </div>
           </div>
-          <!-- === FIN SPINNER DE CARGA === -->
           
-          <!-- === INICIO MENSAJE DE ERROR === -->
-          <div *ngIf="historyError && !isLoadingHistory" class="absolute inset-0 flex items-center justify-center rounded-b-lg">
-             <div class="flex flex-col items-center text-center px-4">
-                <app-icon name="alert-triangle" class="h-8 w-8 text-red-500"></app-icon>
-                <span class="text-base font-medium text-gray-700 mt-2">Error</span>
-                <span class="text-sm text-gray-600">{{ historyError }}</span>
-             </div>
+          <div *ngIf="historyError && !isLoadingHistory" class="absolute inset-0 flex items-center justify-center rounded-b-lg z-10">
+           <div class="flex flex-col items-center text-center px-4">
+             <app-icon name="alert-triangle" class="h-8 w-8 text-red-500"></app-icon>
+             <span class="text-base font-medium text-gray-700 mt-2">Error</span>
+             <span class="text-sm text-gray-600">{{ historyError }}</span>
+           </div>
           </div>
-          <!-- === FIN MENSAJE DE ERROR === -->
-
-          <!-- Pestaña: Movimientos (Actualizada) -->
-           <div *ngIf="activeTab === 'movimientos' && !isLoadingHistory && !historyError" class="space-y-4 animate-fade-in">
-
+          
+          <div *ngIf="activeTab === 'movimientos' && !isLoadingHistory && !historyError" class="space-y-4 animate-fade-in">
             <div class="flex justify-between items-center">
-
               <h3 class="text-lg font-semibold text-gray-800">
-
                 Historial de Movimientos
-
               </h3>
-
               <button (click)="openNewMovementModal()" class="px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
-
                 <app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Movimiento
-
               </button>
+            </div>
+            
+            <div>
+              <div class="relative w-full overflow-x-auto border rounded-lg">
+                <table class="w-full text-sm">
+                  <thead class="text-xs text-gray-700 bg-gray-50">
+                    <tr class="border-b">
+                      <th class="p-3 text-left font-medium">Fecha</th>
+                      <th class="p-3 text-left font-medium">Concepto</th>
+                      <th class="p-3 text-right font-medium">Monto</th>
+                      <th class="p-3 text-center font-medium">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngIf="!historialMovimientos || historialMovimientos.length === 0">
+                      <td colspan="4" class="p-4 text-center text-gray-500">No hay movimientos registrados.</td>
+                    </tr>
+                    
+                    <tr *ngFor="let mov of historialMovimientos | paginate: { 
+                            itemsPerPage: movementItemsPerPage, 
+                            currentPage: movementCurrentPage, 
+                            id: 'movementsPagination' 
+                          }" 
+                        class="border-b hover:bg-gray-50">
+                      
+                      <td class="p-3 whitespace-nowrap">{{ mov.movementDate | date : "dd/MM/yyyy" }}</td>
+                      <td class="p-3">{{ mov.concept }}</td>
+                      <td 
+                        class="p-3 text-right font-medium whitespace-nowrap"
+                        [ngClass]="mov.movementType === 'CREDITO' ? 'text-green-600' : 'text-red-600'"
+                      >
+                        <span *ngIf="mov.movementType === 'CREDITO'">+</span>
+                        <span *ngIf="mov.movementType === 'DEBITO'">-</span>
+                        {{ mov.amount | currency : "ARS" : "symbol-narrow" : "1.0-0" }}
+                      </td>
+                      <td class="p-3 text-center">
+                        <button (click)="deleteMovement(mov.id)" class="p-1 text-black hover:text-red-600" title="Eliminar Movimiento">
+                          <app-icon name="Trash2" class="h-4 w-4"></app-icon>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
+              <div class="flex justify-center items-center mt-4 text-sm" *ngIf="historialMovimientos.length > movementItemsPerPage">
+                <pagination-controls 
+                    id="movementsPagination"
+                    (pageChange)="movementCurrentPage = $event"
+                    previousLabel="Anterior"
+                    nextLabel="Siguiente"
+                    screenReaderPaginationLabel="Paginación de movimientos"
+                    screenReaderPageLabel="página"
+                    screenReaderCurrentLabel="Página actual">
+                </pagination-controls>
+              </div>
+            </div>
             </div>
 
-            <div class="relative w-full overflow-x-auto border rounded-lg">
-
-              <table class="w-full text-sm">
-
-                <thead class="text-xs text-gray-700 bg-gray-50">
-
-                  <tr class="border-b">
-
-                    <th class="p-3 text-left font-medium">Fecha</th>
-
-                    <th class="p-3 text-left font-medium">Concepto</th>
-
-                    <th class="p-3 text-right font-medium">Monto</th>
-
-                    <th class="p-3 text-center font-medium">Acciones</th>
-
-                  </tr>
-
-                </thead>
-
-                <tbody>
-
-                  <tr *ngIf="historialMovimientos.length === 0">
-
-                    <td colspan="4" class="p-4 text-center text-gray-500">No hay movimientos registrados.</td>
-
-                  </tr>
-
-                 
-
-                  <!-- === INICIO *ngFor CORREGIDO === -->
-
-                  <tr *ngFor="let mov of historialMovimientos" class="border-b hover:bg-gray-50">
-
-                    <td class="p-3 whitespace-nowrap">{{ mov.movementDate | date : "dd/MM/yyyy" }}</td>
-
-                    <td class="p-3">{{ mov.concept }}</td>
-
-                    <td
-
-                      class="p-3 text-right font-medium whitespace-nowrap"
-
-                      [ngClass]="mov.movementType === 'CREDITO' ? 'text-green-600' : 'text-red-600'"
-
-                    >
-
-                      <!-- Crédito (pago) es positivo, Débito (deuda) es negativo -->
-
-                      <span *ngIf="mov.movementType === 'CREDITO'">+</span>
-
-                      <span *ngIf="mov.movementType === 'DEBITO'">-</span>
-
-                      {{ mov.amount | currency : "ARS" : "symbol-narrow" : "1.0-0" }}
-
-                    </td>
-
-                    <td class="p-3 text-center">
-
-                      <button (click)="deleteMovement(mov.id)" class="p-1 text-black hover:text-red-600" title="Eliminar Movimiento">
-
-                        <app-icon name="Trash2" class="h-4 w-4"></app-icon>
-
-                      </button>
-
-                    </td>
-
-                  </tr>
-
-                  <!-- === FIN *ngFor CORREGIDO === -->
-
-
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-          </div>
-
-          <!-- Pestaña: Comunicaciones (CORREGIDA) -->
           <div *ngIf="activeTab === 'comunicaciones' && !isLoadingHistory && !historyError" class="space-y-4 animate-fade-in">
              <h3 class="text-lg font-semibold text-gray-800">
                 Historial de Comunicaciones
               </h3>
-              <ul *ngIf="historialComunicaciones.length > 0" class="divide-y divide-gray-200 border rounded-lg">
-                <li *ngFor="let com of historialComunicaciones" class="p-4 hover:bg-gray-50">
-                  <div class="flex items-start gap-3">
-                    <app-icon 
-                      [name]="com.type === 'email' ? 'envelope' : (com.type === 'sms' ? 'message-square' : 'cog')" 
-                      class="h-4 w-4 text-gray-400 mt-1 flex-shrink-0"
-                    ></app-icon>
-                    <div class="flex-1">
-                      <div class="flex justify-between items-center">
-                        <span class="text-sm font-semibold text-gray-800">{{ com.subject }}</span>
-                        <span class="text-xs text-gray-500">{{ com.date | date : "dd/MM/yy HH:mm" }}</span>
+              
+              <div>
+                <ul *ngIf="historialComunicaciones && historialComunicaciones.length > 0" class="divide-y divide-gray-200 border rounded-lg">
+                  <li *ngFor="let com of historialComunicaciones | paginate: { 
+                          itemsPerPage: commItemsPerPage, 
+                          currentPage: commCurrentPage, 
+                          id: 'commPagination' 
+                        }" 
+                      class="p-4 hover:bg-gray-50">
+                    <div class="flex items-start gap-3">
+                      <app-icon 
+                        [name]="com.type === 'email' ? 'envelope' : (com.type === 'sms' ? 'message-square' : 'cog')" 
+                        class="h-4 w-4 text-gray-400 mt-1 flex-shrink-0"
+                      ></app-icon>
+                      <div class="flex-1">
+                        <div class="flex justify-between items-center">
+                          <span class="text-sm font-semibold text-gray-800">{{ com.subject }}</span>
+                          <span class="text-xs text-gray-500">{{ com.date | date : "dd/MM/yy HH:mm" }}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-1">{{ com.snippet }}</p>
                       </div>
-                      <p class="text-sm text-gray-600 mt-1">{{ com.snippet }}</p>
                     </div>
-                  </div>
-                </li>
-              </ul>
-              <p *ngIf="historialComunicaciones.length === 0" class="text-center text-gray-500 py-8">
-                No hay comunicaciones registradas.
-              </p>
-          </div>
+                  </li>
+                </ul>
+                <p *ngIf="!historialComunicaciones || historialComunicaciones.length === 0" class="text-center text-gray-500 py-8">
+                  No hay comunicaciones registradas.
+                </p>
 
-          <!-- Pestaña: Detalles (CORREGIDA) -->
+                <div class="flex justify-center items-center mt-4 text-sm" *ngIf="historialComunicaciones.length > commItemsPerPage">
+                  <pagination-controls
+                      id="commPagination"
+                      (pageChange)="commCurrentPage = $event"
+                      previousLabel="Anterior"
+                      nextLabel="Siguiente"
+                      screenReaderPaginationLabel="Paginación de comunicaciones">
+                  </pagination-controls>
+                </div>
+              </div>
+              </div>
+
           <div *ngIf="activeTab === 'detalles' && !isLoadingHistory && !historyError" class="space-y-6 animate-fade-in">
             <div>
               <h4 class="text-base font-semibold text-gray-700 mb-2">Información Fiscal y de Pago</h4>
@@ -330,7 +292,6 @@
                   <label class="font-medium text-gray-500">Condición IVA</label>
                   <p class="text-gray-800">{{ client.ivaCondition }}</p>
                 </div>
-                
                 <div>
                   <label class="font-medium text-gray-500">Fecha de Alta</label>
                   <p class="text-gray-800">{{ client.registrationDate | date: 'dd/MM/yyyy' }}</p>
@@ -352,7 +313,6 @@
                    <li *ngFor="let locker of client.lockersList" class="p-3 grid grid-cols-3 gap-2">
                      <span class="font-medium text-indigo-800">{{ locker.identifier }}</span>
                      <span class="text-gray-600">{{ locker.warehouse }} - {{ locker.lockerType }}</span>
-                     <!-- Aquí asumimos que el DTO 'LockerClientDetailDTO' incluirá el 'amount' -->
                      <!-- <span class="text-green-700 font-medium text-right">{{ locker.amount | currency : "ARS" : "symbol" : "1.0-0" }}</span> -->
                    </li>
                  </ul>
@@ -366,8 +326,17 @@
               </div>
             </div>
           </div>
+
         </div>
       </div>
     </main>
   </div>
 </div>
+
+<app-create-movement-modal
+  *ngIf="showNewMovementModal && client"
+  [clientId]="client.id" 
+  (closeModal)="closeNewMovementModal()"
+  (saveSuccess)="onMovementSaveSuccess()"
+>
+</app-create-movement-modal>

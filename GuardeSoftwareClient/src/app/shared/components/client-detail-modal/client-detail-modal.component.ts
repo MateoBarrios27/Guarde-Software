@@ -5,23 +5,24 @@ import {
   EventEmitter,
   OnChanges,
   SimpleChanges,
+  inject, // Importar inject
 } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { IconComponent } from '../icon/icon.component';
 import { ClientDetailDTO } from '../../../core/dtos/client/ClientDetailDTO';
+
+// --- Importaciones de Servicios y DTOs reales ---
+import { forkJoin } from 'rxjs';
+import { finalize } from 'rxjs/operators';
+import Swal from 'sweetalert2';
 import { AccountMovementService } from '../../../core/services/accountMovement-service/account-movement.service';
 import { CommunicationService } from '../../../core/services/communication-service/communication.service';
-import { forkJoin } from 'rxjs';
 import { AccountMovementDTO } from '../../../core/dtos/accountMovement/account-movement.dto';
+import { ClientCommunicationDTO } from '../../../core/dtos/communications/client-comunication.dto';
+import { CreateMovementModalComponent } from '../create-movement-modal/create-movement-modal.component';
 
-// --- Interfaces de ejemplo para los nuevos historiales ---
-export interface IClientMovement {
-  id: number;
-  date: Date;
-  concept: string;
-  amount: number;
-  type: 'in' | 'out';
-}
+// --- IMPORTAR PAGINACIÓN ---
+import { NgxPaginationModule } from 'ngx-pagination';
 
 export interface IClientCommunication {
   id: number;
@@ -34,7 +35,14 @@ export interface IClientCommunication {
 @Component({
   selector: 'app-client-detail-modal',
   standalone: true,
-  imports: [CommonModule, IconComponent, CurrencyPipe, DatePipe],
+  imports: [
+    CommonModule,
+    IconComponent,
+    CurrencyPipe,
+    DatePipe,
+    CreateMovementModalComponent, // Modal de creación
+    NgxPaginationModule, // <-- AÑADIDO PARA PAGINACIÓN
+  ],
   templateUrl: './client-detail-modal.component.html',
 })
 export class ClientDetailModalComponent implements OnChanges {
@@ -44,97 +52,144 @@ export class ClientDetailModalComponent implements OnChanges {
   public activeTab: 'movimientos' | 'comunicaciones' | 'detalles' =
     'movimientos';
 
-  // --- Datos para las nuevas pestañas ---
+  // --- Datos reales de las pestañas ---
   public historialMovimientos: AccountMovementDTO[] = [];
-  public historialComunicaciones: IClientCommunication[] = [];
+  public historialComunicaciones: ClientCommunicationDTO[] = [];
   public isLoadingHistory = false;
   public historyError: string | null = null;
 
-  constructor(private accountMovementService: AccountMovementService,
-    private communicationService: CommunicationService) {
-    
-  }
+  // --- Control del modal de creación ---
+  public showNewMovementModal = false;
+
+  // --- PROPIEDADES DE PAGINACIÓN AÑADIDAS ---
+  public movementCurrentPage: number = 1;
+  public movementItemsPerPage: number = 5; // 5 movimientos por página
+  public commCurrentPage: number = 1;
+  public commItemsPerPage: number = 5; // 5 comunicaciones por página
+
+  constructor(
+    private accountMovementService: AccountMovementService,
+    private communicationService: CommunicationService
+  ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
-    // Si el input del cliente cambia (es decir, se abre el modal)
     if (changes['client'] && this.client) {
       this.loadHistoriales(this.client.id);
-      this.activeTab = 'movimientos'; // Resetea a la pestaña principal
+      this.activeTab = 'movimientos';
+      this.movementCurrentPage = 1; // Resetear página al cambiar de cliente
+      this.commCurrentPage = 1; // Resetear página al cambiar de cliente
     }
   }
 
-  /**
-   * Carga los historiales del cliente desde el backend
-   */
   loadHistoriales(clientId: number): void {
-    this.isLoadingHistory = true;
-    this.historyError = null; // Resetear error
-    this.historialMovimientos = [];
-    this.historialComunicaciones = [];
+    if (!clientId) return;
 
-    // Usamos forkJoin para esperar ambas llamadas
+    this.isLoadingHistory = true;
+    this.historyError = null; 
+
     forkJoin({
       movements: this.accountMovementService.getMovementsByClientId(clientId),
-      communications: this.communicationService.getCommunicationsByClientId(clientId)
-    }).subscribe({
-      next: (results) => {
-        // Ordenamos los movimientos por fecha, más reciente primero
-        this.historialMovimientos = results.movements.sort((a, b) => 
-          new Date(b.movementDate).getTime() - new Date(a.movementDate).getTime()
-        );
-        
-        // Ordenamos las comunicaciones por fecha, más reciente primero
-        this.historialComunicaciones = results.communications.sort((a, b) => 
-          new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-        
-        this.isLoadingHistory = false;
-      },
-      error: (err) => {
-        console.error('Error cargando historiales:', err);
-        this.historyError = 'No se pudieron cargar los historiales. Intente más tarde.';
-        this.isLoadingHistory = false;
-      }
-    });
+      communications: this.communicationService.getCommunicationsByClientId(clientId),
+    })
+      .pipe(
+        finalize(() => {
+          this.isLoadingHistory = false; 
+        })
+      )
+      .subscribe({
+        next: (results) => {
+          // Ordenar por fecha (más reciente primero)
+          this.historialMovimientos = results.movements.sort((a, b) => 
+            new Date(b.movementDate).getTime() - new Date(a.movementDate).getTime()
+          );
+          this.historialComunicaciones = results.communications.sort((a, b) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+        },
+        error: (err) => {
+          console.error('Error al cargar historiales:', err);
+          this.historyError = 'No se pudieron cargar los historiales. Intente más tarde.';
+        },
+      });
   }
 
   // --- Métodos para la gestión de Movimientos ---
 
   openNewMovementModal(): void {
-    // Aquí deberías abrir un nuevo modal para "Crear Movimiento"
-    // Este modal probablemente necesitará el this.client.id
-    console.log('Abrir modal para agregar nuevo movimiento al cliente:', this.client?.id);
-    alert('FUNCIONALIDAD: Abrir modal de nuevo movimiento.');
-    // Ejemplo de cómo podrías añadirlo tras una creación exitosa:
-    // this.historialMovimientos.unshift(nuevoMovimiento);
+    this.showNewMovementModal = true;
+  }
+
+  closeNewMovementModal(): void {
+    this.showNewMovementModal = false;
+  }
+
+  onMovementSaveSuccess(): void {
+    this.closeNewMovementModal();
+    this.movementCurrentPage = 1; // <-- Resetear paginación
+    if (this.client) {
+      this.loadHistoriales(this.client.id); // Recargar
+    }
   }
 
   deleteMovement(movementId: number): void {
-    // Aquí deberías llamar a tu servicio para eliminar el movimiento
-    console.log('Eliminar movimiento:', movementId);
-    alert(`FUNCIONALIDAD: Eliminar movimiento ${movementId}.`);
-    // Ejemplo de cómo actualizar la UI tras un borrado exitoso:
-    // this.historialMovimientos = this.historialMovimientos.filter(m => m.id !== movementId);
+    if (!this.client) return;
+    const clientId = this.client.id; 
+
+    Swal.fire({
+      title: '¿Estás seguro?',
+      text: "Esta acción no se puede revertir. ¿Deseas eliminar este movimiento?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.isLoadingHistory = true; 
+        this.accountMovementService.deleteMovement(movementId).subscribe({
+          next: () => {
+            Swal.fire({
+              title: 'Eliminado',
+              text: 'El movimiento ha sido eliminado.',
+              icon: 'success',
+              confirmButtonColor: '#2563eb'
+            });
+            this.movementCurrentPage = 1; // <-- Resetear paginación
+            this.loadHistoriales(clientId); // Recargar
+          },
+          error: (err) => {
+            this.isLoadingHistory = false;
+            console.error('Error al eliminar movimiento:', err);
+            Swal.fire({
+              title: 'Error',
+              text: 'No se pudo eliminar el movimiento. ' + (err.error?.message || ''),
+              icon: 'error',
+              confirmButtonColor: '#2563eb'
+            });
+          },
+        });
+      }
+    });
   }
 
-  // --- Style Helpers (Copiados de clients.component para consistencia) ---
-
+  // --- Style Helpers ---
   getEstadoBadgeColor(estado: string): string {
-    const colors: Record<string, string> = {
+     const colors: Record<string, string> = {
       'Al día': 'bg-green-100 text-green-800',
-      Moroso: 'bg-red-100 text-red-800',
-      Pendiente: 'bg-yellow-100 text-yellow-800',
-      Baja: 'bg-gray-200 text-gray-800',
+      'Moroso': 'bg-red-100 text-red-800',
+      'Pendiente': 'bg-yellow-100 text-yellow-800',
+      'Baja': 'bg-gray-200 text-gray-800',
     };
     return colors[estado] || 'bg-gray-100 text-gray-800';
   }
 
   getEstadoIcon(estado: string): string {
-    const icons: Record<string, string> = {
+     const icons: Record<string, string> = {
       'Al día': 'check-circle',
-      Moroso: 'alert-triangle',
-      Pendiente: 'clock',
-      Baja: 'user-x',
+      'Moroso': 'alert-triangle',
+      'Pendiente': 'clock',
+      'Baja': 'user-x',
     };
     return icons[estado] || 'help-circle';
   }
