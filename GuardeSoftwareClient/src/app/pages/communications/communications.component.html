@@ -1,10 +1,4 @@
-<!--
-  This is the corrected HTML template. All internal logic now uses the English status names
-  (e.g., 'Scheduled', 'Finished') that come from the backend.
-  Only the text displayed to the user remains in Spanish.
--->
 <div class="space-y-6 bg-gray-50 min-h-screen font-inter">
-  <!-- Header with Add Button -->
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-white rounded-xl shadow-lg">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">Comunicaciones</h1>
@@ -17,7 +11,6 @@
     </button>
   </div>
 
-  <!-- Scheduled Communications Section -->
   <div class="bg-white p-4 rounded-xl shadow-lg">
     <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
       <app-icon name="Clock" class="h-5 w-5 text-blue-600"></app-icon>
@@ -36,7 +29,6 @@
     </div>
   </div>
 
-  <!-- Draft/Saved Communications Section -->
   <div class="bg-white p-4 rounded-xl shadow-lg">
     <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
       <app-icon name="FileText" class="h-5 w-5 text-gray-600"></app-icon>
@@ -55,7 +47,6 @@
     </div>
   </div>
 
-  <!-- Past Communications Section -->
   <div class="bg-white p-4 rounded-xl shadow-lg">
     <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
       <app-icon name="MessageCircle" class="h-5 w-5 text-green-600"></app-icon>
@@ -74,7 +65,6 @@
     </div>
   </div>
 
-  <!-- Floating Toast Notification -->
   <div *ngIf="toast().show"
     class="fixed bottom-4 right-4 p-4 rounded-lg shadow-xl text-white max-w-sm transition-opacity duration-300 z-50"
     [ngClass]="toast().color === 'success' ? 'bg-green-600' : 'bg-red-600'">
@@ -88,13 +78,11 @@
   </div>
 </div>
 
-<!-- Modals (Add, Edit, View, Confirm Delete/Send) -->
 @if (currentModal() !== 'none') {
 <div class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm h-full w-full" (click)="closeModal()"></div>
 <div
   class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6 bg-white rounded-xl shadow-2xl w-[95%] max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-in-out">
 
-  <!-- Modal Header -->
   <div class="flex justify-between items-center border-b pb-3 mb-4">
     <h2 class="text-xl font-semibold text-gray-800">
       @switch (currentModal()) {
@@ -110,18 +98,15 @@
     </button>
   </div>
 
-  <!-- Modal Content: Add/Edit Form -->
   @if (currentModal() === 'add' || currentModal() === 'edit') {
   <div class="space-y-4">
-    <!-- Title -->
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-1">Título del comunicado *</label>
       <input type="text" [ngModel]="formData().title" 
-           (ngModelChange)="updateFormField('title', $event)" placeholder="Ej: Aumento de tarifas 2024"
+             (ngModelChange)="updateFormField('title', $event)" placeholder="Ej: Aumento de tarifas 2024"
         class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
     </div>
 
-    <!-- Channels -->
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-2">Canales de comunicación *</label>
       <div class="flex flex-col sm:flex-row gap-4">
@@ -149,7 +134,6 @@
       <p *ngIf="formData().channels.length === 2" class="text-xs text-blue-600 mt-2">✓ Se enviará por ambos canales</p>
     </div>
 
-    <!-- Recipients -->
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-1">Destinatarios *</label>
       
@@ -208,56 +192,69 @@
       }
     </div>
 
-    <!-- Content -->
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-1">Contenido *</label>
-      <p *ngIf="formData().channels.includes('WhatsApp')" class="text-xs text-gray-500 mb-2">💡 Para WhatsApp: Mantén
-        el mensaje breve y directo</p>
+      
+      @if (formData().channels.includes('Email')) {
+      <p *ngIf="formData().channels.includes('WhatsApp')" class="text-xs text-gray-500 mb-2">
+        💡 Escribe el contenido del email. Se enviará una versión de solo texto a WhatsApp.
+      </p>
+      <quill-editor 
+        [ngModel]="formData().content"
+        (ngModelChange)="updateFormField('content', $event)"
+        [styles]="{ 'height': '200px', 'display': 'block' }"
+        placeholder="Escribe el contenido del email aquí...">
+      </quill-editor>
+      
+      } @else if (formData().channels.includes('WhatsApp')) {
+      <p class="text-xs text-gray-500 mb-2">💡 Para WhatsApp: Mantén el mensaje breve y directo.</p>
       <textarea [ngModel]="formData().content" 
-              (ngModelChange)="updateFormField('content', $event)"
-              [rows]="formData().channels.includes('WhatsApp') ? 4 : 8"
-        placeholder="Contenido completo del mensaje..."
-        class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
+            (ngModelChange)="updateFormField('content', $event)"
+            [rows]="8"
+            placeholder="Escribe el contenido para WhatsApp aquí..."
+            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
+            
+      } @else {
+      <div class="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400 text-center h-32 flex items-center justify-center">
+        <p>Selecciona un canal para escribir el contenido.</p>
+      </div>
+      }
     </div>
-
-    <!-- Action Type -->
     <div class="border-t pt-4">
       <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de acción</label>
       <div class="flex gap-4">
         <div class="flex items-center">
           <input type="radio" id="programar" name="type" value="programar" [ngModel]="formData().type"
-               (ngModelChange)="updateFormField('type', $event)"
+                 (ngModelChange)="updateFormField('type', $event)"
             class="text-blue-600 focus:ring-blue-500" />
           <label for="programar" class="ml-2 text-sm text-gray-700">Programar envío</label>
         </div>
         <div class="flex items-center">
           <input type="radio" id="borrador" name="type" value="borrador" [ngModel]="formData().type"
-               (ngModelChange)="updateFormField('type', $event)"
+                 (ngModelChange)="updateFormField('type', $event)"
             class="text-blue-600 focus:ring-blue-500" />
           <label for="borrador" class="ml-2 text-sm text-gray-700">Guardar como borrador</label>
         </div>
       </div>
     </div>
 
-    <!-- Schedule Fields (Conditional) -->
     @if (formData().type === 'programar') {
     <div class="grid grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de envío</label>
         <input type="date" [ngModel]="formData().sendDate"
-             (ngModelChange)="updateFormField('sendDate', $event)"
+               (ngModelChange)="updateFormField('sendDate', $event)"
           class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Hora de envío</label>
         <input type="time" [ngModel]="formData().sendTime"
-             (ngModelChange)="updateFormField('sendTime', $event)"
+               (ngModelChange)="updateFormField('sendTime', $event)"
           class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
       </div>
     </div>
     }
 
-    <!-- Footer Buttons -->
     <div class="flex gap-2 pt-4">
       <button (click)="currentModal() === 'add' ? addCommunication() : editCommunication()" [disabled]="!isFormValid()"
         class="flex-1 px-4 py-2 rounded-full text-white shadow-md transition duration-200 disabled:opacity-50"
@@ -272,7 +269,6 @@
   </div>
   }
 
-  <!-- Modal Content: View Details -->
   @if (currentModal() === 'view' && selectedCommunication()) {
   <div class="space-y-4">
     <div class="p-4 rounded-lg space-y-3 border bg-gray-50">
@@ -294,8 +290,9 @@
 
       <div class="border-t pt-3">
         <h4 class="text-sm font-medium text-gray-700 mb-2">Contenido:</h4>
-        <div class="bg-white p-3 rounded border text-sm whitespace-pre-wrap shadow-inner max-h-48 overflow-y-auto">
-          {{ selectedCommunication()!.content }}
+        <div 
+          [innerHTML]="getSanitizedHtmlContent()"
+          class="bg-white p-3 rounded border text-sm shadow-inner max-h-48 overflow-y-auto prose prose-sm max-w-none">
         </div>
       </div>
 
@@ -311,12 +308,12 @@
       @if (selectedCommunication()!.status === 'Scheduled' || selectedCommunication()!.status === 'Finished' || selectedCommunication()!.status === 'Finished w/ Errors') {
       <div class="border-t pt-3 text-sm text-gray-600">
         <strong>{{ selectedCommunication()!.status === 'Scheduled' ? 'Programado para' : 'Enviado el' }}:</strong>
-        {{ selectedCommunication()!.sendDate }} a las {{ selectedCommunication()!.sendTime }}
+        {{ selectedCommunication()!.sendDate | date: 'dd/MM/yyyy' }} a las {{ selectedCommunication()!.sendTime }}
       </div>
       }
 
       <div class="border-t pt-3 text-sm text-gray-600">
-        <strong>Creado:</strong> {{ selectedCommunication()!.creationDate }}
+        <strong>Creado:</strong> {{ selectedCommunication()!.creationDate | date: 'dd/MM/yyyy' }}
       </div>
     </div>
 
@@ -327,7 +324,6 @@
   </div>
   }
 
-  <!-- Modal Content: Delete Confirmation -->
   @if (currentModal() === 'delete-confirm' && selectedCommunication()) {
     <div class="space-y-6 text-center p-4">
       <div class="text-red-500 mx-auto text-5xl flex items-center justify-center h-16 w-16 bg-red-100 rounded-full">
@@ -348,7 +344,6 @@
     </div>
   }
 
-  <!-- Modal Content: Send Confirmation (for Drafts) -->
   @if (currentModal() === 'send-confirm' && selectedCommunication()) {
   <div class="space-y-4">
     <div class="bg-blue-50 p-4 rounded-lg space-y-2 border border-blue-200">
@@ -382,7 +377,6 @@
 </div>
 }
 
-<!-- Helper for rendering communication cards -->
 <ng-template #communicationCardTemplate let-comm="communication" let-isDraft="isDraft" let-isPast="isPast">
   <div class="p-4 pb-2 bg-white rounded-xl border border-gray-200 shadow hover:shadow-lg transition-shadow duration-200 flex flex-col h-full">
 
@@ -394,7 +388,6 @@
       </span>
     </div>
 
-    <!-- Main content that grows to push actions to the bottom -->
     <div class="space-y-3 mt-3 flex-grow">
       <p class="text-xs text-gray-600 line-clamp-2">
         {{ getCommunicationPreview(comm.content, comm.channel) }}
@@ -411,7 +404,6 @@
         } @else {
         <app-icon name="Calendar" class="h-3 w-3"></app-icon>
         <span>
-          <!-- {{ isPast ? 'Enviado' : 'Envío' }}:  -->
           {{ comm.sendDate | date: 'dd/MM/yyyy' }} {{ comm.sendTime }}
         </span>
         }
@@ -423,15 +415,12 @@
       </div>
     </div>
 
-    <!-- Actions (will stick to the bottom due to flex-grow) -->
     <div class="flex gap-1 pt-2 border-t mt-3">
-      <!-- View Button -->
       <button (click)="openModal('view', comm)" title="Ver detalles"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-gray-600 hover:bg-gray-100 transition">
         <app-icon name="eye" class="h-4 w-4"></app-icon>
       </button>
 
-      <!-- Edit Button (Scheduled/Draft only) -->
       @if (!isPast) {
       <button (click)="openModal('edit', comm)" title="Editar comunicado"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition">
@@ -439,30 +428,24 @@
       </button>
       }
 
-      <!-- Send/Reschedule/Resend Button -->
       @if (isDraft) {
-      <!-- Send (Draft) -->
       <button (click)="openModal('send-confirm', comm)" title="Enviar ahora"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-green-600 hover:bg-green-100 transition">
         <app-icon name="Send" class="h-4 w-4"></app-icon>
       </button>
       } @else if (isPast) {
-      <!-- Resend (Past) -->
       <button (click)="openModal('add', comm, true)" title="Reenviar comunicado"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition">
         <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
       </button>
       } 
-      <!-- **** CORRECTION 2: Using English status 'Scheduled' **** -->
       @else if (comm.status === 'Scheduled') {
-      <!-- Force Send (Scheduled) -->
       <button (click)="openModal('send-confirm', comm)" title="Enviar ahora (Cancelar programación)"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-green-600 hover:bg-green-100 transition">
         <app-icon name="Send" class="h-4 w-4"></app-icon>
       </button>
       }
 
-      <!-- Delete Button (Draft/Scheduled only) -->
       @if (!isPast) {
       <button (click)="openModal('delete-confirm', comm)" title="Eliminar comunicado"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-red-600 hover:bg-red-100 transition">
