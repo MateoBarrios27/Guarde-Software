@@ -160,12 +160,13 @@ export class CreateClientModalComponent implements OnInit {
       // --- Sección Pago ---
       condicionIVA: [null, Validators.required],
       metodoPago: [null, Validators.required],
-      documento: [null, Validators.required], // Tipo Factura
+      documento: [null], // Tipo Factura
       
       // --- Sección Financiera (Nueva) ---
       isLegacyClient: [false, Validators.required], // <-- 2. CAMBIO: Interruptor
       legacyStartDate: [null], // <-- 3. CAMBIO: Fecha de ingreso manual
       prepaidMonths: [0], // <-- 4. CAMBIO: Meses pagados
+      billingType: [''],
       
       // --- Sección Observaciones ---
       observaciones: [''],
@@ -243,6 +244,7 @@ export class CreateClientModalComponent implements OnInit {
         provincia: data.province, // Ajusta si usas 'Province' en C# DTO
         observaciones: data.notes, // Asegúrate que ambos sean string
         montoManual: data.rentAmount,
+        billingType: data.billingType,
         // No mapeamos lockersAsignados aquí, ya se hizo arriba
         // No mapeamos campos de aumento
       });
@@ -399,7 +401,8 @@ export class CreateClientModalComponent implements OnInit {
       lastName: formValue.apellido,
       notes: formValue.observaciones || null,
       dni: formValue.numeroDocumento || null,
-      cuit: formValue.cuit || null, // <-- CUIT añadido
+      cuit: formValue.cuit || null,
+      billingType: formValue.billingType || null,
       emails: formValue.emails.filter((e: string | null): e is string => !!e && !!e.trim()),
       phones: formValue.telefonos.filter((p: string | null): p is string => !!p && !!p.trim()),
       addressDto: {
@@ -414,10 +417,11 @@ export class CreateClientModalComponent implements OnInit {
       lockerIds: formValue.lockersAsignados.filter((id: any): id is number => typeof id === 'number' && id > 0),
       userID: 1, // Placeholder
 
-      // --- Lógica de fechas y meses pagados ---
+      // --- Lógica de fechas y prepago (MODIFICADA) ---
       registrationDate: isLegacy ? formValue.legacyStartDate : (isEditing ? this.clientData?.registrationDate : new Date()),
-      startDate: isLegacy ? formValue.legacyStartDate : (isEditing ? this.clientData?.registrationDate : new Date()), // Asumiendo que startDate es igual a registrationDate
-      prepaidMonths: isLegacy ? Number(formValue.prepaidMonths) : 0, // <-- Campo nuevo
+      startDate: isLegacy ? formValue.legacyStartDate : (isEditing ? this.clientData?.registrationDate : new Date()),
+      prepaidMonths: isLegacy ? Number(formValue.prepaidMonths) : 0,
+      isLegacyClient: isLegacy, // <-- PROPIEDAD AÑADIDA
     };
 
     console.log('Enviando DTO:', dto);

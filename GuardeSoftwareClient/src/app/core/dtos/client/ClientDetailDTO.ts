@@ -12,6 +12,7 @@ export interface ClientDetailDTO{
     cuit: string;
     dni: string;
     registrationDate: Date;
+    billingType?: string;
 
     //contact information
     email: string[];

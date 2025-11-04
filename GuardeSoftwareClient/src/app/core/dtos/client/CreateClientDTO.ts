@@ -12,6 +12,7 @@ export interface CreateClientDTO{
     cuit?: string;
     preferredPaymentMethodId: number;
     ivaCondition: string;
+    billingType?: string;
     startDate: Date;
     contractedM3: number;
     amount: number;
@@ -23,6 +24,7 @@ export interface CreateClientDTO{
     addressDto: CreateAddressDto,
 
     prepaidMonths?: number;
+    isLegacyClient?: boolean;
 
     // increaseFrequency: string;
     // increasePercentage: number;

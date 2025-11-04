@@ -128,7 +128,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             if (string.IsNullOrWhiteSpace(accountMovement.MovementType))
                 throw new ArgumentException("MovementType required.");
 
-            if (accountMovement.Amount <= 0)
+            if (accountMovement.Amount < 0)
                 throw new ArgumentException("Amount must be > 0");
 
             return await _daoAccountMovement.CreateAccountMovementTransactionAsync(accountMovement, connection, transaction);

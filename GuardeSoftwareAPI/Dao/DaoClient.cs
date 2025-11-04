@@ -137,13 +137,14 @@ namespace GuardeSoftwareAPI.Dao
                     Value = client.PreferredPaymentMethodId > 0 ? (object)client.PreferredPaymentMethodId : DBNull.Value
                 },
                 new("@iva_condition", SqlDbType.VarChar) { Value = (object?)client.IvaCondition?.Trim() ?? DBNull.Value },
+                new("@billing_type", SqlDbType.VarChar) { Value = (object?)client.BillingType?.Trim() ?? DBNull.Value },
                 new("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
             ];
 
             string query = @"
-                            INSERT INTO clients(payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes)
-                            OUTPUT INSERTED.client_id
-                            VALUES(@payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes);";
+                INSERT INTO clients(payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes, billing_type)
+                OUTPUT INSERTED.client_id
+                VALUES(@payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes, @billing_type);";
 
             using var command = new SqlCommand(query, connection, transaction);
             command.Parameters.AddRange(parameters);
@@ -530,8 +531,8 @@ namespace GuardeSoftwareAPI.Dao
                     cuit = @cuit,
                     preferred_payment_method_id = @preferred_payment_method_id,
                     iva_condition = @iva_condition,
-                    notes = @notes
-                    -- No actualizamos 'active' aquí usualmente, eso sería otra operación (DeactivateClient)
+                    notes = @notes,
+                    billing_type = @billing_type 
                 WHERE client_id = @client_id";
 
             SqlParameter[] parameters =
@@ -544,6 +545,7 @@ namespace GuardeSoftwareAPI.Dao
                 new("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },
                 new("@preferred_payment_method_id", SqlDbType.Int) { Value = client.PreferredPaymentMethodId > 0 ? (object)client.PreferredPaymentMethodId : DBNull.Value },
                 new("@iva_condition", SqlDbType.VarChar) { Value = (object?)client.IvaCondition?.Trim() ?? DBNull.Value },
+                new("@billing_type", SqlDbType.VarChar) { Value = (object?)client.BillingType?.Trim() ?? DBNull.Value },
                 new("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
                 new("@client_id", SqlDbType.Int) { Value = client.Id }
             ];

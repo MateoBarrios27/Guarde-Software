@@ -18,6 +18,7 @@ using GuardeSoftwareAPI.Services.phone;
 using GuardeSoftwareAPI.Services.address;
 using System.Text.Json;
 using GuardeSoftwareAPI.Services.accountMovement;
+using System.Globalization;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -109,8 +110,8 @@ namespace GuardeSoftwareAPI.Services.client
             if (dto == null) throw new ArgumentNullException(nameof(dto));
             if (string.IsNullOrWhiteSpace(dto.FirstName)) throw new ArgumentException("FirstName is required.");
             if (string.IsNullOrWhiteSpace(dto.LastName)) throw new ArgumentException("LastName is required.");
-            if (dto.Amount <= 0) throw new ArgumentException("Amount must be greater than 0.");
-            if (dto.LockerIds == null || dto.LockerIds.Count == 0) throw new ArgumentException("At least one lockerId is required.");
+            if (dto.Amount < 0) throw new ArgumentException("Amount must be greater than 0.");
+            // if (dto.LockerIds == null || dto.LockerIds.Count == 0) throw new ArgumentException("At least one lockerId is required.");
             if (dto.LockerIds.Any(id => id <= 0)) throw new ArgumentException("LockerIds must be positive numbers.");
             if (dto.LockerIds.Distinct().Count() != dto.LockerIds.Count) throw new ArgumentException("Duplicate lockerIds are not allowed.");
             if (dto.UserID <= 0) throw new ArgumentException("Invalid UserID.");
@@ -166,6 +167,7 @@ namespace GuardeSoftwareAPI.Services.client
                             PreferredPaymentMethodId = dto.PreferredPaymentMethodId ?? 0,
                             IvaCondition = string.IsNullOrWhiteSpace(dto.IvaCondition) ? null : dto.IvaCondition.Trim(),
                             Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
+                            BillingType = string.IsNullOrWhiteSpace(dto.BillingType) ? null : dto.BillingType.Trim()
                         };
 
                         int newId = await daoClient.CreateClientTransactionAsync(client, connection, transaction);
@@ -214,6 +216,59 @@ namespace GuardeSoftwareAPI.Services.client
                         };
 
                         var rentalAmountHistoryId = await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(rentalAmountHistory, connection, transaction);
+
+                        // --- 2. LÓGICA DE DÉBITO INICIAL / CRÉDITO (MODIFICADA) ---
+                        
+                        if (dto.IsLegacyClient)
+                        {
+                            // --- ES CLIENTE LEGACY ---
+                            _logger.LogInformation($"Procesando cliente legacy (ID: {newId}).");
+
+                            if (dto.PrepaidMonths > 0 && dto.Amount > 0)
+                            {
+                                // Es Legacy Y TIENE meses prepagos. Generar CRÉDITO.
+                                decimal totalCreditAmount = dto.PrepaidMonths * dto.Amount;
+                                AccountMovement creditMovement = new AccountMovement
+                                {
+                                    RentalId = rentalId,
+                                    MovementDate = dto.StartDate,
+                                    MovementType = "CREDITO",
+                                    Concept = $"Crédito inicial por {dto.PrepaidMonths} {(dto.PrepaidMonths == 1 ? "mes" : "meses")} pagados",
+                                    Amount = totalCreditAmount,
+                                    PaymentId = null
+                                };
+                                await accountMovementService.CreateAccountMovementTransactionAsync(creditMovement, connection, transaction);
+                                _logger.LogInformation($"Crédito inicial de {totalCreditAmount:C} registrado para rental {rentalId}.");
+                            }
+                            else
+                            {
+                                // Es Legacy PERO NO TIENE meses prepagos (dto.PrepaidMonths == 0).
+                                // NO HACEMOS NADA: Ni débito inicial ni crédito.
+                                _logger.LogInformation($"Cliente legacy (ID: {newId}) creado. No se genera débito inicial ni crédito prepago.");
+                            }
+                        }
+                        else
+                        {
+                            // --- ES CLIENTE NUEVO (IsLegacyClient == false) ---
+                            // Generamos el DÉBITO del primer mes.
+                            _logger.LogInformation($"Procesando cliente nuevo (ID: {newId}). Generando débito inicial.");
+                            
+                            var culture = new CultureInfo("es-AR");
+                            string monthName = culture.DateTimeFormat.GetMonthName(dto.StartDate.Month);
+                            string concept = $"Alquiler {CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName)} {dto.StartDate.Year}";
+
+                            AccountMovement debitMovement = new AccountMovement
+                            {
+                                RentalId = rentalId,
+                                MovementDate = dto.StartDate,
+                                MovementType = "DEBITO",
+                                Concept = concept,
+                                Amount = dto.Amount, // El monto del primer mes
+                                PaymentId = null
+                            };
+                            await accountMovementService.CreateAccountMovementTransactionAsync(debitMovement, connection, transaction);
+                        }
+
 
 
                         if (dto.LockerIds != null && dto.LockerIds.Count != 0) {

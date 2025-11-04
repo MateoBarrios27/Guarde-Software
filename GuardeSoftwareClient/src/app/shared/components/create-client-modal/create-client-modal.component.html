@@ -36,115 +36,143 @@
     <main class="flex-1 overflow-y-auto p-4">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         
-        <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
-          <div
-            class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-t-lg"
-          >
-            <h3 class="flex items-center gap-2 font-semibold text-base">
-              <app-icon name="users" class="h-5 w-5"></app-icon>Información
-              Personal
-            </h3>
-          </div>
-          <div class="p-4 space-y-4">
-            <div>
-              <label class="text-sm font-medium text-blue-700"
-                >Número de Identificación</label
-              >
-              <input
-                formControlName="numeroIdentificacion"
-                placeholder="Ej: 0.14 (Se auto-genera si se deja vacío)"
-                class="w-full mt-1 p-2 border rounded-md"
-              />
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="text-sm font-medium text-blue-700">Nombre *</label
-                ><input
-                  formControlName="nombre"
-                  class="w-full mt-1 p-2 border rounded-md"
-                />
-              </div>
-              <div>
-                <label class="text-sm font-medium text-blue-700"
-                  >Apellido *</label
-                ><input
-                  formControlName="apellido"
-                  class="w-full mt-1 p-2 border rounded-md"
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div *ngIf="false">
-                <label class="text-sm font-medium text-blue-700"
-                  >Tipo Doc. *</label
-                ><select
-                  formControlName="tipoDocumento"
-                  class="w-full mt-1 p-2 border rounded-md bg-white"
-                >
-                  <option>DNI</option>
-                  <option>CUIT</option>
-                </select>
-              </div>
-              <div class="col-span-2">
-                <label class="text-sm font-medium text-blue-700"
-                  >Nº Doc. *</label
-                ><input
-                  formControlName="numeroDocumento"
-                  class="w-full mt-1 p-2 border rounded-md"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label class="text-sm font-medium text-blue-700"
-                >CUIT</label
-              >
-              <input
-                formControlName="cuit"
-                placeholder="Opcional"
-                class="w-full mt-1 p-2 border rounded-md"
-              />
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-               <div>
-                    <label class="text-sm font-medium text-blue-700"
-                      >Condición IVA *</label
-                    ><select
-                      formControlName="condicionIVA"
-                      class="w-full mt-1 p-2 border rounded-md bg-white"
-                    >
-                      <option [ngValue]="null">Seleccionar</option>
-                      <option>Monotributista</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="text-sm font-medium text-blue-700">Método de Pago *</label>
-                    <select
-                      formControlName="metodoPago"
-                      class="w-full mt-1 p-2 border rounded-md bg-white"
-                    >
-                      <option [ngValue]="null" disabled>Seleccionar método</option>
-                      <option *ngFor="let method of paymentMethods" [ngValue]="method">
-                        {{ method.name }}
-                      </option>
-                    </select>
-                  </div>
-            </div>
-            <div>
-               <label class="text-sm font-medium text-blue-700"
-                  >Tipo Facturación *</label
-                ><select
-                  formControlName="documento"
-                  class="w-full mt-1 p-2 border rounded-md bg-white"
-                >
-                  <option [ngValue]="null">Seleccionar</option>
-                  <option value="SF">Sin Factura</option>
-                </select>
-            </div>
-          </div>
+        <!-- ============================ -->
+      <!-- TARJETA INFORMACIÓN PERSONAL (MODIFICADA) -->
+      <!-- ============================ -->
+      <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
+        <div
+          class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-t-lg"
+        >
+          <h3 class="flex items-center gap-2 font-semibold text-base">
+            <app-icon name="users" class="h-5 w-5"></app-icon>Información
+            Personal y Fiscal
+          </h3>
         </div>
+        <div class="p-4 space-y-4">
+          
+          <!-- Número de Identificación (Sin cambios) -->
+          <div>
+            <label class="text-sm font-medium text-blue-700"
+              >Número de Identificación</label
+            >
+            <input
+              formControlName="numeroIdentificacion"
+              placeholder="Ej: 0.14 (Se auto-genera si se deja vacío)"
+              class="w-full mt-1 p-2 border rounded-md"
+            />
+          </div>
+
+          <!-- Nombre y Apellido (Sin cambios) -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-medium text-blue-700">Nombre *</label
+              ><input
+                formControlName="nombre"
+                class="w-full mt-1 p-2 border rounded-md"
+              />
+            </div>
+            <div>
+              <label class="text-sm font-medium text-blue-700"
+                >Apellido *</label
+              ><input
+                formControlName="apellido"
+                class="w-full mt-1 p-2 border rounded-md"
+              />
+            </div>
+          </div>
+
+          <!-- DNI (Nº Doc) -->
+          <div class="grid grid-cols-2 gap-4">
+            <!-- CAMPO OCULTO: Tipo Doc -->
+            <div *ngIf="false">
+              <label class="text-sm font-medium text-blue-700"
+                >Tipo Doc. *</label
+              ><select
+                formControlName="tipoDocumento"
+                class="w-full mt-1 p-2 border rounded-md bg-white"
+              >
+                <option>DNI</option>
+                <option>CUIT</option>
+              </select>
+            </div>
+            <!-- Campo DNI ocupa todo -->
+            <div class="col-span-2">
+              <label class="text-sm font-medium text-blue-700"
+                >Nº Doc. (DNI) *</label
+              ><input
+                formControlName="numeroDocumento"
+                class="w-full mt-1 p-2 border rounded-md"
+              />
+            </div>
+          </div>
+
+          <!-- CUIT (Sin cambios) -->
+          <div>
+            <label class="text-sm font-medium text-blue-700"
+              >CUIT</label
+            >
+            <input
+              formControlName="cuit"
+              placeholder="Opcional"
+              class="w-full mt-1 p-2 border rounded-md"
+            />
+          </div>
+
+          <!-- Condición IVA y Tipo Factura -->
+          <div class="grid grid-cols-2 gap-4">
+              <!-- === CAMBIO AQUÍ: Opciones de Condición IVA añadidas === -->
+              <div>
+                <label class="text-sm font-medium text-blue-700"
+                  >Condición IVA *</label
+                ><select
+                  formControlName="condicionIVA"
+                  class="w-full mt-1 p-2 border rounded-md bg-white"
+                >
+                  <option [ngValue]="null" disabled>Seleccionar...</option>
+                  <option value="Consumidor Final">Consumidor Final</option>
+                  <option value="Monotributista">Monotributista</option>
+                  <option value="Responsable Inscripto">Responsable Inscripto</option>
+                  <option value="Exento">Exento</option>
+                </select>
+              </div>
+
+              <!-- === CAMBIO AQUÍ: 'documento' reemplazado por 'billingType' === -->
+              <div>
+                <label class="text-sm font-medium text-blue-700"
+                  >Tipo Factura</label
+                >
+                <input
+                  type="text"
+                  formControlName="billingType"
+                  placeholder="Ej: Factura A, B, C..."
+                  class="w-full mt-1 p-2 border rounded-md"
+                />
+              </div>
+          </div>
+          
+          <!-- Método de Pago (Sin cambios) -->
+          <div>
+            <label class="text-sm font-medium text-blue-700">Método de Pago *</label>
+            <select
+              formControlName="metodoPago"
+              class="w-full mt-1 p-2 border rounded-md bg-white"
+            >
+              <option [ngValue]="null" disabled>Seleccionar método</option>
+              <option *ngFor="let method of paymentMethods" [ngValue]="method">
+                {{ method.name }}
+              </option>
+            </select>
+          </div>
+          
+          <!-- CAMPO OCULTO: 'documento' ya no se usa, lo dejamos por si acaso -->
+          <div *ngIf="false">
+             <select formControlName="documento">
+               <option value="SF">Sin Factura</option>
+             </select>
+          </div>
+
+        </div>
+      </div>
 
         <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
           <div

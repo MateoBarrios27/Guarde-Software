@@ -44,6 +44,7 @@ CREATE TABLE clients (
     cuit VARCHAR(20),
     preferred_payment_method_id INT,
     iva_condition VARCHAR(50),
+    billing_type VARCHAR(100) NULL,
     active BIT DEFAULT 1
 );
 
