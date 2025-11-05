@@ -64,6 +64,27 @@ namespace GuardeSoftwareAPI.Services.rental
 			};
 		}
 
+		public async Task<Rental> GetRentalByClientId(int ClientId)
+		{
+			if (ClientId <= 0) throw new ArgumentException("Invalid client ID.");
+
+			DataTable rentalTable = await _daoRental.GetRentalsByClientId(ClientId);
+
+			if (rentalTable.Rows.Count == 0) throw new ArgumentException("No rental found with the given ID.");
+
+			DataRow row = rentalTable.Rows[0];
+
+			return new Rental
+			{
+				Id = (int)row["rental_id"],
+				ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
+				ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
+				StartDate = row["start_date"] != DBNull.Value ? (DateTime)row["start_date"] : DateTime.MinValue,
+				EndDate = row["end_date"] != DBNull.Value ? (DateTime)row["end_date"] : null,
+				MonthsUnpaid = row["months_unpaid"] != DBNull.Value ? (int)row["months_unpaid"] : 0
+			};
+		}
+
 		public async Task<bool> DeleteRental(int rentalId)
 		{
 			if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.");

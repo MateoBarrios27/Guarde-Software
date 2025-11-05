@@ -56,6 +56,27 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpGet("ByClientId/{Clientid}")]
+        public async Task<IActionResult> GetRentalByClientId(int Clientid)
+        {
+            try
+            {
+                Rental rental = await _rentalService.GetRentalByClientId(Clientid);
+                if (rental == null)
+                    return NotFound("No rental found with the given ID.");
+
+                return Ok(rental);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
          [HttpGet("Pending")]
         public async Task<ActionResult<List<PendingRentalDTO>>> GetPendingPayments()
         {

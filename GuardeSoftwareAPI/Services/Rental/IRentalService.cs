@@ -10,6 +10,7 @@ namespace GuardeSoftwareAPI.Services.rental
 		Task<List<Rental>> GetRentalsList();
 		Task<List<PendingRentalDTO>> GetPendingPaymentsAsync();
 		Task<Rental> GetRentalById(int id);
+		Task<Rental> GetRentalByClientId(int iClientId);
 		Task<bool> DeleteRental(int rentalId);
         Task<int> CreateRentalAsync(Rental rental);
         Task<int> CreateRentalTransactionAsync(Rental rental, SqlConnection connection, SqlTransaction transaction);
