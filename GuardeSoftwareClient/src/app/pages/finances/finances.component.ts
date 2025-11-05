@@ -130,15 +130,11 @@ export class FinancesComponent{
   this.filteredPayments = this.payments.filter(p => {
     const clientName = p.clientName?.toLowerCase() || '';
     const paymentIdentifier = p.paymentIdentifier?.toLowerCase() || '';
-    const warehouseName = p.warehouse_name?.toLowerCase() || '';
-    const lockerIdentifier = p.lockerIdentifier?.toLowerCase() || '';
     const paymentMethodName = p.paymentMethodName?.toLowerCase() || '';
 
     const matchesSearch =
       clientName.includes(term) ||
-      paymentIdentifier.includes(term) ||
-      warehouseName.includes(term) ||   // 🆕 filtra por depósito
-      lockerIdentifier.includes(term);  // 🆕 filtra por locker
+      paymentIdentifier.includes(term)
 
     const matchesMethod =
       !method || paymentMethodName === method;
