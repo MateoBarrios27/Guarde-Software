@@ -10,6 +10,8 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { NgxPaginationModule } from 'ngx-pagination';
+import { ClientService } from '../../core/services/client-service/client.service';
+import { Client } from '../../core/models/client';
 
 @Component({
   selector: 'app-finances',
@@ -23,8 +25,13 @@ export class FinancesComponent{
   (
     private paymentService: PaymentService,
     private rentalService: RentalService,
-    private paymentMethodService: PaymentMethodService
+    private paymentMethodService: PaymentMethodService,
+    private clientService: ClientService
   ){}
+
+  clients: Client[] = [];
+  showClientModal = false;
+  selectedClientId: number | null = null;
 
   pendingRentals: PendingRentalDTO[] = [];
   payments: DetailedPaymentDTO[] = [];
@@ -37,11 +44,12 @@ export class FinancesComponent{
   itemsPerPage: number = 10;
 
   ngOnInit(): void {
-    this.LoadPayments();
+    this.loadPayments();
     this.loadPaymentMethods();
+    this.loadClients();
   }
 
-  LoadPayments(): void{
+  loadPayments(): void{
     this.paymentService.getDetailedPayment().subscribe({
       next: (data) => {
         const sorted = data.sort((a, b) => {
@@ -52,7 +60,6 @@ export class FinancesComponent{
 
       this.payments = sorted;
       this.filteredPayments = sorted;
-        console.log(data);
       },
        error: (err) => console.error('Error al cargar payments:', err)
     });
@@ -65,6 +72,17 @@ export class FinancesComponent{
       },
       error: (err) => console.error('error al cargar los metodos de pago',err)
     });
+  }
+
+  loadClients(): void {
+    this.clientService.getClients().subscribe({
+      next: (data) => {
+        this.clients = data;
+        console.log(data);
+      },
+      error: (err) => console.log('error cargando clientes: ',err)
+    });
+    
   }
 
   getNamePaymentMethodById(id: number): string {
@@ -151,5 +169,11 @@ export class FinancesComponent{
   );
 }
 
+closeClientModal() {
+  this.showClientModal = false;
+}
 
+OpenPaymentModal(){
+  this.showClientModal = true;
+}
 }

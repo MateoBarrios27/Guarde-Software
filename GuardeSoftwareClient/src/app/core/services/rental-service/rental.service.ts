@@ -17,8 +17,12 @@ export class RentalService {
         return this.httpCliente.get<rental[]>(`${this.url}/Rental`);
   }
 
-   public getRentalById(id: number): Observable<rental>{
+  public getRentalById(id: number): Observable<rental>{
         return this.httpCliente.get<rental>(`${this.url}/Rental/${id}`);
+  }
+
+  public getRentalByClientId(ClientId: number): Observable<rental>{
+        return this.httpCliente.get<rental>(`${this.url}/Rental/ByClientId${ClientId}`);
   }
 
   public getPendingRentals(): Observable<PendingRentalDTO[]>{
