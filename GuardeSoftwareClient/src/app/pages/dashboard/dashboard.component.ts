@@ -52,13 +52,13 @@ export class DashboardComponent {
   //dto save payment
   paymentDto: CreatePaymentDTO = {
     clientId: 0,
-    rentalId: 0,
     movementType: 'CREDITO',
     concept: 'Pago de alquiler',
     amount: 0,
-    paymentMethodId: 0
+    paymentMethodId: 0,
+    date: new Date()
   };
- 
+  
   constructor(
     private rentalService: RentalService,
     private paymentService: PaymentService,
@@ -123,11 +123,11 @@ export class DashboardComponent {
 
     this.paymentDto = {
       clientId: item.clientId ?? 0,
-      rentalId: item.id ?? 0,
       movementType: 'CREDITO',
       concept: `Pago alquiler ${currentMonth}`,
       amount: 0,
       paymentMethodId: 1,
+      date: new Date()
     };
     this.selectedClientName = item.clientName ?? '';
     this.selectedPaymentIdentifier = item.paymentIdentifier ?? '';
