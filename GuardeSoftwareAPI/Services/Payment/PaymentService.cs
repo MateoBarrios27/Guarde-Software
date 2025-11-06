@@ -5,6 +5,7 @@ using System.Data;
 using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.Payment;
 using GuardeSoftwareAPI.Services.accountMovement;
+using GuardeSoftwareAPI.Services.rental;
 
 namespace GuardeSoftwareAPI.Services.payment
 {
@@ -13,17 +14,19 @@ namespace GuardeSoftwareAPI.Services.payment
 	{
 		private readonly DaoPayment _daoPayment;
 		private readonly IAccountMovementService accountMovementService;
+		private readonly IRentalService rentalService;
 		private readonly ILogger<PaymentService> logger;
 		private readonly DaoRental daoRental;
 		private readonly AccessDB accessDB;
 
-		public PaymentService(AccessDB _accessDB, IAccountMovementService _accountMovementService, ILogger<PaymentService> logger)
+		public PaymentService(AccessDB _accessDB, IAccountMovementService _accountMovementService, ILogger<PaymentService> logger, IRentalService _rentalService )
 		{
 			this._daoPayment = new DaoPayment(_accessDB);
 			this.accountMovementService = _accountMovementService;
 			this.accessDB = _accessDB;
 			this.daoRental = new DaoRental(_accessDB);
 			this.logger = logger;
+			this.rentalService = _rentalService;
 		}
 
 		public async Task<List<Payment>> GetPaymentsList()
@@ -114,7 +117,7 @@ namespace GuardeSoftwareAPI.Services.payment
 			if (dto.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
 			if (dto.PaymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
 			if (dto.Amount <= 0) throw new ArgumentException("Amount must be greater than 0.");
-			if (dto.RentalId <= 0) throw new ArgumentException("Invalid rental ID.");
+			if (dto.Date == DateTime.MinValue) throw new ArgumentException("Invalid date.");
 
 			using var connection = accessDB.GetConnectionClose();
 			await connection.OpenAsync();
@@ -127,16 +130,22 @@ namespace GuardeSoftwareAPI.Services.payment
 					ClientId = dto.ClientId,
 					PaymentMethodId = dto.PaymentMethodId,
 					Amount = dto.Amount,
-					PaymentDate = DateTime.UtcNow // Considera usar DateTime.Now si tu server está en Arg.
+					// PaymentDate = DateTime.UtcNow // Considera usar DateTime.Now si tu server está en Arg.
+					PaymentDate = dto.Date //Cambiamos debido a que se solicito ingresar manualmente fecha de pagos.
 				};
 
 				int paymentId = await _daoPayment.CreatePaymentTransactionAsync(payment, connection, transaction);
 
+				//Nueva logica para obtener el rental ID directamente desde el backend 
+				var rental = await rentalService.GetRentalByClientIdTransactionAsync(dto.ClientId, connection, transaction);
+
+				if (rental == null) throw new Exception("El cliente no tiene alquiler activo");
+
 				var movement = new AccountMovement
 				{
-					RentalId = dto.RentalId,
+					RentalId = rental.Id,
 					PaymentId = paymentId,
-					MovementDate = DateTime.UtcNow, // Igual que arriba
+					MovementDate = dto.Date, // Igual que arriba
 					MovementType = string.IsNullOrWhiteSpace(dto.MovementType) ? "CREDITO" : dto.MovementType,
 					Concept = string.IsNullOrWhiteSpace(dto.Concept) ? "Pago de alquiler" : dto.Concept,
 					Amount = dto.Amount
@@ -150,22 +159,22 @@ namespace GuardeSoftwareAPI.Services.payment
 				if (movement.MovementType == "CREDITO")
 				{
 					// 1. Obtenemos el balance actualizado DENTRO de la transacción
-					decimal newBalance = await daoRental.GetBalanceByRentalIdTransactionAsync(dto.RentalId, connection, transaction);
+					decimal newBalance = await daoRental.GetBalanceByRentalIdTransactionAsync(rental.Id, connection, transaction);
 					
-					logger.LogInformation("Pago de ${Amount} registrado para Rental ID {RentalId}. Nuevo balance: ${NewBalance}", dto.Amount, dto.RentalId, newBalance);
+					logger.LogInformation("Pago de ${Amount} registrado para Rental ID {RentalId}. Nuevo balance: ${NewBalance}", dto.Amount, rental.Id, newBalance);
 
 					// 2. Validamos el balance
 					// (Tu lógica de balance es DEBITO - CREDITO, así que > 0 significa que debe)
 					if (newBalance <= 0)
 					{
 						// 3. ¡El cliente saldó su deuda! Reseteamos el contador de mora.
-						await daoRental.ResetUnpaidMonthsTransactionAsync(dto.RentalId, connection, transaction);
-						logger.LogInformation("Balance saldado para Rental ID {RentalId}. Contador de meses impagos reseteado a 0.", dto.RentalId);
+						await daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
+						logger.LogInformation("Balance saldado para Rental ID {RentalId}. Contador de meses impagos reseteado a 0.", rental.Id);
 					}
 					else
 					{
 						// El cliente pagó, pero sigue debiendo (pago parcial)
-						logger.LogInformation("Pago parcial registrado para Rental ID {RentalId}. El cliente aún debe ${NewBalance}. No se resetea el contador de mora.", dto.RentalId, newBalance);
+						logger.LogInformation("Pago parcial registrado para Rental ID {RentalId}. El cliente aún debe ${NewBalance}. No se resetea el contador de mora.", rental.Id, newBalance);
 					}
 				}
 				
