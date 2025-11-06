@@ -12,6 +12,8 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 import { NgxPaginationModule } from 'ngx-pagination';
 import { ClientService } from '../../core/services/client-service/client.service';
 import { Client } from '../../core/models/client';
+import { CreatePaymentDTO } from '../../core/dtos/payment/CreatePaymentDTO';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-finances',
@@ -31,7 +33,9 @@ export class FinancesComponent{
 
   clients: Client[] = [];
   showClientModal = false;
-  selectedClientId: number | null = null;
+  selectedClientId: number | 0 = 0;
+  selectedClientName: string = '';
+  selectedClientIdentifier: number | 0 = 0;
 
   pendingRentals: PendingRentalDTO[] = [];
   payments: DetailedPaymentDTO[] = [];
@@ -42,6 +46,15 @@ export class FinancesComponent{
 
   page: number = 1;
   itemsPerPage: number = 10;
+
+  paymentDto: CreatePaymentDTO = {
+      clientId: 0,
+      movementType: 'CREDITO',
+      concept: 'Pago de alquiler',
+      amount: 0,
+      paymentMethodId: 1,
+      date: new Date()
+    };
 
   ngOnInit(): void {
     this.loadPayments();
@@ -88,6 +101,11 @@ export class FinancesComponent{
   getNamePaymentMethodById(id: number): string {
   const method = this.paymentMethods.find(m => m.id === id);
   return method ? method.name : 'Desconocido';
+  }
+
+  getClientNameById(id: number): string {
+  const client = this.clients.find(m => m.id === id);
+  return client ? client.firstName + ' ' + client.lastName: ' ';
   }
 
   // filterPayments(): void {
@@ -171,9 +189,99 @@ export class FinancesComponent{
 
 closeClientModal() {
   this.showClientModal = false;
+
+  this.selectedClientId = 0;
+  this.selectedClientIdentifier = 0;
+  this.selectedClientName = '';
+
+  this.paymentDto = {
+      clientId: 0,
+      movementType: 'CREDITO',
+      concept: `Pago alquiler`,
+      amount: 0,
+      paymentMethodId: 1,
+      date: new Date()
+    };
 }
 
 OpenPaymentModal(){
   this.showClientModal = true;
 }
+
+savePaymentModal(dto : CreatePaymentDTO){
+  if (!dto.amount || dto.amount <= 0) {
+        Swal.fire({
+        icon: 'warning',
+        title: 'Monto inválido',
+        text: 'Debes ingresar un monto válido antes de guardar el pago.',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#2563eb', 
+      });
+        return;
+      }
+  
+      if (!dto.paymentMethodId) {
+         Swal.fire({
+        icon: 'warning',
+        title: 'Método de pago requerido',
+        text: 'Debes seleccionar un método de pago antes de continuar.',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#2563eb'
+      });
+        return;
+      }
+      
+      Swal.fire({
+      title: '¿Deseas registrar este pago?',
+      html: `<p class="text-gray-700">Medio de pago: <b>${this.getNamePaymentMethodById(dto.paymentMethodId)}</b></p>
+             <p class="text-gray-700">Importe: <b>$${dto.amount}</b></p>`,
+      icon: 'question',
+      showCancelButton: true, 
+      confirmButtonText: 'Confirmar',
+      cancelButtonText: 'Cancelar',
+      buttonsStyling: false,
+      customClass: {
+        confirmButton:
+          'bg-blue-600 text-white px-4 py-2 p-2 rounded-md hover:bg-blue-700 transition-all duration-150',
+        cancelButton:
+          'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
+         actions:
+          'flex justify-center gap-4 mt-4',
+        popup: 'rounded-xl shadow-lg'
+      }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          this.paymentService.CreatePayment(dto).subscribe({
+            next: () => {
+              Swal.fire({
+              title: 'Pago registrado',
+              text: 'El pago fue registrado correctamente.',
+              icon: 'success',
+              confirmButtonText: 'Aceptar',
+              confirmButtonColor: '#2563eb'
+            });
+              this.closeClientModal();
+              setTimeout(() => this.loadPayments(), 100); 
+            },
+            error: (err) => {
+            console.error('Error al guardar payment:', err);
+            Swal.fire({
+              title: 'Error',
+              text: 'Hubo un problema al registrar el pago.',
+              icon: 'error',
+              confirmButtonText: 'Aceptar',
+              confirmButtonColor: '#2563eb'
+            });
+            }
+          });  
+        }
+      });
+}
+
+selectClient(client: any) {
+  this.selectedClientId = client.id;
+  this.selectedClientIdentifier = client.paymentIdentifier;
+  this.paymentDto.clientId = client.id;
+}
+
 }
