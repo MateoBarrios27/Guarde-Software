@@ -12,10 +12,16 @@ import { UserType } from '../../core/models/user-type';
 import { UpdatePaymentMethodDTO } from '../../core/dtos/paymentMethod/UpdatePaymentMethodDTO';
 import { CreatePaymentMethodDTO } from '../../core/dtos/paymentMethod/CreatePaymentMethodDTO';
 import { UpdateUserDTO } from '../../core/dtos/user/UpdateUserDTO';
+import { BillingTypeService } from '../../core/services/billingType-service/billing-type.service';
+import { BillingType } from '../../core/models/billing-type.model';
+import { CreateBillingTypeDTO } from '../../core/dtos/billingType/create-billing-type.dto';
+import Swal from 'sweetalert2';
+import { UpdateBillingTypeDTO } from '../../core/dtos/billingType/update-billing-type.dto';
 
 
 @Component({
   selector: 'app-settings',
+  standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css'
@@ -26,12 +32,14 @@ export class SettingsComponent implements OnInit {
     private userService: UserService,
     private paymentMethodService: PaymentMethodService,
     private userTypeService: UserTypeService,
+    private billingTypeService: BillingTypeService
   ) {}
 
   activeSection: string = 'usuarios';
   users : User[] = [];
   userTypes: UserType[] = [];
   paymentMethods : PaymentMethod [] = [];
+  billingTypes: BillingType[] = [];
 
   userCreated: CreateUserDTO = {
     userName: '',
@@ -79,10 +87,119 @@ export class SettingsComponent implements OnInit {
 
   showCreatePaymentMethod = false;
 
+  showCreateBillingTypeModal = false;
+  showEditBillingTypeModal = false;
+  newBillingType: CreateBillingTypeDTO = { name: '' };
+  editingBillingType: BillingType = { id: 0, name: '' };
+  originalBillingTypeName: string = ''; // Para detectar cambios
+
   ngOnInit(): void {
     this.loadUsers();
     this.loadPaymentMethods();
     this.loadUserTypes();
+    this.loadBillingTypes();
+  }
+
+  loadBillingTypes(): void {
+    this.billingTypeService.getBillingTypes().subscribe({
+      next: (data) => {
+        this.billingTypes = data;
+      },
+      error: (err) => {
+        console.error('Error al cargar tipos de factura', err);
+        Swal.fire('Error', 'No se pudieron cargar los tipos de factura', 'error');
+      },
+    });
+  }
+
+  openCreateBillingTypeModal(): void {
+    this.newBillingType = { name: '' }; 
+    this.showCreateBillingTypeModal = true;
+  }
+  
+  closeCreateBillingTypeModal(): void {
+    this.showCreateBillingTypeModal = false;
+  }
+
+  saveNewBillingType(): void {
+    if (!this.newBillingType.name || this.newBillingType.name.trim() === '') {
+      Swal.fire('Error', 'El nombre no puede estar vacío', 'warning');
+      return;
+    }
+    this.billingTypeService.createBillingType(this.newBillingType).subscribe({
+      next: (created) => {
+        Swal.fire('Creado', `Tipo de factura "${created.name}" creado con éxito.`, 'success');
+        this.loadBillingTypes(); 
+        this.closeCreateBillingTypeModal();
+      },
+      error: (err) => {
+        console.error('Error al crear tipo de factura', err);
+        Swal.fire('Error', 'No se pudo crear el tipo de factura', 'error');
+      }
+    });
+  }
+
+  openEditBillingTypeModal(billingType: BillingType): void {
+    this.editingBillingType = { ...billingType }; 
+    this.originalBillingTypeName = billingType.name; 
+    this.showEditBillingTypeModal = true;
+  }
+
+  closeEditBillingTypeModal(): void {
+    this.showEditBillingTypeModal = false;
+  }
+
+  saveUpdatedBillingType(): void {
+    if (!this.editingBillingType.name || this.editingBillingType.name.trim() === '') {
+      Swal.fire('Error', 'El nombre no puede estar vacío', 'warning');
+      return;
+    }
+    if (this.editingBillingType.name.trim() === this.originalBillingTypeName) {
+      Swal.fire('Sin cambios', 'No se detectaron cambios en el nombre.', 'info');
+      this.closeEditBillingTypeModal();
+      return;
+    }
+
+    const dto: UpdateBillingTypeDTO = { name: this.editingBillingType.name.trim() };
+    this.billingTypeService.updateBillingType(this.editingBillingType.id, dto).subscribe({
+      next: () => {
+        Swal.fire('Actualizado', 'Tipo de factura actualizado con éxito.', 'success');
+        this.loadBillingTypes();
+        this.closeEditBillingTypeModal();
+      },
+      error: (err) => {
+        console.error('Error al actualizar tipo de factura', err);
+        Swal.fire('Error', 'No se pudo actualizar el tipo de factura', 'error');
+      }
+    });
+  }
+
+  deleteBillingType(billingType: BillingType): void {
+    Swal.fire({
+      title: '¿Estás seguro?',
+      text: `¿Deseas eliminar el tipo de factura "${billingType.name}"? Esta acción no se puede revertir.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.billingTypeService.deleteBillingType(billingType.id).subscribe({
+          next: () => {
+            Swal.fire('Eliminado', 'El tipo de factura ha sido eliminado.', 'success');
+            this.loadBillingTypes();
+          },
+          error: (err) => {
+            console.error('Error al eliminar tipo de factura', err);
+            // Mostrar error de "en uso" si el backend lo devuelve
+            const errorMsg = err.error?.message || 'No se pudo eliminar. Es posible que esté en uso por algún cliente.';
+            Swal.fire('Error', errorMsg, 'error');
+          }
+        });
+      }
+    });
   }
 
   loadUserTypes(): void{
@@ -118,6 +235,7 @@ export class SettingsComponent implements OnInit {
   configSections = [
     { id: 'usuarios', title: 'Usuarios', icon: '👤' },
     { id: 'medios-pago', title: 'Medios de Pago', icon: '💳' },
+    { id: 'facturacion', title: 'Facturación', icon: '📄' },
     { id: 'datos', title: 'Datos', icon: '🗄️' }
   ];
 
