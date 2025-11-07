@@ -284,4 +284,14 @@ selectClient(client: any) {
   this.paymentDto.clientId = client.id;
 }
 
+manualDateEnabled = false;
+
+toggleManualDate() {
+  this.manualDateEnabled = !this.manualDateEnabled;
+
+  if (!this.manualDateEnabled) {
+    this.paymentDto.date = new Date();
+  }
+}
+
 }

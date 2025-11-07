@@ -250,4 +250,13 @@ filterPayments(): void {
   });
 }
   
+manualDateEnabled = false;
+
+toggleManualDate() {
+  this.manualDateEnabled = !this.manualDateEnabled;
+
+  if (!this.manualDateEnabled) {
+    this.paymentDto.date = new Date();
+  }
+}
 }
