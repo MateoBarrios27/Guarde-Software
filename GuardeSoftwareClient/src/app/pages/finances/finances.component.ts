@@ -47,6 +47,11 @@ export class FinancesComponent{
   page: number = 1;
   itemsPerPage: number = 10;
 
+   //for logic of payment date edit
+  manualDateEnabled = false;
+  dateString: string = '';
+  
+
   paymentDto: CreatePaymentDTO = {
       clientId: 0,
       movementType: 'CREDITO',
@@ -98,9 +103,14 @@ export class FinancesComponent{
     
   }
 
-  getNamePaymentMethodById(id: number): string {
-  const method = this.paymentMethods.find(m => m.id === id);
-  return method ? method.name : 'Desconocido';
+  getNamePaymentMethodById(id: number | string | null | undefined): string {
+    if (id === null || id === undefined) return 'Desconocido';
+
+    const numericId = Number(id);
+    if (Number.isNaN(numericId)) return 'Desconocido';
+
+    const method = this.paymentMethods.find(m => m.id === numericId);
+    return method ? method.name : 'Desconocido';
   }
 
   getClientNameById(id: number): string {
@@ -197,7 +207,7 @@ closeClientModal() {
   this.paymentDto = {
       clientId: 0,
       movementType: 'CREDITO',
-      concept: `Pago alquiler`,
+      concept: ` `,
       amount: 0,
       paymentMethodId: 1,
       date: new Date()
@@ -206,6 +216,20 @@ closeClientModal() {
 
 OpenPaymentModal(){
   this.showClientModal = true;
+
+   const now = new Date();
+
+    this.paymentDto = {
+      clientId: 0,
+      movementType: 'CREDITO',
+      concept: ` `,
+      amount: 0,
+      paymentMethodId: 1,
+      date: new Date()
+    };
+
+    this.updateConceptFromDate(now);
+
 }
 
 savePaymentModal(dto : CreatePaymentDTO){
@@ -284,14 +308,39 @@ selectClient(client: any) {
   this.paymentDto.clientId = client.id;
 }
 
-manualDateEnabled = false;
 
-toggleManualDate() {
-  this.manualDateEnabled = !this.manualDateEnabled;
 
-  if (!this.manualDateEnabled) {
-    this.paymentDto.date = new Date();
+  toggleManualDate() {
+    this.manualDateEnabled = !this.manualDateEnabled;
+
+    if (!this.manualDateEnabled) {
+      const now = new Date();
+      this.paymentDto.date = now;
+      this.dateString = now.toISOString().split('T')[0];
+      this.updateConceptFromDate(now);
+    }
+  }  
+
+  private updateConceptFromDate(date: Date) {
+    const monthNames = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ];
+
+    const monthName = monthNames[date.getMonth()];
+
+    this.paymentDto.concept = `Pago alquiler ${monthName}`;
   }
-}
+
+  onManualDateChange(value: string) {
+    if (!value) return;
+    const [year, month, day] = value.split('-').map(Number);
+    const currentTime = new Date();
+    const dateWithTime = new Date(year, month - 1, day, currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds());
+
+    this.paymentDto.date = dateWithTime;
+    this.dateString = value;
+    this.updateConceptFromDate(dateWithTime);
+  }
 
 }

@@ -117,6 +117,7 @@
                 <th class="px-5 py-3 text-left font-medium">Fecha</th>
                 <th class="px-5 py-3 text-left font-medium">Método de pago</th>
                 <th class="px-5 py-3 text-left font-medium">Monto</th>
+                <th class="px-5 py-3 text-left font-medium">Acción</th>
               </tr>
             </thead>
 
@@ -127,6 +128,14 @@
                 <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentDate | date:'dd/MM/yyyy' }}</td>
                 <td class="px-5 py-3 text-gray-700">{{getNamePaymentMethodById(item.paymentMethodId)}}</td>
                 <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.amount | number:'1.2-2' }}</td>
+                <td class="px-5 py-3 text-center">
+                  <button
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
+                    >
+                    <app-icon name="file-text" class="h-4 w-4"></app-icon>
+                    Generar recibo
+                  </button>
+                </td>
               </tr>
 
               <tr *ngIf="payments.length === 0">
@@ -244,16 +253,6 @@
           </span>
         </div>
 
-        <!-- <div class="md:col-span-2">
-              <label class="block text-sm text-gray-600 mb-1 font-medium">
-                Fecha de pago
-              </label>
-              <input
-                type="date"
-                [(ngModel)]="paymentDto.date"
-                class="w-full p-2 border rounded-md"
-              />
-        </div> -->
          <div class="md:col-span-2">
             <div class="flex items-center justify-between mb-2">
               <span class="block text-sm text-gray-600 font-medium">Fecha de pago</span>
@@ -272,9 +271,10 @@
             <div *ngIf="manualDateEnabled">
               <input
                 type="date"
-                [(ngModel)]="paymentDto.date"
-                class="w-full p-2 border rounded-md"
-              />
+                [disabled]="!manualDateEnabled"
+                [(ngModel)]="dateString"
+                (ngModelChange)="onManualDateChange($event)"
+              >
             </div>
           </div>
          <div class="md:col-span-2">

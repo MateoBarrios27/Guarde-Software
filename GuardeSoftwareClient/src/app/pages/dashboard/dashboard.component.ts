@@ -58,6 +58,10 @@ export class DashboardComponent {
     paymentMethodId: 0,
     date: new Date()
   };
+
+  //for logic of payment date edit
+  manualDateEnabled = false;
+  dateString: string = '';
   
   constructor(
     private rentalService: RentalService,
@@ -102,33 +106,39 @@ export class DashboardComponent {
     this.paymentMethodService.getPaymentMethods().subscribe({
       next: (data) =>{
         this.paymentMethods = data;
+        console.log("payment methods: ", data);
       },
       error: (err) => console.error('error al cargar los metodos de pago',err)
     });
   }
 
-  getNamePaymentMethodById(id: number): string {
-  const method = this.paymentMethods.find(m => m.id === id);
-  return method ? method.name : 'Desconocido';
+  getNamePaymentMethodById(id: number | string | null | undefined): string {
+    if (id === null || id === undefined) return 'Desconocido';
+
+    const numericId = Number(id);
+    if (Number.isNaN(numericId)) return 'Desconocido';
+
+    const method = this.paymentMethods.find(m => m.id === numericId);
+    return method ? method.name : 'Desconocido';
   }
 
   openPaymentModalWith(item: PendingRentalDTO) {
 
-    const currentDate = new Date();
-    const monthNames = [
-      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
-    ];
-    const currentMonth = monthNames[currentDate.getMonth()];
+    const now = new Date();
 
     this.paymentDto = {
       clientId: item.clientId ?? 0,
       movementType: 'CREDITO',
-      concept: `Pago alquiler ${currentMonth}`,
+      concept: ` `,
       amount: 0,
       paymentMethodId: 1,
       date: new Date()
     };
+
+    this.updateConceptFromDate(now);
+
+    this.dateString = now.toISOString().split('T')[0];
+
     this.selectedClientName = item.clientName ?? '';
     this.selectedPaymentIdentifier = item.paymentIdentifier ?? '';
     this.selectedBalance = item.balance ?? '';
@@ -136,7 +146,7 @@ export class DashboardComponent {
     this.showPaymentModal = true;
   }
 
-  closePaymentModal() { this.showPaymentModal = false; }
+  closePaymentModal() { this.showPaymentModal = false; this.manualDateEnabled = false;}
 
   savePayment(dto: CreatePaymentDTO): void {
 
@@ -211,52 +221,79 @@ export class DashboardComponent {
     
   }
 
- filterPendingRentals(): void {
-  const term = this.searchPending.toLowerCase().trim();
+  filterPendingRentals(): void {
+    const term = this.searchPending.toLowerCase().trim();
 
-  this.filteredPendingRentals = this.pendingRentals.filter(item => {
-    const clientName = (item.clientName ?? '').toString().toLowerCase();
-    const paymentIdentifier = (item.paymentIdentifier ?? '').toString().toLowerCase();
-    const lockerIdentifiers = (item.lockerIdentifiers ?? '').toString().toLowerCase();
+    this.filteredPendingRentals = this.pendingRentals.filter(item => {
+      const clientName = (item.clientName ?? '').toString().toLowerCase();
+      const paymentIdentifier = (item.paymentIdentifier ?? '').toString().toLowerCase();
+      const lockerIdentifiers = (item.lockerIdentifiers ?? '').toString().toLowerCase();
 
-    return (
-      clientName.includes(term) ||
-      paymentIdentifier.includes(term) ||
-      lockerIdentifiers.includes(term)
-    );
-  });
-}
-
-
-filterPayments(): void {
-  const term = this.searchPayment.toLowerCase().trim();
-
-  this.filteredPayments = this.payments.filter(item => {
-    const clientName = (item.clientName ?? '').toString().toLowerCase();
-    const paymentIdentifier = (item.paymentIdentifier ?? '').toString().toLowerCase();
-    const paymentMethodId = (item.paymentMethodId ?? '').toString().toLowerCase();
-
-    return (
-      clientName.includes(term) ||
-      paymentIdentifier.includes(term) ||
-      paymentMethodId.includes(term)
-    );
-  });
-
-  this.filteredPayments.sort((a, b) => {
-    const dateA = new Date(a.paymentDate).getTime();
-    const dateB = new Date(b.paymentDate).getTime();
-    return dateB - dateA;
-  });
-}
-  
-manualDateEnabled = false;
-
-toggleManualDate() {
-  this.manualDateEnabled = !this.manualDateEnabled;
-
-  if (!this.manualDateEnabled) {
-    this.paymentDto.date = new Date();
+      return (
+        clientName.includes(term) ||
+        paymentIdentifier.includes(term) ||
+        lockerIdentifiers.includes(term)
+      );
+    });
   }
-}
+
+
+  filterPayments(): void {
+    const term = this.searchPayment.toLowerCase().trim();
+
+    this.filteredPayments = this.payments.filter(item => {
+      const clientName = (item.clientName ?? '').toString().toLowerCase();
+      const paymentIdentifier = (item.paymentIdentifier ?? '').toString().toLowerCase();
+      const paymentMethodId = (item.paymentMethodId ?? '').toString().toLowerCase();
+
+      return (
+        clientName.includes(term) ||
+        paymentIdentifier.includes(term) ||
+        paymentMethodId.includes(term)
+      );
+    });
+
+    this.filteredPayments.sort((a, b) => {
+      const dateA = new Date(a.paymentDate).getTime();
+      const dateB = new Date(b.paymentDate).getTime();
+      return dateB - dateA;
+    });
+  }
+  
+
+
+  toggleManualDate() {
+    this.manualDateEnabled = !this.manualDateEnabled;
+
+    if (!this.manualDateEnabled) {
+      const now = new Date();
+      this.paymentDto.date = now;
+      this.dateString = now.toISOString().split('T')[0];
+      this.updateConceptFromDate(now);
+    }
+  }  
+
+  private updateConceptFromDate(date: Date) {
+    const monthNames = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ];
+
+    const monthName = monthNames[date.getMonth()];
+
+    this.paymentDto.concept = `Pago alquiler ${monthName}`;
+  }
+
+  onManualDateChange(value: string) {
+    if (!value) return;
+    const [year, month, day] = value.split('-').map(Number);
+    const currentTime = new Date();
+    const dateWithTime = new Date(year, month - 1, day, currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds());
+
+    this.paymentDto.date = dateWithTime;
+    this.dateString = value;
+    this.updateConceptFromDate(dateWithTime);
+  }
+
+  
 }

@@ -305,7 +305,8 @@
             <div *ngIf="manualDateEnabled">
               <input
                 type="date"
-                [(ngModel)]="paymentDto.date"
+                 [(ngModel)]="dateString"
+                (ngModelChange)="onManualDateChange($event)"
                 class="w-full p-2 border rounded-md"
               />
             </div>
