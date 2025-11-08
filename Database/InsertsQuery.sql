@@ -24,6 +24,21 @@ INSERT INTO increase_regimens (frequency, percentage) VALUES
 (4, 20.00),
 (4, 40.00);
 
+-- Payment Methods
+INSERT INTO payment_methods (name, active, commission) VALUES
+('Efectivo', 1, 0.00),
+('Transferencia Bancaria', 1, 24.00);
+
+-- Billing Types
+INSERT INTO billing_types (name) VALUES 
+('Factura A'),
+('Factura B'),
+('Factura C'),
+('Factura A (No enviar)'),
+('Factura B (No enviar)'),
+('Factura C (No enviar)'),
+('Sin Factura');
+
 -- Clients
 INSERT INTO clients (payment_identifier, first_name, last_name, registration_date, notes, dni, cuit, preferred_payment_method_id, active, iva_condition) VALUES
 (0.01, 'Carmen', 'Veghitti ', '2012-04-28', 'Perfumeria Liliana Fredy, PAGO DESDE MAYO 2025 HASTA MAYO 2026', '', '', 1, 1, NULL),
@@ -87,11 +102,6 @@ INSERT INTO addresses (client_id, street, city, province) VALUES
 (7, 'Carlos Tejedor 3216', 'Carapachay', 'Buenos Aires'),
 (8, 'Laprida 311', 'San Isidro', 'Buenos Aires'),
 (9, 'Pte Quintana 260 6to P B', 'CABA', 'CABA');
-
--- Payment Methods
-INSERT INTO payment_methods (name, active, commission) VALUES
-('Efectivo', 1, 0.00),
-('Transferencia Bancaria', 1, 24.00);
 
 -- Rentals
 INSERT INTO rentals (client_id, start_date, end_date, contracted_m3, months_unpaid, active) VALUES

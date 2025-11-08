@@ -17,7 +17,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public string? Cuit { get; set; } = string.Empty;
         public int? PreferredPaymentMethodId { get; set; }
         public string? IvaCondition { get; set; } = string.Empty;
-        public string? BillingType { get; set; } = string.Empty; // Para "Factura A", "Factura B", "Sin Factura", etc
+        public int? BillingTypeId { get; set; }
         public bool IsLegacyClient { get; set; } = false; // Por defecto es 'false'
 
         //Rental Table

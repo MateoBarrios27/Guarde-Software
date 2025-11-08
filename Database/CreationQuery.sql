@@ -32,6 +32,21 @@ CREATE TABLE increase_regimens (
     percentage DECIMAL(5,2) NOT NULL
 );
 
+-- Table: payment_methods
+CREATE TABLE payment_methods (
+    payment_method_id INT IDENTITY(1,1) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    commission DECIMAL(5,2),
+    active BIT DEFAULT 1
+);
+
+-- Table: billing_types
+CREATE TABLE billing_types (
+    billing_type_id INT IDENTITY(1,1) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    active BIT DEFAULT 1
+);
+
 -- Table: clients
 CREATE TABLE clients (
     client_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -44,8 +59,10 @@ CREATE TABLE clients (
     cuit VARCHAR(20),
     preferred_payment_method_id INT,
     iva_condition VARCHAR(50),
-    billing_type VARCHAR(100) NULL,
+    billing_type_id INT NULL,
     active BIT DEFAULT 1
+    FOREIGN KEY (preferred_payment_method_id) REFERENCES payment_methods(payment_method_id),
+    FOREIGN KEY (billing_type_id) REFERENCES billing_types(billing_type_id)
 );
 
 -- Table: clients_increase_policies
@@ -88,14 +105,6 @@ CREATE TABLE addresses (
     city VARCHAR(100) NOT NULL,
     province VARCHAR(100),
     FOREIGN KEY (client_id) REFERENCES clients(client_id)
-);
-
--- Table: payment_methods
-CREATE TABLE payment_methods (
-    payment_method_id INT IDENTITY(1,1) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    commission DECIMAL(5,2),
-    active BIT DEFAULT 1
 );
 
 -- Table: rentals

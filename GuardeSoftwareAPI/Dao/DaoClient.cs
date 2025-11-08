@@ -137,14 +137,14 @@ namespace GuardeSoftwareAPI.Dao
                     Value = client.PreferredPaymentMethodId > 0 ? (object)client.PreferredPaymentMethodId : DBNull.Value
                 },
                 new("@iva_condition", SqlDbType.VarChar) { Value = (object?)client.IvaCondition?.Trim() ?? DBNull.Value },
-                new("@billing_type", SqlDbType.VarChar) { Value = (object?)client.BillingType?.Trim() ?? DBNull.Value },
+                new("@billing_type_id", SqlDbType.Int) { Value = (object?)client.BillingTypeId ?? DBNull.Value },
                 new("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
             ];
 
             string query = @"
-                INSERT INTO clients(payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes, billing_type)
+                INSERT INTO clients(payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes, billing_type_id)
                 OUTPUT INSERTED.client_id
-                VALUES(@payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes, @billing_type);";
+                VALUES(@payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes, @billing_type_id);";
 
             using var command = new SqlCommand(query, connection, transaction);
             command.Parameters.AddRange(parameters);
@@ -188,6 +188,8 @@ namespace GuardeSoftwareAPI.Dao
                     ph.number AS phone_number, 
                     ad.street, ad.city, ad.province,
                     pm.name AS preferred_payment_method,
+                    bt.billing_type_id,
+                    bt.name AS billing_type,
                     r.contracted_m3,
                     cir.end_date,
                     ir.frequency AS increase_frequency, 
@@ -220,6 +222,7 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
                 LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1 
                 LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
+                LEFT JOIN billing_types bt ON c.billing_type_id = bt.billing_type_id
                 LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
                 WHERE c.client_id = @client_id AND c.active = 1;";
 
@@ -532,7 +535,7 @@ namespace GuardeSoftwareAPI.Dao
                     preferred_payment_method_id = @preferred_payment_method_id,
                     iva_condition = @iva_condition,
                     notes = @notes,
-                    billing_type = @billing_type 
+                    billing_type_id = @billing_type_id 
                 WHERE client_id = @client_id";
 
             SqlParameter[] parameters =
@@ -545,7 +548,7 @@ namespace GuardeSoftwareAPI.Dao
                 new("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },
                 new("@preferred_payment_method_id", SqlDbType.Int) { Value = client.PreferredPaymentMethodId > 0 ? (object)client.PreferredPaymentMethodId : DBNull.Value },
                 new("@iva_condition", SqlDbType.VarChar) { Value = (object?)client.IvaCondition?.Trim() ?? DBNull.Value },
-                new("@billing_type", SqlDbType.VarChar) { Value = (object?)client.BillingType?.Trim() ?? DBNull.Value },
+                new("@billing_type_id", SqlDbType.Int) { Value = (object?)client.BillingTypeId ?? DBNull.Value },
                 new("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
                 new("@client_id", SqlDbType.Int) { Value = client.Id }
             ];

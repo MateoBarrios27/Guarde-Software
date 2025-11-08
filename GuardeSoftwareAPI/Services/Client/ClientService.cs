@@ -167,7 +167,7 @@ namespace GuardeSoftwareAPI.Services.client
                             PreferredPaymentMethodId = dto.PreferredPaymentMethodId ?? 0,
                             IvaCondition = string.IsNullOrWhiteSpace(dto.IvaCondition) ? null : dto.IvaCondition.Trim(),
                             Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
-                            BillingType = string.IsNullOrWhiteSpace(dto.BillingType) ? null : dto.BillingType.Trim()
+                            BillingTypeId = dto.BillingTypeId
                         };
 
                         int newId = await daoClient.CreateClientTransactionAsync(client, connection, transaction);
@@ -372,11 +372,13 @@ namespace GuardeSoftwareAPI.Services.client
                 // Payment & rental Information
                 IvaCondition = row["iva_condition"]?.ToString() ?? string.Empty,
                 PreferredPaymentMethod = row["preferred_payment_method"]?.ToString() ?? "No especificado",
-                
+                BillingTypeId = row["billing_type_id"] != DBNull.Value ? Convert.ToInt32(row["billing_type_id"]) : null,
+                BillingType = row["billing_type"]?.ToString() ?? "No especificado",
+
                 // CORREGÍ EL TYPO: Tu DTO dice 'IncresePerentage', lo cambié a 'IncreasePercentage'
-                IncreasePercentage = row["increase_percentage"] != DBNull.Value ? Convert.ToDecimal(row["increase_percentage"]) : 0, 
+                IncreasePercentage = row["increase_percentage"] != DBNull.Value ? Convert.ToDecimal(row["increase_percentage"]) : 0,
                 IncreaseFrequency = row["increase_frequency"] != DBNull.Value ? Convert.ToInt32(row["increase_frequency"]) : 0,
-                
+
                 NextIncreaseDay = row["end_date"] != DBNull.Value ? Convert.ToDateTime(row["end_date"]) : DateTime.MinValue,
                 NextPaymentDay = row["next_payment_day"] != DBNull.Value ? Convert.ToDateTime(row["next_payment_day"]) : DateTime.MinValue,
                 ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,

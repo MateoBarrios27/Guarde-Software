@@ -21,6 +21,7 @@ using Quartz;
 using GuardeSoftwareAPI.Jobs;
 using GuardeSoftwareAPI.Services.phone;
 using GuardeSoftwareAPI.Services.communication;
+using GuardeSoftwareAPI.Services.billingType;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -48,6 +49,7 @@ builder.Services.AddScoped<AccessDB>();
 builder.Services.AddScoped<IAccountMovementService, AccountMovementService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<IAddressService, AddressService>();
+builder.Services.AddScoped<IBillingTypeService, BillingTypeService>();
 builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IClientIncreaseRegimenService, ClientIncreaseRegimenService>();
 builder.Services.AddScoped<ICommunicationService, CommunicationService>();

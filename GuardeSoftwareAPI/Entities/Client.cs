@@ -12,7 +12,7 @@
         public string? Cuit { get; set; } = string.Empty;
         public int? PreferredPaymentMethodId { get; set; }
         public string? IvaCondition { get; set; } = string.Empty;
-        public string? BillingType { get; set; } = string.Empty; // Para "Factura A", "Factura B", "Sin Factura", etc
+        public int? BillingTypeId { get; set; }
         public bool? Active { get; set; }
     }
 }
