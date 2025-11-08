@@ -33,6 +33,8 @@ import { IncreaseRegimenService } from '../../../core/services/increaseRegimen-s
 import { LockerTypeService } from '../../../core/services/lockerType-service/locker-type.service';
 import { ClientService } from '../../../core/services/client-service/client.service';
 import { forkJoin, Observable } from 'rxjs';
+import { BillingType } from '../../../core/models/billing-type.model';
+import { BillingTypeService } from '../../../core/services/billingType-service/billing-type.service';
 
 @Component({
   selector: 'app-create-client-modal',
@@ -69,6 +71,7 @@ export class CreateClientModalComponent implements OnInit {
   public lockerTypes: LockerType[] = [];
   public paymentMethods: PaymentMethod[] = [];
   public increaseRegimens: IncreaseRegimen[] = [];
+  public billingTypes: BillingType[] = [];
   isLoading: boolean = false;
   private areBasicDataLoaded = false;
 
@@ -79,6 +82,7 @@ export class CreateClientModalComponent implements OnInit {
     private paymentMethodService: PaymentMethodService,
     private increaseRegimenService: IncreaseRegimenService,
     private lockerTypeService: LockerTypeService,
+    private billingTypeService: BillingTypeService,
     private clientService: ClientService
   ) {}
 
@@ -97,6 +101,7 @@ export class CreateClientModalComponent implements OnInit {
       lockers: this.lockerService.getLockers(), // Traer TODOS, filtraremos después
       lockerTypes: this.lockerTypeService.getLockerTypes(),
       paymentMethods: this.paymentMethodService.getPaymentMethods(),
+      billingTypes: this.billingTypeService.getBillingTypes()
       // increaseRegimens: this.increaseRegimenService.getIncreaseRegimens() // Comentado si no se usa
     }).subscribe({
       next: (results) => {
@@ -110,7 +115,7 @@ export class CreateClientModalComponent implements OnInit {
                  // Check si el ID del locker está en la lista que viene del clientData
                  (this.clientData?.lockersList?.some(assignedLocker => assignedLocker.id === l.id) ?? false)
         );
-
+        this.billingTypes = results.billingTypes;
         console.log('Datos básicos cargados');
         this.areBasicDataLoaded = true;
         this.isLoading = false;
@@ -166,7 +171,7 @@ export class CreateClientModalComponent implements OnInit {
       isLegacyClient: [false, Validators.required], // <-- 2. CAMBIO: Interruptor
       legacyStartDate: [null], // <-- 3. CAMBIO: Fecha de ingreso manual
       prepaidMonths: [0], // <-- 4. CAMBIO: Meses pagados
-      billingType: [''],
+      billingTypeId: [null, Validators.required],
       
       // --- Sección Observaciones ---
       observaciones: [''],
@@ -244,7 +249,7 @@ export class CreateClientModalComponent implements OnInit {
         provincia: data.province, // Ajusta si usas 'Province' en C# DTO
         observaciones: data.notes, // Asegúrate que ambos sean string
         montoManual: data.rentAmount,
-        billingType: data.billingType,
+        billingTypeId: data.billingTypeId || null,
         // No mapeamos lockersAsignados aquí, ya se hizo arriba
         // No mapeamos campos de aumento
       });
@@ -402,7 +407,7 @@ export class CreateClientModalComponent implements OnInit {
       notes: formValue.observaciones || null,
       dni: formValue.numeroDocumento || null,
       cuit: formValue.cuit || null,
-      billingType: formValue.billingType || null,
+      billingTypeId: formValue.billingTypeId,
       emails: formValue.emails.filter((e: string | null): e is string => !!e && !!e.trim()),
       phones: formValue.telefonos.filter((p: string | null): p is string => !!p && !!p.trim()),
       addressDto: {

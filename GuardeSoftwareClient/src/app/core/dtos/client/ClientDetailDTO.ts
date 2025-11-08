@@ -13,6 +13,7 @@ export interface ClientDetailDTO{
     dni: string;
     registrationDate: Date;
     billingType?: string;
+    billingTypeId?: number;
 
     //contact information
     email: string[];

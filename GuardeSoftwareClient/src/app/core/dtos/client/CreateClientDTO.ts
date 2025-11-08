@@ -13,6 +13,7 @@ export interface CreateClientDTO{
     preferredPaymentMethodId: number;
     ivaCondition: string;
     billingType?: string;
+    billingTypeId?: number;
     startDate: Date;
     contractedM3: number;
     amount: number;

@@ -463,7 +463,8 @@ namespace GuardeSoftwareAPI.Services.client
                         if (!string.IsNullOrWhiteSpace(dto.Cuit) && await daoClient.ExistsByCuitAsync(dto.Cuit, id, connection, transaction))
                             throw new InvalidOperationException("Ya existe otro cliente con este CUIT.");
 
-                        Client clientToUpdate = new Client { /* ... mapeo como antes ... */
+                        Client clientToUpdate = new()
+                        {
                             Id = id,
                             PaymentIdentifier = dto.PaymentIdentifier,
                             FirstName = dto.FirstName.Trim(),
@@ -473,6 +474,7 @@ namespace GuardeSoftwareAPI.Services.client
                             Cuit = string.IsNullOrWhiteSpace(dto.Cuit) ? null : dto.Cuit.Trim(),
                             PreferredPaymentMethodId = dto.PreferredPaymentMethodId ?? existingClient.PreferredPaymentMethodId,
                             IvaCondition = string.IsNullOrWhiteSpace(dto.IvaCondition) ? existingClient.IvaCondition : dto.IvaCondition.Trim(),
+                            BillingTypeId = dto.BillingTypeId ?? existingClient.BillingTypeId,
                             Notes = string.IsNullOrWhiteSpace(dto.Notes) ? existingClient.Notes : dto.Notes.Trim(),
                         };
 

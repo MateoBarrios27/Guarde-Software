@@ -188,7 +188,7 @@ namespace GuardeSoftwareAPI.Dao
                     ph.number AS phone_number, 
                     ad.street, ad.city, ad.province,
                     pm.name AS preferred_payment_method,
-                    bt.billing_type_id,
+                    c.billing_type_id,
                     bt.name AS billing_type,
                     r.contracted_m3,
                     cir.end_date,

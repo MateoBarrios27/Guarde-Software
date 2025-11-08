@@ -139,14 +139,17 @@
               <!-- === CAMBIO AQUÍ: 'documento' reemplazado por 'billingType' === -->
               <div>
                 <label class="text-sm font-medium text-blue-700"
-                  >Tipo Factura</label
+                  >Tipo Factura *</label
                 >
-                <input
-                  type="text"
-                  formControlName="billingType"
-                  placeholder="Ej: Factura A, B, C..."
-                  class="w-full mt-1 p-2 border rounded-md"
-                />
+                <select
+                  formControlName="billingTypeId"
+                  class="w-full mt-1 p-2 border rounded-md bg-white"
+                >
+                  <option [ngValue]="null" disabled>Seleccionar...</option>
+                  <option *ngFor="let bt of billingTypes" [value]="bt.id">
+                    {{ bt.name }}
+                  </option>
+                </select>
               </div>
           </div>
           
