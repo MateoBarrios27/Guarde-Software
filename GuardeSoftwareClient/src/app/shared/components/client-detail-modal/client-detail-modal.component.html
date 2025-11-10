@@ -89,7 +89,7 @@
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Contacto</h3>
             <div class="space-y-3">
               <div class="flex items-start gap-3">
-                <app-icon name="envelope" class="h-4 w-4 text-gray-400 mt-1"></app-icon>
+                <app-icon name="envelope" class="h-5 w-5 text-gray-400 mt-1"></app-icon>
                 <div>
                   <label class="text-sm font-medium text-gray-500">Email</label>
                   <div *ngIf="!client.email || client.email.length === 0" class="text-sm text-gray-400 italic">N/A</div>
@@ -99,21 +99,21 @@
                 </div>
               </div>
               <div class="flex items-start gap-3">
-                <app-icon name="phone" class="h-4 w-4 text-gray-400 mt-1"></app-icon>
+                <app-icon name="phone" class="h-5 w-5 text-gray-400 mt-1"></app-icon>
                 <div>
                   <label class="text-sm font-medium text-gray-500">Teléfono</label>
                   <div *ngIf="!client.phone || client.phone.length === 0" class="text-sm text-gray-400 italic">N/A</div>
                   <div *ngIf="client.phone && client.phone.length > 0" class="text-sm text-gray-800">
-                    <p *ngFor="let phone of client.phone">{{ phone }}</p>
+                    <p *ngFor="let phone of client.phone">{{ phone | phone }}</p>
                   </div>
                 </div>
               </div>
               <div class="flex items-start gap-3">
-                <app-icon name="map-pin" class="h-4 w-4 text-gray-400 mt-1"></app-icon>
+                <app-icon name="map-pin" class="h-5 w-5 text-gray-400 mt-1"></app-icon>
                 <div>
                   <label class="text-sm font-medium text-gray-500">Ubicación</label>
                   <p class="text-sm text-gray-800">
-                    {{ client.address }}, {{ client.city }}
+                    {{ client.address || 'N/A' }}, {{ client.city }}
                   </p>
                 </div>
               </div>
@@ -282,7 +282,7 @@
               <div class="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <label class="font-medium text-gray-500">DNI</label>
-                  <p class="text-gray-800">{{ client.dni }}</p>
+                  <p class="text-gray-800">{{ client.dni || 'N/A' }}</p>
                 </div>
                  <div>
                   <label class="font-medium text-gray-500">CUIT</label>
@@ -290,15 +290,15 @@
                 </div>
                 <div>
                   <label class="font-medium text-gray-500">Condición IVA</label>
-                  <p class="text-gray-800">{{ client.ivaCondition }}</p>
+                  <p class="text-gray-800">{{ client.ivaCondition || 'N/A' }}</p>
                 </div>
                 <div>
                   <label class="font-medium text-gray-500">Fecha de Alta</label>
                   <p class="text-gray-800">{{ client.registrationDate | date: 'dd/MM/yyyy' }}</p>
                 </div>
                 <div>
-                  <label class="font-medium text-gray-500">Régimen de Aumento</label>
-                  <p class="text-gray-800">{{ client.increasePercentage }}% c/ {{ client.increaseFrequency }} meses</p>
+                  <label class="font-medium text-gray-500">Tipo Factura</label>
+                  <p class="text-gray-800">{{ client.billingType || 'N/A' }}</p>
                 </div>
               </div>
             </div>

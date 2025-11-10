@@ -20,6 +20,7 @@ import { CommunicationService } from '../../../core/services/communication-servi
 import { AccountMovementDTO } from '../../../core/dtos/accountMovement/account-movement.dto';
 import { ClientCommunicationDTO } from '../../../core/dtos/communications/client-comunication.dto';
 import { CreateMovementModalComponent } from '../create-movement-modal/create-movement-modal.component';
+import { PhonePipe } from '../../pipes/phone.pipe';
 
 // --- IMPORTAR PAGINACIÓN ---
 import { NgxPaginationModule } from 'ngx-pagination';
@@ -41,8 +42,9 @@ export interface IClientCommunication {
     CurrencyPipe,
     DatePipe,
     CreateMovementModalComponent, // Modal de creación
-    NgxPaginationModule, // <-- AÑADIDO PARA PAGINACIÓN
-  ],
+    NgxPaginationModule,
+    PhonePipe
+],
   templateUrl: './client-detail-modal.component.html',
 })
 export class ClientDetailModalComponent implements OnChanges {
