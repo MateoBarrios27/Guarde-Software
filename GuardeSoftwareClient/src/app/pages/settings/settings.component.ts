@@ -169,7 +169,7 @@ export class SettingsComponent implements OnInit {
     { id: 'medios-pago', title: 'Medios de Pago', icon: '💳' },
     { id: 'facturacion', title: 'Facturación', icon: '📄' },
     { id: 'aumentos', title: 'Aumentos Mensuales', icon: '📈' },
-    { id: 'datos', title: 'Datos', icon: '🗄️' }
+    // { id: 'datos', title: 'Datos', icon: '🗄️' }
   ];
 
   setActive(section: string) {
