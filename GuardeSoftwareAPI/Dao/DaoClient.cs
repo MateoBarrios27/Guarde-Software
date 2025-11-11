@@ -121,30 +121,32 @@ namespace GuardeSoftwareAPI.Dao
         {
             SqlParameter[] parameters =
             [
-                new("@payment_identifier", SqlDbType.Decimal)
-                {
-                    Precision = 10,
-                    Scale = 2,
-                    Value = (object?)client.PaymentIdentifier ?? DBNull.Value
-                },
+                new("@payment_identifier", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)client.PaymentIdentifier ?? DBNull.Value },
                 new("@first_name", SqlDbType.VarChar) { Value = (object?)client.FirstName?.Trim() ?? DBNull.Value },
                 new("@last_name", SqlDbType.VarChar) { Value = (object?)client.LastName?.Trim() ?? DBNull.Value },
                 new("@registration_date", SqlDbType.DateTime) { Value = client.RegistrationDate },
                 new("@dni", SqlDbType.VarChar) { Value = (object?)client.Dni?.Trim() ?? DBNull.Value },
                 new("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },
-                new("@preferred_payment_method_id", SqlDbType.Int)
-                {
-                    Value = client.PreferredPaymentMethodId > 0 ? (object)client.PreferredPaymentMethodId : DBNull.Value
-                },
+                new("@preferred_payment_method_id", SqlDbType.Int) { Value = (object?)client.PreferredPaymentMethodId ?? DBNull.Value },
                 new("@iva_condition", SqlDbType.VarChar) { Value = (object?)client.IvaCondition?.Trim() ?? DBNull.Value },
-                new("@billing_type_id", SqlDbType.Int) { Value = (object?)client.BillingTypeId ?? DBNull.Value },
                 new("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
+                new("@billing_type_id", SqlDbType.Int) { Value = (object?)client.BillingTypeId ?? DBNull.Value },
+                new("@increase_frequency_months", SqlDbType.Int) { Value = client.IncreaseFrequencyMonths },
+                new("@initial_amount", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)client.InitialAmount ?? DBNull.Value }
             ];
 
             string query = @"
-                INSERT INTO clients(payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes, billing_type_id)
+                INSERT INTO clients(
+                    payment_identifier, first_name, last_name, registration_date, dni, cuit, 
+                    preferred_payment_method_id, iva_condition, notes, billing_type_id, 
+                    increase_frequency_months, initial_amount
+                )
                 OUTPUT INSERTED.client_id
-                VALUES(@payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes, @billing_type_id);";
+                VALUES(
+                    @payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, 
+                    @preferred_payment_method_id, @iva_condition, @notes, @billing_type_id, 
+                    @increase_frequency_months, @initial_amount
+                );";
 
             using var command = new SqlCommand(query, connection, transaction);
             command.Parameters.AddRange(parameters);
@@ -461,7 +463,7 @@ namespace GuardeSoftwareAPI.Dao
         
         public async Task<Client?> GetClientByIdTransactionAsync(int id, SqlConnection connection, SqlTransaction transaction)
         {
-            string query = "SELECT client_id, payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes, active FROM clients WHERE client_id = @client_id";
+            string query = "SELECT * FROM clients WHERE client_id = @client_id";
             SqlParameter[] parameters = { new SqlParameter("@client_id", SqlDbType.Int) { Value = id } };
 
             using (var command = new SqlCommand(query, connection, transaction))
@@ -473,50 +475,51 @@ namespace GuardeSoftwareAPI.Dao
                     {
                         return new Client
                         {
-                            Id = reader.GetInt32(reader.GetOrdinal("client_id")),
-                            PaymentIdentifier = reader.IsDBNull(reader.GetOrdinal("payment_identifier")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("payment_identifier")),
-                            FirstName = reader.GetString(reader.GetOrdinal("first_name")),
-                            LastName = reader.GetString(reader.GetOrdinal("last_name")),
-                            RegistrationDate = reader.GetDateTime(reader.GetOrdinal("registration_date")),
-                            Dni = reader.IsDBNull(reader.GetOrdinal("dni")) ? null : reader.GetString(reader.GetOrdinal("dni")),
-                            Cuit = reader.IsDBNull(reader.GetOrdinal("cuit")) ? null : reader.GetString(reader.GetOrdinal("cuit")),
-                            PreferredPaymentMethodId = reader.IsDBNull(reader.GetOrdinal("preferred_payment_method_id")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("preferred_payment_method_id")),
-                            IvaCondition = reader.IsDBNull(reader.GetOrdinal("iva_condition")) ? null : reader.GetString(reader.GetOrdinal("iva_condition")),
-                            Notes = reader.IsDBNull(reader.GetOrdinal("notes")) ? null : reader.GetString(reader.GetOrdinal("notes")),
-                            Active = reader.GetBoolean(reader.GetOrdinal("active"))
+                            Id = Convert.ToInt32(reader["client_id"]),
+                            PaymentIdentifier = reader["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(reader["payment_identifier"]) : null,
+                            FirstName = reader["first_name"].ToString() ?? "",
+                            LastName = reader["last_name"].ToString() ?? "",
+                            RegistrationDate = Convert.ToDateTime(reader["registration_date"]),
+                            Notes = reader["notes"] != DBNull.Value ? reader["notes"].ToString() : null,
+                            Dni = reader["dni"] != DBNull.Value ? reader["dni"].ToString() : null,
+                            Cuit = reader["cuit"] != DBNull.Value ? reader["cuit"].ToString() : null,
+                            PreferredPaymentMethodId = reader["preferred_payment_method_id"] != DBNull.Value ? Convert.ToInt32(reader["preferred_payment_method_id"]) : null,
+                            IvaCondition = reader["iva_condition"] != DBNull.Value ? reader["iva_condition"].ToString() : null,
+                            Active = Convert.ToBoolean(reader["active"]),
+                            BillingTypeId = reader["billing_type_id"] != DBNull.Value ? Convert.ToInt32(reader["billing_type_id"]) : null,
+                            IncreaseFrequencyMonths = Convert.ToInt32(reader["increase_frequency_months"]),
+                            InitialAmount = reader["initial_amount"] != DBNull.Value ? Convert.ToDecimal(reader["initial_amount"]) : null
                         };
                     }
                 }
             }
-            return null; // No encontrado
+            return null;
         }
 
 
         // Verifica DNI existente EXCLUYENDO un ID de cliente
         public async Task<bool> ExistsByDniAsync(string dni, int excludeClientId, SqlConnection connection, SqlTransaction transaction)
         {
-            const string query = "SELECT COUNT(1) FROM clients WHERE dni = @dni AND client_id != @excludeClientId";
+            const string query = "SELECT COUNT(1) FROM clients WHERE dni = @dni AND client_id != @excludeClientId AND active = 1";
             using (var command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.Add(new SqlParameter("@dni", SqlDbType.VarChar) { Value = dni });
                 command.Parameters.Add(new SqlParameter("@excludeClientId", SqlDbType.Int) { Value = excludeClientId });
                 object result = await command.ExecuteScalarAsync();
-                int count = (result != null && result != DBNull.Value) ? Convert.ToInt32(result) : 0;
-                return count > 0;
+                return (result != null && result != DBNull.Value) ? Convert.ToInt32(result) > 0 : false;
             }
         }
 
         // Verifica CUIT existente EXCLUYENDO un ID de cliente
         public async Task<bool> ExistsByCuitAsync(string cuit, int excludeClientId, SqlConnection connection, SqlTransaction transaction)
         {
-            const string query = "SELECT COUNT(1) FROM clients WHERE cuit = @cuit AND client_id != @excludeClientId";
+            const string query = "SELECT COUNT(1) FROM clients WHERE cuit = @cuit AND client_id != @excludeClientId AND active = 1";
             using (var command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.Add(new SqlParameter("@cuit", SqlDbType.VarChar) { Value = cuit });
                 command.Parameters.Add(new SqlParameter("@excludeClientId", SqlDbType.Int) { Value = excludeClientId });
-                object result = await command.ExecuteScalarAsync(); // ExecuteScalarAsync puede devolver null
-                int count = (result != null && result != DBNull.Value) ? Convert.ToInt32(result) : 0;
-                return count > 0;
+                object result = await command.ExecuteScalarAsync();
+                return (result != null && result != DBNull.Value) ? Convert.ToInt32(result) > 0 : false;
             }
         }
 
@@ -535,7 +538,9 @@ namespace GuardeSoftwareAPI.Dao
                     preferred_payment_method_id = @preferred_payment_method_id,
                     iva_condition = @iva_condition,
                     notes = @notes,
-                    billing_type_id = @billing_type_id 
+                    billing_type_id = @billing_type_id,
+                    increase_frequency_months = @increase_frequency_months,
+                    initial_amount = @initial_amount
                 WHERE client_id = @client_id";
 
             SqlParameter[] parameters =
@@ -543,13 +548,15 @@ namespace GuardeSoftwareAPI.Dao
                 new("@payment_identifier", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)client.PaymentIdentifier ?? DBNull.Value },
                 new("@first_name", SqlDbType.VarChar) { Value = (object?)client.FirstName?.Trim() ?? DBNull.Value },
                 new("@last_name", SqlDbType.VarChar) { Value = (object?)client.LastName?.Trim() ?? DBNull.Value },
-                new("@registration_date", SqlDbType.DateTime) { Value = client.RegistrationDate }, // Ojo si no quieres permitir cambiarla
+                new("@registration_date", SqlDbType.DateTime) { Value = client.RegistrationDate },
                 new("@dni", SqlDbType.VarChar) { Value = (object?)client.Dni?.Trim() ?? DBNull.Value },
                 new("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },
-                new("@preferred_payment_method_id", SqlDbType.Int) { Value = client.PreferredPaymentMethodId > 0 ? (object)client.PreferredPaymentMethodId : DBNull.Value },
+                new("@preferred_payment_method_id", SqlDbType.Int) { Value = (object?)client.PreferredPaymentMethodId ?? DBNull.Value },
                 new("@iva_condition", SqlDbType.VarChar) { Value = (object?)client.IvaCondition?.Trim() ?? DBNull.Value },
-                new("@billing_type_id", SqlDbType.Int) { Value = (object?)client.BillingTypeId ?? DBNull.Value },
                 new("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
+                new("@billing_type_id", SqlDbType.Int) { Value = (object?)client.BillingTypeId ?? DBNull.Value },
+                new("@increase_frequency_months", SqlDbType.Int) { Value = client.IncreaseFrequencyMonths },
+                new("@initial_amount", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)client.InitialAmount ?? DBNull.Value },
                 new("@client_id", SqlDbType.Int) { Value = client.Id }
             ];
 

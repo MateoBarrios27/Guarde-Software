@@ -22,6 +22,7 @@ using GuardeSoftwareAPI.Jobs;
 using GuardeSoftwareAPI.Services.phone;
 using GuardeSoftwareAPI.Services.communication;
 using GuardeSoftwareAPI.Services.billingType;
+using GuardeSoftwareAPI.Services.monthlyIncrease;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -57,6 +58,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IIncreaseRegimenService, IncreaseRegimenService>();
 builder.Services.AddScoped<ILockerService, LockerService>();
 builder.Services.AddScoped<ILockerTypeService, LockerTypeService>();
+builder.Services.AddScoped<IMonthlyIncreaseService, MonthlyIncreaseService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 builder.Services.AddScoped<IPhoneService, PhoneService>();
@@ -97,6 +99,14 @@ builder.Services.AddQuartz(q =>
         .WithIdentity("ApplyInterestsJob-trigger")
         .WithCronSchedule("0 0 4 10 * ?") // 4:00 AM del día 10 de cada mes
     );
+
+    var applyIncreasesJobKey = new JobKey("ApplyMonthlyIncreasesJob");
+                q.AddJob<ApplyMonthlyIncreasesJob>(opts => opts.WithIdentity(applyIncreasesJobKey));
+                q.AddTrigger(opts => opts
+                    .ForJob(applyIncreasesJobKey)
+                    .WithIdentity("ApplyMonthlyIncreasesJob-Trigger")
+                    .WithCronSchedule("0 30 1 * * ?") // 01:30 AM todos los días
+                );
 
     // --- Job 4: SendCommunicationJob (durable, no trigger) ---
     var sendCommJobKey = new JobKey(nameof(SendCommunicationJob));

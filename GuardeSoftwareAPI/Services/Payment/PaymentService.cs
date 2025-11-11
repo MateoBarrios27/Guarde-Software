@@ -106,7 +106,7 @@ namespace GuardeSoftwareAPI.Services.payment
 			if (payment == null) throw new ArgumentNullException(nameof(payment), "Payment cannot be null.");
 			if (payment.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
 			if (payment.PaymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
-			if (payment.Amount <= 0) throw new ArgumentException("Amount must be greater than zero.");
+			if (payment.Amount < 0) throw new ArgumentException("Amount must be greater than zero.");
 			if (payment.PaymentDate == DateTime.MinValue) throw new ArgumentException("Invalid payment date.");
 			return await _daoPayment.CreatePayment(payment);
 		}
@@ -116,7 +116,7 @@ namespace GuardeSoftwareAPI.Services.payment
 			if (dto == null) throw new ArgumentNullException(nameof(dto), "DTO cannot be null.");
 			if (dto.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
 			if (dto.PaymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
-			if (dto.Amount <= 0) throw new ArgumentException("Amount must be greater than 0.");
+			if (dto.Amount < 0) throw new ArgumentException("Amount must be greater than 0.");
 			if (dto.Date == DateTime.MinValue) throw new ArgumentException("Invalid date.");
 
 			using var connection = accessDB.GetConnectionClose();

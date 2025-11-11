@@ -168,19 +168,16 @@ namespace GuardeSoftwareAPI.Dao
             [
                 new SqlParameter("@client_id", SqlDbType.Int) { Value = rental.ClientId },
                 new SqlParameter("@start_date", SqlDbType.DateTime) { Value = rental.StartDate },
-                new SqlParameter("@contracted_m3", SqlDbType.Decimal) // Cambiado a Decimal
-                {
-                    Precision = 10, Scale = 2, // Ajusta precisión y escala si es necesario
-                    Value = rental.ContractedM3.HasValue ? (object)rental.ContractedM3.Value : DBNull.Value
-                },
+                new SqlParameter("@contracted_m3", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)rental.ContractedM3 ?? DBNull.Value },
                 new SqlParameter("@months_unpaid", SqlDbType.Int) { Value = rental.MonthsUnpaid },
-                new SqlParameter("@price_lock_end_date", SqlDbType.Date) { Value = rental.PriceLockEndDate.HasValue ? (object)rental.PriceLockEndDate.Value : DBNull.Value }
+                new SqlParameter("@price_lock_end_date", SqlDbType.Date) { Value = (object?)rental.PriceLockEndDate ?? DBNull.Value },
+                new SqlParameter("@increase_anchor_date", SqlDbType.Date) { Value = (object?)rental.NextIncreaseDate ?? DBNull.Value } // Renombrado
             ];
 
             string query = @"
-                INSERT INTO rentals(client_id, start_date, contracted_m3, months_unpaid, price_lock_end_date)
+                INSERT INTO rentals(client_id, start_date, contracted_m3, months_unpaid, price_lock_end_date, increase_anchor_date)
                 OUTPUT INSERTED.rental_id
-                VALUES(@client_id, @start_date, @contracted_m3, @months_unpaid, @price_lock_end_date);";
+                VALUES(@client_id, @start_date, @contracted_m3, @months_unpaid, @price_lock_end_date, @increase_anchor_date);";
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
@@ -196,39 +193,41 @@ namespace GuardeSoftwareAPI.Dao
 
         // Method to get rentals that need a rent increase today
         // This method is used in the ApplyRentIncreaseJob
-        public async Task<DataTable> GetRentalsDueForIncreaseAsync()
+        public async Task<DataTable> GetRentalsDueForIncreaseTodayAsync(DateTime today)
         {
-            // This query finds rentals that need an increase today based on their last increase 
-            // date and the client's increase regimen
             string query = @"
-                WITH LastIncrease AS (
+                WITH LatestHistory AS (
                     SELECT 
-                        rah.rental_id,
-                        rah.amount AS current_amount,
-                        rah.start_date AS last_increase_date,
-                        rah.rental_amount_history_id,
-                        -- Usamos ROW_NUMBER para quedarnos solo con el registro más reciente
-                        ROW_NUMBER() OVER(PARTITION BY rah.rental_id ORDER BY rah.start_date DESC) as rn
-                    FROM rental_amount_history rah
-                    JOIN rentals r ON rah.rental_id = r.rental_id
-                    WHERE r.active = 1
+                        rental_id, 
+                        amount AS CurrentAmount, 
+                        start_date AS LastIncreaseDate,
+                        rental_amount_history_id AS LastHistoryId,
+                        ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY start_date DESC) as rn
+                    FROM rental_amount_history
                 )
                 SELECT 
-                    li.rental_id,
-                    li.current_amount,
-                    li.last_increase_date,
-                    li.rental_amount_history_id,
-                    ir.percentage
-                FROM LastIncrease li
-                JOIN clients c ON (SELECT client_id FROM rentals WHERE rental_id = li.rental_id) = c.client_id
-                JOIN clients_x_increase_regimens cxir ON c.client_id = cxir.client_id
-                JOIN increase_regimens ir ON cxir.regimen_id = ir.regimen_id
-                WHERE 
-                    li.rn = 1 -- Nos aseguramos de tomar el último registro de historial
-                    AND cxir.end_date IS NULL -- El régimen debe estar activo
-                    AND GETDATE() >= DATEADD(month, ir.frequency, li.last_increase_date);";
-
-            return await accessDB.GetTableAsync("rentals_to_update", query);
+                    r.rental_id,
+                    r.start_date,
+                    r.price_lock_end_date,
+                    r.increase_anchor_date,
+                    c.increase_frequency_months,
+                    lh.CurrentAmount,
+                    lh.LastIncreaseDate,
+                    lh.LastHistoryId
+                FROM rentals r
+                JOIN clients c ON r.client_id = c.client_id
+                JOIN LatestHistory lh ON r.rental_id = lh.rental_id
+                WHERE r.active = 1
+                  AND lh.rn = 1
+                  AND r.increase_anchor_date <= @Today
+                  AND (r.price_lock_end_date IS NULL OR r.price_lock_end_date < @Today);
+            ";
+            
+            SqlParameter[] parameters = {
+                new SqlParameter("@Today", SqlDbType.Date) { Value = today }
+            };
+            
+            return await accessDB.GetTableAsync("rentals_to_increase", query, parameters);
         }
 
 
@@ -455,11 +454,11 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<Rental?> GetActiveRentalByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
         {
             string query = "SELECT TOP 1 * FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
-            
+
             using (var command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.Add(new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId });
-                
+
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     if (await reader.ReadAsync())
@@ -479,6 +478,23 @@ namespace GuardeSoftwareAPI.Dao
                 }
             }
             return null; // No se encontró rental activo
+        }
+        
+        public async Task<bool> UpdateNextIncreaseDateTransactionAsync(int rentalId, DateTime newNextIncreaseDate, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = "UPDATE rentals SET increase_anchor_date = @NewNextIncreaseDate WHERE rental_id = @RentalId";
+            SqlParameter[] parameters =
+            {
+                new SqlParameter("@NewNextIncreaseDate", SqlDbType.Date) { Value = newNextIncreaseDate },
+                new SqlParameter("@RentalId", SqlDbType.Int) { Value = rentalId }
+            };
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                int rowsAffected = await command.ExecuteNonQueryAsync();
+                return rowsAffected > 0;
+            }
         }
     }
 }

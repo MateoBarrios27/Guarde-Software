@@ -93,13 +93,14 @@ namespace GuardeSoftwareAPI.Dao
                     Scale = 2,
                     Value = rentalAmountHistory.Amount
                 },
-                new SqlParameter("@start_date", SqlDbType.DateTime) { Value = rentalAmountHistory.StartDate },
+                new SqlParameter("@start_date", SqlDbType.Date) { Value = rentalAmountHistory.StartDate }, // Usar Date
+                new SqlParameter("@end_date", SqlDbType.Date) { Value = (object?)rentalAmountHistory.EndDate ?? DBNull.Value } // Acepta nulos
             ];
 
             string query = @"
-                            INSERT INTO rental_amount_history (rental_id, amount, start_date)
-                            OUTPUT INSERTED.rental_amount_history_id
-                            VALUES (@rental_id, @amount, @start_date);";
+                INSERT INTO rental_amount_history (rental_id, amount, start_date, end_date)
+                OUTPUT INSERTED.rental_amount_history_id
+                VALUES (@rental_id, @amount, @start_date, @end_date);"; // Añadido end_date
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
@@ -108,10 +109,11 @@ namespace GuardeSoftwareAPI.Dao
                 return Convert.ToInt32(result);
             }
         }
+
+
         public async Task<RentalAmountHistory?> GetLatestRentalAmountHistoryTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
         {
-            // Obtiene el registro de historial más reciente (por start_date) para un rental_id
-            string query = "SELECT TOP 1 rental_amount_history_id, rental_id, amount, start_date, end_date FROM rental_amount_history WHERE rental_id = @rental_id ORDER BY start_date DESC";
+            string query = "SELECT TOP 1 * FROM rental_amount_history WHERE rental_id = @rental_id ORDER BY start_date DESC";
             SqlParameter[] parameters = { new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId } };
 
             using (var command = new SqlCommand(query, connection, transaction))
@@ -123,25 +125,24 @@ namespace GuardeSoftwareAPI.Dao
                     {
                         return new RentalAmountHistory
                         {
-                            Id = reader.GetInt32(reader.GetOrdinal("rental_amount_history_id")),
-                            RentalId = reader.GetInt32(reader.GetOrdinal("rental_id")),
-                            Amount = reader.GetDecimal(reader.GetOrdinal("amount")),
-                            StartDate = reader.GetDateTime(reader.GetOrdinal("start_date")),
-                            EndDate = reader.IsDBNull(reader.GetOrdinal("end_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("end_date"))
+                            Id = Convert.ToInt32(reader["rental_amount_history_id"]),
+                            RentalId = Convert.ToInt32(reader["rental_id"]),
+                            Amount = Convert.ToDecimal(reader["amount"]),
+                            StartDate = Convert.ToDateTime(reader["start_date"]),
+                            EndDate = reader["end_date"] != DBNull.Value ? Convert.ToDateTime(reader["end_date"]) : null
                         };
                     }
                 }
             }
-            return null; // No encontrado
+            return null;
         }
 
         public async Task<bool> EndRentalAmountHistoryTransactionAsync(int historyId, DateTime endDate, SqlConnection connection, SqlTransaction transaction)
         {
-            // Pone fecha de fin a un registro de historial específico
-            string query = "UPDATE rental_amount_history SET end_date = @end_date WHERE rental_amount_history_id = @history_id AND end_date IS NULL"; // Solo actualiza si no tiene ya fecha fin
+            string query = "UPDATE rental_amount_history SET end_date = @end_date WHERE rental_amount_history_id = @history_id AND end_date IS NULL";
             SqlParameter[] parameters =
             {
-                new SqlParameter("@end_date", SqlDbType.Date) { Value = endDate }, // Usar Date si solo guardas fecha
+                new SqlParameter("@end_date", SqlDbType.Date) { Value = endDate },
                 new SqlParameter("@history_id", SqlDbType.Int) { Value = historyId }
             };
 
@@ -152,5 +153,7 @@ namespace GuardeSoftwareAPI.Dao
                 return rowsAffected > 0;
             }
         }
+
+        
     }
 }

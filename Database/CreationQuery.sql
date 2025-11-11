@@ -25,7 +25,8 @@ CREATE TABLE warehouses (
     active BIT DEFAULT 1
 );
 
--- Table: increase_policies
+-- Table: increase_policies 
+-- Not used now, but it can be useful in the future if we want to assign different regimens to especific clients
 CREATE TABLE increase_regimens (
     regimen_id INT IDENTITY(1,1) PRIMARY KEY,
     frequency INT NOT NULL,
@@ -60,12 +61,23 @@ CREATE TABLE clients (
     preferred_payment_method_id INT,
     iva_condition VARCHAR(50),
     billing_type_id INT NULL,
+    increase_frequency_months INT NOT NULL DEFAULT 4,
+    initial_amount DECIMAL(10, 2) NULL,
     active BIT DEFAULT 1
     FOREIGN KEY (preferred_payment_method_id) REFERENCES payment_methods(payment_method_id),
     FOREIGN KEY (billing_type_id) REFERENCES billing_types(billing_type_id)
 );
 
--- Table: clients_increase_policies
+-- Table: monthly_increase_settings new for set global monthly increases
+CREATE TABLE monthly_increase_settings (
+    increase_setting_id INT IDENTITY(1,1) PRIMARY KEY,
+    effective_date DATE NOT NULL UNIQUE, 
+    percentage DECIMAL(5, 2) NOT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+);
+
+-- Table: clients_increase_regimens (Many-to-Many relationship between clients and increase_regimens)
+-- Not used now, but it can be useful in the future if we want to assign different regimens to especific clients
 CREATE TABLE clients_x_increase_regimens (
     client_id INT,
     regimen_id INT,
@@ -116,6 +128,7 @@ CREATE TABLE rentals (
     contracted_m3 DECIMAL(10,2),
     months_unpaid INT DEFAULT 0,
     price_lock_end_date DATE NULL,
+    increase_anchor_date DATE NULL,
     active BIT DEFAULT 1, -- We can use end_date to determine if the rental is active, but this can be useful for quick checks & performance
     FOREIGN KEY (client_id) REFERENCES clients(client_id)
 );

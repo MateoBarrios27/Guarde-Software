@@ -9,6 +9,7 @@ namespace GuardeSoftwareAPI.Entities
         public decimal? ContractedM3 { get; set; }
         public int MonthsUnpaid { get; set; }
         public DateTime? PriceLockEndDate { get; set; }
+        public DateTime? NextIncreaseDate { get; set; }
         public bool? Active { get; set; }
     }
 }

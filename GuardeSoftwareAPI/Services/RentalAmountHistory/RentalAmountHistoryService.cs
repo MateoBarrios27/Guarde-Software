@@ -67,7 +67,7 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 		{
 			if (rentalAmountHistory == null) throw new ArgumentNullException(nameof(rentalAmountHistory), "Rental amount history cannot be null.");
 			if (rentalAmountHistory.RentalId <= 0) throw new ArgumentException("Invalid rental ID.");
-			if (rentalAmountHistory.Amount <= 0) throw new ArgumentException("Amount must be greater than zero.");
+			if (rentalAmountHistory.Amount < 0) throw new ArgumentException("Amount must be greater than zero.");
 			if (rentalAmountHistory.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
 			return await _daoRentalAmountHistory.CreateRentalAmountHistory(rentalAmountHistory);
 		}
@@ -76,7 +76,7 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
         {
             if (rentalAmountHistory == null) throw new ArgumentNullException(nameof(rentalAmountHistory), "Rental amount history cannot be null.");
             if (rentalAmountHistory.RentalId <= 0) throw new ArgumentException("Invalid rental ID.");
-            if (rentalAmountHistory.Amount <= 0) throw new ArgumentException("Amount must be greater than zero.");
+            if (rentalAmountHistory.Amount < 0) throw new ArgumentException("Amount must be greater than zero.");
             if (rentalAmountHistory.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
 
             return await _daoRentalAmountHistory.CreateRentalAmountHistoryAsync(rentalAmountHistory);
@@ -84,16 +84,16 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 
 
 		public async Task<int> CreateRentalAmountHistoryTransactionAsync(RentalAmountHistory rentalAmountHistory, SqlConnection connection, SqlTransaction transaction)
-		{
-			if (rentalAmountHistory == null) throw new ArgumentNullException(nameof(rentalAmountHistory), "Rental amount history cannot be null.");
-			if (rentalAmountHistory.RentalId <= 0) throw new ArgumentException("Invalid rental ID.");
-			if (rentalAmountHistory.Amount < 0) throw new ArgumentException("Amount must be greater than zero.");
-			if (rentalAmountHistory.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
+        {
+            if (rentalAmountHistory == null) throw new ArgumentNullException(nameof(rentalAmountHistory));
+            if (rentalAmountHistory.RentalId <= 0) throw new ArgumentException("Invalid rental ID.");
+            if (rentalAmountHistory.Amount < 0) throw new ArgumentException("Amount must be greater than zero.");
+            if (rentalAmountHistory.StartDate == default) throw new ArgumentException("Invalid start date.");
 
-			return await _daoRentalAmountHistory.CreateRentalAmountHistoryTransactionAsync(rentalAmountHistory, connection, transaction);
-		}
+            return await _daoRentalAmountHistory.CreateRentalAmountHistoryTransactionAsync(rentalAmountHistory, connection, transaction);
+        }
 
-		public async Task<RentalAmountHistory?> GetLatestRentalAmountHistoryTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
+        public async Task<RentalAmountHistory?> GetLatestRentalAmountHistoryTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
         {
             if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.");
             return await _daoRentalAmountHistory.GetLatestRentalAmountHistoryTransactionAsync(rentalId, connection, transaction);
@@ -106,16 +106,14 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
             if (newAmount <= 0) throw new ArgumentException("New amount must be positive.");
             if (startDate == default) throw new ArgumentException("Invalid start date.");
 
-            // Poner fecha fin al registro anterior (ayer)
             DateTime endDate = startDate.Date.AddDays(-1);
             await _daoRentalAmountHistory.EndRentalAmountHistoryTransactionAsync(oldHistoryId, endDate, connection, transaction);
 
-            // Crear el nuevo registro
             var newHistory = new RentalAmountHistory
             {
                 RentalId = rentalId,
                 Amount = newAmount,
-                StartDate = startDate.Date // Asegúrate de guardar solo la fecha si es necesario
+                StartDate = startDate.Date
             };
             await _daoRentalAmountHistory.CreateRentalAmountHistoryTransactionAsync(newHistory, connection, transaction);
         }

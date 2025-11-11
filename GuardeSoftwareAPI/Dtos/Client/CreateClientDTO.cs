@@ -18,13 +18,20 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public int? PreferredPaymentMethodId { get; set; }
         public string? IvaCondition { get; set; } = string.Empty;
         public int? BillingTypeId { get; set; }
-        public bool IsLegacyClient { get; set; } = false; // Por defecto es 'false'
+
+
+        //Legacy data
+        public bool IsLegacyClient { get; set; } = false;
+        public bool IsLegacy6MonthPromo { get; set; } = false;
+        public decimal? LegacyInitialAmount { get; set; } 
+        public DateTime? LegacyNextIncreaseDate { get; set; } 
+        public int PrepaidMonths { get; set; } = 0;
+
 
         //Rental Table
         public DateTime StartDate { get; set; }
         // Maybe add End date??
         public decimal? ContractedM3 { get; set; }
-        public int PrepaidMonths { get; set; } = 0;
 
         //rentalAmountHistory
         public decimal Amount { get; set; }

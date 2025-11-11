@@ -119,11 +119,16 @@ namespace GuardeSoftwareAPI.Services.client
             if (!string.IsNullOrEmpty(dto.Dni) && string.IsNullOrWhiteSpace(dto.Dni))
                 throw new ArgumentException("DNI cannot be empty or whitespace.", nameof(dto.Dni));
 
-            // if (!string.IsNullOrEmpty(dto.Cuit) && string.IsNullOrWhiteSpace(dto.Cuit))
-            //     throw new ArgumentException("CUIT cannot be empty or whitespace.", nameof(dto.Cuit));
-
-            if (dto.RegistrationDate == default) dto.RegistrationDate = DateTime.UtcNow.Date;
-            if (dto.StartDate == default) dto.StartDate = DateTime.UtcNow.Date; 
+            if (dto.IsLegacyClient)
+            {
+                if (dto.StartDate == default) throw new ArgumentException("Legacy start date is required.");
+                if (!dto.LegacyInitialAmount.HasValue || dto.LegacyInitialAmount < 0) throw new ArgumentException("Legacy initial amount is required.");
+                if (!dto.LegacyNextIncreaseDate.HasValue) throw new ArgumentException("Legacy next increase date is required.");
+            }
+            
+            // Asign dates if not legacy
+            DateTime startDate = dto.IsLegacyClient ? dto.StartDate : DateTime.UtcNow.Date;
+            DateTime registrationDate = dto.IsLegacyClient ? dto.RegistrationDate : DateTime.UtcNow.Date;
 
             using (var connection = accessDB.GetConnectionClose())
             {
@@ -159,76 +164,80 @@ namespace GuardeSoftwareAPI.Services.client
                         Client client = new()
                         {
                             PaymentIdentifier = dto.PaymentIdentifier,
-                            FirstName = dto.FirstName?.Trim() ?? string.Empty,
-                            LastName = dto.LastName?.Trim() ?? string.Empty,
-                            RegistrationDate = dto.RegistrationDate,
+                            FirstName = dto.FirstName.Trim(),
+                            LastName = dto.LastName.Trim(),
+                            RegistrationDate = registrationDate,
                             Dni = string.IsNullOrWhiteSpace(dto.Dni) ? null : dto.Dni.Trim(),
                             Cuit = string.IsNullOrWhiteSpace(dto.Cuit) ? null : dto.Cuit.Trim(),
-                            PreferredPaymentMethodId = dto.PreferredPaymentMethodId ?? 0,
+                            PreferredPaymentMethodId = dto.PreferredPaymentMethodId,
                             IvaCondition = string.IsNullOrWhiteSpace(dto.IvaCondition) ? null : dto.IvaCondition.Trim(),
                             Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
-                            BillingTypeId = dto.BillingTypeId
+                            BillingTypeId = dto.BillingTypeId,
+                            IncreaseFrequencyMonths = dto.IsLegacy6MonthPromo ? 6 : 4,
+                            InitialAmount = dto.IsLegacyClient ? dto.LegacyInitialAmount : dto.Amount // Guardar monto inicial
                         };
+                        int newClientId = await daoClient.CreateClientTransactionAsync(client, connection, transaction);
 
-                        int newId = await daoClient.CreateClientTransactionAsync(client, connection, transaction);
-
+                        // --- Lógica de Fechas de Aumento y Monto Inicial ---
                         DateTime? priceLockDate = null;
-                        if (dto.PrepaidMonths >= 6)
+                        if (dto.PrepaidMonths > 0)
                         {
-                            // Calculamos la fecha fin del bloqueo sumando los meses PREPAGOS a la fecha de INICIO del alquiler
-                            // Usamos AddMonths para manejar correctamente fin de mes, años bisiestos, etc.
-                            priceLockDate = dto.StartDate.AddMonths(dto.PrepaidMonths);
-                            _logger.LogInformation($"Cliente {newId} tiene {dto.PrepaidMonths} meses prepagos. Precio bloqueado hasta {priceLockDate:yyyy-MM-dd}");
+                            priceLockDate = startDate.AddMonths(dto.PrepaidMonths);
+                        }
+
+                        DateTime nextIncreaseDate;
+                        if (dto.IsLegacyClient && dto.LegacyNextIncreaseDate.HasValue)
+                        {
+                            nextIncreaseDate = dto.LegacyNextIncreaseDate.Value;
+                        }
+                        else
+                        {
+                            int frequency = dto.IsLegacy6MonthPromo ? 6 : 4;
+                            nextIncreaseDate = startDate.AddMonths(frequency);
                         }
 
                         Rental rental = new()
                         {
-                            ClientId = newId,
-                            StartDate = dto.StartDate,
+                            ClientId = newClientId,
+                            StartDate = startDate,
                             ContractedM3 = dto.ContractedM3 ?? 0m,
                             MonthsUnpaid = 0,
-                            PriceLockEndDate = priceLockDate
+                            PriceLockEndDate = priceLockDate,
+                            NextIncreaseDate = nextIncreaseDate // Renombrado a 'increase_anchor_date' en BD
                         };
-
                         int rentalId = await rentalService.CreateRentalTransactionAsync(rental, connection, transaction);
 
-                        if (dto.PrepaidMonths > 0 && dto.Amount > 0)
-                        {
-                            decimal totalCreditAmount = dto.PrepaidMonths * dto.Amount;
-                            AccountMovement creditMovement = new AccountMovement
-                            {
-                                RentalId = rentalId,
-                                MovementDate = dto.StartDate,
-                                MovementType = "CREDITO",
-                                Concept = $"Pago adelantado x{dto.PrepaidMonths} {(dto.PrepaidMonths == 1 ? "mes" : "meses")}",
-                                Amount = totalCreditAmount,
-                                PaymentId = null
-                            };
-                            await accountMovementService.CreateAccountMovementTransactionAsync(creditMovement, connection, transaction);
-                            _logger.LogInformation($"Crédito inicial de {totalCreditAmount:C} registrado para rental {rentalId} ({dto.PrepaidMonths} meses).");
-                        }
-
-                        RentalAmountHistory rentalAmountHistory = new()
-                        {
-                            RentalId = rentalId,
-                            Amount = dto.Amount,
-                            StartDate = dto.StartDate,
-                        };
-
-                        var rentalAmountHistoryId = await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(rentalAmountHistory, connection, transaction);
-
-                        // --- 2. LÓGICA DE DÉBITO INICIAL / CRÉDITO (MODIFICADA) ---
-                        
+                        // --- Lógica de Historial de Montos ---
                         if (dto.IsLegacyClient)
                         {
-                            // --- ES CLIENTE LEGACY ---
-                            _logger.LogInformation($"Procesando cliente legacy (ID: {newId}).");
+                            decimal initialAmount = dto.LegacyInitialAmount.Value; // Ya validamos que no es null
+                            
+                            // 1. Crear el registro "inicial"
+                            await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
+                            {
+                                RentalId = rentalId,
+                                Amount = initialAmount,
+                                StartDate = dto.StartDate,
+                                // Si el monto actual es diferente, el EndDate es un día antes del prox. aumento
+                                EndDate = (dto.Amount != initialAmount && dto.LegacyNextIncreaseDate.HasValue) ? dto.LegacyNextIncreaseDate.Value.AddDays(-1) : (DateTime?)null
+                            }, connection, transaction);
 
+                            // 2. Si el monto actual es DIFERENTE al inicial, crear el registro "actual"
+                            if (dto.Amount != initialAmount && dto.LegacyNextIncreaseDate.HasValue)
+                            {
+                                await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
+                                {
+                                    RentalId = rentalId,
+                                    Amount = dto.Amount, // El monto actual
+                                    StartDate = dto.LegacyNextIncreaseDate.Value // Comienza en la fecha de prox. aumento
+                                }, connection, transaction);
+                            }
+                            
+                            // 3. Registrar crédito prepago (si existe)
                             if (dto.PrepaidMonths > 0 && dto.Amount > 0)
                             {
-                                // Es Legacy Y TIENE meses prepagos. Generar CRÉDITO.
-                                decimal totalCreditAmount = dto.PrepaidMonths * dto.Amount;
-                                AccountMovement creditMovement = new AccountMovement
+                                decimal totalCreditAmount = dto.PrepaidMonths * dto.Amount; // Crédito basado en el monto ACTUAL
+                                await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
                                 {
                                     RentalId = rentalId,
                                     MovementDate = dto.StartDate,
@@ -236,37 +245,33 @@ namespace GuardeSoftwareAPI.Services.client
                                     Concept = $"Crédito inicial por {dto.PrepaidMonths} {(dto.PrepaidMonths == 1 ? "mes" : "meses")} pagados",
                                     Amount = totalCreditAmount,
                                     PaymentId = null
-                                };
-                                await accountMovementService.CreateAccountMovementTransactionAsync(creditMovement, connection, transaction);
-                                _logger.LogInformation($"Crédito inicial de {totalCreditAmount:C} registrado para rental {rentalId}.");
-                            }
-                            else
-                            {
-                                // Es Legacy PERO NO TIENE meses prepagos (dto.PrepaidMonths == 0).
-                                // NO HACEMOS NADA: Ni débito inicial ni crédito.
-                                _logger.LogInformation($"Cliente legacy (ID: {newId}) creado. No se genera débito inicial ni crédito prepago.");
+                                }, connection, transaction);
                             }
                         }
                         else
                         {
-                            // --- ES CLIENTE NUEVO (IsLegacyClient == false) ---
-                            // Generamos el DÉBITO del primer mes.
-                            _logger.LogInformation($"Procesando cliente nuevo (ID: {newId}). Generando débito inicial.");
-                            
+                            // --- CLIENTE NUEVO ---
+                            // 1. Crear el historial de monto inicial (es el único)
+                            await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
+                            {
+                                RentalId = rentalId,
+                                Amount = dto.Amount,
+                                StartDate = dto.StartDate
+                            }, connection, transaction);
+
+                            // 2. Crear el DÉBITO del primer mes
                             var culture = new CultureInfo("es-AR");
                             string monthName = culture.DateTimeFormat.GetMonthName(dto.StartDate.Month);
                             string concept = $"Alquiler {CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName)} {dto.StartDate.Year}";
-
-                            AccountMovement debitMovement = new AccountMovement
+                            await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
                             {
                                 RentalId = rentalId,
                                 MovementDate = dto.StartDate,
                                 MovementType = "DEBITO",
                                 Concept = concept,
-                                Amount = dto.Amount, // El monto del primer mes
+                                Amount = dto.Amount,
                                 PaymentId = null
-                            };
-                            await accountMovementService.CreateAccountMovementTransactionAsync(debitMovement, connection, transaction);
+                            }, connection, transaction);
                         }
 
 
@@ -285,7 +290,7 @@ namespace GuardeSoftwareAPI.Services.client
                             {
                                 Email emailEntity = new()
                                 {
-                                    ClientId = newId,
+                                    ClientId = newClientId,
                                     Address = email.Trim(),
                                     Type = ""
                                 };
@@ -299,7 +304,7 @@ namespace GuardeSoftwareAPI.Services.client
                             {
                                 Phone phoneEntity = new()
                                 {
-                                    ClientId = newId,
+                                    ClientId = newClientId,
                                     Number = phone.Trim(),
                                     Type = "",
                                     Whatsapp = false
@@ -310,7 +315,7 @@ namespace GuardeSoftwareAPI.Services.client
 
                         Address address = new()
                         {
-                            ClientId = newId,
+                            ClientId = newClientId,
                             Street = dto.AddressDto.Street?.Trim() ?? string.Empty,
                             City = dto.AddressDto.City?.Trim() ?? string.Empty,
                             Province = dto.AddressDto.Province?.Trim() ?? string.Empty,
@@ -324,14 +329,14 @@ namespace GuardeSoftwareAPI.Services.client
                             LogDate = dto.StartDate,
                             Action = "CREATE",
                             TableName = "clients",
-                            RecordId = newId,
+                            RecordId = newClientId,
                         };
 
                         await activityLogService.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
 
                         await transaction.CommitAsync();
 
-                        return newId;
+                        return newClientId;
                     }
                     catch(Exception ex)
                     {

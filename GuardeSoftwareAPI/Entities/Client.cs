@@ -13,6 +13,8 @@
         public int? PreferredPaymentMethodId { get; set; }
         public string? IvaCondition { get; set; } = string.Empty;
         public int? BillingTypeId { get; set; }
+        public int IncreaseFrequencyMonths { get; set; }
+        public decimal? InitialAmount { get; set; }
         public bool? Active { get; set; }
     }
 }

@@ -25,7 +25,6 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public string PreferredPaymentMethod { get; set; } = string.Empty;
         public decimal IncreasePercentage { get; set; }
         public int IncreaseFrequency { get; set; }
-        public DateTime NextIncreaseDay { get; set; }
         public DateTime NextPaymentDay { get; set; }
         public decimal Balance { get; set; }
         public string PaymentStatus { get; set; } = string.Empty;
@@ -41,7 +40,11 @@ namespace GuardeSoftwareAPI.Dtos.Client
         //Other Information
         public string Notes { get; set; } = string.Empty;
 
-        //Maybe add a list of past payments?
+        //Increase data
+        public int IncreaseFrequencyMonths { get; set; } // (4 o 6)
+        public DateTime NextIncreaseDay { get; set; } // La fecha ancla
+        public decimal? InitialAmount { get; set; } // El monto inicial
+
 
     }
 }
