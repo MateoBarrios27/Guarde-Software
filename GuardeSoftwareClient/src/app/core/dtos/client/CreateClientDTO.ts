@@ -20,12 +20,18 @@ export interface CreateClientDTO{
     lockerIds: number[];
     userID: number;
 
+    //contact info
     emails: string[];
     phones: string[];
     addressDto: CreateAddressDto,
 
+    // Legacy client fields
     prepaidMonths?: number;
     isLegacyClient?: boolean;
+    legacyInitialAmount?: number;
+    legacyNextIncreaseDate?: Date;
+    isLegacy6MonthPromo?: boolean;
+
 
     // increaseFrequency: string;
     // increasePercentage: number;

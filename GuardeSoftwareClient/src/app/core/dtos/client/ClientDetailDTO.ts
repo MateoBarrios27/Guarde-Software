@@ -35,4 +35,8 @@ export interface ClientDetailDTO{
     lockersList?: LockerClientDetailDTO[];
     contractedM3: number;
     notes: string;
+
+    // Increase data
+    increaseFrequencyMonths?: number;
+    initialAmount?: number;
 }

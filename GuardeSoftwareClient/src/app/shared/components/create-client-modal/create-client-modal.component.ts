@@ -35,6 +35,7 @@ import { ClientService } from '../../../core/services/client-service/client.serv
 import { forkJoin, Observable } from 'rxjs';
 import { BillingType } from '../../../core/models/billing-type.model';
 import { BillingTypeService } from '../../../core/services/billingType-service/billing-type.service';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-create-client-modal',
@@ -46,14 +47,11 @@ export class CreateClientModalComponent implements OnInit {
   // --- ENTRADAS Y SALIDAS ---
   private _clientData: ClientDetailDTO | null = null;
 
-  @Input()
+ @Input()
   set clientData(data: ClientDetailDTO | null) {
     this._clientData = data;
     // Solo poblamos el formulario si YA está listo Y los selects están cargados
-    if (this.newClientForm && data && this.paymentMethods.length > 0) {
-      console.log('Datos de cliente y selects listos. Poblando formulario...');
-      this.populateForm(data);
-    }
+    this.tryPopulateForm();
   }
 
   get clientData(): ClientDetailDTO | null {
@@ -70,7 +68,7 @@ export class CreateClientModalComponent implements OnInit {
   public availableLockers: Locker[] = [];
   public lockerTypes: LockerType[] = [];
   public paymentMethods: PaymentMethod[] = [];
-  public increaseRegimens: IncreaseRegimen[] = [];
+  // public increaseRegimens: IncreaseRegimen[] = [];
   public billingTypes: BillingType[] = [];
   isLoading: boolean = false;
   private areBasicDataLoaded = false;
@@ -92,17 +90,15 @@ export class CreateClientModalComponent implements OnInit {
   }
 
   private loadFormData(): void {
-    this.isLoading = true; // Indicar carga
-    this.areBasicDataLoaded = false; // Resetear flag
+    this.isLoading = true; 
+    this.areBasicDataLoaded = false; 
 
-    // Usamos forkJoin para esperar a que TODAS las llamadas terminen
     forkJoin({
       warehouses: this.warehouseService.getWarehouses(),
-      lockers: this.lockerService.getLockers(), // Traer TODOS, filtraremos después
+      lockers: this.lockerService.getLockers(),
       lockerTypes: this.lockerTypeService.getLockerTypes(),
       paymentMethods: this.paymentMethodService.getPaymentMethods(),
       billingTypes: this.billingTypeService.getBillingTypes()
-      // increaseRegimens: this.increaseRegimenService.getIncreaseRegimens() // Comentado si no se usa
     }).subscribe({
       next: (results) => {
         this.warehouses = results.warehouses;
@@ -112,7 +108,6 @@ export class CreateClientModalComponent implements OnInit {
         // Filtramos lockers disponibles + los del cliente actual
         this.availableLockers = results.lockers.filter(
           (l) => l.status.toLowerCase() === 'disponible' ||
-                 // Check si el ID del locker está en la lista que viene del clientData
                  (this.clientData?.lockersList?.some(assignedLocker => assignedLocker.id === l.id) ?? false)
         );
         this.billingTypes = results.billingTypes;
@@ -124,8 +119,13 @@ export class CreateClientModalComponent implements OnInit {
       error: (err) => {
         console.error('Error cargando datos para el modal:', err);
         this.isLoading = false;
-        // Mostrar un error al usuario
-        this.showToastNotification('Error al cargar datos necesarios.', 'error');
+        // --- MANEJO DE ERROR CON MODAL ---
+        Swal.fire({
+          icon: 'error',
+          title: 'Error de Carga',
+          text: 'No se pudieron cargar los datos necesarios (depósitos, tipos, etc.). Por favor, intente reabrir el modal.',
+          confirmButtonColor: '#2563eb'
+        });
       }
     });
   }
@@ -137,22 +137,20 @@ export class CreateClientModalComponent implements OnInit {
       this.populateForm(this._clientData);
     } else if (this.newClientForm && this.areBasicDataLoaded && !this._clientData) {
         console.log("Datos básicos cargados, modo creación.");
-        // Podrías resetear algo específico aquí si fuera necesario para 'Crear'
     } else {
         console.log("Esperando datos básicos o datos del cliente...");
     }
   }
 
   private initNewClientForm(): void {
-      // ... (sin cambios aquí, asegúrate que 'telefonos' y 'emails' estén correctos) ...
     this.newClientForm = this.fb.group({
       // --- Sección Personal ---
       numeroIdentificacion: [''],
       nombre: ['', Validators.required],
       apellido: ['', Validators.required],
-      tipoDocumento: ['DNI'], // Lo mantenemos por lógica, pero lo ocultamos en HTML
+      tipoDocumento: ['DNI'], 
       numeroDocumento: ['', Validators.required],
-      cuit: [''], // <-- 1. CAMBIO: CUIT añadido
+      cuit: [''],
       
       // --- Sección Contacto ---
       emails: this.fb.array([ this.fb.control('', [Validators.required, Validators.email]), ]),
@@ -165,13 +163,18 @@ export class CreateClientModalComponent implements OnInit {
       // --- Sección Pago ---
       condicionIVA: [null, Validators.required],
       metodoPago: [null, Validators.required],
-      documento: [null], // Tipo Factura
-      
-      // --- Sección Financiera (Nueva) ---
-      isLegacyClient: [false, Validators.required], // <-- 2. CAMBIO: Interruptor
-      legacyStartDate: [null], // <-- 3. CAMBIO: Fecha de ingreso manual
-      prepaidMonths: [0], // <-- 4. CAMBIO: Meses pagados
       billingTypeId: [null, Validators.required],
+      
+      // --- Sección Financiera (Legacy) ---
+      // Los campos inician deshabilitados. 
+      // El HTML los habilitará/deshabilitará con el toggle.
+      // El HTML también deshabilitará TODO si es modo EDICIÓN.
+      isLegacyClient: [false], 
+      legacyStartDate: [{ value: null, disabled: true }],
+      legacyInitialAmount: [{ value: null, disabled: true }],
+      legacyNextIncreaseDate: [{ value: null, disabled: true }],
+      isLegacy6MonthPromo: [{ value: false, disabled: true }],
+      prepaidMonths: [{ value: 0, disabled: true }], // También se deshabilita
       
       // --- Sección Observaciones ---
       observaciones: [''],
@@ -185,7 +188,17 @@ export class CreateClientModalComponent implements OnInit {
       contractedM3: [0],
     });
 
-     // Listener para recalcular monto (SIN CAMBIOS)
+    // Lógica para habilitar/deshabilitar los campos legacy dinámicamente
+    this.newClientForm.get('isLegacyClient')?.valueChanges.subscribe(isLegacy => {
+      const fields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate', 'isLegacy6MonthPromo', 'prepaidMonths'];
+      if (isLegacy) {
+        fields.forEach(field => this.newClientForm.get(field)?.enable());
+      } else {
+        fields.forEach(field => this.newClientForm.get(field)?.disable());
+      }
+    });
+
+     // Listener para recalcular monto
      const lockersAsignados = this.newClientForm.get('lockersAsignados') as FormArray;
      lockersAsignados.valueChanges.subscribe((ids: (number | null)[]) => {
        const validIds = ids.filter((id): id is number => typeof id === 'number' && id > 0);
@@ -193,9 +206,8 @@ export class CreateClientModalComponent implements OnInit {
        this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validIds), { emitEvent: false });
      });
 
-      // Añadir cálculo inicial de m3
-      this.newClientForm.addControl('contractedM3', this.fb.control(0)); // Añadimos control para m3
-
+     // Añadir control para m3
+     // this.newClientForm.addControl('contractedM3', this.fb.control(0)); // Ya está en el group
   }
 
     private populateForm(data: ClientDetailDTO): void {
@@ -203,7 +215,7 @@ export class CreateClientModalComponent implements OnInit {
 
       this.emails.clear();
       this.telefonos.clear();
-      (this.newClientForm.get('lockersAsignados') as FormArray).clear(); // Asegúrate que el nombre coincide
+      (this.newClientForm.get('lockersAsignados') as FormArray).clear(); 
 
       // Poblar emails
       if (data.email && data.email.length > 0) {
@@ -215,27 +227,21 @@ export class CreateClientModalComponent implements OnInit {
         data.phone.forEach(p => this.telefonos.push(this.fb.control(p)));
       } else { this.addTelefono(); }
 
-      // Poblar lockers (Asegúrate que lockersList tenga 'id')
+      // Poblar lockers
        if (data.lockersList && data.lockersList.length > 0) {
            data.lockersList.forEach(locker => {
-               // Verificar que locker.id exista y sea un número
                if (locker && typeof locker.id === 'number' && locker.id > 0) {
                    (this.newClientForm.get('lockersAsignados') as FormArray).push(this.fb.control(locker.id));
-                   console.log(`Pushed locker ID: ${locker.id} to form array`); // Log para confirmar
-               } else {
-                   console.warn("Locker inválido encontrado en ClientDetailDTO durante populateForm:", locker);
                }
            });
-           // Forzar actualización visual del form array (puede ayudar en algunos casos)
            (this.newClientForm.get('lockersAsignados') as FormArray).updateValueAndValidity();
-           console.log("FormArray lockersAsignados después de poblar:", this.newClientForm.get('lockersAsignados')?.value);
        }
 
       const matchingPaymentMethod = this.paymentMethods.find(
-        method => method.name === data.preferredPaymentMethod // Buscar por nombre si el DTO trae nombre
-                 // O method => method.id === data.preferredPaymentMethodId // Si el DTO trae ID
+        method => method.name === data.preferredPaymentMethod 
       );
 
+      // Poblar el formulario
       this.newClientForm.patchValue({
         numeroIdentificacion: data.paymentIdentifier,
         nombre: data.name,
@@ -246,20 +252,28 @@ export class CreateClientModalComponent implements OnInit {
         metodoPago: matchingPaymentMethod || null,
         direccion: data.address,
         ciudad: data.city,
-        provincia: data.province, // Ajusta si usas 'Province' en C# DTO
-        observaciones: data.notes, // Asegúrate que ambos sean string
+        provincia: data.province,
+        observaciones: data.notes,
         montoManual: data.rentAmount,
         billingTypeId: data.billingTypeId || null,
-        // No mapeamos lockersAsignados aquí, ya se hizo arriba
-        // No mapeamos campos de aumento
+        
+        // --- POBLAR CAMPOS LEGACY (asumiendo que el DTO los trae) ---
+        // Asignamos isLegacyClient basado en si tiene fecha de prox. aumento (una heurística)
+        // O si el backend envía un flag 'isLegacyClient'
+        // isLegacyClient: data.isLegacyClient, // <-- Ideal si el backend lo manda
+        isLegacy6MonthPromo: data.increaseFrequencyMonths === 6,
+        
+        // (Estos campos se deshabilitarán en el HTML por estar en modo edición)
+        legacyStartDate: data.registrationDate, // O data.startDate
+        legacyInitialAmount: data.initialAmount, // Asume que el DTO trae esto
+        legacyNextIncreaseDate: data.nextIncreaseDay, // Asume que el DTO trae esto
+        // prepaidMonths: data.prepaidMonths, // Asume que el DTO trae esto
       });
 
       // Disparar cálculo de m3 inicial
       const initialLockerIds = this.newClientForm.get('lockersAsignados')?.value || [];
       const validInitialIds = initialLockerIds.filter((id: any): id is number => typeof id === 'number' && id > 0);
       this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validInitialIds));
-
-
     }
 
   get emails(): FormArray {
@@ -366,8 +380,9 @@ export class CreateClientModalComponent implements OnInit {
   // Reemplaza este método en create-client-modal.component.ts
 
   onSubmit(): void {
+    // getRawValue() obtiene valores de campos deshabilitados (como los de legacy en modo edición)
+    const formValue = this.newClientForm.getRawValue();
     if (this.newClientForm.invalid) {
-      // ... (lógica para marcar como touched) ...
       Object.values(this.newClientForm.controls).forEach(control => {
         if (control.invalid) {
           control.markAsTouched();
@@ -380,24 +395,36 @@ export class CreateClientModalComponent implements OnInit {
            });
         }
       });
-      console.warn('Formulario inválido:', this.newClientForm.value);
-      this.showToastNotification('Por favor, completa todos los campos requeridos.', 'error');
+      console.warn('Formulario inválido:', formValue);
+      Swal.fire('Formulario Inválido', 'Por favor, completa todos los campos requeridos (*).', 'warning');
       return;
     }
 
-    this.isLoading = true;
-    const formValue = this.newClientForm.value;
-
     if (!formValue.metodoPago || !formValue.metodoPago.id) {
-        console.error('Error: Método de pago no seleccionado o inválido.', formValue.metodoPago);
-        this.showToastNotification('Error: Método de pago inválido.', 'error');
-        this.isLoading = false;
+        Swal.fire('Error de Validación', 'Método de pago no seleccionado o inválido.', 'error');
         return;
     }
     
     // --- 5. CAMBIO: Mapeo de DTO actualizado ---
     const isEditing = !!this.clientData;
     const isLegacy = formValue.isLegacyClient;
+  
+    if (isLegacy && !isEditing) { // Solo validamos requeridos al CREAR
+        if (!formValue.legacyStartDate) {
+            Swal.fire('Datos Incompletos', 'Para un cliente antiguo, la "Fecha de Ingreso Manual" es requerida.', 'warning');
+            return;
+        }
+         if (!formValue.legacyInitialAmount || formValue.legacyInitialAmount <= 0) {
+            Swal.fire('Datos Incompletos', 'Para un cliente antiguo, el "Monto Inicial" es requerido y debe ser mayor a 0.', 'warning');
+            return;
+        }
+        if (!formValue.legacyNextIncreaseDate) {
+            Swal.fire('Datos Incompletos', 'Para un cliente antiguo, la "Próxima Fecha de Aumento" es requerida.', 'warning');
+            return;
+        }
+    }
+
+    this.isLoading = true;
 
     const dto: CreateClientDTO = {
       id: isEditing ? this.clientData?.id : undefined,
@@ -422,11 +449,15 @@ export class CreateClientModalComponent implements OnInit {
       lockerIds: formValue.lockersAsignados.filter((id: any): id is number => typeof id === 'number' && id > 0),
       userID: 1, // Placeholder
 
-      // --- Lógica de fechas y prepago (MODIFICADA) ---
+      // Lógica de fechas y prepago
       registrationDate: isLegacy ? formValue.legacyStartDate : (isEditing ? this.clientData?.registrationDate : new Date()),
       startDate: isLegacy ? formValue.legacyStartDate : (isEditing ? this.clientData?.registrationDate : new Date()),
       prepaidMonths: isLegacy ? Number(formValue.prepaidMonths) : 0,
-      isLegacyClient: isLegacy, // <-- PROPIEDAD AÑADIDA
+      isLegacyClient: isLegacy,
+      isLegacy6MonthPromo: formValue.isLegacy6MonthPromo,
+      
+      legacyInitialAmount: isLegacy ? formValue.legacyInitialAmount : null,
+      legacyNextIncreaseDate: isLegacy ? formValue.legacyNextIncreaseDate : null,
     };
 
     console.log('Enviando DTO:', dto);
@@ -449,38 +480,39 @@ export class CreateClientModalComponent implements OnInit {
       error: (err) => {
         this.isLoading = false;
         console.error(isEditing ? 'Error al actualizar el cliente:' : 'Error al crear el cliente:', err);
+        
+        // --- MANEJO DE ERROR DETALLADO CON MODAL ---
         let errorDetails = '';
         if (err.error && err.error.errors) {
+            // Error de validación de ASP.NET Core
             errorDetails = Object.entries(err.error.errors)
-                                 .map(([key, value]) => `${key}: ${(value as string[]).join(', ')}`)
-                                 .join('; ');
+                                 .map(([key, value]) => `<b>${key}:</b> ${(value as string[]).join(', ')}`)
+                                 .join('<br>');
         }
+        
         const errorMsg = errorDetails || err.error?.message || err.statusText || 'Ocurrió un error desconocido.';
-        this.showToastNotification(`Error al guardar: ${errorMsg}`, 'error');
+        
+        Swal.fire({
+            icon: 'error',
+            title: `Error al ${isEditing ? 'actualizar' : 'crear'}`,
+            html: `No se pudo guardar el cliente.<br><br><small class="text-left">${errorMsg}</small>`,
+            confirmButtonColor: '#2563eb'
+        });
       },
     });
   }
 
 
   private calculateTotalM3(ids: number[]): number {
-      let totalM3 = 0;
-      ids.forEach((id) => {
-          const details = this.getLockerDetails(id);
-          if (details.lockerType && details.lockerType.m3) { // Verificar que m3 exista
-              totalM3 += details.lockerType.m3;
-          }
-      });
-      // Redondear a 2 decimales si es necesario
-      return Math.round(totalM3 * 100) / 100;
+     let totalM3 = 0;
+     ids.forEach((id) => {
+       const details = this.getLockerDetails(id);
+       if (details.lockerType && details.lockerType.m3) {
+         totalM3 += details.lockerType.m3;
+       }
+     });
+     return Math.round(totalM3 * 100) / 100;
    }
-
-  // Asegúrate de tener este método para mostrar toasts
-  private showToastNotification(message: string, type: 'success' | 'error'): void {
-      // Tu lógica de toast
-      console.log(`Toast (${type}): ${message}`); // Placeholder
-  }
-
-  // Asegúrate de tener este método para mostrar toasts (si no lo tienes ya)
 
 
   private calculateTotalAmount(ids: number[]): number {
