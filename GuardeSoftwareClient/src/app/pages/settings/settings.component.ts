@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common'; // Importar DatePipe
 import { FormsModule } from '@angular/forms';
 import { User } from '../../core/models/user';
 import { PaymentMethod } from '../../core/models/payment-method';
@@ -17,12 +17,16 @@ import { BillingType } from '../../core/models/billing-type.model';
 import { CreateBillingTypeDTO } from '../../core/dtos/billingType/create-billing-type.dto';
 import Swal from 'sweetalert2';
 import { UpdateBillingTypeDTO } from '../../core/dtos/billingType/update-billing-type.dto';
+import { MonthlyIncreaseService } from '../../core/services/monthlyIncrease-service/monthly-increase.service';
+import { MonthlyIncreaseSetting } from '../../core/models/monthly-increase-setting';
+import { CreateMonthlyIncreaseDto } from '../../core/dtos/monthlyIncrease/CreateMonthlyIncreaseDto';
+import { UpdateMonthlyIncreaseDto } from '../../core/dtos/monthlyIncrease/UpdateMonthlyIncreaseDto';
 
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, DatePipe], // DatePipe añadido
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css'
 })
@@ -32,7 +36,8 @@ export class SettingsComponent implements OnInit {
     private userService: UserService,
     private paymentMethodService: PaymentMethodService,
     private userTypeService: UserTypeService,
-    private billingTypeService: BillingTypeService
+    private billingTypeService: BillingTypeService,
+    private monthlyIncreaseService: MonthlyIncreaseService
   ) {}
 
   activeSection: string = 'usuarios';
@@ -41,6 +46,7 @@ export class SettingsComponent implements OnInit {
   paymentMethods : PaymentMethod [] = [];
   billingTypes: BillingType[] = [];
 
+  // --- Propiedades de Usuario ---
   userCreated: CreateUserDTO = {
     userName: '',
     firstName: '',
@@ -48,7 +54,6 @@ export class SettingsComponent implements OnInit {
     password: '',
     userTypeId: 2,
   }
-
   userEdit: User = {
     id: 0,
     userName: '',
@@ -56,48 +61,64 @@ export class SettingsComponent implements OnInit {
     lastName: '',
     userTypeId: 0,
   }
-
   userUpdated: UpdateUserDTO = {
     userName: '',
     firstName: '',
     lastName: '',
     userTypeId: 0,
   }
-
   SelectedUserId = 0;
-
   showCreateUserModal = false;
   showEditUserModal = false;
 
-  //payment method update
+  // --- Propiedades de Medios de Pago ---
   paymentMethodUpdate: UpdatePaymentMethodDTO = {
     commission: 0,
   }
-
   SelectedPaymentMethodId = 0;
   SelectedPaymentMethodName = '';
   showUpdatePaymentMethodModal = false;
-
-  //create Payment method
-
   createPaymentMethodDto: CreatePaymentMethodDTO = {
     name: '',
     commission: 0,
   }
-
   showCreatePaymentMethod = false;
 
+  // --- Propiedades de Tipos de Factura ---
   showCreateBillingTypeModal = false;
   showEditBillingTypeModal = false;
   newBillingType: CreateBillingTypeDTO = { name: '' };
   editingBillingType: BillingType = { id: 0, name: '' };
-  originalBillingTypeName: string = ''; // Para detectar cambios
+  originalBillingTypeName: string = '';
+
+  // --- Propiedades de Aumentos Mensuales ---
+  monthlyIncreases: MonthlyIncreaseSetting[] = [];
+  showCreateIncreaseModal = false;
+  showEditIncreaseModal = false;
+  newIncrease: CreateMonthlyIncreaseDto = { effectiveDate: '', percentage: 0 };
+  editingIncrease: MonthlyIncreaseSetting = { id: 0, effectiveDate: new Date(), percentage: 0 };
+  originalIncreasePercentage: number = 0;
+
 
   ngOnInit(): void {
     this.loadUsers();
     this.loadPaymentMethods();
     this.loadUserTypes();
     this.loadBillingTypes();
+    this.loadMonthlyIncreases(); // <-- ¡CORREGIDO!
+  }
+
+  // --- Métodos de Carga ---
+  loadMonthlyIncreases(): void {
+    this.monthlyIncreaseService.getSettings().subscribe({
+      next: (data) => {
+        this.monthlyIncreases = data;
+      },
+      error: (err) => {
+        console.error('Error al cargar aumentos mensuales', err);
+        Swal.fire('Error', 'No se pudieron cargar las configuraciones de aumentos', 'error');
+      },
+    });
   }
 
   loadBillingTypes(): void {
@@ -112,6 +133,264 @@ export class SettingsComponent implements OnInit {
     });
   }
 
+  loadUserTypes(): void{
+    this.userTypeService.getUserTypes().subscribe({
+      next: (data) => {
+        this.userTypes = data;
+      },
+      error: (err) => console.log('error al obtener tipos de usuario',err)
+    });
+  }
+  loadUsers(): void{
+    this.userService.getUsers().subscribe({
+      next: (data) =>{
+        this.users = data;
+      },
+      error: (err) => {
+        console.error('error: ', err)
+      }
+    });
+  }
+
+  loadPaymentMethods(): void{
+    this.paymentMethodService.getPaymentMethods().subscribe({
+      next: (data) => {
+        this.paymentMethods = data;
+      },
+      error: (err) => {
+        console.error('error: ',err);
+      }
+    });
+  }
+
+  // --- Navegación ---
+  configSections = [
+    { id: 'usuarios', title: 'Usuarios', icon: '👤' },
+    { id: 'medios-pago', title: 'Medios de Pago', icon: '💳' },
+    { id: 'facturacion', title: 'Facturación', icon: '📄' },
+    { id: 'aumentos', title: 'Aumentos Mensuales', icon: '📈' },
+    { id: 'datos', title: 'Datos', icon: '🗄️' }
+  ];
+
+  setActive(section: string) {
+    this.activeSection = section;
+  }
+
+  getUserTypeName(userTypeId: number): string {
+    if (!userTypeId || this.userTypes.length === 0) {
+      return 'Desconocido';
+    }
+    const type = this.userTypes.find(t => t.id === userTypeId);
+    return type ? type.name : 'Desconocido';
+  }
+
+  // --- Métodos de Gestión de Usuarios (Actualizados a Swal) ---
+  closeCreateUserModal() { this.showCreateUserModal = false; }
+  
+  openCreateUserModal(){ 
+    this.userCreated = { // Resetear
+      userName: '', firstName: '', lastName: '', password: '', userTypeId: 2,
+    };
+    this.showCreateUserModal = true; 
+  }
+
+  saveCreateUser(dto: CreateUserDTO){
+    dto.userName = dto.userName?.trim() || '';
+    dto.firstName = dto.firstName?.trim() || '';
+    dto.lastName = dto.lastName?.trim() || '';
+    dto.password = dto.password?.trim() || '';
+
+    if (!dto.userName || !dto.firstName || !dto.lastName || !dto.password || !dto.userTypeId || dto.userTypeId <= 0) {
+      Swal.fire('Campos incompletos', 'Por favor, completa todos los campos requeridos.', 'warning');
+      return;
+    }
+    if (/\s/.test(dto.userName)) {
+      Swal.fire('Error', 'El nombre de usuario no puede contener espacios.', 'warning');
+      return;
+    }
+
+    this.userService.createUser(dto).subscribe({
+      next: () => {
+        Swal.fire('Éxito', 'Usuario creado correctamente.', 'success');
+        this.loadUsers(); 
+        this.closeCreateUserModal();
+      },
+      error: (err) => {
+        console.error('Error al crear usuario:', err);
+        Swal.fire('Error', 'No se pudo crear el usuario.', 'error');
+      }
+    });
+  }
+
+  deleteUser(id: number): void{
+    if (!id || id <= 0) {
+      Swal.fire('Error', 'ID de usuario inválido.', 'error');
+      return;
+    }
+
+    Swal.fire({
+      title: '¿Estás seguro?',
+      text: '¿Deseas eliminar este usuario? Esta acción no se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.userService.deleteUser(id).subscribe({
+          next: () => {
+            Swal.fire('Eliminado', 'El usuario ha sido eliminado.', 'success');
+            this.users = this.users.filter(u => u.id !== id);
+          },
+          error: (err) => {
+            console.log('error al eliminar usuario', err);
+            Swal.fire('Error', 'No se pudo eliminar el usuario.', 'error');
+          }
+        });
+      }
+    });
+  }
+
+  closeEditUserModal() { this.showEditUserModal = false; }
+  
+  openEditModalModal(item: User){
+    this.userEdit = { ...item }; // Copiar objeto
+    this.showEditUserModal = true; 
+  }
+
+  SaveUpdateUserModal(item: User){
+    if (!item || !item.userName?.trim() || !item.firstName?.trim() || !item.lastName?.trim() || !item.userTypeId) {
+      Swal.fire('Campos incompletos', 'Por favor, completa todos los campos requeridos.', 'warning');
+      return;
+    }
+
+    this.userUpdated = {
+      userTypeId: item.userTypeId,
+      userName: item.userName.trim(),
+      firstName: item.firstName.trim(),
+      lastName: item.lastName.trim(),
+    }
+    this.SelectedUserId = item.id;
+
+    this.userService.updateUser(this.SelectedUserId, this.userUpdated).subscribe({
+      next: () => {
+        Swal.fire('Éxito', 'Usuario actualizado correctamente.', 'success');
+        this.loadUsers();
+        this.showEditUserModal = false; 
+      },
+      error: (err) => {
+        console.log('error actualizando el usuario.', err);
+        Swal.fire('Error', 'No se pudo actualizar el usuario.', 'error');
+      }
+    });
+  }
+
+  // --- Métodos de Medios de Pago (Actualizados a Swal) ---
+  closeUpdatePaymentMethodModal() { this.showUpdatePaymentMethodModal = false; }
+
+  openUpdatePaymentModal(item: PaymentMethod){
+    this.paymentMethodUpdate = {
+      commission : item.commission,
+    }
+    this.SelectedPaymentMethodId = item.id;
+    this.SelectedPaymentMethodName = item.name;
+    this.showUpdatePaymentMethodModal = true;
+  }
+    
+  updatePaymentMethod(id: number,dto: UpdatePaymentMethodDTO){
+    if (!id) {
+      Swal.fire('Error', 'Debes seleccionar un método de pago.', 'warning');
+      return;
+    }
+    if (dto.commission === undefined || dto.commission < 0 || dto.commission > 100) {
+      Swal.fire('Valor incorrecto', 'La comisión debe ser un valor entre 0 y 100.', 'warning');
+      return;
+    }
+
+    this.paymentMethodService.UpdatePaymentMethod(id,dto).subscribe({
+      next: () => {
+        Swal.fire('Éxito', 'Método de pago actualizado.', 'success');
+        this.loadPaymentMethods();
+        this.closeUpdatePaymentMethodModal();
+      },
+      error: (err) =>{
+        console.log('error al actualizar el metodo de pago: ',err);
+        Swal.fire('Error', 'No se pudo actualizar el método de pago.', 'error');
+      } 
+    });
+  }
+
+  closeCreatePaymentMethodModal() { 
+    this.createPaymentMethodDto = {
+      name: '',
+      commission: 0,
+    }
+    this.showCreatePaymentMethod = false; 
+  }
+
+  openCreatePaymentMethod(){ 
+    this.showCreatePaymentMethod = true;
+  }
+
+  createPaymentMethod(dto: CreatePaymentMethodDTO){
+    dto.name = dto.name?.trim() || '';
+
+    if (!dto.name) {
+      Swal.fire('Campo requerido', 'Debes ingresar un nombre de método de pago.', 'warning');
+      return;
+    }
+    if (dto.commission === undefined || dto.commission < 0 || dto.commission > 100) {
+      Swal.fire('Valor incorrecto', 'La comisión debe ser un valor entre 0 y 100.', 'warning');
+      return;
+    }
+
+    this.paymentMethodService.createPaymentMethod(dto).subscribe({
+      next: () => {
+        Swal.fire('Éxito', 'Método de pago creado con éxito.', 'success');
+        this.loadPaymentMethods();
+        this.closeCreatePaymentMethodModal();
+      },
+      error: (err) => {
+        console.log('error al crear metodo de pago', err);
+        Swal.fire('Error', 'No se pudo crear el método de pago.', 'error');
+      }
+    });
+  }
+
+  deletePaymentMethod(id: number){
+    if (!id) {
+      console.log('id de medio de pago no valido.');
+      return;
+    }
+
+    Swal.fire({
+      title: '¿Estás seguro?',
+      text: '¿Deseas eliminar este método de pago?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.paymentMethodService.deletePaymentMethod(id).subscribe({
+          next: () => {
+            Swal.fire('Eliminado', 'El método de pago ha sido eliminado.', 'success');
+            this.loadPaymentMethods();
+          },
+          error: (err) => {
+            console.log('error al eliminar el metodo de pago', err);
+            Swal.fire('Error', 'No se pudo eliminar el método de pago.', 'error');
+          }
+        });
+      }
+    });
+  }
+ 
+  // --- Métodos de Tipos de Factura (Billing Types) ---
   openCreateBillingTypeModal(): void {
     this.newBillingType = { name: '' }; 
     this.showCreateBillingTypeModal = true;
@@ -193,7 +472,6 @@ export class SettingsComponent implements OnInit {
           },
           error: (err) => {
             console.error('Error al eliminar tipo de factura', err);
-            // Mostrar error de "en uso" si el backend lo devuelve
             const errorMsg = err.error?.message || 'No se pudo eliminar. Es posible que esté en uso por algún cliente.';
             Swal.fire('Error', errorMsg, 'error');
           }
@@ -202,267 +480,101 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  loadUserTypes(): void{
-    this.userTypeService.getUserTypes().subscribe({
-      next: (data) => {
-        this.userTypes = data;
-      },
-      error: (err) => console.log('error al obtener tipos de usuario',err)
-    });
+  // --- Métodos de Aumentos Mensuales ---
+  openCreateIncreaseModal(): void {
+    const nextMonth = new Date();
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const nextMonthString = nextMonth.toISOString().split('T')[0].substring(0, 7);
+    
+    this.newIncrease = { effectiveDate: nextMonthString, percentage: 0 };
+    this.showCreateIncreaseModal = true;
   }
-  loadUsers(): void{
-    this.userService.getUsers().subscribe({
-      next: (data) =>{
-        this.users = data;
+
+  closeCreateIncreaseModal(): void {
+    this.showCreateIncreaseModal = false;
+  }
+
+  saveNewIncrease(): void {
+    if (!this.newIncrease.effectiveDate || this.newIncrease.percentage <= 0) {
+      Swal.fire('Datos inválidos', 'Debe seleccionar un mes (formato AAAA-MM) y un porcentaje mayor a 0.', 'warning');
+      return;
+    }
+    this.monthlyIncreaseService.createSetting(this.newIncrease).subscribe({
+      next: (created) => {
+        Swal.fire('Creado', `Aumento del ${created.percentage}% para ${this.formatDateToMonthYear(created.effectiveDate)} creado.`, 'success');
+        this.loadMonthlyIncreases();
+        this.closeCreateIncreaseModal();
       },
       error: (err) => {
-        console.error('error: ', err)
+        console.error('Error al crear aumento', err);
+        Swal.fire('Error', 'No se pudo crear el aumento. ¿Quizás ya existe para ese mes?', 'error');
       }
     });
   }
 
-  loadPaymentMethods(): void{
-    this.paymentMethodService.getPaymentMethods().subscribe({
-      next: (data) => {
-        this.paymentMethods = data;
-      },
-      error: (err) => {
-        console.error('error: ',err);
-      }
-    });
+  openEditIncreaseModal(increase: MonthlyIncreaseSetting): void {
+    this.editingIncrease = { ...increase }; // Copia
+    this.originalIncreasePercentage = increase.percentage;
+    this.showEditIncreaseModal = true;
   }
 
-  configSections = [
-    { id: 'usuarios', title: 'Usuarios', icon: '👤' },
-    { id: 'medios-pago', title: 'Medios de Pago', icon: '💳' },
-    { id: 'facturacion', title: 'Facturación', icon: '📄' },
-    { id: 'datos', title: 'Datos', icon: '🗄️' }
-  ];
-
-  setActive(section: string) {
-    this.activeSection = section;
+  closeEditIncreaseModal(): void {
+    this.showEditIncreaseModal = false;
   }
 
-  getUserTypeName(userTypeId: number): string {
-    if (!userTypeId || this.userTypes.length === 0) {
-      return 'Desconocido';
-    }
-    const type = this.userTypes.find(t => t.id === userTypeId);
-    return type ? type.name : 'Desconocido';
-  }
-
-  closeCreateUserModal() { this.showCreateUserModal = false; }
-  
-  openCreateUserModal(){ this.showCreateUserModal = true; }
-
-  saveCreateUser(dto: CreateUserDTO){
-
-    dto.userName = dto.userName?.trim() || '';
-    dto.firstName = dto.firstName?.trim() || '';
-    dto.lastName = dto.lastName?.trim() || '';
-    dto.password = dto.password?.trim() || '';
-
-    if (!dto.userName) {
-      alert('⚠️ Debes ingresar un nombre de usuario.');
+  saveUpdatedIncrease(): void {
+    if (this.editingIncrease.percentage <= 0) {
+      Swal.fire('Datos inválidos', 'El porcentaje debe ser mayor a 0.', 'warning');
       return;
     }
-
-    if (!dto.firstName) {
-      alert('⚠️ Debes ingresar el nombre del usuario.');
+    if (this.editingIncrease.percentage === this.originalIncreasePercentage) {
+      this.closeEditIncreaseModal();
       return;
-    }
-
-    if (!dto.lastName) {
-      alert('⚠️ Debes ingresar el apellido del usuario.');
-      return;
-    }
-
-    if (!dto.password) {
-      alert('⚠️ Debes ingresar una contraseña.');
-      return;
-    }
-
-    if (!dto.userTypeId || dto.userTypeId <= 0) {
-      alert('⚠️ Debes seleccionar un tipo de usuario.');
-      return;
-    }
-
-    if (/\s/.test(dto.userName)) {
-      alert('⚠️ El nombre de usuario no puede contener espacios.');
-      return;
-    }
-    this.userService.createUser(dto).subscribe({
-      next: () => {
-         alert('✅ usuario creado correctamente.');
-         setTimeout(() => this.loadUsers(), 100); 
-         this.closeCreateUserModal();
-      },
-      error: (err) => console.error('Error al crear usuario:', err)
-    });
-  }
-
-  deleteUser(id: number): void{
-
-    if (!id || id <= 0) {
-    alert('⚠️ ID de usuario inválido.');
-    return;
-    }
-
-    const confirmDelete = confirm('⚠️ ¿Estás seguro de que deseas eliminar este usuario? Esta acción no se puede deshacer.');
-
-    if (!confirmDelete) {
-      return;
-    }
-    this.userService.deleteUser(id).subscribe({
-      next: () => {
-         alert('✅ usuario eliminado correctamente.');
-         this.users = this.users.filter(u => u.id !== id);
-      },
-      error: (err) => console.log('error al eliminar usuario',err)
-    });
-  }
-
-    closeEditUserModal() { this.showEditUserModal = false; }
-  
-    openEditModalModal(item: User){
-      this.userEdit = {
-        id: item.id,
-        userTypeId: item.userTypeId,
-        userName: item.userName,
-        firstName: item.firstName,
-        lastName: item.lastName,
-      }
-      this.showEditUserModal = true; 
-    }
-
-    SaveUpdateUserModal(item: User){
-      if (!item) {
-        alert('Error: no se recibió la información del usuario.');
-        return;
-      }
-
-      if (!item.userName || item.userName.trim() === '') {
-        alert('El nombre de usuario es obligatorio.');
-        return;
-      }
-
-      if (!item.firstName || item.firstName.trim() === '') {
-        alert('El nombre es obligatorio.');
-        return;
-      }
-
-      if (!item.lastName || item.lastName.trim() === '') {
-        alert('El apellido es obligatorio.');
-        return;
-      }
-
-      if (!item.userTypeId || item.userTypeId <= 0) {
-        alert('Debe seleccionar un tipo de usuario válido.');
-        return;
-      }
-
-      this.userUpdated = {
-        userTypeId: item.userTypeId,
-        userName: item.userName,
-        firstName: item.firstName,
-        lastName: item.lastName,
-      }
-      this.SelectedUserId = item.id;
- 
-      this.userService.updateUser(this.SelectedUserId, this.userUpdated).subscribe({
-        next: () => {
-          alert('Usuario actualizado correctamente');
-          setTimeout(() => this.loadUsers(), 100); 
-          this.showEditUserModal = false; 
-        },
-        error: (err) => {console.log('error actualizando el usuario.', err)}
-      });
-    }
-
-    closeUpdatePaymentMethodModal() { this.showUpdatePaymentMethodModal = false; }
-
-    openUpdatePaymentModal(item: PaymentMethod){
-
-      this.paymentMethodUpdate = {
-        commission : item.commission,
-      }
-      this.SelectedPaymentMethodId = item.id;
-      this.SelectedPaymentMethodName = item.name;
-      this.showUpdatePaymentMethodModal = true;
     }
     
-    updatePaymentMethod(id: number,dto: UpdatePaymentMethodDTO){
-
-      if (!id) {
-      alert('⚠️ Debes seleccionar un método de pago.');
-      return;
+    const dto: UpdateMonthlyIncreaseDto = { percentage: this.editingIncrease.percentage };
+    this.monthlyIncreaseService.updateSetting(this.editingIncrease.id, dto).subscribe({
+      next: () => {
+        Swal.fire('Actualizado', 'Porcentaje de aumento actualizado.', 'success');
+        this.loadMonthlyIncreases();
+        this.closeEditIncreaseModal();
+      },
+      error: (err) => {
+        console.error('Error al actualizar aumento', err);
+        Swal.fire('Error', 'No se pudo actualizar el aumento.', 'error');
       }
-      if (dto.commission === undefined || dto.commission < 0 || dto.commission > 100) {
-        alert('⚠️ La comisión debe ser un valor entre 0 y 100.');
-        return;
-      }
-
-      this.paymentMethodService.UpdatePaymentMethod(id,dto).subscribe({
-        next: () => {
-          alert('metodo de pago actualizado!');
-          setTimeout(() => this.loadPaymentMethods(), 100); 
-        },
-        error: (err) =>{console.log('error al actualizar el metodo de pago: ',err)} 
-      });
-      this.closeUpdatePaymentMethodModal();
-    }
-
-    closeCreatePaymentMethodModal() { 
-      this.createPaymentMethodDto = {
-        name: '',
-        commission: 0,
-      }
-      this.showCreatePaymentMethod = false; 
-    }
-
-    openCreatePaymentMethod(){ 
-      this.showCreatePaymentMethod = true;
-    }
-
-    createPaymentMethod(dto: CreatePaymentMethodDTO){
-
-      dto.name = dto.name?.trim() || '';
-
-      if (!dto.name) {
-        alert('⚠️ Debes ingresar un nombre de metodo de pago.');
-        return;
-      }
-
-      if (dto.commission === undefined || dto.commission < 0 || dto.commission > 100) {
-        alert('⚠️ La comisión debe ser un valor entre 0 y 100.');
-        return;
-      }
-
-      this.paymentMethodService.createPaymentMethod(dto).subscribe({
-        next: () => {
-          alert('Metodo de pago creado con exito!');
-          setTimeout(() => this.loadPaymentMethods(), 100); 
-          this.closeCreatePaymentMethodModal();
-        },
-        error: (err) => {console.log('error al crear metodo de pago', err)}
-      });
-    }
-
-  deletePaymentMethod(id: number){
-      if (!id) {
-      console.log('id de medio de pago no valido.');
-      return;
-      }
-
-      if (confirm(`¿Seguro que quieres borrar el metodo de pago?`)){ 
-      this.paymentMethodService.deletePaymentMethod(id).subscribe({
-        next: () => {
-          alert('Metodo de pago eliminao con exito.');
-          setTimeout(() => this.loadPaymentMethods(), 100); 
-        },
-        error: (err) => {console.log('error al eliminar el metodo de pago', err)}
-      });
-      }
+    });
   }
-  
+
+  deleteIncrease(increase: MonthlyIncreaseSetting): void {
+    Swal.fire({
+      title: '¿Estás seguro?',
+      text: `¿Deseas eliminar el aumento del ${increase.percentage}% para ${this.formatDateToMonthYear(increase.effectiveDate)}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.monthlyIncreaseService.deleteSetting(increase.id).subscribe({
+          next: () => {
+            Swal.fire('Eliminado', 'El aumento ha sido eliminado.', 'success');
+            this.loadMonthlyIncreases();
+          },
+          error: (err) => {
+            console.error('Error al eliminar aumento', err);
+            Swal.fire('Error', 'No se pudo eliminar el aumento.', 'error');
+          }
+        });
+      }
+    });
+  }
+
+  // Helper para mostrar "Noviembre 2025"
+  formatDateToMonthYear(dateInput: Date | string): string {
+      const date = new Date(dateInput);
+      return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric', timeZone: 'UTC' }); 
+  }
 }
