@@ -232,18 +232,31 @@ OpenPaymentModal(){
 
 }
 
+commision:number = 0;
+newAmount: number = 0;
+
+AmountWithComission(amount: number, paymentMethodId: number): number{
+
+    const numericId = Number(paymentMethodId);
+    const method = this.paymentMethods.find(m => m.id === numericId);
+    this.commision = method ? method.commission : 0;
+    this.newAmount = amount + (amount * this.commision / 100);
+
+    return this.newAmount;
+}
+
 savePaymentModal(dto : CreatePaymentDTO){
-  if (!dto.amount || dto.amount <= 0) {
+      if (!dto.amount || dto.amount <= 0) {
         Swal.fire({
-        icon: 'warning',
-        title: 'Monto inválido',
-        text: 'Debes ingresar un monto válido antes de guardar el pago.',
-        confirmButtonText: 'Entendido',
-        confirmButtonColor: '#2563eb', 
-      });
+          icon: 'warning',
+          title: 'Monto inválido',
+          text: 'Debes ingresar un monto válido antes de guardar el pago.',
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#2563eb', 
+        });
         return;
       }
-  
+
       if (!dto.paymentMethodId) {
          Swal.fire({
         icon: 'warning',
@@ -254,11 +267,15 @@ savePaymentModal(dto : CreatePaymentDTO){
       });
         return;
       }
+
+      dto.amount = this.AmountWithComission(dto.amount, dto.paymentMethodId);
       
       Swal.fire({
       title: '¿Deseas registrar este pago?',
-      html: `<p class="text-gray-700">Medio de pago: <b>${this.getNamePaymentMethodById(dto.paymentMethodId)}</b></p>
-             <p class="text-gray-700">Importe: <b>$${dto.amount}</b></p>`,
+      html: `<div class="flex flex-col gap-2 ml-9">
+             <p class="text-gray-700">Medio de pago: <b>${this.getNamePaymentMethodById(dto.paymentMethodId)}</b></p>
+             <p class="text-gray-700">Importe: <b>$${dto.amount}</b></p>
+             <p class="text-gray-700">Comisión: <b>${this.commision}%</b></p> </div>`,
       icon: 'question',
       showCancelButton: true, 
       confirmButtonText: 'Confirmar',
