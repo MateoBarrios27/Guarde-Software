@@ -26,7 +26,7 @@ import { UpdateMonthlyIncreaseDto } from '../../core/dtos/monthlyIncrease/Update
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, DatePipe], // DatePipe añadido
+  imports: [CommonModule, FormsModule, IconComponent], // DatePipe añadido
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css'
 })
