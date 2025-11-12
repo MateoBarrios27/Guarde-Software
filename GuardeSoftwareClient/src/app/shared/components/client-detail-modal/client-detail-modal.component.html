@@ -30,7 +30,7 @@
             {{ client.name }} {{ client.lastName }}
           </h2>
           <p class="text-gray-500 text-sm">
-            Cliente N° {{ client.paymentIdentifier }}
+            Cliente N° {{ client.paymentIdentifier | number : "1.2-2" }}
           </p>
         </div>
         <span

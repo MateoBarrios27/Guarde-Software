@@ -47,7 +47,7 @@
         <tbody>
           <tr *ngFor="let item of filteredPendingRentals | paginate:{ itemsPerPage: itemsPerPage2, currentPage: page2, id: 'pendings' }" class="border-b hover:bg-gray-50 transition">
             <td class="px-5 py-3 font-medium text-gray-800">{{ item.clientName }}</td>
-            <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier }}</td>
+            <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier | number : "1.2-2" }}</td>
             <td class="px-5 py-3 text-gray-700">{{ item.lockerIdentifiers }}</td>
             <td class="px-5 py-3 text-center text-gray-800 font-medium">{{ item.monthsUnpaid }}</td>
             <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.balance | number:'1.2-2' }}</td>
@@ -124,7 +124,7 @@
             <tbody>
               <tr *ngFor="let item of filteredPayments | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'paymenthistory' }" class="border-b hover:bg-gray-50 transition">
                 <td class="px-5 py-3 font-medium text-gray-800">{{ item.clientName }}</td>
-                <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier }}</td>
+                <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier | number : "1.2-2" }}</td>
                 <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentDate | date:'dd/MM/yyyy' }}</td>
                 <td class="px-5 py-3 text-gray-700">{{getNamePaymentMethodById(item.paymentMethodId)}}</td>
                 <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.amount | number:'1.2-2' }}</td>
