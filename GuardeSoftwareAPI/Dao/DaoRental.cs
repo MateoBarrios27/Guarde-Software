@@ -171,7 +171,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@contracted_m3", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)rental.ContractedM3 ?? DBNull.Value },
                 new SqlParameter("@months_unpaid", SqlDbType.Int) { Value = rental.MonthsUnpaid },
                 new SqlParameter("@price_lock_end_date", SqlDbType.Date) { Value = (object?)rental.PriceLockEndDate ?? DBNull.Value },
-                new SqlParameter("@increase_anchor_date", SqlDbType.Date) { Value = (object?)rental.NextIncreaseDate ?? DBNull.Value } // Renombrado
+                new SqlParameter("@increase_anchor_date", SqlDbType.Date) { Value = (object?)rental.IncreaseAnchorDate ?? DBNull.Value } // Renombrado
             ];
 
             string query = @"

@@ -105,7 +105,8 @@ builder.Services.AddQuartz(q =>
                 q.AddTrigger(opts => opts
                     .ForJob(applyIncreasesJobKey)
                     .WithIdentity("ApplyMonthlyIncreasesJob-Trigger")
-                    .WithCronSchedule("0 30 1 * * ?") // 01:30 AM todos los días
+                    // Cron: 0 0 1 1 * ? -> (3:00 AM del día 1 de cada mes)
+                    .WithCronSchedule("0 0 3 1 * ?") 
                 );
 
     // --- Job 4: SendCommunicationJob (durable, no trigger) ---
