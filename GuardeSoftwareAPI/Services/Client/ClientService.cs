@@ -381,14 +381,14 @@ namespace GuardeSoftwareAPI.Services.client
                 Name = row["first_name"]?.ToString() ?? string.Empty,
                 LastName = row["last_name"]?.ToString() ?? string.Empty,
                 City = row["city"]?.ToString() ?? string.Empty,
-                Province = row["province"]?.ToString() ?? string.Empty,
+                Province = row["province"]?.ToString() ?? string.Empty, // El DTO de TS usa 'state', aquí 'Province'
                 Cuit = row["cuit"]?.ToString() ?? string.Empty,
                 Dni = row["dni"]?.ToString() ?? string.Empty,
                 RegistrationDate = Convert.ToDateTime(row["registration_date"]),
 
                 // Contact Information
                 Address = row["street"]?.ToString() ?? string.Empty,
-                // Las propiedades 'Email' y 'Phone' se cargarán a continuación
+                // Email y Phone se cargan por separado más abajo
 
                 // Payment & rental Information
                 IvaCondition = row["iva_condition"]?.ToString() ?? string.Empty,
@@ -396,42 +396,34 @@ namespace GuardeSoftwareAPI.Services.client
                 BillingTypeId = row["billing_type_id"] != DBNull.Value ? Convert.ToInt32(row["billing_type_id"]) : null,
                 BillingType = row["billing_type"]?.ToString() ?? "No especificado",
 
-                // CORREGÍ EL TYPO: Tu DTO dice 'IncresePerentage', lo cambié a 'IncreasePercentage'
-                IncreasePercentage = row["increase_percentage"] != DBNull.Value ? Convert.ToDecimal(row["increase_percentage"]) : 0,
-                IncreaseFrequency = row["increase_frequency"] != DBNull.Value ? Convert.ToInt32(row["increase_frequency"]) : 0,
-
-                NextIncreaseDay = row["end_date"] != DBNull.Value ? Convert.ToDateTime(row["end_date"]) : DateTime.MinValue,
+                // --- CAMPOS ACTUALIZADOS ---
+                IncreaseFrequencyMonths = Convert.ToInt32(row["increase_frequency_months"]),
+                InitialAmount = row["initial_amount"] != DBNull.Value ? Convert.ToDecimal(row["initial_amount"]) : null,
+                NextIncreaseDay = row["increase_anchor_date"] != DBNull.Value ? Convert.ToDateTime(row["increase_anchor_date"]) : DateTime.MinValue,
                 NextPaymentDay = row["next_payment_day"] != DBNull.Value ? Convert.ToDateTime(row["next_payment_day"]) : DateTime.MinValue,
+                // --- FIN CAMPOS ACTUALIZADOS ---
+
                 ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
                 Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0,
                 PaymentStatus = row["payment_status"]?.ToString() ?? "Desconocido",
                 RentAmount = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m,
 
                 // Other information
-                Notes = row["notes"]?.ToString() ?? string.Empty, // Esto está bien
+                Notes = row["notes"]?.ToString() ?? string.Empty,
             };
 
-            // --- INICIO DE LA CORRECCIÓN ---
-
-            // 1. Cargar Lockers (esto ya estaba bien)
+            // --- Carga Asíncrona de Lockers, Emails y Phones (sin cambios) ---
             List<GetLockerClientDetailDTO> lockers = await lockerService.GetLockersByClientIdAsync(id);
             clientDetail.LockersList = lockers;
 
-            // 2. Cargar Emails usando el servicio inyectado
             var emailEntities = await emailService.GetEmailListByClientId(id);
-            // Convertimos la List<Email> (entidad) en un string[]
             clientDetail.Email = emailEntities.Select(e => e.Address).ToArray();
 
-            // 3. Cargar Teléfonos usando el servicio inyectado
-            // (Asumo que tu IPhoneService tiene este método, igual que EmailService)
             var phoneEntities = await phoneService.GetPhoneListByClientId(id); 
-            // Convertimos la List<Phone> (entidad) en un string[]
             clientDetail.Phone = phoneEntities.Select(p => p.Number).ToArray();
 
-            // --- FIN DE LA CORRECCIÓN ---
-
             return clientDetail;
-         }
+        }
 
         public async Task<PaginatedResultDto<GetTableClientsDto>> GetClientsTableAsync(GetClientsRequestDto request)
         {
@@ -465,7 +457,7 @@ namespace GuardeSoftwareAPI.Services.client
         {
             if (id <= 0) throw new ArgumentException("ID de cliente inválido.");
             if (dto == null) throw new ArgumentNullException(nameof(dto));
-
+            
             using (var connection = accessDB.GetConnectionClose())
             {
                 await connection.OpenAsync();
@@ -476,13 +468,13 @@ namespace GuardeSoftwareAPI.Services.client
                         var existingClient = await daoClient.GetClientByIdTransactionAsync(id, connection, transaction);
                         if (existingClient == null) return false;
 
-                        // string oldClientState = JsonSerializer.Serialize(existingClient); // Opcional para log
-
+                        // Verificar duplicados
                         if (!string.IsNullOrWhiteSpace(dto.Dni) && await daoClient.ExistsByDniAsync(dto.Dni, id, connection, transaction))
                             throw new InvalidOperationException("Ya existe otro cliente con este DNI.");
                         if (!string.IsNullOrWhiteSpace(dto.Cuit) && await daoClient.ExistsByCuitAsync(dto.Cuit, id, connection, transaction))
                             throw new InvalidOperationException("Ya existe otro cliente con este CUIT.");
 
+                        // Mapear campos actualizables
                         Client clientToUpdate = new()
                         {
                             Id = id,
@@ -496,7 +488,7 @@ namespace GuardeSoftwareAPI.Services.client
                             BillingTypeId = dto.BillingTypeId ?? existingClient.BillingTypeId,
                             Notes = string.IsNullOrWhiteSpace(dto.Notes) ? existingClient.Notes : dto.Notes.Trim(),
 
-                            // --- CAMPOS QUE NO SE EDITAN (SE MANTIENEN) ---
+                            // Campos que NO se editan
                             RegistrationDate = existingClient.RegistrationDate, 
                             IncreaseFrequencyMonths = existingClient.IncreaseFrequencyMonths, 
                             InitialAmount = existingClient.InitialAmount,
@@ -530,10 +522,10 @@ namespace GuardeSoftwareAPI.Services.client
                         var currentRental = await rentalService.GetRentalByClientIdTransactionAsync(id, connection, transaction);
                         if (currentRental != null)
                         {
+                            // ... (Lógica para actualizar monto en rental_amount_history)
                             var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(currentRental.Id, connection, transaction);
                             if (lastAmountHistory != null && dto.Amount != lastAmountHistory.Amount)
                             {
-                                // Al editar, si el monto cambia, creamos un nuevo historial AHORA.
                                 await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, currentRental.Id, dto.Amount, DateTime.UtcNow.Date, connection, transaction);
                             }
 

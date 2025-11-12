@@ -21,21 +21,14 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<DataTable> GetClients()
         {
-
-            string query = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes FROM clients WHERE active=1";
-
+            string query = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes, billing_type_id, increase_frequency_months, initial_amount FROM clients WHERE active=1";
             return await accessDB.GetTableAsync("clients", query);
         }
 
         public async Task<DataTable> GetClientById(int id)
         {
-            string query = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes FROM clients WHERE client_id = @client_id";
-
-            SqlParameter[] parameters = [
-
-                new("@client_id",SqlDbType.Int) {Value = id},
-            ];
-
+            string query = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes, billing_type_id, increase_frequency_months, initial_amount FROM clients WHERE client_id = @client_id";
+            SqlParameter[] parameters = { new("@client_id", SqlDbType.Int) { Value = id } };
             return await accessDB.GetTableAsync("clients", query, parameters);
         }
 
@@ -127,7 +120,7 @@ namespace GuardeSoftwareAPI.Dao
                 new("@registration_date", SqlDbType.DateTime) { Value = client.RegistrationDate },
                 new("@dni", SqlDbType.VarChar) { Value = (object?)client.Dni?.Trim() ?? DBNull.Value },
                 new("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },
-                new("@preferred_payment_method_id", SqlDbType.Int) { Value = (object?)client.PreferredPaymentMethodId ?? DBNull.Value },
+                new("@preferred_payment_method_id", SqlDbType.Int) { Value = client.PreferredPaymentMethodId > 0 ? (object)client.PreferredPaymentMethodId : DBNull.Value },
                 new("@iva_condition", SqlDbType.VarChar) { Value = (object?)client.IvaCondition?.Trim() ?? DBNull.Value },
                 new("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
                 new("@billing_type_id", SqlDbType.Int) { Value = (object?)client.BillingTypeId ?? DBNull.Value },
@@ -136,17 +129,9 @@ namespace GuardeSoftwareAPI.Dao
             ];
 
             string query = @"
-                INSERT INTO clients(
-                    payment_identifier, first_name, last_name, registration_date, dni, cuit, 
-                    preferred_payment_method_id, iva_condition, notes, billing_type_id, 
-                    increase_frequency_months, initial_amount
-                )
+                INSERT INTO clients(payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes, billing_type_id, increase_frequency_months, initial_amount)
                 OUTPUT INSERTED.client_id
-                VALUES(
-                    @payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, 
-                    @preferred_payment_method_id, @iva_condition, @notes, @billing_type_id, 
-                    @increase_frequency_months, @initial_amount
-                );";
+                VALUES(@payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes, @billing_type_id, @increase_frequency_months, @initial_amount);";
 
             using var command = new SqlCommand(query, connection, transaction);
             command.Parameters.AddRange(parameters);
@@ -158,79 +143,76 @@ namespace GuardeSoftwareAPI.Dao
             return Convert.ToInt32(result);
         }
 
-        //Here missing the method to get balance and payment status
         public async Task<DataTable> GetClientDetailByIdAsync(int id)
         {
             string query = @"
                 WITH CurrentRentalAmount AS (
-                    SELECT rental_id, amount as CurrentRent
-                    FROM (
-                        SELECT 
-                            rental_id, 
-                            amount, 
-                            ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY start_date DESC) as rn
-                        FROM rental_amount_history
-                    ) as sub
-                    WHERE rn = 1
+                    SELECT 
+                        rental_id, 
+                        amount as CurrentRent,
+                        rental_amount_history_id AS LastHistoryId,
+                        start_date as LastIncreaseDate,
+                        ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY start_date DESC) as rn
+                    FROM rental_amount_history
                 ),
                 AccountSummary AS (
                     SELECT
                         rental_id,
                         SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END) AS Balance,
                         MAX(CASE WHEN movement_type = 'DEBITO' THEN movement_date END) AS LastDebitDate
-                    FROM
-                        account_movements
-                    GROUP BY
-                        rental_id
+                    FROM account_movements
+                    GROUP BY rental_id
                 )
                 SELECT 
                     c.client_id, c.payment_identifier, c.first_name, c.last_name, c.registration_date,
                     c.dni, c.cuit, c.iva_condition, c.notes,
-                    em.address AS email_address, 
-                    ph.number AS phone_number, 
+                    
+                    c.initial_amount,
+                    c.increase_frequency_months,
+                    
                     ad.street, ad.city, ad.province,
                     pm.name AS preferred_payment_method,
-                    c.billing_type_id,
+                    bt.billing_type_id,
                     bt.name AS billing_type,
+                    
                     r.contracted_m3,
-                    cir.end_date,
-                    ir.frequency AS increase_frequency, 
-                    ir.percentage AS increase_percentage,
+                    r.increase_anchor_date,
+                    r.months_unpaid,
+                    
                     cra.CurrentRent AS rent_amount,
+                    cra.LastHistoryId,
+                    cra.LastIncreaseDate,
                     ISNULL(acc.Balance, 0) AS balance,
+                    
                     CASE
-                        WHEN ISNULL(acc.Balance, 0) > 0 OR acc.LastDebitDate IS NULL OR cra.CurrentRent IS NULL OR cra.CurrentRent = 0 THEN
-                            CASE
-                                WHEN DAY(GETDATE()) <= 10 THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10)
-                                ELSE DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
-                            END
-                        ELSE
-                            DATEADD(month, 1 + FLOOR(-acc.Balance / cra.CurrentRent), acc.LastDebitDate)
+                        
+                        WHEN ISNULL(acc.Balance, 0) <= 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
+                        
+                        WHEN cra.CurrentRent IS NULL OR cra.CurrentRent = 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
+                        
+                        ELSE DATEADD(month, 1 + FLOOR(ISNULL(acc.Balance, 0) / cra.CurrentRent), ISNULL(acc.LastDebitDate, r.start_date))
                     END AS next_payment_day,
+
                     CASE 
-                        WHEN ISNULL(acc.Balance, 0) <= 0 THEN 'Al día'
-                        WHEN acc.Balance > cra.CurrentRent THEN 'Moroso'
-                        WHEN DAY(GETDATE()) > 10 AND acc.Balance > 0 THEN 'Vencido'
-                        WHEN acc.Balance > 0 THEN 'Pendiente'
-                        ELSE 'Revisar'
+                        WHEN c.active = 0 THEN 'Baja'
+                        WHEN r.months_unpaid > 0 THEN 'Moroso'
+                        WHEN ISNULL(acc.Balance, 0) > 0 THEN 'Pendiente'
+                        ELSE 'Al día'
                     END AS payment_status
+                    
                 FROM 
                     clients c
                 LEFT JOIN addresses ad ON c.client_id = ad.client_id
-                LEFT JOIN emails em ON c.client_id = em.client_id AND em.active = 1
-                LEFT JOIN phones ph ON c.client_id = ph.client_id AND ph.active = 1
-                LEFT JOIN clients_x_increase_regimens cir ON c.client_id = cir.client_id
-                LEFT JOIN increase_regimens ir ON cir.regimen_id = ir.regimen_id
                 LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
+                LEFT JOIN billing_types bt ON c.billing_type_id = bt.billing_type_id
                 LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1 
                 LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
-                LEFT JOIN billing_types bt ON c.billing_type_id = bt.billing_type_id
-                LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
-                WHERE c.client_id = @client_id AND c.active = 1;";
+                LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id AND cra.rn = 1
+                WHERE c.client_id = @client_id;";
 
-            SqlParameter[] parameters = [
+            SqlParameter[] parameters = {
                 new SqlParameter("@client_id", SqlDbType.Int) { Value = id },
-            ];
+            };
 
             return await accessDB.GetTableAsync("client_details", query, parameters);
         }
@@ -451,14 +433,10 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<decimal> GetMaxPaymentIdentifierAsync(SqlConnection connection, SqlTransaction transaction)
         {
-            // We use ISNULL to handle the case where there are no clients yet.
-            // We use max to get the highest payment identifier.
-            string query = "SELECT ISNULL(MAX(payment_identifier), 0.00) FROM clients";
-
-            using var command = new SqlCommand(query, connection, transaction);
-            object result = await command.ExecuteScalarAsync() ?? 0.00m;
-
-            return Convert.ToDecimal(result);
+             string query = "SELECT ISNULL(MAX(payment_identifier), 0.00) FROM clients";
+             using var command = new SqlCommand(query, connection, transaction);
+             object result = await command.ExecuteScalarAsync() ?? 0.00m;
+             return Convert.ToDecimal(result);
         }
         
         public async Task<Client?> GetClientByIdTransactionAsync(int id, SqlConnection connection, SqlTransaction transaction)

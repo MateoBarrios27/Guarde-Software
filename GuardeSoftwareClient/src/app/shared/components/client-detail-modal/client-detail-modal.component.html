@@ -300,6 +300,10 @@
                   <label class="font-medium text-gray-500">Tipo Factura</label>
                   <p class="text-gray-800">{{ client.billingType || 'N/A' }}</p>
                 </div>
+                <div>
+                  <label class="font-medium text-gray-500">Monto inicial</label>
+                  <p class="text-gray-800">{{ client.initialAmount | currency : "ARS" : "symbol-narrow" : "1.0-0"}}</p>
+                </div>
               </div>
             </div>
             
