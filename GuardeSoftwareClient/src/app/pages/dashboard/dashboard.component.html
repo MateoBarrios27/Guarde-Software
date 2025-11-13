@@ -130,6 +130,7 @@
                 <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.amount | number:'1.2-2' }}</td>
                 <td class="px-5 py-3 text-center">
                   <button
+                    (click)="generatePdf(item)"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
                     >
                     <app-icon name="file-text" class="h-4 w-4"></app-icon>

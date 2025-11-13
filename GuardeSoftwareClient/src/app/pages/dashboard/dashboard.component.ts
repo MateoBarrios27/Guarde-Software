@@ -11,6 +11,7 @@ import { NgxPaginationModule } from 'ngx-pagination';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
 import { PaymentMethod } from '../../core/models/payment-method';
 import Swal from 'sweetalert2';
+import { PdfGeneratorService } from '../../core/services/pdfGenerator-service/pdf-generator.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -66,7 +67,8 @@ export class DashboardComponent {
   constructor(
     private rentalService: RentalService,
     private paymentService: PaymentService,
-    private paymentMethodService: PaymentMethodService
+    private paymentMethodService: PaymentMethodService,
+    private pdfGeneratorService: PdfGeneratorService
   ) {}
 
   ngOnInit(): void {
@@ -313,8 +315,45 @@ export class DashboardComponent {
     this.updateConceptFromDate(dateWithTime);
   }
 
-  generatePdf(){
-    
+  generatePdf(item: Payment){
+
+    Swal.fire({
+            title: 'Generar recibo: ',
+            html: `
+             <p class="text-gray-700">Cliente: <b>${item.clientName}</b></p>
+             <p class="text-gray-700">Importe: <b>$${item.amount}</b></p>`,
+            icon: 'question',
+            showCancelButton: true, 
+            confirmButtonText: 'Confirmar',
+            cancelButtonText: 'Cancelar',
+            buttonsStyling: false,
+            customClass: {
+              confirmButton: 'bg-blue-600 text-white px-4 py-2 p-2 rounded-md hover:bg-blue-700 transition-all duration-150',
+              cancelButton: 'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
+              actions: 'flex justify-center gap-4 mt-4',
+              popup: 'rounded-xl shadow-lg'
+            }
+            }).then((result) => {
+              if (result.isConfirmed) {
+                console.log('Generando PDF...');
+                this.pdfGeneratorService.generateBauleraReceipt({
+                  date: this.formatDate(item.paymentDate),
+                  clientNumber: Number(item.paymentIdentifier) || 0,
+                  amount: item.amount,
+                });
+              }
+            });
   }
+  
+  private formatDate(date: any): string {
+
+  const dt = new Date(date); // ← convierte string a Date
+
+  const d = dt.getDate().toString().padStart(2, '0');
+  const m = (dt.getMonth() + 1).toString().padStart(2, '0');
+  const y = dt.getFullYear();
+
+  return `${d}/${m}/${y}`;
+}
   
 }
