@@ -84,8 +84,8 @@ export class CreateClientModalComponent implements OnInit {
   }
 
   private loadFormData(): void {
-    this.isLoading = true;
-    this.areBasicDataLoaded = false;
+    this.isLoading = true; 
+    this.areBasicDataLoaded = false; 
 
     const commonObservables = {
       warehouses: this.warehouseService.getWarehouses(),
@@ -248,7 +248,7 @@ export class CreateClientModalComponent implements OnInit {
   }
 
   removeSpaceRequest(index: number): void {
-    if (this.spaceRequests.length > 1) {
+    if (this.spaceRequests.length > 0) {
       this.spaceRequests.removeAt(index);
     }
   }
@@ -282,21 +282,19 @@ export class CreateClientModalComponent implements OnInit {
       this.emails.clear();
       this.telefonos.clear();
       
-      if (this.newClientForm.get('lockersAsignados')) {
-        (this.newClientForm.get('lockersAsignados') as FormArray).clear();
+      const lockersFormArray = this.newClientForm.get('lockersAsignados') as FormArray;
+      if (lockersFormArray) {
+        lockersFormArray.clear();
+        if (data.lockersList && data.lockersList.length > 0) {
+            data.lockersList.forEach(locker => {
+                if (locker?.id > 0) lockersFormArray.push(this.fb.control(locker.id));
+            });
+            lockersFormArray.updateValueAndValidity();
+        }
       }
 
       if (data.email?.length > 0) data.email.forEach(e => this.emails.push(this.fb.control(e, [Validators.required, Validators.email]))); else this.addEmail();
       if (data.phone?.length > 0) data.phone.forEach(p => this.telefonos.push(this.fb.control(p))); else this.addTelefono();
-      
-      // Poblar lockers (Modo Edición)
-      if (data.lockersList && data.lockersList.length > 0) {
-           const lockersFormArray = this.newClientForm.get('lockersAsignados') as FormArray;
-           data.lockersList.forEach(locker => {
-               if (locker?.id > 0) lockersFormArray.push(this.fb.control(locker.id));
-           });
-           lockersFormArray.updateValueAndValidity();
-      }
 
       const matchingPaymentMethod = this.paymentMethods.find(m => m.name === data.preferredPaymentMethod);
 
@@ -337,13 +335,16 @@ export class CreateClientModalComponent implements OnInit {
   // --- MÉTODOS HELPER (USADOS EN HTML) ---
   
   getWarehouseName(id: number | null): string {
-    if (!id) return 'N/A';
+    if (!id || !this.warehouses || this.warehouses.length === 0) {
+      return 'N/A';
+    }
     const w = this.warehouses.find(w => w.id === id);
     return w ? w.name : 'Desconocido';
   }
   
   // (Estos solo se usan en MODO EDICIÓN)
   get filteredLockers(): Locker[] {
+    if (!this.isEditMode) return [];
     const search = this.newClientForm.value.lockerSearch?.toLowerCase() || '';
     const warehouseId = this.newClientForm.value.selectedWarehouse;
     const typeId = this.newClientForm.value.selectedLockerType;
@@ -389,7 +390,7 @@ export class CreateClientModalComponent implements OnInit {
   onSubmit(): void {
     const formValue = this.newClientForm.getRawValue();
 
-   if (this.newClientForm.invalid) {
+    if (this.newClientForm.invalid) {
       Object.values(this.newClientForm.controls).forEach(control => {
         control.markAsTouched({ onlySelf: true });
         if (control instanceof FormArray) {
@@ -414,8 +415,7 @@ export class CreateClientModalComponent implements OnInit {
     }
 
     this.isLoading = true;
-
-    // ... (Lógica de conversión de fechas) ...
+    
     let nextIncreaseDate: Date | null = null;
     let legacyStartDate: Date | null = null;
     if (isLegacy) {
@@ -475,7 +475,7 @@ export class CreateClientModalComponent implements OnInit {
       apiCall = this.clientService.CreateClient(dto);
     }
 
-   apiCall.subscribe({
+    apiCall.subscribe({
       next: (response) => {
         this.isLoading = false;
         this.saveSuccess.emit();
@@ -518,25 +518,4 @@ export class CreateClientModalComponent implements OnInit {
      });
      return Math.round(totalM3 * 100) / 100;
    }
-
-  private calculateTotalAmount(ids: number[]): number {
-    let totalAmount = 0;
-    ids.forEach((id) => {
-      const locker = this.availableLockers.find((l) => l.id === id);
-      const type = this.lockerTypes.find(
-        (lt) => lt.id === locker?.lockerTypeId
-      );
-      if (type) {
-        totalAmount += type.amount;
-      }
-    });
-    return totalAmount;
-  }
-
-  get costSummary() {
-      const assignedIds = (this.newClientForm?.get('lockersAsignados')?.value as (number | null)[]) || [];
-      const validIds = assignedIds.filter((id): id is number => typeof id === 'number' && id > 0);
-      const totalM3 = this.calculateTotalM3(validIds);
-      return { totalM3 };
-  }
 }
