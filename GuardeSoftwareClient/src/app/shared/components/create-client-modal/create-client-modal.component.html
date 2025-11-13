@@ -8,6 +8,7 @@
     (click)="$event.stopPropagation()"
     class="flex flex-col max-h-[90vh] w-full max-w-7xl bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg shadow-2xl"
   >
+    <!-- Header -->
     <header
       class="flex-shrink-0 relative bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 text-white p-4"
     >
@@ -22,271 +23,159 @@
         <div
           class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center"
         >
-          <!-- Icono cambia si estamos editando -->
-          <app-icon [name]="clientData ? 'edit' : 'user-plus'" class="h-6 w-6 text-white"></app-icon>
+          <app-icon [name]="isEditMode ? 'edit' : 'user-plus'" class="h-6 w-6 text-white"></app-icon>
         </div>
         <div>
-          <!-- Títle changes if it's editting -->
-          <h2 class="text-2xl font-bold">{{ clientData ? 'Editar Cliente' : 'Nuevo Cliente' }}</h2>
+          <h2 class="text-2xl font-bold">{{ isEditMode ? 'Editar Cliente' : 'Nuevo Cliente' }}</h2>
           <p class="text-blue-100 text-sm">
-            {{ clientData ? 'Actualiza la información del cliente.' : 'Registra un nuevo cliente en el sistema' }}
+            {{ isEditMode ? 'Actualiza la información del cliente.' : 'Registra un nuevo cliente en el sistema' }}
           </p>
         </div>
       </div>
     </header>
 
+    <!-- Contenido Principal -->
     <main class="flex-1 overflow-y-auto p-4">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         
         <!-- ============================ -->
-      <!-- TARJETA INFORMACIÓN PERSONAL (MODIFICADA) -->
-      <!-- ============================ -->
-      <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
-        <div
-          class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-t-lg"
-        >
-          <h3 class="flex items-center gap-2 font-semibold text-base">
-            <app-icon name="users" class="h-5 w-5"></app-icon>Información
-            Personal y Fiscal
-          </h3>
-        </div>
-        <div class="p-4 space-y-4">
-          
-          <!-- Número de Identificación (Sin cambios) -->
-          <div>
-            <label class="text-sm font-medium text-blue-700"
-              >Número de Identificación</label
-            >
-            <input
-              formControlName="numeroIdentificacion"
-              placeholder="Ej: 0.14 (Se auto-genera si se deja vacío)"
-              class="w-full mt-1 p-2 border rounded-md"
-            />
-          </div>
-
-          <!-- Nombre y Apellido (Sin cambios) -->
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="text-sm font-medium text-blue-700">Nombre *</label
-              ><input
-                formControlName="nombre"
-                class="w-full mt-1 p-2 border rounded-md"
-              />
-            </div>
-            <div>
-              <label class="text-sm font-medium text-blue-700"
-                >Apellido *</label
-              ><input
-                formControlName="apellido"
-                class="w-full mt-1 p-2 border rounded-md"
-              />
-            </div>
-          </div>
-
-          <!-- DNI (Nº Doc) -->
-          <div class="grid grid-cols-2 gap-4">
-            <!-- CAMPO OCULTO: Tipo Doc -->
-            <div *ngIf="false">
-              <label class="text-sm font-medium text-blue-700"
-                >Tipo Doc. *</label
-              ><select
-                formControlName="tipoDocumento"
-                class="w-full mt-1 p-2 border rounded-md bg-white"
-              >
-                <option>DNI</option>
-                <option>CUIT</option>
-              </select>
-            </div>
-            <!-- Campo DNI ocupa todo -->
-            <div class="col-span-2">
-              <label class="text-sm font-medium text-blue-700"
-                >Nº Doc. (DNI) *</label
-              ><input
-                formControlName="numeroDocumento"
-                class="w-full mt-1 p-2 border rounded-md"
-              />
-            </div>
-          </div>
-
-          <!-- CUIT (Sin cambios) -->
-          <div>
-            <label class="text-sm font-medium text-blue-700"
-              >CUIT</label
-            >
-            <input
-              formControlName="cuit"
-              placeholder="Opcional"
-              class="w-full mt-1 p-2 border rounded-md"
-            />
-          </div>
-
-          <!-- Condición IVA y Tipo Factura -->
-          <div class="grid grid-cols-2 gap-4">
-              <!-- === CAMBIO AQUÍ: Opciones de Condición IVA añadidas === -->
-              <div>
-                <label class="text-sm font-medium text-blue-700"
-                  >Condición IVA *</label
-                ><select
-                  formControlName="condicionIVA"
-                  class="w-full mt-1 p-2 border rounded-md bg-white"
-                >
-                  <option [ngValue]="null" disabled>Seleccionar...</option>
-                  <option value="Consumidor Final">Consumidor Final</option>
-                  <option value="Monotributista">Monotributista</option>
-                  <option value="Responsable Inscripto">Responsable Inscripto</option>
-                  <option value="Exento">Exento</option>
-                </select>
-              </div>
-
-              <!-- === CAMBIO AQUÍ: 'documento' reemplazado por 'billingType' === -->
-              <div>
-                <label class="text-sm font-medium text-blue-700"
-                  >Tipo Factura *</label
-                >
-                <select
-                  formControlName="billingTypeId"
-                  class="w-full mt-1 p-2 border rounded-md bg-white"
-                >
-                  <option [ngValue]="null" disabled>Seleccionar...</option>
-                  <option *ngFor="let bt of billingTypes" [value]="bt.id">
-                    {{ bt.name }}
-                  </option>
-                </select>
-              </div>
-          </div>
-          
-          <!-- Método de Pago (Sin cambios) -->
-          <div>
-            <label class="text-sm font-medium text-blue-700">Método de Pago *</label>
-            <select
-              formControlName="metodoPago"
-              class="w-full mt-1 p-2 border rounded-md bg-white"
-            >
-              <option [ngValue]="null" disabled>Seleccionar método</option>
-              <option *ngFor="let method of paymentMethods" [ngValue]="method">
-                {{ method.name }}
-              </option>
-            </select>
-          </div>
-          
-          <!-- CAMPO OCULTO: 'documento' ya no se usa, lo dejamos por si acaso -->
-          <div *ngIf="false">
-             <select formControlName="documento">
-               <option value="SF">Sin Factura</option>
-             </select>
-          </div>
-
-        </div>
-      </div>
-
+        <!-- TARJETA INFORMACIÓN PERSONAL Y FISCAL -->
+        <!-- ============================ -->
         <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
-          <div
-            class="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-t-lg"
-          >
+          <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-t-lg">
             <h3 class="flex items-center gap-2 font-semibold text-base">
-              <app-icon name="envelope" class="h-5 w-5"></app-icon>Contacto y
-              Ubicación
+              <app-icon name="users" class="h-5 w-5"></app-icon>Información
+              Personal y Fiscal
             </h3>
           </div>
           <div class="p-4 space-y-4">
+            <!-- Número de Identificación -->
+            <div>
+              <label class="text-sm font-medium text-blue-700">Número de Identificación</label>
+              <input formControlName="numeroIdentificacion" placeholder="Ej: 0.14 (Se auto-genera si se deja vacío)" class="w-full mt-1 p-2 border rounded-md"/>
+            </div>
+            <!-- Nombre y Apellido -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-sm font-medium text-blue-700">Nombre *</label>
+                <input formControlName="nombre" class="w-full mt-1 p-2 border rounded-md"/>
+              </div>
+              <div>
+                <label class="text-sm font-medium text-blue-700">Apellido *</label>
+                <input formControlName="apellido" class="w-full mt-1 p-2 border rounded-md"/>
+              </div>
+            </div>
+            <!-- DNI (Nº Doc) -->
+            <div class="col-span-2">
+              <label class="text-sm font-medium text-blue-700">Nº Doc. (DNI) *</label>
+              <input formControlName="numeroDocumento" class="w-full mt-1 p-2 border rounded-md"/>
+            </div>
+            <!-- CUIT -->
+            <div>
+              <label class="text-sm font-medium text-blue-700">CUIT</label>
+              <input formControlName="cuit" placeholder="Opcional" class="w-full mt-1 p-2 border rounded-md"/>
+            </div>
+            <!-- Condición IVA y Tipo Factura -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="text-sm font-medium text-blue-700">Condición IVA *</label>
+                  <select formControlName="condicionIVA" class="w-full mt-1 p-2 border rounded-md bg-white">
+                    <option [ngValue]="null" disabled>Seleccionar...</option>
+                    <option value="Consumidor Final">Consumidor Final</option>
+                    <option value="Monotributista">Monotributista</option>
+                    <option value="Responsable Inscripto">Responsable Inscripto</option>
+                    <option value="Exento">Exento</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-blue-700">Tipo Factura *</label>
+                  <select formControlName="billingTypeId" class="w-full mt-1 p-2 border rounded-md bg-white">
+                    <option [ngValue]="null" disabled>Seleccionar...</option>
+                    <option *ngFor="let bt of billingTypes" [value]="bt.id">{{ bt.name }}</option>
+                  </select>
+                </div>
+            </div>
+            <!-- Método de Pago -->
+            <div>
+              <label class="text-sm font-medium text-blue-700">Método de Pago *</label>
+              <select formControlName="metodoPago" class="w-full mt-1 p-2 border rounded-md bg-white">
+                <option [ngValue]="null" disabled>Seleccionar método</option>
+                <option *ngFor="let method of paymentMethods" [value]="method">{{ method.name }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================ -->
+        <!-- TARJETA CONTACTO -->
+        <!-- ============================ -->
+        <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
+          <div class="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-t-lg">
+            <h3 class="flex items-center gap-2 font-semibold text-base">
+              <app-icon name="envelope" class="h-5 w-5"></app-icon>Contacto y Ubicación
+            </h3>
+          </div>
+          <div class="p-4 space-y-4">
+            <!-- Emails -->
             <div formArrayName="emails">
               <label class="text-sm font-medium text-green-700">Emails *</label>
-              <div
-                *ngFor="let email of emails.controls; let i = index"
-                class="flex gap-2 mt-1"
-              >
-                <input
-                  [formControlName]="i"
-                  class="w-full p-2 border rounded-md"
-                /><button
-                  *ngIf="emails.length > 1"
-                  type="button"
-                  (click)="removeEmail(i)"
-                  class="p-1 text-red-500"
-                >
+              <div *ngFor="let email of emails.controls; let i = index" class="flex gap-2 mt-1">
+                <input [formControlName]="i" class="w-full p-2 border rounded-md"/>
+                <button *ngIf="emails.length > 1" type="button" (click)="removeEmail(i)" class="p-1 text-red-500">
                   <app-icon name="x" class="h-4 w-4"></app-icon>
                 </button>
               </div>
-              <button
-                type="button"
-                (click)="addEmail()"
-                class="text-sm text-blue-600 mt-2 font-semibold"
-              >
+              <button type="button" (click)="addEmail()" class="text-sm text-blue-600 mt-2 font-semibold">
                 + Agregar Email
               </button>
             </div>
+            <!-- Telefonos -->
             <div formArrayName="telefonos">
-              <label class="text-sm font-medium text-green-700"
-                >Teléfonos</label
-              >
-              <div
-                *ngFor="let tel of telefonos.controls; let i = index"
-                class="flex gap-2 mt-1"
-              >
-                <input
-                  [formControlName]="i"
-                  class="w-full p-2 border rounded-md"
-                />
-                <button
-                  *ngIf="telefonos.length > 1"
-                  type="button"
-                  (click)="removeTelefono(i)"
-                  class="p-1 text-red-500"
-                >
+              <label class="text-sm font-medium text-green-700">Teléfonos</label>
+              <div *ngFor="let tel of telefonos.controls; let i = index" class="flex gap-2 mt-1">
+                <input [formControlName]="i" placeholder="+54 11 1234-5678" class="w-full p-2 border rounded-md"/>
+                <button *ngIf="telefonos.length > 1" type="button" (click)="removeTelefono(i)" class="p-1 text-red-500">
                   <app-icon name="x" class="h-4 w-4"></app-icon>
                 </button>
               </div>
-              <button
-                type="button"
-                (click)="addTelefono()"
-                class="text-sm text-blue-600 mt-2 font-semibold"
-              >
+              <button type="button" (click)="addTelefono()" class="text-sm text-blue-600 mt-2 font-semibold">
                 + Agregar Teléfono
               </button>
             </div>
+            <!-- Dirección -->
             <div>
-              <label class="text-sm font-medium text-green-700"
-                >Dirección *</label
-              ><input
-                formControlName="direccion"
-                class="w-full mt-1 p-2 border rounded-md"
-              />
+              <label class="text-sm font-medium text-green-700">Dirección *</label>
+              <input formControlName="direccion" class="w-full mt-1 p-2 border rounded-md"/>
             </div>
+            <!-- Ciudad y Provincia -->
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="text-sm font-medium text-green-700"
-                  >Ciudad *</label
-                ><input
-                  formControlName="ciudad"
-                  class="w-full mt-1 p-2 border rounded-md"
-                />
+                <label class="text-sm font-medium text-green-700">Ciudad *</label>
+                <input formControlName="ciudad" class="w-full mt-1 p-2 border rounded-md"/>
               </div>
               <div>
-                <label class="text-sm font-medium text-green-700"
-                  >Provincia *</label
-                ><input
-                  formControlName="provincia"
-                  class="w-full mt-1 p-2 border rounded-md"
-                />
+                <label class="text-sm font-medium text-green-700">Provincia *</label>
+                <input formControlName="provincia" class="w-full mt-1 p-2 border rounded-md"/>
               </div>
             </div>
           </div>
         </div>
 
+        <!-- ============================ -->
+        <!-- COLUMNA 3: LEGACY Y OBSERVACIONES -->
+        <!-- ============================ -->
         <div class="space-y-4">
+          <!-- TARJETA LEGACY -->
           <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
-            <div
-              class="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-t-lg"
-            >
+            <div class="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-t-lg">
               <h3 class="flex items-center gap-2 font-semibold text-base">
                 <app-icon name="user-gear" class="h-5 w-5"></app-icon>
-                Información de Ingreso
+                Información de Ingreso (Legacy)
               </h3>
             </div>
             
             <fieldset [disabled]="isEditMode" [class.opacity-60]="isEditMode">
               <div class="p-4 space-y-4">
-                
                 <label for="legacy-toggle" class="flex items-center justify-between" [class.cursor-not-allowed]="isEditMode" [class.cursor-pointer]="!isEditMode">
                   <div class="flex flex-col">
                       <span class="font-medium text-gray-700">¿Es un cliente antiguo?</span>
@@ -303,53 +192,30 @@
                   (La información de ingreso no se puede editar)
                 </div>
 
+                <!-- Contenido Condicional (Si es Legacy) -->
                 <div *ngIf="newClientForm.value.isLegacyClient; else newClientBlock" class="pt-4 border-t border-dashed space-y-4 animate-fade-in">
-                    
                     <div class="grid grid-cols-2 gap-4">
                       <div>
                           <label class="text-sm font-medium text-purple-700">Fecha de Ingreso *</label>
-                          <input
-                            type="date"
-                            formControlName="legacyStartDate"
-                            class="w-full mt-1 p-2 border rounded-md"
-                          />
+                          <input type="date" formControlName="legacyStartDate" class="w-full mt-1 p-2 border rounded-md"/>
                       </div>
                       <div>
                           <label class="text-sm font-medium text-purple-700">Monto Inicial *</label>
-                          <input
-                            type="number"
-                            formControlName="legacyInitialAmount"
-                            placeholder="0.00"
-                            class="w-full mt-1 p-2 border rounded-md"
-                          />
+                          <input type="number" formControlName="legacyInitialAmount" placeholder="0.00" class="w-full mt-1 p-2 border rounded-md"/>
                       </div>
                     </div>
-
                     <div class="grid grid-cols-2 gap-4">
                       <div>
                           <label class="text-sm font-medium text-purple-700">Próx. Aumento *</label>
-                          <input
-                            type="month"
-                            formControlName="legacyNextIncreaseDate"
-                            class="w-full mt-1 p-2 border rounded-md"
-                          />
+                          <input type="month" formControlName="legacyNextIncreaseDate" class="w-full mt-1 p-2 border rounded-md"/>
                       </div>
                       <div>
                           <label class="text-sm font-medium text-purple-700">Meses Prepagos</label>
-                          <input
-                            type="number"
-                            formControlName="prepaidMonths"
-                            placeholder="0"
-                            min="0"
-                            class="w-full mt-1 p-2 border rounded-md"
-                          />
+                          <input type="number" formControlName="prepaidMonths" placeholder="0" min="0" class="w-full mt-1 p-2 border rounded-md"/>
                       </div>
                     </div>
-                    
                     <label for="promo-toggle" class="flex items-center cursor-pointer space-x-3 pt-2" [class.cursor-not-allowed]="isEditMode">
-                      <input type="checkbox" id="promo-toggle" 
-                             formControlName="isLegacy6MonthPromo"
-                             class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                      <input type="checkbox" id="promo-toggle" formControlName="isLegacy6MonthPromo" class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
                       <div class="flex flex-col">
                           <span class="font-medium text-gray-700">Promoción 6 Meses</span>
                           <span class="text-sm text-gray-500">Marcar si este cliente tiene aumentos cada 6 meses (en lugar de 4).</span>
@@ -357,9 +223,11 @@
                     </label>
                 </div>
 
+                <!-- Template para cliente nuevo -->
                 <ng-template #newClientBlock>
                     <div class="pt-4 border-t border-dashed">
                         <div class="text-center py-4 text-gray-500 bg-gray-50 rounded-lg">
+                            <app-icon name="party-popper" class="h-6 w-6 mx-auto mb-2 text-purple-500"></app-icon>
                             <p class="font-medium text-gray-600">Es un cliente nuevo</p>
                             <p class="text-sm">Se usará la fecha de hoy como inicio y se aplicará el 1er débito.</p>
                         </div>
@@ -368,237 +236,293 @@
               </div>
             </fieldset>
           </div>
+
+          <!-- Tarjeta Observaciones -->
           <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
-            <div
-              class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-t-lg"
-            >
-              <h3 class="flex items-center gap-2 font-semibold text-base">
-                <app-icon name="file-text" class="h-5 w-5"></app-icon
-                >Observaciones
-              </h3>
-            </div>
-            <div class="p-4">
-              <label class="text-sm font-medium text-orange-700"
-                >Notas del cliente</label
-              >
-              <textarea
-                formControlName="observaciones"
-                rows="3"
-                class="w-full p-2 border rounded-md"
-              ></textarea>
-            </div>
+             <div class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-t-lg">
+                <h3 class="flex items-center gap-2 font-semibold text-base">
+                  <app-icon name="file-text" class="h-5 w-5"></app-icon>Observaciones
+                </h3>
+             </div>
+             <div class="p-4">
+                <label class="text-sm font-medium text-orange-700">Notas del cliente</label>
+                <textarea formControlName="observaciones" rows="3" class="w-full p-2 border rounded-md mt-1"></textarea>
+             </div>
           </div>
         </div>
 
+        <!-- ============================================== -->
+        <!-- === SECCIÓN 5: LOCKERS (AHORA ES UNA SOLA) === -->
+        <!-- ============================================== -->
         <div class="lg:col-span-3">
-          <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
-            <div
-              class="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-4 rounded-t-lg"
-            >
+          
+          <!-- ============================================= -->
+          <!-- MODO CREACIÓN: Solicitud de Espacio (Tu Boceto) -->
+          <!-- ============================================= -->
+          <div *ngIf="!isEditMode" 
+               class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
+            
+            <!-- Header Único -->
+            <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-4 rounded-t-lg">
               <h3 class="flex items-center gap-2 font-semibold text-base">
-                <app-icon name="package" class="h-5 w-5"></app-icon>Selección de
-                Lockers
+                <app-icon name="clipboard-plus" class="h-5 w-5"></app-icon>Selección de Espacios
               </h3>
             </div>
+            
+            <!-- Grid de 2 Columnas Interno -->
             <div class="p-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              <!-- Columna Izquierda: Tarjetas de Solicitud -->
               <div class="space-y-4">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div class="relative sm:col-span-2">
-                    <app-icon
-                      name="search"
-                      class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"
-                    ></app-icon
-                    ><input
-                      formControlName="lockerSearch"
-                      placeholder="Buscar por identificador..."
-                      class="pl-10 w-full p-2 border rounded-md"
-                    />
+                <div formArrayName="spaceRequests" class="space-y-4 max-h-96 overflow-y-auto">
+                  
+                  <!-- Card de Solicitud (Iterada) -->
+                  <div *ngFor="let request of spaceRequests.controls; let i = index" 
+                       [formGroupName]="i" 
+                       class="p-4 border-2 border-indigo-100 rounded-lg bg-white relative shadow-sm">
+                    
+                    <button *ngIf="spaceRequests.length > 1"
+                            type="button" 
+                            (click)="removeSpaceRequest(i)"
+                            class="absolute -top-3 -right-3 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 z-10 transition-transform hover:scale-110">
+                      <app-icon name="x" class="h-4 w-4"></app-icon>
+                    </button>
+
+                    <!-- Contenido de la Card (alineado con el boceto) -->
+                    <div class="flex items-end gap-3">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-indigo-700 mb-1">Depósito *</label>
+                            <select formControlName="warehouseId" class="w-full p-2 border rounded-md bg-white text-sm">
+                              <option [ngValue]="null" disabled>Seleccionar...</option>
+                              <option *ngFor="let w of warehouses" [value]="w.id">{{ w.name }}</option>
+                            </select>
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-indigo-700 mb-1">Metros (m³) *</label>
+                            <input type="number" min="0.1" step="0.1" formControlName="m3" placeholder="Ej: 10.5" class="w-full p-2 border rounded-md text-sm"/>
+                        </div>
+                        <!-- Control de Cantidad -->
+                        <div class="flex items-center gap-1.5 pb-0.5">
+                            <button type="button" (click)="updateQuantity(i, -1)" class="px-2 py-1 h-9 w-9 border rounded-md bg-gray-200 hover:bg-gray-300 font-bold text-lg text-gray-700">-</button>
+                            <input type="text" formControlName="quantity" readonly class="w-10 h-9 p-2 border rounded-md text-center font-medium bg-gray-50"/>
+                            <button type="button" (click)="updateQuantity(i, 1)" class="px-2 py-1 h-9 w-9 border rounded-md bg-gray-200 hover:bg-gray-300 font-bold text-lg text-gray-700">+</button>
+                        </div>
+                    </div>
                   </div>
-                  <select
-                    formControlName="selectedWarehouse"
-                    class="p-2 border rounded-md bg-white"
-                  >
-                    <option value="all">Todos los depósitos</option>
-                    <option *ngFor="let wh of warehouses" [value]="wh.id">
-                      {{ wh.name }}
-                    </option>
-                  </select>
-                  <select
-                    formControlName="selectedLockerType"
-                    class="p-2 border rounded-md bg-white"
-                  >
-                    <option value="all">Todos los tipos</option>
-                    <option *ngFor="let type of lockerTypes" [value]="type.id">
-                      {{ type.name }}
-                    </option>
-                  </select>
                 </div>
-                <div
-                  class="max-h-80 overflow-y-auto space-y-2 border rounded-md p-2 bg-gray-50/50"
-                >
-                  <p
-                    *ngIf="filteredLockers.length === 0"
-                    class="text-center py-8 text-gray-500"
-                  >
-                    No se encontraron lockers disponibles.
-                  </p>
-                  <div
-                    *ngFor="let locker of filteredLockers"
-                    (click)="handleLockerToggle(locker.id)"
-                    [ngClass]="{
-                      'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200':
-                        newClientForm.value.lockersAsignados.includes(locker.id)
-                    }"
-                    class="p-3 rounded-lg border bg-white cursor-pointer hover:border-indigo-300"
-                  >
-                    <div class="flex items-start space-x-3">
-                      <input
-                        type="checkbox"
-                        [checked]="
-                          newClientForm.value.lockersAsignados.includes(
-                            locker.id
-                          )
-                        "
-                        readonly
-                        class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <div class="flex-1">
-                        <div class="flex justify-between items-center mb-1">
-                          <span class="font-medium text-indigo-900">{{
-                            locker.identifier
-                          }}</span
-                          ><span
-                            *ngIf="getLockerDetails(locker.id).lockerType"
-                            class="text-green-600 font-semibold text-sm"
-                            >${{
-                              getLockerDetails(locker.id).lockerType?.amount
-                                | number : "1.0-0"
-                            }}</span
-                          >
-                        </div>
-                        <div
-                          class="flex items-center gap-4 text-sm text-gray-600"
-                        >
-                          <span
-                            *ngIf="getLockerDetails(locker.id).warehouse"
-                            class="flex items-center gap-1"
-                            ><app-icon
-                              name="building"
-                              class="h-3 w-3"
-                            ></app-icon
-                            >{{
-                              getLockerDetails(locker.id).warehouse?.name
-                            }}</span
-                          ><span
-                            *ngIf="getLockerDetails(locker.id).lockerType"
-                            >{{
-                              getLockerDetails(locker.id).lockerType?.name
-                            }}</span
-                          ><span *ngIf="getLockerDetails(locker.id).lockerType"
-                            >{{
-                              getLockerDetails(locker.id).lockerType?.m3
-                            }}m³</span
-                          >
-                        </div>
-                        <p
-                          *ngIf="locker.features"
-                          class="text-xs text-gray-500 mt-1"
-                        >
-                          {{ locker.features }}
-                        </p>
+
+                <!-- Botón "Añadir otro" (como en el boceto) -->
+                <button type="button" 
+                        (click)="addSpaceRequest()"
+                        class="w-full flex items-center justify-center p-4 border-2 border-dashed border-indigo-300 text-indigo-600 font-medium rounded-lg hover:bg-indigo-50 transition-all">
+                  <app-icon name="plus" class="h-8 w-8"></app-icon>
+                </button>
+              </div>
+
+              <!-- Columna Derecha: Resumen de Costos (Modo Creación) -->
+              <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200 h-fit sticky top-4">
+                <h4 class="font-medium text-indigo-900 mb-3 flex items-center gap-2">
+                  <app-icon name="dollar-sign" class="h-4 w-4"></app-icon>
+                  Resumen de Costos
+                </h4>
+                
+                <!-- Lista de solicitudes (reflejo de la izquierda) -->
+                <div class="space-y-2 max-h-52 overflow-y-auto border-t border-b py-2" 
+                     *ngIf="spaceRequests.value.length > 0 && (spaceRequests.value[0].warehouseId || spaceRequests.value[0].m3); else noRequests">
+                  <div *ngFor="let req of spaceRequests.value" class="flex justify-between items-center p-2 bg-white/50 rounded">
+                    <div>
+                      <div class="font-medium text-sm text-indigo-900">
+                        {{ req.quantity || 0 }} espacio(s) de {{ req.m3 || 0 }} m³
+                      </div>
+                      <div class="text-xs text-gray-600">
+                        en {{ getWarehouseName(req.warehouseId) || '?' }}
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-
-             <div
-              class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200"
-            >
-              <h4
-                class="font-medium text-indigo-900 mb-3 flex items-center gap-2"
-              >
-                <app-icon name="dollar-sign" class="h-4 w-4"></app-icon>
-                Resumen de Costos
-              </h4>
-
-              <div
-                *ngIf="!newClientForm.value.lockersAsignados || newClientForm.value.lockersAsignados.length === 0"
-                class="text-center py-8 text-gray-500"
-              >
-                  <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                       <app-icon name="package" class="h-8 w-8 text-gray-300"></app-icon>
+                <ng-template #noRequests>
+                   <div class="text-center py-8 text-gray-500 border-t border-b">
+                     <p class="font-medium">Sin espacios solicitados</p>
+                     <p class="text-sm">Añada espacios a la izquierda.</p>
                    </div>
-                   <p class="font-medium">Ningún locker seleccionado</p>
-                   <p class="text-sm">Selecciona lockers para ver el resumen</p>
-              </div>
-
-              <div
-                *ngIf="newClientForm.value.lockersAsignados?.length > 0"
-                class="space-y-3"
-              >
-                <div class="text-sm font-semibold text-indigo-700 mb-2">
-                  {{ newClientForm.value.lockersAsignados.length }} locker(s)
-                  seleccionado(s)
-                </div>
-
-                <div
-                  class="space-y-2 max-h-52 overflow-y-auto border-t border-b py-2"
-                >
-                  <div
-                    *ngFor="let lockerId of newClientForm.value.lockersAsignados"
-                    class="flex justify-between items-center p-2 bg-white/50 rounded"
-                  >
-                    <ng-container *ngIf="getLockerDetails(lockerId) as details">
-                        <div>
-                            <div class="font-medium text-sm text-indigo-900">
-                                {{ details.locker?.identifier || 'ID: '+ lockerId }}
-                            </div>
-                            <div class="text-xs text-gray-600">
-                                {{ details.warehouse?.name || '?' }} •
-                                {{ details.lockerType?.name || '?' }}
-                            </div>
-                        </div>
-                        <div class="text-green-600 font-semibold text-sm">
-                            ${{ (details.lockerType?.amount | number : "1.0-0") || '0' }}
-                        </div>
-                    </ng-container>
-                    <ng-container *ngIf="!getLockerDetails(lockerId)">
-                        <div class="text-xs text-red-500">Error al cargar datos del locker ID: {{ lockerId }}</div>
-                    </ng-container>
-                  </div>
-                </div>
+                </ng-template>
+                
+                <!-- Monto Manual (SIEMPRE VISIBLE) -->
                 <div class="pt-3">
                   <div class="flex justify-between items-center mb-2">
-                    <label
-                      for="montoManual"
-                      class="font-semibold text-indigo-900"
-                      >Subtotal Mensual:</label
-                    >
+                    <label for="montoManual" class="font-semibold text-indigo-900">Subtotal Mensual:</label>
                     <div class="relative">
                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                         <input
-                           id="montoManual"
-                           type="number"
-                           formControlName="montoManual"
-                           class="w-32 text-right pl-6 pr-2 py-1 border rounded-md text-lg font-bold text-green-600"
-                         />
+                       <input
+                         id="montoManual"
+                         type="number"
+                         formControlName="montoManual"
+                         class="w-32 text-right pl-6 pr-2 py-1 border rounded-md text-lg font-bold text-green-600"
+                       />
                     </div>
                   </div>
                   <div class="text-xs text-gray-600 space-y-1">
                     <div class="flex justify-between">
-                       <span>Total m³ contratados:</span>
-                       <span>{{ costSummary.totalM3 }} m³</span>
+                      <span>Total m³ contratados:</span>
+                      <span>{{ newClientForm.value.contractedM3 | number:'1.1-2' }} m³</span>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-            </div>
-          </div>
-        </div>
+            </div> <!-- Fin *ngIf="!isEditMode" grid -->
+          </div> <!-- Fin *ngIf="!isEditMode" wrapper -->
+
+
+          <!-- ============================================= -->
+          <!-- MODO EDICIÓN: Asignación de Lockers (Lógica Antigua) -->
+          <!-- ============================================= -->
+          <div *ngIf="isEditMode">
+              <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
+                <div
+                  class="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-4 rounded-t-lg"
+                >
+                  <h3 class="flex items-center gap-2 font-semibold text-base">
+                    <app-icon name="package" class="h-5 w-5"></app-icon>Asignación de
+                    Lockers
+                  </h3>
+                </div>
+                <div class="p-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  <!-- Col Izquierda: Lista de Lockers Disponibles -->
+                  <div class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <!-- Filtro Búsqueda -->
+                      <div class="relative sm:col-span-2">
+                        <app-icon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"></app-icon>
+                        <input formControlName="lockerSearch" placeholder="Buscar por identificador..." class="pl-10 w-full p-2 border rounded-md"/>
+                      </div>
+                      <!-- Filtro Depósito -->
+                      <select formControlName="selectedWarehouse" class="p-2 border rounded-md bg-white">
+                        <option value="all">Todos los depósitos</option>
+                        <option *ngFor="let wh of warehouses" [value]="wh.id">{{ wh.name }}</option>
+                      </select>
+                      <!-- Filtro Tipo -->
+                      <select formControlName="selectedLockerType" class="p-2 border rounded-md bg-white">
+                        <option value="all">Todos los tipos</option>
+                        <option *ngFor="let type of lockerTypes" [value]="type.id">{{ type.name }}</option>
+                      </select>
+                    </div>
+                    <!-- Lista Scrollable de Lockers -->
+                    <div class="max-h-80 overflow-y-auto space-y-2 border rounded-md p-2 bg-gray-50/50">
+                      <p *ngIf="filteredLockers.length === 0" class="text-center py-8 text-gray-500">
+                        No se encontraron lockers disponibles.
+                      </p>
+                      <div *ngFor="let locker of filteredLockers"
+                           (click)="handleLockerToggle(locker.id)"
+                           [ngClass]="{ 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200': newClientForm.get('lockersAsignados')?.value.includes(locker.id) }"
+                           class="p-3 rounded-lg border bg-white cursor-pointer hover:border-indigo-300">
+                        
+                        <div class="flex items-start space-x-3">
+                          <input type="checkbox"
+                                 [checked]="newClientForm.get('lockersAsignados')?.value.includes(locker.id)"
+                                 readonly
+                                 class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
+                          <div class="flex-1">
+                            <div class="flex justify-between items-center mb-1">
+                              <span class="font-medium text-indigo-900">{{ locker.identifier }}</span>
+                              <span *ngIf="getLockerDetails(locker.id).lockerType" class="text-green-600 font-semibold text-sm">
+                                ${{ getLockerDetails(locker.id).lockerType?.amount | number : "1.0-0" }}
+                              </span>
+                            </div>
+                            <div class="flex items-center gap-4 text-sm text-gray-600">
+                              <span *ngIf="getLockerDetails(locker.id).warehouse" class="flex items-center gap-1">
+                                <app-icon name="building" class="h-3 w-3"></app-icon>
+                                {{ getLockerDetails(locker.id).warehouse?.name }}
+                              </span>
+                              <span *ngIf="getLockerDetails(locker.id).lockerType" class="ml-2">
+                                {{ getLockerDetails(locker.id).lockerType?.name }}
+                              </span>
+                              <span *ngIf="getLockerDetails(locker.id).lockerType" class="ml-2">
+                                {{ getLockerDetails(locker.id).lockerType?.m3 }}m³
+                              </span>
+                            </div>
+                            <p *ngIf="locker.features" class="text-xs text-gray-500 mt-1">
+                              {{ locker.features }}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Col Derecha: Resumen de Costos (Modo Edición) -->
+                  <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200 h-fit sticky top-4">
+                    <h4 class="font-medium text-indigo-900 mb-3 flex items-center gap-2">
+                      <app-icon name="dollar-sign" class="h-4 w-4"></app-icon>
+                      Resumen de Costos
+                    </h4>
+                    
+                    <!-- Resumen de Lockers Asignados -->
+                    <div *ngIf="!newClientForm.get('lockersAsignados')?.value || newClientForm.get('lockersAsignados')?.value.length === 0; else assignedLockersList"
+                         class="text-center py-8 text-gray-500 border-t border-b">
+                         <p class="font-medium">Ningún locker seleccionado</p>
+                         <p class="text-sm">Selecciona lockers de la lista.</p>
+                    </div>
+                    <ng-template #assignedLockersList>
+                      <div class="space-y-3">
+                        <div class="text-sm font-semibold text-indigo-700 mb-2">
+                          {{ newClientForm.get('lockersAsignados')?.value.length }} locker(s) seleccionado(s)
+                        </div>
+                        <div class="space-y-2 max-h-52 overflow-y-auto border-t border-b py-2">
+                          <div *ngFor="let lockerId of newClientForm.get('lockersAsignados')?.value" class="flex justify-between items-center p-2 bg-white/50 rounded">
+                            <ng-container *ngIf="getLockerDetails(lockerId) as details">
+                              <div>
+                                <div class="font-medium text-sm text-indigo-900">
+                                  {{ details.locker?.identifier || 'ID: '+ lockerId }}
+                                </div>
+                                <div class="text-xs text-gray-600">
+                                  {{ details.warehouse?.name || '?' }} •
+                                  {{ details.lockerType?.name || '?' }}
+                                </div>
+                              </div>
+                              <div class="text-green-600 font-semibold text-sm">
+                                ${{ (details.lockerType?.amount | number : "1.0-0") || '0' }}
+                              </div>
+                            </ng-container>
+                          </div>
+                        </div>
+                      </div>
+                    </ng-template>
+                    
+                    <!-- Monto Manual (SIEMPRE VISIBLE) -->
+                    <div class="pt-3">
+                      <div class="flex justify-between items-center mb-2">
+                        <label for="montoManual" class="font-semibold text-indigo-900">Subtotal Mensual:</label>
+                        <div class="relative">
+                           <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                           <input
+                             id="montoManual"
+                             type="number"
+                             formControlName="montoManual"
+                             class="w-32 text-right pl-6 pr-2 py-1 border rounded-md text-lg font-bold text-green-600"
+                           />
+                        </div>
+                      </div>
+                      <div class="text-xs text-gray-600 space-y-1">
+                        <div class="flex justify-between">
+                          <span>Total m³ contratados:</span>
+                          <!-- Usamos costSummary aquí, que lee el formControl 'contractedM3' -->
+                          <span>{{ newClientForm.get('contractedM3')?.value | number:'1.1-2' }} m³</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                </div>
+              </div>
+          </div> <!-- Fin *ngIf="isEditMode" -->
+
+        </div> <!-- Fin lg:col-span-3 -->
+
       </div>
     </main>
+
+    <!-- Footer -->
     <footer
       class="flex-shrink-0 p-4 flex justify-end gap-4 bg-gray-50 border-t"
     >
@@ -611,10 +535,11 @@
       </button>
       <button
         type="submit"
-        [disabled]="newClientForm.invalid"
-        class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        [disabled]="newClientForm.invalid || isLoading"
+        class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
       >
-        Guardar Cliente
+        <app-icon *ngIf="isLoading" name="loader" class="h-4 w-4 animate-spin"></app-icon>
+        {{ isLoading ? 'Guardando...' : (isEditMode ? 'Guardar Cambios' : 'Guardar Cliente') }}
       </button>
     </footer>
   </form>

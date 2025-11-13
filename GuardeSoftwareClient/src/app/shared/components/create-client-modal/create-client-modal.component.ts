@@ -5,14 +5,13 @@ import {
   Output,
   EventEmitter,
 } from '@angular/core';
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common'; // Importar DatePipe
+import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import {
   FormBuilder,
   FormGroup,
   FormArray,
   Validators,
   ReactiveFormsModule,
-  AbstractControl 
 } from '@angular/forms';
 import { IconComponent } from '../icon/icon.component';
 import Swal from 'sweetalert2';
@@ -23,37 +22,37 @@ import { Warehouse } from '../../../core/models/warehouse';
 import { PaymentMethod } from '../../../core/models/payment-method';
 import { LockerType } from '../../../core/models/locker-type';
 import { ClientDetailDTO } from '../../../core/dtos/client/ClientDetailDTO';
+import { SpaceRequestDto } from '../../../core/dtos/rentalSpaceRequest/SpaceRequestDto';
 import { CreateClientDTO } from '../../../core/dtos/client/CreateClientDTO';
 import { LockerService } from '../../../core/services/locker-service/locker.service';
 import { WarehouseService } from '../../../core/services/warehouse-service/warehouse.service';
 import { PaymentMethodService } from '../../../core/services/paymentMethod-service/payment-method.service';
 import { LockerTypeService } from '../../../core/services/lockerType-service/locker-type.service';
 import { ClientService } from '../../../core/services/client-service/client.service';
-import { forkJoin, Observable } from 'rxjs';
+import { forkJoin, Observable, of } from 'rxjs'; // Importar 'of'
 import { BillingType } from '../../../core/models/billing-type.model';
 import { BillingTypeService } from '../../../core/services/billingType-service/billing-type.service';
 
 @Component({
   selector: 'app-create-client-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, IconComponent], 
+  imports: [CommonModule, ReactiveFormsModule, IconComponent],
   templateUrl: './create-client-modal.component.html',
 })
 export class CreateClientModalComponent implements OnInit {
   // --- ENTRADAS Y SALIDAS ---
   private _clientData: ClientDetailDTO | null = null;
-  public isEditMode = false; 
+  public isEditMode = false;
 
   @Input()
   set clientData(data: ClientDetailDTO | null) {
     this._clientData = data;
-    this.isEditMode = !!data; 
+    this.isEditMode = !!data;
+    // Re-inicializar el formulario CADA VEZ que el Input cambia
+    this.initNewClientForm();
     this.tryPopulateForm();
   }
-
-  get clientData(): ClientDetailDTO | null {
-    return this._clientData;
-  }
+  get clientData(): ClientDetailDTO | null { return this._clientData; }
 
   @Output() closeModal = new EventEmitter<void>();
   @Output() saveSuccess = new EventEmitter<void>();
@@ -62,8 +61,8 @@ export class CreateClientModalComponent implements OnInit {
 
   // --- Datos para Selects ---
   public warehouses: Warehouse[] = [];
-  public availableLockers: Locker[] = [];
-  public lockerTypes: LockerType[] = [];
+  public availableLockers: Locker[] = []; // Solo para modo edición
+  public lockerTypes: LockerType[] = []; // Solo para modo edición
   public paymentMethods: PaymentMethod[] = [];
   public billingTypes: BillingType[] = [];
   isLoading: boolean = false;
@@ -80,31 +79,38 @@ export class CreateClientModalComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.initNewClientForm();
+    // initNewClientForm se llama en el setter de @Input
     this.loadFormData();
   }
 
   private loadFormData(): void {
-    this.isLoading = true; 
-    this.areBasicDataLoaded = false; 
+    this.isLoading = true;
+    this.areBasicDataLoaded = false;
 
-    forkJoin({
+    const commonObservables = {
       warehouses: this.warehouseService.getWarehouses(),
-      lockers: this.lockerService.getLockers(),
-      lockerTypes: this.lockerTypeService.getLockerTypes(),
       paymentMethods: this.paymentMethodService.getPaymentMethods(),
       billingTypes: this.billingTypeService.getBillingTypes()
-    }).subscribe({
-      next: (results) => {
+    };
+
+    const editObservables = {
+      lockers: this.isEditMode ? this.lockerService.getLockers() : of([] as Locker[]),
+      lockerTypes: this.isEditMode ? this.lockerTypeService.getLockerTypes() : of([] as LockerType[])
+    };
+
+    forkJoin({ ...commonObservables, ...editObservables }).subscribe({
+      next: (results: any) => {
         this.warehouses = results.warehouses;
-        this.lockerTypes = results.lockerTypes;
         this.paymentMethods = results.paymentMethods;
         this.billingTypes = results.billingTypes;
 
-        this.availableLockers = results.lockers.filter(
-          (l) => l.status.toLowerCase() === 'disponible' ||
-                 (this.isEditMode && this.clientData?.lockersList?.some(assignedLocker => assignedLocker.id === l.id) === true)
-        );
+        if (this.isEditMode) {
+          this.lockerTypes = results.lockerTypes;
+          this.availableLockers = results.lockers.filter(
+            (l: Locker) => l.status.toLowerCase() === 'disponible' ||
+                   (this.clientData?.lockersList?.some(assignedLocker => assignedLocker.id === l.id) === true)
+          );
+        }
         
         console.log('Datos básicos cargados');
         this.areBasicDataLoaded = true;
@@ -117,7 +123,7 @@ export class CreateClientModalComponent implements OnInit {
         Swal.fire({
           icon: 'error',
           title: 'Error de Carga',
-          text: 'No se pudieron cargar los datos necesarios (depósitos, tipos, etc.). Por favor, intente reabrir el modal.',
+          text: 'No se pudieron cargar los datos necesarios. Por favor, intente reabrir el modal.',
           confirmButtonColor: '#2563eb'
         });
       }
@@ -136,49 +142,72 @@ export class CreateClientModalComponent implements OnInit {
 
   private initNewClientForm(): void {
     this.newClientForm = this.fb.group({
-      // Personal
+      // --- Secciones Personal, Contacto, Pago, Legacy, Observaciones ---
       numeroIdentificacion: [''],
       nombre: ['', Validators.required],
       apellido: ['', Validators.required],
       tipoDocumento: ['DNI'], 
       numeroDocumento: ['', Validators.required],
       cuit: [''],
-      
-      // Contacto
       emails: this.fb.array([ this.fb.control('', [Validators.required, Validators.email]), ]),
       telefonos: this.fb.array([this.fb.control('')]),
       direccion: ['', Validators.required],
       ciudad: ['', Validators.required],
       codigoPostal: [''],
       provincia: ['', Validators.required],
-      
-      // Pago y Fiscal
       condicionIVA: [null, Validators.required],
       metodoPago: [null, Validators.required],
       billingTypeId: [null, Validators.required],
-      
-      // Legacy (Inician deshabilitados)
       isLegacyClient: [{ value: false, disabled: true }], 
       legacyStartDate: [{ value: null, disabled: true }],
       legacyInitialAmount: [{ value: null, disabled: true }],
-      legacyNextIncreaseDate: [{ value: null, disabled: true }], // Este campo es YYYY-MM
+      legacyNextIncreaseDate: [{ value: null, disabled: true }],
       isLegacy6MonthPromo: [{ value: false, disabled: true }],
       prepaidMonths: [{ value: 0, disabled: true }], 
-      
       observaciones: [''],
       
-      // Lockers
-      lockersAsignados: this.fb.array([]),
+      // --- Sección Monto (Siempre presente) ---
       montoManual: [0, [Validators.required, Validators.min(0)]],
-      lockerSearch: [''],
-      selectedWarehouse: ['all'],
-      selectedLockerType: ['all'],
-      contractedM3: [0],
+      contractedM3: [0], // Este campo se calculará
     });
 
-    // Habilitar/Deshabilitar campos Legacy SOLO si está en MODO CREACIÓN
+    // --- LÓGICA CONDICIONAL ---
+    if (this.isEditMode) {
+      // --- MODO EDICIÓN: Añadir controles de asignación de lockers ---
+      this.newClientForm.addControl('lockersAsignados', this.fb.array([]));
+      this.newClientForm.addControl('lockerSearch', this.fb.control(''));
+      this.newClientForm.addControl('selectedWarehouse', this.fb.control('all'));
+      this.newClientForm.addControl('selectedLockerType', this.fb.control('all'));
+
+      // Listener para recalcular m3 (Modo Edición)
+      const lockersAsignados = this.newClientForm.get('lockersAsignados') as FormArray;
+      lockersAsignados.valueChanges.subscribe((ids: (number | null)[]) => {
+        const validIds = ids.filter((id): id is number => typeof id === 'number' && id > 0);
+        // NO actualizamos montoManual, solo m3
+        this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validIds), { emitEvent: false });
+      });
+
+    } else {
+      // --- MODO CREACIÓN: Añadir controles de solicitud de espacio ("borrador") ---
+      this.newClientForm.addControl('spaceRequests', this.fb.array([]));
+      this.addSpaceRequest(); // Añadir la primera card por defecto
+      
+      // Listener para recalcular m3 (Modo Creación)
+      const spaceRequests = this.newClientForm.get('spaceRequests') as FormArray;
+      spaceRequests.valueChanges.subscribe((requests: any[]) => {
+          let totalM3 = 0;
+          requests.forEach(req => {
+              const m3 = parseFloat(req.m3) || 0;
+              const qty = parseInt(req.quantity, 10) || 0;
+              totalM3 += (m3 * qty);
+          });
+          this.newClientForm.get('contractedM3')?.setValue(totalM3, { emitEvent: false });
+      });
+    }
+
+    // Habilitar/Deshabilitar campos Legacy (SOLO en MODO CREACIÓN)
     this.newClientForm.get('isLegacyClient')?.valueChanges.subscribe(isLegacy => {
-      if (this.isEditMode) return; // No hacer nada si estamos editando
+      if (this.isEditMode) return; 
 
       const fields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate', 'isLegacy6MonthPromo', 'prepaidMonths'];
       const requiredFields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate'];
@@ -186,6 +215,8 @@ export class CreateClientModalComponent implements OnInit {
       if (isLegacy) {
         fields.forEach(field => this.newClientForm.get(field)?.enable());
         requiredFields.forEach(field => this.newClientForm.get(field)?.setValidators(Validators.required));
+        this.newClientForm.get('prepaidMonths')?.clearValidators();
+        this.newClientForm.get('isLegacy6MonthPromo')?.clearValidators();
       } else {
         fields.forEach(field => {
           this.newClientForm.get(field)?.disable();
@@ -197,24 +228,44 @@ export class CreateClientModalComponent implements OnInit {
       }
       fields.forEach(field => this.newClientForm.get(field)?.updateValueAndValidity());
     });
-
-     // Listener para recalcular monto y m3
-     const lockersAsignados = this.newClientForm.get('lockersAsignados') as FormArray;
-     lockersAsignados.valueChanges.subscribe((ids: (number | null)[]) => {
-       const validIds = ids.filter((id): id is number => typeof id === 'number' && id > 0);
-       this.newClientForm.get('montoManual')?.setValue(this.calculateTotalAmount(validIds), { emitEvent: false });
-       this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validIds), { emitEvent: false });
-     });
+  }
+  
+  // --- MÉTODOS PARA 'spaceRequests' (Modo Creación) ---
+  get spaceRequests(): FormArray {
+    return this.newClientForm.get('spaceRequests') as FormArray;
   }
 
-  /**
-   * Convierte '2025-10-25T00:00:00' (o un objeto Date) a un string '2025-10'
-   * para el <input type="month">.
-   */
+  createSpaceRequestGroup(): FormGroup {
+    return this.fb.group({
+      warehouseId: [null, Validators.required],
+      m3: [null, [Validators.required, Validators.min(0.1)]], // m3 por unidad
+      quantity: [1, [Validators.required, Validators.min(1)]],
+    });
+  }
+
+  addSpaceRequest(): void {
+    this.spaceRequests.push(this.createSpaceRequestGroup());
+  }
+
+  removeSpaceRequest(index: number): void {
+    if (this.spaceRequests.length > 1) {
+      this.spaceRequests.removeAt(index);
+    }
+  }
+
+  updateQuantity(index: number, change: number): void {
+      const control = this.spaceRequests.at(index).get('quantity');
+      if (control) {
+          let newValue = (control.value || 0) + change;
+          if (newValue < 1) newValue = 1;
+          control.setValue(newValue);
+      }
+  }
+
+  // --- Métodos 'populateForm' y Getters de FormArray ---
   private formatDateToYYYYMM(date: Date | string | null | undefined): string | null {
     if (!date) return null;
     try {
-      // Usar UTC para evitar problemas de zona horaria
       const d = new Date(date);
       const year = d.getUTCFullYear(); 
       const month = (d.getUTCMonth() + 1).toString().padStart(2, '0');
@@ -230,26 +281,21 @@ export class CreateClientModalComponent implements OnInit {
 
       this.emails.clear();
       this.telefonos.clear();
-      (this.newClientForm.get('lockersAsignados') as FormArray).clear(); 
+      
+      if (this.newClientForm.get('lockersAsignados')) {
+        (this.newClientForm.get('lockersAsignados') as FormArray).clear();
+      }
 
-      // Poblar emails
-      if (data.email && data.email.length > 0) {
-        data.email.forEach(e => this.emails.push(this.fb.control(e, [Validators.required, Validators.email])));
-      } else { this.addEmail(); }
-
-      // Poblar teléfonos
-      if (data.phone && data.phone.length > 0) {
-        data.phone.forEach(p => this.telefonos.push(this.fb.control(p)));
-      } else { this.addTelefono(); }
-
-      // Poblar lockers
+      if (data.email?.length > 0) data.email.forEach(e => this.emails.push(this.fb.control(e, [Validators.required, Validators.email]))); else this.addEmail();
+      if (data.phone?.length > 0) data.phone.forEach(p => this.telefonos.push(this.fb.control(p))); else this.addTelefono();
+      
+      // Poblar lockers (Modo Edición)
       if (data.lockersList && data.lockersList.length > 0) {
+           const lockersFormArray = this.newClientForm.get('lockersAsignados') as FormArray;
            data.lockersList.forEach(locker => {
-               if (locker && typeof locker.id === 'number' && locker.id > 0) {
-                   (this.newClientForm.get('lockersAsignados') as FormArray).push(this.fb.control(locker.id));
-               }
+               if (locker?.id > 0) lockersFormArray.push(this.fb.control(locker.id));
            });
-           (this.newClientForm.get('lockersAsignados') as FormArray).updateValueAndValidity();
+           lockersFormArray.updateValueAndValidity();
       }
 
       const matchingPaymentMethod = this.paymentMethods.find(m => m.name === data.preferredPaymentMethod);
@@ -270,25 +316,17 @@ export class CreateClientModalComponent implements OnInit {
         billingTypeId: data.billingTypeId || null,
         
         isLegacyClient: !!data.initialAmount, 
-        
         legacyStartDate: data.registrationDate, 
         legacyInitialAmount: data.initialAmount, 
-        legacyNextIncreaseDate: this.formatDateToYYYYMM(data.nextIncreaseDay), // <-- LÓGICA CORREGIDA
+        legacyNextIncreaseDate: this.formatDateToYYYYMM(data.nextIncreaseDay),
         isLegacy6MonthPromo: data.increaseFrequencyMonths === 6
-        // prepaidMonths: 0, 
       });
-
-      // Si estamos editando, deshabilitamos la sección legacy
-      if (this.isEditMode) {
-        this.newClientForm.get('isLegacyClient')?.disable();
-      }
 
       const initialLockerIds = this.newClientForm.get('lockersAsignados')?.value || [];
       const validInitialIds = initialLockerIds.filter((id: any): id is number => typeof id === 'number' && id > 0);
       this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validInitialIds));
   }
 
-  // --- Getters (emails, telefonos) ---
   get emails(): FormArray { return this.newClientForm.get('emails') as FormArray; }
   addEmail(): void { this.emails.push(this.fb.control('', [Validators.required, Validators.email])); }
   removeEmail(index: number): void { if (this.emails.length > 1) this.emails.removeAt(index); }
@@ -296,7 +334,15 @@ export class CreateClientModalComponent implements OnInit {
   addTelefono(): void { this.telefonos.push(this.fb.control('')); }
   removeTelefono(index: number): void { if (this.telefonos.length > 1) this.telefonos.removeAt(index); }
 
-  // --- Getters (filteredLockers, costSummary, getLockerDetails) ---
+  // --- MÉTODOS HELPER (USADOS EN HTML) ---
+  
+  getWarehouseName(id: number | null): string {
+    if (!id) return 'N/A';
+    const w = this.warehouses.find(w => w.id === id);
+    return w ? w.name : 'Desconocido';
+  }
+  
+  // (Estos solo se usan en MODO EDICIÓN)
   get filteredLockers(): Locker[] {
     const search = this.newClientForm.value.lockerSearch?.toLowerCase() || '';
     const warehouseId = this.newClientForm.value.selectedWarehouse;
@@ -308,13 +354,6 @@ export class CreateClientModalComponent implements OnInit {
       const typeMatch = typeId === 'all' || locker.lockerTypeId === Number(typeId);
       return searchMatch && warehouseMatch && typeMatch;
     });
-  }
-  
-  get costSummary() {
-      const assignedIds = (this.newClientForm?.get('lockersAsignados')?.value as (number | null)[]) || [];
-      const validIds = assignedIds.filter((id): id is number => typeof id === 'number' && id > 0);
-      const totalM3 = this.calculateTotalM3(validIds);
-      return { totalM3 };
   }
   
   getLockerDetails(lockerId: number | null) {
@@ -350,55 +389,39 @@ export class CreateClientModalComponent implements OnInit {
   onSubmit(): void {
     const formValue = this.newClientForm.getRawValue();
 
-    // Validar campos requeridos que están en el *ngIf
-    const requiredLegacyFields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate'];
-    let legacyFieldsInvalid = false;
-    if (formValue.isLegacyClient && !this.isEditMode) {
-        for (const field of requiredLegacyFields) {
-            const control = this.newClientForm.get(field);
-            if (!control?.value) {
-                control?.markAsTouched(); // Marcar para mostrar error
-                legacyFieldsInvalid = true;
-            }
-        }
-    }
-
-    if (this.newClientForm.invalid || legacyFieldsInvalid) {
+   if (this.newClientForm.invalid) {
       Object.values(this.newClientForm.controls).forEach(control => {
-        control.markAsTouched();
-        control.updateValueAndValidity({ onlySelf: true });
+        control.markAsTouched({ onlySelf: true });
         if (control instanceof FormArray) {
-           (control as FormArray).controls.forEach(arrayControl => arrayControl.markAsTouched());
+           (control as FormArray).controls.forEach(arrayControl => arrayControl.markAsTouched({ onlySelf: true }));
         }
       });
       console.warn('Formulario inválido:', formValue);
       Swal.fire('Formulario Inválido', 'Por favor, completa todos los campos requeridos (*).', 'warning');
       return;
     }
-
     if (!formValue.metodoPago || !formValue.metodoPago.id) {
         Swal.fire('Error de Validación', 'Método de pago no seleccionado o inválido.', 'error');
         return;
     }
-    
-    this.isLoading = true;
-    
     const isEditing = this.isEditMode;
     const isLegacy = formValue.isLegacyClient;
+    if (isLegacy && !isEditing) { 
+        if (!formValue.legacyStartDate || !formValue.legacyInitialAmount || !formValue.legacyNextIncreaseDate) {
+            Swal.fire('Datos Incompletos', 'Para un cliente antiguo, la Fecha de Ingreso, Monto Inicial y Próximo Aumento son requeridos.', 'warning');
+            return;
+        }
+    }
 
-    // --- LÓGICA DE CONVERSIÓN DE FECHA ---
+    this.isLoading = true;
+
+    // ... (Lógica de conversión de fechas) ...
     let nextIncreaseDate: Date | null = null;
     let legacyStartDate: Date | null = null;
-
     if (isLegacy) {
-        if(formValue.legacyNextIncreaseDate) {
-            nextIncreaseDate = new Date(formValue.legacyNextIncreaseDate + '-01T12:00:00Z');
-        }
-        if(formValue.legacyStartDate) {
-            legacyStartDate = new Date(formValue.legacyStartDate + 'T12:00:00Z');
-        }
+        if(formValue.legacyNextIncreaseDate) nextIncreaseDate = new Date(formValue.legacyNextIncreaseDate + '-01T12:00:00Z');
+        if(formValue.legacyStartDate) legacyStartDate = new Date(formValue.legacyStartDate + 'T12:00:00Z');
     } else if (isEditing) {
-      // Si editamos un cliente NO-LEGACY, mantenemos su fecha ancla existente
       nextIncreaseDate = this.clientData?.nextIncreaseDay ? new Date(this.clientData.nextIncreaseDay) : null;
     }
 
@@ -420,53 +443,59 @@ export class CreateClientModalComponent implements OnInit {
       },
       preferredPaymentMethodId: formValue.metodoPago.id,
       ivaCondition: formValue.condicionIVA || null,
-      contractedM3: this.costSummary.totalM3,
       amount: formValue.montoManual,
-      lockerIds: formValue.lockersAsignados.filter((id: any): id is number => typeof id === 'number' && id > 0),
       userID: 1, // Placeholder
-
+      
       registrationDate: isLegacy ? legacyStartDate! : (isEditing ? new Date(this.clientData!.registrationDate) : new Date()),
       startDate: isLegacy ? legacyStartDate! : (isEditing ? new Date(this.clientData!.registrationDate) : new Date()),
       prepaidMonths: isLegacy ? Number(formValue.prepaidMonths) : 0,
       isLegacyClient: isLegacy,
       isLegacy6MonthPromo: formValue.isLegacy6MonthPromo, 
-      
       legacyInitialAmount: isLegacy ? formValue.legacyInitialAmount : null,
-      
-      // --- CORRECCIÓN FINAL ---
-      // Si nextIncreaseDate es null, envia 'undefined' para que coincida con el tipo `Date | undefined`
       legacyNextIncreaseDate: nextIncreaseDate || undefined,
+
+      // --- LÓGICA CONDICIONAL DE LOCKERS ---
+      lockerIds: [],
+      spaceRequests: [],
+      contractedM3: formValue.contractedM3 || 0,
     };
+    
+    if (isEditing) {
+        dto.lockerIds = formValue.lockersAsignados.filter((id: any): id is number => typeof id === 'number' && id > 0);
+    } else {
+        dto.spaceRequests = formValue.spaceRequests;
+    }
 
     console.log('Enviando DTO:', dto);
 
     let apiCall: Observable<any>;
-
     if (isEditing) {
       apiCall = this.clientService.updateClient(this.clientData!.id, dto);
     } else {
       apiCall = this.clientService.CreateClient(dto);
     }
 
-    apiCall.subscribe({
+   apiCall.subscribe({
       next: (response) => {
         this.isLoading = false;
-        console.log(isEditing ? 'Cliente actualizado:' : 'Cliente creado:', response);
         this.saveSuccess.emit();
+        Swal.fire({
+          icon: 'success',
+          title: `Cliente ${isEditing ? 'actualizado' : 'creado'}`,
+          text: `El cliente se ha guardado correctamente.`,
+          confirmButtonColor: '#2563eb'
+        });
       },
       error: (err) => {
         this.isLoading = false;
         console.error(isEditing ? 'Error al actualizar el cliente:' : 'Error al crear el cliente:', err);
-        
         let errorDetails = '';
         if (err.error && err.error.errors) {
             errorDetails = Object.entries(err.error.errors)
                                  .map(([key, value]) => `<b>${key}:</b> ${(value as string[]).join(', ')}`)
                                  .join('<br>');
         }
-        
         const errorMsg = errorDetails || err.error?.message || err.statusText || 'Ocurrió un error desconocido.';
-        
         Swal.fire({
             icon: 'error',
             title: `Error al ${isEditing ? 'actualizar' : 'crear'}`,
@@ -479,7 +508,6 @@ export class CreateClientModalComponent implements OnInit {
 
 
   // --- Métodos Helper de Cálculo ---
-
   private calculateTotalM3(ids: number[]): number {
      let totalM3 = 0;
      ids.forEach((id) => {
@@ -503,5 +531,12 @@ export class CreateClientModalComponent implements OnInit {
       }
     });
     return totalAmount;
+  }
+
+  get costSummary() {
+      const assignedIds = (this.newClientForm?.get('lockersAsignados')?.value as (number | null)[]) || [];
+      const validIds = assignedIds.filter((id): id is number => typeof id === 'number' && id > 0);
+      const totalM3 = this.calculateTotalM3(validIds);
+      return { totalM3 };
   }
 }

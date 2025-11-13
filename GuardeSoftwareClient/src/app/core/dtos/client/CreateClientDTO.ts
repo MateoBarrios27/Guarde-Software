@@ -1,4 +1,5 @@
 import { CreateAddressDto } from "../address/CreateAddressDto";
+import { SpaceRequestDto } from "../rentalSpaceRequest/SpaceRequestDto";
 
 export interface CreateClientDTO{
     
@@ -17,6 +18,7 @@ export interface CreateClientDTO{
     startDate: Date;
     contractedM3: number;
     amount: number;
+    spaceRequests: SpaceRequestDto[]; 
     lockerIds: number[];
     userID: number;
 
