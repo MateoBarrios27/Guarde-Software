@@ -1,5 +1,6 @@
 ﻿using System;
 using GuardeSoftwareAPI.Dtos.Address;
+using GuardeSoftwareAPI.Dtos.RentalSpaceRequest;
 
 namespace GuardeSoftwareAPI.Dtos.Client
 {
@@ -37,6 +38,8 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public decimal Amount { get; set; }
         //id of locker rental
         public List<int> LockerIds { get; set; } = [];
+
+        public List<SpaceRequestDTO> SpaceRequests { get; set; } = [];
         //user id for activityLog
         public int UserID { get; set; }
 

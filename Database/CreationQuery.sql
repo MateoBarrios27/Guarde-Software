@@ -181,6 +181,22 @@ CREATE TABLE account_movements (
     FOREIGN KEY (payment_id) REFERENCES payments(payment_id)
 );
 
+CREATE TABLE rental_space_requests (
+    request_id INT IDENTITY(1,1) PRIMARY KEY,
+    
+    rental_id INT NOT NULL,
+    warehouse_id INT NOT NULL,
+    
+    quantity INT NOT NULL DEFAULT 1, -- Cantidad de espacios
+    m3 DECIMAL(10, 2) NOT NULL,      -- M3 totales para esta solicitud (ej: 2 espacios * 10m3 = 20m3)
+    
+    -- (Opcional) Puedes añadir un campo de 'descripcion' si el usuario necesita añadir notas
+    -- description VARCHAR(255) NULL, 
+
+    CONSTRAINT FK_request_rental FOREIGN KEY (rental_id) REFERENCES rentals(rental_id) ON DELETE CASCADE,
+    CONSTRAINT FK_request_warehouse FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id)
+);
+
 -- Table: user_types
 CREATE TABLE user_types (
     user_type_id INT IDENTITY(1,1) PRIMARY KEY,

@@ -36,6 +36,7 @@ namespace GuardeSoftwareAPI.Services.client
         private readonly IPhoneService phoneService;
         private readonly ILogger<ClientService> _logger;
         private readonly IAccountMovementService accountMovementService;
+        private readonly DaoRentalSpaceRequest _daoRentalSpaceRequest;
         private readonly AccessDB accessDB;
 
         public ClientService(AccessDB _accessDB, ILogger<ClientService> logger, IAccountMovementService _accountMovementService, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, ILockerService _lockerService, IActivityLogService _activityLogService, IEmailService _emailService, IPhoneService _phoneService, IAddressService _addressService)
@@ -51,6 +52,7 @@ namespace GuardeSoftwareAPI.Services.client
             accessDB = _accessDB;
             accountMovementService = _accountMovementService;
             _logger = logger;
+            _daoRentalSpaceRequest = new DaoRentalSpaceRequest(_accessDB);
         }
 
         public async Task<List<Client>> GetClientsList()
@@ -120,6 +122,8 @@ namespace GuardeSoftwareAPI.Services.client
             if (!string.IsNullOrEmpty(dto.Dni) && string.IsNullOrWhiteSpace(dto.Dni))
                 throw new ArgumentException("DNI cannot be empty or whitespace.", nameof(dto.Dni));
 
+            
+
             if (dto.IsLegacyClient)
             {
                 if (dto.StartDate == default) throw new ArgumentException("Legacy start date is required.");
@@ -131,6 +135,17 @@ namespace GuardeSoftwareAPI.Services.client
             DateTime startDate = dto.IsLegacyClient ? dto.StartDate : DateTime.UtcNow.Date;
             DateTime registrationDate = dto.IsLegacyClient ? dto.RegistrationDate : DateTime.UtcNow.Date;
             var today = DateTime.UtcNow.Date;
+            decimal calculatedTotalM3 = 0;
+            
+            if (dto.SpaceRequests != null && dto.SpaceRequests.Count != 0)
+            {
+                calculatedTotalM3 = dto.SpaceRequests.Sum(r => r.M3 * r.Quantity);
+            }
+            else 
+            {
+                // Fallback por si acaso viene ContractedM3 directo
+                calculatedTotalM3 = dto.ContractedM3 ?? 0m;
+            }
 
             using (var connection = accessDB.GetConnectionClose())
             {
@@ -208,13 +223,27 @@ namespace GuardeSoftwareAPI.Services.client
                         {
                             ClientId = newClientId,
                             StartDate = startDate,
-                            ContractedM3 = dto.ContractedM3 ?? 0m,
+                            ContractedM3 = calculatedTotalM3,
                             MonthsUnpaid = 0,
                             PriceLockEndDate = priceLockDate,
-                            IncreaseAnchorDate = nextIncreaseAnchorDate // <-- Asignar fecha ancla
-                            // InitialAmount se movió a 'clients'
+                            IncreaseAnchorDate = nextIncreaseAnchorDate
                         };
                         int rentalId = await rentalService.CreateRentalTransactionAsync(rental, connection, transaction);
+
+                        if (dto.SpaceRequests != null && dto.SpaceRequests.Count != 0)
+                        {
+                            foreach (var req in dto.SpaceRequests)
+                            {
+                                var spaceRequest = new RentalSpaceRequest
+                                {
+                                    RentalId = rentalId,
+                                    WarehouseId = req.WarehouseId,
+                                    Quantity = req.Quantity,
+                                    M3 = req.M3
+                                };
+                                await _daoRentalSpaceRequest.CreateRequestTransactionAsync(spaceRequest, connection, transaction);
+                            }
+                        }
 
                         // 5. Crear Historial de Monto(s)
                         if (dto.IsLegacyClient)
@@ -292,13 +321,13 @@ namespace GuardeSoftwareAPI.Services.client
 
 
 
-                        if (dto.LockerIds != null && dto.LockerIds.Count != 0) {
-                            foreach (var lockerId in dto.LockerIds) {
-                                if (!await lockerService.IsLockerAvailableAsync(lockerId, connection, transaction))
-                                    throw new InvalidOperationException($"Locker {lockerId} is already occupied.");
-                            }
-                            await lockerService.SetRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
-                        }
+                        // if (dto.LockerIds != null && dto.LockerIds.Count != 0) {
+                        //     foreach (var lockerId in dto.LockerIds) {
+                        //         if (!await lockerService.IsLockerAvailableAsync(lockerId, connection, transaction))
+                        //             throw new InvalidOperationException($"Locker {lockerId} is already occupied.");
+                        //     }
+                        //     await lockerService.SetRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
+                        // }
 
                         foreach (string email in dto.Emails)
                         {
