@@ -81,8 +81,8 @@
             <div>
               <label class="text-sm font-medium text-blue-700">Método de Pago *</label>
               <select formControlName="metodoPago" class="w-full mt-1 p-2 border rounded-md bg-white">
-                <option [ngValue]="null" disabled>Seleccionar método</option>
-                <option *ngFor="let method of paymentMethods" [value]="method">{{ method.name }}</option>
+                <option [ngValue]="null" disabled selected>Seleccionar método</option>
+                <option *ngFor="let m of paymentMethods" [ngValue]="m">{{ m.name }}</option>
               </select>
             </div>
           </div>
