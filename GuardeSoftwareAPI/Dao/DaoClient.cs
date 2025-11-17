@@ -248,19 +248,23 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<(List<GetTableClientsDto> clients, int totalCount)> GetTableClientsAsync(GetClientsRequestDto request)
         {
             var filterParameters = new List<SqlParameter>();
-            var whereClause = new StringBuilder("WHERE 1=1 ");
+            
+            // Construimos la cláusula WHERE para la consulta FINAL (fuera de la CTE)
+            var finalWhereClause = new StringBuilder("WHERE 1=1 ");
 
-            // --- LÓGICA DE FILTROS ---
+            // 1. Filtro de Activos/Inactivos
+            // Si request.Active es true, solo mostramos activos. Si es false, solo inactivos (dados de baja).
+            // Si es null (no debería pasar con tu lógica actual), mostramos todos.
             if (request.Active.HasValue)
             {
-                whereClause.Append("AND Active = @Active ");
+                finalWhereClause.Append("AND Active = @Active ");
                 filterParameters.Add(new SqlParameter("@Active", request.Active.Value));
             }
 
-            // Filtro del buscador potente
+            // 2. Filtro del buscador potente
             if (!string.IsNullOrEmpty(request.SearchTerm))
             {
-                whereClause.Append(@"
+                finalWhereClause.Append(@"
                     AND (
                         ISNULL(FirstName, '') + ' ' + ISNULL(LastName, '') LIKE @SearchTerm OR
                         ISNULL(Email, '') LIKE @SearchTerm OR
@@ -270,14 +274,16 @@ namespace GuardeSoftwareAPI.Dao
                 filterParameters.Add(new SqlParameter("@SearchTerm", $"%{request.SearchTerm}%"));
             }
 
-            // Filtro de estado (Moroso, Al día, etc.)
+            // 3. Filtro de estado (Moroso, Al día, etc.)
+            // Este filtro aplica sobre la columna CALCULADA 'Status'
             if (!string.IsNullOrEmpty(request.StatusFilter) && request.StatusFilter != "Todos")
             {
-                whereClause.Append("AND Status = @StatusFilter ");
+                finalWhereClause.Append("AND Status = @StatusFilter ");
                 filterParameters.Add(new SqlParameter("@StatusFilter", request.StatusFilter));
             }
 
-            // --- CONSTRUCCIÓN DE LA QUERY CON CTE ---
+            // --- CONSTRUCCIÓN DE LA QUERY ---
+            // Movemos el cálculo de Status dentro de la CTE para poder filtrar por él después
             string fullQuery = $@"
                 WITH ClientData AS (
                     SELECT
@@ -308,17 +314,20 @@ namespace GuardeSoftwareAPI.Dao
                     LEFT JOIN ( SELECT r.client_id, STRING_AGG(l.identifier, ', ') as lockers FROM rentals r JOIN lockers l ON r.rental_id = l.rental_id GROUP BY r.client_id ) locker_sub ON c.client_id = locker_sub.client_id
                     LEFT JOIN ( SELECT r.client_id, SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid FROM rentals r WHERE r.active = 1 GROUP BY r.client_id ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
                 ),
-                FilteredCount AS (
-                    SELECT COUNT(*) AS TotalRows FROM ClientData {whereClause}
+                FilteredData AS (
+                    SELECT * FROM ClientData
+                    {finalWhereClause}
+                ),
+                TotalCount AS (
+                    SELECT COUNT(*) AS TotalRows FROM FilteredData
                 )
-                SELECT * FROM ClientData, FilteredCount
-                {whereClause}
+                SELECT * FROM FilteredData, TotalCount
                 ORDER BY {GetSortColumn(request.SortField)} {GetSortDirection(request.SortDirection)}
-                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
             ";
 
             var dataParameters = new List<SqlParameter>();
-            dataParameters.AddRange(filterParameters.Select(p => new SqlParameter(p.ParameterName, p.Value)));
+            dataParameters.AddRange(filterParameters); // Usar los parámetros creados arriba
             dataParameters.Add(new SqlParameter("@Offset", (request.PageNumber - 1) * request.PageSize));
             dataParameters.Add(new SqlParameter("@PageSize", request.PageSize));
 

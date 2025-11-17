@@ -134,12 +134,12 @@
             <option value="Pendiente">Pendiente</option>
           </select>
           <button
-            (click)="showInactivos = !showInactivos; onFilterChange()"
-            class="px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2"
-            [ngClass]="showInactivos ? 'bg-gray-100' : 'bg-white'"
+            (click)="toggleInactivos()" 
+            class="px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2 transition-colors"
+            [ngClass]="showInactivos ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-700 hover:bg-gray-50'"
           >
-            <app-icon name="user-x" class="h-4 w-4"></app-icon> Ver Dados de
-            Baja
+            <app-icon name="user-x" class="h-4 w-4"></app-icon> 
+            {{ showInactivos ? 'Ver Activos' : 'Ver Dados de Baja' }}
           </button>
           <!-- <button
             (click)="handleResetFilters()"

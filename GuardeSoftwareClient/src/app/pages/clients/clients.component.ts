@@ -143,11 +143,22 @@ export class ClientsComponent implements OnInit {
   }
 
   onFilterChange(): void {
-  // Ya no llama a loadClients() directamente.
-  // Solo notifica al Subject que algo cambió.
-  // La suscripción en el constructor se encargará del resto.
-  this.searchSubject.next(''); 
-}
+    this.currentPageClientes = 1; // Volver a pág 1
+    this.loadClients();
+  }
+
+  toggleInactivos(): void {
+    this.showInactivos = !this.showInactivos;
+    
+    // Opcional: Resetear filtro de estado al cambiar modo, para evitar confusión
+    // (Ej: si estaba filtrando por "Al día" y cambio a inactivos, no veré nada)
+    if (this.showInactivos) {
+        this.filterEstadoClientes = 'Todos'; 
+    }
+    
+    this.currentPageClientes = 1; // Siempre volver a pág 1 al cambiar filtro principal
+    this.loadClients();
+  }
 
   onItemsPerPageChange(): void {
     this.currentPageClientes = 1;
