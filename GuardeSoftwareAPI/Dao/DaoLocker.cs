@@ -102,6 +102,7 @@ namespace GuardeSoftwareAPI.Dao
                     l.locker_id,
                     lt.name AS locker_type,
                     l.identifier,
+                    l.features,
                     w.name AS warehouse,
                     lt.amount
                 FROM

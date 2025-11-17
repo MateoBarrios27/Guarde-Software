@@ -190,7 +190,7 @@
             
             <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-4 rounded-t-lg">
               <h3 class="flex items-center gap-2 font-semibold text-base">
-                <app-icon [name]="isEditMode ? 'package' : 'clipboard-plus'" class="h-5 w-5"></app-icon>
+                <app-icon name='package' class="h-5 w-5"></app-icon>
                 {{ isEditMode ? 'Asignación de Lockers' : 'Selección de Espacios' }}
               </h3>
             </div>
@@ -200,7 +200,7 @@
               <div class="space-y-4">
                 
                 <ng-container *ngIf="!isEditMode">
-                  <div formArrayName="spaceRequests" class="space-y-4 max-h-[40vh] lg:max-h-[50vh] overflow-y-auto pr-2">
+                  <div formArrayName="spaceRequests" class="space-y-4 overflow-y-auto pr-2">
                     <div *ngFor="let request of spaceRequests.controls; let i = index" 
                          [formGroupName]="i" 
                          class="p-4 border-2 border-gray-200 rounded-lg bg-white relative shadow-sm">
@@ -217,7 +217,7 @@
                               <label class="block text-sm font-medium text-indigo-700 mb-1">Depósito *</label>
                               <select formControlName="warehouseId" class="w-full p-2 border rounded-md bg-white text-sm">
                                 <option [ngValue]="null" disabled>Seleccionar...</option>
-                                <option *ngFor="let w of warehouses" [value]="w.id">{{ w.name }}</option>
+                                <option *ngFor="let w of warehouses" [ngValue]="w.id">{{ w.name }}</option>
                               </select>
                           </div>
                           <div class="w-full sm:w-28">
@@ -276,13 +276,13 @@
                   <app-icon name="dollar-sign" class="h-4 w-4"></app-icon>Resumen de Costos
                 </h4>
                 
-                <div class="space-y-2 max-h-52 overflow-y-auto border-t border-b py-2">
+                <div class="space-y-2 overflow-y-auto border-t border-b py-2">
                   
                   <ng-container *ngIf="!isEditMode">
                     <ng-container *ngIf="spaceRequests.value.length > 0 && (spaceRequests.value[0].warehouseId || spaceRequests.value[0].m3); else noRequestsCreation">
                       <div *ngFor="let req of spaceRequests.value" class="flex justify-between items-center p-2 bg-white/50 rounded">
                         <div>
-                          <div class="font-medium text-sm text-indigo-900">{{ req.quantity || 0 }} espacio(s) de {{ req.m3 || 0 }} m³</div>
+                          <div class="font-medium text-sm text-indigo-900">{{ req.quantity || 0 }} {{ req.quantity === 1 ? 'espacio' : 'espacios' }} de {{ req.m3 || 0 }} m³</div>
                           <div class="text-xs text-gray-600">en {{ getWarehouseName(req.warehouseId) || '?' }}</div>
                         </div>
                       </div>

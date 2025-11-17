@@ -120,6 +120,7 @@ namespace GuardeSoftwareAPI.Services.locker
                     Warehouse = row["warehouse"]?.ToString() ?? string.Empty,
                     LockerType = row["locker_type"]?.ToString() ?? string.Empty,
                     Amount = Convert.ToDecimal(row["amount"]),
+                    Features = row["features"]?.ToString() ?? string.Empty,
                     // M3 = Convert.ToDecimal(row["m3"]), // 
                 };
                 lockersList.Add(lockerDto);
