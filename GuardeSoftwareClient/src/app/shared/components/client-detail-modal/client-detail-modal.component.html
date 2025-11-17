@@ -302,7 +302,7 @@
                 </div>
                 <div>
                   <label class="font-medium text-gray-500">Monto inicial</label>
-                  <p class="text-gray-800">{{ client.initialAmount | currency : "ARS" : "symbol-narrow" : "1.0-0"}}</p>
+                  <p class="text-gray-800">{{ client.initialAmount | currency : "ARS" : "symbol-narrow" : "1.0-0" }}</p>
                 </div>
               </div>
             </div>
@@ -340,7 +340,7 @@
                     Usa texto más pequeño e itálica para no agregar "volumen".
                   -->
                   <div *ngIf="locker.features" class="mt-1">
-                    <p class="text-xs text-gray-500 italic">
+                    <p class="text-xs text-gray-500">
                       {{ locker.features }}
                     </p>
                   </div>
