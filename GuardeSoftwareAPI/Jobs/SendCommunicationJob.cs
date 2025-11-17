@@ -1,91 +1,119 @@
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Dtos.Communication;
+using GuardeSoftwareAPI.Services.communication; // Para IFileStorageService
 using Quartz;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
 using System.Text;
-
+using System.Text.Json;
 
 namespace GuardeSoftwareAPI.Jobs
 {
-    // Prevents the same job (for the same ID) from running concurrently
     [DisallowConcurrentExecution]
     public class SendCommunicationJob : IJob
     {
         private readonly CommunicationDao _communicationDao;
+        private readonly IFileStorageService _fileStorageService; // --- AÑADIDO ---
         private readonly IConfiguration _config;
         private readonly ILogger<SendCommunicationJob> _logger;
 
         public SendCommunicationJob(
-            AccessDB _accessDB,
+            AccessDB accessDB,
             IConfiguration config,
-            ILogger<SendCommunicationJob> logger)
+            ILogger<SendCommunicationJob> logger,
+            IFileStorageService fileStorageService // --- AÑADIDO ---
+        )
         {
-            _communicationDao = new CommunicationDao(_accessDB);
+            _communicationDao = new CommunicationDao(accessDB);
             _config = config;
             _logger = logger;
+            _fileStorageService = fileStorageService; // --- AÑADIDO ---
         }
 
         public async Task Execute(IJobExecutionContext context)
         {
+            // --- LEER NUEVOS DATOS DEL JOB ---
             int comunicadoId = context.JobDetail.JobDataMap.GetInt("CommunicationId");
-            _logger.LogInformation("Starting communication job for ID: {ComunicadoId}", comunicadoId);
+            string mailServerId = context.JobDetail.JobDataMap.GetString("MailServerId") ?? "default";
+            bool isRetry = context.JobDetail.JobDataMap.GetBoolean("IsRetry");
+            
+            _logger.LogInformation("Starting communication job for ID: {ComunicadoId} (Server: {Server}, IsRetry: {Retry})", 
+                comunicadoId, mailServerId, isRetry);
 
             var errorLog = new StringBuilder();
-            
+            List<AttachmentDto> attachmentsToCleanup = new List<AttachmentDto>();
+
             try
             {
-                // Step 1: Set status to 'Procesando'
-                await _communicationDao.UpdateCommunicationStatusAsync(comunicadoId, "Procesando");
+                await _communicationDao.UpdateCommunicationStatusAsync(comunicadoId, "Processing");
 
-                // Step 2: Get all data needed for the send
                 var channels = await _communicationDao.GetChannelsForSendingAsync(comunicadoId);
-                var recipients = await _communicationDao.GetRecipientsForSendingAsync(comunicadoId);
+                // --- ACTUALIZADO: Pasa el flag de reintento ---
+                var recipients = await _communicationDao.GetRecipientsForSendingAsync(comunicadoId, isRetry);
 
                 _logger.LogInformation("Found {RecipientCount} recipients and {ChannelCount} channels.", recipients.Count, channels.Count);
 
-                // Step 3: Send via Email (if configured)
                 var emailChannel = channels.FirstOrDefault(c => c.ChannelName == "Email");
                 if (emailChannel != null)
                 {
-                    await ProcessEmailChannel(emailChannel, recipients, errorLog);
+                    // Deserializa los adjuntos para pasarlos al procesador
+                    attachmentsToCleanup = JsonSerializer.Deserialize<List<AttachmentDto>>(emailChannel.AttachmentsJson ?? "[]", 
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<AttachmentDto>();
+                        
+                    await ProcessEmailChannel(emailChannel, recipients, errorLog, mailServerId, attachmentsToCleanup);
                 }
 
-                // Step 4: Send via WhatsApp (if configured)
                 var whatsappChannel = channels.FirstOrDefault(c => c.ChannelName == "WhatsApp");
                 if (whatsappChannel != null)
                 {
                     await ProcessWhatsAppChannel(whatsappChannel, recipients, errorLog);
                 }
 
-                // Step 5: Set final status
                 string finalStatus = errorLog.Length > 0 ? "Finished w/ Errors" : "Finished";
                 await _communicationDao.UpdateCommunicationStatusAsync(comunicadoId, finalStatus);
                 _logger.LogInformation("Communication job for ID: {ComunicadoId} finished with status: {Status}", comunicadoId, finalStatus);
+
+                // --- NUEVO: Limpieza de archivos del VPS ---
+                // Si el trabajo fue exitoso (sin errores) Y NO fue un reintento (fue el envío final)
+                // Y hay adjuntos para limpiar...
+                if (finalStatus == "Finished" && !isRetry && attachmentsToCleanup.Count > 0)
+                {
+                    _logger.LogInformation("Send successful. Deleting {Count} temporary attachments from VPS for job ID: {ComunicadoId}", attachmentsToCleanup.Count, comunicadoId);
+                    var urlsToDelete = attachmentsToCleanup.Select(a => a.FileUrl).ToList();
+                    await _fileStorageService.DeleteFilesAsync(urlsToDelete);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Fatal error in communication job for ID: {ComunicadoId}", comunicadoId);
                 await _communicationDao.UpdateCommunicationStatusAsync(comunicadoId, "Failed");
-                
-                // Rethrow to let Quartz know the job failed
                 throw new JobExecutionException("Job execution failed.", ex, false);
             }
         }
 
-        /// <summary>
-        /// Connects to SMTP and sends all emails.
-        /// </summary>
-        private async Task ProcessEmailChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog)
+        private async Task ProcessEmailChannel(
+            ChannelForSendingDto channel, 
+            List<RecipientForSendingDto> recipients, 
+            StringBuilder errorLog, 
+            string mailServerId,
+            List<AttachmentDto> attachments)
         {
-            var smtpSettings = _config.GetSection("SmtpSettings");
+            // --- ACTUALIZADO: Carga la configuración del servidor de mail dinámicamente ---
+            // Asume que tu appsettings.json tiene:
+            // "SmtpSettings": { "default": { ... }, "backup-01": { ... } }
+            var smtpSettings = _config.GetSection($"SmtpSettings:{mailServerId}");
+            if (!smtpSettings.Exists())
+            {
+                _logger.LogError("Mail server config '{ServerId}' not found. Falling back to 'default'.", mailServerId);
+                smtpSettings = _config.GetSection("SmtpSettings:default");
+            }
+
             using var smtp = new SmtpClient();
 
             try
             {
                 smtp.ServerCertificateValidationCallback = (s, c, h, e) => true;
-                // Connect once
                 await smtp.ConnectAsync(
                     smtpSettings["Server"],
                     int.Parse(smtpSettings["Port"]!),
@@ -93,7 +121,6 @@ namespace GuardeSoftwareAPI.Jobs
                 );
                 await smtp.AuthenticateAsync(smtpSettings["SenderEmail"], smtpSettings["Password"]);
 
-                // Loop and send
                 foreach (var recipient in recipients)
                 {
                     if (string.IsNullOrEmpty(recipient.Email))
@@ -104,27 +131,33 @@ namespace GuardeSoftwareAPI.Jobs
 
                     try
                     {
-                        var message = CreateEmailMessage(channel, recipient, smtpSettings);
+                        var message = await CreateEmailMessageAsync(channel, recipient, smtpSettings, attachments);
                         string response = await smtp.SendAsync(message);
-                        
-                        // Log success
                         await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Exitoso", response);
                     }
                     catch (Exception ex)
                     {
-                        // Log individual send failure
                         _logger.LogWarning(ex, "Failed to send email to client ID: {ClientId}", recipient.ClientId);
                         errorLog.AppendLine($"Email to {recipient.Email} failed: {ex.Message}");
                         await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", ex.Message);
+                        
+                        // --- CONTROL DE LÍMITE DE SERVIDOR ---
+                        // Si el error es por "límite de envíos" (depende de la respuesta de tu SMTP),
+                        // rompe el bucle para no seguir intentando.
+                        if (ex.Message.Contains("rate limit") || ex.Message.Contains("limit exceeded"))
+                        {
+                            _logger.LogError(ex, "Mail server limit reached. Stopping job for ID: {CommId}", channel.CommChannelContentId);
+                            errorLog.AppendLine("Mail server limit reached. Remaining recipients set to 'Pending'.");
+                            // (Opcional: marcar los restantes como 'Pendiente' en la DB)
+                            break; 
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                // Log SMTP connection failure
-                _logger.LogError(ex, "Failed to connect to SMTP server.");
+                _logger.LogError(ex, "Failed to connect to SMTP server: {Server}", smtpSettings["Server"]);
                 errorLog.AppendLine($"SMTP Connection failed: {ex.Message}");
-                // Log a failure for all recipients of this channel
                 foreach (var recipient in recipients)
                 {
                     await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", "SMTP Connection Error");
@@ -132,19 +165,58 @@ namespace GuardeSoftwareAPI.Jobs
             }
             finally
             {
-                if (smtp.IsConnected)
-                    await smtp.DisconnectAsync(true);
+                if (smtp.IsConnected) await smtp.DisconnectAsync(true);
             }
         }
+        
+        // --- MÉTODO ACTUALIZADO: Ahora es Async y maneja descarga de adjuntos ---
+        private async Task<MimeMessage> CreateEmailMessageAsync(
+            ChannelForSendingDto channel, 
+            RecipientForSendingDto recipient, 
+            IConfigurationSection settings,
+            List<AttachmentDto> attachments)
+        {
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress(settings["SenderName"], settings["SenderEmail"]));
+            message.To.Add(new MailboxAddress(recipient.Name, recipient.Email));
+            message.Subject = channel.Subject ?? "Notification from GuardeSoftware";
 
-        /// <summary>
-        /// Placeholder for WhatsApp API integration.
-        /// </summary>
+            var personalizedContent = channel.Content; // TODO: Reemplazar placeholders
+            var bodyBuilder = new BodyBuilder { HtmlBody = personalizedContent };
+
+            // --- LÓGICA DE ADJUNTOS ---
+            if (attachments.Count > 0)
+            {
+                // Necesitas HttpClient para descargar los archivos de tu propio VPS
+                // Es mejor inyectar IHttpClientFactory, pero esto funciona para el ejemplo
+                using (var client = new HttpClient())
+                {
+                    foreach(var att in attachments)
+                    {
+                        try
+                        {
+                            // Descarga el archivo desde la URL pública de tu VPS
+                            byte[] fileBytes = await client.GetByteArrayAsync(att.FileUrl);
+                            // Lo adjunta al email
+                            bodyBuilder.Attachments.Add(att.FileName, fileBytes);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to download or attach file {FileName} from {FileUrl}", att.FileName, att.FileUrl);
+                            // Opcional: registrar este error específico
+                        }
+                    }
+                }
+            }
+            // --- FIN LÓGICA DE ADJUNTOS ---
+
+            message.Body = bodyBuilder.ToMessageBody();
+            return message;
+        }
+
         private async Task ProcessWhatsAppChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog)
         {
             _logger.LogInformation("Processing WhatsApp channel (placeholder)...");
-            // Here you would integrate with a service like Twilio or Meta's API
-
             foreach (var recipient in recipients)
             {
                 if (string.IsNullOrEmpty(recipient.Phone))
@@ -153,45 +225,9 @@ namespace GuardeSoftwareAPI.Jobs
                     continue;
                 }
                 
-                // --- PSEUDO-CODE ---
-                // try
-                // {
-                //    var whatsAppApi = new WhatsAppApiClient(...);
-                //    var response = await whatsAppApi.SendMessageAsync(recipient.Phone, channel.Content);
-                //    await _communicationDao.LogSendAttemptAsync(channel.IdComunicadoCanal, recipient.ClientId, "Exitoso", response.MessageId);
-                // }
-                // catch(Exception ex)
-                // {
-                //    errorLog.AppendLine($"WhatsApp to {recipient.Phone} failed: {ex.Message}");
-                //    await _communicationDao.LogSendAttemptAsync(channel.IdComunicadoCanal, recipient.ClientId, "Fallido", ex.Message);
-                // }
-
-                // For now, log as "Not Implemented"
+                // (Lógica de API de WhatsApp... por ahora marca como fallido)
                 await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", "WhatsApp sending not implemented");
             }
-        }
-
-        /// <summary>
-        /// Helper to build the MimeMessage for MailKit.
-        /// </summary>
-        private MimeMessage CreateEmailMessage(ChannelForSendingDto channel, RecipientForSendingDto recipient, IConfigurationSection settings)
-        {
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress(settings["SenderName"], settings["SenderEmail"]));
-            message.To.Add(new MailboxAddress(recipient.Name, recipient.Email));
-            message.Subject = channel.Subject ?? "Notification from GuardeSoftware";
-
-            // TODO: Replace placeholders in content
-            // var personalizedContent = channel.Content.Replace("{{NombreCliente}}", recipient.Name);
-            var personalizedContent = channel.Content; // Using raw content for now
-
-            var bodyBuilder = new BodyBuilder
-            {
-                HtmlBody = personalizedContent
-            };
-            message.Body = bodyBuilder.ToMessageBody();
-            
-            return message;
         }
     }
 }

@@ -3,25 +3,30 @@ using GuardeSoftwareAPI.Jobs; // Assuming your Job is in a Jobs folder
 using Microsoft.Data.SqlClient;
 using Quartz;
 using GuardeSoftwareAPI.Dtos.Communication;
+using System.Text.Json; // Para serializar la lista de adjuntos
 
 namespace GuardeSoftwareAPI.Services.communication
 {
     public class CommunicationService : ICommunicationService
     {
         private readonly CommunicationDao _communicationDao;
-        private readonly AccessDB accessDB; // To get the connection
+        private readonly AccessDB _accessDB;
         private readonly ISchedulerFactory _schedulerFactory;
-        private readonly ILogger<CommunicationService> logger;
+        private readonly ILogger<CommunicationService> _logger;
+        private readonly IFileStorageService _fileStorageService; // --- AÑADIDO ---
 
         public CommunicationService(
-            AccessDB _accessDB, // Inject your AccessDB
+            AccessDB accessDB, 
             ISchedulerFactory schedulerFactory,
-            ILogger<CommunicationService> _logger)
+            ILogger<CommunicationService> logger,
+            IFileStorageService fileStorageService // --- AÑADIDO ---
+        )
         {
+            _accessDB = accessDB;
             _communicationDao = new CommunicationDao(_accessDB);
-            accessDB = _accessDB;
             _schedulerFactory = schedulerFactory;
-            logger = _logger;
+            _logger = logger;
+            _fileStorageService = fileStorageService; // --- AÑADIDO ---
         }
 
         public async Task<List<CommunicationDto>> GetCommunications()
@@ -34,23 +39,16 @@ namespace GuardeSoftwareAPI.Services.communication
             return await _communicationDao.GetCommunicationByIdAsync(id);
         }
 
-        /// <summary>
-        /// Creates a new communication using a database transaction.
-        /// </summary>
-        public async Task<CommunicationDto> CreateCommunicationAsync(UpsertCommunicationRequest request, int userId)
+        // --- MÉTODO ACTUALIZADO ---
+        public async Task<CommunicationDto> CreateCommunicationAsync(UpsertCommunicationRequest request, List<AttachmentDto> uploadedFiles, int userId)
         {
-            // Use your AccessDB method to get a connection
-            using (SqlConnection connection = accessDB.GetConnectionClose())
+            using (SqlConnection connection = _accessDB.GetConnectionClose())
             {
                 await connection.OpenAsync();
-                
-                // Start the transaction
                 using (SqlTransaction transaction = (SqlTransaction)await connection.BeginTransactionAsync())
                 {
                     try
                     {
-                        // --- Transactional Steps ---
-                        
                         DateTime? scheduledAt = null;
                         if (request.Type == "schedule" && !string.IsNullOrEmpty(request.SendDate) && !string.IsNullOrEmpty(request.SendTime))
                         {
@@ -58,50 +56,158 @@ namespace GuardeSoftwareAPI.Services.communication
                         }
                         string status = request.Type == "schedule" ? "Scheduled" : "Draft";
                         
-                        // Step 1: Create main record, get new ID
+                        // 1. Crear registro principal
                         int newId = await _communicationDao.InsertCommunicationAsync(request, userId, scheduledAt, status, connection, transaction);
 
-                        // Step 2: Loop and insert channels
+                        // 2. Serializar la lista de adjuntos a JSON
+                        string attachmentsJson = JsonSerializer.Serialize(uploadedFiles);
+
+                        // 3. Insertar canales (el DAO ahora aceptará el JSON de adjuntos)
                         foreach (var channel in request.Channels)
                         {
-                            await _communicationDao.InsertCommunicationChannelAsync(newId, channel, request, connection, transaction);
+                            // Solo pasa los adjuntos si es el canal de Email
+                            string channelAttachments = (channel == "Email") ? attachmentsJson : "[]";
+                            await _communicationDao.InsertCommunicationChannelAsync(newId, channel, request, channelAttachments, connection, transaction);
                         }
 
-                        // Step 3: Insert all recipients
+                        // 4. Insertar destinatarios
                         await _communicationDao.InsertCommunicationRecipientsAsync(newId, request.Recipients, connection, transaction);
 
-                        // --- End Transaction ---
-
-                        // If all steps succeeded, commit the transaction
                         await transaction.CommitAsync();
 
-                        // Schedule Quartz job (only after commit is successful)
+                        // 5. Programar Job si es necesario
                         if (status == "Scheduled" && scheduledAt.HasValue)
                         {
-                            await ScheduleJobAsync(newId, scheduledAt.Value);
+                            await ScheduleJobAsync(newId, scheduledAt.Value, "default", false); // Usar servidor default
                         }
 
-                        // Return the newly created DTO (read is outside transaction)
                         return await _communicationDao.GetCommunicationByIdAsync(newId);
                     }
                     catch (Exception ex)
                     {
-                        // If any step failed, roll back all changes
                         await transaction.RollbackAsync();
-                        // Log the error (optional)
+                        // --- IMPORTANTE: Borrar archivos del VPS si la transacción falla ---
+                        await _fileStorageService.DeleteFilesAsync(uploadedFiles.Select(f => f.FileUrl).ToList());
+                        _logger.LogError(ex, "Transaction failed for CREATE. Rolling back changes and deleting uploaded files.");
                         throw new Exception("Transaction failed. Rolling back changes.", ex);
                     }
                 }
-            } // Connection is automatically closed by 'using'
+            }
         }
 
-        private async Task ScheduleJobAsync(int communicationId, DateTime runTime)
+        // --- MÉTODO ACTUALIZADO ---
+        public async Task<CommunicationDto> UpdateCommunicationAsync(int communicationId, UpsertCommunicationRequest request, List<AttachmentDto> newFiles, int userId)
+        {
+            // 1. Obtener la lista de archivos *antes* de la transacción
+            var oldAttachments = await _communicationDao.GetAttachmentsAsync(communicationId);
+
+            using (SqlConnection connection = _accessDB.GetConnectionClose())
+            {
+                await connection.OpenAsync();
+                using (SqlTransaction transaction = (SqlTransaction)await connection.BeginTransactionAsync())
+                {
+                    try
+                    {
+                        // 2. Borrar todos los hijos (canales, destinatarios, etc.)
+                        await _communicationDao.DeleteCommunicationChildrenAsync(communicationId, connection, transaction);
+
+                        // 3. Actualizar el principal
+                        DateTime? scheduledAt = null;
+                        if (request.Type == "schedule" && !string.IsNullOrEmpty(request.SendDate) && !string.IsNullOrEmpty(request.SendTime))
+                        {
+                            scheduledAt = DateTime.Parse($"{request.SendDate}T{request.SendTime}");
+                        }
+                        string status = request.Type == "schedule" ? "Scheduled" : "Draft";
+                        
+                        await _communicationDao.UpdateCommunicationMainAsync(communicationId, request, scheduledAt, status, connection, transaction);
+
+                        // 4. Combinar listas de adjuntos
+                        // (Aquí deberías implementar la lógica de 'AttachmentsToRemove' si la usas)
+                        var finalAttachments = oldAttachments.Concat(newFiles).ToList();
+                        string attachmentsJson = JsonSerializer.Serialize(finalAttachments);
+
+                        // 5. Re-insertar canales
+                        foreach (var channel in request.Channels)
+                        {
+                            string channelAttachments = (channel == "Email") ? attachmentsJson : "[]";
+                            await _communicationDao.InsertCommunicationChannelAsync(communicationId, channel, request, channelAttachments, connection, transaction);
+                        }
+
+                        // 6. Re-insertar destinatarios
+                        await _communicationDao.InsertCommunicationRecipientsAsync(communicationId, request.Recipients, connection, transaction);
+
+                        await transaction.CommitAsync();
+
+                        // 7. Re-programar job
+                        if (status == "Scheduled" && scheduledAt.HasValue)
+                        {
+                            await ScheduleJobAsync(communicationId, scheduledAt.Value, "default", false);
+                        }
+                        
+                        // 8. Borrar los archivos viejos del VPS (solo si el commit fue exitoso)
+                        // (Aquí también iría la lógica de 'AttachmentsToRemove')
+                        // await _fileStorageService.DeleteFilesAsync(filesToDelete);
+
+                        return await _communicationDao.GetCommunicationByIdAsync(communicationId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Transaction failed for UPDATE on ID: {CommunicationId}", communicationId);
+                        try { await transaction.RollbackAsync(); }
+                        catch (Exception rbEx) { _logger.LogWarning(rbEx, "Error during update rollback."); }
+                        
+                        // Si la transacción falló, borra los *nuevos* archivos que se subieron
+                        await _fileStorageService.DeleteFilesAsync(newFiles.Select(f => f.FileUrl).ToList());
+                        
+                        throw new Exception("Transaction failed. Rolling back changes.", ex);
+                    }
+                }
+            }
+        }
+
+        // --- MÉTODO ACTUALIZADO ---
+        public async Task<bool> DeleteCommunicationAsync(int communicationId)
+        {
+            // 1. Obtener la lista de archivos ANTES de borrar
+            var attachments = await _communicationDao.GetAttachmentsAsync(communicationId);
+
+            // 2. Borrar de la DB (tu DAO ya hace esto en cascada)
+            bool success = await _communicationDao.DeleteCommunicationAsync(communicationId);
+
+            if (success)
+            {
+                // 3. Si se borró de la DB, borrar los archivos del VPS
+                var urlsToDelete = attachments.Select(a => a.FileUrl).ToList();
+                await _fileStorageService.DeleteFilesAsync(urlsToDelete);
+            }
+            return success;
+        }
+
+        // --- MÉTODO NUEVO ---
+        public async Task DeleteAttachmentAsync(int communicationId, string fileName)
+        {
+            // 1. Borrar del VPS
+            // (Asumimos que fileName es único, o que fileUrl se pasa como 'fileName')
+            await _fileStorageService.DeleteFileAsync(fileName);
+            
+            // 2. Borrar de la DB (actualizando el JSON)
+            await _communicationDao.RemoveAttachmentFromJsonAsync(communicationId, fileName);
+        }
+
+        // --- MÉTODO ACTUALIZADO (Ahora es 'async') ---
+        private async Task ScheduleJobAsync(int communicationId, DateTime runTime, string mailServerId, bool isRetry)
         {
             var scheduler = await _schedulerFactory.GetScheduler();
+            var jobIdentity = $"comm-job-{communicationId}";
+            
+            // Cancela cualquier job existente para este ID (ej. si re-programan)
+            await scheduler.DeleteJob(new JobKey(jobIdentity));
 
-            var job = JobBuilder.Create<SendCommunicationJob>() // Use your actual Job class
-                .WithIdentity($"comm-job-{communicationId}")
+            var job = JobBuilder.Create<SendCommunicationJob>()
+                .WithIdentity(jobIdentity)
                 .UsingJobData("CommunicationId", communicationId)
+                .UsingJobData("MailServerId", mailServerId) // Pasa el ID del servidor
+                .UsingJobData("IsRetry", isRetry) // Pasa el flag de reintento
                 .Build();
 
             var trigger = TriggerBuilder.Create()
@@ -112,109 +218,45 @@ namespace GuardeSoftwareAPI.Services.communication
             await scheduler.ScheduleJob(job, trigger);
         }
         
-        public async Task<CommunicationDto> UpdateCommunicationAsync(int communicationId, UpsertCommunicationRequest request, int userId)
-        {
-            // An 'Update' is complex. It's safer to treat it as a 'Delete children + Re-create children' transaction.
-            using (SqlConnection connection = accessDB.GetConnectionClose())
-            {
-                await connection.OpenAsync();
-                using (SqlTransaction transaction = (SqlTransaction)await connection.BeginTransactionAsync())
-                {
-                    try
-                    {
-                        // Step 1: Delete all child records
-                        string deleteQuery = @"
-                            DELETE FROM dispatches WHERE comm_channel_content_id IN (SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id);
-                            DELETE FROM communication_recipients WHERE communication_id = @Id;
-                            DELETE FROM communication_channel_content WHERE communication_id = @Id;
-                        ";
-                        using (var cmdDelete = new SqlCommand(deleteQuery, connection, transaction))
-                        {
-                            cmdDelete.Parameters.AddWithValue("@Id", communicationId);
-                            await cmdDelete.ExecuteNonQueryAsync();
-                        }
-
-                        // Step 2: Update the main communication record
-                        DateTime? scheduledAt = null;
-                        if (request.Type == "schedule" && !string.IsNullOrEmpty(request.SendDate) && !string.IsNullOrEmpty(request.SendTime))
-                        {
-                            scheduledAt = DateTime.Parse($"{request.SendDate}T{request.SendTime}");
-                        }
-                        string status = request.Type == "schedule" ? "Scheduled" : "Draft";
-                        
-                        string updateQuery = @"
-                            UPDATE communications 
-                            SET title = @Title, scheduled_date = @ScheduledDate, status = @Status
-                            WHERE communication_id = @Id";
-                        
-                        using (var cmdUpdate = new SqlCommand(updateQuery, connection, transaction))
-                        {
-                            cmdUpdate.Parameters.AddWithValue("@Id", communicationId);
-                            cmdUpdate.Parameters.AddWithValue("@Title", request.Title);
-                            cmdUpdate.Parameters.AddWithValue("@ScheduledDate", (object)scheduledAt ?? DBNull.Value);
-                            cmdUpdate.Parameters.AddWithValue("@Status", status);
-                            await cmdUpdate.ExecuteNonQueryAsync();
-                        }
-
-                        // Step 3: Re-insert channels
-                        foreach (var channel in request.Channels)
-                        {
-                            await _communicationDao.InsertCommunicationChannelAsync(communicationId, channel, request, connection, transaction);
-                        }
-
-                        // Step 4: Re-insert recipients
-                        await _communicationDao.InsertCommunicationRecipientsAsync(communicationId, request.Recipients, connection, transaction);
-
-                        await transaction.CommitAsync();
-
-                        // Re-schedule job if needed
-                        if (status == "Scheduled" && scheduledAt.HasValue)
-                        {
-                            await ScheduleJobAsync(communicationId, scheduledAt.Value);
-                        }
-                        
-                        return await _communicationDao.GetCommunicationByIdAsync(communicationId);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Transaction failed for UPDATE on ID: {CommunicationId}", communicationId);
-                        try { await transaction.RollbackAsync(); }
-                        catch (Exception rbEx) { logger.LogWarning(rbEx, "Error during update rollback."); }
-                        throw new Exception("Transaction failed. Rolling back changes.", ex);
-                    }
-                }
-            }
-        }
-
-        public async Task<bool> DeleteCommunicationAsync(int communicationId)
-        {
-            // You already implemented this, but I include it for completeness
-            return await _communicationDao.DeleteCommunicationAsync(communicationId);
-        }
-
+        // --- MÉTODO ACTUALIZADO ---
         public async Task<CommunicationDto> SendDraftNowAsync(int communicationId)
         {
-            // To 'send now', we set its status to 'Scheduled'
-            // and the date to 1 minute from now, so Quartz can pick it up.
-            var scheduleTime = DateTime.Now.AddMinutes(1);
+            var scheduleTime = DateTime.Now.AddSeconds(10); // 10 segundos para que Quartz lo tome rápido
 
             bool success = await _communicationDao.UpdateCommunicationStatusAndDateAsync(communicationId, "Scheduled", scheduleTime);
 
             if (success)
             {
-                await ScheduleJobAsync(communicationId, scheduleTime);
+                // Envía usando el servidor "default" y sin modo "retry"
+                await ScheduleJobAsync(communicationId, scheduleTime, "default", false);
                 return await _communicationDao.GetCommunicationByIdAsync(communicationId);
             }
-
             throw new Exception("Failed to update status for sending.");
         }
         
+        // --- MÉTODO NUEVO ---
+        public async Task<CommunicationDto> RetryFailedSendsAsync(int communicationId, string mailServerId)
+        {
+            var scheduleTime = DateTime.Now.AddSeconds(10); // Reintentar ahora
+            
+            // 1. Actualiza estado a "Processing" o "Scheduled"
+            bool success = await _communicationDao.UpdateCommunicationStatusAndDateAsync(communicationId, "Scheduled", scheduleTime);
+
+            if (success)
+            {
+                // 2. Encola el job CON el nuevo serverId y el flag de reintento
+                await ScheduleJobAsync(communicationId, scheduleTime, mailServerId, true);
+                return await _communicationDao.GetCommunicationByIdAsync(communicationId);
+            }
+            throw new Exception("Failed to update status for retry.");
+        }
+
         public async Task<List<ClientCommunicationDto>> GetCommunicationsByClientIdAsync(int clientId)
         {
             if (clientId <= 0)
             {
-                logger.LogWarning("Se solicitó historial de comunicación para un ID de cliente inválido: {ClientId}", clientId);
-                return new List<ClientCommunicationDto>(); // Devolver lista vacía
+                _logger.LogWarning("Se solicitó historial de comunicación para un ID de cliente inválido: {ClientId}", clientId);
+                return new List<ClientCommunicationDto>();
             }
             try
             {
@@ -222,8 +264,8 @@ namespace GuardeSoftwareAPI.Services.communication
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error al obtener historial de comunicación para el cliente ID {ClientId}", clientId);
-                throw; // Re-lanza para que el controlador lo capture
+                _logger.LogError(ex, "Error al obtener historial de comunicación para el cliente ID {ClientId}", clientId);
+                throw;
             }
         }
     }

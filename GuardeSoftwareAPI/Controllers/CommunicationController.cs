@@ -1,7 +1,20 @@
 using Microsoft.AspNetCore.Mvc;
 using GuardeSoftwareAPI.Dtos.Communication;
 using GuardeSoftwareAPI.Services.communication;
-// using System.Security.Claims; // To get the real user ID
+using System.Text.Json; // Necesario para deserializar el DTO
+
+// --- INTERFAZ (STUB) PARA EL SERVICIO DE ARCHIVOS ---
+// Debes crear este servicio e inyectarlo
+public interface IFileStorageService
+{
+    // Sube archivos al VPS y devuelve sus DTOs (con nombre y URL)
+    Task<List<AttachmentDto>> UploadFilesAsync(IFormFileCollection files);
+    // Borra archivos del VPS usando sus URLs (o nombres de archivo)
+    Task DeleteFilesAsync(List<string> fileNamesOrUrls);
+    Task DeleteFileAsync(string fileNameOrUrl);
+}
+// --- FIN INTERFAZ (STUB) ---
+
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -10,12 +23,18 @@ namespace GuardeSoftwareAPI.Controllers
     public class CommunicationsController : ControllerBase
     {
         private readonly ICommunicationService _communicationService;
+        private readonly IFileStorageService _fileStorageService; // --- AÑADIDO ---
         private readonly ILogger<CommunicationsController> _logger;
 
-        public CommunicationsController(ICommunicationService communicationService, ILogger<CommunicationsController> logger)
+        public CommunicationsController(
+            ICommunicationService communicationService, 
+            ILogger<CommunicationsController> logger, 
+            IFileStorageService fileStorageService // --- AÑADIDO ---
+        )
         {
             _communicationService = communicationService;
             _logger = logger;
+            _fileStorageService = fileStorageService; // --- AÑADIDO ---
         }
 
         [HttpGet]
@@ -39,21 +58,29 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        // --- MÉTODO ACTUALIZADO ---
         [HttpPost]
-        public async Task<IActionResult> CreateCommunication([FromBody] UpsertCommunicationRequest request)
+        [Consumes("multipart/form-data")] // Recibe FormData
+        public async Task<IActionResult> CreateCommunication(
+            [FromForm] string comunicadoDto, 
+            [FromForm] IFormFileCollection files)
         {
             try
             {
-                // Get the user ID from the authenticated token
-                // var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                // int userId = int.Parse(userIdString);
+                // 1. Deserializar el string JSON
+                var request = JsonSerializer.Deserialize<UpsertCommunicationRequest>(comunicadoDto, 
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                
+                if (request == null) return BadRequest("El DTO del comunicado no es válido.");
 
-                // Using 1 as a placeholder for user ID
-                int placeholderUserId = 1;
+                // 2. Subir los archivos nuevos al VPS
+                var uploadedFiles = await _fileStorageService.UploadFilesAsync(files);
+                
+                int placeholderUserId = 1; // TODO: Cambiar por el ID de usuario real
 
-                var newCommunication = await _communicationService.CreateCommunicationAsync(request, placeholderUserId);
+                // 3. Llamar al servicio (ahora modificado)
+                var newCommunication = await _communicationService.CreateCommunicationAsync(request, uploadedFiles, placeholderUserId);
 
-                // Return a 201 Created status with the new object
                 return CreatedAtAction(nameof(GetCommunicationById), new { id = newCommunication.Id }, newCommunication);
             }
             catch (Exception ex)
@@ -62,16 +89,29 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
         
+        // --- MÉTODO ACTUALIZADO ---
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCommunication(int id, [FromBody] UpsertCommunicationRequest request)
+        [Consumes("multipart/form-data")] // Recibe FormData
+        public async Task<IActionResult> UpdateCommunication(
+            int id, 
+            [FromForm] string comunicadoDto, 
+            [FromForm] IFormFileCollection files)
         {
             try
             {
-                // Get user ID from claims
-                // var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-                int placeholderUserId = 1; // Use placeholder
+                var request = JsonSerializer.Deserialize<UpsertCommunicationRequest>(comunicadoDto, 
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (request == null || request.Id != id) return BadRequest("Datos inválidos.");
+
+                int placeholderUserId = 1; // TODO: Cambiar por el ID de usuario real
                 
-                var updatedComm = await _communicationService.UpdateCommunicationAsync(id, request, placeholderUserId);
+                // 1. Subir solo los archivos *nuevos*
+                var newFiles = await _fileStorageService.UploadFilesAsync(files);
+
+                // 2. Llamar al servicio (ahora modificado)
+                // El servicio se encargará de borrar los 'AttachmentsToRemove'
+                var updatedComm = await _communicationService.UpdateCommunicationAsync(id, request, newFiles, placeholderUserId);
                 return Ok(updatedComm);
             }
             catch (Exception ex)
@@ -84,16 +124,18 @@ namespace GuardeSoftwareAPI.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCommunication(int id)
         {
+            // El 'CommunicationService' ahora se encargará de borrar 
+            // los archivos del VPS *antes* de borrar el registro de la DB.
             try
             {
                 bool success = await _communicationService.DeleteCommunicationAsync(id);
                 if (success)
                 {
-                    return NoContent(); // 204 No Content is standard for successful delete
+                    return NoContent();
                 }
                 else
                 {
-                    return NotFound(new { message = "Communication not found or already deleted." });
+                    return NotFound(new { message = "Communication not found." });
                 }
             }
             catch (Exception ex)
@@ -106,14 +148,55 @@ namespace GuardeSoftwareAPI.Controllers
         [HttpPost("{id}/send")]
         public async Task<IActionResult> SendCommunicationNow(int id)
         {
+            // Este endpoint está perfecto. Llama al servicio,
+            // y el servicio encola el trabajo de Quartz.
             try
             {
                 var updatedComm = await _communicationService.SendDraftNowAsync(id);
-                return Ok(updatedComm); // Returns the updated DTO
+                return Ok(updatedComm);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send communication with ID: {Id}", id);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        // --- ENDPOINT NUEVO ---
+        [HttpPost("{id}/retry")]
+        public async Task<IActionResult> RetryFailedSends(int id, [FromBody] RetryRequestDto retryRequest)
+        {
+            if (string.IsNullOrEmpty(retryRequest.MailServerId))
+            {
+                return BadRequest("Debe proveer un 'mailServerId'.");
+            }
+
+            try
+            {
+                // Llama al nuevo método en el servicio
+                var updatedComm = await _communicationService.RetryFailedSendsAsync(id, retryRequest.MailServerId);
+                return Ok(updatedComm);
+            }
+            catch (Exception ex)
+            {
+                 _logger.LogError(ex, "Failed to retry communication with ID: {Id}", id);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        // --- ENDPOINT NUEVO ---
+        [HttpDelete("{id}/attachments/{fileName}")]
+        public async Task<IActionResult> DeleteAttachment(int id, string fileName)
+        {
+            try
+            {
+                // Llama al nuevo método en el servicio
+                await _communicationService.DeleteAttachmentAsync(id, fileName);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete attachment {FileName} from {Id}", fileName, id);
                 return StatusCode(500, new { message = ex.Message });
             }
         }
@@ -125,7 +208,6 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 return BadRequest(new { message = "El ID del cliente es inválido." });
             }
-
             try
             {
                 var communications = await _communicationService.GetCommunicationsByClientIdAsync(clientId);

@@ -1,6 +1,4 @@
 using GuardeSoftwareAPI.Dtos.Communication;
-
-using GuardeSoftwareAPI.Dao;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Text.Json;
@@ -16,7 +14,8 @@ namespace GuardeSoftwareAPI.Dao
             _accessDB = accessDB;
         }
 
-        // --- UPDATED to new schema ---
+        // --- CONSULTA ACTUALIZADA ---
+        // Ahora incluye el campo 'attachments' (como JSON)
         private const string GET_COMMUNICATIONS_QUERY = @"
             SELECT 
                 c.communication_id AS Id,
@@ -32,7 +31,11 @@ namespace GuardeSoftwareAPI.Dao
                  JOIN communication_channels chan ON ccc.channel_id = chan.channel_id
                  WHERE ccc.communication_id = c.communication_id) AS Channel,
                 
-                -- Fixed to use STRING_AGG for simplicity
+                -- Obtiene el JSON de adjuntos (asumiendo que solo está en el canal de Email)
+                (SELECT TOP 1 ccc.attachments 
+                 FROM communication_channel_content ccc 
+                 WHERE ccc.communication_id = c.communication_id AND ccc.channel_id = 1) AS AttachmentsJson,
+
                 ISNULL(
                     (SELECT STRING_AGG(cl.first_name + ' ' + cl.last_name, ',')
                      FROM communication_recipients cr
@@ -72,7 +75,6 @@ namespace GuardeSoftwareAPI.Dao
 
         #region Transactional Methods (Updated)
 
-        // --- UPDATED to new schema ---
         public async Task<int> InsertCommunicationAsync(UpsertCommunicationRequest request, int userId, DateTime? scheduledAt, string status, SqlConnection connection, SqlTransaction transaction)
         {
             string query = @"
@@ -85,38 +87,47 @@ namespace GuardeSoftwareAPI.Dao
                 command.Parameters.AddWithValue("@CreatorUserId", userId);
                 command.Parameters.AddWithValue("@Title", request.Title);
                 command.Parameters.AddWithValue("@ScheduledDate", (object)scheduledAt ?? DBNull.Value);
-                command.Parameters.AddWithValue("@Status", status); // 'Draft' or 'Scheduled'
+                command.Parameters.AddWithValue("@Status", status); 
 
                 object result = await command.ExecuteScalarAsync();
                 return Convert.ToInt32(result);
             }
         }
 
-        // --- UPDATED to new schema ---
-        public async Task<bool> InsertCommunicationChannelAsync(int communicationId, string channelName, UpsertCommunicationRequest request, SqlConnection connection, SqlTransaction transaction)
+        // --- MÉTODO ACTUALIZADO ---
+        // Ahora acepta el JSON de adjuntos
+        public async Task<bool> InsertCommunicationChannelAsync(
+            int communicationId, 
+            string channelName, 
+            UpsertCommunicationRequest request, 
+            string attachmentsJson, // JSON serializado de List<AttachmentDto>
+            SqlConnection connection, 
+            SqlTransaction transaction)
         {
             string query = @"
-                INSERT INTO communication_channel_content (communication_id, channel_id, subject, content)
+                INSERT INTO communication_channel_content (communication_id, channel_id, subject, content, attachments)
                 VALUES (
                     @CommunicationId, 
                     (SELECT channel_id FROM communication_channels WHERE name = @ChannelName), 
                     @Subject, 
-                    @Content
+                    @Content,
+                    @AttachmentsJson
                 );";
 
             using (SqlCommand command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.AddWithValue("@CommunicationId", communicationId);
-                command.Parameters.AddWithValue("@ChannelName", channelName); // "Email" or "WhatsApp"
+                command.Parameters.AddWithValue("@ChannelName", channelName);
                 command.Parameters.AddWithValue("@Subject", channelName == "Email" ? (object)request.Title : DBNull.Value);
                 command.Parameters.AddWithValue("@Content", request.Content);
+                // Añade el JSON. Si no es Email, 'attachmentsJson' será "[]"
+                command.Parameters.AddWithValue("@AttachmentsJson", attachmentsJson); 
                 
                 int rows = await command.ExecuteNonQueryAsync();
                 return rows > 0;
             }
         }
-
-        // --- UPDATED to new schema (and uses your account_movements logic) ---
+        
         public async Task<bool> InsertCommunicationRecipientsAsync(int communicationId, List<string> recipients, SqlConnection connection, SqlTransaction transaction)
         {
             string query = @"
@@ -166,23 +177,53 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
 
+        // --- NUEVO: Métodos para 'Update' transaccional ---
+        public async Task<bool> DeleteCommunicationChildrenAsync(int communicationId, SqlConnection connection, SqlTransaction transaction)
+        {
+            string deleteQuery = @"
+                DELETE FROM dispatches WHERE comm_channel_content_id IN (SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id);
+                DELETE FROM communication_recipients WHERE communication_id = @Id;
+                DELETE FROM communication_channel_content WHERE communication_id = @Id;
+            ";
+            using (var cmdDelete = new SqlCommand(deleteQuery, connection, transaction))
+            {
+                cmdDelete.Parameters.AddWithValue("@Id", communicationId);
+                await cmdDelete.ExecuteNonQueryAsync();
+                return true;
+            }
+        }
+        
+        public async Task<bool> UpdateCommunicationMainAsync(int communicationId, UpsertCommunicationRequest request, DateTime? scheduledAt, string status, SqlConnection connection, SqlTransaction transaction)
+        {
+            string updateQuery = @"
+                UPDATE communications 
+                SET title = @Title, scheduled_date = @ScheduledDate, status = @Status
+                WHERE communication_id = @Id";
+            
+            using (var cmdUpdate = new SqlCommand(updateQuery, connection, transaction))
+            {
+                cmdUpdate.Parameters.AddWithValue("@Id", communicationId);
+                cmdUpdate.Parameters.AddWithValue("@Title", request.Title);
+                cmdUpdate.Parameters.AddWithValue("@ScheduledDate", (object)scheduledAt ?? DBNull.Value);
+                cmdUpdate.Parameters.AddWithValue("@Status", status);
+                await cmdUpdate.ExecuteNonQueryAsync();
+                return true;
+            }
+        }
+
         #endregion
 
         #region Job Support Methods (Updated)
 
-        // --- UPDATED to new schema ---
         public async Task UpdateCommunicationStatusAsync(int communicationId, string status)
         {
             string query = "UPDATE communications SET status = @Status WHERE communication_id = @Id";
-            var parameters = new[]
-            {
-                new SqlParameter("@Status", status),
-                new SqlParameter("@Id", communicationId)
-            };
+            var parameters = new[] { new SqlParameter("@Status", status), new SqlParameter("@Id", communicationId) };
             await _accessDB.ExecuteCommandAsync(query, parameters);
         }
 
-        // --- UPDATED to new schema ---
+        // --- MÉTODO ACTUALIZADO ---
+        // Ahora también obtiene el JSON de adjuntos
         public async Task<List<ChannelForSendingDto>> GetChannelsForSendingAsync(int communicationId)
         {
             var channels = new List<ChannelForSendingDto>();
@@ -191,7 +232,8 @@ namespace GuardeSoftwareAPI.Dao
                     ccc.comm_channel_content_id AS IdCommChannelContent,
                     c.name AS ChannelName,
                     ccc.subject AS Subject,
-                    ccc.content AS Content
+                    ccc.content AS Content,
+                    ccc.attachments AS AttachmentsJson
                 FROM communication_channel_content ccc
                 JOIN communication_channels c ON ccc.channel_id = c.channel_id
                 WHERE ccc.communication_id = @Id";
@@ -206,29 +248,40 @@ namespace GuardeSoftwareAPI.Dao
                     CommChannelContentId = Convert.ToInt32(row["IdCommChannelContent"]),
                     ChannelName = row["ChannelName"].ToString() ?? "Unknown",
                     Subject = row["Subject"] is DBNull ? null : row["Subject"].ToString(),
-                    Content = row["Content"].ToString() ?? ""
+                    Content = row["Content"].ToString() ?? "",
+                    AttachmentsJson = row["AttachmentsJson"] is DBNull ? null : row["AttachmentsJson"].ToString()
                 });
             }
             return channels;
         }
 
-        // --- UPDATED to new schema (using your tables) ---
-        public async Task<List<RecipientForSendingDto>> GetRecipientsForSendingAsync(int communicationId)
+        // --- MÉTODO ACTUALIZADO ---
+        // Añadida lógica para 'retryMode' (Reintentar solo fallidos)
+        public async Task<List<RecipientForSendingDto>> GetRecipientsForSendingAsync(int communicationId, bool isRetry)
         {
             var recipients = new List<RecipientForSendingDto>();
             string query = @"
                 SELECT 
                     c.client_id AS Id,
                     c.first_name + ' ' + c.last_name AS Name,
-                    (SELECT TOP 1 e.address 
-                     FROM emails e 
-                     WHERE e.client_id = c.client_id AND e.active = 1) AS Email,
-                    (SELECT TOP 1 p.number 
-                     FROM phones p 
-                     WHERE p.client_id = c.client_id AND p.whatsapp = 1 AND p.active = 1) AS Phone
+                    (SELECT TOP 1 e.address FROM emails e WHERE e.client_id = c.client_id AND e.active = 1) AS Email,
+                    (SELECT TOP 1 p.number FROM phones p WHERE p.client_id = c.client_id AND p.whatsapp = 1 AND p.active = 1) AS Phone
                 FROM clients c
                 JOIN communication_recipients cr ON c.client_id = cr.client_id
                 WHERE cr.communication_id = @Id AND c.active = 1";
+
+            // Si es un reintento, solo trae clientes que fallaron o quedaron pendientes
+            if (isRetry)
+            {
+                query += @" 
+                    AND c.client_id IN (
+                        SELECT d.client_id 
+                        FROM dispatches d
+                        JOIN communication_channel_content ccc ON d.comm_channel_content_id = ccc.comm_channel_content_id
+                        WHERE ccc.communication_id = @Id
+                        AND d.status IN ('Fallido', 'Pendiente')
+                    )";
+            }
             
             var parameters = new[] { new SqlParameter("@Id", communicationId) };
             DataTable table = await _accessDB.GetTableAsync("Recipients", query, parameters);
@@ -246,23 +299,29 @@ namespace GuardeSoftwareAPI.Dao
             return recipients;
         }
 
-        // --- UPDATED to new schema ---
         public async Task LogSendAttemptAsync(int idCommChannelContent, int idCliente, string status, string response)
         {
+            // Este query es un 'UPSERT'. Inserta si no existe, o actualiza si ya existe (para reintentos).
             string query = @"
-                INSERT INTO dispatches (comm_channel_content_id, client_id, dispatch_date, status, provider_response)
-                VALUES (@IdCommChannelContent, @IdCliente, GETDATE(), @Status, @Response)";
+                IF EXISTS (SELECT 1 FROM dispatches WHERE comm_channel_content_id = @IdCommChannelContent AND client_id = @IdCliente)
+                BEGIN
+                    UPDATE dispatches 
+                    SET dispatch_date = GETDATE(), status = @Status, provider_response = @Response
+                    WHERE comm_channel_content_id = @IdCommChannelContent AND client_id = @IdCliente
+                END
+                ELSE
+                BEGIN
+                    INSERT INTO dispatches (comm_channel_content_id, client_id, dispatch_date, status, provider_response)
+                    VALUES (@IdCommChannelContent, @IdCliente, GETDATE(), @Status, @Response)
+                END";
 
-            if (response.Length > 500)
-            {
-                response = response.Substring(0, 500);
-            }
+            if (response.Length > 500) response = response.Substring(0, 500);
 
             var parameters = new[]
             {
                 new SqlParameter("@IdCommChannelContent", idCommChannelContent),
                 new SqlParameter("@IdCliente", idCliente),
-                new SqlParameter("@Status", status), // 'Successful' or 'Failed'
+                new SqlParameter("@Status", status), // 'Exitoso' or 'Fallido'
                 new SqlParameter("@Response", response)
             };
             await _accessDB.ExecuteCommandAsync(query, parameters);
@@ -270,11 +329,11 @@ namespace GuardeSoftwareAPI.Dao
 
         #endregion
 
-        // --- UPDATED MapDataRowToDto (Fixes GET error) ---
+        // --- MÉTODO ACTUALIZADO ---
         private CommunicationDto MapDataRowToDto(DataRow row)
         {
-            // Reads the comma-separated string
             var recipientsCsv = row["RecipientsCsv"].ToString() ?? "";
+            var attachmentsJson = row["AttachmentsJson"] is DBNull ? "[]" : row["AttachmentsJson"].ToString();
 
             return new CommunicationDto
             {
@@ -286,22 +345,16 @@ namespace GuardeSoftwareAPI.Dao
                 Status = row["Status"]?.ToString() ?? "Draft",
                 CreationDate = row["CreationDate"]?.ToString() ?? "",
                 Channel = row["Channel"]?.ToString() ?? "",
-
-                // Splits the string into a List<string>
                 Recipients = string.IsNullOrEmpty(recipientsCsv)
                              ? new List<string>()
-                             : recipientsCsv.Split(',').ToList()
+                             : recipientsCsv.Split(',').ToList(),
+                // Deserializa el JSON de adjuntos
+                Attachments = JsonSerializer.Deserialize<List<AttachmentDto>>(attachmentsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<AttachmentDto>()
             };
         }
         
-        // This method is simple, it just deletes
         public async Task<bool> DeleteCommunicationAsync(int communicationId)
         {
-            // Deleting the main communication should cascade delete all related content
-            // if your database FOREIGN KEYs are set up with ON DELETE CASCADE.
-            // If not, you must delete from child tables first.
-            
-            // Deleting child rows first to be safe
             string query = @"
                 DELETE FROM dispatches WHERE comm_channel_content_id IN (SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id);
                 DELETE FROM communication_recipients WHERE communication_id = @Id;
@@ -314,8 +367,6 @@ namespace GuardeSoftwareAPI.Dao
             return rows > 0;
         }
 
-        // This method will be used for 'send now'
-        // Add this method inside your CommunicationDao class
         public async Task<bool> UpdateCommunicationStatusAndDateAsync(int communicationId, string status, DateTime scheduledDate)
         {
             string query = "UPDATE communications SET status = @Status, scheduled_date = @Date WHERE communication_id = @Id";
@@ -359,9 +410,6 @@ namespace GuardeSoftwareAPI.Dao
             return communications;
         }
 
-        /// <summary>
-        /// Helper para mapear la fila del DAO al DTO del historial simple.
-        /// </summary>
         private ClientCommunicationDto MapDataRowToClientCommunicationDto(DataRow row)
         {
             return new ClientCommunicationDto
@@ -374,8 +422,32 @@ namespace GuardeSoftwareAPI.Dao
             };
         }
 
-        // Note: The main 'Update' (for edit) is complex because it uses a transaction
-        // to delete old channels/recipients and add new ones.
-        // We will add this logic in the *Service* layer.
+        // --- NUEVOS MÉTODOS DAO para Adjuntos ---
+
+        public async Task<List<AttachmentDto>> GetAttachmentsAsync(int communicationId)
+        {
+            string query = @"
+                SELECT TOP 1 attachments 
+                FROM communication_channel_content 
+                WHERE communication_id = @Id AND channel_id = 1"; // Asume Email = 1
+            
+            var parameters = new[] { new SqlParameter("@Id", communicationId) };
+            var jsonResult = await _accessDB.ExecuteScalarAsync(query, parameters);
+            
+            if (jsonResult != null && jsonResult != DBNull.Value)
+            {
+                return JsonSerializer.Deserialize<List<AttachmentDto>>(jsonResult.ToString(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<AttachmentDto>();
+            }
+            return new List<AttachmentDto>();
+        }
+
+        public async Task<bool> RemoveAttachmentFromJsonAsync(int communicationId, string fileName)
+        {
+            // Esta lógica es compleja en SQL. Requiere leer el JSON, modificarlo y reescribirlo.
+            // Es más fácil hacerlo en la lógica de servicio (en UpdateCommunicationAsync)
+            // Este método podría simplemente setear el JSON.
+            // Por ahora, asumimos que 'UpdateCommunicationAsync' maneja esto.
+            return await Task.FromResult(true); // Placeholder
+        }
     }
 }
