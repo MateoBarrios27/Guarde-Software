@@ -1,0 +1,135 @@
+<div class="space-y-6 animate-fade-in">
+  
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Estadísticas Financieras</h1>
+      <p class="text-gray-500 text-sm">Resumen mensual de movimientos y saldos.</p>
+    </div>
+
+    <div class="flex items-center bg-gray-50 rounded-lg p-1 border border-gray-200">
+      <button 
+        (click)="prevMonth()" 
+        [disabled]="isLoading"
+        class="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 disabled:opacity-50">
+        <app-icon name="chevron-left" class="h-5 w-5"></app-icon>
+      </button>
+      
+      <div class="px-6 py-1 min-w-[180px] text-center font-semibold text-gray-800 capitalize">
+        {{ monthName }}
+      </div>
+      
+      <button 
+        (click)="nextMonth()" 
+        [disabled]="isLoading"
+        class="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 disabled:opacity-50">
+        <app-icon name="chevron-right" class="h-5 w-5"></app-icon>
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="isLoading" class="flex justify-center py-12">
+    <div class="flex flex-col items-center gap-3">
+        <app-icon name="loader" class="h-10 w-10 text-blue-600 animate-spin"></app-icon>
+        <p class="text-gray-500 animate-pulse">Calculando métricas...</p>
+    </div>
+  </div>
+
+  <div *ngIf="!isLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+    
+    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+      <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+        <app-icon name="check-circle" class="h-16 w-16 text-green-600"></app-icon>
+      </div>
+      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Cobrado este mes</p>
+      <div class="mt-2 flex items-baseline gap-2">
+        <span class="text-3xl font-bold text-green-600">
+          {{ stats.totalAbonado | currency:'ARS':'symbol-narrow':'1.0-0' }}
+        </span>
+      </div>
+      <p class="text-xs text-green-600 mt-2 font-medium flex items-center gap-1">
+        <app-icon name="trending-up" class="h-3 w-3"></app-icon>
+        Ingresos reales
+      </p>
+    </div>
+
+    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+      <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+        <app-icon name="file-text" class="h-16 w-16 text-blue-600"></app-icon>
+      </div>
+      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Facturado este mes</p>
+      <div class="mt-2">
+        <span class="text-3xl font-bold text-blue-900">
+          {{ stats.totalFacturado | currency:'ARS':'symbol-narrow':'1.0-0' }}
+        </span>
+      </div>
+      <p class="text-xs text-blue-600 mt-2 font-medium">
+        Total alquileres generados
+      </p>
+    </div>
+
+    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+      <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+        <app-icon name="percent" class="h-16 w-16 text-purple-600"></app-icon>
+      </div>
+      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Intereses Aplicados</p>
+      <div class="mt-2">
+        <span class="text-3xl font-bold text-purple-700">
+          {{ stats.totalInteres | currency:'ARS':'symbol-narrow':'1.0-0' }}
+        </span>
+      </div>
+      <p class="text-xs text-purple-600 mt-2 font-medium">
+        Por pagos fuera de término
+      </p>
+    </div>
+
+    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+      <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+        <app-icon name="history" class="h-16 w-16 text-orange-600"></app-icon>
+      </div>
+      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Saldo Anterior</p>
+      <div class="mt-2">
+        <span class="text-3xl font-bold text-orange-700">
+          {{ stats.totalSaldoAnterior | currency:'ARS':'symbol-narrow':'1.0-0' }}
+        </span>
+      </div>
+      <p class="text-xs text-orange-600 mt-2 font-medium">
+        Deuda arrastrada
+      </p>
+    </div>
+
+    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+      <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+        <app-icon name="alert-circle" class="h-16 w-16 text-red-600"></app-icon>
+      </div>
+      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Saldo Pendiente Total</p>
+      <div class="mt-2">
+        <span class="text-3xl font-bold text-red-700">
+          {{ stats.totalSaldo | currency:'ARS':'symbol-narrow':'1.0-0' }}
+        </span>
+      </div>
+      <p class="text-xs text-red-600 mt-2 font-medium">
+        Total a cobrar en la calle
+      </p>
+    </div>
+
+  </div>
+
+  <!-- <div *ngIf="!isLoading" class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-center min-h-[300px] text-center">
+        <div class="bg-blue-50 p-4 rounded-full mb-4">
+            <app-icon name="bar-chart-2" class="h-8 w-8 text-blue-500"></app-icon>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900">Evolución de Ingresos</h3>
+        <p class="text-gray-500 text-sm max-w-xs">Aquí podrás visualizar un gráfico comparativo de los ingresos de los últimos 6 meses.</p>
+    </div>
+    
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-center min-h-[300px] text-center">
+         <div class="bg-purple-50 p-4 rounded-full mb-4">
+            <app-icon name="pie-chart" class="h-8 w-8 text-purple-500"></app-icon>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900">Composición de Deuda</h3>
+        <p class="text-gray-500 text-sm max-w-xs">Aquí verás qué porcentaje de la deuda corresponde a intereses vs capital.</p>
+    </div>
+  </div> -->
+
+</div>
