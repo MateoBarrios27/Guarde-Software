@@ -308,14 +308,32 @@ namespace GuardeSoftwareAPI.Services.client
                             // Cliente NUEVO: Crear DÉBITO inicial
                             var culture = new CultureInfo("es-AR");
                             string monthName = culture.DateTimeFormat.GetMonthName(startDate.Month);
-                            string concept = $"Alquiler {CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName)} {startDate.Year}";
+                            string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName);
+                            string concept = $"Alquiler {monthTitle} {startDate.Year}";
+                            decimal debitAmount = dto.Amount;
+
+                            // === NUEVA LÓGICA DE PRORRATEO ===
+                            // Si entra el día 10 o después, se cobra proporcional.
+                            if (startDate.Day >= 10)
+                            {
+                                int daysInMonth = DateTime.DaysInMonth(startDate.Year, startDate.Month);
+                                int daysToCharge = daysInMonth - startDate.Day;
+
+                                decimal dailyRate = dto.Amount / daysInMonth;
+                                debitAmount = dailyRate * daysToCharge;
+                                
+                                debitAmount = Math.Round(debitAmount, 2);
+
+                                concept += $" (Proporcional {daysToCharge} días)";
+                            }
                             await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
                             {
                                 RentalId = rentalId,
                                 MovementDate = startDate,
                                 MovementType = "DEBITO",
                                 Concept = concept,
-                                Amount = dto.Amount
+                                Amount = debitAmount, // <-- Usamos el monto calculado
+                                PaymentId = null
                             }, connection, transaction);
                         }
 
