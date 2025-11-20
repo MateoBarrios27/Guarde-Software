@@ -23,6 +23,8 @@ using GuardeSoftwareAPI.Services.phone;
 using GuardeSoftwareAPI.Services.communication;
 using GuardeSoftwareAPI.Services.billingType;
 using GuardeSoftwareAPI.Services.monthlyIncrease;
+using GuardeSoftwareAPI.Services.statistics;
+using GuardeSoftwareAPI.Dao;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -67,6 +69,8 @@ builder.Services.AddScoped<IRentalAmountHistoryService, RentalAmountHistoryServi
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserTypeService, UserTypeService>();
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+builder.Services.AddScoped<IStatisticsService, StatisticsService>();
+builder.Services.AddScoped<DaoStatistics>();
 
 // --- Configuration Quartz.NET ---
 builder.Services.AddQuartz(q =>
