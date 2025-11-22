@@ -1,4 +1,5 @@
 using GuardeSoftwareAPI.Dtos.Locker;
+using GuardeSoftwareAPI.Dtos.RentalSpaceRequest;
 
 namespace GuardeSoftwareAPI.Dtos.Client
 {
@@ -35,6 +36,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         //Locker Information
         //If the client no longer rents lockers, this list will be empty
         public List<GetLockerClientDetailDTO>? LockersList { get; set; }
+        public List<GetSpaceRequestDetailDto> SpaceRequests { get; set; } = [];
         public decimal ContractedM3 { get; set; }
 
         //Other Information

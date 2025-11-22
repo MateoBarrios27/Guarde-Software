@@ -1,4 +1,5 @@
 import { LockerClientDetailDTO } from "../locker/LockerClientDetailDTO";
+import { SpaceRequestDetailDto } from "../rentalSpaceRequest/GetSpaceRequestDetailDto";
 
 
 export interface ClientDetailDTO{
@@ -33,6 +34,7 @@ export interface ClientDetailDTO{
 
     //locker info
     lockersList?: LockerClientDetailDTO[];
+    spaceRequests?: SpaceRequestDetailDto[];
     contractedM3: number;
     notes: string;
 

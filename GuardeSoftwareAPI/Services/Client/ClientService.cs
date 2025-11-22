@@ -20,6 +20,7 @@ using System.Text.Json;
 using GuardeSoftwareAPI.Services.accountMovement;
 using System.Globalization;
 using Quartz;
+using GuardeSoftwareAPI.Dtos.RentalSpaceRequest;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -462,6 +463,9 @@ namespace GuardeSoftwareAPI.Services.client
             // --- Carga Asíncrona de Lockers, Emails y Phones (sin cambios) ---
             List<GetLockerClientDetailDTO> lockers = await lockerService.GetLockersByClientIdAsync(id);
             clientDetail.LockersList = lockers;
+
+            List<GetSpaceRequestDetailDto> spaceRequests = await _daoRentalSpaceRequest.GetRequestsByClientIdAsync(id);
+            clientDetail.SpaceRequests = spaceRequests;
 
             var emailEntities = await emailService.GetEmailListByClientId(id);
             clientDetail.Email = emailEntities.Select(e => e.Address).ToArray();

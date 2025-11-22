@@ -3,6 +3,7 @@ using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Threading.Tasks;
 using System;
+using GuardeSoftwareAPI.Dtos.RentalSpaceRequest;
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -43,6 +44,40 @@ namespace GuardeSoftwareAPI.Dao
 
                 return Convert.ToInt32(result);
             }
+        }
+
+        public async Task<List<GetSpaceRequestDetailDto>> GetRequestsByClientIdAsync(int clientId)
+        {
+            var list = new List<GetSpaceRequestDetailDto>();
+
+            // Unimos rental_space_requests -> rentals -> warehouses para obtener el nombre y filtrar por cliente
+            string query = @"
+                SELECT 
+                    w.name AS WarehouseName,
+                    rsr.quantity,
+                    rsr.m3
+                FROM rental_space_requests rsr
+                INNER JOIN rentals r ON rsr.rental_id = r.rental_id
+                INNER JOIN warehouses w ON rsr.warehouse_id = w.warehouse_id
+                WHERE r.client_id = @ClientId AND r.active = 1";
+
+            SqlParameter[] parameters = {
+                new SqlParameter("@ClientId", SqlDbType.Int) { Value = clientId }
+            };
+
+            DataTable table = await _accessDB.GetTableAsync("SpaceRequests", query, parameters);
+
+            foreach (DataRow row in table.Rows)
+            {
+                list.Add(new GetSpaceRequestDetailDto
+                {
+                    Warehouse = row["WarehouseName"]?.ToString() ?? "Desconocido",
+                    Quantity = row["quantity"] != DBNull.Value ? Convert.ToInt32(row["quantity"]) : 0,
+                    M3 = row["m3"] != DBNull.Value ? Convert.ToDecimal(row["m3"]) : 0m
+                });
+            }
+
+            return list;
         }
     }
 }
