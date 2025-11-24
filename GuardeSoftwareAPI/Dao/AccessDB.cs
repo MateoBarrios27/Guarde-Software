@@ -7,7 +7,14 @@ namespace GuardeSoftwareAPI.Dao
 {
     public class AccessDB
     {
-        private readonly string routeDB = "Data Source=localhost\\SQLEXPRESS;Initial Catalog=GuardeSoftware;Integrated Security=True;TrustServerCertificate=True;";
+        // private readonly string routeDB = "Data Source=localhost\\SQLEXPRESS;Initial Catalog=GuardeSoftware;Integrated Security=True;TrustServerCertificate=True;";
+
+        private readonly string routeDB;
+
+        public AccessDB(IConfiguration configuration)
+        {
+            routeDB = configuration.GetConnectionString("DefaultConnection");
+        }
 
         public SqlConnection GetConnectionClose()
         {
