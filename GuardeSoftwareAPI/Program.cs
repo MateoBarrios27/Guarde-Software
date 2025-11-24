@@ -24,7 +24,16 @@ using GuardeSoftwareAPI.Services.communication;
 using GuardeSoftwareAPI.Services.billingType;
 using GuardeSoftwareAPI.Services.monthlyIncrease;
 using GuardeSoftwareAPI.Services.statistics;
-using GuardeSoftwareAPI.Dao;
+using GuardeSoftwareAPI.Services.auth;
+
+using GuardeSoftwareAPI.Auth;
+
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -47,7 +56,57 @@ builder.Services.AddCors(options =>
         });
 });
 
+// DbContext para Identity (usa la connection string del appsettings.json)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+builder.Services.AddDbContext<AppIdentityDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+// Configuración de Identity
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+{
+    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = false;
+    options.User.RequireUniqueEmail = true;
+})
+.AddEntityFrameworkStores<AppIdentityDbContext>()
+.AddDefaultTokenProviders();
+
+// ---------- JWT AUTHENTICATION ----------
+
+var jwtSection = builder.Configuration.GetSection("Jwt");
+builder.Services.Configure<JwtOptions>(jwtSection);
+
+var jwtKey = jwtSection["Key"] ?? throw new InvalidOperationException("JWT Key is missing");
+var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+
+builder.Services
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.SaveToken = true;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtSection["Issuer"],
+            ValidateAudience = true,
+            ValidAudience = jwtSection["Audience"],
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+            ValidateLifetime = true
+        };
+    });
+
+// Registramos el generador de tokens
+builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+
 builder.Services.AddScoped<AccessDB>();
+builder.Services.AddScoped<DaoUser>();
 //SERVICES
 builder.Services.AddScoped<IAccountMovementService, AccountMovementService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
@@ -71,6 +130,7 @@ builder.Services.AddScoped<IUserTypeService, UserTypeService>();
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<DaoStatistics>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 // --- Configuration Quartz.NET ---
 builder.Services.AddQuartz(q =>
@@ -135,6 +195,8 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowAngular");
 
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 
