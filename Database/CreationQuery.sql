@@ -213,6 +213,7 @@ CREATE TABLE users (
     last_name VARCHAR(100),
     password VARCHAR(255),
     active BIT DEFAULT 1,
+    identity_user_id NVARCHAR(450) NULL,
     FOREIGN KEY (user_type_id) REFERENCES user_types(user_type_id)
 );
 
