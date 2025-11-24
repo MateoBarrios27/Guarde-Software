@@ -49,7 +49,7 @@ namespace GuardeSoftwareAPI.Dao
         //The password should be hashed before calling this method
         public async Task<User> CreateUser(User user)
         {
-            string query = "INSERT INTO users (user_type_id, username, first_name, last_name, password) VALUES (@user_type_id, @username, @first_name, @last_name, @password); SELECT SCOPE_IDENTITY();";
+            string query = "INSERT INTO users (user_type_id, username, first_name, last_name, password, identity_user_id) VALUES (@user_type_id, @username, @first_name, @last_name, @password, @identity_user_id); SELECT SCOPE_IDENTITY();";
 
             SqlParameter[] parameters = [
                 new SqlParameter("user_type_id", SqlDbType.Int){Value = user.UserTypeId},
@@ -57,6 +57,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("first_name", SqlDbType.NVarChar, 100){Value = user.FirstName},
                 new SqlParameter("last_name", SqlDbType.NVarChar, 100){Value = user.LastName},
                 new SqlParameter("password", SqlDbType.NVarChar, 255){Value = user.PasswordHash},
+                new SqlParameter("identity_user_id", SqlDbType.NVarChar, 450){Value = (object?)user.IdentityUserId ?? DBNull.Value},
             ];
             object newId = await accessDB.ExecuteScalarAsync(query, parameters);
 
@@ -96,5 +97,20 @@ namespace GuardeSoftwareAPI.Dao
 
              return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
+
+        public async Task<DataTable> GetUserByIdentityUserId(string identityUserId)
+        {
+            string query = @"
+                SELECT user_id, user_type_id, username, first_name, last_name, identity_user_id
+                FROM users WHERE active = 1 AND identity_user_id = @identity_user_id";
+
+            SqlParameter[] parameters =
+            [
+                new SqlParameter("identity_user_id", SqlDbType.NVarChar, 450){Value = identityUserId}
+            ];
+
+            return await accessDB.GetTableAsync("users", query, parameters);
+        }
+
     }
 }
