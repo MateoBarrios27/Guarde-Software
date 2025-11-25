@@ -56,7 +56,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("username", SqlDbType.NVarChar, 100){Value = user.UserName},
                 new SqlParameter("first_name", SqlDbType.NVarChar, 100){Value = user.FirstName},
                 new SqlParameter("last_name", SqlDbType.NVarChar, 100){Value = user.LastName},
-                new SqlParameter("password", SqlDbType.NVarChar, 255){Value = user.PasswordHash},
+                new SqlParameter("password", SqlDbType.NVarChar, 255){Value = (object?)user.PasswordHash ?? string.Empty},
                 new SqlParameter("identity_user_id", SqlDbType.NVarChar, 450){Value = (object?)user.IdentityUserId ?? DBNull.Value},
             ];
             object newId = await accessDB.ExecuteScalarAsync(query, parameters);

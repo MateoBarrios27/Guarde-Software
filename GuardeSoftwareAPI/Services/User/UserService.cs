@@ -3,6 +3,9 @@ using System.Data;
 using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
+using Microsoft.AspNetCore.Identity;
+using GuardeSoftwareAPI.Auth;
+
 
 namespace GuardeSoftwareAPI.Services.user
 {
@@ -10,9 +13,12 @@ namespace GuardeSoftwareAPI.Services.user
 	public class UserService : IUserService
 	{
 		readonly DaoUser _daoUser;
-		public UserService(AccessDB accessDB)
+		private readonly UserManager<ApplicationUser> _userManager;
+
+		public UserService(AccessDB accessDB, UserManager<ApplicationUser> userManager)
 		{
 			_daoUser = new DaoUser(accessDB);
+			_userManager = userManager;
 		}
 
 		// Get a list of all users but without the password hash
@@ -68,19 +74,39 @@ namespace GuardeSoftwareAPI.Services.user
 		public async Task<User> CreateUser(User user, string password)
 		{
 			if (user == null) throw new ArgumentNullException(nameof(user), "User cannot be null.");
-			if (user.UserTypeId <= 0) throw new ArgumentException("Invalid user type ID."); //Missing validation for user type existence
+			if (user.UserTypeId <= 0) throw new ArgumentException("Invalid user type ID.");
 			if (string.IsNullOrWhiteSpace(user.UserName)) throw new ArgumentException("Username cannot be empty.");
-			// if (string.IsNullOrWhiteSpace(user.FirstName)) throw new ArgumentException("First name cannot be empty."); Now, first name can be null
-			// if (string.IsNullOrWhiteSpace(user.LastName)) throw new ArgumentException("Last name cannot be empty."); Now, last name can be null
 			if (string.IsNullOrWhiteSpace(password)) throw new ArgumentException("Password cannot be empty.");
 
-			// Check if username already exists
+			// Se valida que no exista el username 
 			DataTable existingUserTable = await _daoUser.GetUserByUsername(user.UserName);
 			if (existingUserTable.Rows.Count > 0) throw new ArgumentException("Username already exists.");
 
-			// Hash the password before storing it
-			user.PasswordHash = Utilities.HashUtility.ComputeSha256Hash(password);
-			return await _daoUser.CreateUser(user);
+			// identity user creacion
+			var identityUser = new ApplicationUser
+			{
+				UserName = user.UserName,
+				Email = user.UserName + "@placeholder.com"
+			};
+
+			var identityResult = await _userManager.CreateAsync(identityUser, password);
+
+			if (!identityResult.Succeeded)
+			{
+
+				var errors = string.Join(" | ", identityResult.Errors.Select(e => e.Description));
+				throw new ArgumentException($"Failed to create identity user: {errors}");
+			}
+
+			// depositamos el id al user
+			user.IdentityUserId = identityUser.Id;
+
+			// ELiminar esto proximamente
+			user.PasswordHash = string.Empty; 
+
+			var createdUser = await _daoUser.CreateUser(user);
+
+			return createdUser;
 		}
 
 		public async Task<bool> DeleteUser(int userId)
