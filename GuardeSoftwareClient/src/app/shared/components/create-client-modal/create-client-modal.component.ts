@@ -5,14 +5,13 @@ import {
   Output,
   EventEmitter,
 } from '@angular/core';
-import { CommonModule } from '@angular/common'; // Importar DatePipe
+import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import {
   FormBuilder,
   FormGroup,
   FormArray,
   Validators,
   ReactiveFormsModule,
-  AbstractControl 
 } from '@angular/forms';
 import { IconComponent } from '../icon/icon.component';
 import Swal from 'sweetalert2';
@@ -23,25 +22,24 @@ import { Warehouse } from '../../../core/models/warehouse';
 import { PaymentMethod } from '../../../core/models/payment-method';
 import { LockerType } from '../../../core/models/locker-type';
 import { ClientDetailDTO } from '../../../core/dtos/client/ClientDetailDTO';
-import { SpaceRequestDto } from '../../../core/dtos/rentalSpaceRequest/SpaceRequestDto';
-import { CreateClientDTO } from '../../../core/dtos/client/CreateClientDTO'; // Asegúrate que SpaceRequestDTO esté importado
+import { SpaceRequestDetailDto } from '../../../core/dtos/rentalSpaceRequest/GetSpaceRequestDetailDto';
+import { CreateClientDTO} from '../../../core/dtos/client/CreateClientDTO'; 
 import { LockerService } from '../../../core/services/locker-service/locker.service';
 import { WarehouseService } from '../../../core/services/warehouse-service/warehouse.service';
 import { PaymentMethodService } from '../../../core/services/paymentMethod-service/payment-method.service';
 import { LockerTypeService } from '../../../core/services/lockerType-service/locker-type.service';
 import { ClientService } from '../../../core/services/client-service/client.service';
-import { forkJoin, Observable, of } from 'rxjs'; // Importar 'of'
+import { forkJoin, Observable, of } from 'rxjs';
 import { BillingType } from '../../../core/models/billing-type.model';
 import { BillingTypeService } from '../../../core/services/billingType-service/billing-type.service';
 
 @Component({
   selector: 'app-create-client-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, IconComponent],
+  imports: [CommonModule, ReactiveFormsModule, IconComponent, DatePipe],
   templateUrl: './create-client-modal.component.html',
 })
 export class CreateClientModalComponent implements OnInit {
-  // --- ENTRADAS Y SALIDAS ---
   private _clientData: ClientDetailDTO | null = null;
   public isEditMode = false; 
 
@@ -53,7 +51,6 @@ export class CreateClientModalComponent implements OnInit {
     this.initNewClientForm(); 
     
     if (this.areBasicDataLoaded) {
-        console.log('Input de cliente cambió DESPUÉS de que los datos cargaran. Poblando...');
         this.tryPopulateForm();
     }
   }
@@ -65,10 +62,10 @@ export class CreateClientModalComponent implements OnInit {
 
   public newClientForm!: FormGroup;
 
-  // --- Datos para Selects ---
+  // --- Datos ---
   public warehouses: Warehouse[] = [];
-  public availableLockers: Locker[] = []; // Solo para modo edición
-  public lockerTypes: LockerType[] = []; // Solo para modo edición
+  public availableLockers: Locker[] = [];
+  public lockerTypes: LockerType[] = [];
   public paymentMethods: PaymentMethod[] = [];
   public billingTypes: BillingType[] = [];
   isLoading: boolean = false;
@@ -108,7 +105,7 @@ export class CreateClientModalComponent implements OnInit {
     forkJoin({ ...commonObservables, ...editObservables }).subscribe({
       next: (results: any) => {
         this.warehouses = results.warehouses;
-        this.paymentMethods = results.paymentMethods; // <-- Se asignan aquí
+        this.paymentMethods = results.paymentMethods;
         this.billingTypes = results.billingTypes;
 
         if (this.isEditMode) {
@@ -119,82 +116,63 @@ export class CreateClientModalComponent implements OnInit {
           );
         }
         
-        console.log('Datos básicos cargados');
         this.areBasicDataLoaded = true;
         this.isLoading = false;
-        
-        // --- LÓGICA DE POPULATE MOVIDA AQUÍ ---
         this.tryPopulateForm();
       },
       error: (err) => {
         this.isLoading = false;
-        console.error('Error cargando datos para el modal:', err);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error de Carga',
-          text: 'No se pudieron cargar los datos necesarios. Por favor, intente reabrir el modal.',
-          confirmButtonColor: '#2563eb'
-        });
+        console.error('Error cargando datos:', err);
+        Swal.fire('Error de Carga', 'No se pudieron cargar los datos necesarios.', 'error');
       }
     });
   }
 
-  // --- CORRECCIÓN ---
   private tryPopulateForm(): void {
     if (this.newClientForm && this.isEditMode && this._clientData) {
       console.log('Intentando poblar formulario para edición...');
       this.populateForm(this._clientData);
     } else if (this.newClientForm && !this.isEditMode) {
-        console.log("Datos básicos cargados, modo creación.");
-        this.newClientForm.get('isLegacyClient')?.enable(); // Habilitar el toggle
-        
-        // --- SE ELIMINA LA LÍNEA QUE HACÍA patchValue a null ---
-        // El control 'metodoPago' se queda con [null, Validators.required]
-        // y se rellenará cuando el usuario seleccione una opción.
+        // Modo creación: habilitar toggle y resetear datos
+        this.newClientForm.get('isLegacyClient')?.enable();
+        // No tocar metodoPago aquí para no pisar selección del usuario
     }
   }
 
   private initNewClientForm(): void {
     this.newClientForm = this.fb.group({
-      // Personal
       numeroIdentificacion: [''],
       nombre: ['', Validators.required],
       apellido: ['', Validators.required],
       tipoDocumento: ['DNI'], 
       numeroDocumento: ['', Validators.required],
       cuit: [''],
-      
-      // Contacto
       emails: this.fb.array([ this.fb.control('', [Validators.required, Validators.email]), ]),
       telefonos: this.fb.array([this.fb.control('')]),
       direccion: ['', Validators.required],
       ciudad: ['', Validators.required],
       codigoPostal: [''],
       provincia: ['', Validators.required],
-      
-      // Pago y Fiscal
       condicionIVA: [null, Validators.required],
-      metodoPago: [null, Validators.required], // <-- Este control se inicializa en NULL
+      metodoPago: [null, Validators.required],
       billingTypeId: [null, Validators.required],
       
-      // Legacy (Inician deshabilitados)
+      // Legacy
       isLegacyClient: [{ value: false, disabled: true }], 
       legacyStartDate: [{ value: null, disabled: true }],
       legacyInitialAmount: [{ value: null, disabled: true }],
-      legacyNextIncreaseDate: [{ value: null, disabled: true }], // Este campo es YYYY-MM
+      legacyNextIncreaseDate: [{ value: null, disabled: true }],
       isLegacy6MonthPromo: [{ value: false, disabled: true }],
       prepaidMonths: [{ value: 0, disabled: true }], 
       
       observaciones: [''],
       
-      // --- Sección Monto (Siempre presente) ---
       montoManual: [0, [Validators.required, Validators.min(0)]],
-      contractedM3: [0], // Este campo se calculará
+      contractedM3: [0],
     });
 
-    // --- LÓGICA CONDICIONAL ---
+    // --- Lógica Condicional (Arrays) ---
     if (this.isEditMode) {
-      // --- MODO EDICIÓN: Añadir controles de asignación de lockers ---
       this.newClientForm.addControl('lockersAsignados', this.fb.array([]));
       this.newClientForm.addControl('lockerSearch', this.fb.control(''));
       this.newClientForm.addControl('selectedWarehouse', this.fb.control('all'));
@@ -207,9 +185,8 @@ export class CreateClientModalComponent implements OnInit {
       });
 
     } else {
-      // --- MODO CREACIÓN: Añadir controles de solicitud de espacio ("borrador") ---
       this.newClientForm.addControl('spaceRequests', this.fb.array([]));
-      this.addSpaceRequest(); // Añadir la primera card por defecto
+      this.addSpaceRequest();
       
       const spaceRequests = this.newClientForm.get('spaceRequests') as FormArray;
       spaceRequests.valueChanges.subscribe((requests: any[]) => {
@@ -223,10 +200,8 @@ export class CreateClientModalComponent implements OnInit {
       });
     }
 
-    // Habilitar/Deshabilitar campos Legacy (SOLO en MODO CREACIÓN)
     this.newClientForm.get('isLegacyClient')?.valueChanges.subscribe(isLegacy => {
       if (this.isEditMode) return; 
-
       const fields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate', 'isLegacy6MonthPromo', 'prepaidMonths'];
       const requiredFields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate'];
 
@@ -246,7 +221,6 @@ export class CreateClientModalComponent implements OnInit {
     });
   }
   
-  // --- MÉTODOS PARA 'spaceRequests' (Modo Creación) ---
   get spaceRequests(): FormArray {
     return this.newClientForm.get('spaceRequests') as FormArray;
   }
@@ -254,7 +228,7 @@ export class CreateClientModalComponent implements OnInit {
   createSpaceRequestGroup(): FormGroup {
     return this.fb.group({
       warehouseId: [null, Validators.required],
-      m3: [null, [Validators.required, Validators.min(0.1)]], // m3 por unidad
+      m3: [null, [Validators.required, Validators.min(0.1)]],
       quantity: [1, [Validators.required, Validators.min(1)]],
     });
   }
@@ -278,7 +252,7 @@ export class CreateClientModalComponent implements OnInit {
       }
   }
 
-  // --- (populateForm, getters de emails/telefonos) ---
+  // --- HELPER: Convertir Date a 'YYYY-MM' (para input month) ---
   private formatDateToYYYYMM(date: Date | string | null | undefined): string | null {
     if (!date) return null;
     try {
@@ -286,15 +260,21 @@ export class CreateClientModalComponent implements OnInit {
       const year = d.getUTCFullYear(); 
       const month = (d.getUTCMonth() + 1).toString().padStart(2, '0');
       return `${year}-${month}`;
-    } catch (e) {
-      console.error("Error al formatear fecha:", e);
-      return null;
-    }
+    } catch (e) { return null; }
+  }
+
+  // --- HELPER: Convertir Date a 'YYYY-MM-DD' (para input date) ---
+  // ¡ESTE ES EL NUEVO!
+  private formatDateToYYYYMMDD(date: Date | string | null | undefined): string | null {
+    if (!date) return null;
+    try {
+      const d = new Date(date);
+      // toISOString devuelve "2023-10-20T..."
+      return d.toISOString().split('T')[0];
+    } catch (e) { return null; }
   }
 
   private populateForm(data: ClientDetailDTO): void {
-      console.log('Poblando formulario con datos:', data);
-
       this.emails.clear();
       this.telefonos.clear();
       
@@ -313,9 +293,6 @@ export class CreateClientModalComponent implements OnInit {
       if (data.phone?.length > 0) data.phone.forEach(p => this.telefonos.push(this.fb.control(p))); else this.addTelefono();
 
       const matchingPaymentMethod = this.paymentMethods.find(m => m.name === data.preferredPaymentMethod);
-      if (!matchingPaymentMethod) {
-          console.warn(`No se encontró un método de pago coincidente para: "${data.preferredPaymentMethod}"`);
-      }
 
       this.newClientForm.patchValue({
         numeroIdentificacion: data.paymentIdentifier,
@@ -324,7 +301,7 @@ export class CreateClientModalComponent implements OnInit {
         numeroDocumento: data.dni,
         cuit: data.cuit,
         condicionIVA: data.ivaCondition,
-        metodoPago: matchingPaymentMethod || null, // <-- Asignar el objeto encontrado
+        metodoPago: matchingPaymentMethod || null,
         direccion: data.address,
         ciudad: data.city,
         provincia: data.province,
@@ -332,8 +309,10 @@ export class CreateClientModalComponent implements OnInit {
         montoManual: data.rentAmount,
         billingTypeId: data.billingTypeId || null,
         
+        // Campos Legacy
         isLegacyClient: !!data.initialAmount, 
-        legacyStartDate: data.registrationDate, 
+        // AQUÍ LA CORRECCIÓN CLAVE: Usamos el nuevo helper para YYYY-MM-DD
+        legacyStartDate: this.formatDateToYYYYMMDD(data.registrationDate),
         legacyInitialAmount: data.initialAmount, 
         legacyNextIncreaseDate: this.formatDateToYYYYMM(data.nextIncreaseDay),
         isLegacy6MonthPromo: data.increaseFrequencyMonths === 6
@@ -350,8 +329,6 @@ export class CreateClientModalComponent implements OnInit {
   get telefonos(): FormArray { return this.newClientForm.get('telefonos') as FormArray; }
   addTelefono(): void { this.telefonos.push(this.fb.control('')); }
   removeTelefono(index: number): void { if (this.telefonos.length > 1) this.telefonos.removeAt(index); }
-
-  // --- MÉTODOS HELPER (USADOS EN HTML) ---
   
   getWarehouseName(id: number | null): string {
     if (!id) return 'N/A';
@@ -361,11 +338,9 @@ export class CreateClientModalComponent implements OnInit {
   
   get filteredLockers(): Locker[] {
     if (!this.isEditMode) return []; 
-    
     const search = this.newClientForm.value.lockerSearch?.toLowerCase() || '';
     const warehouseId = this.newClientForm.value.selectedWarehouse;
     const typeId = this.newClientForm.value.selectedLockerType;
-
     return this.availableLockers.filter((locker) => {
       const searchMatch = search === '' || locker.identifier.toLowerCase().includes(search) || (locker.features && locker.features.toLowerCase().includes(search));
       const warehouseMatch = warehouseId === 'all' || locker.warehouseId === Number(warehouseId);
@@ -375,32 +350,18 @@ export class CreateClientModalComponent implements OnInit {
   }
   
   getLockerDetails(lockerId: number | null) {
-      if (typeof lockerId !== 'number' || lockerId <= 0) {
-         return { locker: null, warehouse: null, lockerType: null };
-      }
+      if (typeof lockerId !== 'number' || lockerId <= 0) return { locker: null, warehouse: null, lockerType: null };
       const locker = this.availableLockers.find((l) => l.id === lockerId);
-      if (!locker) {
-         return { locker: null, warehouse: null, lockerType: null };
-      }
+      if (!locker) return { locker: null, warehouse: null, lockerType: null };
       const warehouse = this.warehouses.find((w) => w.id === locker.warehouseId);
       const lockerType = this.lockerTypes.find((lt) => lt.id === locker.lockerTypeId);
-      return {
-          locker: locker,
-          warehouse: warehouse || null,
-          lockerType: lockerType || null,
-      };
+      return { locker: locker, warehouse: warehouse || null, lockerType: lockerType || null };
   }
   
   handleLockerToggle(lockerId: number): void {
     const assigned = this.newClientForm.get('lockersAsignados') as FormArray;
-    const index = assigned.controls.findIndex(
-      (ctrl) => ctrl.value === lockerId
-    );
-    if (index > -1) {
-      assigned.removeAt(index);
-    } else {
-      assigned.push(this.fb.control(lockerId));
-    }
+    const index = assigned.controls.findIndex((ctrl) => ctrl.value === lockerId);
+    if (index > -1) assigned.removeAt(index); else assigned.push(this.fb.control(lockerId));
   }
 
   
@@ -419,10 +380,7 @@ export class CreateClientModalComponent implements OnInit {
       return;
     }
 
-    // --- VALIDACIÓN DE MÉTODO DE PAGO ---
-    // Esta validación ahora es más robusta
     if (!formValue.metodoPago || typeof formValue.metodoPago !== 'object' || !formValue.metodoPago.id || formValue.metodoPago.id <= 0) {
-        console.error('Valor de metodoPago inválido:', formValue.metodoPago);
         Swal.fire('Error de Validación', 'Método de pago no seleccionado o inválido.', 'error');
         return;
     }
@@ -436,19 +394,26 @@ export class CreateClientModalComponent implements OnInit {
             return;
         }
     }
-    // --- Fin Validaciones ---
 
     this.isLoading = true;
     
-    // ... (Lógica de Fechas) ...
+    // --- LÓGICA DE FECHAS SEGURA ---
     let nextIncreaseDate: Date | null = null;
     let legacyStartDate: Date | null = null;
+
     if (isLegacy) {
         if(formValue.legacyNextIncreaseDate) nextIncreaseDate = new Date(formValue.legacyNextIncreaseDate + '-01T12:00:00Z');
         if(formValue.legacyStartDate) legacyStartDate = new Date(formValue.legacyStartDate + 'T12:00:00Z');
     } else if (isEditing) {
       nextIncreaseDate = this.clientData?.nextIncreaseDay ? new Date(this.clientData.nextIncreaseDay) : null;
     }
+
+    // Definir fechas base de forma segura
+    // Si es edición, usamos la fecha del cliente existente. Si es nuevo, usamos hoy.
+    // Usamos una fecha por defecto segura para evitar Invalid Date
+    const safeRegistrationDate = isEditing && this.clientData?.registrationDate 
+                                 ? new Date(this.clientData.registrationDate) 
+                                 : new Date();
 
     const dto: CreateClientDTO = {
       id: isEditing ? this.clientData?.id : undefined,
@@ -466,13 +431,15 @@ export class CreateClientModalComponent implements OnInit {
         city: formValue.ciudad,
         province: formValue.provincia,
       },
-      preferredPaymentMethodId: formValue.metodoPago.id, // <-- Se mantiene .id
+      preferredPaymentMethodId: formValue.metodoPago.id,
       ivaCondition: formValue.condicionIVA || null,
       amount: formValue.montoManual,
-      userID: 1, // Placeholder
+      userID: 1,
       
-      registrationDate: isLegacy ? legacyStartDate! : (isEditing ? new Date(this.clientData!.registrationDate) : new Date()),
-      startDate: isLegacy ? legacyStartDate! : (isEditing ? new Date(this.clientData!.registrationDate) : new Date()),
+      // Aquí usamos las fechas seguras
+      registrationDate: isLegacy && legacyStartDate ? legacyStartDate : safeRegistrationDate,
+      startDate: isLegacy && legacyStartDate ? legacyStartDate : safeRegistrationDate,
+      
       prepaidMonths: isLegacy ? Number(formValue.prepaidMonths) : 0,
       isLegacyClient: isLegacy,
       isLegacy6MonthPromo: formValue.isLegacy6MonthPromo, 
@@ -512,7 +479,7 @@ export class CreateClientModalComponent implements OnInit {
       },
       error: (err) => {
         this.isLoading = false;
-        console.error(isEditing ? 'Error al actualizar el cliente:' : 'Error al crear el cliente:', err);
+        console.error('Error al guardar:', err);
         let errorDetails = '';
         if (err.error && err.error.errors) {
             errorDetails = Object.entries(err.error.errors)
@@ -542,4 +509,18 @@ export class CreateClientModalComponent implements OnInit {
      });
      return Math.round(totalM3 * 100) / 100;
    }
+
+  private calculateTotalAmount(ids: number[]): number {
+    let totalAmount = 0;
+    ids.forEach((id) => {
+      const locker = this.availableLockers.find((l) => l.id === id);
+      const type = this.lockerTypes.find(
+        (lt) => lt.id === locker?.lockerTypeId
+      );
+      if (type) {
+        totalAmount += type.amount;
+      }
+    });
+    return totalAmount;
+  }
 }

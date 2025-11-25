@@ -507,8 +507,8 @@ namespace GuardeSoftwareAPI.Services.client
         public async Task<bool> UpdateClientAsync(int id, CreateClientDTO dto)
         {
             if (id <= 0) throw new ArgumentException("ID de cliente inválido.");
-            if (dto == null) throw new ArgumentNullException(nameof(dto));
-            
+            ArgumentNullException.ThrowIfNull(dto);
+
             using (var connection = accessDB.GetConnectionClose())
             {
                 await connection.OpenAsync();
@@ -540,7 +540,7 @@ namespace GuardeSoftwareAPI.Services.client
                             Notes = string.IsNullOrWhiteSpace(dto.Notes) ? existingClient.Notes : dto.Notes.Trim(),
 
                             // Campos que NO se editan
-                            RegistrationDate = existingClient.RegistrationDate, 
+                            RegistrationDate = dto.RegistrationDate, 
                             IncreaseFrequencyMonths = existingClient.IncreaseFrequencyMonths, 
                             InitialAmount = existingClient.InitialAmount,
                         };
