@@ -302,7 +302,7 @@ export class ClientsComponent implements OnInit {
 
     if (cliente.balance > 0) {
        const deuda = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(cliente.balance);
-       warningText = `⚠️ ¡ATENCIÓN! El cliente tiene una deuda de ${deuda}. \n\n¿Estás seguro de darlo de baja sin saldar la deuda?`;
+       warningText = `¡ATENCIÓN! El cliente tiene una deuda de ${deuda}. \n\n¿Estás seguro de darlo de baja sin saldar la deuda?`;
     } else if (cliente.balance < 0) {
         warningText += "\n\nNota: El cliente tiene saldo a favor.";
     }
