@@ -496,5 +496,37 @@ namespace GuardeSoftwareAPI.Dao
                 return rowsAffected > 0;
             }
         }
+
+        public async Task<bool> EndActiveRentalByClientIdTransactionAsync(int clientId, DateTime endDate, SqlConnection connection, SqlTransaction transaction)
+        {
+            // Actualiza el rental activo: lo desactiva y pone fecha de fin
+            string query = @"
+                UPDATE rentals 
+                SET active = 0, end_date = @EndDate 
+                WHERE client_id = @ClientId AND active = 1";
+
+            SqlParameter[] parameters = {
+                new("@ClientId", SqlDbType.Int) { Value = clientId },
+                new("@EndDate", SqlDbType.Date) { Value = endDate }
+            };
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.AddRange(parameters);
+            // No verificamos rows > 0 porque puede que el cliente no tenga rental activo y eso no es un error para darlo de baja
+            await command.ExecuteNonQueryAsync();
+            return true;
+        }
+        
+        // Necesitas obtener el ID del rental activo para cerrar su historial
+        public async Task<int?> GetActiveRentalIdByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+             string query = "SELECT rental_id FROM rentals WHERE client_id = @ClientId AND active = 1";
+             SqlParameter[] parameters = { new SqlParameter("@ClientId", SqlDbType.Int) { Value = clientId } };
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.AddRange(parameters);
+            object result = await command.ExecuteScalarAsync();
+            return result != null && result != DBNull.Value ? (int)result : null;
+        }
     }
 }

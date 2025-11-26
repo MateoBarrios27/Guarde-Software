@@ -631,6 +631,55 @@ namespace GuardeSoftwareAPI.Services.client
                 }
             }
         }
+
+        public async Task<bool> DeactivateClientAsync(int clientId)
+        {
+            if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
+
+            // 1. Validación de Seguridad: Verificar lockers asignados
+            var lockers = await lockerService.GetLockersByClientIdAsync(clientId);
+            if (lockers != null && lockers.Count > 0)
+            {
+                throw new InvalidOperationException("No se puede dar de baja al cliente porque tiene lockers asignados. Libere los lockers primero.");
+            }
+
+            using (var connection = accessDB.GetConnectionClose())
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        var today = DateTime.UtcNow.Date;
+
+                        // 2. Desactivar Cliente (Usando su propio DAO)
+                        await daoClient.DeactivateClientTransactionAsync(clientId, connection, transaction);
+
+                        // 3. Obtener Rental Activo usando el SERVICIO inyectado (Forma Correcta)
+                        int? activeRentalId = await rentalService.GetActiveRentalIdByClientIdTransactionAsync(clientId, connection, transaction);
+
+                        if (activeRentalId.HasValue)
+                        {
+                            // 4. Cerrar historial de montos usando el SERVICIO inyectado
+                            await rentalAmountHistoryService.CloseOpenHistoriesByRentalIdTransactionAsync(activeRentalId.Value, today, connection, transaction);
+                            
+                            // 5. Finalizar Rental usando el SERVICIO inyectado
+                            await rentalService.EndActiveRentalByClientIdTransactionAsync(clientId, today, connection, transaction);
+                        }
+
+                        await transaction.CommitAsync();
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        _logger.LogError(ex, $"Error deactivating client {clientId}");
+                        throw;
+                    }
+                }
+            }
+        }
+
     }
 }
 

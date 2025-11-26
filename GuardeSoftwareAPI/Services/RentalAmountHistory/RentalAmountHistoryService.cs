@@ -118,5 +118,10 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
             await _daoRentalAmountHistory.CreateRentalAmountHistoryTransactionAsync(newHistory, connection, transaction);
         }
 
+		public async Task CloseOpenHistoriesByRentalIdTransactionAsync(int rentalId, DateTime endDate, SqlConnection connection, SqlTransaction transaction)
+        {
+            await _daoRentalAmountHistory.CloseOpenHistoriesByRentalIdTransactionAsync(rentalId, endDate, connection, transaction);
+        }
+
     }
 }

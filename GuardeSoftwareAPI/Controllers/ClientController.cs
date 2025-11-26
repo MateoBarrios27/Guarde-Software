@@ -168,5 +168,23 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeactivateClient(int id)
+        {
+            try
+            {
+                await _clientService.DeactivateClientAsync(id);
+                return NoContent();
+            }
+            catch (InvalidOperationException ex) 
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }

@@ -54,18 +54,15 @@ namespace GuardeSoftwareAPI.Dao
         }
 
 
-        public async Task<bool> DeleteClientById(int id)
+        public async Task<bool> DeactivateClientTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
         {
+            string query = "UPDATE clients SET active = 0 WHERE client_id = @Id";
+            SqlParameter[] parameters = [new SqlParameter("@Id", SqlDbType.Int) { Value = clientId }];
 
-            string query = "UPDATE clients SET active = 0 WHERE client_id = @client_id";
-
-            SqlParameter[] parameters =
-            [
-                new("@client_id", SqlDbType.Int){Value = id},
-            ];
-
-            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
-
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.AddRange(parameters);
+            int rows = await command.ExecuteNonQueryAsync();
+            return rows > 0;
         }
 
         public async Task<int> CreateClientAsync(Client client)
@@ -211,7 +208,7 @@ namespace GuardeSoftwareAPI.Dao
                 WHERE c.client_id = @client_id;";
 
             SqlParameter[] parameters = {
-                new SqlParameter("@client_id", SqlDbType.Int) { Value = id },
+                new("@client_id", SqlDbType.Int) { Value = id },
             };
 
             return await accessDB.GetTableAsync("client_details", query, parameters);
@@ -220,24 +217,20 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<bool> ExistsByDniAsync(string dni, SqlConnection connection, SqlTransaction transaction)
         {
             const string query = "SELECT COUNT(1) FROM clients WHERE dni = @dni";
-            using (var command = new SqlCommand(query, connection, transaction))
-            {
-                command.Parameters.Add(new SqlParameter("@dni", SqlDbType.VarChar) { Value = dni });
-                object result = await command.ExecuteScalarAsync();
-                int count = (result != null && result != DBNull.Value) ? Convert.ToInt32(result) : 0;
-                return count > 0;
-            }
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@dni", SqlDbType.VarChar) { Value = dni });
+            object result = await command.ExecuteScalarAsync();
+            int count = (result != null && result != DBNull.Value) ? Convert.ToInt32(result) : 0;
+            return count > 0;
         }
 
         public async Task<bool> ExistsByCuitAsync(string cuit, SqlConnection connection, SqlTransaction transaction)
         {
             const string query = "SELECT COUNT(1) FROM clients WHERE cuit = @cuit";
-            using (var command = new SqlCommand(query, connection, transaction))
-            {
-                command.Parameters.Add(new SqlParameter("@cuit", SqlDbType.VarChar) { Value = cuit });
-                int count = (int)await command.ExecuteScalarAsync();
-                return count > 0;
-            }
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@cuit", SqlDbType.VarChar) { Value = cuit });
+            int count = (int)await command.ExecuteScalarAsync();
+            return count > 0;
         }
 
         //This method returns a tuple with the list of clients and the total count for pagination

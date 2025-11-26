@@ -16,5 +16,7 @@ namespace GuardeSoftwareAPI.Services.rental
         Task<int> CreateRentalTransactionAsync(Rental rental, SqlConnection connection, SqlTransaction transaction);
         Task<Rental?> GetRentalByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction);
         Task<bool> UpdateContractedM3TransactionAsync(int rentalId, decimal newM3, SqlConnection connection, SqlTransaction transaction);
+		Task<int?> GetActiveRentalIdByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction);
+        Task EndActiveRentalByClientIdTransactionAsync(int clientId, DateTime endDate, SqlConnection connection, SqlTransaction transaction);
     }
 }

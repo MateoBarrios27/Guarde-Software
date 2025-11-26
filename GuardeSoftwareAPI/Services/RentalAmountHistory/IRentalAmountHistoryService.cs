@@ -14,5 +14,6 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 		Task<int> CreateRentalAmountHistoryTransactionAsync(RentalAmountHistory rentalAmountHistory, SqlConnection connection, SqlTransaction transaction);
         Task<RentalAmountHistory?> GetLatestRentalAmountHistoryTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction);
         Task EndAndCreateRentalAmountHistoryTransactionAsync(int oldHistoryId, int rentalId, decimal newAmount, DateTime startDate, SqlConnection connection, SqlTransaction transaction);
+		Task CloseOpenHistoriesByRentalIdTransactionAsync(int rentalId, DateTime endDate, SqlConnection connection, SqlTransaction transaction);
     }
 }

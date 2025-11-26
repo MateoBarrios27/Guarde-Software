@@ -154,6 +154,20 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
 
+        public async Task CloseOpenHistoriesByRentalIdTransactionAsync(int rentalId, DateTime endDate, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = "UPDATE rental_amount_history SET end_date = @EndDate WHERE rental_id = @RentalId AND end_date IS NULL";
+            SqlParameter[] parameters = {
+                new SqlParameter("@RentalId", SqlDbType.Int) { Value = rentalId },
+                new SqlParameter("@EndDate", SqlDbType.Date) { Value = endDate }
+            };
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                await command.ExecuteNonQueryAsync();
+            }
+        }
         
     }
 }

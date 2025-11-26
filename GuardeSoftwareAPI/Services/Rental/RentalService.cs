@@ -155,5 +155,15 @@ namespace GuardeSoftwareAPI.Services.rental
              if (newM3 < 0) throw new ArgumentException("Contracted M3 cannot be negative."); // O <= 0 si no puede ser cero
              return await _daoRental.UpdateContractedM3TransactionAsync(rentalId, newM3, connection, transaction);
         }
+
+		public async Task<int?> GetActiveRentalIdByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            return await _daoRental.GetActiveRentalIdByClientIdTransactionAsync(clientId, connection, transaction);
+        }
+
+        public async Task EndActiveRentalByClientIdTransactionAsync(int clientId, DateTime endDate, SqlConnection connection, SqlTransaction transaction)
+        {
+            await _daoRental.EndActiveRentalByClientIdTransactionAsync(clientId, endDate, connection, transaction);
+        }
     }
 }

@@ -282,40 +282,66 @@ export class ClientsComponent implements OnInit {
     this.clientToView = null;
   }
 
-  public openDeactivateClientModal(clientId: number): void {
+  public openDeactivateClientModal(cliente: TableClient): void {
 
-  Swal.fire({
-    title: '¿Estás seguro?',
-    text: "El cliente será marcado como 'Dado de Baja'. Esta acción se puede revertir, pero deberás hacerlo manualmente.",
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33', // Red to confirm
-    cancelButtonColor: '#6B7280', // Grey to cancel
-    confirmButtonText: 'Sí, dar de baja',
-    cancelButtonText: 'Cancelar',
-  }).then((result) => {
-    // 2. Check if the user confirmed the action
-    if (result.isConfirmed) {
-      // 3. Implements the deactivation logic here
-
-      // this.clientService.deactivateClient(clientId).subscribe({
-      //   next: () => {
-      //     // 4. Show success toast
-      //     this.toastMessage = 'Cliente dado de baja exitosamente.';
-      //     this.toastType = 'success';
-      //     this.showToast = true;
-
-      //     this.loadClients(); // Reload the clients list
-      //   },
-      //   error: (err) => {
-      //     // 5. Error
-      //     console.error('Error al dar de baja al cliente:', err);
-      //     this.toastMessage = 'Error al intentar dar de baja al cliente.';
-      //     this.toastType = 'error';
-      //     this.showToast = true;
-      //   },
-      // });
+    // 1. Validación: ¿Tiene lockers?
+    // Si el array de lockers tiene elementos o strings no vacíos
+    if (cliente.lockers && cliente.lockers.length > 0 && cliente.lockers[0] !== '') {
+       Swal.fire({
+        icon: 'error',
+        title: 'No se puede dar de baja',
+        text: `El cliente tiene lockers asignados (${cliente.lockers.join(', ')}). Debes desasignarlos primero editando el cliente.`,
+        confirmButtonColor: '#2563eb'
+      });
+      return;
     }
-  });
+
+    // 2. Advertencia: ¿Tiene deuda?
+    let warningText = "El cliente será marcado como 'Dado de Baja'. Se finalizará su alquiler actual.";
+    let iconType: 'warning' | 'info' = 'warning';
+
+    if (cliente.balance > 0) {
+       const deuda = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(cliente.balance);
+       warningText = `⚠️ ¡ATENCIÓN! El cliente tiene una deuda de ${deuda}. \n\n¿Estás seguro de darlo de baja sin saldar la deuda?`;
+    } else if (cliente.balance < 0) {
+        warningText += "\n\nNota: El cliente tiene saldo a favor.";
+    }
+
+    // 3. Mostrar confirmación
+    Swal.fire({
+      title: '¿Confirmar Baja?',
+      text: warningText,
+      icon: iconType,
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Sí, dar de baja',
+      cancelButtonText: 'Cancelar',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        
+        // 4. Llamar al servicio
+        this.isLoading = true;
+        this.clientService.deactivateClient(cliente.id).subscribe({
+          next: () => {
+            this.isLoading = false;
+            Swal.fire(
+              '¡Dado de Baja!',
+              'El cliente ha sido desactivado exitosamente.',
+              'success'
+            );
+            this.loadClients(); // Recargar tabla
+            // this.loadStatistics(); // Recargar stats (cuando lo tengas)
+          },
+          error: (err) => {
+            this.isLoading = false;
+            console.error('Error al dar de baja:', err);
+            const msg = err.error?.message || 'Ocurrió un error al intentar dar de baja.';
+            Swal.fire('Error', msg, 'error');
+          },
+        });
+      }
+    });
+  }
 }
-}
+
