@@ -13,6 +13,7 @@ import { SidebarComponent } from './shared/components/sidebar/sidebar.component'
 export class AppComponent implements OnInit {
   isSidebarOpen = false;
   pageTitle = '';
+  isLoginRoute = false;
 
   constructor(private router: Router, private activatedRoute: ActivatedRoute) {}
 
@@ -32,6 +33,13 @@ export class AppComponent implements OnInit {
     ).subscribe(title => {
       this.pageTitle = title || 'Dashboard';
     });
+
+    this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe((event: NavigationEnd) => {
+        const url = event.urlAfterRedirects || event.url;
+        this.isLoginRoute = url.startsWith('/login');
+      });
   }
 
   // Esta función será llamada por el botón del menú en el header

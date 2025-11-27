@@ -1,4 +1,4 @@
-<div class="h-screen w-full bg-slate-100 flex overflow-hidden">
+<div *ngIf="!isLoginRoute; else loginOnly" class="h-screen w-full bg-slate-100 flex overflow-hidden">
   
   <app-sidebar
     class="z-0"
@@ -31,3 +31,7 @@
   ></div>
 
 </div>
+
+<ng-template #loginOnly>
+  <router-outlet></router-outlet>
+</ng-template>
