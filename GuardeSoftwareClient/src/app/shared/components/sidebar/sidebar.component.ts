@@ -1,7 +1,8 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { IconComponent } from '../icon/icon.component';
+import { AuthService } from '../../../core/services/auth-service/auth.service';
 
 interface MenuItem {
   path: string;
@@ -16,8 +17,22 @@ interface MenuItem {
   templateUrl: './sidebar.component.html',
 })
 export class SidebarComponent {
+
+  constructor( public authService: AuthService, private router: Router){}
+
+  userName = '';
+  firstName = '';
+  lastName = '';
+  
   @Input() isOpen = false;
   @Output() closeSidebar = new EventEmitter<void>();
+
+  ngOnInit(): void {
+    this.userName = localStorage.getItem('userName') ?? '';
+    this.firstName = localStorage.getItem('firstName') ?? '';
+    this.lastName = localStorage.getItem('lastName') ?? '';
+
+  }
 
   menuItems: MenuItem[] = [
     { path: '/dashboard', title: 'Dashboard', icon: 'layout-dashboard' },
@@ -35,4 +50,10 @@ export class SidebarComponent {
       this.closeSidebar.emit();
     }
   }
+
+  logout() {
+    this.authService.logout();
+    this.router.navigate(['/login']);
+  }
+  
 }

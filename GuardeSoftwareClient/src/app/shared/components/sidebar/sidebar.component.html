@@ -30,8 +30,11 @@
           U
         </div>
         <div>
-          <div class="text-sm font-sans">Admin User</div>
-          <div class="text-xs text-blue-100 font-sans">adminemail.com</div>
+          <div class="text-sm font-sans">{{ userName }}</div>
+          <div class="text-xs text-blue-100 font-sans">{{ firstName + " " + lastName}}</div>
+          <!-- <button (click)="logout()" class="...">
+            Cerrar sesión
+          </button> -->
         </div>
       </div>
     </div>
