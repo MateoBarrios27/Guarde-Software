@@ -1,0 +1,39 @@
+<div class="min-h-screen flex items-center justify-center bg-gray-100">
+  <div class="bg-white shadow-md rounded-lg p-6 w-full max-w-md">
+    <h1 class="text-2xl font-semibold text-center mb-4">Iniciar sesión</h1>
+
+    <form (ngSubmit)="submit()" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Usuario</label>
+        <input
+          type="text"
+          [(ngModel)]="userName"
+          name="userName"
+          class="w-full border rounded-lg px-3 py-2"
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-1">Contraseña</label>
+        <input
+          type="password"
+          [(ngModel)]="password"
+          name="password"
+          class="w-full border rounded-lg px-3 py-2"
+        />
+      </div>
+
+      <div *ngIf="errorMessage" class="text-red-500 text-sm">
+        {{ errorMessage }}
+      </div>
+
+      <button
+        type="submit"
+        [disabled]="loading"
+        class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
+      >
+        {{ loading ? 'Ingresando...' : 'Ingresar' }}
+      </button>
+    </form>
+  </div>
+</div>
