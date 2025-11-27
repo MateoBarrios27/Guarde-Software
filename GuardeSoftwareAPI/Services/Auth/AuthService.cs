@@ -56,11 +56,6 @@ namespace GuardeSoftwareAPI.Services.auth
 
             await _daoUser.CreateUser(businessUser);
 
-            // 3) (Opcional) mapear UserTypeId a Role Identity
-            // Si querés:
-            // var role = dto.UserTypeId == 1 ? "Admin" : "Employee";
-            // await _userManager.AddToRoleAsync(identityUser, role);
-
             // 4) JWT
             var roles = await _userManager.GetRolesAsync(identityUser);
             var token = _jwtTokenGenerator.GenerateToken(identityUser, roles);
@@ -73,18 +68,18 @@ namespace GuardeSoftwareAPI.Services.auth
         }       
 
 
-        public async Task<AuthResponseDto> LoginAsync(LoginRequestDto dto)
+        public async Task<AuthResponseDto?> LoginAsync(LoginRequestDto dto)
         {
             var identityUser =
                 await _userManager.FindByEmailAsync(dto.EmailOrUserName)
                 ?? await _userManager.FindByNameAsync(dto.EmailOrUserName);
 
             if (identityUser == null)
-                throw new Exception("Credenciales inválidas");
+               return null;
 
             var check = await _signInManager.CheckPasswordSignInAsync(identityUser, dto.Password, false);
             if (!check.Succeeded)
-                throw new Exception("Credenciales inválidas");
+                return null;
 
             var table = await _daoUser.GetUserByIdentityUserId(identityUser.Id);
             if (table.Rows.Count == 0)

@@ -25,8 +25,21 @@ namespace GuardeSoftwareAPI.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
         {
-            var response = await _authService.LoginAsync(dto);
-            return Ok(response);
+            try
+            {
+                var auth = await _authService.LoginAsync(dto);
+
+                if (auth == null)
+                {
+                    return Unauthorized("Credenciales inválidas");
+                }
+
+                return Ok(auth);
+            }
+            catch
+            {
+                return StatusCode(500, "Error interno en el login");
+            }
         }
     }
 }
