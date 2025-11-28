@@ -40,7 +40,7 @@ export class SidebarComponent {
     { path: '/finances', title: 'Finanzas', icon: 'dollar-sign' },
     { path: '/communications', title: 'Comunicaciones', icon: 'message-circle' },
     { path: '/lockers', title: 'Bauleras', icon: 'package' },
-    { path: '/statistics', title: 'Estadísitcas', icon: 'file-text' },
+    { path: '/statistics', title: 'Estadísticas', icon: 'file-text' },
     // { path: '/reports', title: 'Reportes', icon: 'file-text' },
     { path: '/settings', title: 'Configuración', icon: 'settings' }
   ];

@@ -10,8 +10,8 @@
       <button 
         (click)="prevMonth()" 
         [disabled]="isLoading"
-        class="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 disabled:opacity-50">
-        <app-icon name="chevron-left" class="h-5 w-5"></app-icon>
+        class="p-2 flex items-center justify-center hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 disabled:opacity-50">
+        <app-icon name="arrow-left" class="h-5 w-5"></app-icon>
       </button>
       
       <div class="px-6 py-1 min-w-[180px] text-center font-semibold text-gray-800 capitalize">
@@ -21,8 +21,8 @@
       <button 
         (click)="nextMonth()" 
         [disabled]="isLoading"
-        class="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 disabled:opacity-50">
-        <app-icon name="chevron-right" class="h-5 w-5"></app-icon>
+        class="p-2 flex items-center justify-center hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 disabled:opacity-50">
+        <app-icon name="arrow-right" class="h-5 w-5"></app-icon>
       </button>
     </div>
   </div>
