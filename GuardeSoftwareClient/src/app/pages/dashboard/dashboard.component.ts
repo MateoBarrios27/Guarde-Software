@@ -340,6 +340,7 @@ export class DashboardComponent {
                   date: this.formatDate(item.paymentDate),
                   clientNumber: Number(item.paymentIdentifier) || 0,
                   amount: item.amount,
+                  clientName: item.clientName ?? ""
                 });
               }
             });

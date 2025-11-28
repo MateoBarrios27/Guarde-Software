@@ -4,6 +4,7 @@ export interface ReceiptData {
   date: string;
   clientNumber: number;
   amount: number;
+  clientName: string;
 }
 
 @Injectable({
@@ -36,7 +37,12 @@ export class PdfGeneratorService {
                   [
                     { text: 'Guarde Lo Que Quiera', bold: true, fontSize: 13, margin: [3, 3, 0, 0] },
                     { text: 'No válido como Factura', fontSize: 7, margin: [3, 3, 0, 0] },
-                    { text: '\nSEÑORES:', alignment: 'left',bold: true, margin: [3, 10, 0, 4]}
+                    { 
+                      text: `SEÑORES: ${data.clientName}`, 
+                      alignment: 'left', 
+                      bold: true, 
+                      margin: [3, 10, 0, 4] 
+                    }
                   ],
                   {
                     text: 'X',
