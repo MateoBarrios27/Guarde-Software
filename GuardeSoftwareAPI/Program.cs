@@ -1,6 +1,5 @@
 using GuardeSoftwareAPI.Dao;
 using System.Data;
-
 using GuardeSoftwareAPI.Services.accountMovement;
 using GuardeSoftwareAPI.Services.activityLog;
 using GuardeSoftwareAPI.Services.address;
@@ -50,7 +49,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAngular",
         policy =>
         {
-            policy.WithOrigins("http://localhost:4200", "http://filgueira.ar") 
+            policy.WithOrigins("http://localhost:4200", "http://filgueira.ar", "http://200.58.127.32") 
                   .AllowAnyHeader()
                   .AllowAnyMethod();
         });

@@ -5,7 +5,7 @@ import {
   Output,
   EventEmitter,
 } from '@angular/core';
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import {
   FormBuilder,
   FormGroup,
@@ -36,7 +36,7 @@ import { BillingTypeService } from '../../../core/services/billingType-service/b
 @Component({
   selector: 'app-create-client-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, IconComponent, DatePipe],
+  imports: [CommonModule, ReactiveFormsModule, IconComponent],
   templateUrl: './create-client-modal.component.html',
 })
 export class CreateClientModalComponent implements OnInit {
