@@ -448,7 +448,6 @@ namespace GuardeSoftwareAPI.Services.client
                 IncreaseFrequencyMonths = Convert.ToInt32(row["increase_frequency_months"]),
                 InitialAmount = row["initial_amount"] != DBNull.Value ? Convert.ToDecimal(row["initial_amount"]) : null,
                 NextIncreaseDay = row["increase_anchor_date"] != DBNull.Value ? Convert.ToDateTime(row["increase_anchor_date"]) : DateTime.MinValue,
-                NextPaymentDay = row["next_payment_day"] != DBNull.Value ? Convert.ToDateTime(row["next_payment_day"]) : DateTime.MinValue,
                 // --- FIN CAMPOS ACTUALIZADOS ---
 
                 ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,

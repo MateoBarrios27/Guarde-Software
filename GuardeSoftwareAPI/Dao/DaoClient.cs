@@ -141,78 +141,76 @@ namespace GuardeSoftwareAPI.Dao
         }
 
         public async Task<DataTable> GetClientDetailByIdAsync(int id)
-        {
-            string query = @"
-                WITH CurrentRentalAmount AS (
-                    SELECT 
-                        rental_id, 
-                        amount as CurrentRent,
-                        rental_amount_history_id AS LastHistoryId,
-                        start_date as LastIncreaseDate,
-                        ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY start_date DESC) as rn
-                    FROM rental_amount_history
-                ),
-                AccountSummary AS (
-                    SELECT
-                        rental_id,
-                        SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END) AS Balance,
-                        MAX(CASE WHEN movement_type = 'DEBITO' THEN movement_date END) AS LastDebitDate
-                    FROM account_movements
-                    GROUP BY rental_id
-                )
-                SELECT 
-                    c.client_id, c.payment_identifier, c.first_name, c.last_name, c.registration_date,
-                    c.dni, c.cuit, c.iva_condition, c.notes,
-                    
-                    c.initial_amount,
-                    c.increase_frequency_months,
-                    
-                    ad.street, ad.city, ad.province,
-                    pm.name AS preferred_payment_method,
-                    bt.billing_type_id,
-                    bt.name AS billing_type,
-                    
-                    r.contracted_m3,
-                    r.increase_anchor_date,
-                    r.months_unpaid,
-                    
-                    cra.CurrentRent AS rent_amount,
-                    cra.LastHistoryId,
-                    cra.LastIncreaseDate,
-                    ISNULL(acc.Balance, 0) AS balance,
-                    
-                    CASE
-                        
-                        WHEN ISNULL(acc.Balance, 0) <= 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
-                        
-                        WHEN cra.CurrentRent IS NULL OR cra.CurrentRent = 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
-                        
-                        ELSE DATEADD(month, 1 + FLOOR(ISNULL(acc.Balance, 0) / cra.CurrentRent), ISNULL(acc.LastDebitDate, r.start_date))
-                    END AS next_payment_day,
+{
+    string query = @"
+        WITH CurrentRentalAmount AS (
+            SELECT 
+                rental_id, 
+                amount as CurrentRent,
+                start_date as LastIncreaseDate,
+                ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY start_date DESC) as rn
+            FROM rental_amount_history
+        ),
+        AccountSummary AS (
+            SELECT
+                rental_id,
+                SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END) AS Balance,
+                MAX(CASE WHEN movement_type = 'DEBITO' THEN movement_date END) AS LastDebitDate
+            FROM account_movements
+            GROUP BY rental_id
+        )
+        SELECT 
+            c.client_id, c.payment_identifier, c.first_name, c.last_name, c.registration_date,
+            c.dni, c.cuit, c.iva_condition, c.notes,
+            
+            -- CAMPOS NUEVOS SOLICITADOS
+            c.initial_amount, 
+            c.increase_frequency_months,
+            
+            ad.street, ad.city, ad.province,
+            pm.name AS preferred_payment_method,
+            bt.billing_type_id,
+            bt.name AS billing_type,
+            
+            r.contracted_m3,
+            r.increase_anchor_date, -- Se mapeará a NextIncreaseDay
+            r.months_unpaid,
+            
+            cra.CurrentRent AS rent_amount,
+            ISNULL(acc.Balance, 0) AS balance,
+            
+            -- CÁLCULO DE NEXT PAYMENT DAY
+            CASE
+                -- Si no debe nada, el próximo pago es el 10 del mes siguiente
+                WHEN ISNULL(acc.Balance, 0) <= 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
+                -- Si debe, calculamos en base al último débito
+                ELSE DATEADD(month, 1, ISNULL(acc.LastDebitDate, GETDATE()))
+            END AS next_payment_day,
 
-                    CASE 
-                        WHEN c.active = 0 THEN 'Baja'
-                        WHEN r.months_unpaid > 0 THEN 'Moroso'
-                        WHEN ISNULL(acc.Balance, 0) > 0 THEN 'Pendiente'
-                        ELSE 'Al día'
-                    END AS payment_status
-                    
-                FROM 
-                    clients c
-                LEFT JOIN addresses ad ON c.client_id = ad.client_id
-                LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
-                LEFT JOIN billing_types bt ON c.billing_type_id = bt.billing_type_id
-                LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1 
-                LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
-                LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id AND cra.rn = 1
-                WHERE c.client_id = @client_id;";
+            -- ESTADO
+            CASE 
+                WHEN c.active = 0 THEN 'Baja'
+                WHEN r.months_unpaid > 0 THEN 'Moroso'
+                WHEN ISNULL(acc.Balance, 0) > 0 THEN 'Pendiente'
+                ELSE 'Al día'
+            END AS payment_status
+            
+        FROM 
+            clients c
+        LEFT JOIN addresses ad ON c.client_id = ad.client_id
+        LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
+        LEFT JOIN billing_types bt ON c.billing_type_id = bt.billing_type_id
+        LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1 
+        LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
+        LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id AND cra.rn = 1
+        WHERE c.client_id = @client_id;";
 
-            SqlParameter[] parameters = {
-                new("@client_id", SqlDbType.Int) { Value = id },
-            };
+    SqlParameter[] parameters = {
+        new SqlParameter("@client_id", SqlDbType.Int) { Value = id },
+    };
 
-            return await accessDB.GetTableAsync("client_details", query, parameters);
-        }
+    return await accessDB.GetTableAsync("client_details", query, parameters);
+}
 
         public async Task<bool> ExistsByDniAsync(string dni, SqlConnection connection, SqlTransaction transaction)
         {
