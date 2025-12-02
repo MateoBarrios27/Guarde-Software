@@ -70,6 +70,34 @@ namespace GuardeSoftwareAPI.Services.communication
                         // Step 3: Insert all recipients
                         await _communicationDao.InsertCommunicationRecipientsAsync(newId, request.Recipients, connection, transaction);
 
+                        if (request.Attachments != null && request.Attachments.Count > 0)
+                        {
+                            var savedAttachments = new List<AttachmentDto>();
+                            // Definir ruta. En Linux VPS asegúrate que wwwroot/uploads tenga permisos (chmod 755)
+                            string uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "communications");
+                            if (!Directory.Exists(uploadFolder)) Directory.CreateDirectory(uploadFolder);
+
+                            foreach (var file in request.Attachments)
+                            {
+                                string uniqueName = $"{Guid.NewGuid()}_{file.FileName}";
+                                string filePath = Path.Combine(uploadFolder, uniqueName);
+
+                                using (var stream = new FileStream(filePath, FileMode.Create))
+                                {
+                                    await file.CopyToAsync(stream);
+                                }
+
+                                savedAttachments.Add(new AttachmentDto {
+                                    FileName = file.FileName,
+                                    FilePath = filePath,
+                                    ContentType = file.ContentType
+                                });
+                            }
+                            
+                            // Guardar referencia en BD
+                            await _communicationDao.InsertAttachmentsAsync(newId, savedAttachments, connection, transaction);
+                        }
+
                         // --- End Transaction ---
 
                         // If all steps succeeded, commit the transaction

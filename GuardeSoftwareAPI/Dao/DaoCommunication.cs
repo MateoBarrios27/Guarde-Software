@@ -220,15 +220,16 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT 
                     c.client_id AS Id,
                     c.first_name + ' ' + c.last_name AS Name,
-                    (SELECT TOP 1 e.address 
-                     FROM emails e 
-                     WHERE e.client_id = c.client_id AND e.active = 1) AS Email,
-                    (SELECT TOP 1 p.number 
-                     FROM phones p 
-                     WHERE p.client_id = c.client_id AND p.whatsapp = 1 AND p.active = 1) AS Phone
+                    (SELECT TOP 1 e.address FROM emails e WHERE e.client_id = c.client_id AND e.active = 1) AS Email,
+                    (SELECT TOP 1 p.number FROM phones p WHERE p.client_id = c.client_id AND p.whatsapp = 1 AND p.active = 1) AS Phone
                 FROM clients c
                 JOIN communication_recipients cr ON c.client_id = cr.client_id
-                WHERE cr.communication_id = @Id AND c.active = 1";
+                WHERE cr.communication_id = @Id AND c.active = 1
+                AND c.client_id NOT IN (
+                    SELECT client_id FROM dispatches 
+                    WHERE comm_channel_content_id IN (SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id)
+                    AND status = 'Exitoso'
+                )";
             
             var parameters = new[] { new SqlParameter("@Id", communicationId) };
             DataTable table = await _accessDB.GetTableAsync("Recipients", query, parameters);
@@ -377,5 +378,60 @@ namespace GuardeSoftwareAPI.Dao
         // Note: The main 'Update' (for edit) is complex because it uses a transaction
         // to delete old channels/recipients and add new ones.
         // We will add this logic in the *Service* layer.
+
+        public async Task<SmtpSettingsModel?> GetSmtpSettingsAsync(int communicationId)
+        {
+            string query = @"
+                SELECT s.host, s.port, s.email, s.password, s.use_ssl 
+                FROM smtp_configurations s
+                JOIN communications c ON c.smtp_configuration_id = s.smtp_id
+                WHERE c.communication_id = @Id";
+            
+            var dt = await _accessDB.GetTableAsync("Smtp", query, [new SqlParameter("@Id", communicationId)]);
+            if (dt.Rows.Count > 0) {
+                var row = dt.Rows[0];
+                return new SmtpSettingsModel {
+                    Host = row["host"].ToString(),
+                    Port = Convert.ToInt32(row["port"]),
+                    Email = row["email"].ToString(),
+                    Password = row["password"].ToString(),
+                    UseSsl = Convert.ToBoolean(row["use_ssl"])
+                };
+            }
+            return null; // Si null, el Job usará el default de appsettings
+        }
+
+        // Método para obtener adjuntos para el Job
+        public async Task<List<AttachmentDto>> GetAttachmentsAsync(int communicationId)
+        {
+            string query = "SELECT file_name, file_path, content_type FROM communication_attachments WHERE communication_id = @Id";
+            var dt = await _accessDB.GetTableAsync("Att", query, new[] { new SqlParameter("@Id", communicationId) });
+            var list = new List<AttachmentDto>();
+            foreach(DataRow row in dt.Rows) {
+                list.Add(new AttachmentDto {
+                    FileName = row["file_name"].ToString(),
+                    FilePath = row["file_path"].ToString(),
+                    ContentType = row["content_type"].ToString()
+                });
+            }
+            return list;
+        }
+
+        // Insertar adjuntos (Se llama desde el Service dentro de la transacción)
+        public async Task InsertAttachmentsAsync(int communicationId, List<AttachmentDto> attachments, SqlConnection conn, SqlTransaction trans)
+        {
+            string query = "INSERT INTO communication_attachments (communication_id, file_name, file_path, content_type) VALUES (@Id, @Name, @Path, @Type)";
+            foreach(var att in attachments) {
+                using(var cmd = new SqlCommand(query, conn, trans)) {
+                    cmd.Parameters.AddWithValue("@Id", communicationId);
+                    cmd.Parameters.AddWithValue("@Name", att.FileName);
+                    cmd.Parameters.AddWithValue("@Path", att.FilePath);
+                    cmd.Parameters.AddWithValue("@Type", att.ContentType ?? "");
+                    await cmd.ExecuteNonQueryAsync();
+                }
+            }
+        }
+
+        
     }
 }

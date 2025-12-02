@@ -22,8 +22,27 @@ export class CommunicationService {
     return this.http.get<IClientCommunication[]>(`${this.url}/Communications/client/${clientId}`);
   }
 
-  createCommunication(request: UpsertComunicacionRequest): Observable<ComunicacionDto> {
-    return this.http.post<ComunicacionDto>(`${this.url}/Communications`, request);
+  createCommunication(request: any, files: File[]): Observable<ComunicacionDto> {
+    const formData = new FormData();
+    
+    // Agregar campos simples
+    formData.append('title', request.title);
+    formData.append('content', request.content);
+    formData.append('type', request.type);
+    if(request.sendDate) formData.append('sendDate', request.sendDate);
+    if(request.sendTime) formData.append('sendTime', request.sendTime);
+    if(request.smtpConfigId) formData.append('smtpConfigId', request.smtpConfigId.toString());
+
+    // Agregar Arrays (ASP.NET espera formato 'channels[0]', 'channels[1]' o claves repetidas 'channels')
+    request.channels.forEach((c: string) => formData.append('channels', c));
+    request.recipients.forEach((r: string) => formData.append('recipients', r));
+
+    // Agregar Archivos
+    files.forEach(file => {
+      formData.append('attachments', file, file.name);
+    });
+
+    return this.http.post<ComunicacionDto>(`${this.url}/Communications`, formData);
   }
 
   updateCommunication(id: number, request: UpsertComunicacionRequest): Observable<ComunicacionDto> {
@@ -38,4 +57,8 @@ export class CommunicationService {
     // Endpoint especial para forzar el envío de un borrador
     return this.http.post<ComunicacionDto>(`${this.url}/Communications/${id}/send`, {});
   }
+
+  getSmtpConfigs(): Observable<any[]> {
+  return this.http.get<any[]>(`${this.url}/Communications/smtp-configs`);
+}
 }

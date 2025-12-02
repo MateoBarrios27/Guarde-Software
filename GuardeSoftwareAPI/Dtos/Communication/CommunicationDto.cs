@@ -14,13 +14,15 @@ public class CommunicationDto
 }
     
     public class UpsertCommunicationRequest
-    {
-        public int? Id { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string Content { get; set; } = string.Empty;
-        public string? SendDate { get; set; }
-        public string? SendTime { get; set; }
-        public List<string> Channels { get; set; } = []; // ["Email", "WhatsApp"]
-        public List<string> Recipients { get; set; } = []; // ["All Clients", "John Doe"]
-        public string Type { get; set; } = string.Empty; // "schedule" or "draft"
-    }
+{
+    public int? Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public string? SendDate { get; set; }
+    public string? SendTime { get; set; }
+    public string Type { get; set; } = string.Empty; // 'schedule' | 'draft'
+    public int? SmtpConfigId { get; set; }
+    public List<string> Channels { get; set; } = [];
+    public List<string> Recipients { get; set; } = [];
+    public List<IFormFile>? Attachments { get; set; }
+}

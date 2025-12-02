@@ -49,7 +49,7 @@ namespace GuardeSoftwareAPI.Jobs
                 var emailChannel = channels.FirstOrDefault(c => c.ChannelName == "Email");
                 if (emailChannel != null)
                 {
-                    await ProcessEmailChannel(emailChannel, recipients, errorLog);
+                    await ProcessEmailChannel(emailChannel, recipients, errorLog, comunicadoId);
                 }
 
                 // Step 4: Send via WhatsApp (if configured)
@@ -77,37 +77,36 @@ namespace GuardeSoftwareAPI.Jobs
         /// <summary>
         /// Connects to SMTP and sends all emails.
         /// </summary>
-        private async Task ProcessEmailChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog)
+        private async Task ProcessEmailChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog, int communicationId)
         {
-            var smtpSettings = _config.GetSection("SmtpSettings");
-            using var smtp = new SmtpClient();
+            // 1. Obtener Config SMTP Dinámica
+            var dbSmtp = await _communicationDao.GetSmtpSettingsAsync(communicationId);
+            
+            // 2. Obtener Adjuntos
+            var attachments = await _communicationDao.GetAttachmentsAsync(communicationId);
 
+            using var smtp = new SmtpClient();
             try
             {
-                smtp.ServerCertificateValidationCallback = (s, c, h, e) => true;
-                // Connect once
-                await smtp.ConnectAsync(
-                    smtpSettings["Server"],
-                    int.Parse(smtpSettings["Port"]!),
-                    bool.Parse(smtpSettings["UseSsl"]!)
-                );
-                await smtp.AuthenticateAsync(smtpSettings["SenderEmail"], smtpSettings["Password"]);
+                // Usar DB settings o fallback a appsettings
+                string host = dbSmtp?.Host ?? _config["SmtpSettings:Server"];
+                int port = dbSmtp?.Port ?? int.Parse(_config["SmtpSettings:Port"]);
+                string email = dbSmtp?.Email ?? _config["SmtpSettings:SenderEmail"];
+                string password = dbSmtp?.Password ?? _config["SmtpSettings:Password"];
+                bool ssl = dbSmtp?.UseSsl ?? bool.Parse(_config["SmtpSettings:UseSsl"]);
 
-                // Loop and send
+                smtp.CheckCertificateRevocation = false;
+                smtp.ServerCertificateValidationCallback = (s, c, h, e) => true;
+
+                await smtp.ConnectAsync(host, port, ssl);
+                await smtp.AuthenticateAsync(email, password);
+
                 foreach (var recipient in recipients)
                 {
-                    if (string.IsNullOrEmpty(recipient.Email))
-                    {
-                        await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", "Client has no email address");
-                        continue;
-                    }
-
                     try
                     {
-                        var message = CreateEmailMessage(channel, recipient, smtpSettings);
+                        var message = CreateEmailMessage(channel, recipient, email, attachments); // Pasamos adjuntos
                         string response = await smtp.SendAsync(message);
-                        
-                        // Log success
                         await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Exitoso", response);
                     }
                     catch (Exception ex)
@@ -174,23 +173,28 @@ namespace GuardeSoftwareAPI.Jobs
         /// <summary>
         /// Helper to build the MimeMessage for MailKit.
         /// </summary>
-        private MimeMessage CreateEmailMessage(ChannelForSendingDto channel, RecipientForSendingDto recipient, IConfigurationSection settings)
+        private MimeMessage CreateEmailMessage(ChannelForSendingDto channel, RecipientForSendingDto recipient, string senderEmail, List<AttachmentDto> attachments)
         {
             var message = new MimeMessage();
-            message.From.Add(new MailboxAddress(settings["SenderName"], settings["SenderEmail"]));
+            message.From.Add(new MailboxAddress("GuardeSoftware", senderEmail));
             message.To.Add(new MailboxAddress(recipient.Name, recipient.Email));
-            message.Subject = channel.Subject ?? "Notification from GuardeSoftware";
+            message.Subject = channel.Subject;
 
-            // TODO: Replace placeholders in content
-            // var personalizedContent = channel.Content.Replace("{{NombreCliente}}", recipient.Name);
-            var personalizedContent = channel.Content; // Using raw content for now
+            var builder = new BodyBuilder { HtmlBody = channel.Content };
 
-            var bodyBuilder = new BodyBuilder
+            // AGREGAR ADJUNTOS
+            if (attachments != null)
             {
-                HtmlBody = personalizedContent
-            };
-            message.Body = bodyBuilder.ToMessageBody();
-            
+                foreach (var att in attachments)
+                {
+                    if (File.Exists(att.FilePath))
+                    {
+                        builder.Attachments.Add(att.FilePath);
+                    }
+                }
+            }
+
+            message.Body = builder.ToMessageBody();
             return message;
         }
     }

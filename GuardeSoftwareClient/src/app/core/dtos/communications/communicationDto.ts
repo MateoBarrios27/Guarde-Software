@@ -15,6 +15,7 @@ export interface ComunicacionDto {
   // CORRECCIÓN: Los estados deben ser los que envía el backend
   status: 'Draft' | 'Scheduled' | 'Processing' | 'Finished' | 'Finished w/ Errors' | 'Failed';
   creationDate: string;
+  smtpConfigId?: number | null;
 }
 
 /**
@@ -30,4 +31,5 @@ export interface UpsertComunicacionRequest {
   recipients: string[];
   // CORRECCIÓN: El tipo debe ser el que espera el backend
   type: 'schedule' | 'draft';
+  smtpConfigId?: number | null;
 }

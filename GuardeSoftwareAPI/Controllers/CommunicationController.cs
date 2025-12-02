@@ -40,7 +40,7 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateCommunication([FromBody] UpsertCommunicationRequest request)
+        public async Task<IActionResult> CreateCommunication([FromForm] UpsertCommunicationRequest request)
         {
             try
             {

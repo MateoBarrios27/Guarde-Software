@@ -31,6 +31,7 @@ interface FormDataState {
   channels: ('Email' | 'WhatsApp')[];
   recipients: string[];
   type: 'programar' | 'borrador'; // This is for the form's radio button (Spanish UI)
+  smtpConfigId?: number | null
 }
 
 /** State for the notification toast */
@@ -64,6 +65,8 @@ export class CommunicationsComponent implements OnInit {
   searchResults = signal<string[]>([]);
   isSearchFocused = signal(false);
   private searchSubject = new Subject<string>();
+  selectedFiles = signal<File[]>([]);
+  smtpConfigs = signal<any[]>([]);
   
   // --- Inyectar DomSanitizer ---
   constructor(
@@ -133,7 +136,8 @@ export class CommunicationsComponent implements OnInit {
     sendTime: '',
     channels: [],
     recipients: [],
-    type: 'programar'
+    type: 'programar',
+    smtpConfigId: null
   });
   
   currentModal = signal<'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm' | 'none'>('none');
@@ -197,7 +201,8 @@ export class CommunicationsComponent implements OnInit {
       sendTime: '',
       channels: [],
       recipients: [],
-      type: 'programar'
+      type: 'programar',
+      smtpConfigId: null
     });
   }
 
@@ -229,7 +234,8 @@ export class CommunicationsComponent implements OnInit {
         sendTime: isResend ? '' : (communication.sendTime || ''),
         channels: channelsArray,
         recipients: [...communication.recipients],
-        type: isResend ? 'programar' : formType
+        type: isResend ? 'programar' : formType,
+        smtpConfigId: communication.smtpConfigId || null
       });
       
       if (isResend) finalModalType = 'add';
@@ -259,7 +265,7 @@ export class CommunicationsComponent implements OnInit {
       type: data.type === 'programar' ? 'schedule' : 'draft'
     };
 
-    this.commService.createCommunication(request).subscribe({
+    this.commService.createCommunication(data, this.selectedFiles()).subscribe({
       next: (newCommunication) => {
         this.communications.update(comms => [newCommunication, ...comms]);
         this.closeModal();
@@ -405,5 +411,18 @@ export class CommunicationsComponent implements OnInit {
     const html = this.selectedCommunication()?.content || '';
     // Confía en el HTML que viene de la base de datos (que fue generado por Quill)
     return this.sanitizer.bypassSecurityTrustHtml(html);
+  }
+
+  onFileSelected(event: any): void {
+    const files = event.target.files;
+    if (files) {
+      // Convertir FileList a Array
+      const fileArray = Array.from(files) as File[];
+      this.selectedFiles.update(current => [...current, ...fileArray]);
+    }
+  }
+
+  removeFile(index: number): void {
+    this.selectedFiles.update(files => files.filter((_, i) => i !== index));
   }
 }
