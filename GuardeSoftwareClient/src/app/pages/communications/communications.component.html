@@ -464,8 +464,10 @@
         <app-icon name="Send" class="h-4 w-4"></app-icon>
       </button>
       } @else if (isPast) {
-      <button (click)="openModal('add', comm, true)" title="Reenviar comunicado"
-        class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition">
+      <button *ngIf="comm.status === 'Failed' || comm.status === 'Finished w/ Errors'" 
+              (click)="retryCommunication(comm)" 
+              title="Reintentar fallidos"
+              class="flex-1 flex justify-center items-center p-2 rounded-full text-orange-600 hover:bg-orange-100 transition">
         <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
       </button>
       } 

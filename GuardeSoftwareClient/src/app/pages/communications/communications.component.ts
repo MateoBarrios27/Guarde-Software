@@ -79,6 +79,7 @@ export class CommunicationsComponent implements OnInit {
     this.loadCommunications();
     this.loadRecipientOptions();
     this.setupSearchDebounce();  
+    this.loadSmtpConfigs();
   }
 
   loadCommunications(): void {
@@ -251,29 +252,20 @@ export class CommunicationsComponent implements OnInit {
   }
 
   addCommunication(): void {
-    const data = this.formData();
-    if (!this.isFormValid()) { return; }
+    const data = this.formData();
+    if (!this.isFormValid()) { return; }
 
-    const request: UpsertComunicacionRequest = {
-      id: null,
-      title: data.title,
-      content: data.content, // Se envía el HTML
-      sendDate: data.type === 'programar' ? data.sendDate : null,
-      sendTime: data.type === 'programar' ? data.sendTime : null,
-      channels: data.channels,
-      recipients: data.recipients,
-      type: data.type === 'programar' ? 'schedule' : 'draft'
-    };
-
-    this.commService.createCommunication(data, this.selectedFiles()).subscribe({
-      next: (newCommunication) => {
-        this.communications.update(comms => [newCommunication, ...comms]);
-        this.closeModal();
-        this.showToast('¡Comunicado creado!', data.type === 'programar' ? `Se programó el envío` : 'Guardado como borrador', '📨', 'success');
-      },
-      error: (err) => this.showToast('Error', 'No se pudo crear el comunicado', '❌', 'error')
-    });
-  }
+    // Aquí llamamos al servicio pasando Data + Archivos
+    this.commService.createCommunication(data, this.selectedFiles()).subscribe({
+      next: (newCommunication) => {
+        this.communications.update(comms => [newCommunication, ...comms]);
+        this.closeModal();
+        this.showToast('¡Comunicado creado!', 'Se guardó correctamente', '📨', 'success');
+        this.selectedFiles.set([]); // Limpiar archivos tras éxito
+      },
+      error: (err) => this.showToast('Error', 'No se pudo crear el comunicado', '❌', 'error')
+    });
+  }
 
   editCommunication(): void {
     const data = this.formData();
@@ -413,10 +405,20 @@ export class CommunicationsComponent implements OnInit {
     return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
+  loadSmtpConfigs(): void {
+    this.commService.getAllSmtpConfigs().subscribe({
+        next: (configs) => {
+            this.smtpConfigs.set(configs);
+            // Opcional: Si quieres pre-seleccionar el primero
+            // if (configs.length > 0) this.updateFormField('smtpConfigId', configs[0].id);
+        },
+        error: () => console.error('No se pudieron cargar las configuraciones SMTP')
+    });
+  }
+
   onFileSelected(event: any): void {
     const files = event.target.files;
     if (files) {
-      // Convertir FileList a Array
       const fileArray = Array.from(files) as File[];
       this.selectedFiles.update(current => [...current, ...fileArray]);
     }
@@ -424,5 +426,17 @@ export class CommunicationsComponent implements OnInit {
 
   removeFile(index: number): void {
     this.selectedFiles.update(files => files.filter((_, i) => i !== index));
+  }
+
+  retryCommunication(comm: ComunicacionDto): void {
+      if(!confirm('¿Reintentar envíos fallidos?')) return;
+      
+      this.commService.retryCommunication(comm.id).subscribe({
+          next: (updated) => {
+             this.communications.update(list => list.map(c => c.id === updated.id ? updated : c));
+             this.showToast('Procesando', 'Reintento iniciado', 'refresh-cw', 'success');
+          },
+          error: () => this.showToast('Error', 'Falló el reintento', 'alert-triangle', 'error')
+      });
   }
 }

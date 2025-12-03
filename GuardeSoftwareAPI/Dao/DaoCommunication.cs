@@ -1,5 +1,4 @@
 using GuardeSoftwareAPI.Dtos.Communication;
-
 using GuardeSoftwareAPI.Dao;
 using Microsoft.Data.SqlClient;
 using System.Data;
@@ -16,7 +15,8 @@ namespace GuardeSoftwareAPI.Dao
             _accessDB = accessDB;
         }
 
-        // --- UPDATED to new schema ---
+        #region 1. Consultas Principales (Grid y Detalles)
+
         private const string GET_COMMUNICATIONS_QUERY = @"
             SELECT 
                 c.communication_id AS Id,
@@ -27,12 +27,15 @@ namespace GuardeSoftwareAPI.Dao
                 c.status AS Status,
                 FORMAT(c.creation_date, 'yyyy-MM-dd') AS CreationDate,
                 
+                -- Nombre de la configuración SMTP usada (si existe)
+                (SELECT name FROM smtp_configurations WHERE smtp_id = c.smtp_configuration_id) AS SmtpName,
+                c.smtp_configuration_id AS SmtpConfigId,
+
                 (SELECT STRING_AGG(chan.name, ' + ') 
                  FROM communication_channel_content ccc
                  JOIN communication_channels chan ON ccc.channel_id = chan.channel_id
                  WHERE ccc.communication_id = c.communication_id) AS Channel,
                 
-                -- Fixed to use STRING_AGG for simplicity
                 ISNULL(
                     (SELECT STRING_AGG(cl.first_name + ' ' + cl.last_name, ',')
                      FROM communication_recipients cr
@@ -70,29 +73,51 @@ namespace GuardeSoftwareAPI.Dao
             return MapDataRowToDto(table.Rows[0]);
         }
 
-        #region Transactional Methods (Updated)
+        private CommunicationDto MapDataRowToDto(DataRow row)
+        {
+            var recipientsCsv = row["RecipientsCsv"].ToString() ?? "";
 
-        // --- UPDATED to new schema ---
+            return new CommunicationDto
+            {
+                Id = Convert.ToInt32(row["Id"]),
+                Title = row["Title"]?.ToString() ?? "",
+                Content = row["Content"] is DBNull ? "" : row["Content"].ToString(),
+                SendDate = row["SendDate"] is DBNull ? null : row["SendDate"].ToString(),
+                SendTime = row["SendTime"] is DBNull ? null : row["SendTime"].ToString(),
+                Status = row["Status"]?.ToString() ?? "Draft",
+                CreationDate = row["CreationDate"]?.ToString() ?? "",
+                Channel = row["Channel"]?.ToString() ?? "",
+                SmtpConfigId = row["SmtpConfigId"] is DBNull ? null : (int?)row["SmtpConfigId"],
+                Recipients = string.IsNullOrEmpty(recipientsCsv)
+                             ? new List<string>()
+                             : recipientsCsv.Split(',').ToList()
+            };
+        }
+
+        #endregion
+
+        #region 2. Métodos Transaccionales (Insert / Update)
+
         public async Task<int> InsertCommunicationAsync(UpsertCommunicationRequest request, int userId, DateTime? scheduledAt, string status, SqlConnection connection, SqlTransaction transaction)
         {
             string query = @"
-                INSERT INTO communications (creator_user_id, title, creation_date, scheduled_date, status)
+                INSERT INTO communications (creator_user_id, title, creation_date, scheduled_date, status, smtp_configuration_id)
                 OUTPUT INSERTED.communication_id
-                VALUES (@CreatorUserId, @Title, GETDATE(), @ScheduledDate, @Status);";
+                VALUES (@CreatorUserId, @Title, GETDATE(), @ScheduledDate, @Status, @SmtpConfigId);";
             
             using (SqlCommand command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.AddWithValue("@CreatorUserId", userId);
                 command.Parameters.AddWithValue("@Title", request.Title);
                 command.Parameters.AddWithValue("@ScheduledDate", (object)scheduledAt ?? DBNull.Value);
-                command.Parameters.AddWithValue("@Status", status); // 'Draft' or 'Scheduled'
+                command.Parameters.AddWithValue("@Status", status); 
+                command.Parameters.AddWithValue("@SmtpConfigId", (object)request.SmtpConfigId ?? DBNull.Value);
 
                 object result = await command.ExecuteScalarAsync();
                 return Convert.ToInt32(result);
             }
         }
 
-        // --- UPDATED to new schema ---
         public async Task<bool> InsertCommunicationChannelAsync(int communicationId, string channelName, UpsertCommunicationRequest request, SqlConnection connection, SqlTransaction transaction)
         {
             string query = @"
@@ -107,7 +132,7 @@ namespace GuardeSoftwareAPI.Dao
             using (SqlCommand command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.AddWithValue("@CommunicationId", communicationId);
-                command.Parameters.AddWithValue("@ChannelName", channelName); // "Email" or "WhatsApp"
+                command.Parameters.AddWithValue("@ChannelName", channelName); 
                 command.Parameters.AddWithValue("@Subject", channelName == "Email" ? (object)request.Title : DBNull.Value);
                 command.Parameters.AddWithValue("@Content", request.Content);
                 
@@ -116,9 +141,30 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
 
-        // --- UPDATED to new schema (and uses your account_movements logic) ---
+        // Inserta Metadatos de Archivos Adjuntos
+        public async Task InsertAttachmentsAsync(int communicationId, List<AttachmentDto> attachments, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = @"
+                INSERT INTO communication_attachments (communication_id, file_name, file_path, content_type) 
+                VALUES (@Id, @Name, @Path, @Type)";
+            
+            foreach(var att in attachments) 
+            {
+                using(var cmd = new SqlCommand(query, connection, transaction)) 
+                {
+                    cmd.Parameters.AddWithValue("@Id", communicationId);
+                    cmd.Parameters.AddWithValue("@Name", att.FileName);
+                    cmd.Parameters.AddWithValue("@Path", att.FilePath);
+                    cmd.Parameters.AddWithValue("@Type", att.ContentType ?? "");
+                    await cmd.ExecuteNonQueryAsync();
+                }
+            }
+        }
+
         public async Task<bool> InsertCommunicationRecipientsAsync(int communicationId, List<string> recipients, SqlConnection connection, SqlTransaction transaction)
         {
+            // Lógica para desglosar grupos (Todos, Morosos, etc) y nombres individuales
+            // Usando tu lógica de AccountBalance
             string query = @"
                 WITH AccountBalance AS (
                     SELECT 
@@ -149,7 +195,6 @@ namespace GuardeSoftwareAPI.Dao
             var individualNames = recipients.Where(r => 
                 !r.Equals("Todos los clientes", StringComparison.OrdinalIgnoreCase) && 
                 !r.Equals("Clientes morosos", StringComparison.OrdinalIgnoreCase) &&
-                !r.Equals("Clientes con deuda", StringComparison.OrdinalIgnoreCase) &&
                 !r.Equals("Clientes al día", StringComparison.OrdinalIgnoreCase)
             ).ToList();
             
@@ -166,11 +211,26 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
 
+        public async Task<bool> DeleteCommunicationAsync(int communicationId)
+        {
+            // Borrado en cascada manual por seguridad
+            string query = @"
+                DELETE FROM dispatches WHERE comm_channel_content_id IN (SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id);
+                DELETE FROM communication_recipients WHERE communication_id = @Id;
+                DELETE FROM communication_attachments WHERE communication_id = @Id; -- Borra adjuntos
+                DELETE FROM communication_channel_content WHERE communication_id = @Id;
+                DELETE FROM communications WHERE communication_id = @Id;
+            ";
+            
+            var parameters = new[] { new SqlParameter("@Id", communicationId) };
+            int rows = await _accessDB.ExecuteCommandAsync(query, parameters);
+            return rows > 0;
+        }
+
         #endregion
 
-        #region Job Support Methods (Updated)
+        #region 3. Métodos de Soporte para el JOB (Envío)
 
-        // --- UPDATED to new schema ---
         public async Task UpdateCommunicationStatusAsync(int communicationId, string status)
         {
             string query = "UPDATE communications SET status = @Status WHERE communication_id = @Id";
@@ -181,8 +241,22 @@ namespace GuardeSoftwareAPI.Dao
             };
             await _accessDB.ExecuteCommandAsync(query, parameters);
         }
+        
+        // Usado para "Enviar Ahora" y "Reintentar"
+        public async Task<bool> UpdateCommunicationStatusAndDateAsync(int communicationId, string status, DateTime scheduledDate)
+        {
+            string query = "UPDATE communications SET status = @Status, scheduled_date = @Date WHERE communication_id = @Id";
+            var parameters = new[]
+            {
+                new SqlParameter("@Status", status),
+                new SqlParameter("@Date", scheduledDate),
+                new SqlParameter("@Id", communicationId)
+            };
+            int rows = await _accessDB.ExecuteCommandAsync(query, parameters);
+            return rows > 0;
+        }
 
-        // --- UPDATED to new schema ---
+        // Obtener Canales y contenido
         public async Task<List<ChannelForSendingDto>> GetChannelsForSendingAsync(int communicationId)
         {
             var channels = new List<ChannelForSendingDto>();
@@ -212,22 +286,33 @@ namespace GuardeSoftwareAPI.Dao
             return channels;
         }
 
-        // --- UPDATED to new schema (using your tables) ---
+        // Obtener Destinatarios (CON LOGICA DE REINTENTO)
         public async Task<List<RecipientForSendingDto>> GetRecipientsForSendingAsync(int communicationId)
         {
             var recipients = new List<RecipientForSendingDto>();
+            
+            // Esta query excluye a los clientes que ya tienen un registro 'Exitoso' en la tabla dispatches
+            // para esta comunicación. Esto permite que el Job funcione como "Enviar Todo" y "Reintentar Fallidos".
             string query = @"
-                SELECT 
+                SELECT DISTINCT
                     c.client_id AS Id,
                     c.first_name + ' ' + c.last_name AS Name,
-                    (SELECT TOP 1 e.address FROM emails e WHERE e.client_id = c.client_id AND e.active = 1) AS Email,
-                    (SELECT TOP 1 p.number FROM phones p WHERE p.client_id = c.client_id AND p.whatsapp = 1 AND p.active = 1) AS Phone
+                    (SELECT TOP 1 e.address 
+                     FROM emails e 
+                     WHERE e.client_id = c.client_id AND e.active = 1) AS Email,
+                    (SELECT TOP 1 p.number 
+                     FROM phones p 
+                     WHERE p.client_id = c.client_id AND p.whatsapp = 1 AND p.active = 1) AS Phone
                 FROM clients c
                 JOIN communication_recipients cr ON c.client_id = cr.client_id
                 WHERE cr.communication_id = @Id AND c.active = 1
                 AND c.client_id NOT IN (
                     SELECT client_id FROM dispatches 
-                    WHERE comm_channel_content_id IN (SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id)
+                    WHERE comm_channel_content_id IN (
+                        SELECT comm_channel_content_id 
+                        FROM communication_channel_content 
+                        WHERE communication_id = @Id
+                    )
                     AND status = 'Exitoso'
                 )";
             
@@ -247,14 +332,56 @@ namespace GuardeSoftwareAPI.Dao
             return recipients;
         }
 
-        // --- UPDATED to new schema ---
+        // Obtener Configuración SMTP Específica (incluye datos de BCC)
+        public async Task<SmtpSettingsModel?> GetSmtpSettingsAsync(int communicationId)
+        {
+            string query = @"
+                SELECT s.host, s.port, s.email, s.password, s.use_ssl, s.enable_bcc, s.bcc_email
+                FROM smtp_configurations s
+                JOIN communications c ON c.smtp_configuration_id = s.smtp_id
+                WHERE c.communication_id = @Id AND s.is_active = 1";
+            
+            var dt = await _accessDB.GetTableAsync("Smtp", query, new[] { new SqlParameter("@Id", communicationId) });
+            
+            if (dt.Rows.Count > 0) {
+                var row = dt.Rows[0];
+                return new SmtpSettingsModel {
+                    Host = row["host"].ToString(),
+                    Port = Convert.ToInt32(row["port"]),
+                    Email = row["email"].ToString(),
+                    Password = row["password"].ToString(),
+                    UseSsl = Convert.ToBoolean(row["use_ssl"]),
+                    EnableBcc = row["enable_bcc"] != DBNull.Value && Convert.ToBoolean(row["enable_bcc"]),
+                    BccEmail = row["bcc_email"]?.ToString() ?? ""
+                };
+            }
+            return null;
+        }
+
+        // Obtener Archivos Adjuntos para el Job
+        public async Task<List<AttachmentDto>> GetAttachmentsAsync(int communicationId)
+        {
+            string query = "SELECT file_name, file_path, content_type FROM communication_attachments WHERE communication_id = @Id";
+            var dt = await _accessDB.GetTableAsync("Att", query, new[] { new SqlParameter("@Id", communicationId) });
+            var list = new List<AttachmentDto>();
+            foreach(DataRow row in dt.Rows) {
+                list.Add(new AttachmentDto {
+                    FileName = row["file_name"].ToString(),
+                    FilePath = row["file_path"].ToString(),
+                    ContentType = row["content_type"].ToString()
+                });
+            }
+            return list;
+        }
+
+        // Loggear intento de envío
         public async Task LogSendAttemptAsync(int idCommChannelContent, int idCliente, string status, string response)
         {
             string query = @"
                 INSERT INTO dispatches (comm_channel_content_id, client_id, dispatch_date, status, provider_response)
                 VALUES (@IdCommChannelContent, @IdCliente, GETDATE(), @Status, @Response)";
 
-            if (response.Length > 500)
+            if (!string.IsNullOrEmpty(response) && response.Length > 500)
             {
                 response = response.Substring(0, 500);
             }
@@ -263,72 +390,15 @@ namespace GuardeSoftwareAPI.Dao
             {
                 new SqlParameter("@IdCommChannelContent", idCommChannelContent),
                 new SqlParameter("@IdCliente", idCliente),
-                new SqlParameter("@Status", status), // 'Successful' or 'Failed'
-                new SqlParameter("@Response", response)
+                new SqlParameter("@Status", status), 
+                new SqlParameter("@Response", response ?? "")
             };
             await _accessDB.ExecuteCommandAsync(query, parameters);
         }
 
         #endregion
 
-        // --- UPDATED MapDataRowToDto (Fixes GET error) ---
-        private CommunicationDto MapDataRowToDto(DataRow row)
-        {
-            // Reads the comma-separated string
-            var recipientsCsv = row["RecipientsCsv"].ToString() ?? "";
-
-            return new CommunicationDto
-            {
-                Id = Convert.ToInt32(row["Id"]),
-                Title = row["Title"]?.ToString() ?? "",
-                Content = row["Content"] is DBNull ? "" : row["Content"].ToString(),
-                SendDate = row["SendDate"] is DBNull ? null : row["SendDate"].ToString(),
-                SendTime = row["SendTime"] is DBNull ? null : row["SendTime"].ToString(),
-                Status = row["Status"]?.ToString() ?? "Draft",
-                CreationDate = row["CreationDate"]?.ToString() ?? "",
-                Channel = row["Channel"]?.ToString() ?? "",
-
-                // Splits the string into a List<string>
-                Recipients = string.IsNullOrEmpty(recipientsCsv)
-                             ? new List<string>()
-                             : recipientsCsv.Split(',').ToList()
-            };
-        }
-        
-        // This method is simple, it just deletes
-        public async Task<bool> DeleteCommunicationAsync(int communicationId)
-        {
-            // Deleting the main communication should cascade delete all related content
-            // if your database FOREIGN KEYs are set up with ON DELETE CASCADE.
-            // If not, you must delete from child tables first.
-            
-            // Deleting child rows first to be safe
-            string query = @"
-                DELETE FROM dispatches WHERE comm_channel_content_id IN (SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id);
-                DELETE FROM communication_recipients WHERE communication_id = @Id;
-                DELETE FROM communication_channel_content WHERE communication_id = @Id;
-                DELETE FROM communications WHERE communication_id = @Id;
-            ";
-            
-            var parameters = new[] { new SqlParameter("@Id", communicationId) };
-            int rows = await _accessDB.ExecuteCommandAsync(query, parameters);
-            return rows > 0;
-        }
-
-        // This method will be used for 'send now'
-        // Add this method inside your CommunicationDao class
-        public async Task<bool> UpdateCommunicationStatusAndDateAsync(int communicationId, string status, DateTime scheduledDate)
-        {
-            string query = "UPDATE communications SET status = @Status, scheduled_date = @Date WHERE communication_id = @Id";
-            var parameters = new[]
-            {
-                new SqlParameter("@Status", status),
-                new SqlParameter("@Date", scheduledDate),
-                new SqlParameter("@Id", communicationId)
-            };
-            int rows = await _accessDB.ExecuteCommandAsync(query, parameters);
-            return rows > 0;
-        }
+        #region 4. Historial Cliente (Client Detail)
 
         public async Task<List<ClientCommunicationDto>> GetCommunicationsByClientIdAsync(int clientId)
         {
@@ -337,7 +407,7 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT 
                     d.dispatch_id AS Id,
                     d.dispatch_date AS Date,
-                    LOWER(ch.name) AS Type, -- 'email', 'whatsapp'
+                    LOWER(ch.name) AS Type, 
                     ccc.subject AS Subject,
                     CASE 
                         WHEN LEN(ccc.content) > 150 THEN LEFT(ccc.content, 150) + '...'
@@ -355,83 +425,96 @@ namespace GuardeSoftwareAPI.Dao
 
             foreach (DataRow row in table.Rows)
             {
-                communications.Add(MapDataRowToClientCommunicationDto(row));
+                communications.Add(new ClientCommunicationDto
+                {
+                    Id = Convert.ToInt32(row["Id"]),
+                    Date = Convert.ToDateTime(row["Date"]),
+                    Type = row["Type"]?.ToString() ?? "system",
+                    Subject = row["Subject"] is DBNull ? "" : row["Subject"].ToString(),
+                    Snippet = row["Snippet"] is DBNull ? "" : row["Snippet"].ToString()
+                });
             }
             return communications;
         }
 
-        /// <summary>
-        /// Helper para mapear la fila del DAO al DTO del historial simple.
-        /// </summary>
-        private ClientCommunicationDto MapDataRowToClientCommunicationDto(DataRow row)
-        {
-            return new ClientCommunicationDto
-            {
-                Id = Convert.ToInt32(row["Id"]),
-                Date = Convert.ToDateTime(row["Date"]),
-                Type = row["Type"]?.ToString() ?? "system",
-                Subject = row["Subject"] is DBNull ? "" : row["Subject"].ToString(),
-                Snippet = row["Snippet"] is DBNull ? "" : row["Snippet"].ToString()
-            };
-        }
+        #endregion
 
-        // Note: The main 'Update' (for edit) is complex because it uses a transaction
-        // to delete old channels/recipients and add new ones.
-        // We will add this logic in the *Service* layer.
+        #region 5. ABML de Configuraciones SMTP (Settings)
 
-        public async Task<SmtpSettingsModel?> GetSmtpSettingsAsync(int communicationId)
+        public async Task<List<SmtpConfigurationDto>> GetAllSmtpConfigsAsync()
         {
-            string query = @"
-                SELECT s.host, s.port, s.email, s.password, s.use_ssl 
-                FROM smtp_configurations s
-                JOIN communications c ON c.smtp_configuration_id = s.smtp_id
-                WHERE c.communication_id = @Id";
+            var list = new List<SmtpConfigurationDto>();
+            string query = "SELECT * FROM smtp_configurations WHERE is_active = 1";
+            var dt = await _accessDB.GetTableAsync("SmtpList", query);
             
-            var dt = await _accessDB.GetTableAsync("Smtp", query, [new SqlParameter("@Id", communicationId)]);
-            if (dt.Rows.Count > 0) {
-                var row = dt.Rows[0];
-                return new SmtpSettingsModel {
+            foreach (DataRow row in dt.Rows)
+            {
+                list.Add(new SmtpConfigurationDto
+                {
+                    Id = Convert.ToInt32(row["smtp_id"]),
+                    Name = row["name"].ToString(),
                     Host = row["host"].ToString(),
                     Port = Convert.ToInt32(row["port"]),
                     Email = row["email"].ToString(),
                     Password = row["password"].ToString(),
-                    UseSsl = Convert.ToBoolean(row["use_ssl"])
-                };
-            }
-            return null; // Si null, el Job usará el default de appsettings
-        }
-
-        // Método para obtener adjuntos para el Job
-        public async Task<List<AttachmentDto>> GetAttachmentsAsync(int communicationId)
-        {
-            string query = "SELECT file_name, file_path, content_type FROM communication_attachments WHERE communication_id = @Id";
-            var dt = await _accessDB.GetTableAsync("Att", query, new[] { new SqlParameter("@Id", communicationId) });
-            var list = new List<AttachmentDto>();
-            foreach(DataRow row in dt.Rows) {
-                list.Add(new AttachmentDto {
-                    FileName = row["file_name"].ToString(),
-                    FilePath = row["file_path"].ToString(),
-                    ContentType = row["content_type"].ToString()
+                    UseSsl = Convert.ToBoolean(row["use_ssl"]),
+                    EnableBcc = row["enable_bcc"] != DBNull.Value && Convert.ToBoolean(row["enable_bcc"]),
+                    BccEmail = row["bcc_email"]?.ToString() ?? ""
                 });
             }
             return list;
         }
 
-        // Insertar adjuntos (Se llama desde el Service dentro de la transacción)
-        public async Task InsertAttachmentsAsync(int communicationId, List<AttachmentDto> attachments, SqlConnection conn, SqlTransaction trans)
+        public async Task<int> CreateSmtpConfigAsync(SmtpConfigurationDto dto)
         {
-            string query = "INSERT INTO communication_attachments (communication_id, file_name, file_path, content_type) VALUES (@Id, @Name, @Path, @Type)";
-            foreach(var att in attachments) {
-                using(var cmd = new SqlCommand(query, conn, trans)) {
-                    cmd.Parameters.AddWithValue("@Id", communicationId);
-                    cmd.Parameters.AddWithValue("@Name", att.FileName);
-                    cmd.Parameters.AddWithValue("@Path", att.FilePath);
-                    cmd.Parameters.AddWithValue("@Type", att.ContentType ?? "");
-                    await cmd.ExecuteNonQueryAsync();
-                }
-            }
+            string query = @"
+                INSERT INTO smtp_configurations (name, host, port, email, password, use_ssl, enable_bcc, bcc_email, is_active)
+                OUTPUT INSERTED.smtp_id
+                VALUES (@Name, @Host, @Port, @Email, @Password, @UseSsl, @EnableBcc, @BccEmail, 1)";
+            
+            var param = new[] {
+                new SqlParameter("@Name", dto.Name),
+                new SqlParameter("@Host", dto.Host),
+                new SqlParameter("@Port", dto.Port),
+                new SqlParameter("@Email", dto.Email),
+                new SqlParameter("@Password", dto.Password),
+                new SqlParameter("@UseSsl", dto.UseSsl),
+                new SqlParameter("@EnableBcc", dto.EnableBcc),
+                new SqlParameter("@BccEmail", (object)dto.BccEmail ?? DBNull.Value)
+            };
+
+            return (int)await _accessDB.ExecuteScalarAsync(query, param);
         }
 
-        
+        public async Task UpdateSmtpConfigAsync(SmtpConfigurationDto dto)
+        {
+            string query = @"
+                UPDATE smtp_configurations 
+                SET name=@Name, host=@Host, port=@Port, email=@Email, password=@Password, 
+                    use_ssl=@UseSsl, enable_bcc=@EnableBcc, bcc_email=@BccEmail
+                WHERE smtp_id=@Id";
+            
+            var param = new[] {
+                new SqlParameter("@Id", dto.Id),
+                new SqlParameter("@Name", dto.Name),
+                new SqlParameter("@Host", dto.Host),
+                new SqlParameter("@Port", dto.Port),
+                new SqlParameter("@Email", dto.Email),
+                new SqlParameter("@Password", dto.Password),
+                new SqlParameter("@UseSsl", dto.UseSsl),
+                new SqlParameter("@EnableBcc", dto.EnableBcc),
+                new SqlParameter("@BccEmail", (object)dto.BccEmail ?? DBNull.Value)
+            };
+            await _accessDB.ExecuteCommandAsync(query, param);
+        }
+
+        public async Task DeleteSmtpConfigAsync(int id)
+        {
+            // Soft delete para no romper integridad referencial con historial
+            string query = "UPDATE smtp_configurations SET is_active = 0 WHERE smtp_id = @Id";
+            await _accessDB.ExecuteCommandAsync(query, [new SqlParameter("@Id", id)]);
+        }
+
+        #endregion
     }
 }

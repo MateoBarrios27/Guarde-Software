@@ -11,6 +11,7 @@ public class CommunicationDto
     public List<string> Recipients { get; set; } = [];
     public string Status { get; set; } = string.Empty; // "Sent", "Scheduled", "Draft"
     public string CreationDate { get; set; } = string.Empty; // yyyy-MM-dd
+    public int? SmtpConfigId { get; set; }
 }
     
     public class UpsertCommunicationRequest

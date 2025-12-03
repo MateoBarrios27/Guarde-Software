@@ -137,5 +137,23 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, new { message = "Error interno al obtener comunicaciones." });
             }
         }
+
+        [HttpPost("{id}/retry")]
+        public async Task<IActionResult> RetryFailedCommunication(int id)
+        {
+            try
+            {
+                // Reutilizamos la lógica de "SendDraftNow" porque hace exactamente lo que queremos:
+                // Pone estado 'Scheduled' y fecha 'Now'. 
+                // El Job se encarga de filtrar los que ya fueron exitosos gracias al DAO.
+                var updatedComm = await _communicationService.SendDraftNowAsync(id);
+                return Ok(updatedComm);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reintentando comunicado {Id}", id);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }

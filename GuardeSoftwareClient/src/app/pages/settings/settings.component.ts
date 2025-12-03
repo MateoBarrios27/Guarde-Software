@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common'; // Importar DatePipe
 import { FormsModule } from '@angular/forms';
 import { User } from '../../core/models/user';
@@ -21,6 +21,8 @@ import { MonthlyIncreaseService } from '../../core/services/monthlyIncrease-serv
 import { MonthlyIncreaseSetting } from '../../core/models/monthly-increase-setting';
 import { CreateMonthlyIncreaseDto } from '../../core/dtos/monthlyIncrease/CreateMonthlyIncreaseDto';
 import { UpdateMonthlyIncreaseDto } from '../../core/dtos/monthlyIncrease/UpdateMonthlyIncreaseDto';
+import { SmtpConfig } from '../../core/models/smtp-config';
+import { CommunicationService } from '../../core/services/communication-service/communication.service';
 
 
 @Component({
@@ -37,7 +39,8 @@ export class SettingsComponent implements OnInit {
     private paymentMethodService: PaymentMethodService,
     private userTypeService: UserTypeService,
     private billingTypeService: BillingTypeService,
-    private monthlyIncreaseService: MonthlyIncreaseService
+    private monthlyIncreaseService: MonthlyIncreaseService,
+    private communicationService: CommunicationService
   ) {}
 
   activeSection: string = 'usuarios';
@@ -99,13 +102,30 @@ export class SettingsComponent implements OnInit {
   editingIncrease: MonthlyIncreaseSetting = { id: 0, effectiveDate: new Date(), percentage: 0 };
   originalIncreasePercentage: number = 0;
 
+  // --- Propiedades SMTP ---
+  smtpConfigs = signal<SmtpConfig[]>([]);
+  isModalOpen = signal(false);
+
+  currentConfig = signal<SmtpConfig>({
+    id: null,
+    name: '',
+    host: '',
+    port: 465,
+    email: '',
+    password: '',
+    useSsl: true,
+    enableBcc: false,
+    bccEmail: 'estadodecuenta@abono.com.ar' // Default value
+  });
+
 
   ngOnInit(): void {
     this.loadUsers();
     this.loadPaymentMethods();
     this.loadUserTypes();
     this.loadBillingTypes();
-    this.loadMonthlyIncreases(); // <-- ¡CORREGIDO!
+    this.loadMonthlyIncreases();
+    this.loadConfigs();
   }
 
   // --- Métodos de Carga ---
@@ -169,6 +189,7 @@ export class SettingsComponent implements OnInit {
     { id: 'medios-pago', title: 'Medios de Pago', icon: '💳' },
     { id: 'facturacion', title: 'Facturación', icon: '📄' },
     { id: 'aumentos', title: 'Aumentos Mensuales', icon: '📈' },
+    { id: 'smtp', title: 'Configuración SMTP', icon: '✉️' },
     // { id: 'datos', title: 'Datos', icon: '🗄️' }
   ];
 
@@ -576,5 +597,75 @@ export class SettingsComponent implements OnInit {
   formatDateToMonthYear(dateInput: Date | string): string {
       const date = new Date(dateInput);
       return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric', timeZone: 'UTC' }); 
+  }
+
+  // --- Métodos de Configuración SMTP ---
+  loadConfigs() {
+    // Uso del servicio
+    this.communicationService.getAllSmtpConfigs().subscribe({
+      next: (data) => this.smtpConfigs.set(data),
+      error: (err) => console.error('Error al cargar configs SMTP', err)
+    });
+  }
+
+  openModal(config?: SmtpConfig) {
+    if (config) {
+      this.currentConfig.set({ ...config });
+    } else {
+      this.resetForm();
+    }
+    this.isModalOpen.set(true);
+  }
+
+  closeModal() {
+    this.isModalOpen.set(false);
+  }
+
+  resetForm() {
+    this.currentConfig.set({
+      id: null,
+      name: '',
+      host: '',
+      port: 587,
+      email: '',
+      password: '',
+      useSsl: true,
+      enableBcc: false,
+      bccEmail: ''
+    });
+  }
+
+  saveConfig() {
+    const config = this.currentConfig();
+    
+    if (config.id) {
+      // Update vía Service
+      this.communicationService.updateSmtpConfig(config).subscribe({
+        next: () => {
+          this.loadConfigs();
+          this.closeModal();
+        },
+        error: (err) => alert('Error al actualizar configuración')
+      });
+    } else {
+      // Create vía Service
+      this.communicationService.createSmtpConfig(config).subscribe({
+        next: () => {
+          this.loadConfigs();
+          this.closeModal();
+        },
+        error: (err) => alert('Error al crear configuración')
+      });
+    }
+  }
+
+  deleteConfig(id: number) {
+    if(confirm('¿Borrar esta configuración?')) {
+      // Delete vía Service
+      this.communicationService.deleteSmtpConfig(id).subscribe({
+        next: () => this.loadConfigs(),
+        error: (err) => alert('Error al eliminar configuración')
+      });
+    }
   }
 }
