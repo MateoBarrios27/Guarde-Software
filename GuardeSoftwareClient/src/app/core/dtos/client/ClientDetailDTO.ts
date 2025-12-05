@@ -37,6 +37,7 @@ export interface ClientDetailDTO{
     spaceRequests?: SpaceRequestDetailDto[];
     contractedM3: number;
     notes: string;
+    occupiedSpaces: number;
 
     // Increase data
     increaseFrequencyMonths?: number;

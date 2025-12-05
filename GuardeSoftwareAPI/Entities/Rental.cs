@@ -10,6 +10,7 @@ namespace GuardeSoftwareAPI.Entities
         public int MonthsUnpaid { get; set; }
         public DateTime? PriceLockEndDate { get; set; }
         public DateTime? IncreaseAnchorDate { get; set; }
+        public int OccupiedSpaces { get; set; }
         public bool? Active { get; set; }
     }
 }

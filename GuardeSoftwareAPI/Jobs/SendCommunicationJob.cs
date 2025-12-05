@@ -166,8 +166,7 @@ namespace GuardeSoftwareAPI.Jobs
         {
             var message = new MimeMessage();
             
-            // Aquí explotaba antes porque smtpSettings era null
-            message.From.Add(new MailboxAddress("GuardeSoftware", smtpSettings.Email));
+            message.From.Add(new MailboxAddress("Guarde lo que quiera - Abono", smtpSettings.Email));
             
             message.To.Add(new MailboxAddress(recipient.Name, recipient.Email));
             

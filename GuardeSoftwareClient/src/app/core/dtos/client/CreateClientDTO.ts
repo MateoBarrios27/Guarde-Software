@@ -16,11 +16,14 @@ export interface CreateClientDTO{
     billingType?: string;
     billingTypeId?: number;
     startDate: Date;
-    contractedM3: number;
     amount: number;
+    userID: number;
+
+    //locker information
     spaceRequests: SpaceRequestDto[]; 
     lockerIds: number[];
-    userID: number;
+    occupiedSpaces: number;
+    contractedM3: number;
 
     //contact info
     emails: string[];

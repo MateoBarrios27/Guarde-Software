@@ -18,5 +18,6 @@ namespace GuardeSoftwareAPI.Services.rental
         Task<bool> UpdateContractedM3TransactionAsync(int rentalId, decimal newM3, SqlConnection connection, SqlTransaction transaction);
 		Task<int?> GetActiveRentalIdByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction);
         Task EndActiveRentalByClientIdTransactionAsync(int clientId, DateTime endDate, SqlConnection connection, SqlTransaction transaction);
+		Task<bool> UpdateOccupiedSpacesTransactionAsync(int rentalId, int spaces, SqlConnection connection, SqlTransaction transaction);
     }
 }

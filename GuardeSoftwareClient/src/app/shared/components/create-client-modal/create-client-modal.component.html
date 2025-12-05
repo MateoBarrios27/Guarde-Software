@@ -324,6 +324,19 @@
                       <span>{{ newClientForm.value.contractedM3 | number:'1.1-2' }} m³</span>
                     </div>
                   </div>
+                  <div class="pt-3 border-t border-indigo-100">
+                    <div class="flex justify-between items-center mb-2">
+                      <label for="occupiedSpaces" class="font-semibold text-indigo-900">Espacios Ocupados:</label>
+                      <input
+                        id="occupiedSpaces"
+                        type="number"
+                        formControlName="occupiedSpaces"
+                        min="0"
+                        class="w-20 text-center p-1 border rounded-md text-gray-700"
+                      />
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Cantidad manual de unidades físicas.</p>
+                  </div>
                 </div>
               </div> </div> </div> </div> </div>
     </main>

@@ -169,6 +169,7 @@ export class CreateClientModalComponent implements OnInit {
       
       montoManual: [0, [Validators.required, Validators.min(0)]],
       contractedM3: [0],
+      ocuppiedSpaces: [0],
     });
 
     // --- Lógica Condicional (Arrays) ---
@@ -315,7 +316,8 @@ export class CreateClientModalComponent implements OnInit {
         legacyStartDate: this.formatDateToYYYYMMDD(data.registrationDate),
         legacyInitialAmount: data.initialAmount, 
         legacyNextIncreaseDate: this.formatDateToYYYYMM(data.nextIncreaseDay),
-        isLegacy6MonthPromo: data.increaseFrequencyMonths === 6
+        isLegacy6MonthPromo: data.increaseFrequencyMonths === 6,
+        ocuppiedSpaces: data.occupiedSpaces || 0,
       });
 
       const initialLockerIds = this.newClientForm.get('lockersAsignados')?.value || [];
@@ -449,6 +451,7 @@ export class CreateClientModalComponent implements OnInit {
       lockerIds: [],
       spaceRequests: [],
       contractedM3: formValue.contractedM3 || 0,
+      occupiedSpaces: formValue.ocuppiedSpaces || 0,
     };
     
     if (isEditing) {

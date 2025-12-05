@@ -23,7 +23,8 @@ export class StatisticsComponent implements OnInit {
     totalSaldo: 0,
     totalInteres: 0,
     totalSaldoAnterior: 0,
-    totalFacturado: 0
+    totalFacturado: 0,
+    espaciosOcupados: 0
   };
 
   constructor(private statisticsService: StatisticsService) {}

@@ -5,6 +5,7 @@ export interface rental{
     startDate: Date;
     endDate: Date;
     contractedM3: number;
+    occupiedSpaces: number;
     monthsUnpaid: number;
 }
 

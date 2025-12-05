@@ -111,7 +111,7 @@ namespace GuardeSoftwareAPI.Services.client
 
         public async Task<int> CreateClientAsync(CreateClientDTO dto)
         {
-            if (dto == null) throw new ArgumentNullException(nameof(dto));
+            ArgumentNullException.ThrowIfNull(dto);
             if (string.IsNullOrWhiteSpace(dto.FirstName)) throw new ArgumentException("FirstName is required.");
             if (string.IsNullOrWhiteSpace(dto.LastName)) throw new ArgumentException("LastName is required.");
             if (dto.Amount < 0) throw new ArgumentException("Amount must be greater than 0.");
@@ -227,7 +227,8 @@ namespace GuardeSoftwareAPI.Services.client
                             ContractedM3 = calculatedTotalM3,
                             MonthsUnpaid = 0,
                             PriceLockEndDate = priceLockDate,
-                            IncreaseAnchorDate = nextIncreaseAnchorDate
+                            IncreaseAnchorDate = nextIncreaseAnchorDate,
+                            OccupiedSpaces = dto.OccupiedSpaces,
                         };
                         int rentalId = await rentalService.CreateRentalTransactionAsync(rental, connection, transaction);
 
@@ -451,6 +452,7 @@ namespace GuardeSoftwareAPI.Services.client
                 // --- FIN CAMPOS ACTUALIZADOS ---
 
                 ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
+                OccupiedSpaces = row["occupied_spaces"] != DBNull.Value ? Convert.ToInt32(row["occupied_spaces"]) : 0,
                 Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0,
                 PaymentStatus = row["payment_status"]?.ToString() ?? "Desconocido",
                 RentAmount = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m,
@@ -579,15 +581,20 @@ namespace GuardeSoftwareAPI.Services.client
                                 await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, currentRental.Id, dto.Amount, DateTime.UtcNow.Date, connection, transaction);
                             }
 
+                            if (dto.OccupiedSpaces != currentRental.OccupiedSpaces)
+                            {
+                                await rentalService.UpdateOccupiedSpacesTransactionAsync(currentRental.Id, dto.OccupiedSpaces, connection, transaction);
+                            }
+
                             var currentLockerIds = await lockerService.GetLockerIdsByRentalIdTransactionAsync(currentRental.Id, connection, transaction);
                             var newLockerIds = dto.LockerIds ?? new List<int>();
                             var lockersToRemove = currentLockerIds.Except(newLockerIds).ToList();
                             var lockersToAdd = newLockerIds.Except(currentLockerIds).ToList();
 
-                            if (lockersToRemove.Any()) {
+                            if (lockersToRemove.Count != 0) {
                                 await lockerService.UnassignLockersFromRentalTransactionAsync(lockersToRemove, connection, transaction);
                             }
-                            if (lockersToAdd.Any()) {
+                            if (lockersToAdd.Count != 0) {
                                 foreach(var lockerIdToAdd in lockersToAdd) {
                                     if (!await lockerService.IsLockerAvailableAsync(lockerIdToAdd, connection, transaction)) {
                                         throw new InvalidOperationException($"El locker {lockerIdToAdd} ya no está disponible.");
@@ -597,18 +604,19 @@ namespace GuardeSoftwareAPI.Services.client
                             }
 
                             // Recalcular M3 si hubo cambios en lockers
-                            if (lockersToAdd.Any() || lockersToRemove.Any()) {
+                            if (lockersToAdd.Count != 0 || lockersToRemove.Count != 0) {
                                 decimal newContractedM3 = await lockerService.CalculateTotalM3ForLockersAsync(newLockerIds, connection, transaction);
                                 await rentalService.UpdateContractedM3TransactionAsync(currentRental.Id, newContractedM3, connection, transaction);
                             }
-                        } else if (dto.LockerIds != null && dto.LockerIds.Any()) {
+                        } else if (dto.LockerIds != null && dto.LockerIds.Count != 0) {
                             // Lógica para crear un nuevo rental si no existía y se asignan lockers?
                             Console.WriteLine($"Advertencia: Se asignaron lockers al cliente {id} pero no tiene un rental activo.");
                         }
 
                     // Lógica para Régimen de Aumento (si aplica)
 
-                        ActivityLog activityLog = new ActivityLog { /* ... mapeo como antes ... */
+                        ActivityLog activityLog = new()
+                        { 
                             UserId = dto.UserID,
                             LogDate = DateTime.UtcNow,
                             Action = "UPDATE",

@@ -38,6 +38,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public List<GetLockerClientDetailDTO>? LockersList { get; set; }
         public List<GetSpaceRequestDetailDto> SpaceRequests { get; set; } = [];
         public decimal ContractedM3 { get; set; }
+        public int OccupiedSpaces { get; set; }
 
         //Other Information
         public string Notes { get; set; } = string.Empty;

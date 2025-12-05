@@ -171,13 +171,14 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@contracted_m3", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)rental.ContractedM3 ?? DBNull.Value },
                 new SqlParameter("@months_unpaid", SqlDbType.Int) { Value = rental.MonthsUnpaid },
                 new SqlParameter("@price_lock_end_date", SqlDbType.Date) { Value = (object?)rental.PriceLockEndDate ?? DBNull.Value },
-                new SqlParameter("@increase_anchor_date", SqlDbType.Date) { Value = (object?)rental.IncreaseAnchorDate ?? DBNull.Value } // Renombrado
+                new SqlParameter("@increase_anchor_date", SqlDbType.Date) { Value = (object?)rental.IncreaseAnchorDate ?? DBNull.Value }, // Renombrado
+                new SqlParameter("@occupied_spaces", SqlDbType.Int) { Value = rental.OccupiedSpaces }
             ];
 
             string query = @"
-                INSERT INTO rentals(client_id, start_date, contracted_m3, months_unpaid, price_lock_end_date, increase_anchor_date)
+                INSERT INTO rentals(client_id, start_date, contracted_m3, months_unpaid, price_lock_end_date, increase_anchor_date, occupied_spaces)
                 OUTPUT INSERTED.rental_id
-                VALUES(@client_id, @start_date, @contracted_m3, @months_unpaid, @price_lock_end_date, @increase_anchor_date);";
+                VALUES(@client_id, @start_date, @contracted_m3, @months_unpaid, @price_lock_end_date, @increase_anchor_date, @occupied_spaces);";
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
@@ -407,8 +408,8 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<Rental?> GetRentalByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
         {
-            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active, price_lock_end_date FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
-            SqlParameter[] parameters = { new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId } };
+            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active, price_lock_end_date, occupied_spaces FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
+            SqlParameter[] parameters = [new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId }];
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
@@ -426,7 +427,8 @@ namespace GuardeSoftwareAPI.Dao
                             ContractedM3 = reader.IsDBNull(reader.GetOrdinal("contracted_m3")) ? (decimal?)null : reader.GetDecimal(reader.GetOrdinal("contracted_m3")),
                             MonthsUnpaid = reader.IsDBNull(reader.GetOrdinal("months_unpaid")) ? 0 : reader.GetInt32(reader.GetOrdinal("months_unpaid")),
                             Active = reader.GetBoolean(reader.GetOrdinal("active")),
-                            PriceLockEndDate = reader.IsDBNull(reader.GetOrdinal("price_lock_end_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("price_lock_end_date")) // <-- Leer la nueva columna
+                            PriceLockEndDate = reader.IsDBNull(reader.GetOrdinal("price_lock_end_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("price_lock_end_date")),
+                            OccupiedSpaces = reader.IsDBNull(reader.GetOrdinal("occupied_spaces")) ? 0 : reader.GetInt32(reader.GetOrdinal("occupied_spaces"))
                         };
                     }
                 }
@@ -484,10 +486,10 @@ namespace GuardeSoftwareAPI.Dao
         {
             string query = "UPDATE rentals SET increase_anchor_date = @NewNextIncreaseDate WHERE rental_id = @RentalId";
             SqlParameter[] parameters =
-            {
-                new SqlParameter("@NewNextIncreaseDate", SqlDbType.Date) { Value = newNextIncreaseDate },
-                new SqlParameter("@RentalId", SqlDbType.Int) { Value = rentalId }
-            };
+            [
+                new("@NewNextIncreaseDate", SqlDbType.Date) { Value = newNextIncreaseDate },
+                new("@RentalId", SqlDbType.Int) { Value = rentalId }
+            ];
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
@@ -527,6 +529,22 @@ namespace GuardeSoftwareAPI.Dao
             command.Parameters.AddRange(parameters);
             object result = await command.ExecuteScalarAsync();
             return result != null && result != DBNull.Value ? (int)result : null;
+        }
+
+        public async Task<bool> UpdateOccupiedSpacesTransactionAsync(int rentalId, int spaces, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = "UPDATE rentals SET occupied_spaces = @Spaces WHERE rental_id = @RentalId";
+            SqlParameter[] parameters = {
+                new("@Spaces", SqlDbType.Int) { Value = spaces },
+                new("@RentalId", SqlDbType.Int) { Value = rentalId }
+            };
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                int rows = await command.ExecuteNonQueryAsync();
+                return rows > 0;
+            }
         }
     }
 }

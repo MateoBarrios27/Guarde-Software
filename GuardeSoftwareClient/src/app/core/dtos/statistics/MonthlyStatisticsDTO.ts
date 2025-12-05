@@ -8,4 +8,5 @@ export interface MonthlyStatisticsDTO {
   totalInteres: number;      // "INTERES" generado ese mes
   totalSaldoAnterior: number; // "SALDO ANTERIOR" (Deuda que venía del mes pasado)
   totalFacturado: number;    // Lo que se generó para cobrar ese mes (Alquileres)
+  espaciosOcupados: number; // Total de espacios ocupados al cierre del mes
 }

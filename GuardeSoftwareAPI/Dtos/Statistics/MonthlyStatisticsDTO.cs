@@ -9,5 +9,6 @@ namespace GuardeSoftwareAPI.Dtos.Statistics
         public decimal TotalInteres { get; set; }
         public decimal TotalSaldoAnterior { get; set; }
         public decimal TotalAbono { get; set; }
+        public decimal EspaciosOcupados { get; set; }
     }
 }
