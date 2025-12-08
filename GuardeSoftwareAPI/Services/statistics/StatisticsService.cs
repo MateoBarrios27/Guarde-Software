@@ -18,7 +18,7 @@ namespace GuardeSoftwareAPI.Services.statistics
         {
             try
             {
-                return await _daoStatistics.GetMonthlyStatistics(year, month);
+                return await _daoStatistics.GetMonthlyStatisticsAsync(year, month);
             }
             catch (Exception ex)
             {

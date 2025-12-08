@@ -443,7 +443,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<Client?> GetClientByIdTransactionAsync(int id, SqlConnection connection, SqlTransaction transaction)
         {
             string query = "SELECT * FROM clients WHERE client_id = @client_id";
-            SqlParameter[] parameters = { new SqlParameter("@client_id", SqlDbType.Int) { Value = id } };
+            SqlParameter[] parameters = [new SqlParameter("@client_id", SqlDbType.Int) { Value = id }];
 
             using (var command = new SqlCommand(query, connection, transaction))
             {

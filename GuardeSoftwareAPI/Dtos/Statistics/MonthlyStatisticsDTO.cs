@@ -4,11 +4,12 @@ namespace GuardeSoftwareAPI.Dtos.Statistics
     {
         public int Year { get; set; }
         public int Month { get; set; }
-        public decimal TotalCobrado { get; set; }
-        public decimal TotalSaldo { get; set; }
-        public decimal TotalInteres { get; set; }
-        public decimal TotalSaldoAnterior { get; set; }
-        public decimal TotalAbono { get; set; }
-        public decimal EspaciosOcupados { get; set; }
+        public decimal TotalPagado { get; set; }
+        public decimal TotalAlquileres { get; set; }
+        public decimal TotalIntereses { get; set; }
+        public decimal DeudaTotalDelMes { get; set; }
+        public decimal BalanceGlobalActual { get; set; }
+        public int TotalEspaciosOcupados { get; set; }
+
     }
 }

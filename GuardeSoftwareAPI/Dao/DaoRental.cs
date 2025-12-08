@@ -534,10 +534,10 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<bool> UpdateOccupiedSpacesTransactionAsync(int rentalId, int spaces, SqlConnection connection, SqlTransaction transaction)
         {
             string query = "UPDATE rentals SET occupied_spaces = @Spaces WHERE rental_id = @RentalId";
-            SqlParameter[] parameters = {
+            SqlParameter[] parameters = [
                 new("@Spaces", SqlDbType.Int) { Value = spaces },
                 new("@RentalId", SqlDbType.Int) { Value = rentalId }
-            };
+            ];
 
             using (var command = new SqlCommand(query, connection, transaction))
             {

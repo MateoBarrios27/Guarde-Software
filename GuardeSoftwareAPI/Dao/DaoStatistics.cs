@@ -13,72 +13,76 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public async Task<MonthlyStatisticsDTO> GetMonthlyStatistics(int year, int month)
+        public async Task<MonthlyStatisticsDTO> GetMonthlyStatisticsAsync(int year, int month)
         {
-            // Consulta optimizada para obtener todas las métricas en una sola llamada
-            string query = @"
-                DECLARE @StartDate DATE = DATEFROMPARTS(@Year, @Month, 1);
-                DECLARE @EndDate DATE = EOMONTH(@StartDate);
+            DateTime startDate = new(year, month, 1);
+            DateTime endDate = startDate.AddMonths(1).AddDays(-1).AddHours(23).AddMinutes(59).AddSeconds(59);
 
-                -- 1. Total Abono (Lo que ingresaría por alquileres):
-                -- Suma del 'amount' vigente al día 1 del mes para todos los alquileres activos en esa fecha.
-                -- Usamos una subconsulta para obtener el historial vigente al @StartDate.
-                DECLARE @TotalAbono DECIMAL(18,2) = (
-                    SELECT ISNULL(SUM(rh.amount), 0)
-                    FROM rentals r
-                    CROSS APPLY (
-                        SELECT TOP 1 amount
-                        FROM rental_amount_history h
-                        WHERE h.rental_id = r.rental_id
-                          AND h.start_date <= @StartDate
-                        ORDER BY h.start_date DESC
-                    ) rh
-                    WHERE r.active = 1
-                      AND r.start_date <= @StartDate
-                      AND (r.end_date IS NULL OR r.end_date >= @StartDate)
+            string query = @"
+                DECLARE @Pagado DECIMAL(18, 2) = (
+                    SELECT ISNULL(SUM(amount), 0) 
+                    FROM account_movements 
+                    WHERE movement_type = 'CREDITO' 
+                      AND movement_date BETWEEN @StartDate AND @EndDate
                 );
 
-                SELECT
-                    @TotalAbono AS TotalAbono,
+                DECLARE @Alquileres DECIMAL(18, 2) = (
+                    SELECT ISNULL(SUM(amount), 0) 
+                    FROM account_movements 
+                    WHERE movement_type = 'DEBITO' 
+                      AND concept LIKE 'Alquiler%'
+                      AND movement_date BETWEEN @StartDate AND @EndDate
+                );
 
-                    -- 2. Total Cobrado: Suma de pagos realizados en el mes (créditos)
-                    ISNULL(SUM(CASE 
-                        WHEN movement_type = 'CREDITO' 
-                             AND movement_date >= @StartDate 
-                             AND movement_date <= DATEADD(day, 1, @EndDate) -- Incluir todo el último día
-                        THEN amount ELSE 0 END), 0) AS TotalCobrado,
+                DECLARE @Intereses DECIMAL(18, 2) = (
+                    SELECT ISNULL(SUM(amount), 0) 
+                    FROM account_movements 
+                    WHERE movement_type = 'DEBITO' 
+                      AND concept LIKE 'Interés por mora%'
+                      AND movement_date BETWEEN @StartDate AND @EndDate
+                );
 
-                    -- 3. Total Saldo: Sumatoria de los balances de todos los clientes al cierre del mes.
-                    -- Balance = Débitos - Créditos acumulados hasta el final del mes.
-                    ISNULL(SUM(CASE 
-                        WHEN movement_type = 'DEBITO' AND movement_date <= DATEADD(day, 1, @EndDate) THEN amount 
-                        WHEN movement_type = 'CREDITO' AND movement_date <= DATEADD(day, 1, @EndDate) THEN -amount 
-                        ELSE 0 END), 0) AS TotalSaldo,
+                DECLARE @SaldoHistorico DECIMAL(18, 2) = (
+                    SELECT ISNULL(SUM(
+                        CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END
+                    ), 0)
+                    FROM account_movements
+                    WHERE movement_date < @StartDate
+                );
 
-                    -- 4. Total Interés: Intereses generados en ese mes
-                    ISNULL(SUM(CASE 
-                        WHEN movement_type = 'DEBITO' 
-                             AND concept LIKE 'Interés%' 
-                             AND movement_date >= @StartDate 
-                             AND movement_date <= DATEADD(day, 1, @EndDate)
-                        THEN amount ELSE 0 END), 0) AS TotalInteres,
+                DECLARE @DeudaPeriodo DECIMAL(18, 2) = @SaldoHistorico + @Alquileres;
 
-                    -- 5. Total Saldo Anterior: Deuda acumulada hasta el inicio del mes (antes del día 1)
-                    ISNULL(SUM(CASE 
-                        WHEN movement_type = 'DEBITO' AND movement_date < @StartDate THEN amount 
-                        WHEN movement_type = 'CREDITO' AND movement_date < @StartDate THEN -amount 
-                        ELSE 0 END), 0) AS TotalSaldoAnterior
 
-                FROM account_movements;
+                
+                DECLARE @BalanceGlobal DECIMAL(18, 2) = (
+                    SELECT ISNULL(SUM(
+                        CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END
+                    ), 0)
+                    FROM account_movements
+                );
+
+                
+                DECLARE @EspaciosOcupados INT = (
+                    SELECT ISNULL(SUM(occupied_spaces), 0)
+                    FROM rentals
+                    WHERE active = 1
+                );
+
+                SELECT 
+                    @Pagado AS TotalPagado,
+                    @Alquileres AS TotalAlquileres,
+                    @Intereses AS TotalIntereses,
+                    @DeudaPeriodo AS DeudaTotalDelMes,
+                    @BalanceGlobal AS BalanceGlobalActual,
+                    @EspaciosOcupados AS TotalEspaciosOcupados;
             ";
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
-                new SqlParameter("@Year", SqlDbType.Int) { Value = year },
-                new SqlParameter("@Month", SqlDbType.Int) { Value = month }
-            };
+            SqlParameter[] parameters = [
+                new SqlParameter("@StartDate", SqlDbType.DateTime) { Value = startDate },
+                new SqlParameter("@EndDate", SqlDbType.DateTime) { Value = endDate }
+            ];
 
-            DataTable table = await accessDB.GetTableAsync("Statistics", query, parameters);
+            DataTable table = await accessDB.GetTableAsync("MonthlyStats", query, parameters);
 
             if (table.Rows.Count > 0)
             {
@@ -87,11 +91,12 @@ namespace GuardeSoftwareAPI.Dao
                 {
                     Year = year,
                     Month = month,
-                    TotalAbono = row["TotalAbono"] != DBNull.Value ? Convert.ToDecimal(row["TotalAbono"]) : 0,
-                    TotalCobrado = row["TotalCobrado"] != DBNull.Value ? Convert.ToDecimal(row["TotalCobrado"]) : 0,
-                    TotalSaldo = row["TotalSaldo"] != DBNull.Value ? Convert.ToDecimal(row["TotalSaldo"]) : 0,
-                    TotalInteres = row["TotalInteres"] != DBNull.Value ? Convert.ToDecimal(row["TotalInteres"]) : 0,
-                    TotalSaldoAnterior = row["TotalSaldoAnterior"] != DBNull.Value ? Convert.ToDecimal(row["TotalSaldoAnterior"]) : 0
+                    TotalPagado = Convert.ToDecimal(row["TotalPagado"]),
+                    TotalAlquileres = Convert.ToDecimal(row["TotalAlquileres"]),
+                    TotalIntereses = Convert.ToDecimal(row["TotalIntereses"]),
+                    DeudaTotalDelMes = Convert.ToDecimal(row["DeudaTotalDelMes"]),
+                    BalanceGlobalActual = Convert.ToDecimal(row["BalanceGlobalActual"]),
+                    TotalEspaciosOcupados = Convert.ToInt32(row["TotalEspaciosOcupados"])
                 };
             }
 

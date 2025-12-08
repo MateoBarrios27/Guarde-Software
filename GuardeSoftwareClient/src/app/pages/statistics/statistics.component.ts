@@ -19,12 +19,12 @@ export class StatisticsComponent implements OnInit {
   stats: MonthlyStatisticsDTO = {
     year: this.currentDate.getFullYear(),
     month: this.currentDate.getMonth() + 1,
-    totalAbonado: 0,
-    totalSaldo: 0,
-    totalInteres: 0,
-    totalSaldoAnterior: 0,
-    totalFacturado: 0,
-    espaciosOcupados: 0
+    totalAlquileres: 0,
+    balanceGlobalActual: 0,
+    totalIntereses: 0,
+    deudaTotalDelMes: 0,
+    totalPagado: 0,
+    totalEspaciosOcupados: 0
   };
 
   constructor(private statisticsService: StatisticsService) {}
