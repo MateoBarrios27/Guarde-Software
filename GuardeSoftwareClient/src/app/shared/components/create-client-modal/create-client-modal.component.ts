@@ -5,13 +5,14 @@ import {
   Output,
   EventEmitter,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import {
   FormBuilder,
   FormGroup,
   FormArray,
   Validators,
   ReactiveFormsModule,
+  AbstractControl 
 } from '@angular/forms';
 import { IconComponent } from '../icon/icon.component';
 import Swal from 'sweetalert2';
@@ -23,20 +24,20 @@ import { PaymentMethod } from '../../../core/models/payment-method';
 import { LockerType } from '../../../core/models/locker-type';
 import { ClientDetailDTO } from '../../../core/dtos/client/ClientDetailDTO';
 import { SpaceRequestDetailDto } from '../../../core/dtos/rentalSpaceRequest/GetSpaceRequestDetailDto';
-import { CreateClientDTO} from '../../../core/dtos/client/CreateClientDTO'; 
+import { CreateClientDTO } from '../../../core/dtos/client/CreateClientDTO'; 
 import { LockerService } from '../../../core/services/locker-service/locker.service';
 import { WarehouseService } from '../../../core/services/warehouse-service/warehouse.service';
 import { PaymentMethodService } from '../../../core/services/paymentMethod-service/payment-method.service';
 import { LockerTypeService } from '../../../core/services/lockerType-service/locker-type.service';
 import { ClientService } from '../../../core/services/client-service/client.service';
-import { forkJoin, Observable, of } from 'rxjs';
+import { forkJoin, Observable, of } from 'rxjs'; 
 import { BillingType } from '../../../core/models/billing-type.model';
 import { BillingTypeService } from '../../../core/services/billingType-service/billing-type.service';
 
 @Component({
   selector: 'app-create-client-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, IconComponent],
+  imports: [CommonModule, ReactiveFormsModule, IconComponent, DatePipe],
   templateUrl: './create-client-modal.component.html',
 })
 export class CreateClientModalComponent implements OnInit {
@@ -48,8 +49,10 @@ export class CreateClientModalComponent implements OnInit {
     this._clientData = data;
     this.isEditMode = !!data; 
     
+    // Inicializar formulario
     this.initNewClientForm(); 
     
+    // Si los datos ya están cargados, poblar
     if (this.areBasicDataLoaded) {
         this.tryPopulateForm();
     }
@@ -133,9 +136,8 @@ export class CreateClientModalComponent implements OnInit {
       console.log('Intentando poblar formulario para edición...');
       this.populateForm(this._clientData);
     } else if (this.newClientForm && !this.isEditMode) {
-        // Modo creación: habilitar toggle y resetear datos
+        // Modo Creación: Solo habilitar legacy si se desea
         this.newClientForm.get('isLegacyClient')?.enable();
-        // No tocar metodoPago aquí para no pisar selección del usuario
     }
   }
 
@@ -169,10 +171,10 @@ export class CreateClientModalComponent implements OnInit {
       
       montoManual: [0, [Validators.required, Validators.min(0)]],
       contractedM3: [0],
-      ocuppiedSpaces: [0],
+      occupiedSpaces: [0], // <-- Nuevo campo, inicializado en 0
     });
 
-    // --- Lógica Condicional (Arrays) ---
+    // Lógica Condicional Arrays
     if (this.isEditMode) {
       this.newClientForm.addControl('lockersAsignados', this.fb.array([]));
       this.newClientForm.addControl('lockerSearch', this.fb.control(''));
@@ -192,12 +194,16 @@ export class CreateClientModalComponent implements OnInit {
       const spaceRequests = this.newClientForm.get('spaceRequests') as FormArray;
       spaceRequests.valueChanges.subscribe((requests: any[]) => {
           let totalM3 = 0;
+          let totalSpaces = 0;
           requests.forEach(req => {
               const m3 = parseFloat(req.m3) || 0;
               const qty = parseInt(req.quantity, 10) || 0;
               totalM3 += (m3 * qty);
+              totalSpaces += qty;
           });
           this.newClientForm.get('contractedM3')?.setValue(totalM3, { emitEvent: false });
+          // Actualizar también occupiedSpaces automáticamente en creación
+          this.newClientForm.get('occupiedSpaces')?.setValue(totalSpaces, { emitEvent: false });
       });
     }
 
@@ -253,7 +259,6 @@ export class CreateClientModalComponent implements OnInit {
       }
   }
 
-  // --- HELPER: Convertir Date a 'YYYY-MM' (para input month) ---
   private formatDateToYYYYMM(date: Date | string | null | undefined): string | null {
     if (!date) return null;
     try {
@@ -263,14 +268,11 @@ export class CreateClientModalComponent implements OnInit {
       return `${year}-${month}`;
     } catch (e) { return null; }
   }
-
-  // --- HELPER: Convertir Date a 'YYYY-MM-DD' (para input date) ---
-  // ¡ESTE ES EL NUEVO!
+  
   private formatDateToYYYYMMDD(date: Date | string | null | undefined): string | null {
     if (!date) return null;
     try {
       const d = new Date(date);
-      // toISOString devuelve "2023-10-20T..."
       return d.toISOString().split('T')[0];
     } catch (e) { return null; }
   }
@@ -293,7 +295,10 @@ export class CreateClientModalComponent implements OnInit {
       if (data.email?.length > 0) data.email.forEach(e => this.emails.push(this.fb.control(e, [Validators.required, Validators.email]))); else this.addEmail();
       if (data.phone?.length > 0) data.phone.forEach(p => this.telefonos.push(this.fb.control(p))); else this.addTelefono();
 
+      // --- CORRECCIÓN CLAVE PARA PAYMENT METHOD ---
+      // Buscamos el objeto en la lista cargada que coincida con el nombre
       const matchingPaymentMethod = this.paymentMethods.find(m => m.name === data.preferredPaymentMethod);
+      // Si no lo encuentra, null (lo cual es válido, pero el usuario tendrá que seleccionarlo)
 
       this.newClientForm.patchValue({
         numeroIdentificacion: data.paymentIdentifier,
@@ -302,7 +307,7 @@ export class CreateClientModalComponent implements OnInit {
         numeroDocumento: data.dni,
         cuit: data.cuit,
         condicionIVA: data.ivaCondition,
-        metodoPago: matchingPaymentMethod || null,
+        metodoPago: matchingPaymentMethod || null, // Asignamos el OBJETO
         direccion: data.address,
         ciudad: data.city,
         provincia: data.province,
@@ -310,14 +315,13 @@ export class CreateClientModalComponent implements OnInit {
         montoManual: data.rentAmount,
         billingTypeId: data.billingTypeId || null,
         
-        // Campos Legacy
         isLegacyClient: !!data.initialAmount, 
-        // AQUÍ LA CORRECCIÓN CLAVE: Usamos el nuevo helper para YYYY-MM-DD
-        legacyStartDate: this.formatDateToYYYYMMDD(data.registrationDate),
+        legacyStartDate: this.formatDateToYYYYMMDD(data.registrationDate), 
         legacyInitialAmount: data.initialAmount, 
         legacyNextIncreaseDate: this.formatDateToYYYYMM(data.nextIncreaseDay),
         isLegacy6MonthPromo: data.increaseFrequencyMonths === 6,
-        ocuppiedSpaces: data.occupiedSpaces || 0,
+        
+        occupiedSpaces: data.occupiedSpaces || 0, // Poblar el nuevo campo
       });
 
       const initialLockerIds = this.newClientForm.get('lockersAsignados')?.value || [];
@@ -382,7 +386,11 @@ export class CreateClientModalComponent implements OnInit {
       return;
     }
 
-    if (!formValue.metodoPago || typeof formValue.metodoPago !== 'object' || !formValue.metodoPago.id || formValue.metodoPago.id <= 0) {
+    // --- VALIDACIÓN DE MÉTODO DE PAGO ROBUSTA ---
+    // Verificamos si existe el objeto Y si tiene ID.
+    const paymentMethodId = formValue.metodoPago?.id;
+    if (!paymentMethodId || paymentMethodId <= 0) {
+        console.error('Valor de metodoPago inválido:', formValue.metodoPago);
         Swal.fire('Error de Validación', 'Método de pago no seleccionado o inválido.', 'error');
         return;
     }
@@ -399,7 +407,6 @@ export class CreateClientModalComponent implements OnInit {
 
     this.isLoading = true;
     
-    // --- LÓGICA DE FECHAS SEGURA ---
     let nextIncreaseDate: Date | null = null;
     let legacyStartDate: Date | null = null;
 
@@ -410,9 +417,6 @@ export class CreateClientModalComponent implements OnInit {
       nextIncreaseDate = this.clientData?.nextIncreaseDay ? new Date(this.clientData.nextIncreaseDay) : null;
     }
 
-    // Definir fechas base de forma segura
-    // Si es edición, usamos la fecha del cliente existente. Si es nuevo, usamos hoy.
-    // Usamos una fecha por defecto segura para evitar Invalid Date
     const safeRegistrationDate = isEditing && this.clientData?.registrationDate 
                                  ? new Date(this.clientData.registrationDate) 
                                  : new Date();
@@ -433,12 +437,11 @@ export class CreateClientModalComponent implements OnInit {
         city: formValue.ciudad,
         province: formValue.provincia,
       },
-      preferredPaymentMethodId: formValue.metodoPago.id,
+      preferredPaymentMethodId: paymentMethodId, // <-- USAMOS EL ID EXTRAÍDO
       ivaCondition: formValue.condicionIVA || null,
       amount: formValue.montoManual,
       userID: 1,
       
-      // Aquí usamos las fechas seguras
       registrationDate: isLegacy && legacyStartDate ? legacyStartDate : safeRegistrationDate,
       startDate: isLegacy && legacyStartDate ? legacyStartDate : safeRegistrationDate,
       
@@ -451,7 +454,7 @@ export class CreateClientModalComponent implements OnInit {
       lockerIds: [],
       spaceRequests: [],
       contractedM3: formValue.contractedM3 || 0,
-      occupiedSpaces: formValue.ocuppiedSpaces || 0,
+      occupiedSpaces: formValue.occupiedSpaces || 0, // <-- MAPEO DEL NUEVO CAMPO
     };
     
     if (isEditing) {
