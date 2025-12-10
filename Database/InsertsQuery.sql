@@ -9,7 +9,8 @@ INSERT INTO locker_types (name, amount, m3, active) VALUES
 ('BAULERA GRANDE', 161000, 14.00, 1),
 ('BOX', 69000, 6.00, 1),
 ('LOCKER', 55000, 4.00, 1),
-('ESPACIO LIBRE', 58000, 5.00, 1);
+('ESPACIO LIBRE', 58000, 5.00, 1),
+('OTROS', 0, 0.00, 1);
 
 -- Deposits
 INSERT INTO warehouses (name, address, active) VALUES

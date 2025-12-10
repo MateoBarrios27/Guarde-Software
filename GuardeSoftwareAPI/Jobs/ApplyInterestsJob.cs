@@ -37,11 +37,11 @@ public class ApplyInterestsJob : IJob
                 // So, balance > 0 means the client owes money.
                 if (balance > 0)
                 {
-                    // Case 1: Client is overdue
                     var newMonthsUnpaid = monthsUnpaid + 1;
-                    _logger.LogWarning("Cliente del alquiler ID {rentalId} está en mora. Meses impagos actualizados a: {newMonthsUnpaid}.", rentalId, newMonthsUnpaid);
+                    _logger.LogWarning("Cliente del alquiler ID {rentalId} está en mora...", rentalId);
 
-                    var interestAmount = Math.Round(currentRent * 0.10m, 2);
+                    var interestAmount = Math.Round(balance * 0.10m, 2);
+
                     await _daoRental.IncrementUnpaidMonthsAndApplyInterestAsync(rentalId, interestAmount, concept);
                     _logger.LogInformation("Interés de ${amount} aplicado al alquiler ID {rentalId}.", interestAmount, rentalId);
 
