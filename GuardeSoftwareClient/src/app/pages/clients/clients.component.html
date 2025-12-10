@@ -187,35 +187,56 @@
         <table class="w-full text-sm">
           <thead class="text-xs text-gray-700 bg-gray-50">
             <tr class="border-b">
-              <th class="p-4 text-left font-medium">
-                <button (click)="handleSort('FirstName')" class="flex items-center gap-1">
+              <th class="p-4 text-left font-medium cursor-pointer" (click)="handleSort('FirstName')">
+                <div class="flex items-center gap-1 group">
                   Cliente
-                  <app-icon [name]="getSortIcon('FirstName')"></app-icon>
-                </button>
+                  <app-icon 
+                    [name]="getSortIcon('FirstName')" 
+                    class="w-4 h-4 transition-colors duration-200"
+                    [class.text-blue-600]="sortFieldClientes === 'FirstName'"
+                    [class.text-gray-400]="sortFieldClientes !== 'FirstName'">
+                  </app-icon>
+                </div>
               </th>
 
               <th class="p-4 text-left font-medium">Contacto</th>
 
-              <th class="p-4 text-left font-medium">
-                <button (click)="handleSort('Baulera')" class="flex items-center gap-1">
+              <th class="p-4 text-left font-medium cursor-pointer" (click)="handleSort('Baulera')">
+                <div class="flex items-center gap-1">
                   Baulera
-                  <app-icon [name]="getSortIcon('Baulera')"></app-icon>
-                </button>
+                  <app-icon 
+                    [name]="getSortIcon('Baulera')" 
+                    class="w-4 h-4 transition-colors duration-200"
+                    [class.text-blue-600]="sortFieldClientes === 'Baulera'"
+                    [class.text-gray-400]="sortFieldClientes !== 'Baulera'">
+                  </app-icon>
+                </div>
               </th>
 
-              <th class="p-4 text-left font-medium">
-                <button (click)="handleSort('Estado')" class="flex items-center gap-1">
+              <th class="p-4 text-left font-medium cursor-pointer" (click)="handleSort('Estado')">
+                <div class="flex items-center gap-1">
                   Estado
-                  <app-icon [name]="getSortIcon('Estado')"></app-icon>
-                </button>
+                  <app-icon 
+                    [name]="getSortIcon('Estado')" 
+                    class="w-4 h-4 transition-colors duration-200"
+                    [class.text-blue-600]="sortFieldClientes === 'Estado'"
+                    [class.text-gray-400]="sortFieldClientes !== 'Estado'">
+                  </app-icon>
+                </div>
               </th>
 
-              <th class="p-4 text-left font-medium">
-                <button (click)="handleSort('Balance')" class="flex items-center gap-1">
+              <th class="p-4 text-left font-medium cursor-pointer" (click)="handleSort('Balance')">
+                <div class="flex items-center gap-1">
                   Balance
-                  <app-icon [name]="getSortIcon('Balance')"></app-icon>
-                </button>
+                  <app-icon 
+                    [name]="getSortIcon('Balance')" 
+                    class="w-4 h-4 transition-colors duration-200"
+                    [class.text-blue-600]="sortFieldClientes === 'Balance'"
+                    [class.text-gray-400]="sortFieldClientes !== 'Balance'">
+                  </app-icon>
+                </div>
               </th>
+
               <th class="p-4 text-left font-medium">Acciones</th>
             </tr>
           </thead>

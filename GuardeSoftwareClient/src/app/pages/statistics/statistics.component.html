@@ -27,23 +27,23 @@
     
     <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
       <div class="absolute right-0 top-0 p-4 opacity-10"><app-icon name="check-circle" class="h-16 w-16 text-green-600"></app-icon></div>
-      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Pagado (Mes)</p>
+      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Ingresos</p>
       <div class="mt-2"><span class="text-2xl font-bold text-green-600">{{ stats.totalPagado | currency:'ARS':'symbol-narrow':'1.0-0' }}</span></div>
       <p class="text-xs text-green-600 mt-2 font-medium">Ingresos reales recibidos</p>
     </div>
 
     <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
       <div class="absolute right-0 top-0 p-4 opacity-10"><app-icon name="file-text" class="h-16 w-16 text-blue-600"></app-icon></div>
-      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Alquileres (Mes)</p>
+      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Abono</p>
       <div class="mt-2"><span class="text-2xl font-bold text-blue-900">{{ stats.totalAlquileres | currency:'ARS':'symbol-narrow':'1.0-0' }}</span></div>
-      <p class="text-xs text-blue-600 mt-2 font-medium">Facturación por alquiler</p>
+      <p class="text-xs text-blue-600 mt-2 font-medium">Sumatoria de los alquileres</p>
     </div>
 
     <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
       <div class="absolute right-0 top-0 p-4 opacity-10"><app-icon name="percent" class="h-16 w-16 text-purple-600"></app-icon></div>
       <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Intereses (Mes)</p>
       <div class="mt-2"><span class="text-2xl font-bold text-purple-700">{{ stats.totalIntereses | currency:'ARS':'symbol-narrow':'1.0-0' }}</span></div>
-      <p class="text-xs text-purple-600 mt-2 font-medium">Por mora en pagos</p>
+      <p class="text-xs text-purple-600 mt-2 font-medium">Intereses aplicados</p>
     </div>
 
     <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
@@ -63,7 +63,7 @@
     <!-- 5. ESPACIOS OCUPADOS (NUEVO - GLOBAL) -->
     <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
       <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-        <app-icon name="box" class="h-16 w-16 text-orange-600"></app-icon>
+        <app-icon name="package" class="h-16 w-16 text-orange-600"></app-icon>
       </div>
       <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Espacios Ocupados</p>
       <div class="mt-2 flex items-baseline gap-1">
