@@ -27,11 +27,17 @@ namespace GuardeSoftwareAPI.Dao
                 );
 
                 DECLARE @Alquileres DECIMAL(18, 2) = (
-                    SELECT ISNULL(SUM(amount), 0) 
-                    FROM account_movements 
-                    WHERE movement_type = 'DEBITO' 
-                      AND concept LIKE 'Alquiler%'
-                      AND movement_date BETWEEN @StartDate AND @EndDate
+                    SELECT ISNULL(SUM(filtered.amount), 0)
+                    FROM (
+                        SELECT 
+                            h.amount,
+                            ROW_NUMBER() OVER (PARTITION BY h.rental_id ORDER BY h.start_date DESC) as rn
+                        FROM rental_amount_history h
+                        WHERE 
+                            h.start_date <= @EndDate
+                            AND (h.end_date IS NULL OR h.end_date >= @StartDate)
+                    ) filtered
+                    WHERE filtered.rn = 1
                 );
 
                 DECLARE @Intereses DECIMAL(18, 2) = (
