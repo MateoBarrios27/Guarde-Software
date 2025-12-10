@@ -1,5 +1,4 @@
-
-export interface CreateWarehouseDto{
+export interface UpdateWarehouseDto{
     name: string;
     address?: string;
 }  

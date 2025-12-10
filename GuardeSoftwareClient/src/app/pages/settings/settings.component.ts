@@ -23,6 +23,10 @@ import { CreateMonthlyIncreaseDto } from '../../core/dtos/monthlyIncrease/Create
 import { UpdateMonthlyIncreaseDto } from '../../core/dtos/monthlyIncrease/UpdateMonthlyIncreaseDto';
 import { SmtpConfig } from '../../core/models/smtp-config';
 import { CommunicationService } from '../../core/services/communication-service/communication.service';
+import { Warehouse } from '../../core/models/warehouse';
+import { WarehouseService } from '../../core/services/warehouse-service/warehouse.service';
+import { CreateWarehouseDto } from '../../core/dtos/warehouse/CreateWarehouseDto';
+import { UpdateWarehouseDto } from '../../core/dtos/warehouse/UpdateWarehouseDto';
 
 
 @Component({
@@ -38,6 +42,7 @@ export class SettingsComponent implements OnInit {
     private userService: UserService,
     private paymentMethodService: PaymentMethodService,
     private userTypeService: UserTypeService,
+    private warehouseService: WarehouseService,
     private billingTypeService: BillingTypeService,
     private monthlyIncreaseService: MonthlyIncreaseService,
     private communicationService: CommunicationService
@@ -119,6 +124,14 @@ export class SettingsComponent implements OnInit {
   });
 
 
+  // --- Warehouses properties ---
+  warehouses: Warehouse[] = [];
+
+  showCreateWarehouseModal = false;
+  showEditWarehouseModal = false;
+  newWarehouse: CreateWarehouseDto = { name: '', address: '' };
+  editingWarehouse: Warehouse = { id: 0, name: '', address: ''};
+
   ngOnInit(): void {
     this.loadUsers();
     this.loadPaymentMethods();
@@ -126,6 +139,7 @@ export class SettingsComponent implements OnInit {
     this.loadBillingTypes();
     this.loadMonthlyIncreases();
     this.loadConfigs();
+    this.loadWarehouses();
   }
 
   // --- Métodos de Carga ---
@@ -188,6 +202,7 @@ export class SettingsComponent implements OnInit {
     { id: 'usuarios', title: 'Usuarios', icon: '👤' },
     { id: 'medios-pago', title: 'Medios de Pago', icon: '💳' },
     { id: 'facturacion', title: 'Facturación', icon: '📄' },
+    { id: 'depositos', title: 'Depósitos', icon: '🏢' },
     { id: 'aumentos', title: 'Aumentos Mensuales', icon: '📈' },
     { id: 'smtp', title: 'Configuración SMTP', icon: '✉️' },
     // { id: 'datos', title: 'Datos', icon: '🗄️' }
@@ -599,9 +614,8 @@ export class SettingsComponent implements OnInit {
       return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric', timeZone: 'UTC' }); 
   }
 
-  // --- Métodos de Configuración SMTP ---
+  // --- SMTP Config Methods ---
   loadConfigs() {
-    // Uso del servicio
     this.communicationService.getAllSmtpConfigs().subscribe({
       next: (data) => this.smtpConfigs.set(data),
       error: (err) => console.error('Error al cargar configs SMTP', err)
@@ -667,5 +681,86 @@ export class SettingsComponent implements OnInit {
         error: (err) => alert('Error al eliminar configuración')
       });
     }
+  }
+
+  loadWarehouses(): void {
+    this.warehouseService.getWarehouses().subscribe({
+      next: (data) => this.warehouses = data,
+      error: (err) => console.error('Error cargando depósitos', err)
+    });
+  }
+
+  // --- Warehouses methods ---
+  
+  openCreateWarehouseModal() {
+    this.newWarehouse = { name: '', address: '' };
+    this.showCreateWarehouseModal = true;
+  }
+  
+  closeCreateWarehouseModal() { this.showCreateWarehouseModal = false; }
+  
+  saveNewWarehouse() {
+    if(!this.newWarehouse.name) {
+       Swal.fire('Error', 'El nombre es obligatorio', 'warning');
+       return;
+    }
+    this.warehouseService.createWarehouse(this.newWarehouse).subscribe({
+      next: () => {
+         Swal.fire('Éxito', 'Depósito creado', 'success');
+         this.loadWarehouses();
+         this.closeCreateWarehouseModal();
+      },
+      error: (err) => Swal.fire('Error', 'No se pudo crear el depósito', 'error')
+    });
+  }
+
+  openEditWarehouseModal(wh: Warehouse) {
+      this.editingWarehouse = { ...wh };
+      this.showEditWarehouseModal = true;
+  }
+  
+  closeEditWarehouseModal() { this.showEditWarehouseModal = false; }
+  
+  saveUpdatedWarehouse() {
+     if(!this.editingWarehouse.name) {
+       Swal.fire('Error', 'El nombre es obligatorio', 'warning');
+       return;
+    }
+    const dto: UpdateWarehouseDto = { 
+        name: this.editingWarehouse.name, 
+        address: this.editingWarehouse.address 
+    };
+    this.warehouseService.updateWarehouse(this.editingWarehouse.id, dto).subscribe({
+      next: () => {
+         Swal.fire('Éxito', 'Depósito actualizado', 'success');
+         this.loadWarehouses();
+         this.closeEditWarehouseModal();
+      },
+      error: (err) => Swal.fire('Error', 'No se pudo actualizar', 'error')
+    });
+  }
+
+  deleteWarehouse(wh: Warehouse) {
+     Swal.fire({
+      title: '¿Estás seguro?',
+      text: `Eliminar depósito "${wh.name}".`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      confirmButtonColor: '#d33'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.warehouseService.deleteWarehouse(wh.id).subscribe({
+          next: () => {
+            Swal.fire('Eliminado', 'Depósito eliminado.', 'success');
+            this.loadWarehouses();
+          },
+          error: (err) => {
+            const msg = err.error?.message || 'Error al eliminar.';
+            Swal.fire('Error', msg, 'error');
+          }
+        });
+      }
+    });
   }
 }

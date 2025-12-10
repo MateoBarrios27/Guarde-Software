@@ -1,5 +1,5 @@
 using System.Threading.Tasks;
-using GuardeSoftwareAPI.Dtos.WareHouse;
+using GuardeSoftwareAPI.Dtos.Warehouse;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.warehouse;
 using Microsoft.AspNetCore.Mvc;
@@ -58,47 +58,42 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateWarehouse([FromBody] CreateWareHouseDTO warehouseToCreate)
+        public async Task<IActionResult> Create([FromBody] CreateWarehouseDTO dto)
         {
-            if (warehouseToCreate == null)
-                return BadRequest("Warehouse is null.");
-
-            Warehouse warehouse = new()
-            {
-                Name = warehouseToCreate.Name,
-                Address = warehouseToCreate.Address
-            };
-            
-            try
-            {
-                warehouse = await _warehouseService.CreateWarehouse(warehouse);
-
-                if (warehouse == null)
-                    return StatusCode(500, "A problem happened while handling your request.");
-                if (warehouse.Id == 0)
-                    return StatusCode(500, "A problem happened while handling your request.");
-
-                return CreatedAtAction(nameof(GetWarehouseById), new { id = warehouse.Id }, warehouse);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error creating the payment: {ex.Message}");
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            try {
+                var result = await _warehouseService.CreateWarehouseAsync(dto);
+                return Ok(result);
+            } catch (Exception ex) {
+                return StatusCode(500, new { message = ex.Message });
             }
         }
-        
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteWarehouse(int id)
-        {
-            bool deleted = await _warehouseService.DeleteWarehouse(id);
 
-            if (deleted)
-                return Ok(new { message = "Warehouse deleted successfully." });
-            else
-                return NotFound(new { message = "No warehouse found with the given ID." });
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateWarehouseDTO dto)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            try {
+                var result = await _warehouseService.UpdateWarehouseAsync(id, dto);
+                if (!result) return NotFound();
+                return NoContent();
+            } catch (Exception ex) {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            try {
+                var result = await _warehouseService.DeleteWarehouseAsync(id);
+                if (!result) return NotFound();
+                return NoContent();
+            } catch (InvalidOperationException ex) {
+                return BadRequest(new { message = ex.Message });
+            } catch (Exception ex) {
+                return StatusCode(500, new { message = ex.Message });
+            }
         }
     }
 }

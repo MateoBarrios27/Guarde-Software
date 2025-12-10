@@ -3,7 +3,8 @@ import { Warehouse } from '../../models/warehouse';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environments';
-import { CreateWarehouseDTO } from '../../dtos/warehouse/CreateWarehouseDTO';
+import { CreateWarehouseDto } from '../../dtos/warehouse/CreateWarehouseDto';
+import { UpdateWarehouseDto } from '../../dtos/warehouse/UpdateWarehouseDto';
 
 @Injectable({
   providedIn: 'root'
@@ -11,22 +12,26 @@ import { CreateWarehouseDTO } from '../../dtos/warehouse/CreateWarehouseDTO';
 export class WarehouseService {
 
   private url: string = environment.apiUrl
-  constructor(private httpCliente: HttpClient) { }
+  constructor(private httpClient: HttpClient) { }
 
-  public getWarehouses(): Observable<Warehouse[]>{
-        return this.httpCliente.get<Warehouse[]>(`${this.url}/Warehouse`);
+  getWarehouses(): Observable<Warehouse[]>{
+        return this.httpClient.get<Warehouse[]>(`${this.url}/Warehouse`);
   }
 
-   public getWarehouseById(id: number): Observable<Warehouse>{
-        return this.httpCliente.get<Warehouse>(`${this.url}/Warehouse/${id}`);
+   getWarehouseById(id: number): Observable<Warehouse>{
+        return this.httpClient.get<Warehouse>(`${this.url}/Warehouse/${id}`);
   }
 
-  public deleteWarehouse(id: number): Observable<any>{
-        return this.httpCliente.delete<any>(`${this.url}/Warehouse/${id}`);
+  createWarehouse(dto: CreateWarehouseDto): Observable<Warehouse> {
+    return this.httpClient.post<Warehouse>(`${this.url}/Warehouse`, dto);
   }
 
-  public createWarehouse(createWarehouseDto: CreateWarehouseDTO): Observable<Warehouse>{
-        return this.httpCliente.post<Warehouse>(`${this.url}/Warehouse`, createWarehouseDto);
+  updateWarehouse(id: number, dto: UpdateWarehouseDto): Observable<any> {
+    return this.httpClient.put(`${this.url}/Warehouse/${id}`, dto);
+  }
+
+  deleteWarehouse(id: number): Observable<any> {
+    return this.httpClient.delete(`${this.url}/Warehouse/${id}`);
   }
   
 }
