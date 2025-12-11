@@ -254,44 +254,50 @@ export class CommunicationsComponent implements OnInit {
   addCommunication(): void {
     const data = this.formData();
     if (!this.isFormValid()) { return; }
+    const request = {
+      ...data,
+      type: data.type === 'programar' ? 'schedule' : 'draft',
+      sendDate: data.type === 'programar' ? data.sendDate : '',
+      sendTime: data.type === 'programar' ? data.sendTime : ''
+    };
 
-    // Aquí llamamos al servicio pasando Data + Archivos
-    this.commService.createCommunication(data, this.selectedFiles()).subscribe({
+    this.commService.createCommunication(request, this.selectedFiles()).subscribe({
       next: (newCommunication) => {
         this.communications.update(comms => [newCommunication, ...comms]);
         this.closeModal();
         this.showToast('¡Comunicado creado!', 'Se guardó correctamente', '📨', 'success');
-        this.selectedFiles.set([]); // Limpiar archivos tras éxito
+        this.selectedFiles.set([]);
       },
       error: (err) => this.showToast('Error', 'No se pudo crear el comunicado', '❌', 'error')
     });
   }
 
   editCommunication(): void {
-    const data = this.formData();
-    const commId = data.id;
-    if (!commId || !this.isFormValid()) { return; }
+    const data = this.formData();
+    const commId = data.id;
+    if (!commId || !this.isFormValid()) { return; }
 
-    const request: UpsertComunicacionRequest = {
-      id: commId,
-      title: data.title,
-      content: data.content, // Se envía el HTML
-      sendDate: data.type === 'programar' ? data.sendDate : null,
-      sendTime: data.type === 'programar' ? data.sendTime : null,
-      channels: data.channels,
-      recipients: data.recipients,
-      type: data.type === 'programar' ? 'schedule' : 'draft'
-    };
+    const request: UpsertComunicacionRequest = {
+      id: commId,
+      title: data.title,
+      content: data.content, 
+      sendDate: data.type === 'programar' ? data.sendDate : null,
+      sendTime: data.type === 'programar' ? data.sendTime : null,
+      channels: data.channels,
+      recipients: data.recipients,
+      type: data.type === 'programar' ? 'schedule' : 'draft',
+      smtpConfigId: data.smtpConfigId 
+    };
 
-    this.commService.updateCommunication(commId, request).subscribe({
-      next: (updatedComm) => {
-        this.communications.update(comms => comms.map(c => c.id === commId ? updatedComm : c));
-        this.closeModal();
-        this.showToast('¡Comunicado actualizado!', 'Los cambios se guardaron', '✏️', 'success');
-      },
-      error: (err) => this.showToast('Error', 'No se pudo actualizar', '❌', 'error')
-    });
-  }
+    this.commService.updateCommunication(commId, request).subscribe({
+      next: (updatedComm) => {
+        this.communications.update(comms => comms.map(c => c.id === commId ? updatedComm : c));
+        this.closeModal();
+        this.showToast('¡Comunicado actualizado!', 'Los cambios se guardaron', '✏️', 'success');
+      },
+      error: (err) => this.showToast('Error', 'No se pudo actualizar', '❌', 'error')
+    });
+  }
 
   handleDeleteCommunication(communicationId: number): void {
     this.commService.deleteCommunication(communicationId).subscribe({
