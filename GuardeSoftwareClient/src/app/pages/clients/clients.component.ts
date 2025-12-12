@@ -10,13 +10,14 @@ import { CreateClientModalComponent } from '../../shared/components/create-clien
 import { TableClient } from '../../core/dtos/client/TableClientDto';
 import { GetClientsRequest } from '../../core/dtos/client/GetClientsRequest';
 import { ClientService } from '../../core/services/client-service/client.service';
-import { CreateClientDTO } from '../../core/dtos/client/CreateClientDTO';
-import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO'; // Asume que existe un DTO de Update
+import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO';
 
 import { Subject, Observable } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { ClientDetailModalComponent } from "../../shared/components/client-detail-modal/client-detail-modal.component";
 import Swal from 'sweetalert2';
+import { ClientStatisticsDto } from '../../core/dtos/statistics/ClientStatisticsDto';
+import { StatisticsService } from '../../core/services/statics-service/statics-service.service';
 
 @Component({
   selector: 'app-clients',
@@ -34,12 +35,13 @@ import Swal from 'sweetalert2';
   templateUrl: './clients.component.html',
 })
 export class ClientsComponent implements OnInit {
-  // --- Propiedades de la tabla ---
+
+  // --- Table properties ---
   public activeTab: 'clientes' | 'pagos' = 'clientes';
   public clientes: TableClient[] = [];
   public totalClientes = 0;
   public isLoading = false;
-  public estadisticas = {
+  public estadisticas: ClientStatisticsDto = {
     total: 0,
     alDia: 0,
     morosos: 0,
@@ -73,20 +75,20 @@ export class ClientsComponent implements OnInit {
   public showDeactivateModal = false;
   public clientToDeactivateId: string | null = null;
 
-  constructor(private clientService: ClientService) 
+  constructor(private clientService: ClientService, private statisticsService: StatisticsService) 
   {
-    // La suscripción se hace en el constructor
     this.searchSubject.pipe(
-      debounceTime(400), // Espera 400ms después de la última pulsación
-      distinctUntilChanged() // No busca si el texto no ha cambiado
+      debounceTime(400),
+      distinctUntilChanged() 
     ).subscribe(() => {
-      this.currentPageClientes = 1; // Resetea a la primera página con cada nueva búsqueda
+      this.currentPageClientes = 1; 
       this.loadClients();
     });
   }
 
   ngOnInit(): void {
     this.loadClients();
+    this.loadStatistics();
   }
 
   loadClients(): void {
@@ -149,14 +151,10 @@ export class ClientsComponent implements OnInit {
 
   toggleInactivos(): void {
     this.showInactivos = !this.showInactivos;
-    
-    // Opcional: Resetear filtro de estado al cambiar modo, para evitar confusión
-    // (Ej: si estaba filtrando por "Al día" y cambio a inactivos, no veré nada)
     if (this.showInactivos) {
         this.filterEstadoClientes = 'Todos'; 
     }
-    
-    this.currentPageClientes = 1; // Siempre volver a pág 1 al cambiar filtro principal
+    this.currentPageClientes = 1;
     this.loadClients();
   }
 
@@ -188,8 +186,9 @@ export class ClientsComponent implements OnInit {
     this.sortDirectionClientes = 'asc';
 
     this.loadClients();
-  } // --- Style Helpers ---
-
+  } 
+  
+  // --- Style Helpers ---
   getEstadoBadgeColor(estado: string): string {
     const colors: Record<string, string> = {
       'Al día': 'bg-green-100 text-green-800',
@@ -207,7 +206,7 @@ export class ClientsComponent implements OnInit {
       Pendiente: 'clock',
       Baja: 'user-x',
     };
-    return icons[estado] || 'help-circle'; // Un ícono por defecto
+    return icons[estado] || 'help-circle';
   }
 
   getDocumentoBadgeColor(documento: string): string {
@@ -245,7 +244,8 @@ export class ClientsComponent implements OnInit {
   onClientSaveSuccess(): void {
     this.showToastNotification('¡Cliente guardado exitosamente!', 'success');
     this.closeNewClientModal();
-    this.loadClients(); // Refresca la tabla
+    this.loadClients();
+    this.loadStatistics();
   }
 
   private showToastNotification(
@@ -283,9 +283,6 @@ export class ClientsComponent implements OnInit {
   }
 
   public openDeactivateClientModal(cliente: TableClient): void {
-
-    // 1. Validación: ¿Tiene lockers?
-    // Si el array de lockers tiene elementos o strings no vacíos
     if (cliente.lockers && cliente.lockers.length > 0 && cliente.lockers[0] !== '') {
        Swal.fire({
         icon: 'error',
@@ -296,7 +293,6 @@ export class ClientsComponent implements OnInit {
       return;
     }
 
-    // 2. Advertencia: ¿Tiene deuda?
     let warningText = "El cliente será marcado como 'Dado de Baja'. Se finalizará su alquiler actual.";
     let iconType: 'warning' | 'info' = 'warning';
 
@@ -307,7 +303,6 @@ export class ClientsComponent implements OnInit {
         warningText += "\n\nNota: El cliente tiene saldo a favor.";
     }
 
-    // 3. Mostrar confirmación
     Swal.fire({
       title: '¿Confirmar Baja?',
       text: warningText,
@@ -319,8 +314,6 @@ export class ClientsComponent implements OnInit {
       cancelButtonText: 'Cancelar',
     }).then((result) => {
       if (result.isConfirmed) {
-        
-        // 4. Llamar al servicio
         this.isLoading = true;
         this.clientService.deactivateClient(cliente.id).subscribe({
           next: () => {
@@ -330,8 +323,7 @@ export class ClientsComponent implements OnInit {
               'El cliente ha sido desactivado exitosamente.',
               'success'
             );
-            this.loadClients(); // Recargar tabla
-            // this.loadStatistics(); // Recargar stats (cuando lo tengas)
+            this.loadClients();
           },
           error: (err) => {
             this.isLoading = false;
@@ -343,5 +335,16 @@ export class ClientsComponent implements OnInit {
       }
     });
   }
+
+  loadStatistics(): void {
+    this.statisticsService.getClientStatistics().subscribe({
+      next: (stats) => {
+        this.estadisticas = stats;
+        console.log('Estadísticas cargadas:', stats);
+      },
+      error: (err) => console.error('Error cargando estadísticas:', err)
+    });
+  }
+
 }
 

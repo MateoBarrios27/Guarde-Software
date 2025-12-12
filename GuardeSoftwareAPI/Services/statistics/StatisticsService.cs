@@ -26,5 +26,10 @@ namespace GuardeSoftwareAPI.Services.statistics
                 throw;
             }
         }
+
+        public async Task<ClientStatisticsDto> GetClientStatisticsAsync()
+        {
+            return await _daoStatistics.GetClientStatisticsAsync();
+        }
     }
 }

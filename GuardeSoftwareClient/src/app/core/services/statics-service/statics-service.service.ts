@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environments';
 import { MonthlyStatisticsDTO } from '../../dtos/statistics/MonthlyStatisticsDTO';
+import { ClientStatisticsDto } from '../../dtos/statistics/ClientStatisticsDto';
 
 @Injectable({
   providedIn: 'root'
@@ -21,5 +22,9 @@ export class StatisticsService {
       .set('month', month.toString());
 
     return this.http.get<MonthlyStatisticsDTO>(`${this.apiUrl}/monthly`, { params });
+  }
+
+  getClientStatistics(): Observable<ClientStatisticsDto> {
+    return this.http.get<ClientStatisticsDto>(`${this.apiUrl}/client-statistics`);
   }
 }
