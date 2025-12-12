@@ -87,7 +87,6 @@ namespace GuardeSoftwareAPI.Jobs
                             if (!increasesMap.Any(kv => kv.Key >= newAnchorDate))
                             {
                                 _logger.LogWarning($"No se encontraron porcentajes de aumento definidos en o después de {newAnchorDate:d} para Rental ID {rentalId}.");
-                                // Movemos la fecha ancla al futuro para no revisar todos los días.
                                 newAnchorDate = today.AddMonths(frequency); 
                                 await _daoRental.UpdateNextIncreaseDateTransactionAsync(rentalId, newAnchorDate, connection, transaction);
                                 await transaction.CommitAsync();
@@ -131,7 +130,7 @@ namespace GuardeSoftwareAPI.Jobs
                                     lastHistoryId,
                                     rentalId,
                                     finalAmount,
-                                    lastAppliedIncreaseDate, // <-- CORRECCIÓN: Usar la fecha del último aumento aplicado
+                                    lastAppliedIncreaseDate, 
                                     connection,
                                     transaction
                                 );
@@ -160,9 +159,9 @@ namespace GuardeSoftwareAPI.Jobs
                             _logger.LogError(ex, $"Error al aplicar aumento para Rental ID {rentalId}. Transacción revertida.");
                             await transaction.RollbackAsync();
                         }
-                    } // Fin transaction
-                } // Fin connection
-            } // Fin foreach
+                    } // End transaction
+                } // End connection
+            } // End foreach
             _logger.LogInformation("--- Job de Aplicación de Aumentos finalizado ---");
         }
 
@@ -173,7 +172,6 @@ namespace GuardeSoftwareAPI.Jobs
         private decimal RoundUpToNearest100(decimal amount)
         {
             if (amount == 0) return 0;
-            // Usamos Ceiling para redondear siempre hacia arriba
             return Math.Ceiling(amount / 100.0m) * 100;
         }
     }

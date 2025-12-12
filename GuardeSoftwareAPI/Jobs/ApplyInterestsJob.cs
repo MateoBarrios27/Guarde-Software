@@ -41,9 +41,10 @@ public class ApplyInterestsJob : IJob
                     _logger.LogWarning("Cliente del alquiler ID {rentalId} está en mora...", rentalId);
 
                     var interestAmount = Math.Round(balance * 0.10m, 2);
+                    var roundedInterest = RoundUpToNearest100(interestAmount);
 
-                    await _daoRental.IncrementUnpaidMonthsAndApplyInterestAsync(rentalId, interestAmount, concept);
-                    _logger.LogInformation("Interés de ${amount} aplicado al alquiler ID {rentalId}.", interestAmount, rentalId);
+                    await _daoRental.IncrementUnpaidMonthsAndApplyInterestAsync(rentalId, roundedInterest, concept);
+                    _logger.LogInformation("Interés de ${amount} aplicado al alquiler ID {rentalId}.", roundedInterest, rentalId);
 
                     if (newMonthsUnpaid >= TERMINATION_THRESHOLD)
                     {
@@ -60,5 +61,11 @@ public class ApplyInterestsJob : IJob
         {
             _logger.LogError(ex, "Ocurrió un error crítico en el Job de Gestión de Mora.");
         }
+    }
+
+    private decimal RoundUpToNearest100(decimal amount)
+    {
+        if (amount == 0) return 0;
+        return Math.Ceiling(amount / 100.0m) * 100;
     }
 }

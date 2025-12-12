@@ -196,25 +196,21 @@ namespace GuardeSoftwareAPI.Services.client
                         };
                         int newClientId = await daoClient.CreateClientTransactionAsync(client, connection, transaction);
 
-                        // --- Lógica de Fechas de Aumento y Monto Inicial ---
                         DateTime? priceLockDate = null;
                         if (dto.PrepaidMonths > 0)
                         {
                             priceLockDate = startDate.AddMonths(dto.PrepaidMonths);
                         }
 
-                        // --- LÓGICA DE FECHA ANCLA (CORREGIDA) ---
                         DateTime nextIncreaseAnchorDate;
                         int frequency = dto.IsLegacy6MonthPromo ? 6 : 4;
 
                         if (dto.IsLegacyClient && dto.LegacyNextIncreaseDate.HasValue)
                         {
-                            // A. Cliente Legacy: Usamos la fecha manual
                             nextIncreaseAnchorDate = dto.LegacyNextIncreaseDate.Value.Date;
                         }
                         else
                         {
-                            // B. Cliente Nuevo: Calculamos el primer aniversario (siempre el día 1ro)
                             var firstAnniversary = startDate.AddMonths(frequency - 1); 
                             nextIncreaseAnchorDate = new DateTime(firstAnniversary.Year, firstAnniversary.Month, 1);
                         }
@@ -324,7 +320,8 @@ namespace GuardeSoftwareAPI.Services.client
                                 decimal dailyRate = dto.Amount / daysInMonth;
                                 debitAmount = dailyRate * daysToCharge;
                                 
-                                debitAmount = Math.Round(debitAmount, 2);
+                                var roundedDebitAmount = RoundUpToNearest100(debitAmount);
+                                debitAmount = roundedDebitAmount;
 
                                 concept += $" (Proporcional {daysToCharge} días)";
                             }
@@ -685,6 +682,12 @@ namespace GuardeSoftwareAPI.Services.client
                     }
                 }
             }
+        }
+
+        private decimal RoundUpToNearest100(decimal amount)
+        {
+            if (amount == 0) return 0;
+            return Math.Ceiling(amount / 100.0m) * 100;
         }
 
     }
