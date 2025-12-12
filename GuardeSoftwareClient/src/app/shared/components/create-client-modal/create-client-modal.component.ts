@@ -203,7 +203,7 @@ export class CreateClientModalComponent implements OnInit {
           });
           this.newClientForm.get('contractedM3')?.setValue(totalM3, { emitEvent: false });
           // Actualizar también occupiedSpaces automáticamente en creación
-          this.newClientForm.get('occupiedSpaces')?.setValue(totalSpaces, { emitEvent: false });
+          // this.newClientForm.get('occupiedSpaces')?.setValue(totalSpaces, { emitEvent: false });
       });
     }
 

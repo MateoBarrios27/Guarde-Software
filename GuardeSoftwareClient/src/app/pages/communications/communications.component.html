@@ -222,12 +222,16 @@
     </div>
     <div>
     <label class="block text-sm font-medium text-gray-700 mb-1">Servidor de Envío</label>
+
+<div class="relative">
     <select [ngModel]="formData().smtpConfigId" 
             (ngModelChange)="updateFormField('smtpConfigId', $event)"
-            class="w-full p-2 border border-gray-300 rounded-lg">
+            class="w-full p-2 pr-8 border border-gray-300 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        
         <option [ngValue]="null">Predeterminado del Sistema</option>
         <option *ngFor="let smtp of smtpConfigs()" [ngValue]="smtp.id">{{ smtp.name }}</option>
     </select>
+</div>
 </div>
 
 <div class="mt-4">

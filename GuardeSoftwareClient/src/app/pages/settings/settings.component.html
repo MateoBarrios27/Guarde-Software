@@ -184,7 +184,7 @@
     <div *ngIf="activeSection === 'depositos'" class="border rounded-lg shadow bg-white">
         <div class="p-4 flex justify-between items-center border-b">
           <div class="font-semibold flex items-center gap-2 text-gray-700">
-            Depósitos / Sucursales
+            Depósitos
           </div>
           <button class="px-3 py-1 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
             (click)="openCreateWarehouseModal()">
@@ -197,7 +197,7 @@
               <tr>
                 <!-- <th class="px-4 py-2 text-left">ID</th> -->
                 <th class="px-4 py-2 text-left">Nombre</th>
-                <th class="px-4 py-2 text-left">Descripción</th>
+                <th class="px-4 py-2 text-left">Dirección</th>
                 <th class="px-4 py-2 text-left">Acciones</th>
               </tr>
             </thead>
@@ -314,8 +314,7 @@
         </div>
         <div class="p-4 overflow-x-auto">
           <p class="text-sm text-gray-600 mb-4">
-            Define el porcentaje de aumento que se aplicará a los clientes en su mes de aniversario.
-            El job de aumentos usará el valor del mes correspondiente.
+            Define el porcentaje de aumento que se aplicará a los clientes en su cuarto mes.
           </p>
           <table class="min-w-full border text-sm">
             <thead class="bg-gray-100 text-gray-600">

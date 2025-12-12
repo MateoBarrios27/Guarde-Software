@@ -1,6 +1,5 @@
 <div
   class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-  (click)="closeModal.emit()"
 >
   <form
     [formGroup]="newClientForm"
@@ -285,9 +284,7 @@
                     <ng-container *ngIf="spaceRequests.value.length > 0 && (spaceRequests.value[0].warehouseId || spaceRequests.value[0].m3); else noRequestsCreation">
                       <div *ngFor="let req of spaceRequests.value" class="flex justify-between items-center p-2 bg-white/50 rounded">
                         <div>
-                          <!-- CORRECCIÓN: Texto Plural -->
                           <div class="font-medium text-sm text-indigo-900">{{ req.quantity || 0 }} {{ req.quantity === 1 ? 'espacio' : 'espacios' }} de {{ req.m3 || 0 }} m³</div>
-                          <!-- CORRECCIÓN: Nombre Depósito -->
                           <div class="text-xs text-gray-600">en {{ getWarehouseName(req.warehouseId) || '?' }}</div>
                         </div>
                       </div>
