@@ -26,16 +26,16 @@ export class LoginComponent {
       return;
     }
 
-    this.loading = true;
+    // this.loading = true;
     this.errorMessage = '';
 
     this.authService.login(this.userName, this.password).subscribe({
       next: () => {
-       this.loading = false;
+      //  this.loading = false;
        this.router.navigate(['/dashboard']);
       },
       error: (err) => {
-        this.loading = false;
+        // this.loading = false;
         if (err.status === 401) {
             this.errorMessage = 'Usuario o contraseña incorrectos';
         } else {
