@@ -1,3 +1,5 @@
+import { WarehouseRevenueDTO } from "./WarehouseRevenueDto";
+
 export interface MonthlyStatisticsDTO {
   year: number;
   month: number;
@@ -8,4 +10,5 @@ export interface MonthlyStatisticsDTO {
   deudaTotalDelMes: number;
   balanceGlobalActual: number;
   totalEspaciosOcupados: number;
+  warehouseRevenues?: WarehouseRevenueDTO[];
 }

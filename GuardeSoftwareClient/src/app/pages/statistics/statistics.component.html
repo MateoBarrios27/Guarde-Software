@@ -1,20 +1,28 @@
-<div class="space-y-6 animate-fade-in">
+<div class="space-y-8 animate-fade-in p-2">
   
-  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900">Estadísticas Financieras</h1>
-      <p class="text-gray-500 text-sm">Métricas del mes de {{ monthName | titlecase }}.</p>
+      <h1 class="text-xl font-semibold text-gray-900">Estadísticas Financieras</h1>
+      <p class="text-gray-500 text-sm mt-1">Métricas del mes de {{ monthName }}.</p>
     </div>
     
     <div class="flex items-center bg-gray-50 rounded-lg p-1 border border-gray-200">
-      <button (click)="prevMonth()" [disabled]="isLoading" class="p-2 flex items-center justify-center hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 disabled:opacity-50">
+      <button 
+        (click)="prevMonth()" 
+        [disabled]="isLoading" 
+        class="p-2 flex items-center justify-center hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
         <app-icon name="chevron-left" class="h-5 w-5"></app-icon>
       </button>
-      <div class="px-6 py-1 min-w-[180px] text-center font-semibold text-gray-800 capitalize">
+      <div class="px-4 py-1 min-w-[160px] text-center text-sm font-medium text-gray-700 capitalize">
         {{ monthName }}
       </div>
-      <button (click)="nextMonth()" [disabled]="isLoading" class="p-2 flex items-center justify-center hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 disabled:opacity-50">
+      <button 
+        (click)="nextMonth()" 
+        [disabled]="isLoading || isCurrentMonth" 
+        class="p-2 flex items-center justify-center hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+        
         <app-icon name="chevron-right" class="h-5 w-5"></app-icon>
+
       </button>
     </div>
   </div>
@@ -23,54 +31,126 @@
     <app-icon name="loader" class="h-10 w-10 text-blue-600 animate-spin"></app-icon>
   </div>
 
-  <div *ngIf="!isLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+  <div *ngIf="!isLoading" class="space-y-8">
     
-    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-      <div class="absolute right-0 top-0 p-4 opacity-10"><app-icon name="check-circle" class="h-16 w-16 text-green-600"></app-icon></div>
-      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Ingresos</p>
-      <div class="mt-2"><span class="text-2xl font-bold text-green-600">{{ stats.totalPagado | currency:'ARS':'symbol-narrow':'1.0-0' }}</span></div>
-      <p class="text-xs text-green-600 mt-2 font-medium">Ingresos reales recibidos</p>
-    </div>
-
-    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-      <div class="absolute right-0 top-0 p-4 opacity-10"><app-icon name="file-text" class="h-16 w-16 text-blue-600"></app-icon></div>
-      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Abono</p>
-      <div class="mt-2"><span class="text-2xl font-bold text-blue-900">{{ stats.totalAlquileres | currency:'ARS':'symbol-narrow':'1.0-0' }}</span></div>
-      <p class="text-xs text-blue-600 mt-2 font-medium">Sumatoria de los alquileres</p>
-    </div>
-
-    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-      <div class="absolute right-0 top-0 p-4 opacity-10"><app-icon name="percent" class="h-16 w-16 text-purple-600"></app-icon></div>
-      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Intereses (Mes)</p>
-      <div class="mt-2"><span class="text-2xl font-bold text-purple-700">{{ stats.totalIntereses | currency:'ARS':'symbol-narrow':'1.0-0' }}</span></div>
-      <p class="text-xs text-purple-600 mt-2 font-medium">Intereses aplicados</p>
-    </div>
-
-    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-      <div class="absolute right-0 top-0 p-4 opacity-10"><app-icon name="trending-up" class="h-16 w-16 text-orange-600"></app-icon></div>
-      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Saldo Ant. + Alquiler</p>
-      <div class="mt-2"><span class="text-2xl font-bold text-orange-700">{{ stats.deudaTotalDelMes | currency:'ARS':'symbol-narrow':'1.0-0' }}</span></div>
-      <p class="text-xs text-orange-600 mt-2 font-medium">Carga total del periodo</p>
-    </div>
-
-    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-      <div class="absolute right-0 top-0 p-4 opacity-10"><app-icon name="wallet" class="h-16 w-16 text-red-600"></app-icon></div>
-      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Suma Balances (Hoy)</p>
-      <div class="mt-2"><span class="text-2xl font-bold text-red-700">{{ stats.balanceGlobalActual | currency:'ARS':'symbol-narrow':'1.0-0' }}</span></div>
-      <p class="text-xs text-red-600 mt-2 font-medium">Deuda total en la calle</p>
-    </div>
-
-    <!-- 5. ESPACIOS OCUPADOS (NUEVO - GLOBAL) -->
-    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-      <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-        <app-icon name="package" class="h-16 w-16 text-orange-600"></app-icon>
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      
+      <div class="bg-green-50/50 p-6 rounded-xl border border-green-100 shadow-sm relative">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-semibold text-green-600 uppercase tracking-wider">INGRESOS</p>
+            <div class="mt-3 text-3xl font-bold text-green-600">
+              {{ stats.totalPagado | currency:'ARS':'symbol-narrow':'1.0-0' }}
+            </div>
+            <p class="text-xs text-green-600 mt-1">Ingresos reales recibidos</p>
+          </div>
+          <app-icon name="dollar-sign" class="h-5 w-5 text-green-600"></app-icon>
+        </div>
       </div>
-      <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Espacios Ocupados</p>
-      <div class="mt-2 flex items-baseline gap-1">
-        <span class="text-3xl font-bold text-orange-700">{{ stats.totalEspaciosOcupados }}</span>
-        <span class="text-sm text-gray-500 font-medium">unidades</span>
+
+      <div class="bg-blue-50/50 p-6 rounded-xl border border-blue-100 shadow-sm relative">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-semibold text-blue-600 uppercase tracking-wider">ABONO</p>
+            <div class="mt-3 text-3xl font-bold text-blue-600">
+              {{ stats.totalAlquileres | currency:'ARS':'symbol-narrow':'1.0-0' }}
+            </div>
+            <p class="text-xs text-blue-500 mt-1">Sumatoria de los alquileres</p>
+          </div>
+          <app-icon name="receipt" class="h-5 w-5 text-blue-500"></app-icon>
+        </div>
       </div>
-      <p class="text-xs text-orange-600 mt-2 font-medium">Total histórico activo</p>
+
+      <div class="bg-purple-50/50 p-6 rounded-xl border border-purple-100 shadow-sm relative">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-semibold text-purple-600 uppercase tracking-wider">INTERESES</p>
+            <div class="mt-3 text-3xl font-bold text-purple-600">
+              {{ stats.totalIntereses | currency:'ARS':'symbol-narrow':'1.0-0' }}
+            </div>
+            <p class="text-xs text-purple-500 mt-1">Intereses aplicados</p>
+          </div>
+          <app-icon name="percent" class="h-5 w-5 text-purple-500"></app-icon>
+        </div>
+      </div>
+
+      <div class="bg-orange-50/50 p-6 rounded-xl border border-orange-100 shadow-sm relative">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-semibold text-orange-600 uppercase tracking-wider">SALDO ANTERIOR</p>
+            <div class="mt-3 text-3xl font-bold text-orange-600">
+              {{ stats.deudaTotalDelMes | currency:'ARS':'symbol-narrow':'1.0-0' }}
+            </div>
+            <p class="text-xs text-orange-500 mt-1">Saldo proveniente de meses anteriores</p>
+          </div>
+          <app-icon name="file-text" class="h-5 w-5 text-orange-500"></app-icon>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">RECAUDACIÓN POR DEPÓSITO</h3>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        
+        <div *ngFor="let depo of stats.warehouseRevenues" class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+          <div class="flex items-start gap-4">
+            <div class="bg-blue-50 p-3 rounded-lg">
+              <app-icon name="warehouse" class="h-6 w-6 text-blue-600"></app-icon>
+            </div>
+            
+            <div class="flex-1">
+              <h4 class="text-sm font-semibold text-gray-800">{{ depo.name }}</h4>
+              <!-- <p class="text-xs text-gray-500 mb-3">{{ depo.address }}</p> -->
+              
+              <div class="text-xl font-bold text-blue-600">
+                {{ depo.revenue | currency:'ARS':'symbol-narrow':'1.0-0' }}
+              </div>
+              <p class="text-[10px] text-gray-400 mt-1">Recaudado en {{ monthName | titlecase }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="!stats.warehouseRevenues?.length" class="col-span-full py-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
+           <p class="text-gray-500 text-sm">No hay datos de recaudación por depósito para este periodo.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="border-t border-gray-200 pt-8">
+      <h3 class="text-center text-xs font-semibold text-gray-400 uppercase tracking-widest mb-6 px-4 bg-gray-50 w-fit mx-auto -mt-11">ESTADÍSTICAS ACTUALES</h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <div class="bg-red-50/50 p-6 rounded-xl border border-red-100 shadow-sm">
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="text-xs font-semibold text-red-600 uppercase tracking-wider">BALANCES</p>
+              <div class="mt-3 text-3xl font-bold text-red-600">
+                {{ stats.balanceGlobalActual | currency:'ARS':'symbol-narrow':'1.0-0' }}
+              </div>
+              <p class="text-xs text-red-500 mt-1">Balance actual de los clientes</p>
+            </div>
+            <app-icon name="scales" class="h-5 w-5 text-red-600"></app-icon>
+          </div>
+        </div>
+
+        <div class="bg-orange-50/50 p-6 rounded-xl border border-orange-100 shadow-sm">
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="text-xs font-semibold text-orange-600 uppercase tracking-wider">ESPACIOS OCUPADOS</p>
+              <div class="mt-3 text-3xl font-bold text-orange-600 flex items-baseline gap-2">
+                {{ stats.totalEspaciosOcupados }} 
+                <span class="text-lg font-normal text-orange-500">unidades</span>
+              </div>
+              <p class="text-xs text-orange-500 mt-1">Espacios ocupados actualmente</p>
+            </div>
+            <app-icon name="package" class="h-5 w-5 text-orange-600"></app-icon>
+          </div>
+        </div>
+
+      </div>
     </div>
 
   </div>

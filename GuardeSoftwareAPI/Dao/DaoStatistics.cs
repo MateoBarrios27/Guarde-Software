@@ -18,12 +18,17 @@ namespace GuardeSoftwareAPI.Dao
             DateTime startDate = new(year, month, 1);
             DateTime endDate = startDate.AddMonths(1).AddDays(-1).AddHours(23).AddMinutes(59).AddSeconds(59);
 
-            string query = @"
+            SqlParameter[] parameters = [
+                new SqlParameter("@StartDate", SqlDbType.DateTime) { Value = startDate },
+                new SqlParameter("@EndDate", SqlDbType.DateTime) { Value = endDate }
+            ];
+
+            string queryMain = @"
                 DECLARE @Pagado DECIMAL(18, 2) = (
                     SELECT ISNULL(SUM(amount), 0) 
                     FROM account_movements 
                     WHERE movement_type = 'CREDITO' 
-                      AND movement_date BETWEEN @StartDate AND @EndDate
+                        AND movement_date BETWEEN @StartDate AND @EndDate
                 );
 
                 DECLARE @Alquileres DECIMAL(18, 2) = (
@@ -44,8 +49,8 @@ namespace GuardeSoftwareAPI.Dao
                     SELECT ISNULL(SUM(amount), 0) 
                     FROM account_movements 
                     WHERE movement_type = 'DEBITO' 
-                      AND concept LIKE 'Interés por mora%'
-                      AND movement_date BETWEEN @StartDate AND @EndDate
+                        AND concept LIKE 'Interés por mora%'
+                        AND movement_date BETWEEN @StartDate AND @EndDate
                 );
 
                 DECLARE @SaldoHistorico DECIMAL(18, 2) = (
@@ -56,10 +61,8 @@ namespace GuardeSoftwareAPI.Dao
                     WHERE movement_date < @StartDate
                 );
 
-                DECLARE @DeudaPeriodo DECIMAL(18, 2) = @SaldoHistorico + @Alquileres;
+                DECLARE @DeudaPeriodo DECIMAL(18, 2) = @SaldoHistorico;
 
-
-                
                 DECLARE @BalanceGlobal DECIMAL(18, 2) = (
                     SELECT ISNULL(SUM(
                         CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END
@@ -67,7 +70,6 @@ namespace GuardeSoftwareAPI.Dao
                     FROM account_movements
                 );
 
-                
                 DECLARE @EspaciosOcupados INT = (
                     SELECT ISNULL(SUM(occupied_spaces), 0)
                     FROM rentals
@@ -83,30 +85,69 @@ namespace GuardeSoftwareAPI.Dao
                     @EspaciosOcupados AS TotalEspaciosOcupados;
             ";
 
-            SqlParameter[] parameters = [
+            MonthlyStatisticsDTO resultDto = new() 
+            { 
+                Year = year, 
+                Month = month,
+                WarehouseRevenues = [] 
+            };
+
+            DataTable tableStats = await accessDB.GetTableAsync("MonthlyStats", queryMain, parameters);
+
+            if (tableStats.Rows.Count > 0)
+            {
+                DataRow row = tableStats.Rows[0];
+                resultDto.TotalPagado = row["TotalPagado"] != DBNull.Value ? Convert.ToDecimal(row["TotalPagado"]) : 0;
+                resultDto.TotalAlquileres = row["TotalAlquileres"] != DBNull.Value ? Convert.ToDecimal(row["TotalAlquileres"]) : 0;
+                resultDto.TotalIntereses = row["TotalIntereses"] != DBNull.Value ? Convert.ToDecimal(row["TotalIntereses"]) : 0;
+                resultDto.DeudaTotalDelMes = row["DeudaTotalDelMes"] != DBNull.Value ? Convert.ToDecimal(row["DeudaTotalDelMes"]) : 0;
+                resultDto.BalanceGlobalActual = row["BalanceGlobalActual"] != DBNull.Value ? Convert.ToDecimal(row["BalanceGlobalActual"]) : 0;
+                resultDto.TotalEspaciosOcupados = row["TotalEspaciosOcupados"] != DBNull.Value ? Convert.ToInt32(row["TotalEspaciosOcupados"]) : 0;
+            }
+
+            string queryWarehouses = @"
+                SELECT 
+                    w.name AS WarehouseName,
+                    w.address AS WarehouseAddress,
+                    ISNULL(SUM(am.amount), 0) AS Revenue
+                FROM account_movements am
+                INNER JOIN rentals r ON am.rental_id = r.rental_id
+                INNER JOIN (
+                    -- Obtenemos un único warehouse_id por rental desde la tabla lockers
+                    -- para evitar duplicar el monto si el cliente tiene múltiples lockers.
+                    SELECT rental_id, MIN(warehouse_id) as warehouse_id
+                    FROM lockers
+                    WHERE rental_id IS NOT NULL
+                    GROUP BY rental_id
+                ) l_uniq ON r.rental_id = l_uniq.rental_id
+                INNER JOIN warehouses w ON l_uniq.warehouse_id = w.warehouse_id
+                WHERE am.movement_type = 'CREDITO'
+                    AND am.movement_date BETWEEN @StartDate AND @EndDate
+                GROUP BY w.name, w.address
+                ORDER BY Revenue DESC
+            ";
+            
+            SqlParameter[] parametersWh = [
                 new SqlParameter("@StartDate", SqlDbType.DateTime) { Value = startDate },
                 new SqlParameter("@EndDate", SqlDbType.DateTime) { Value = endDate }
             ];
 
-            DataTable table = await accessDB.GetTableAsync("MonthlyStats", query, parameters);
+            DataTable tableWarehouses = await accessDB.GetTableAsync("WarehouseStats", queryWarehouses, parametersWh);
 
-            if (table.Rows.Count > 0)
+            if (tableWarehouses.Rows.Count > 0)
             {
-                DataRow row = table.Rows[0];
-                return new MonthlyStatisticsDTO
+                foreach (DataRow row in tableWarehouses.Rows)
                 {
-                    Year = year,
-                    Month = month,
-                    TotalPagado = Convert.ToDecimal(row["TotalPagado"]),
-                    TotalAlquileres = Convert.ToDecimal(row["TotalAlquileres"]),
-                    TotalIntereses = Convert.ToDecimal(row["TotalIntereses"]),
-                    DeudaTotalDelMes = Convert.ToDecimal(row["DeudaTotalDelMes"]),
-                    BalanceGlobalActual = Convert.ToDecimal(row["BalanceGlobalActual"]),
-                    TotalEspaciosOcupados = Convert.ToInt32(row["TotalEspaciosOcupados"])
-                };
+                    resultDto.WarehouseRevenues.Add(new WarehouseRevenueDto
+                    {
+                        Name = row["WarehouseName"].ToString() ?? string.Empty,
+                        Address = row["WarehouseAddress"].ToString() ?? string.Empty,
+                        Revenue = row["Revenue"] != DBNull.Value ? Convert.ToDecimal(row["Revenue"]) : 0
+                    });
+                }
             }
 
-            return new MonthlyStatisticsDTO { Year = year, Month = month };
+            return resultDto;
         }
 
         public async Task<ClientStatisticsDto> GetClientStatisticsAsync()
@@ -135,7 +176,6 @@ namespace GuardeSoftwareAPI.Dao
                     ) acc_stats ON c.client_id = acc_stats.client_id
                 )
                 SELECT 
-                    -- CAMBIO: Total ahora solo cuenta los que NO son 'Baja'
                     SUM(CASE WHEN Status <> 'Baja' THEN 1 ELSE 0 END) as Total,
                     
                     SUM(CASE WHEN Status = 'AlDia' THEN 1 ELSE 0 END) as AlDia,

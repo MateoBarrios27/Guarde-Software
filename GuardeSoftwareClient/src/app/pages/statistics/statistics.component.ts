@@ -24,8 +24,11 @@ export class StatisticsComponent implements OnInit {
     totalIntereses: 0,
     deudaTotalDelMes: 0,
     totalPagado: 0,
-    totalEspaciosOcupados: 0
+    totalEspaciosOcupados: 0,
+    warehouseRevenues: []
   };
+
+  
 
   constructor(private statisticsService: StatisticsService) {}
 
@@ -59,6 +62,7 @@ export class StatisticsComponent implements OnInit {
   }
 
   nextMonth(): void {
+    if (this.isCurrentMonth) return;
     this.currentDate = new Date(this.currentDate.setMonth(this.currentDate.getMonth() + 1));
     this.loadStats();
   }
@@ -68,10 +72,9 @@ export class StatisticsComponent implements OnInit {
     return this.currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
   }
   
-  // Verifica si es el mes actual para deshabilitar el botón "Siguiente" si no quieres ver futuro
   get isCurrentMonth(): boolean {
-      const today = new Date();
-      return this.currentDate.getMonth() === today.getMonth() && 
-             this.currentDate.getFullYear() === today.getFullYear();
+    const today = new Date();
+    return this.currentDate.getMonth() === today.getMonth() && 
+           this.currentDate.getFullYear() === today.getFullYear();
   }
 }
