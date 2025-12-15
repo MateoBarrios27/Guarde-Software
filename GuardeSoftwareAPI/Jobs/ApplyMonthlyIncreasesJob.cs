@@ -35,10 +35,8 @@ namespace GuardeSoftwareAPI.Jobs
         public async Task Execute(IJobExecutionContext context)
         {
             _logger.LogInformation("--- Iniciando Job de Aplicación de Aumentos Mensuales ---");
-            // El Job corre el día 1ro del mes.
             var today = DateTime.Now.Date; 
 
-            // 1. Obtener alquileres cuya fecha ancla es HOY o anterior, y no estén congelados.
             DataTable rentalsToIncrease = await _daoRental.GetRentalsDueForIncreaseTodayAsync(today);
             _logger.LogInformation($"Se encontraron {rentalsToIncrease.Rows.Count} alquileres que deben ser revisados para aumento.");
 
@@ -46,22 +44,18 @@ namespace GuardeSoftwareAPI.Jobs
             {
                 int rentalId = Convert.ToInt32(row["rental_id"]);
                 int frequency = Convert.ToInt32(row["increase_frequency_months"]);
-                DateTime anchorDate = Convert.ToDateTime(row["increase_anchor_date"]); // Fecha ancla (ej: 01/11/2025)
+                DateTime anchorDate = Convert.ToDateTime(row["increase_anchor_date"]);
                 decimal currentAmount = Convert.ToDecimal(row["CurrentAmount"]);
                 int lastHistoryId = Convert.ToInt32(row["LastHistoryId"]);
-                DateTime lastIncreaseDate = Convert.ToDateTime(row["LastIncreaseDate"]); // Fecha del monto actual (ej: 01/07/2025)
+                DateTime lastIncreaseDate = Convert.ToDateTime(row["LastIncreaseDate"]);
                 DateTime? priceLockDate = row["price_lock_end_date"] as DateTime?;
 
-                // 2. Determinar la fecha de inicio para el "catch-up"
                 DateTime catchUpStartDate = anchorDate;
                 if (priceLockDate.HasValue && priceLockDate.Value > catchUpStartDate)
                 {
-                    // Si el bloqueo de precio terminó DESPUÉS del ancla, empezamos a contar desde ahí.
                     catchUpStartDate = priceLockDate.Value;
                 }
                 
-                // Si la fecha de "puesta al día" sigue siendo en el futuro, omitir.
-                // (Esto no debería pasar si la query GetRentalsDueForIncreaseTodayAsync es correcta)
                 if (catchUpStartDate > today)
                 {
                     continue;
@@ -70,8 +64,8 @@ namespace GuardeSoftwareAPI.Jobs
                 _logger.LogInformation($"Procesando Rental ID {rentalId}. Monto actual: {currentAmount:C}. Frecuencia: {frequency}m. Fecha ancla: {anchorDate:d}. Fecha inicio catch-up: {catchUpStartDate:d}.");
 
                 decimal newAmount = currentAmount;
-                DateTime newAnchorDate = anchorDate; // La próxima fecha ancla a guardar
-                DateTime lastAppliedIncreaseDate = lastIncreaseDate; // La fecha de inicio del nuevo monto
+                DateTime newAnchorDate = anchorDate;
+                DateTime lastAppliedIncreaseDate = lastIncreaseDate;
 
                 using (var connection = _accessDB.GetConnectionClose())
                 {
@@ -80,8 +74,6 @@ namespace GuardeSoftwareAPI.Jobs
                     {
                         try
                         {
-                            // 3. Obtener TODOS los porcentajes definidos entre la fecha de inicio del catch-up y hoy
-                            // (Usamos AddDays(-1) para incluir el mes de catchUpStartDate si también es un aniversario)
                             Dictionary<DateTime, decimal> increasesMap = await _daoMonthlyIncrease.GetApplicableIncreasesBetweenDatesAsync(catchUpStartDate.AddDays(-1), today, connection, transaction);
 
                             if (!increasesMap.Any(kv => kv.Key >= newAnchorDate))
@@ -94,19 +86,15 @@ namespace GuardeSoftwareAPI.Jobs
                                 continue;
                             }
 
-                            // 4. Bucle de "Puesta al Día"
                             while (newAnchorDate <= today)
                             {
-                                // Buscamos el aumento definido para el mes de ESTA fecha ancla
                                 var settingDate = new DateTime(newAnchorDate.Year, newAnchorDate.Month, 1);
                                 
                                 if (increasesMap.TryGetValue(settingDate, out decimal percentage))
                                 {
-                                    // ¡Encontramos un aumento que se perdió!
                                     newAmount = newAmount * (1 + (percentage / 100));
                                     _logger.LogInformation($"  -> Aplicando aumento de {percentage}% (para {settingDate:MM/yyyy}) a Rental ID {rentalId}. Monto intermedio: {newAmount:C}");
                                     
-                                    // Guardamos esta fecha, será la 'start_date' del nuevo monto
                                     lastAppliedIncreaseDate = newAnchorDate; 
                                 } 
                                 else
@@ -135,7 +123,6 @@ namespace GuardeSoftwareAPI.Jobs
                                     transaction
                                 );
 
-                                // 5b. Actualizar la fecha ancla en RENTALS a la próxima fecha futura
                                 await _daoRental.UpdateNextIncreaseDateTransactionAsync(rentalId, newAnchorDate, connection, transaction);
                                 
                                 await transaction.CommitAsync();
@@ -143,14 +130,13 @@ namespace GuardeSoftwareAPI.Jobs
                             else
                             {
                                 _logger.LogInformation($"Sin cambios de monto para Rental ID {rentalId} (Monto calculado: {finalAmount:C}).");
-                                // Si no hubo aumento (ej. % 0) pero la fecha ancla está vencida, igual la actualizamos
                                 if(newAnchorDate > anchorDate)
                                 {
                                      await _daoRental.UpdateNextIncreaseDateTransactionAsync(rentalId, newAnchorDate, connection, transaction);
                                      await transaction.CommitAsync();
                                      _logger.LogInformation($"Fecha ancla de Rental ID {rentalId} movida a {newAnchorDate:d} sin cambios de precio.");
                                 } else {
-                                     await transaction.RollbackAsync(); // No hubo cambios
+                                     await transaction.RollbackAsync();
                                 }
                             }
                         }
@@ -159,9 +145,9 @@ namespace GuardeSoftwareAPI.Jobs
                             _logger.LogError(ex, $"Error al aplicar aumento para Rental ID {rentalId}. Transacción revertida.");
                             await transaction.RollbackAsync();
                         }
-                    } // End transaction
-                } // End connection
-            } // End foreach
+                    }
+                }
+            }
             _logger.LogInformation("--- Job de Aplicación de Aumentos finalizado ---");
         }
 
