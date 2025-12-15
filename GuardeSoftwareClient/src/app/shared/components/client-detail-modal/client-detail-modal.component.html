@@ -65,9 +65,12 @@
             </div>
             <div class="flex justify-between">
               <span class="text-sm text-gray-600">Próx. Vencimiento:</span>
-              <span class="text-sm font-semibold text-gray-800">{{
+              <span class="text-sm font-semibold text-gray-800">
+                <!-- {{
                 client.nextPaymentDay | date : "dd/MM/yyyy"
-              }}</span>
+              }} -->
+                N/A
+              </span>
             </div>
             <div class="flex justify-between">
               <span class="text-sm text-gray-600">Próx. Aumento:</span>
@@ -291,10 +294,15 @@
                   <label class="font-medium text-gray-500">Condición IVA</label>
                   <p class="text-gray-800">{{ client.ivaCondition || 'N/A' }}</p>
                 </div>
-                <div>
-                  <label class="font-medium text-gray-500">Fecha de Alta</label>
-                  <p class="text-gray-800">{{ client.registrationDate | date: 'dd/MM/yyyy' }}</p>
-                </div>
+                  <div>
+                    <label class="font-medium text-gray-500">Fecha de Alta</label>
+                    <p class="text-gray-800">
+                      {{ client.registrationDate | date: 'dd/MM/yyyy' }} 
+                      <span class="text-gray-500 text-sm ml-1">
+                        {{ client.registrationDate | timeduration}}
+                      </span>
+                    </p>
+                  </div>
                 <div>
                   <label class="font-medium text-gray-500">Tipo Factura</label>
                   <p class="text-gray-800">{{ client.billingType || 'N/A' }}</p>
@@ -314,38 +322,20 @@
               </div>
             </div>
             
-            <!-- ============================ -->
-          <!-- SECCIÓN LOCKERS (CORREGIDA - Versión Compacta) -->
-          <!-- ============================ -->
           <div>
             <h4 class="text-base font-semibold text-gray-700 mb-2">Lockers Asignados ({{ client.lockersList?.length || 0 }})</h4>
             <div class="border rounded-lg bg-white shadow-sm">
-              
-              <!-- Mensaje de "No tiene lockers" -->
               <div *ngIf="!client.lockersList || client.lockersList.length === 0" class="p-4 text-center text-gray-500">
                 No tiene lockers asignados.
               </div>
-
-              <!-- Lista de Lockers -->
               <ul *ngIf="client.lockersList && client.lockersList.length > 0" class="divide-y divide-gray-200">
                 
-                <!-- 
-                  Cada 'li' ahora es un contenedor simple con padding.
-                  La información se apila verticalmente.
-                -->
                 <li *ngFor="let locker of client.lockersList" class="p-3">
                   
-                  <!-- Fila 1: Info Principal (Identificador y Ubicación) -->
                   <div>
                     <span class="font-medium text-indigo-800 mr-3">{{ locker.identifier }}</span>
                     <span class="text-sm text-gray-600">{{ locker.warehouse }} - {{ locker.lockerType }}</span>
                   </div>
-                  
-                  <!-- 
-                    Fila 2: Features (Opcional)
-                    Aparece solo si 'locker.features' existe.
-                    Usa texto más pequeño e itálica para no agregar "volumen".
-                  -->
                   <div *ngIf="locker.features" class="mt-1">
                     <p class="text-xs text-gray-500">
                       {{ locker.features }}
@@ -380,13 +370,6 @@
                    * Estos espacios aún no tienen lockers físicos asignados.
                </p>
             </div>
-
-          <!-- ============================ -->
-          <!-- FIN SECCIÓN LOCKERS -->
-          <!-- ============================ -->
-
-          
-
             <div>
               <h4 class="text-base font-semibold text-gray-700 mb-2">Observaciones</h4>
               <div class="text-sm text-gray-700 bg-gray-50 border rounded-lg p-3 min-h-[60px]">
