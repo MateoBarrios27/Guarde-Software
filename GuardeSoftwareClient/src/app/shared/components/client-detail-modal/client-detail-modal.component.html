@@ -257,7 +257,9 @@
                           <span class="text-sm font-semibold text-gray-800">{{ com.subject }}</span>
                           <span class="text-xs text-gray-500">{{ com.date | date : "dd/MM/yy HH:mm" }}</span>
                         </div>
-                        <p class="text-sm text-gray-600 mt-1">{{ com.snippet }}</p>
+                        <div class="text-sm text-gray-600 p-0   " 
+                            [innerHTML]="com.snippet">
+                        </div>
                       </div>
                     </div>
                   </li>

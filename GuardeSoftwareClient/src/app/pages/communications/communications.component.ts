@@ -383,18 +383,16 @@ export class CommunicationsComponent implements OnInit {
 
   // --- ACTUALIZADO: getCommunicationPreview (Limpia el HTML) ---
   getCommunicationPreview(content: string, channel: string): string {
-    // Quita las etiquetas HTML para el preview de la card
-    const plainText = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); 
-    const maxLength = channel.includes('WhatsApp') ? 50 : 80;
-    let preview = plainText.length > maxLength ? plainText.substring(0, maxLength) + '...' : plainText;
-    
-    if (!preview) return "(Sin contenido)";
-
-    if (channel.includes('WhatsApp')) {
-      return `📱 ${preview}`;
-    }
-    return preview;
-  }
+  if (!content) return '';
+  // Esto crea un elemento temporal, le mete el HTML y saca solo el texto limpio
+  // Así 'hola&nbsp;mundo' se convierte en 'hola mundo'
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = content;
+  const text = tempDiv.textContent || tempDiv.innerText || '';
+  
+  // Cortamos si es muy largo
+  return text.length > 150 ? text.substring(0, 150) + '...' : text;
+}
 
   // Helper genérico para actualizar el signal del formulario
   updateFormField<K extends keyof FormDataState>(field: K, value: FormDataState[K]) {
@@ -445,4 +443,6 @@ export class CommunicationsComponent implements OnInit {
           error: () => this.showToast('Error', 'Falló el reintento', 'alert-triangle', 'error')
       });
   }
+
+  
 }

@@ -15,8 +15,6 @@ export class CommunicationService {
 
   constructor() { }
 
-  // --- COMUNICACIONES ---
-
   getCommunications(): Observable<ComunicacionDto[]> {
     return this.http.get<ComunicacionDto[]>(`${this.url}/Communications`);
   }
