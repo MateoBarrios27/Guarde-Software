@@ -64,7 +64,7 @@
               }}</span>
             </div>
             <div class="flex justify-between">
-              <span class="text-sm text-gray-600">Próx. Vencimiento:</span>
+              <span class="text-sm text-gray-600">Próx. Pago:</span>
               <span class="text-sm font-semibold text-gray-800">
                 <!-- {{
                 client.nextPaymentDay | date : "dd/MM/yyyy"
@@ -104,9 +104,9 @@
                 <app-icon name="phone" class="h-5 w-5 text-gray-400 mt-1"></app-icon>
                 <div>
                   <label class="text-sm font-medium text-gray-500">Teléfono</label>
-                  <div *ngIf="!client.phone || client.phone.length === 0" class="text-sm text-gray-400 italic">N/A</div>
-                  <div *ngIf="client.phone && client.phone.length > 0" class="text-sm text-gray-800">
-                    <p *ngFor="let phone of client.phone">{{ phone | phone }}</p>
+                  <div *ngIf="!client.phones || client.phones.length === 0" class="text-sm text-gray-400 italic">N/A</div>
+                  <div *ngIf="client.phones && client.phones.length > 0" class="text-sm text-gray-800">
+                    <p *ngFor="let phone of client.phones">{{ phone.number| phone }}</p>
                   </div>
                 </div>
               </div>

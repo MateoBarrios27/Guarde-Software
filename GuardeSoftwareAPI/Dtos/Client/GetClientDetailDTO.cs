@@ -1,4 +1,5 @@
 using GuardeSoftwareAPI.Dtos.Locker;
+using GuardeSoftwareAPI.Dtos.Phone;
 using GuardeSoftwareAPI.Dtos.RentalSpaceRequest;
 
 namespace GuardeSoftwareAPI.Dtos.Client
@@ -18,7 +19,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
 
         //Contact Information
         public string[] Email { get; set; } = [];
-        public string[] Phone { get; set; } = [];
+        public List<PhoneInputDto> Phones { get; set; } = [];
         public string Address { get; set; } = string.Empty;
 
         //Payment & rental Information

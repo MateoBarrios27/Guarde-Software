@@ -150,7 +150,7 @@ export class CreateClientModalComponent implements OnInit {
       numeroDocumento: ['', Validators.required],
       cuit: [''],
       emails: this.fb.array([ this.fb.control('', [Validators.required, Validators.email]), ]),
-      telefonos: this.fb.array([this.fb.control('')]),
+      telefonos: this.fb.array([this.createPhoneGroup()]),
       direccion: ['', Validators.required],
       ciudad: ['', Validators.required],
       codigoPostal: [''],
@@ -227,6 +227,14 @@ export class CreateClientModalComponent implements OnInit {
       fields.forEach(field => this.newClientForm.get(field)?.updateValueAndValidity());
     });
   }
+
+  createPhoneGroup(): FormGroup {
+  return this.fb.group({
+    number: [''],
+    whatsapp: [false],
+  });
+}
+
   
   get spaceRequests(): FormArray {
     return this.newClientForm.get('spaceRequests') as FormArray;
@@ -293,7 +301,22 @@ export class CreateClientModalComponent implements OnInit {
       }
 
       if (data.email?.length > 0) data.email.forEach(e => this.emails.push(this.fb.control(e, [Validators.required, Validators.email]))); else this.addEmail();
-      if (data.phone?.length > 0) data.phone.forEach(p => this.telefonos.push(this.fb.control(p))); else this.addTelefono();
+      
+      this.telefonos.clear();
+
+      if (data.phones && data.phones.length > 0) {
+        data.phones.forEach(p =>
+          this.telefonos.push(
+            this.fb.group({
+              number: [p.number],
+              whatsapp: [p.whatsapp],
+            })
+          )
+        );
+      } else {
+        this.addTelefono();
+      }
+
 
       // --- CORRECCIÓN CLAVE PARA PAYMENT METHOD ---
       // Buscamos el objeto en la lista cargada que coincida con el nombre
@@ -332,9 +355,20 @@ export class CreateClientModalComponent implements OnInit {
   get emails(): FormArray { return this.newClientForm.get('emails') as FormArray; }
   addEmail(): void { this.emails.push(this.fb.control('', [Validators.required, Validators.email])); }
   removeEmail(index: number): void { if (this.emails.length > 1) this.emails.removeAt(index); }
-  get telefonos(): FormArray { return this.newClientForm.get('telefonos') as FormArray; }
-  addTelefono(): void { this.telefonos.push(this.fb.control('')); }
-  removeTelefono(index: number): void { if (this.telefonos.length > 1) this.telefonos.removeAt(index); }
+  
+  get telefonos(): FormArray {
+    return this.newClientForm.get('telefonos') as FormArray;
+  }
+
+  addTelefono(): void {
+    this.telefonos.push(this.createPhoneGroup());
+  }
+
+  removeTelefono(index: number): void {
+    if (this.telefonos.length > 1) {
+      this.telefonos.removeAt(index);
+    }
+  }
   
   getWarehouseName(id: number | null): string {
     if (!id) return 'N/A';
@@ -431,7 +465,13 @@ export class CreateClientModalComponent implements OnInit {
       cuit: formValue.cuit || null,
       billingTypeId: formValue.billingTypeId,
       emails: formValue.emails.filter((e: string | null): e is string => !!e && !!e.trim()),
-      phones: formValue.telefonos.filter((p: string | null): p is string => !!p && !!p.trim()),
+      phones: formValue.telefonos
+        .filter((p: any) => p.number && p.number.trim())
+        .map((p: any) => ({
+          number: p.number.trim(),
+          whatsapp: !!p.whatsapp,
+        })),
+
       addressDto: {
         street: formValue.direccion,
         city: formValue.ciudad,

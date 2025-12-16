@@ -25,6 +25,7 @@ import { PhonePipe } from '../../pipes/phone.pipe';
 // --- IMPORTAR PAGINACIÓN ---
 import { NgxPaginationModule } from 'ngx-pagination';
 import { TimeDurationPipe } from '../../pipes/time-duration.pipe';
+import { SafeHtmlPipe } from '../../pipes/safe-html.pipe';
 
 export interface IClientCommunication {
   id: number;
@@ -42,6 +43,7 @@ export interface IClientCommunication {
     IconComponent,
     CurrencyPipe,
     DatePipe,
+    SafeHtmlPipe,
     CreateMovementModalComponent, // Modal de creación
     NgxPaginationModule,
     PhonePipe,

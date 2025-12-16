@@ -1,4 +1,5 @@
 import { LockerClientDetailDTO } from "../locker/LockerClientDetailDTO";
+import { PhoneInputDto } from "../phone/PhoneInputDto";
 import { SpaceRequestDetailDto } from "../rentalSpaceRequest/GetSpaceRequestDetailDto";
 
 
@@ -18,7 +19,7 @@ export interface ClientDetailDTO{
 
     //contact information
     email: string[];
-    phone: string[];
+    phones?: PhoneInputDto[];
     address: string;
 
     //payment and rental info

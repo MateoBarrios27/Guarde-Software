@@ -1,4 +1,5 @@
 import { CreateAddressDto } from "../address/CreateAddressDto";
+import { PhoneInputDto } from "../phone/PhoneInputDto";
 import { SpaceRequestDto } from "../rentalSpaceRequest/SpaceRequestDto";
 
 export interface CreateClientDTO{
@@ -27,7 +28,7 @@ export interface CreateClientDTO{
 
     //contact info
     emails: string[];
-    phones: string[];
+    phones: PhoneInputDto[];
     addressDto: CreateAddressDto,
 
     // Legacy client fields

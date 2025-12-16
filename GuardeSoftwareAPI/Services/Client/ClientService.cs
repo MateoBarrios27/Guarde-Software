@@ -21,6 +21,7 @@ using GuardeSoftwareAPI.Services.accountMovement;
 using System.Globalization;
 using Quartz;
 using GuardeSoftwareAPI.Dtos.RentalSpaceRequest;
+using GuardeSoftwareAPI.Dtos.Phone;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -365,20 +366,25 @@ namespace GuardeSoftwareAPI.Services.client
                             }
                         }
 
-                        foreach (string phone in dto.Phones)
+                        if (dto.Phones != null)
                         {
-                            if (!phone.IsNullOrWhiteSpace())
+                            foreach (var phone in dto.Phones)
                             {
-                                Phone phoneEntity = new()
+                                if (!string.IsNullOrWhiteSpace(phone.Number))
                                 {
-                                    ClientId = newClientId,
-                                    Number = phone.Trim(),
-                                    Type = "",
-                                    Whatsapp = false
-                                };
-                                await phoneService.CreatePhoneTransaction(phoneEntity, connection, transaction);
+                                    Phone phoneEntity = new()
+                                    {
+                                        ClientId = newClientId,
+                                        Number = phone.Number.Trim(),
+                                        Type = "",
+                                        Whatsapp = phone.Whatsapp
+                                    };
+
+                                    await phoneService.CreatePhoneTransaction(phoneEntity, connection, transaction);
+                                }
                             }
                         }
+
 
                         Address address = new()
                         {
@@ -474,8 +480,16 @@ namespace GuardeSoftwareAPI.Services.client
             var emailEntities = await emailService.GetEmailListByClientId(id);
             clientDetail.Email = emailEntities.Select(e => e.Address).ToArray();
 
-            var phoneEntities = await phoneService.GetPhoneListByClientId(id); 
-            clientDetail.Phone = phoneEntities.Select(p => p.Number).ToArray();
+            var phoneEntities = await phoneService.GetPhoneListByClientId(id);
+
+            clientDetail.Phones = phoneEntities
+                .Select(p => new PhoneInputDto
+                {
+                    Number = p.Number,
+                    Whatsapp = p.Whatsapp
+                })
+                .ToList();
+
 
             return clientDetail;
         }
@@ -561,11 +575,27 @@ namespace GuardeSoftwareAPI.Services.client
                         }
 
                         await phoneService.DeletePhonesByClientIdTransactionAsync(id, connection, transaction);
-                        if (dto.Phones != null) {
-                            foreach (string phoneNum in dto.Phones.Where(p => !string.IsNullOrWhiteSpace(p))) {
-                                await phoneService.CreatePhoneTransaction(new Phone { ClientId = id, Number = phoneNum.Trim(), Type = "", Whatsapp = false }, connection, transaction);
+                        if (dto.Phones != null)
+                        {
+                            foreach (var phone in dto.Phones)
+                            {
+                                if (!string.IsNullOrWhiteSpace(phone.Number))
+                                {
+                                    await phoneService.CreatePhoneTransaction(
+                                        new Phone
+                                        {
+                                            ClientId = id,
+                                            Number = phone.Number.Trim(),
+                                            Type = "",
+                                            Whatsapp = phone.Whatsapp
+                                        },
+                                        connection,
+                                        transaction
+                                    );
+                                }
                             }
                         }
+
 
                         await addressService.DeleteAddressByClientIdTransactionAsync(id, connection, transaction);
                         if (dto.AddressDto != null && !string.IsNullOrWhiteSpace(dto.AddressDto.Street) && !string.IsNullOrWhiteSpace(dto.AddressDto.City)) {
