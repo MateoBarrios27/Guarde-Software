@@ -480,7 +480,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@Password", dto.Password),
                 new SqlParameter("@UseSsl", dto.UseSsl),
                 new SqlParameter("@EnableBcc", dto.EnableBcc),
-                new SqlParameter("@BccEmail", (object)dto.BccEmail ?? DBNull.Value)
+                new SqlParameter("@BccEmail", string.IsNullOrEmpty(dto.BccEmail) ? DBNull.Value : dto.BccEmail)
             };
 
             return (int)await _accessDB.ExecuteScalarAsync(query, param);

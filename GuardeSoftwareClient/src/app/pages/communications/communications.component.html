@@ -228,7 +228,7 @@
             (ngModelChange)="updateFormField('smtpConfigId', $event)"
             class="w-full p-2 pr-8 border border-gray-300 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
         
-        <option [ngValue]="null">Predeterminado del Sistema</option>
+        <!-- <option [ngValue]="null">Predeterminado del Sistema</option> -->
         <option *ngFor="let smtp of smtpConfigs()" [ngValue]="smtp.id">{{ smtp.name }}</option>
     </select>
 </div>
@@ -456,8 +456,8 @@
       </button>
 
       @if (!isPast) {
-      <button (click)="openModal('edit', comm)" title="Editar comunicado"
-        class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition">
+      <button disabled (click)="openModal('edit', comm)" title="No disponible"
+        class="flex-1 flex justify-center items-center p-2 rounded-full text-gray-500 hover:bg-blue-100 transition">
         <app-icon name="edit" class="h-4 w-4"></app-icon>
       </button>
       }
