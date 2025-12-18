@@ -309,7 +309,7 @@
                           <div class="flex-1">
                             <div class="flex justify-between items-center mb-1">
                               <span class="font-medium text-indigo-900">{{ locker.identifier }}</span>
-                              <span *ngIf="getLockerDetails(locker.id).lockerType" class="text-green-600 font-semibold text-sm">${{ getLockerDetails(locker.id).lockerType?.amount | number : "1.0-0" }}</span>
+                              <!-- <span *ngIf="getLockerDetails(locker.id).lockerType" class="text-green-600 font-semibold text-sm">${{ getLockerDetails(locker.id).lockerType?.amount | number : "1.0-0" }}</span> -->
                             </div>
                             <div class="flex items-center gap-4 text-sm text-gray-600">
                               <span *ngIf="getLockerDetails(locker.id).warehouse">{{ getLockerDetails(locker.id).warehouse?.name }}</span>
@@ -359,7 +359,7 @@
                             <div class="font-medium text-sm text-indigo-900">{{ details.locker?.identifier || 'ID: '+ lockerId }}</div>
                             <div class="text-xs text-gray-600">{{ details.warehouse?.name || '?' }} • {{ details.lockerType?.name || '?' }}</div>
                           </div>
-                          <div class="text-green-600 font-semibold text-sm">${{ (details.lockerType?.amount | number : "1.0-0") || '0' }}</div>
+                          <!-- <div class="text-green-600 font-semibold text-sm">${{ (details.lockerType?.amount | number : "1.0-0") || '0' }}</div> -->
                         </ng-container>
                       </div>
                     </ng-container>

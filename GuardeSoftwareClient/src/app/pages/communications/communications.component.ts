@@ -45,7 +45,7 @@ interface ToastState {
 
 const COMMUNICATION_CHANNELS: Channel[] = [
   { id: 1, name: 'Email', spanishLabel: 'Email', icon: 'Mail' },
-  { id: 2, name: 'WhatsApp', spanishLabel: 'WhatsApp', icon: 'whatsapp' }
+//   { id: 2, name: 'WhatsApp', spanishLabel: 'WhatsApp', icon: 'whatsapp' }
 ];
 
 @Component({
