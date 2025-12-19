@@ -84,6 +84,7 @@ showRecipientModal = signal(false);
   recipientSearchTerm = signal('');
   
   selectedCount = computed(() => this.allClients().filter(c => c.selected).length);
+  currentSort = signal<'name' | 'status'>('name');
 
   selectedSummary = computed(() => {
       const count = this.selectedCount();
@@ -408,20 +409,16 @@ showRecipientModal = signal(false);
     return { icons: [] };
   }
 
-  // --- ACTUALIZADO: getCommunicationPreview (Limpia el HTML) ---
   getCommunicationPreview(content: string, channel: string): string {
   if (!content) return '';
-  // Esto crea un elemento temporal, le mete el HTML y saca solo el texto limpio
-  // Así 'hola&nbsp;mundo' se convierte en 'hola mundo'
+
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = content;
   const text = tempDiv.textContent || tempDiv.innerText || '';
-  
-  // Cortamos si es muy largo
+
   return text.length > 150 ? text.substring(0, 150) + '...' : text;
 }
 
-  // Helper genérico para actualizar el signal del formulario
   updateFormField<K extends keyof FormDataState>(field: K, value: FormDataState[K]) {
     this.formData.update(currentData => ({
       ...currentData,
@@ -429,10 +426,8 @@ showRecipientModal = signal(false);
     }));
   }
 
-  // --- NUEVO: Método para sanitizar el HTML en la vista "Ver Detalles" ---
   getSanitizedHtmlContent(): SafeHtml {
     const html = this.selectedCommunication()?.content || '';
-    // Confía en el HTML que viene de la base de datos (que fue generado por Quill)
     return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
@@ -519,7 +514,7 @@ showRecipientModal = signal(false);
 
   applyFilter(type: 'Todos' | 'Morosos' | 'Pendientes' | 'AlDia' | 'Ninguno'): void {
       this.allClients.update(list => list.map(c => {
-          let shouldSelect = c.selected; 
+          let shouldSelect = c.selected;
           
           switch(type) {
               case 'Todos': shouldSelect = true; break;
@@ -530,7 +525,16 @@ showRecipientModal = signal(false);
           }
           return { ...c, selected: shouldSelect };
       }));
+
+      this.filterList(); 
   }
+
+  toggleSort(): void {
+      this.currentSort.update(current => current === 'name' ? 'status' : 'name');
+      this.filterList(); 
+  }
+
+  
 
   onSearch(term: string): void {
       this.recipientSearchTerm.set(term);
@@ -539,16 +543,31 @@ showRecipientModal = signal(false);
 
   filterList(): void {
       const term = this.recipientSearchTerm().toLowerCase();
-      const list = this.allClients();
+      let list = this.allClients();
       
-      if (!term) {
-          this.filteredClients.set(list);
-      } else {
-          this.filteredClients.set(list.filter(c => 
+      if (term) {
+          list = list.filter(c => 
               c.fullName.toLowerCase().includes(term) || 
               (c.email && c.email.toLowerCase().includes(term))
-          ));
+          );
       }
+
+      const sortType = this.currentSort();
+      
+      list.sort((a, b) => {
+          if (sortType === 'status') {
+              const priority: Record<string, number> = { 'Moroso': 1, 'Pendiente': 2, 'AlDia': 3 };
+              
+              const pA = priority[a.status] || 99;
+              const pB = priority[b.status] || 99;
+              
+              if (pA !== pB) return pA - pB;
+          }
+
+          return a.fullName.localeCompare(b.fullName);
+      });
+
+      this.filteredClients.set([...list]);
   }
 
   toggleSelection(id: number): void {

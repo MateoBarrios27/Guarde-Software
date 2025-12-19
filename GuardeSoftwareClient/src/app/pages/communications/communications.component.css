@@ -7,3 +7,7 @@
       background-size: 1.5em 1.5em;
       padding-right: 2.5rem;
     }
+
+    .selector-btn {
+    @apply flex items-center w-full px-3 py-2 border rounded-lg bg-white transition shadow-sm;
+}
