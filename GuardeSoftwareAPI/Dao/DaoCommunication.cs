@@ -163,52 +163,26 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<bool> InsertCommunicationRecipientsAsync(int communicationId, List<string> recipients, SqlConnection connection, SqlTransaction transaction)
         {
-            // Lógica para desglosar grupos (Todos, Morosos, etc) y nombres individuales
-            // Usando tu lógica de AccountBalance
-            string query = @"
-                WITH AccountBalance AS (
-                    SELECT 
-                        r.client_id, 
-                        SUM(CASE WHEN am.movement_type = 'DEBITO' THEN am.amount ELSE -am.amount END) AS Balance
-                    FROM account_movements am
-                    JOIN rentals r ON am.rental_id = r.rental_id
-                    GROUP BY r.client_id
-                )
-                INSERT INTO communication_recipients (communication_id, client_id)
-                SELECT DISTINCT @CommunicationId, cl.client_id
-                FROM clients cl
-                LEFT JOIN AccountBalance ab ON cl.client_id = ab.client_id
-                WHERE 
-                    cl.active = 1 AND (
-                        (1 = @IncludeAll)
-                        OR
-                        (1 = @IncludeMorosos AND ISNULL(ab.Balance, 0) > 0)
-                        OR
-                        (1 = @IncludeAlDia AND ISNULL(ab.Balance, 0) <= 0)
-                        OR
-                        ((cl.first_name + ' ' + cl.last_name) IN (SELECT value FROM STRING_SPLIT(@ClientNames, ',')))
-                        OR
-                        (cl.first_name IN (SELECT value FROM STRING_SPLIT(@ClientNames, ',')))
-                    );
-            ";
+            if (recipients == null || !recipients.Any()) return false;
 
-            var individualNames = recipients.Where(r => 
-                !r.Equals("Todos los clientes", StringComparison.OrdinalIgnoreCase) && 
-                !r.Equals("Clientes morosos", StringComparison.OrdinalIgnoreCase) &&
-                !r.Equals("Clientes al día", StringComparison.OrdinalIgnoreCase)
-            ).ToList();
-            
-            using (SqlCommand command = new SqlCommand(query, connection, transaction))
+            string query = @"
+                INSERT INTO communication_recipients (communication_id, client_id)
+                SELECT DISTINCT @CommunicationId, c.client_id
+                FROM clients c
+                WHERE c.active = 1 
+                AND (c.first_name + ' ' + c.last_name) IN (
+                    SELECT value FROM STRING_SPLIT(@ClientNames, ',')
+                )";
+
+            string joinedNames = string.Join(",", recipients);
+
+            using (SqlCommand command = new(query, connection, transaction))
             {
                 command.Parameters.AddWithValue("@CommunicationId", communicationId);
-                command.Parameters.AddWithValue("@IncludeAll", recipients.Contains("Todos los clientes") ? 1 : 0);
-                command.Parameters.AddWithValue("@IncludeMorosos", recipients.Contains("Clientes morosos") ? 1 : 0);
-                command.Parameters.AddWithValue("@IncludeAlDia", recipients.Contains("Clientes al día") ? 1 : 0);
-                command.Parameters.AddWithValue("@ClientNames", string.Join(",", individualNames));
-
+                command.Parameters.AddWithValue("@ClientNames", joinedNames);
                 await command.ExecuteNonQueryAsync();
-                return true;
             }
+            return true;
         }
 
         public async Task<bool> DeleteCommunicationAsync(int communicationId)
@@ -516,5 +490,49 @@ namespace GuardeSoftwareAPI.Dao
         }
 
         #endregion
+        public async Task<List<ClientRecipientDto>> GetClientsForSelectorAsync()
+        {
+            var list = new List<ClientRecipientDto>();
+            
+            string query = @"
+                SELECT 
+                    c.client_id AS Id,
+                    c.first_name + ' ' + c.last_name AS FullName,
+                    (SELECT TOP 1 address FROM emails WHERE client_id = c.client_id AND active = 1) AS Email,
+                    
+                    ISNULL((
+                        SELECT SUM(CASE WHEN am.movement_type = 'DEBITO' THEN am.amount ELSE -am.amount END)
+                        FROM account_movements am
+                        JOIN rentals r ON am.rental_id = r.rental_id
+                        WHERE r.client_id = c.client_id
+                    ), 0) AS Balance,
+
+                    ISNULL((
+                        SELECT MAX(months_unpaid) 
+                        FROM rentals 
+                        WHERE client_id = c.client_id AND active = 1
+                    ), 0) AS MaxUnpaidMonths
+
+                FROM clients c
+                WHERE c.active = 1
+                ORDER BY c.first_name, c.last_name";
+
+            var dt = await _accessDB.GetTableAsync("ClientsSelector", query);
+
+            foreach (DataRow row in dt.Rows)
+            {
+                list.Add(new ClientRecipientDto
+                {
+                    Id = Convert.ToInt32(row["Id"]),
+                    FullName = row["FullName"].ToString(),
+                    Email = row["Email"].ToString(),
+                    Balance = Convert.ToDecimal(row["Balance"]),
+                    MaxUnpaidMonths = Convert.ToInt32(row["MaxUnpaidMonths"])
+                });
+            }
+            return list;
+        }
+
     }
+
 }

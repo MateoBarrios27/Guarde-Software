@@ -254,5 +254,10 @@ namespace GuardeSoftwareAPI.Services.communication
                 throw; // Re-lanza para que el controlador lo capture
             }
         }
+
+        public async Task<List<ClientRecipientDto>> GetClientsForSelectorAsync()
+        {
+            return await _communicationDao.GetClientsForSelectorAsync();
+        }
     }
 }

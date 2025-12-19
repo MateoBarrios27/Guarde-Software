@@ -155,5 +155,20 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        [HttpGet("recipients-list")]
+        public async Task<IActionResult> GetClientsForSelector()
+        {
+            try
+            {
+                var clients = await _communicationService.GetClientsForSelectorAsync(); 
+                return Ok(clients);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo lista de destinatarios");
+                return StatusCode(500, new { message = "Error interno" });
+            }
+        }
     }
 }

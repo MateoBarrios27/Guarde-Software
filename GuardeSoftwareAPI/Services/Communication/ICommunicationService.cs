@@ -11,5 +11,6 @@ namespace GuardeSoftwareAPI.Services.communication
         Task<bool> DeleteCommunicationAsync(int communicationId);
         Task<CommunicationDto> UpdateCommunicationAsync(int communicationId, UpsertCommunicationRequest request, int userId);
         Task<List<ClientCommunicationDto>> GetCommunicationsByClientIdAsync(int clientId);
+        Task<List<ClientRecipientDto>> GetClientsForSelectorAsync();
     }
 }

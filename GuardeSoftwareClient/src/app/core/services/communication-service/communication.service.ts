@@ -90,4 +90,8 @@ export class CommunicationService {
   deleteSmtpConfig(id: number): Observable<void> {
     return this.http.delete<void>(`${this.url}/SmtpConfigurations/${id}`);
   }
+
+  getClientsForSelector(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.url}/Communications/recipients-list`);
+  }
 }

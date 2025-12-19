@@ -43,6 +43,16 @@ interface ToastState {
   color: 'success' | 'error';
 }
 
+interface ClientSelectorItem {
+  id: number;
+  fullName: string;
+  email: string;
+  balance: number;
+  unpaidMonths: number;
+  status: 'Moroso' | 'Pendiente' | 'AlDia';
+  selected: boolean;
+}
+
 const COMMUNICATION_CHANNELS: Channel[] = [
   { id: 1, name: 'Email', spanishLabel: 'Email', icon: 'Mail' },
 //   { id: 2, name: 'WhatsApp', spanishLabel: 'WhatsApp', icon: 'whatsapp' }
@@ -67,12 +77,28 @@ export class CommunicationsComponent implements OnInit {
   private searchSubject = new Subject<string>();
   selectedFiles = signal<File[]>([]);
   smtpConfigs = signal<any[]>([]);
+
+showRecipientModal = signal(false);
+  allClients = signal<ClientSelectorItem[]>([]); 
+  filteredClients = signal<ClientSelectorItem[]>([]); 
+  recipientSearchTerm = signal('');
+  
+  selectedCount = computed(() => this.allClients().filter(c => c.selected).length);
+
+  selectedSummary = computed(() => {
+      const count = this.selectedCount();
+      if (count === 0) return '';
+      if (count === this.allClients().length) return 'Todos los clientes';
+      // Muestra algunos nombres
+      const names = this.allClients().filter(c => c.selected).map(c => c.fullName).slice(0, 2);
+      return `${names.join(', ')} ${count > 2 ? `(+${count - 2} más)` : ''}`;
+  });
   
-  // --- Inyectar DomSanitizer ---
+
   constructor(
     private commService: CommunicationService, 
     private clientService: ClientService,
-    private sanitizer: DomSanitizer // Necesario para el [innerHTML]
+    private sanitizer: DomSanitizer
   ) {}
 
   ngOnInit(): void {
@@ -80,6 +106,7 @@ export class CommunicationsComponent implements OnInit {
     this.loadRecipientOptions();
     this.setupSearchDebounce();  
     this.loadSmtpConfigs();
+    this.loadClientsForSelector();
   }
 
   loadCommunications(): void {
@@ -444,5 +471,99 @@ export class CommunicationsComponent implements OnInit {
       });
   }
 
-  
+  // --- new methods for client selector ---
+  loadClientsForSelector(): void {
+    this.commService.getClientsForSelector().subscribe({
+        next: (data: any[]) => {
+            const mapped = data.map(c => {
+                let status: 'Moroso' | 'Pendiente' | 'AlDia' = 'AlDia';
+                
+                if (c.maxUnpaidMonths > 0) {
+                    status = 'Moroso';
+                } else if (c.balance > 0 && c.maxUnpaidMonths === 0) {
+                    status = 'Pendiente';
+                } else {
+                    status = 'AlDia'; 
+                }
+
+                return {
+                    id: c.id,
+                    fullName: c.fullName,
+                    email: c.email,
+                    balance: c.balance,
+                    unpaidMonths: c.maxUnpaidMonths,
+                    status: status,
+                    selected: false
+                };
+            });
+            this.allClients.set(mapped);
+            this.filterList();
+        },
+        error: (err) => console.error('Error cargando clientes', err)
+    });
+  }
+
+  openRecipientSelector(): void {
+    const currentRecipients = this.formData().recipients;
+    
+    if (currentRecipients.length > 0) {
+        this.allClients.update(list => list.map(c => ({
+            ...c,
+            selected: currentRecipients.includes(c.fullName)
+        })));
+    }
+    
+    this.filterList();
+    this.showRecipientModal.set(true);
+  }
+
+  applyFilter(type: 'Todos' | 'Morosos' | 'Pendientes' | 'AlDia' | 'Ninguno'): void {
+      this.allClients.update(list => list.map(c => {
+          let shouldSelect = c.selected; 
+          
+          switch(type) {
+              case 'Todos': shouldSelect = true; break;
+              case 'Ninguno': shouldSelect = false; break;
+              case 'Morosos': shouldSelect = c.status === 'Moroso'; break;
+              case 'Pendientes': shouldSelect = c.status === 'Pendiente'; break;
+              case 'AlDia': shouldSelect = c.status === 'AlDia'; break;
+          }
+          return { ...c, selected: shouldSelect };
+      }));
+  }
+
+  onSearch(term: string): void {
+      this.recipientSearchTerm.set(term);
+      this.filterList();
+  }
+
+  filterList(): void {
+      const term = this.recipientSearchTerm().toLowerCase();
+      const list = this.allClients();
+      
+      if (!term) {
+          this.filteredClients.set(list);
+      } else {
+          this.filteredClients.set(list.filter(c => 
+              c.fullName.toLowerCase().includes(term) || 
+              (c.email && c.email.toLowerCase().includes(term))
+          ));
+      }
+  }
+
+  toggleSelection(id: number): void {
+      this.allClients.update(list => list.map(c => 
+          c.id === id ? { ...c, selected: !c.selected } : c
+      ));
+      this.filterList();
+  }
+
+  confirmSelection(): void {
+      const selectedNames = this.allClients()
+          .filter(c => c.selected)
+          .map(c => c.fullName);
+      
+      this.updateFormField('recipients', selectedNames);
+      this.showRecipientModal.set(false);
+  }
 }
