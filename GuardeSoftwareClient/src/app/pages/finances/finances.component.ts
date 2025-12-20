@@ -51,6 +51,8 @@ export class FinancesComponent{
   manualDateEnabled = false;
   dateString: string = '';
   
+  searchClient: string = '';
+
 
   paymentDto: CreatePaymentDTO = {
       clientId: 0,
@@ -200,6 +202,7 @@ export class FinancesComponent{
 closeClientModal() {
   this.showClientModal = false;
 
+  this.searchClient = '';
   this.selectedClientId = 0;
   this.selectedClientIdentifier = 0;
   this.selectedClientName = '';
@@ -216,6 +219,10 @@ closeClientModal() {
 
 OpenPaymentModal(){
   this.showClientModal = true;
+
+   this.searchClient = '';
+   this.selectedClientId = 0;
+   this.selectedClientIdentifier = 0;
 
    const now = new Date();
 
@@ -359,5 +366,18 @@ selectClient(client: any) {
     this.dateString = value;
     this.updateConceptFromDate(dateWithTime);
   }
+
+  get filteredClients(): Client[] {
+  const term = this.searchClient?.toLowerCase().trim();
+
+  if (!term) return this.clients;
+
+  return this.clients.filter(c => {
+    const fullName = `${c.firstName ?? ''} ${c.lastName ?? ''}`.toLowerCase();
+    const identifier = (c.paymentIdentifier ?? '').toString().toLowerCase();
+
+    return fullName.includes(term) || identifier.includes(term);
+  });
+}
 
 }

@@ -170,7 +170,7 @@
   *ngIf="showClientModal"
   class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
   
-  <div class="bg-white/90 rounded-lg shadow-xl w-full max-w-5xl overflow-hidden flex flex-col">
+  <div class="bg-white/90 rounded-lg shadow-xl w-full max-w-5xl overflow-hidden flex flex-col h-[90vh]">
 
     <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 flex justify-between items-center">
       <h3 class="flex items-center gap-2 font-semibold text-base">
@@ -186,7 +186,6 @@
     </div>
 
     <div class="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
-
       <div class="lg:col-span-2">
         <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border h-full flex flex-col">
           <div class="bg-indigo-50 text-indigo-900 px-4 py-3 border-b">
@@ -205,6 +204,7 @@
               </app-icon>
               <input
                 type="text"
+                [(ngModel)]="searchClient"
                 placeholder="Buscar por nombre o identificador de pago..."
                 class="pl-10 w-full p-2 border rounded-md"
               />
@@ -213,13 +213,13 @@
             <!-- Lista de clientes -->
             <div class="max-h-80 overflow-y-auto space-y-2 border rounded-md p-2 bg-gray-50/50 flex-1">
               <p
-                *ngIf="!clients || clients.length === 0"
+                *ngIf="!filteredClients || filteredClients.length === 0"
                 class="text-center py-8 text-gray-500">
                 No se encontraron clientes.
               </p>
 
               <div
-                *ngFor="let client of clients"
+                *ngFor="let client of filteredClients"
                 (click)="selectClient(client)"
                 [ngClass]="{
                   'border-gray-400 bg-gray-50 ring-2 ring-gray-300':
