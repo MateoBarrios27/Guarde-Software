@@ -57,12 +57,16 @@ export class DashboardComponent {
     concept: 'Pago de alquiler',
     amount: 0,
     paymentMethodId: 0,
-    date: new Date()
+    date: new Date(),
+    isAdvancePayment: false,
+    advanceMonths: null
   };
 
   //for logic of payment date edit
   manualDateEnabled = false;
   dateString: string = '';
+
+  amountOriginal= 0;
   
   constructor(
     private rentalService: RentalService,
@@ -76,6 +80,18 @@ export class DashboardComponent {
     this.LoadPayments();
     this.loadPaymentMethods();
   }
+
+  private updateAdvanceConcept() {
+    const months = this.paymentDto.advanceMonths;
+
+    if (months === null || months === undefined || months === 0) {
+      this.paymentDto.concept = 'Pago adelantado';
+      return;
+    }
+
+    this.paymentDto.concept = `Pago adelantado de ${months} mes${months === 1 ? '' : 'es'}`;
+  }
+
 
   LoadPedingRentals(): void{
     this.rentalService.getPendingRentals().subscribe({
@@ -128,13 +144,18 @@ export class DashboardComponent {
 
     const now = new Date();
 
+    this.isAdvancePayment = false;
+    this.advanceMonths = null;
+
     this.paymentDto = {
       clientId: item.clientId ?? 0,
       movementType: 'CREDITO',
       concept: ` `,
       amount: 0,
       paymentMethodId: 1,
-      date: new Date()
+      date: new Date(),
+      isAdvancePayment: false,
+      advanceMonths: null
     };
 
     this.updateConceptFromDate(now);
@@ -148,11 +169,19 @@ export class DashboardComponent {
     this.showPaymentModal = true;
   }
 
-  closePaymentModal() { this.showPaymentModal = false; this.manualDateEnabled = false;}
+  closePaymentModal() { 
+    this.showPaymentModal = false;
+    this.manualDateEnabled = false;
+    this.isAdvancePayment = false;
+    this.advanceMonths = null;
+    this.paymentDto.isAdvancePayment = false;
+    this.paymentDto.advanceMonths = null;
+  }
 
 
   commision:number = 0;
   newAmount: number = 0;
+  
 
   AmountWithComission(amount: number, paymentMethodId: number): number{
 
@@ -188,6 +217,7 @@ export class DashboardComponent {
       return;
     }
 
+    this.amountOriginal = dto.amount;
     dto.amount = this.AmountWithComission(dto.amount, dto.paymentMethodId);
     
     Swal.fire({
@@ -237,7 +267,11 @@ export class DashboardComponent {
           }
         });  
       }
-    });
+      dto.amount = this.amountOriginal;
+    }
+  
+  );
+    
     
   }
 
@@ -289,7 +323,12 @@ export class DashboardComponent {
       const now = new Date();
       this.paymentDto.date = now;
       this.dateString = now.toISOString().split('T')[0];
-      this.updateConceptFromDate(now);
+
+      if (this.paymentDto.isAdvancePayment) {
+        this.updateAdvanceConcept();
+      } else {
+        this.updateConceptFromDate(now);
+      }
     }
   }  
 
@@ -312,49 +351,74 @@ export class DashboardComponent {
 
     this.paymentDto.date = dateWithTime;
     this.dateString = value;
+      if (this.paymentDto.isAdvancePayment) {
+    this.updateAdvanceConcept();
+  } else {
     this.updateConceptFromDate(dateWithTime);
   }
-
-  generatePdf(item: Payment){
-
-    Swal.fire({
-            title: 'Generar recibo: ',
-            html: `
-             <p class="text-gray-700">Cliente: <b>${item.clientName}</b></p>
-             <p class="text-gray-700">Importe: <b>$${item.amount}</b></p>`,
-            icon: 'question',
-            showCancelButton: true, 
-            confirmButtonText: 'Confirmar',
-            cancelButtonText: 'Cancelar',
-            buttonsStyling: false,
-            customClass: {
-              confirmButton: 'bg-blue-600 text-white px-4 py-2 p-2 rounded-md hover:bg-blue-700 transition-all duration-150',
-              cancelButton: 'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
-              actions: 'flex justify-center gap-4 mt-4',
-              popup: 'rounded-xl shadow-lg'
-            }
-            }).then((result) => {
-              if (result.isConfirmed) {
-                console.log('Generando PDF...');
-                this.pdfGeneratorService.generateBauleraReceipt({
-                  date: this.formatDate(item.paymentDate),
-                  clientNumber: Number(item.paymentIdentifier) || 0,
-                  amount: item.amount,
-                  clientName: item.clientName ?? ""
-                });
-              }
-            });
   }
-  
-  private formatDate(date: any): string {
 
-  const dt = new Date(date); // ← convierte string a Date
+    generatePdf(item: Payment){
 
-  const d = dt.getDate().toString().padStart(2, '0');
-  const m = (dt.getMonth() + 1).toString().padStart(2, '0');
-  const y = dt.getFullYear();
+      Swal.fire({
+              title: 'Generar recibo: ',
+              html: `
+              <p class="text-gray-700">Cliente: <b>${item.clientName}</b></p>
+              <p class="text-gray-700">Importe: <b>$${item.amount}</b></p>`,
+              icon: 'question',
+              showCancelButton: true, 
+              confirmButtonText: 'Confirmar',
+              cancelButtonText: 'Cancelar',
+              buttonsStyling: false,
+              customClass: {
+                confirmButton: 'bg-blue-600 text-white px-4 py-2 p-2 rounded-md hover:bg-blue-700 transition-all duration-150',
+                cancelButton: 'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
+                actions: 'flex justify-center gap-4 mt-4',
+                popup: 'rounded-xl shadow-lg'
+              }
+              }).then((result) => {
+                if (result.isConfirmed) {
+                  console.log('Generando PDF...');
+                  this.pdfGeneratorService.generateBauleraReceipt({
+                    date: this.formatDate(item.paymentDate),
+                    clientNumber: Number(item.paymentIdentifier) || 0,
+                    amount: item.amount,
+                    clientName: item.clientName ?? ""
+                  });
+                }
+              });
+    }
+    
+    private formatDate(date: any): string {
 
-  return `${d}/${m}/${y}`;
-}
-  
+    const dt = new Date(date); 
+
+    const d = dt.getDate().toString().padStart(2, '0');
+    const m = (dt.getMonth() + 1).toString().padStart(2, '0');
+    const y = dt.getFullYear();
+
+    return `${d}/${m}/${y}`;
+  }
+
+  isAdvancePayment = false;
+  advanceMonths: number | null = null;
+
+  onAdvancePaymentToggle() {
+    if (!this.paymentDto.isAdvancePayment) {
+      this.paymentDto.advanceMonths = null;
+      this.updateConceptFromDate(this.paymentDto.date);
+    } else {
+      this.updateAdvanceConcept();
+    }
+  }
+
+
+  onAdvanceMonthsChange() {
+    if (this.paymentDto.isAdvancePayment) {
+      this.updateAdvanceConcept();
+    }
+  }
+
+
+    
 }

@@ -6,7 +6,6 @@
       </h2>
     </div>
   </div>
-    
   <!-- pagos pendientes-->
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
     <div class="p-4 flex items-center justify-between border-b">
@@ -175,23 +174,7 @@
           <app-icon name="check-circle" class="h-6 w-6 text-green-500"></app-icon>
           <span class="text-xs text-gray-500">Realizados</span>
         </div>
-        <p class="text-lg font-bold text-green-900 mr-3">24</p>
-      </div>
-      <!-- Clientes -->
-      <div class="bg-white p-3 rounded-lg border shadow-sm flex items-center justify-between h-[68px]">
-        <div class="flex items-center gap-2">
-          <app-icon name="users" class="h-6 w-6 text-blue-500"></app-icon>
-          <span class="text-xs text-gray-500">Clientes</span>
-        </div>
-        <p class="text-lg font-bold text-blue-900 mr-3">128</p>
-      </div>
-      <!-- Lockers -->
-      <div class="bg-white p-3 rounded-lg border shadow-sm flex items-center justify-between h-[68px]">
-        <div class="flex items-center gap-2">
-          <app-icon name="package" class="h-6 w-6 text-indigo-500"></app-icon>
-          <span class="text-xs text-gray-500">Lockers</span>
-        </div>
-        <p class="text-lg font-bold text-indigo-900 mr-3">340</p>
+        <p class="text-lg font-bold text-green-900 mr-3">{{filteredPayments.length}}</p>
       </div>
     </div>
   </div>
@@ -254,6 +237,8 @@
           </span>
         </div>
 
+      
+
          <div class="md:col-span-2">
             <div class="flex items-center justify-between mb-2">
               <span class="block text-sm text-gray-600 font-medium">Fecha de pago</span>
@@ -301,10 +286,45 @@
             </div>
           </div>
 
+          <!-- Pago adelantado -->
+          <div class="md:col-span-2">
+            <label class="block text-sm text-gray-600 mb-1 font-medium">Pago adelantado</label>
+
+            <div class="flex flex-col md:flex-row md:items-center gap-3">
+              <label
+                class="flex items-center gap-2  rounded-lg px-3 py-2 bg-white
+                      cursor-pointer select-none"
+              >
+                <input
+                  type="checkbox"
+                   [(ngModel)]="paymentDto.isAdvancePayment"
+                  (change)="onAdvancePaymentToggle()"
+                  class="h-4 w-4"
+                />
+                <span class="text-gray-800">Pago adelantado</span>
+              </label>
+
+              <div *ngIf="paymentDto.isAdvancePayment"
+                  class="flex items-center border border-gray-300 rounded-lg overflow-hidden
+                          focus-within:ring-2 focus-within:ring-gray-200 bg-white">
+                <span class="px-3 text-gray-500 select-none">Meses adelantados</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                     [(ngModel)]="paymentDto.advanceMonths"
+                     (ngModelChange)="onAdvanceMonthsChange()"
+                  class="w-24 px-3 py-2 focus:outline-none text-gray-800"
+                  placeholder="1"
+                />
+              </div>
+            </div>
+          </div>
+
+
       </div>
     </div>
 
-    <!-- Footer -->
     <div class="mt-6 flex justify-end gap-3 border-t pt-4">
       <button type="button"
               (click)="closePaymentModal()"

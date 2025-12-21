@@ -6,4 +6,6 @@ export interface CreatePaymentDTO{
     amount: number;
     paymentMethodId: number;
     date: Date;
+    isAdvancePayment: boolean;
+    advanceMonths?: number | null;
 }
