@@ -25,18 +25,32 @@
     </nav>
     
     <div class="p-4 border-t border-white border-opacity-20 flex-shrink-0">
-      <div class="flex items-center gap-3 text-white">
-        <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white font-bold font-sans">
-          U
+  <div class="flex items-center gap-3 text-white">
+    <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white font-bold font-sans">
+      U
+    </div>
+
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center justify-between gap-2">
+        <div class="text-sm font-sans truncate">
+          {{ userName }}
         </div>
-        <div>
-          <div class="text-sm font-sans">{{ userName }}</div>
-          <div class="text-xs text-blue-100 font-sans">{{ firstName + " " + lastName}}</div>
-          <!-- <button (click)="logout()" class="...">
-            Cerrar sesión
-          </button> -->
-        </div>
+
+        <button
+          (click)="logout()"
+          class=""
+          aria-label="Cerrar sesión"
+          title="Cerrar sesión"
+        >
+          <app-icon name="logout" class="h-2 w-5 mr-3"></app-icon>
+        </button>
+      </div>
+      <div class="text-xs text-blue-100 font-sans truncate">
+        {{ firstName + " " + lastName }}
       </div>
     </div>
+  </div>
+</div>
+
   </div>
 </aside>

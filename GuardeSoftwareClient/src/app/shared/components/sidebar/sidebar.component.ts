@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { IconComponent } from '../icon/icon.component';
 import { AuthService } from '../../../core/services/auth-service/auth.service';
+import Swal from 'sweetalert2';
 
 interface MenuItem {
   path: string;
@@ -52,8 +53,23 @@ export class SidebarComponent {
   }
 
   logout() {
-    this.authService.logout();
-    this.router.navigate(['/login']);
+    Swal.fire({
+      title: '¿Cerrar sesión?',
+      text: 'Tu sesión actual se cerrará',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, cerrar sesión',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.authService.logout();
+        this.router.navigate(['/login']);
+      }
+    });
   }
+
   
 }
