@@ -118,6 +118,11 @@ namespace GuardeSoftwareAPI.Services.payment
 			if (dto.PaymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
 			if (dto.Amount < 0) throw new ArgumentException("Amount must be greater than 0.");
 			if (dto.Date == DateTime.MinValue) throw new ArgumentException("Invalid date.");
+			if (dto.IsAdvancePayment)
+			{
+				if (!dto.AdvanceMonths.HasValue || dto.AdvanceMonths.Value < 1)
+					throw new ArgumentException("AdvanceMonths must be >= 1 when IsAdvancePayment is true.");
+			}
 
 			using var connection = accessDB.GetConnectionClose();
 			await connection.OpenAsync();
@@ -140,6 +145,33 @@ namespace GuardeSoftwareAPI.Services.payment
 				var rental = await rentalService.GetRentalByClientIdTransactionAsync(dto.ClientId, connection, transaction);
 
 				if (rental == null) throw new Exception("El cliente no tiene alquiler activo");
+				
+				//bloqueamos precio si es mayor a 6 meses de pago adelant.
+				if (dto.IsAdvancePayment && dto.AdvanceMonths.HasValue && dto.AdvanceMonths.Value > 6)
+				{
+					DateTime lockEndDate = dto.Date.Date.AddMonths(dto.AdvanceMonths.Value);
+
+					if (!rental.PriceLockEndDate.HasValue || lockEndDate > rental.PriceLockEndDate.Value.Date)
+					{
+						await daoRental.UpdatePriceLockEndDateTransactionAsync(rental.Id,lockEndDate,connection,transaction);
+
+						rental.PriceLockEndDate = lockEndDate;
+
+						logger.LogInformation(
+							"Price lock actualizado para Rental ID {RentalId}. price_lock_end_date = {LockEndDate}",
+							rental.Id,
+							lockEndDate.ToString("yyyy-MM-dd")
+						);
+					}
+					else
+					{
+						logger.LogInformation(
+							"No se actualiza price lock para Rental ID {RentalId} porque ya existe una fecha mayor o igual ({ExistingLockEndDate}).",
+							rental.Id,
+							rental.PriceLockEndDate.Value.ToString("yyyy-MM-dd")
+						);
+					}
+				}
 
 				var movement = new AccountMovement
 				{

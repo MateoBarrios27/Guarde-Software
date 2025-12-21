@@ -546,5 +546,29 @@ namespace GuardeSoftwareAPI.Dao
                 return rows > 0;
             }
         }
+
+        public async Task UpdatePriceLockEndDateTransactionAsync( int rentalId,DateTime priceLockEndDate,SqlConnection connection,SqlTransaction transaction)
+        {
+            const string query = @"
+                UPDATE rentals
+                SET price_lock_end_date = @price_lock_end_date
+                WHERE rental_id = @rental_id;
+            ";
+
+            SqlParameter[] parameters =
+            [
+                new SqlParameter("@price_lock_end_date", SqlDbType.Date) { Value = priceLockEndDate.Date },
+                new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId }
+            ];
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                int rows = await command.ExecuteNonQueryAsync();
+
+                if (rows == 0)
+                    throw new Exception($"No se pudo actualizar price_lock_end_date para rental id = {rentalId}.");
+            }
+        }
     }
 }
