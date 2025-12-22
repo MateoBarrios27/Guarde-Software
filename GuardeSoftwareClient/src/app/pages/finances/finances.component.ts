@@ -60,7 +60,9 @@ export class FinancesComponent{
       concept: 'Pago de alquiler',
       amount: 0,
       paymentMethodId: 1,
-      date: new Date()
+      date: new Date(),
+      isAdvancePayment: false,
+      advanceMonths: null
     };
 
   ngOnInit(): void {
@@ -213,7 +215,9 @@ closeClientModal() {
       concept: ` `,
       amount: 0,
       paymentMethodId: 1,
-      date: new Date()
+      date: new Date(),
+      isAdvancePayment: false,
+      advanceMonths: null
     };
 }
 
@@ -232,7 +236,9 @@ OpenPaymentModal(){
       concept: ` `,
       amount: 0,
       paymentMethodId: 1,
-      date: new Date()
+      date: new Date(),
+      isAdvancePayment: false,
+      advanceMonths: null
     };
 
     this.updateConceptFromDate(now);
