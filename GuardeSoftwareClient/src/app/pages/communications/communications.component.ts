@@ -240,38 +240,56 @@ showRecipientModal = signal(false);
     setTimeout(() => this.toast.set({ ...this.toast(), show: false }), 4000);
   }
 
-  openModal(modalType: 'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm', communication: ComunicacionDto | null = null, isResend: boolean = false): void {
-    this.selectedCommunication.set(communication);
-    this.resetForm();
+  openModal(
+    modalType: 'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm', 
+    communication: ComunicacionDto | null = null, 
+    isResend: boolean = false // Este flag ahora servirá para "Clonar"
+  ): void {
+    this.selectedCommunication.set(communication);
+    this.resetForm();
 
-    let finalModalType = modalType;
+    let finalModalType = modalType;
 
-    if (communication && (modalType === 'edit' || isResend)) {
-      let channelsArray: ('Email' | 'WhatsApp')[] = [];
-      if (communication.channel.includes('Email')) channelsArray.push('Email');
-      if (communication.channel.includes('WhatsApp')) channelsArray.push('WhatsApp');
+    if (communication && (modalType === 'edit' || isResend)) {
+      // 1. Recuperar canales
+      let channelsArray: ('Email' | 'WhatsApp')[] = [];
+      if (communication.channel.includes('Email')) channelsArray.push('Email');
+      if (communication.channel.includes('WhatsApp')) channelsArray.push('WhatsApp');
 
-      const formType = (communication.status === 'Scheduled' || communication.status === 'Processing') 
-        ? 'programar' 
-        : 'borrador';
+      // 2. Determinar tipo de formulario
+      // Si es 'isResend' (Clonar), siempre empieza como 'programar' o 'borrador' limpio.
+      // Si es 'edit' de un fallido, mantenemos su estado lógico.
+      const formType = (communication.status === 'Scheduled' || communication.status === 'Processing') 
+        ? 'programar' 
+        : 'borrador';
 
-      this.formData.set({
-        id: modalType === 'edit' ? communication.id : null,
-        title: communication.title,
-        content: communication.content, // El contenido ya es HTML
-        sendDate: isResend ? '' : (communication.sendDate || ''),
-        sendTime: isResend ? '' : (communication.sendTime || ''),
-        channels: channelsArray,
-        recipients: [...communication.recipients],
-        type: isResend ? 'programar' : formType,
+      this.formData.set({
+        // Si es 'isResend', el ID es null (creará uno nuevo). Si es edit, usa el ID existente.
+        id: isResend ? null : communication.id, 
+        
+        title: communication.title,
+        content: communication.content,
+        
+        // Si es clonación, limpiamos fechas. Si es edición, las mantenemos.
+        sendDate: isResend ? '' : (communication.sendDate || ''),
+        sendTime: isResend ? '' : (communication.sendTime || ''),
+        
+        channels: channelsArray,
+        recipients: [...communication.recipients],
+        
+        // Si es clonación, forzamos 'programar' para que el usuario elija fecha.
+        type: isResend ? 'programar' : formType,
+        
+        // Mantenemos la config SMTP si existe
         smtpConfigId: communication.smtpConfigId || null
-      });
-      
-      if (isResend) finalModalType = 'add';
-    }
-    
-    this.currentModal.set(finalModalType);
-  }
+      });
+      
+      // Si estamos clonando, cambiamos el modo a 'add' para que el botón diga "Crear"
+      if (isResend) finalModalType = 'add';
+    }
+    
+    this.currentModal.set(finalModalType);
+  }
 
   closeModal(): void {
     this.currentModal.set('none');
@@ -454,16 +472,9 @@ showRecipientModal = signal(false);
     this.selectedFiles.update(files => files.filter((_, i) => i !== index));
   }
 
-  retryCommunication(comm: ComunicacionDto): void {
-      if(!confirm('¿Reintentar envíos fallidos?')) return;
-      
-      this.commService.retryCommunication(comm.id).subscribe({
-          next: (updated) => {
-             this.communications.update(list => list.map(c => c.id === updated.id ? updated : c));
-             this.showToast('Procesando', 'Reintento iniciado', 'refresh-cw', 'success');
-          },
-          error: () => this.showToast('Error', 'Falló el reintento', 'alert-triangle', 'error')
-      });
+  openRetryModal(comm: ComunicacionDto): void {
+    this.openModal('edit', comm);
+    this.showToast('Modo Reintento', 'Edita la configuración y guarda para reintentar a los fallidos.', 'edit', 'success');
   }
 
   // --- new methods for client selector ---

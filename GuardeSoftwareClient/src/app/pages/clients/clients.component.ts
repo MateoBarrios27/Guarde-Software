@@ -110,8 +110,6 @@ export class ClientsComponent implements OnInit {
 
         this.totalClientes = result.totalCount;
 
-        this.estadisticas.total = result.totalCount;
-
         this.isLoading = false;
       },
 

@@ -418,34 +418,37 @@
         <app-icon name="eye" class="h-4 w-4"></app-icon>
       </button>
 
-      @if (!isPast) {
-      <button disabled (click)="openModal('edit', comm)" title="No disponible"
-        class="flex-1 flex justify-center items-center p-2 rounded-full text-gray-500 hover:bg-blue-100 transition">
+      @if (comm.status === 'Draft' || comm.status === 'Scheduled') {
+      <button (click)="openModal('edit', comm)" title="Editar comunicado"
+        class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition">
         <app-icon name="edit" class="h-4 w-4"></app-icon>
       </button>
       }
 
-      @if (isDraft) {
+      @if (comm.status === 'Draft') {
       <button (click)="openModal('send-confirm', comm)" title="Enviar ahora"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-green-600 hover:bg-green-100 transition">
         <app-icon name="Send" class="h-4 w-4"></app-icon>
       </button>
-      } @else if (isPast) {
-      <button *ngIf="comm.status === 'Failed' || comm.status === 'Finished w/ Errors'" 
-              (click)="retryCommunication(comm)" 
-              title="Reintentar fallidos"
+      } 
+      
+      @else if (comm.status === 'Failed' || comm.status === 'Finished w/ Errors') {
+      <button (click)="openRetryModal(comm)" 
+              title="Editar y Reintentar Fallidos"
               class="flex-1 flex justify-center items-center p-2 rounded-full text-orange-600 hover:bg-orange-100 transition">
         <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
       </button>
-      } 
-      @else if (comm.status === 'Scheduled') {
-      <button (click)="openModal('send-confirm', comm)" title="Enviar ahora (Cancelar programación)"
-        class="flex-1 flex justify-center items-center p-2 rounded-full text-green-600 hover:bg-green-100 transition">
-        <app-icon name="Send" class="h-4 w-4"></app-icon>
-      </button>
+      }
+      
+      @else if (comm.status === 'Finished') {
+        <button (click)="openModal('add', comm, true)" 
+                title="Reutilizar / Clonar comunicado"
+                class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition">
+          <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
+        </button>
       }
 
-      @if (!isPast) {
+      @if (comm.status !== 'Processing') {
       <button (click)="openModal('delete-confirm', comm)" title="Eliminar comunicado"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-red-600 hover:bg-red-100 transition">
         <app-icon name="Trash2" class="h-4 w-4"></app-icon>
