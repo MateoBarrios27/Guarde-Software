@@ -141,158 +141,157 @@ namespace GuardeSoftwareAPI.Services.communication
         }
         
         public async Task<CommunicationDto> UpdateCommunicationAsync(int communicationId, UpsertCommunicationRequest request, int userId)
+{
+    using (SqlConnection connection = accessDB.GetConnectionClose())
+    {
+        await connection.OpenAsync();
+        using (SqlTransaction transaction = (SqlTransaction)await connection.BeginTransactionAsync())
         {
-            using (SqlConnection connection = accessDB.GetConnectionClose())
+            try
             {
-                await connection.OpenAsync();
-                using (SqlTransaction transaction = (SqlTransaction)await connection.BeginTransactionAsync())
+                // --- 1. Lógica de Fechas y Estado ---
+                DateTime? scheduledAt = null;
+                string requestType = request.Type?.ToLower().Trim() ?? "draft";
+                string status = "Draft";
+
+                // Parsear fecha si existe
+                if (!string.IsNullOrEmpty(request.SendDate) && !string.IsNullOrEmpty(request.SendTime))
                 {
-                    try
+                    if (DateTime.TryParse($"{request.SendDate}T{request.SendTime}", out DateTime parsedDate))
                     {
-                        // --- 1. Lógica de Fechas y Estado (Igual que en Create) ---
-                        
-                        DateTime? scheduledAt = null;
-                        string requestType = request.Type?.ToLower().Trim() ?? "draft";
-                        string status = "Draft";
-
-                        if (!string.IsNullOrEmpty(request.SendDate) && !string.IsNullOrEmpty(request.SendTime))
-                        {
-                            if (DateTime.TryParse($"{request.SendDate}T{request.SendTime}", out DateTime parsedDate))
-                            {
-                                scheduledAt = parsedDate;
-                            }
-                        }
-
-                        if (requestType == "schedule" && scheduledAt.HasValue)
-                        {
-                            status = "Scheduled";
-                        }
-                        else
-                        {
-                            status = "Draft";
-                            scheduledAt = null;
-                        }
-
-                        // --- 2. Actualización Transaccional ---
-
-                        // A. Actualizar Registro Principal
-                        string updateQuery = @"
-                            UPDATE communications 
-                            SET title = @Title, 
-                                scheduled_date = @ScheduledDate, 
-                                status = @Status,
-                                smtp_configuration_id = @SmtpConfigId
-                            WHERE communication_id = @Id";
-                        
-                        using (var cmdUpdate = new SqlCommand(updateQuery, connection, transaction))
-                        {
-                            cmdUpdate.Parameters.AddWithValue("@Id", communicationId);
-                            cmdUpdate.Parameters.AddWithValue("@Title", request.Title);
-                            cmdUpdate.Parameters.AddWithValue("@ScheduledDate", (object)scheduledAt ?? DBNull.Value);
-                            cmdUpdate.Parameters.AddWithValue("@Status", status);
-                            cmdUpdate.Parameters.AddWithValue("@SmtpConfigId", (object)request.SmtpConfigId ?? DBNull.Value);
-                            await cmdUpdate.ExecuteNonQueryAsync();
-                        }
-
-                        // B. Actualizar Canales (Contenido)
-                        // Usamos UPSERT lógico: Actualizar si existe, Insertar si no.
-                        foreach (var channel in request.Channels)
-                        {
-                            string updateContentQuery = @"
-                                UPDATE communication_channel_content 
-                                SET content = @Content, subject = @Subject
-                                WHERE communication_id = @Id 
-                                AND channel_id = (SELECT channel_id FROM communication_channels WHERE name = @ChannelName)";
-
-                            using (var cmdContent = new SqlCommand(updateContentQuery, connection, transaction))
-                            {
-                                cmdContent.Parameters.AddWithValue("@Id", communicationId);
-                                cmdContent.Parameters.AddWithValue("@ChannelName", channel);
-                                cmdContent.Parameters.AddWithValue("@Subject", channel == "Email" ? (object)request.Title : DBNull.Value);
-                                cmdContent.Parameters.AddWithValue("@Content", request.Content);
-                                
-                                int rowsAffected = await cmdContent.ExecuteNonQueryAsync();
-
-                                // Si no existía el canal, lo insertamos
-                                if (rowsAffected == 0)
-                                {
-                                    await _communicationDao.InsertCommunicationChannelAsync(communicationId, channel, request, connection, transaction);
-                                }
-                            }
-                        }
-
-                        // C. Actualizar Destinatarios
-                        // Aquí SÍ podemos borrar y recrear porque la tabla 'dispatches' (historial) 
-                        // guarda el client_id directamente, no depende de la tabla de relación 'communication_recipients'.
-                        // Esto permite editar la lista de destinatarios sin perder el historial de quién ya recibió el mail.
-                        
-                        string deleteRecipients = "DELETE FROM communication_recipients WHERE communication_id = @Id";
-                        using (var cmdDel = new SqlCommand(deleteRecipients, connection, transaction))
-                        {
-                            cmdDel.Parameters.AddWithValue("@Id", communicationId);
-                            await cmdDel.ExecuteNonQueryAsync();
-                        }
-
-                        await _communicationDao.InsertCommunicationRecipientsAsync(communicationId, request.Recipients, connection, transaction);
-
-                        // D. Manejo de Adjuntos (Opcional: Agregar nuevos sin borrar viejos, o borrar y reemplazar)
-                        if (request.Attachments != null && request.Attachments.Count > 0)
-                        {
-                            // Opción A: Reemplazo total (Descomenta si quieres borrar los anteriores)
-                            /*
-                            string deleteAttachments = "DELETE FROM communication_attachments WHERE communication_id = @Id";
-                            using (var cmdDelAtt = new SqlCommand(deleteAttachments, connection, transaction))
-                            {
-                                cmdDelAtt.Parameters.AddWithValue("@Id", communicationId);
-                                await cmdDelAtt.ExecuteNonQueryAsync();
-                            }
-                            */
-
-                            // Opción B: Agregar (Append)
-                            var savedAttachments = new List<AttachmentDto>();
-                            string uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "communications");
-                            if (!Directory.Exists(uploadFolder)) Directory.CreateDirectory(uploadFolder);
-
-                            foreach (var file in request.Attachments)
-                            {
-                                string uniqueName = $"{Guid.NewGuid()}_{file.FileName}";
-                                string filePath = Path.Combine(uploadFolder, uniqueName);
-
-                                using (var stream = new FileStream(filePath, FileMode.Create))
-                                {
-                                    await file.CopyToAsync(stream);
-                                }
-
-                                savedAttachments.Add(new AttachmentDto {
-                                    FileName = file.FileName,
-                                    FilePath = filePath,
-                                    ContentType = file.ContentType
-                                });
-                            }
-                            await _communicationDao.InsertAttachmentsAsync(communicationId, savedAttachments, connection, transaction);
-                        }
-
-                        // --- Commit ---
-                        await transaction.CommitAsync();
-
-                        // --- Re-agendar Job si es necesario ---
-                        if (status == "Scheduled" && scheduledAt.HasValue)
-                        {
-                            await ScheduleJobAsync(communicationId, scheduledAt.Value);
-                        }
-                        
-                        return await _communicationDao.GetCommunicationByIdAsync(communicationId);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Transaction failed for UPDATE on ID: {CommunicationId}", communicationId);
-                        try { await transaction.RollbackAsync(); }
-                        catch (Exception rbEx) { logger.LogWarning(rbEx, "Error during update rollback."); }
-                        throw new Exception($"Error updating communication: {ex.Message}", ex);
+                        scheduledAt = parsedDate;
                     }
                 }
+
+                // Determinar estado final
+                if (requestType == "schedule" && scheduledAt.HasValue)
+                {
+                    status = "Scheduled";
+                }
+                else
+                {
+                    status = "Draft";
+                    scheduledAt = null;
+                }
+
+                // --- 2. Actualizaciones en Base de Datos ---
+
+                // A. Actualizar Tabla Principal
+                string updateQuery = @"
+                    UPDATE communications 
+                    SET title = @Title, 
+                        scheduled_date = @ScheduledDate, 
+                        status = @Status,
+                        smtp_configuration_id = @SmtpConfigId
+                    WHERE communication_id = @Id";
+                
+                using (var cmdUpdate = new SqlCommand(updateQuery, connection, transaction))
+                {
+                    cmdUpdate.Parameters.AddWithValue("@Id", communicationId);
+                    cmdUpdate.Parameters.AddWithValue("@Title", request.Title);
+                    cmdUpdate.Parameters.AddWithValue("@ScheduledDate", (object)scheduledAt ?? DBNull.Value);
+                    cmdUpdate.Parameters.AddWithValue("@Status", status);
+                    cmdUpdate.Parameters.AddWithValue("@SmtpConfigId", (object)request.SmtpConfigId ?? DBNull.Value);
+                    await cmdUpdate.ExecuteNonQueryAsync();
+                }
+
+                // B. Actualizar Contenido (Sin borrar, para no romper FK de dispatches)
+                foreach (var channel in request.Channels)
+                {
+                    // Intenta actualizar primero
+                    string updateContentQuery = @"
+                        UPDATE communication_channel_content 
+                        SET content = @Content, subject = @Subject
+                        WHERE communication_id = @Id 
+                        AND channel_id = (SELECT channel_id FROM communication_channels WHERE name = @ChannelName)";
+
+                    using (var cmdContent = new SqlCommand(updateContentQuery, connection, transaction))
+                    {
+                        cmdContent.Parameters.AddWithValue("@Id", communicationId);
+                        cmdContent.Parameters.AddWithValue("@ChannelName", channel);
+                        cmdContent.Parameters.AddWithValue("@Subject", channel == "Email" ? (object)request.Title : DBNull.Value);
+                        cmdContent.Parameters.AddWithValue("@Content", request.Content);
+                        
+                        int rows = await cmdContent.ExecuteNonQueryAsync();
+
+                        // Si rows es 0, significa que este canal no existía, así que lo insertamos
+                        if (rows == 0)
+                        {
+                            await _communicationDao.InsertCommunicationChannelAsync(communicationId, channel, request, connection, transaction);
+                        }
+                    }
+                }
+
+                // C. Actualizar Destinatarios
+                // Aquí SI borramos y recreamos porque queremos actualizar la lista de objetivos.
+                // El historial (dispatches) no se rompe porque apunta al channel_content_id (que preservamos arriba).
+                string deleteRecipients = "DELETE FROM communication_recipients WHERE communication_id = @Id";
+                using (var cmdDel = new SqlCommand(deleteRecipients, connection, transaction))
+                {
+                    cmdDel.Parameters.AddWithValue("@Id", communicationId);
+                    await cmdDel.ExecuteNonQueryAsync();
+                }
+                
+                await _communicationDao.InsertCommunicationRecipientsAsync(communicationId, request.Recipients, connection, transaction);
+
+                // D. Manejo de Adjuntos (Opcional: Agregar nuevos)
+                if (request.Attachments != null && request.Attachments.Count > 0)
+                {
+                    var savedAttachments = new List<AttachmentDto>();
+                    string uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "communications");
+                    if (!Directory.Exists(uploadFolder)) Directory.CreateDirectory(uploadFolder);
+
+                    foreach (var file in request.Attachments)
+                    {
+                        string uniqueName = $"{Guid.NewGuid()}_{file.FileName}";
+                        string filePath = Path.Combine(uploadFolder, uniqueName);
+
+                        using (var stream = new FileStream(filePath, FileMode.Create))
+                        {
+                            await file.CopyToAsync(stream);
+                        }
+
+                        savedAttachments.Add(new AttachmentDto {
+                            FileName = file.FileName,
+                            FilePath = filePath,
+                            ContentType = file.ContentType
+                        });
+                    }
+                    await _communicationDao.InsertAttachmentsAsync(communicationId, savedAttachments, connection, transaction);
+                }
+
+                await transaction.CommitAsync();
+
+                // --- 3. Gestión de Quartz (CORRECCIÓN CRÍTICA) ---
+                
+                // Primero: Obtener el scheduler
+                var scheduler = await _schedulerFactory.GetScheduler();
+                var jobKey = new JobKey($"comm-job-{communicationId}");
+
+                // Si existe un job previo, LO BORRAMOS primero para evitar "ObjectAlreadyExistsException"
+                if (await scheduler.CheckExists(jobKey))
+                {
+                    await scheduler.DeleteJob(jobKey);
+                }
+
+                // Si el nuevo estado es Scheduled, creamos el nuevo Job
+                if (status == "Scheduled" && scheduledAt.HasValue)
+                {
+                    await ScheduleJobAsync(communicationId, scheduledAt.Value);
+                }
+                
+                return await _communicationDao.GetCommunicationByIdAsync(communicationId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Transaction failed for UPDATE on ID: {CommunicationId}", communicationId);
+                try { await transaction.RollbackAsync(); }
+                catch (Exception rbEx) { logger.LogWarning(rbEx, "Error during update rollback."); }
+                throw; // Re-lanzar la excepción original para ver el error real
             }
         }
+    }
+}
 
         public async Task<bool> DeleteCommunicationAsync(int communicationId)
         {
