@@ -137,27 +137,46 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
         public async Task ApplyMonthlyDebitsAsync()
         {
             _logger.LogInformation("--- Iniciando Job Aplicador de Débitos Mensuales ---");
+
+            // Obtenemos los IDs de alquileres activos
+            // Nota: Asegúrate de que este método en DaoRental no use conexión cerrada internamente
+            // si planeas reutilizar conexiones, pero aquí lo llamamos aparte.
             var activeRentalIds = await _daoRental.GetActiveRentalsIdsAsync();
+            
             _logger.LogInformation($"Se encontraron {activeRentalIds.Count} alquileres activos para procesar.");
 
             int skippedCount = 0;
+            int duplicateCount = 0;
             int processedCount = 0;
+
+            // Preparamos los datos del mes ACTUAL (el que queremos cobrar)
+            var culture = new CultureInfo("es-AR");
+            string monthName = culture.DateTimeFormat.GetMonthName(DateTime.Now.Month);
+            // Usamos culture.TextInfo para capitalizar correctamente en español
+            string titleMonth = culture.TextInfo.ToTitleCase(monthName); 
+            string currentYear = DateTime.Now.Year.ToString();
+
+            // Concepto Base que buscaremos: "Alquiler Febrero 2025"
+            // El DAO buscará con LIKE 'Alquiler Febrero 2025%' para cubrir variantes
+            string targetConceptBase = $"Alquiler {titleMonth} {currentYear}"; 
 
             // Procesamos cada rental individualmente
             foreach (var rentalId in activeRentalIds)
             {
-                // Abrimos una conexión POR CADA rental para aislar fallos
+                // Abrimos una conexión POR CADA rental para aislar fallos y transacciones
                 using (var connection = accessDB.GetConnectionClose())
                 {
                     try
                     {
                         await connection.OpenAsync();
 
-                        // 1. Verificar si ya existe débito este mes (usando la conexión)
-                        bool debitExists = await _daoAccountMovement.CheckIfDebitExistsForCurrentMonthAsync(rentalId, connection);
+                        // 1. Verificar si ya existe un débito con este CONCEPTO (Corrección clave)
+                        bool debitExists = await _daoAccountMovement.CheckIfDebitExistsByConceptAsync(rentalId, targetConceptBase, connection);
+                        
                         if (debitExists)
                         {
-                            _logger.LogDebug($"Débito ya existe para Rental ID {rentalId} este mes. Omitiendo.");
+                            _logger.LogDebug($"Débito omitido para Rental ID {rentalId}: Ya existe un movimiento con concepto '{targetConceptBase}'.");
+                            duplicateCount++;
                             continue;
                         }
 
@@ -173,45 +192,47 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                             continue;
                         }
 
-                        // 3. Decidir si aplicar débito (Lógica de Crédito)
-                        // Si el balance + el débito a aplicar sigue siendo <= 0, significa que tiene crédito suficiente
-                        if (currentBalance + currentAmount <= 0)
+                        // 3. Decidir si aplicar débito (Lógica de Crédito a favor)
+                        // Si el balance + el nuevo débito sigue siendo negativo (o cero), significa que tiene saldo a favor suficiente.
+                        // Ejemplo: Balance -10000, Nuevo Débito 5000 -> -5000 (Sigue teniendo crédito, no generamos deuda nueva, pero ¿debemos registrar el movimiento?)
+                        // NOTA: Generalmente SÍ se debe registrar el movimiento de débito para que quede constancia en el histórico
+                        // de que se "gastó" ese saldo a favor.
+                        // Si tu lógica de negocio es "No generar movimiento si tiene saldo a favor", mantén el if.
+                        // Si tu lógica es "Generar movimiento y que el saldo se reduzca", BORRA este bloque if.
+                        /* if (currentBalance + currentAmount <= 0)
                         {
                             _logger.LogInformation($"Rental ID {rentalId} tiene suficiente crédito ({currentBalance:C}) para cubrir el débito de {currentAmount:C}. Omitiendo débito este mes.");
                             skippedCount++;
-                            continue; // Saltar al siguiente rental
+                            continue; 
                         }
+                        */
 
-                        // 4. Generar concepto
-                        var culture = new CultureInfo("es-AR");
-                        string monthName = culture.DateTimeFormat.GetMonthName(DateTime.Now.Month);
-                        string concept = $"Alquiler {CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName)} {DateTime.Now.Year}";
-
-                        // 5. Crear objeto débito
+                        // 4. Crear objeto débito
                         var debitMovement = new AccountMovement
                         {
                             RentalId = rentalId,
                             MovementDate = DateTime.Now,
                             MovementType = "DEBITO",
                             Amount = currentAmount,
-                            Concept = concept,
+                            Concept = targetConceptBase, // Usamos el concepto estandarizado
                             PaymentId = null
                         };
 
-                        // 6. Crear débito en BD (usando la conexión)
+                        // 5. Crear débito en BD
                         await _daoAccountMovement.CreateDebitAsync(debitMovement, connection);
-                        _logger.LogInformation($"Débito de {currentAmount:C} creado para Rental ID {rentalId}. Concepto: {concept}");
+                        
+                        _logger.LogInformation($"Débito de {currentAmount:C} creado para Rental ID {rentalId}. Concepto: {targetConceptBase}");
                         processedCount++;
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, $"Error procesando Rental ID {rentalId} en ApplyMonthlyDebits: {ex.Message}");
-                        // Continuar con el siguiente
+                        // Continuar con el siguiente rental a pesar del error
                     }
-                    // La conexión se cierra automáticamente por el 'using'
                 }
             }
-            _logger.LogInformation($"--- Job Aplicador de Débitos finalizado. Procesados: {processedCount}, Omitidos por crédito: {skippedCount} ---");
+
+            _logger.LogInformation($"--- Job finalizado. Procesados: {processedCount}, Ya existentes: {duplicateCount}, Omitidos por crédito: {skippedCount} ---");
         }
 
         /// <summary>

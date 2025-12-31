@@ -97,20 +97,21 @@ namespace GuardeSoftwareAPI.Dao
         //This method checks if a debit entry exists for the current month for a given rental ID
         //It returns true if the entry debit exists, otherwise false.
         //Is used in DebitService and is a verification
-       public async Task<bool> CheckIfDebitExistsForCurrentMonthAsync(int rentalId, SqlConnection connection)
+       public async Task<bool> CheckIfDebitExistsByConceptAsync(int rentalId, string concept, SqlConnection connection)
         {
             string query = @"
                 SELECT COUNT(1) 
                 FROM account_movements 
                 WHERE rental_id = @rentalId 
                   AND movement_type = 'DEBITO' 
-                  AND MONTH(movement_date) = MONTH(GETDATE()) 
-                  AND YEAR(movement_date) = YEAR(GETDATE());";
+                  AND concept LIKE @concept + '%'"; // Busca que empiece con el concepto (ej: 'Alquiler Enero 2025')
 
-            // NO usamos accessDB.ExecuteScalarAsync, usamos un SqlCommand con la conexión existente
             using (var command = new SqlCommand(query, connection))
             {
                 command.Parameters.Add(new SqlParameter("@rentalId", SqlDbType.Int) { Value = rentalId });
+                // Pasamos el concepto que esperamos encontrar (ej: "Alquiler Febrero 2025")
+                command.Parameters.Add(new SqlParameter("@concept", SqlDbType.NVarChar) { Value = concept });
+
                 object result = await command.ExecuteScalarAsync();
                 return (result != null && result != DBNull.Value) ? Convert.ToInt32(result) > 0 : false;
             }
