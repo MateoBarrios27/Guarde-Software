@@ -86,4 +86,8 @@ export class ClientService {
   public deactivateClient(id: number): Observable<void> {
     return this.httpCliente.delete<void>(`${this.url}/Client/${id}`);
   }
+
+  reactivateClient(clientId: number): Observable<any> {
+    return this.httpCliente.put(`${this.url}/Client/${clientId}/reactivate`, {});
+  }
 }

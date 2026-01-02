@@ -344,5 +344,53 @@ export class ClientsComponent implements OnInit {
     });
   }
 
+  public onReactivateClient(cliente: TableClient): void {
+    Swal.fire({
+      title: '¿Reactivar Cliente?',
+      html: `
+        Vas a reactivar a <strong>${cliente.firstName} ${cliente.lastName}</strong>.<br><br>
+        <ul style="text-align: left; font-size: 0.9em; margin-left: 20px;">
+          <li>Se generará un <strong>nuevo Número de Identificación</strong>.</li>
+          <li>Se abrirá el formulario para <strong>confirmar los datos</strong>.</li>
+        </ul>
+      `,
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981', // Verde
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Sí, reactivar y editar',
+      cancelButtonText: 'Cancelar',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.isLoading = true;
+
+        // LLAMADA AL SERVICIO (Asegúrate de agregar este método en client.service.ts)
+        this.clientService.reactivateClient(cliente.id).subscribe({
+          next: () => {
+            this.isLoading = false;
+            
+            // 1. Recargar la tabla para que aparezca como activo
+            this.loadClients(); 
+            this.loadStatistics();
+
+            // 2. Notificar éxito rápido
+            this.showToastNotification('Cliente reactivado. Verifica los datos.', 'success');
+
+            // 3. ABRIR MODAL DE EDICIÓN
+            // Al llamar a openEditClientModal, este hace un fetch del cliente actualizado
+            // por lo que traerá el NUEVO PaymentIdentifier generado por el backend.
+            this.openEditClientModal(cliente.id);
+          },
+          error: (err) => {
+            this.isLoading = false;
+            console.error('Error al reactivar:', err);
+            const msg = err.error?.message || 'No se pudo reactivar el cliente.';
+            Swal.fire('Error', msg, 'error');
+          },
+        });
+      }
+    });
+  }
+
 }
 

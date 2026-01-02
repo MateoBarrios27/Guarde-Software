@@ -544,6 +544,28 @@ namespace GuardeSoftwareAPI.Dao
             int rowsAffected = await command.ExecuteNonQueryAsync();
             return rowsAffected > 0;
         }
+
+        public async Task<bool> ReactivateClientTransactionAsync(int clientId, decimal newPaymentIdentifier, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = @"
+                UPDATE clients 
+                SET active = 1, 
+                    payment_identifier = @newPaymentIdentifier 
+                WHERE client_id = @clientId";
+
+            SqlParameter[] parameters =
+            [
+                new ("@clientId", SqlDbType.Int) { Value = clientId },
+                new ("@newPaymentIdentifier", SqlDbType.Decimal) { Value = newPaymentIdentifier }
+            ];
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.AddRange(parameters);
+                int rowsAffected = await command.ExecuteNonQueryAsync();
+                return rowsAffected > 0;
+            }
+        }
     }
 }
 

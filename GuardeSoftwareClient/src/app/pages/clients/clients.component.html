@@ -309,35 +309,28 @@
               </td>
               <td class="p-4">
                 <div class="flex items-center gap-2">
-                  <button
-                    (click)="openDetailClientModal(cliente.id)"
-                    class="p-1 hover:text-blue-600 flex items-center justify-center"
-                    title="Ver Detalles"
-                  >
-                    <app-icon
-                      name="eye"
-                      class="h-4 w-4 inline-block text-black"
-                    ></app-icon>
+                  <button (click)="openDetailClientModal(cliente.id)"
+                    class="p-1 hover:text-blue-600 flex items-center justify-center" title="Ver Detalles">
+                    <app-icon name="eye" class="h-4 w-4 inline-block text-black"></app-icon>
                   </button>
 
-                                    <button
-                    (click)="openEditClientModal(cliente.id)"
-                    class="p-1 hover:text-blue-600 flex items-center justify-center"
-                    title="Editar"
-                  >
-                    <app-icon
-                      name="edit"
-                      class="h-4 w-4 inline-block text-black hover:text-blue-800"
-                      
-                    ></app-icon>
+                  <button (click)="openEditClientModal(cliente.id)"
+                    class="p-1 hover:text-blue-600 flex items-center justify-center" title="Editar">
+                    <app-icon name="edit" class="h-4 w-4 inline-block text-black hover:text-blue-800"></app-icon>
                   </button>
 
-                  <button
-                    (click)="openDeactivateClientModal(cliente)"  class="p-1 hover:text-red-600 flex items-center justify-center"
-                    title="Dar de Baja"
-                  >
+                  <button *ngIf="cliente.status !== 'Baja'" 
+                    (click)="openDeactivateClientModal(cliente)"
+                    class="p-1 hover:text-red-600 flex items-center justify-center" title="Dar de Baja">
                     <app-icon name="Trash2" class="h-4 w-4 text-black hover:text-red-600"></app-icon>
                   </button>
+
+                  <button *ngIf="cliente.status === 'Baja'" 
+                    (click)="onReactivateClient(cliente)"
+                    class="p-1 hover:text-green-600 flex items-center justify-center" title="Reactivar Cliente">
+                    <app-icon name="rotate-ccw" class="h-4 w-4 text-black hover:text-green-600"></app-icon>
+                  </button>
+
                 </div>
               </td>
             </tr>

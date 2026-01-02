@@ -17,5 +17,6 @@ namespace GuardeSoftwareAPI.Services.client
         Task<List<string>> SearchClientNamesAsync(string query);
         Task<bool> UpdateClientAsync(int id, CreateClientDTO dto);
         Task<bool> DeactivateClientAsync(int clientId);
+        Task ReactivateClientAsync(int id);
     }
 }

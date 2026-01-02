@@ -726,6 +726,41 @@ namespace GuardeSoftwareAPI.Services.client
             return Math.Ceiling(amount / 100.0m) * 100;
         }
 
+        public async Task ReactivateClientAsync(int clientId)
+        {
+            using (var connection = accessDB.GetConnectionClose())
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        // 1. Validar que el cliente exista (opcional, pero recomendado)
+                        // var exists = await _daoClient.ExistsByIdAsync(clientId, connection, transaction);
+                        // if (!exists) throw new KeyNotFoundException("Cliente no encontrado.");
+
+                        // 2. Obtener el nuevo Número de Identificación (Lógica de autoincremento)
+                        // Usamos el mismo método que en CreateClient para mantener consistencia
+                        decimal maxIdentifier = await daoClient.GetMaxPaymentIdentifierAsync(connection, transaction);
+                        decimal newPaymentIdentifier = maxIdentifier + 0.01m;
+
+                        bool success = await daoClient.ReactivateClientTransactionAsync(clientId, newPaymentIdentifier, connection, transaction);
+
+                        if (!success)
+                        {
+                            throw new Exception("No se pudo reactivar el cliente. Verifique que el ID sea correcto.");
+                        }
+
+                        await transaction.CommitAsync();
+                    }
+                    catch (Exception)
+                    {
+                        await transaction.RollbackAsync();
+                        throw;
+                    }
+                }
+            }
+        }
     }
 }
 

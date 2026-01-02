@@ -186,5 +186,26 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        [HttpPut("{id}/reactivate")]
+        public async Task<IActionResult> ReactivateClient(int id)
+        {
+            try
+            {
+                if (id <= 0) return BadRequest("ID de cliente inválido.");
+
+                await _clientService.ReactivateClientAsync(id);
+                
+                return Ok(new { message = "Cliente reactivado exitosamente." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Ocurrió un error al reactivar el cliente." });
+            }
+        }
     }
 }
