@@ -537,13 +537,11 @@ namespace GuardeSoftwareAPI.Services.client
                         var existingClient = await daoClient.GetClientByIdTransactionAsync(id, connection, transaction);
                         if (existingClient == null) return false;
 
-                        // Verificar duplicados
                         if (!string.IsNullOrWhiteSpace(dto.Dni) && await daoClient.ExistsByDniAsync(dto.Dni, id, connection, transaction))
                             throw new InvalidOperationException("Ya existe otro cliente con este DNI.");
                         if (!string.IsNullOrWhiteSpace(dto.Cuit) && await daoClient.ExistsByCuitAsync(dto.Cuit, id, connection, transaction))
                             throw new InvalidOperationException("Ya existe otro cliente con este CUIT.");
 
-                        // Mapear campos actualizables
                         Client clientToUpdate = new()
                         {
                             Id = id,
@@ -602,12 +600,9 @@ namespace GuardeSoftwareAPI.Services.client
                             await addressService.CreateAddressTransaction(new Address { ClientId = id, Street = dto.AddressDto.Street.Trim(), City = dto.AddressDto.City.Trim(), Province = string.IsNullOrWhiteSpace(dto.AddressDto.Province) ? null : dto.AddressDto.Province.Trim() }, connection, transaction);
                         }
 
-
-                        // Lógica de Rental/Lockers/Amount usando MÉTODOS DE SERVICIO
                         var currentRental = await rentalService.GetRentalByClientIdTransactionAsync(id, connection, transaction);
                         if (currentRental != null)
                         {
-                            // ... (Lógica para actualizar monto en rental_amount_history)
                             var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(currentRental.Id, connection, transaction);
                             if (lastAmountHistory != null && dto.Amount != lastAmountHistory.Amount)
                             {

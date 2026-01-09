@@ -31,6 +31,7 @@ interface FormDataState {
   channels: ('Email' | 'WhatsApp')[];
   recipients: string[];
   type: 'programar' | 'borrador'; // This is for the form's radio button (Spanish UI)
+  isAccountStatement: boolean;
   smtpConfigId?: number | null
 }
 
@@ -78,7 +79,7 @@ export class CommunicationsComponent implements OnInit {
   selectedFiles = signal<File[]>([]);
   smtpConfigs = signal<any[]>([]);
 
-showRecipientModal = signal(false);
+  showRecipientModal = signal(false);
   allClients = signal<ClientSelectorItem[]>([]); 
   filteredClients = signal<ClientSelectorItem[]>([]); 
   recipientSearchTerm = signal('');
@@ -166,7 +167,8 @@ showRecipientModal = signal(false);
     channels: [],
     recipients: [],
     type: 'programar',
-    smtpConfigId: null
+    smtpConfigId: null,
+    isAccountStatement: false
   });
   
   currentModal = signal<'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm' | 'none'>('none');
@@ -231,7 +233,8 @@ showRecipientModal = signal(false);
       channels: [],
       recipients: [],
       type: 'programar',
-      smtpConfigId: null
+      smtpConfigId: null,
+      isAccountStatement: false
     });
   }
 
@@ -281,7 +284,8 @@ showRecipientModal = signal(false);
         type: isResend ? 'programar' : formType,
         
         // Mantenemos la config SMTP si existe
-        smtpConfigId: communication.smtpConfigId || null
+        smtpConfigId: communication.smtpConfigId || null,
+        isAccountStatement: communication.isAccountStatement || false
       });
       
       // Si estamos clonando, cambiamos el modo a 'add' para que el botón diga "Crear"
@@ -304,7 +308,8 @@ showRecipientModal = signal(false);
       ...data,
       type: data.type === 'programar' ? 'schedule' : 'draft',
       sendDate: data.type === 'programar' ? data.sendDate : '',
-      sendTime: data.type === 'programar' ? data.sendTime : ''
+      sendTime: data.type === 'programar' ? data.sendTime : '',
+      isAccountStatement: data.isAccountStatement
     };
 
     this.commService.createCommunication(request, this.selectedFiles()).subscribe({
@@ -332,7 +337,8 @@ showRecipientModal = signal(false);
       channels: data.channels,
       recipients: data.recipients,
       type: data.type === 'programar' ? 'schedule' : 'draft',
-      smtpConfigId: data.smtpConfigId 
+      smtpConfigId: data.smtpConfigId ,
+      isAccountStatement: data.isAccountStatement
     };
 
     this.commService.updateCommunication(commId, request).subscribe({

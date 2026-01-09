@@ -12,6 +12,7 @@ public class CommunicationDto
     public string Status { get; set; } = string.Empty; // "Sent", "Scheduled", "Draft"
     public string CreationDate { get; set; } = string.Empty; // yyyy-MM-dd
     public int? SmtpConfigId { get; set; }
+    public bool IsAccountStatement { get; set; }
 }
     
     public class UpsertCommunicationRequest
@@ -26,4 +27,5 @@ public class CommunicationDto
     public List<string> Channels { get; set; } = [];
     public List<string> Recipients { get; set; } = [];
     public List<IFormFile>? Attachments { get; set; }
+    public bool IsAccountStatement { get; set; }
 }

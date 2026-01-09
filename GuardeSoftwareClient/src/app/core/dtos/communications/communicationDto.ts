@@ -16,6 +16,7 @@ export interface ComunicacionDto {
   status: 'Draft' | 'Scheduled' | 'Processing' | 'Finished' | 'Finished w/ Errors' | 'Failed';
   creationDate: string;
   smtpConfigId?: number | null;
+  isAccountStatement: boolean;
 }
 
 /**
@@ -32,4 +33,5 @@ export interface UpsertComunicacionRequest {
   // CORRECCIÓN: El tipo debe ser el que espera el backend
   type: 'schedule' | 'draft';
   smtpConfigId?: number | null;
+  isAccountStatement: boolean;
 }

@@ -5,6 +5,7 @@ using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
 using System.Text;
+using GuardeSoftwareAPI.Dtos.Client;
 
 namespace GuardeSoftwareAPI.Jobs
 {
@@ -69,6 +70,8 @@ namespace GuardeSoftwareAPI.Jobs
         {
             // 1. Obtener Config SMTP de la BD
             var dbSmtp = await _communicationDao.GetSmtpSettingsAsync(communicationId);
+
+            bool isAccountStatement = await _communicationDao.IsAccountStatementAsync(communicationId);
             
             // 2. CONSTRUIR OBJETO DE CONFIGURACIÓN "EFECTIVO"
             // Si dbSmtp es null, creamos uno manualmente con los datos de appsettings.
@@ -111,12 +114,30 @@ namespace GuardeSoftwareAPI.Jobs
 
                 foreach (var recipient in recipients)
                 {
-                    try
+                    try 
                     {
-                        // AQUÍ ESTABA EL ERROR: Antes pasabas 'dbSmtp' (que era null).
-                        // Ahora pasamos 'effectiveSettings' que tiene los datos de appsettings cargados.
-                        var message = CreateEmailMessage(channel, recipient, effectiveSettings, attachments); 
-                        
+                        MimeMessage message;
+
+                        if (isAccountStatement)
+                        {
+                            // LÓGICA ESPECIAL: Generar HTML dinámico
+                            var financialData = await _communicationDao.GetClientFinancialData(recipient.ClientId); // Ver paso 4
+                            string dynamicHtml = GenerateAccountStatementHtml(recipient.Name, financialData);
+                            
+                            // Creamos un canal temporal con el HTML generado
+                            var tempChannel = new ChannelForSendingDto 
+                            { 
+                                Subject = $"Estado de Cuenta {DateTime.Now:MM/yyyy}", 
+                                Content = dynamicHtml 
+                            };
+                            message = CreateEmailMessage(tempChannel, recipient, effectiveSettings, attachments);
+                        }
+                        else 
+                        {
+                            // Lógica normal
+                            message = CreateEmailMessage(channel, recipient, effectiveSettings, attachments);
+                        }
+
                         string response = await smtp.SendAsync(message);
                         await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Exitoso", response);
                     }
@@ -192,6 +213,75 @@ namespace GuardeSoftwareAPI.Jobs
 
             message.Body = builder.ToMessageBody();
             return message;
+        }
+
+        private string GenerateAccountStatementHtml(string clientName, ClientFinancialDto data)
+        {
+            // Variables de tiempo (igual que time.strftime("%m/%Y"))
+            string monthYear = DateTime.Now.ToString("MM/yyyy");
+            
+            // Formato de moneda (N2 para 2 decimales, igual que el CSV original)
+            string recargo = data.Surcharge.ToString("N2");
+            string saldoAnterior = data.PreviousBalance.ToString("N2");
+            string saldoActual = data.CurrentBalance.ToString("N2");
+
+            return $@"
+            <html>
+                <head></head>
+                <body>
+                    <p><b style='color: black;'> Estimado/a: {clientName}</b></p> 
+                    
+                    <p>Le recordamos que el vencimiento de la cuota correspondiente al mes {monthYear} es el 10/{monthYear}. Vencido dicho plazo el importe mensual tendrá un recargo del 10%, sin excepción.</p>
+                    
+                    <b style='color: green;'> ""No pierda su beneficio por pago puntual"", por atrasos reiterados su abono será ajustado a los valores actuales""</b></p>
+
+                    <p style='color: red;'>Para tener acceso al espacio alquilado deberá tener el pago mensual al día.</p>
+                    
+                    <table border='1'>
+                    <tr>
+                        <td><b style='color: black;'>Estado de Cuenta</b></td>
+                        <td><b style='color: black;'>Monto</b></td>
+                    </tr>
+                    <tr>
+                        <td><b style='color: black;'> Recargo fuera de termino</b></p></td>
+                        <td> $ {recargo} </td>
+                    </tr>
+                    <tr>
+                        <td><b style='color: black;'> Saldo  Anterior</b></p></td>
+                        <td> $ {saldoAnterior} </td>
+                    </tr>
+                    <tr>
+                        <td><b style='color: black;'>Saldo Actual</b></p></td>
+                        <td><b> $ {saldoActual} </b></td>
+                    </tr>
+                    <tr>
+                    </tr>
+                    </table>
+
+                    <p><b style='color: green;'>Los aumentos en los abonos se verán reflejados en su Estado de Cuenta cada 4 meses, esto significa que abonará 3 meses con el mismo importe y en el cuarto mes verá reflejado un aumento según el valor de mercado.</p>
+
+                    <p><b style='color: red;'>El último día de pago es el 10 sin excepciones de feriados, domingos, etc.</p>
+
+                    <p><b style='color: blue;'>Adicionalmente vera que el importe tendrá centavos que corresponden a la identificación de cada cliente, por ejemplo $ 85491,40 el 1,40 va a estar asociado a su cuenta y de fácil identificación ya que a veces es complicado identificar cada pago y asociarlo rápidamente a su saldo.</p>
+
+                    <b style='color: blue;'><p>Forma de Pago:</p></b>
+                    <b style='color: blue;'><p>Según lo acordado con ustedes en el Contrato de Locación</p></b>
+
+                    <b style='color: blue;'><p></b> <b>En Nuestras Instalaciones: Francisco  Borges 4280 Munro (Vte. López)</b>
+                    <p><b style='color: black;'>De lunes a viernes de 09 a 16 hs, administración hasta las 15 y 30 hs. y sábados de 09 a 13 hs, administración hasta las 12 y 30 hs.</p>
+                    <p><b style='color: black;'>TEL.: 011-4730-2192 / 011-4762-0599 / WhatsApp 11-5780-0251</p>
+                    
+                    <b style='color: blue;'><p></p>
+                    <p></p>
+                    <b style='color: gray;'><p>Saludos</p></b>
+                    <b style='color: gray;'><p>La Administración</p></b>
+                    <p><a href='https://www.guardeloquequiera.com.ar/'>guardeloquequiera.com.ar</a></p>
+                    <p><b style='color: gray;'>011-4762-0599 / 011-4730-2192</p>
+                    <p><b style='color: green;'>WhatsApp 115-780-0251</p>
+
+                    <b style='color: green;'><p></p>
+                </body>
+            </html>";
         }
     }
 }

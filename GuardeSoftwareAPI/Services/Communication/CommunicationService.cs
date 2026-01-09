@@ -73,7 +73,7 @@ namespace GuardeSoftwareAPI.Services.communication
                         if (request.Attachments != null && request.Attachments.Count > 0)
                         {
                             var savedAttachments = new List<AttachmentDto>();
-                            // Definir ruta. En Linux VPS asegúrate que wwwroot/uploads tenga permisos (chmod 755)
+                            // Definir ruta. En Linux VPS asegurar que wwwroot/uploads tenga permisos (chmod 755)
                             string uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "communications");
                             if (!Directory.Exists(uploadFolder)) Directory.CreateDirectory(uploadFolder);
 
@@ -183,7 +183,8 @@ namespace GuardeSoftwareAPI.Services.communication
                             SET title = @Title, 
                                 scheduled_date = @ScheduledDate, 
                                 status = @Status,
-                                smtp_configuration_id = @SmtpConfigId
+                                smtp_configuration_id = @SmtpConfigId,
+                                is_account_statement = @IsAccountStatement
                             WHERE communication_id = @Id";
                         
                         using (var cmdUpdate = new SqlCommand(updateQuery, connection, transaction))
@@ -193,6 +194,7 @@ namespace GuardeSoftwareAPI.Services.communication
                             cmdUpdate.Parameters.AddWithValue("@ScheduledDate", (object)scheduledAt ?? DBNull.Value);
                             cmdUpdate.Parameters.AddWithValue("@Status", status);
                             cmdUpdate.Parameters.AddWithValue("@SmtpConfigId", (object)request.SmtpConfigId ?? DBNull.Value);
+                            cmdUpdate.Parameters.AddWithValue("@IsAccountStatement", request.IsAccountStatement);
                             await cmdUpdate.ExecuteNonQueryAsync();
                         }
 

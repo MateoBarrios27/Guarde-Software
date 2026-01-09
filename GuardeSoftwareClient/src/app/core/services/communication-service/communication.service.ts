@@ -23,15 +23,14 @@ export class CommunicationService {
     return this.http.get<IClientCommunication[]>(`${this.url}/Communications/client/${clientId}`);
   }
 
-  // Ahora acepta 'files' para el Multipart/Form-Data
   createCommunication(request: any, files: File[]): Observable<ComunicacionDto> {
     const formData = new FormData();
     
     formData.append('title', request.title);
     formData.append('content', request.content);
     formData.append('type', request.type);
+    formData.append('isAccountStatement', request.isAccountStatement ? 'true' : 'false');
     
-    // Manejo de nulos seguro
     if (request.sendDate) formData.append('sendDate', request.sendDate);
     if (request.sendTime) formData.append('sendTime', request.sendTime);
     if (request.smtpConfigId) formData.append('smtpConfigId', request.smtpConfigId.toString());

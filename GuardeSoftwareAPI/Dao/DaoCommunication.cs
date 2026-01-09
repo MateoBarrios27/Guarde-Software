@@ -3,6 +3,7 @@ using GuardeSoftwareAPI.Dao;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Text.Json;
+using GuardeSoftwareAPI.Dtos.Client;
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -30,6 +31,7 @@ namespace GuardeSoftwareAPI.Dao
                 -- Nombre de la configuración SMTP usada (si existe)
                 (SELECT name FROM smtp_configurations WHERE smtp_id = c.smtp_configuration_id) AS SmtpName,
                 c.smtp_configuration_id AS SmtpConfigId,
+                c.is_account_statement,
 
                 (SELECT STRING_AGG(chan.name, ' + ') 
                  FROM communication_channel_content ccc
@@ -90,7 +92,8 @@ namespace GuardeSoftwareAPI.Dao
                 SmtpConfigId = row["SmtpConfigId"] is DBNull ? null : (int?)row["SmtpConfigId"],
                 Recipients = string.IsNullOrEmpty(recipientsCsv)
                              ? new List<string>()
-                             : recipientsCsv.Split(',').ToList()
+                             : recipientsCsv.Split(',').ToList(),
+                IsAccountStatement = row["is_account_statement"] is not DBNull && Convert.ToBoolean(row["is_account_statement"])
             };
         }
 
@@ -101,17 +104,18 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<int> InsertCommunicationAsync(UpsertCommunicationRequest request, int userId, DateTime? scheduledAt, string status, SqlConnection connection, SqlTransaction transaction)
         {
             string query = @"
-                INSERT INTO communications (creator_user_id, title, creation_date, scheduled_date, status, smtp_configuration_id)
+                INSERT INTO communications (creator_user_id, title, creation_date, scheduled_date, status, smtp_configuration_id, is_account_statement)
                 OUTPUT INSERTED.communication_id
-                VALUES (@CreatorUserId, @Title, GETDATE(), @ScheduledDate, @Status, @SmtpConfigId);";
-            
-            using (SqlCommand command = new SqlCommand(query, connection, transaction))
+                VALUES (@CreatorUserId, @Title, GETDATE(), @ScheduledDate, @Status, @SmtpConfigId, @IsAccountStatement);";
+
+            using (SqlCommand command = new(query, connection, transaction))
             {
                 command.Parameters.AddWithValue("@CreatorUserId", userId);
                 command.Parameters.AddWithValue("@Title", request.Title);
                 command.Parameters.AddWithValue("@ScheduledDate", (object)scheduledAt ?? DBNull.Value);
                 command.Parameters.AddWithValue("@Status", status); 
                 command.Parameters.AddWithValue("@SmtpConfigId", (object)request.SmtpConfigId ?? DBNull.Value);
+                command.Parameters.AddWithValue("@IsAccountStatement", request.IsAccountStatement);
 
                 object result = await command.ExecuteScalarAsync();
                 return Convert.ToInt32(result);
@@ -129,7 +133,7 @@ namespace GuardeSoftwareAPI.Dao
                     @Content
                 );";
 
-            using (SqlCommand command = new SqlCommand(query, connection, transaction))
+            using (SqlCommand command = new(query, connection, transaction))
             {
                 command.Parameters.AddWithValue("@CommunicationId", communicationId);
                 command.Parameters.AddWithValue("@ChannelName", channelName); 
@@ -163,7 +167,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<bool> InsertCommunicationRecipientsAsync(int communicationId, List<string> recipients, SqlConnection connection, SqlTransaction transaction)
         {
-            if (recipients == null || !recipients.Any()) return false;
+            if (recipients == null || recipients.Count == 0) return false;
 
             string query = @"
                 INSERT INTO communication_recipients (communication_id, client_id)
@@ -531,6 +535,53 @@ namespace GuardeSoftwareAPI.Dao
                 });
             }
             return list;
+        }
+
+        public async Task<ClientFinancialDto> GetClientFinancialData(int clientId)
+        {
+            // LÓGICA DE NEGOCIO (Réplica del Excel/CSV):
+            // 1. Saldo Actual: La suma total de la cuenta corriente.
+            // 2. Saldo Anterior: El saldo total calculado hasta el último día del mes pasado.
+            // 3. Recargo: La suma de conceptos "Recargo" o "Interés" generados este mes.
+
+            string query = @"
+                DECLARE @StartOfMonth DATE = DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1);
+
+                SELECT 
+                    -- Saldo Actual (Total histórico)
+                    ISNULL(SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END), 0) as CurrentBalance,
+                    
+                    -- Saldo Anterior (Total histórico hasta antes de este mes)
+                    ISNULL(SUM(CASE 
+                        WHEN movement_date < @StartOfMonth AND movement_type = 'DEBITO' THEN amount 
+                        WHEN movement_date < @StartOfMonth AND movement_type != 'DEBITO' THEN -amount 
+                        ELSE 0 END), 0) as PreviousBalance,
+
+                    -- Recargo del mes (Busca movimientos que digan 'Recargo' o 'Interés por mora' en el concepto y sean de este mes)
+                    ISNULL(SUM(CASE 
+                        WHEN movement_date >= @StartOfMonth AND (concept LIKE '%Recargo%' OR concept LIKE '%Interés por mora%') THEN amount 
+                        ELSE 0 END), 0) as Surcharge
+                FROM account_movements am
+                JOIN rentals r ON am.rental_id = r.rental_id
+                WHERE r.client_id = @ClientId";
+
+            var dt = await _accessDB.GetTableAsync("Financial", query, new[] { new SqlParameter("@ClientId", clientId) });
+            
+            if(dt.Rows.Count > 0) {
+                return new ClientFinancialDto {
+                    CurrentBalance = Convert.ToDecimal(dt.Rows[0]["CurrentBalance"]),
+                    PreviousBalance = Convert.ToDecimal(dt.Rows[0]["PreviousBalance"]),
+                    Surcharge = Convert.ToDecimal(dt.Rows[0]["Surcharge"])
+                };
+            }
+            return new ClientFinancialDto();
+        }
+
+        // Helper para saber el tipo
+        public async Task<bool> IsAccountStatementAsync(int communicationId) {
+            string q = "SELECT is_account_statement FROM communications WHERE communication_id = @Id";
+            var res = await _accessDB.ExecuteScalarAsync(q, new[]{ new SqlParameter("@Id", communicationId)});
+            return res != null && Convert.ToBoolean(res);
         }
 
     }

@@ -86,11 +86,11 @@
   <div class="flex justify-between items-center border-b pb-3 mb-4">
     <h2 class="text-xl font-semibold text-gray-800">
       @switch (currentModal()) {
-      @case ('add') { Agregar Nuevo Comunicado }
-      @case ('edit') { Editar Comunicado }
-      @case ('view') { Detalles del Comunicado }
-      @case ('delete-confirm') { Confirmar Eliminación }
-      @case ('send-confirm') { Confirmar Envío }
+        @case ('add') { Agregar Nuevo Comunicado }
+        @case ('edit') { Editar Comunicado }
+        @case ('view') { Detalles del Comunicado }
+        @case ('delete-confirm') { Confirmar Eliminación }
+        @case ('send-confirm') { Confirmar Envío }
       }
     </h2>
     <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600">
@@ -100,6 +100,7 @@
 
   @if (currentModal() === 'add' || currentModal() === 'edit') {
   <div class="space-y-4">
+    
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-1">Título del comunicado *</label>
       <input type="text" [ngModel]="formData().title" 
@@ -111,17 +112,14 @@
       <label class="block text-sm font-medium text-gray-700 mb-2">Canales de comunicación *</label>
       <div class="flex flex-col sm:flex-row gap-4">
         @for (channel of channels; track channel.id) {
-        
         <div 
           class="flex items-center space-x-2 p-3 bg-gray-50 border rounded-lg cursor-pointer hover:bg-gray-100 transition duration-150"
           (click)="toggleChannel(channel.name)">
-          
           <input 
             type="checkbox" 
             [id]="'channel-' + channel.name" 
             [checked]="formData().channels.includes(channel.name)" 
             class="rounded text-blue-600 focus:ring-blue-500 pointer-events-none"/> 
-
           <label class="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-900">
             <app-icon [name]="channel.icon" [ngClass]="channel.name === 'Email' ? 'text-blue-600' : 'text-green-600'"></app-icon>
             <span>{{ channel.spanishLabel }}</span>
@@ -129,114 +127,149 @@
         </div>
         }
       </div>
-      
       <p *ngIf="formData().channels.length === 0" class="text-xs text-red-500 mt-2">Selecciona al menos un canal</p>
-      <p *ngIf="formData().channels.length === 2" class="text-xs text-blue-600 mt-2">✓ Se enviará por ambos canales</p>
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Destinatarios *</label>
+      <div class="flex justify-between items-center mb-1">
+        <label class="block text-sm font-medium text-gray-700">Destinatarios *</label>
+        <span class="text-xs text-blue-600 font-semibold" *ngIf="selectedCount() > 0">
+          {{ selectedCount() }} clientes seleccionados
+        </span>
+      </div>
       
       <div (click)="openRecipientSelector()" 
-          class="w-full p-3 border border-gray-300 rounded-lg cursor-pointer bg-white hover:bg-gray-50 transition flex justify-between items-center group">
-          
+           class="w-full p-3 border border-gray-300 rounded-lg cursor-pointer bg-white hover:bg-gray-50 transition flex justify-between items-center group">
           <div class="flex-1 overflow-hidden">
-              <span *ngIf="selectedCount() === 0" class="text-gray-400">Clic para seleccionar clientes...</span>
-              
+              <span *ngIf="selectedCount() === 0" class="text-gray-400 text-sm">Haz clic para seleccionar clientes...</span>
               <div *ngIf="selectedCount() > 0" class="flex flex-col">
-                  <span class="font-medium text-gray-900">{{ selectedSummary() }}</span>
-                  <span class="text-xs text-blue-600 group-hover:text-blue-700">
-                      {{ selectedCount() }} destinatarios seleccionados
-                  </span>
+                  <span class="font-medium text-gray-900 text-sm truncate">{{ selectedSummary() }}</span>
               </div>
           </div>
-          
-          <app-icon name="users" class="text-gray-400 group-hover:text-blue-600 transition"></app-icon>
+          <app-icon name="users" class="text-gray-400 group-hover:text-blue-600 transition h-5 w-5"></app-icon>
       </div>
-  </div>
-
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Contenido *</label>
-      
-      @if (formData().channels.includes('Email')) {
-      <p *ngIf="formData().channels.includes('WhatsApp')" class="text-xs text-gray-500 mb-2">
-        💡 Escribe el contenido del email. Se enviará una versión de solo texto a WhatsApp.
-      </p>
-      <quill-editor 
-        [ngModel]="formData().content"
-        (ngModelChange)="updateFormField('content', $event)"
-        [styles]="{ 'height': '200px', 'display': 'block' }"
-        placeholder="Escribe el contenido del email aquí...">
-      </quill-editor>
-      
-      } @else if (formData().channels.includes('WhatsApp')) {
-      <p class="text-xs text-gray-500 mb-2">💡 Para WhatsApp: Mantén el mensaje breve y directo.</p>
-      <textarea [ngModel]="formData().content" 
-            (ngModelChange)="updateFormField('content', $event)"
-            [rows]="8"
-            placeholder="Escribe el contenido para WhatsApp aquí..."
-            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
-            
-      } @else {
-      <div class="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400 text-center h-32 flex items-center justify-center">
-        <p>Selecciona un canal para escribir el contenido.</p>
-      </div>
-      }
-    </div>
-    <div>
-    <label class="block text-sm font-medium text-gray-700 mb-1">Servidor de Envío</label>
-
-<div class="relative">
-    <select [ngModel]="formData().smtpConfigId" 
-            (ngModelChange)="updateFormField('smtpConfigId', $event)"
-            class="w-full p-2 pr-8 border border-gray-300 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-        
-        <!-- <option [ngValue]="null">Predeterminado del Sistema</option> -->
-        <option *ngFor="let smtp of smtpConfigs()" [ngValue]="smtp.id">{{ smtp.name }}</option>
-    </select>
-</div>
-</div>
-
-<div class="mt-4">
-    <label class="block text-sm font-medium text-gray-700 mb-1">Archivos Adjuntos</label>
-    <div class="flex items-center gap-4">
-        <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg border border-gray-300 transition flex items-center">
-            <app-icon name="file-plus" class="w-4 h-4 mr-2"></app-icon>
-            Adjuntar Archivos
-            <input type="file" multiple (change)="onFileSelected($event)" class="hidden">
-        </label>
-        <span class="text-xs text-gray-500">{{ selectedFiles().length }} archivos seleccionados</span>
+      <p class="text-xs text-gray-500 mt-1">Puedes seleccionar grupos completos y excluir personas específicas.</p>
     </div>
 
-    <div *ngIf="selectedFiles().length > 0" class="mt-2 space-y-1">
-        <div *ngFor="let file of selectedFiles(); let i = index" class="flex items-center justify-between text-sm bg-blue-50 p-2 rounded border border-blue-100">
-            <span class="truncate max-w-[200px]">{{ file.name }}</span>
-            <button (click)="removeFile(i)" class="text-red-500 hover:text-red-700">
-                <app-icon name="x" class="w-4 h-4"></app-icon>
-            </button>
+    <div class="space-y-4">
+      
+      <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+        <div class="flex items-center justify-between">
+          <div class="flex flex-col">
+            <span class="font-bold text-blue-900 text-sm">¿Es un Estado de Cuenta?</span>
+            <span class="text-xs text-blue-600 mt-1">
+              Si activas esto, el contenido del mail se generará automáticamente con los saldos de cada cliente.
+            </span>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" 
+                   [ngModel]="formData().isAccountStatement" 
+                   (ngModelChange)="updateFormField('isAccountStatement', $event)" 
+                   class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+          </label>
         </div>
+      </div>
+
+      <div class="relative">
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          {{ formData().isAccountStatement ? 'Contenido (Automático)' : 'Contenido *' }}
+        </label>
+        
+        <div *ngIf="formData().isAccountStatement" 
+             class="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex items-center justify-center rounded-lg border border-gray-200 mt-6">
+          <div class="bg-white px-4 py-3 rounded-lg shadow-md border border-blue-100 flex items-center gap-3">
+            <div class="p-2 bg-blue-100 text-blue-600 rounded-full">
+              <app-icon name="file-text" class="h-5 w-5"></app-icon>
+            </div>
+            <div>
+              <p class="text-sm font-bold text-gray-800">Contenido Automático</p>
+              <p class="text-xs text-gray-500">El reporte financiero se adjuntará al enviar.</p>
+            </div>
+          </div>
+        </div>
+
+        <div [class.opacity-40]="formData().isAccountStatement">
+          @if (formData().channels.includes('Email')) {
+            <p *ngIf="formData().channels.includes('WhatsApp')" class="text-xs text-gray-500 mb-2">
+              💡 Escribe el contenido del email. Se enviará una versión de solo texto a WhatsApp.
+            </p>
+            <quill-editor 
+              [ngModel]="formData().content"
+              (ngModelChange)="updateFormField('content', $event)"
+              [styles]="{ 'height': '200px', 'display': 'block' }"
+              placeholder="Escribe el contenido del email aquí...">
+            </quill-editor>
+          } @else if (formData().channels.includes('WhatsApp')) {
+            <p class="text-xs text-gray-500 mb-2">💡 Para WhatsApp: Mantén el mensaje breve y directo.</p>
+            <textarea [ngModel]="formData().content" 
+                  (ngModelChange)="updateFormField('content', $event)"
+                  [rows]="8"
+                  placeholder="Escribe el contenido para WhatsApp aquí..."
+                  class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
+          } @else {
+            <div class="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400 text-center h-32 flex items-center justify-center">
+              <p>Selecciona un canal para escribir el contenido.</p>
+            </div>
+          }
+        </div>
+      </div>
     </div>
-</div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Servidor de Envío</label>
+      <div class="relative">
+        <select [ngModel]="formData().smtpConfigId" 
+                (ngModelChange)="updateFormField('smtpConfigId', $event)"
+                class="w-full p-2 pr-8 border border-gray-300 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option *ngFor="let smtp of smtpConfigs()" [ngValue]="smtp.id">{{ smtp.name }}</option>
+        </select>
+        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+          <app-icon name="chevron-down" class="h-4 w-4"></app-icon>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Archivos Adjuntos</label>
+      <div class="flex items-center gap-4">
+          <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg border border-gray-300 transition flex items-center shadow-sm">
+              <app-icon name="paperclip" class="w-4 h-4 mr-2"></app-icon>
+              Adjuntar Archivos
+              <input type="file" multiple (change)="onFileSelected($event)" class="hidden">
+          </label>
+          <span class="text-xs text-gray-500">{{ selectedFiles().length }} archivos seleccionados</span>
+      </div>
+      <div *ngIf="selectedFiles().length > 0" class="mt-2 space-y-1">
+          <div *ngFor="let file of selectedFiles(); let i = index" class="flex items-center justify-between text-sm bg-blue-50 p-2 rounded border border-blue-100">
+              <span class="truncate max-w-[200px] text-blue-700">{{ file.name }}</span>
+              <button (click)="removeFile(i)" class="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded">
+                  <app-icon name="x" class="w-4 h-4"></app-icon>
+              </button>
+          </div>
+      </div>
+    </div>
+
     <div class="border-t pt-4">
       <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de acción</label>
       <div class="flex gap-4">
         <div class="flex items-center">
           <input type="radio" id="programar" name="type" value="programar" [ngModel]="formData().type"
                  (ngModelChange)="updateFormField('type', $event)"
-            class="text-blue-600 focus:ring-blue-500" />
-          <label for="programar" class="ml-2 text-sm text-gray-700">Programar envío</label>
+            class="text-blue-600 focus:ring-blue-500 h-4 w-4" />
+          <label for="programar" class="ml-2 text-sm text-gray-700 cursor-pointer">Programar envío</label>
         </div>
         <div class="flex items-center">
           <input type="radio" id="borrador" name="type" value="borrador" [ngModel]="formData().type"
                  (ngModelChange)="updateFormField('type', $event)"
-            class="text-blue-600 focus:ring-blue-500" />
-          <label for="borrador" class="ml-2 text-sm text-gray-700">Guardar como borrador</label>
+            class="text-blue-600 focus:ring-blue-500 h-4 w-4" />
+          <label for="borrador" class="ml-2 text-sm text-gray-700 cursor-pointer">Guardar como borrador</label>
         </div>
       </div>
     </div>
 
     @if (formData().type === 'programar') {
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-2 gap-4 animate-fade-in">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de envío</label>
         <input type="date" [ngModel]="formData().sendDate"
@@ -252,14 +285,14 @@
     </div>
     }
 
-    <div class="flex gap-2 pt-4">
+    <div class="flex gap-2 pt-4 border-t mt-4">
       <button (click)="currentModal() === 'add' ? addCommunication() : editCommunication()" [disabled]="!isFormValid()"
-        class="flex-1 px-4 py-2 rounded-full text-white shadow-md transition duration-200 disabled:opacity-50"
+        class="flex-1 px-4 py-2.5 rounded-full text-white shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
         [ngClass]="isFormValid() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'">
         {{ formData().type === 'programar' ? 'Programar Comunicado' : 'Guardar Borrador' }}
       </button>
       <button (click)="closeModal()"
-        class="flex-1 px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200">
+        class="flex-1 px-4 py-2.5 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200 font-medium">
         Cancelar
       </button>
     </div>
@@ -294,8 +327,8 @@
       </div>
 
       <div class="border-t pt-3">
-        <h4 class="text-sm font-medium text-gray-700 mb-2">Destinatarios:</h4>
-        <div class="flex flex-wrap gap-1">
+        <h4 class="text-sm font-medium text-gray-700 mb-2">Destinatarios ({{ selectedCommunication()!.recipients.length }}):</h4>
+        <div class="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
           @for (dest of selectedCommunication()!.recipients; track dest) {
           <span class="inline-flex items-center text-xs font-medium bg-gray-200 text-gray-800 px-2.5 py-0.5 rounded-full">{{ dest }}</span>
           }
@@ -354,7 +387,7 @@
     <div class="bg-yellow-50 p-3 rounded text-sm border border-yellow-200">
       <p class="text-yellow-800 font-medium flex items-center">
         <app-icon name="AlertTriangle" class="h-4 w-4 mr-2"></app-icon>
-        <strong>Atención:</strong> El comunicado se enviará <strong>&nbsp;inmediatamente</strong>.
+        <strong>Atención:</strong>&nbsp;El comunicado se enviará <strong>&nbsp;inmediatamente</strong>.
       </p>
     </div>
 
@@ -459,7 +492,7 @@
 </ng-template>
 
 @if (showRecipientModal()) {
-<div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+<div class="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden animate-fade-in">
         
         <div class="bg-gray-900 text-white p-4 flex justify-between items-center shrink-0">
@@ -467,7 +500,7 @@
                 <h2 class="text-xl font-bold">Seleccionar Destinatarios</h2>
                 <p class="text-gray-400 text-sm">Usa los filtros para selección masiva o selecciona individualmente.</p>
             </div>
-            <button (click)="showRecipientModal.set(false)" class="text-gray-400 hover:text-white transition">
+            <button (click)="showRecipientModal.set(false)" class="text-gray-400 hover:text-white transition p-2 rounded-full hover:bg-white/10">
                 <app-icon name="x" class="h-6 w-6"></app-icon>
             </button>
         </div>
@@ -522,27 +555,24 @@
 
             <div class="flex-1 flex flex-col bg-white">
                 <div class="p-3 border-b border-gray-100 sticky top-0 bg-white z-10 flex gap-3">            
-                <div class="relative flex-1">
-                    <app-icon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"></app-icon>
-                    <input type="text" 
-                          [ngModel]="recipientSearchTerm()"
-                          (ngModelChange)="onSearch($event)"
-                          placeholder="Buscar cliente por nombre o email..." 
-                          class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 focus:bg-white transition">
-                </div>
+                    <div class="relative flex-1">
+                        <app-icon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"></app-icon>
+                        <input type="text" 
+                               [ngModel]="recipientSearchTerm()"
+                               (ngModelChange)="onSearch($event)"
+                               placeholder="Buscar cliente por nombre o email..." 
+                               class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 focus:bg-white transition">
+                    </div>
 
-                <button (click)="toggleSort()" 
-                        class="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition text-sm font-medium text-gray-700 min-w-[140px] justify-center"
-                        [title]="currentSort() === 'name' ? 'Cambiar a orden por Estado' : 'Cambiar a orden Alfabético'">
-                    
-                    <app-icon name="list" class="h-4 w-4 text-gray-500"></app-icon>
-                    
-                    <span *ngIf="currentSort() === 'name'">Por Nombre</span>
-                    <span *ngIf="currentSort() === 'status'">Por Estado</span>
-                    
-                    <app-icon name="arrow-down" class="h-3 w-3 text-gray-400"></app-icon>
-                </button>
-            </div>
+                    <button (click)="toggleSort()" 
+                            class="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition text-sm font-medium text-gray-700 min-w-[140px] justify-center"
+                            [title]="currentSort() === 'name' ? 'Cambiar a orden por Estado' : 'Cambiar a orden Alfabético'">
+                        <app-icon name="list" class="h-4 w-4 text-gray-500"></app-icon>
+                        <span *ngIf="currentSort() === 'name'">Por Nombre</span>
+                        <span *ngIf="currentSort() === 'status'">Por Estado</span>
+                        <app-icon name="arrow-down" class="h-3 w-3 text-gray-400"></app-icon>
+                    </button>
+                </div>
 
                 <div class="flex-1 overflow-y-auto p-2">
                     <div *ngIf="filteredClients().length === 0" class="flex flex-col items-center justify-center h-full text-gray-400">
