@@ -84,15 +84,16 @@ export class CommunicationsComponent implements OnInit {
   filteredClients = signal<ClientSelectorItem[]>([]); 
   recipientSearchTerm = signal('');
   
-  selectedCount = computed(() => this.allClients().filter(c => c.selected).length);
+  selectedCount = computed(() => this.formData().recipients.length);
   currentSort = signal<'name' | 'status'>('name');
 
   selectedSummary = computed(() => {
-      const count = this.selectedCount();
+      const recipients = this.formData().recipients;
+      const count = recipients.length;
+      
       if (count === 0) return '';
-      if (count === this.allClients().length) return 'Todos los clientes';
-      // Muestra algunos nombres
-      const names = this.allClients().filter(c => c.selected).map(c => c.fullName).slice(0, 2);
+      
+      const names = recipients.slice(0, 2);
       return `${names.join(', ')} ${count > 2 ? `(+${count - 2} más)` : ''}`;
   });
   
@@ -202,24 +203,23 @@ export class CommunicationsComponent implements OnInit {
     )
   );
 
-  // --- ACTUALIZADO: isFormValid (Revisa si Quill está vacío) ---
   isFormValid = computed(() => {
-    const data = this.formData();
+    const data = this.formData();
     
-    // Quill vacío se guarda como "<p><br></p>" o null/undefined
     const isContentEmpty = !data.content || data.content.trim() === '<p><br></p>' || data.content.trim() === '';
+    const contentIsValid = data.isAccountStatement || !isContentEmpty; 
 
-    let baseValid = data.title.trim().length > 0 && 
-                    !isContentEmpty && 
+    let baseValid = data.title.trim().length > 0 && 
+                    contentIsValid &&
                     data.channels.length > 0 && 
                     data.recipients.length > 0;
-    
-    if (data.type === 'programar') {
-      return baseValid && data.sendDate.length > 0 && data.sendTime.length > 0;
-    }
-    
-    return baseValid;
-  });
+    
+    if (data.type === 'programar') {
+      return baseValid && data.sendDate.length > 0 && data.sendTime.length > 0;
+    }
+    
+    return baseValid;
+  });
 
   // --- Methods ---
 
@@ -304,12 +304,14 @@ export class CommunicationsComponent implements OnInit {
   addCommunication(): void {
     const data = this.formData();
     if (!this.isFormValid()) { return; }
+
     const request = {
       ...data,
+      content: data.isAccountStatement ? 'Estado de cuenta (Autm.)' : data.content,
+      
       type: data.type === 'programar' ? 'schedule' : 'draft',
       sendDate: data.type === 'programar' ? data.sendDate : '',
-      sendTime: data.type === 'programar' ? data.sendTime : '',
-      isAccountStatement: data.isAccountStatement
+      sendTime: data.type === 'programar' ? data.sendTime : ''
     };
 
     this.commService.createCommunication(request, this.selectedFiles()).subscribe({
@@ -331,14 +333,15 @@ export class CommunicationsComponent implements OnInit {
     const request: UpsertComunicacionRequest = {
       id: commId,
       title: data.title,
-      content: data.content, 
+      content: data.isAccountStatement ? 'Estado de cuenta (Autm.)' : data.content,
+      
       sendDate: data.type === 'programar' ? data.sendDate : null,
       sendTime: data.type === 'programar' ? data.sendTime : null,
       channels: data.channels,
       recipients: data.recipients,
       type: data.type === 'programar' ? 'schedule' : 'draft',
-      smtpConfigId: data.smtpConfigId ,
-      isAccountStatement: data.isAccountStatement
+      smtpConfigId: data.smtpConfigId,
+      isAccountStatement: data.isAccountStatement 
     };
 
     this.commService.updateCommunication(commId, request).subscribe({
