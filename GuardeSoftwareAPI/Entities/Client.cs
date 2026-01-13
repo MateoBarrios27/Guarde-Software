@@ -15,6 +15,7 @@
         public int? BillingTypeId { get; set; }
         public int IncreaseFrequencyMonths { get; set; }
         public decimal? InitialAmount { get; set; }
+        public bool ReceiveCommunications { get; set; } = true;
         public bool? Active { get; set; }
     }
 }

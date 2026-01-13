@@ -283,7 +283,7 @@ namespace GuardeSoftwareAPI.Dao
                      WHERE p.client_id = c.client_id AND p.whatsapp = 1 AND p.active = 1) AS Phone
                 FROM clients c
                 JOIN communication_recipients cr ON c.client_id = cr.client_id
-                WHERE cr.communication_id = @Id AND c.active = 1
+                WHERE cr.communication_id = @Id AND c.active = 1 AND c.receive_communications = 1
                 AND c.client_id NOT IN (
                     SELECT client_id FROM dispatches 
                     WHERE comm_channel_content_id IN (

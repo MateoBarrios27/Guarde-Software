@@ -354,6 +354,7 @@
 <app-create-client-modal 
   *ngIf="showNewClientModal"
   [clientData]="clientToEdit" 
+  [isReactivation]="isReactivationMode" 
   (closeModal)="closeNewClientModal()"
   (saveSuccess)="onClientSaveSuccess()">
 </app-create-client-modal>

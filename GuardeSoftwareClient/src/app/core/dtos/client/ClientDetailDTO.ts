@@ -21,6 +21,8 @@ export interface ClientDetailDTO{
     email: string[];
     phones?: PhoneInputDto[];
     address: string;
+    receiveCommunications: boolean;
+    
 
     //payment and rental info
     ivaCondition: string;

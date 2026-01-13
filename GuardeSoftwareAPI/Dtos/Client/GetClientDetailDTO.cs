@@ -21,6 +21,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public string[] Email { get; set; } = [];
         public List<PhoneInputDto> Phones { get; set; } = [];
         public string Address { get; set; } = string.Empty;
+        public bool ReceiveCommunications { get; set; }
 
         //Payment & rental Information
         public string IvaCondition { get; set; } = string.Empty;

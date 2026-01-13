@@ -75,6 +75,8 @@ export class ClientsComponent implements OnInit {
   public showDeactivateModal = false;
   public clientToDeactivateId: string | null = null;
 
+  public isReactivationMode = false;
+
   constructor(private clientService: ClientService, private statisticsService: StatisticsService) 
   {
     this.searchSubject.pipe(
@@ -220,18 +222,21 @@ export class ClientsComponent implements OnInit {
 
   // --- Métodos de Interacción con el Modal ---
   openNewClientModal(): void {
+    this.isReactivationMode = false;
     this.clientToEdit = null;
     this.showNewClientModal = true;
   }
 
   openEditClientModal(clientId: number): void {
-    this.clientService
-      .getClientDetailById(clientId)
-      .subscribe((clientDetail) => {
-        console.log('Client detail fetched:', clientDetail);
-        this.clientToEdit = clientDetail;
-        this.showNewClientModal = true;
-      });
+    this.isReactivationMode = false;
+    this.fetchAndOpenModal(clientId);
+  }
+
+  private fetchAndOpenModal(clientId: number): void {
+    this.clientService.getClientDetailById(clientId).subscribe((clientDetail) => {
+      this.clientToEdit = clientDetail;
+      this.showNewClientModal = true;
+    });
   }
 
   closeNewClientModal(): void {
@@ -363,23 +368,14 @@ export class ClientsComponent implements OnInit {
     }).then((result) => {
       if (result.isConfirmed) {
         this.isLoading = true;
-
-        // LLAMADA AL SERVICIO (Asegúrate de agregar este método en client.service.ts)
         this.clientService.reactivateClient(cliente.id).subscribe({
           next: () => {
             this.isLoading = false;
+            this.showToastNotification('Cliente reactivado.', 'success');
+            this.loadClients();
             
-            // 1. Recargar la tabla para que aparezca como activo
-            this.loadClients(); 
-            this.loadStatistics();
-
-            // 2. Notificar éxito rápido
-            this.showToastNotification('Cliente reactivado. Verifica los datos.', 'success');
-
-            // 3. ABRIR MODAL DE EDICIÓN
-            // Al llamar a openEditClientModal, este hace un fetch del cliente actualizado
-            // por lo que traerá el NUEVO PaymentIdentifier generado por el backend.
-            this.openEditClientModal(cliente.id);
+            this.isReactivationMode = true; 
+            this.fetchAndOpenModal(cliente.id);
           },
           error: (err) => {
             this.isLoading = false;

@@ -49,5 +49,6 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public List<string> Emails { get; set; } = [];
         public List<PhoneInputDto> Phones { get; set; } = [];
         public CreateAddressDto AddressDto { get; set; } = new CreateAddressDto();
+        public bool ReceiveCommunications { get; set; } = true;
     }
 }

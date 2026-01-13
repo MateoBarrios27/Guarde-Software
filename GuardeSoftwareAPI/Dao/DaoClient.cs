@@ -122,13 +122,14 @@ namespace GuardeSoftwareAPI.Dao
                 new("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
                 new("@billing_type_id", SqlDbType.Int) { Value = (object?)client.BillingTypeId ?? DBNull.Value },
                 new("@increase_frequency_months", SqlDbType.Int) { Value = client.IncreaseFrequencyMonths },
-                new("@initial_amount", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)client.InitialAmount ?? DBNull.Value }
+                new("@initial_amount", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)client.InitialAmount ?? DBNull.Value },
+                new("@receive_communications", SqlDbType.Bit) { Value = client.ReceiveCommunications }
             ];
 
             string query = @"
-                INSERT INTO clients(payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes, billing_type_id, increase_frequency_months, initial_amount)
+                INSERT INTO clients(payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes, billing_type_id, increase_frequency_months, initial_amount, receive_communications)
                 OUTPUT INSERTED.client_id
-                VALUES(@payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes, @billing_type_id, @increase_frequency_months, @initial_amount);";
+                VALUES(@payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes, @billing_type_id, @increase_frequency_months, @initial_amount, @receive_communications);";
 
             using var command = new SqlCommand(query, connection, transaction);
             command.Parameters.AddRange(parameters);
@@ -161,7 +162,7 @@ namespace GuardeSoftwareAPI.Dao
                 )
                 SELECT 
                     c.client_id, c.payment_identifier, c.first_name, c.last_name, c.registration_date,
-                    c.dni, c.cuit, c.iva_condition, c.notes,
+                    c.dni, c.cuit, c.iva_condition, c.notes, c.receive_communications,
                     
                     -- CAMPOS NUEVOS SOLICITADOS
                     c.initial_amount, 
@@ -467,7 +468,8 @@ namespace GuardeSoftwareAPI.Dao
                             Active = Convert.ToBoolean(reader["active"]),
                             BillingTypeId = reader["billing_type_id"] != DBNull.Value ? Convert.ToInt32(reader["billing_type_id"]) : null,
                             IncreaseFrequencyMonths = Convert.ToInt32(reader["increase_frequency_months"]),
-                            InitialAmount = reader["initial_amount"] != DBNull.Value ? Convert.ToDecimal(reader["initial_amount"]) : null
+                            InitialAmount = reader["initial_amount"] != DBNull.Value ? Convert.ToDecimal(reader["initial_amount"]) : null,
+                            ReceiveCommunications = reader["receive_communications"] != DBNull.Value ? Convert.ToBoolean(reader["receive_communications"]) : false
                         };
                     }
                 }
@@ -519,7 +521,8 @@ namespace GuardeSoftwareAPI.Dao
                     notes = @notes,
                     billing_type_id = @billing_type_id,
                     increase_frequency_months = @increase_frequency_months,
-                    initial_amount = @initial_amount
+                    initial_amount = @initial_amount,
+                    receive_communications = @ReceiveCommunications
                 WHERE client_id = @client_id";
 
             SqlParameter[] parameters =
@@ -536,7 +539,8 @@ namespace GuardeSoftwareAPI.Dao
                 new("@billing_type_id", SqlDbType.Int) { Value = (object?)client.BillingTypeId ?? DBNull.Value },
                 new("@increase_frequency_months", SqlDbType.Int) { Value = client.IncreaseFrequencyMonths },
                 new("@initial_amount", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)client.InitialAmount ?? DBNull.Value },
-                new("@client_id", SqlDbType.Int) { Value = client.Id }
+                new("@client_id", SqlDbType.Int) { Value = client.Id },
+                new("@ReceiveCommunications", SqlDbType.Bit) { Value = client.ReceiveCommunications }
             ];
 
             using var command = new SqlCommand(query, connection, transaction);

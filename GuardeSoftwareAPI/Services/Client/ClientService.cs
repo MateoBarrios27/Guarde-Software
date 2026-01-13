@@ -181,7 +181,8 @@ namespace GuardeSoftwareAPI.Services.client
                             Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
                             BillingTypeId = dto.BillingTypeId,
                             IncreaseFrequencyMonths = dto.IsLegacy6MonthPromo ? 6 : 4,
-                            InitialAmount = dto.IsLegacyClient ? dto.LegacyInitialAmount : dto.Amount
+                            InitialAmount = dto.IsLegacyClient ? dto.LegacyInitialAmount : dto.Amount,
+                            ReceiveCommunications = dto.ReceiveCommunications
                         };
                         int newClientId = await daoClient.CreateClientTransactionAsync(client, connection, transaction);
 
@@ -468,6 +469,7 @@ namespace GuardeSoftwareAPI.Services.client
 
                 // Other information
                 Notes = row["notes"]?.ToString() ?? string.Empty,
+                ReceiveCommunications = Convert.ToBoolean(row["receive_communications"])
             };
 
             // --- Carga Asíncrona de Lockers, Emails y Phones (sin cambios) ---
@@ -559,6 +561,7 @@ namespace GuardeSoftwareAPI.Services.client
                             RegistrationDate = dto.RegistrationDate, 
                             IncreaseFrequencyMonths = existingClient.IncreaseFrequencyMonths, 
                             InitialAmount = existingClient.InitialAmount,
+                            ReceiveCommunications = dto.ReceiveCommunications
                         };
 
                         if (!await daoClient.UpdateClientTransactionAsync(clientToUpdate, connection, transaction))

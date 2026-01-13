@@ -30,6 +30,7 @@ export interface CreateClientDTO{
     emails: string[];
     phones: PhoneInputDto[];
     addressDto: CreateAddressDto,
+    receiveCommunications: boolean;
 
     // Legacy client fields
     prepaidMonths?: number;

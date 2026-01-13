@@ -4,6 +4,10 @@ import {
   Input,
   Output,
   EventEmitter,
+  OnChanges,
+  SimpleChanges,
+  WritableSignal,
+  signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
@@ -33,6 +37,7 @@ import { ClientService } from '../../../core/services/client-service/client.serv
 import { forkJoin, Observable, of } from 'rxjs'; 
 import { BillingType } from '../../../core/models/billing-type.model';
 import { BillingTypeService } from '../../../core/services/billingType-service/billing-type.service';
+import { PhoneInputDto } from '../../../core/dtos/phone/PhoneInputDto';
 
 @Component({
   selector: 'app-create-client-modal',
@@ -40,25 +45,16 @@ import { BillingTypeService } from '../../../core/services/billingType-service/b
   imports: [CommonModule, ReactiveFormsModule, IconComponent],
   templateUrl: './create-client-modal.component.html',
 })
-export class CreateClientModalComponent implements OnInit {
+export class CreateClientModalComponent implements OnInit, OnChanges {
   private _clientData: ClientDetailDTO | null = null;
   public isEditMode = false; 
 
-  @Input()
-  set clientData(data: ClientDetailDTO | null) {
-    this._clientData = data;
-    this.isEditMode = !!data; 
-    
-    // Inicializar formulario
-    this.initNewClientForm(); 
-    
-    // Si los datos ya están cargados, poblar
-    if (this.areBasicDataLoaded) {
-        this.tryPopulateForm();
-    }
-  }
+@Input() isReactivation = false;
 
-  get clientData(): ClientDetailDTO | null { return this._clientData; }
+  // --- CAMBIO 2: Input simple para clientData (Quitamos el 'set' complejo) ---
+  @Input() clientData: ClientDetailDTO | null = null;
+
+  // get clientData(): ClientDetailDTO | null { return this._clientData; }
 
   @Output() closeModal = new EventEmitter<void>();
   @Output() saveSuccess = new EventEmitter<void>();
@@ -73,6 +69,9 @@ export class CreateClientModalComponent implements OnInit {
   public billingTypes: BillingType[] = [];
   isLoading: boolean = false;
   private areBasicDataLoaded = false;
+  public phonesSignal: WritableSignal<PhoneInputDto[]> = signal([
+    { number: '', whatsapp: false },
+  ]);
 
   constructor(
     private fb: FormBuilder,
@@ -83,26 +82,50 @@ export class CreateClientModalComponent implements OnInit {
     private billingTypeService: BillingTypeService,
     private clientService: ClientService
   ) {
-    this.initNewClientForm();
+    this.newClientForm = this.fb.group({});
   }
 
   ngOnInit(): void {
     this.loadFormData();
   }
 
-  private loadFormData(): void {
-    this.isLoading = true; 
-    this.areBasicDataLoaded = false; 
+  ngOnChanges(changes: SimpleChanges): void {
+    
+    // Si cambia clientData o isReactivation, reinicializamos la lógica
+    if (changes['clientData'] || changes['isReactivation']) {
+        
+        // Actualizamos variables locales
+        this._clientData = this.clientData;
+        this.isEditMode = !!this.clientData;
 
+        // 1. Inicializar formulario (Aquí 'this.isReactivation' YA TIENE el valor correcto)
+        this.initNewClientForm();
+
+        // 2. Si ya tenemos los datos maestros (warehouses, etc), poblamos el form
+        if (this.areBasicDataLoaded) {
+            this.tryPopulateForm();
+        }
+    }
+  }
+
+  private loadFormData(): void {
+    this.isLoading = true;
+    this.areBasicDataLoaded = false;
+
+    // ... (Tu lógica de carga de datos común igual que antes) ...
     const commonObservables = {
       warehouses: this.warehouseService.getWarehouses(),
       paymentMethods: this.paymentMethodService.getPaymentMethods(),
-      billingTypes: this.billingTypeService.getBillingTypes()
+      billingTypes: this.billingTypeService.getBillingTypes(),
     };
 
     const editObservables = {
-      lockers: this.isEditMode ? this.lockerService.getLockers() : of([] as Locker[]),
-      lockerTypes: this.isEditMode ? this.lockerTypeService.getLockerTypes() : of([] as LockerType[])
+      lockers: this.isEditMode
+        ? this.lockerService.getLockers()
+        : of([] as Locker[]),
+      lockerTypes: this.isEditMode
+        ? this.lockerTypeService.getLockerTypes()
+        : of([] as LockerType[]),
     };
 
     forkJoin({ ...commonObservables, ...editObservables }).subscribe({
@@ -114,68 +137,86 @@ export class CreateClientModalComponent implements OnInit {
         if (this.isEditMode) {
           this.lockerTypes = results.lockerTypes;
           this.availableLockers = results.lockers.filter(
-            (l: Locker) => l.status.toLowerCase() === 'disponible' ||
-                   (this.clientData?.lockersList?.some(assignedLocker => assignedLocker.id === l.id) === true)
+            (l: Locker) =>
+              l.status.toLowerCase() === 'disponible' ||
+              this.clientData?.lockersList?.some(
+                (assignedLocker) => assignedLocker.id === l.id
+              ) === true
           );
         }
-        
+
         this.areBasicDataLoaded = true;
         this.isLoading = false;
+        
+        // Intentar poblar ahora que tenemos datos maestros
         this.tryPopulateForm();
       },
       error: (err) => {
         this.isLoading = false;
         console.error('Error cargando datos:', err);
-        Swal.fire('Error de Carga', 'No se pudieron cargar los datos necesarios.', 'error');
-      }
+        Swal.fire('Error', 'No se pudieron cargar los datos necesarios.', 'error');
+      },
     });
   }
 
   private tryPopulateForm(): void {
-    if (this.newClientForm && this.isEditMode && this._clientData) {
-      console.log('Intentando poblar formulario para edición...');
-      this.populateForm(this._clientData);
-    } else if (this.newClientForm && !this.isEditMode) {
-        // Modo Creación: Solo habilitar legacy si se desea
-        this.newClientForm.get('isLegacyClient')?.enable();
+    // Verificamos que el formulario tenga controles antes de intentar poblar
+    // (A veces initNewClientForm no se ha llamado si clientData es null al inicio)
+    if (this.newClientForm && Object.keys(this.newClientForm.controls).length > 0) {
+        
+        if (this.isEditMode && this._clientData) {
+            console.log('Poblando formulario. Reactivación:', this.isReactivation);
+            this.populateForm(this._clientData);
+        } else if (!this.isEditMode) {
+            // Modo Creación
+            this.newClientForm.get('isLegacyClient')?.enable();
+            this.phonesSignal.set([{ number: '', whatsapp: false }]);
+        }
     }
   }
 
   private initNewClientForm(): void {
+    // Definición base
     this.newClientForm = this.fb.group({
       numeroIdentificacion: [''],
       nombre: ['', Validators.required],
       apellido: ['', Validators.required],
-      tipoDocumento: ['DNI'], 
+      tipoDocumento: ['DNI'],
       numeroDocumento: ['', Validators.required],
       cuit: [''],
-      emails: this.fb.array([ this.fb.control('', [Validators.required, Validators.email]), ]),
+      emails: this.fb.array([
+        this.fb.control('', [Validators.required, Validators.email]),
+      ]),
       telefonos: this.fb.array([this.createPhoneGroup()]),
       direccion: ['', Validators.required],
       ciudad: ['', Validators.required],
       codigoPostal: [''],
       provincia: ['', Validators.required],
+      receiveCommunications: [true],
       condicionIVA: [null, Validators.required],
       metodoPago: [null, Validators.required],
       billingTypeId: [null, Validators.required],
-      
+
       // Legacy
-      isLegacyClient: [{ value: false, disabled: true }], 
+      isLegacyClient: [{ value: false, disabled: true }],
       legacyStartDate: [{ value: null, disabled: true }],
       legacyInitialAmount: [{ value: null, disabled: true }],
       legacyNextIncreaseDate: [{ value: null, disabled: true }],
       isLegacy6MonthPromo: [{ value: false, disabled: true }],
-      prepaidMonths: [{ value: 0, disabled: true }], 
-      
+      prepaidMonths: [{ value: 0, disabled: true }],
+
       observaciones: [''],
-      
       montoManual: [0, [Validators.required, Validators.min(0)]],
       contractedM3: [0],
-      occupiedSpaces: [0], // <-- Nuevo campo, inicializado en 0
+      occupiedSpaces: [0],
     });
 
-    // Lógica Condicional Arrays
-    if (this.isEditMode) {
+    // --- LÓGICA CRÍTICA QUE FALLABA ANTES ---
+    // Ahora 'this.isReactivation' está garantizado de ser correcto gracias a ngOnChanges
+    if (this.isEditMode && !this.isReactivation) {
+      
+      // EDICIÓN NORMAL
+      console.log("Inicializando form en modo: EDICIÓN NORMAL (Lockers)");
       this.newClientForm.addControl('lockersAsignados', this.fb.array([]));
       this.newClientForm.addControl('lockerSearch', this.fb.control(''));
       this.newClientForm.addControl('selectedWarehouse', this.fb.control('all'));
@@ -188,52 +229,54 @@ export class CreateClientModalComponent implements OnInit {
       });
 
     } else {
-      this.newClientForm.addControl('spaceRequests', this.fb.array([]));
-      this.addSpaceRequest();
       
+      // CREACIÓN O REACTIVACIÓN
+      console.log("Inicializando form en modo: CREACIÓN/REACTIVACIÓN (Espacios)");
+      this.newClientForm.addControl('spaceRequests', this.fb.array([]));
+      this.addSpaceRequest(); // Asegura que el array no esté vacío
+
       const spaceRequests = this.newClientForm.get('spaceRequests') as FormArray;
       spaceRequests.valueChanges.subscribe((requests: any[]) => {
-          let totalM3 = 0;
-          let totalSpaces = 0;
-          requests.forEach(req => {
-              const m3 = parseFloat(req.m3) || 0;
-              const qty = parseInt(req.quantity, 10) || 0;
-              totalM3 += (m3 * qty);
-              totalSpaces += qty;
-          });
-          this.newClientForm.get('contractedM3')?.setValue(totalM3, { emitEvent: false });
-          // Actualizar también occupiedSpaces automáticamente en creación
-          // this.newClientForm.get('occupiedSpaces')?.setValue(totalSpaces, { emitEvent: false });
+        let totalM3 = 0;
+        let totalSpaces = 0;
+        requests.forEach((req) => {
+          const m3 = parseFloat(req.m3) || 0;
+          const qty = parseInt(req.quantity, 10) || 0;
+          totalM3 += m3 * qty;
+          totalSpaces += qty;
+        });
+        this.newClientForm.get('contractedM3')?.setValue(totalM3, { emitEvent: false });
       });
     }
 
-    this.newClientForm.get('isLegacyClient')?.valueChanges.subscribe(isLegacy => {
-      if (this.isEditMode) return; 
-      const fields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate', 'isLegacy6MonthPromo', 'prepaidMonths'];
-      const requiredFields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate'];
-
-      if (isLegacy) {
-        fields.forEach(field => this.newClientForm.get(field)?.enable());
-        requiredFields.forEach(field => this.newClientForm.get(field)?.setValidators(Validators.required));
-      } else {
-        fields.forEach(field => {
-          this.newClientForm.get(field)?.disable();
-          this.newClientForm.get(field)?.clearValidators(); 
-          this.newClientForm.get(field)?.reset(); 
-        });
-        this.newClientForm.get('isLegacy6MonthPromo')?.setValue(false);
-        this.newClientForm.get('prepaidMonths')?.setValue(0);
-      }
-      fields.forEach(field => this.newClientForm.get(field)?.updateValueAndValidity());
+    // Suscripción Legacy
+    this.newClientForm.get('isLegacyClient')?.valueChanges.subscribe((isLegacy) => {
+       if (this.isEditMode) return;
+       // ... (tu lógica de legacy existente) ...
+       const fields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate', 'isLegacy6MonthPromo', 'prepaidMonths'];
+       const requiredFields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate'];
+       if (isLegacy) {
+          fields.forEach(field => this.newClientForm.get(field)?.enable());
+          requiredFields.forEach(field => this.newClientForm.get(field)?.setValidators(Validators.required));
+       } else {
+          fields.forEach(field => {
+             this.newClientForm.get(field)?.disable();
+             this.newClientForm.get(field)?.clearValidators();
+             this.newClientForm.get(field)?.reset();
+          });
+          this.newClientForm.get('isLegacy6MonthPromo')?.setValue(false);
+          this.newClientForm.get('prepaidMonths')?.setValue(0);
+       }
+       fields.forEach(field => this.newClientForm.get(field)?.updateValueAndValidity());
     });
   }
 
   createPhoneGroup(): FormGroup {
-  return this.fb.group({
-    number: [''],
-    whatsapp: [false],
-  });
-}
+    return this.fb.group({
+      number: [''],
+      whatsapp: [false],
+    });
+  }
 
   
   get spaceRequests(): FormArray {
@@ -289,39 +332,29 @@ export class CreateClientModalComponent implements OnInit {
       this.emails.clear();
       this.telefonos.clear();
       
-      const lockersFormArray = this.newClientForm.get('lockersAsignados') as FormArray;
-      if (lockersFormArray) {
-        lockersFormArray.clear();
-        if (data.lockersList && data.lockersList.length > 0) {
-            data.lockersList.forEach(locker => {
-                if (locker?.id > 0) lockersFormArray.push(this.fb.control(locker.id));
-            });
-            lockersFormArray.updateValueAndValidity();
-        }
+      // SOLO cargar lockers si NO es reactivación
+      if (!this.isReactivation) {
+          const lockersFormArray = this.newClientForm.get('lockersAsignados') as FormArray;
+          if (lockersFormArray) {
+            lockersFormArray.clear();
+            if (data.lockersList && data.lockersList.length > 0) {
+                data.lockersList.forEach(locker => {
+                    if (locker?.id > 0) lockersFormArray.push(this.fb.control(locker.id));
+                });
+            }
+          }
       }
 
+      // Resto del populate...
       if (data.email?.length > 0) data.email.forEach(e => this.emails.push(this.fb.control(e, [Validators.required, Validators.email]))); else this.addEmail();
       
-      this.telefonos.clear();
-
       if (data.phones && data.phones.length > 0) {
-        data.phones.forEach(p =>
-          this.telefonos.push(
-            this.fb.group({
-              number: [p.number],
-              whatsapp: [p.whatsapp],
-            })
-          )
-        );
+        data.phones.forEach(p => this.telefonos.push(this.fb.group({ number: [p.number], whatsapp: [p.whatsapp] })));
       } else {
-        this.addTelefono();
+        this.addTelefono(); 
       }
 
-
-      // --- CORRECCIÓN CLAVE PARA PAYMENT METHOD ---
-      // Buscamos el objeto en la lista cargada que coincida con el nombre
       const matchingPaymentMethod = this.paymentMethods.find(m => m.name === data.preferredPaymentMethod);
-      // Si no lo encuentra, null (lo cual es válido, pero el usuario tendrá que seleccionarlo)
 
       this.newClientForm.patchValue({
         numeroIdentificacion: data.paymentIdentifier,
@@ -330,26 +363,27 @@ export class CreateClientModalComponent implements OnInit {
         numeroDocumento: data.dni,
         cuit: data.cuit,
         condicionIVA: data.ivaCondition,
-        metodoPago: matchingPaymentMethod || null, // Asignamos el OBJETO
+        metodoPago: matchingPaymentMethod || null,
         direccion: data.address,
         ciudad: data.city,
         provincia: data.province,
         observaciones: data.notes,
         montoManual: data.rentAmount,
         billingTypeId: data.billingTypeId || null,
-        
         isLegacyClient: !!data.initialAmount, 
         legacyStartDate: this.formatDateToYYYYMMDD(data.registrationDate), 
         legacyInitialAmount: data.initialAmount, 
         legacyNextIncreaseDate: this.formatDateToYYYYMM(data.nextIncreaseDay),
         isLegacy6MonthPromo: data.increaseFrequencyMonths === 6,
-        
-        occupiedSpaces: data.occupiedSpaces || 0, // Poblar el nuevo campo
+        occupiedSpaces: data.occupiedSpaces || 0,
+        receiveCommunications: data.receiveCommunications ?? true,
       });
 
-      const initialLockerIds = this.newClientForm.get('lockersAsignados')?.value || [];
-      const validInitialIds = initialLockerIds.filter((id: any): id is number => typeof id === 'number' && id > 0);
-      this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validInitialIds));
+      if (!this.isReactivation) {
+          const initialLockerIds = this.newClientForm.get('lockersAsignados')?.value || [];
+          const validInitialIds = initialLockerIds.filter((id: any): id is number => typeof id === 'number' && id > 0);
+          this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validInitialIds));
+      }
   }
 
   get emails(): FormArray { return this.newClientForm.get('emails') as FormArray; }
@@ -406,142 +440,182 @@ export class CreateClientModalComponent implements OnInit {
 
   
   onSubmit(): void {
-    const formValue = this.newClientForm.getRawValue();
+  const formValue = this.newClientForm.getRawValue();
 
-    if (this.newClientForm.invalid) {
-      Object.values(this.newClientForm.controls).forEach(control => {
-        control.markAsTouched({ onlySelf: true });
-        if (control instanceof FormArray) {
-           (control as FormArray).controls.forEach(arrayControl => arrayControl.markAsTouched({ onlySelf: true }));
-        }
-      });
-      console.warn('Formulario inválido:', formValue);
-      Swal.fire('Formulario Inválido', 'Por favor, completa todos los campos requeridos (*).', 'warning');
+  if (this.newClientForm.invalid) {
+    Object.values(this.newClientForm.controls).forEach((control) => {
+      control.markAsTouched({ onlySelf: true });
+      if (control instanceof FormArray) {
+        (control as FormArray).controls.forEach((arrayControl) =>
+          arrayControl.markAsTouched({ onlySelf: true })
+        );
+      }
+    });
+    console.warn('Formulario inválido:', formValue);
+    Swal.fire(
+      'Formulario Inválido',
+      'Por favor, completa todos los campos requeridos (*).',
+      'warning'
+    );
+    return;
+  }
+
+  // --- ROBUST PAYMENT METHOD VALIDATION ---
+  const paymentMethodId = formValue.metodoPago?.id;
+  if (!paymentMethodId || paymentMethodId <= 0) {
+    console.error('Valor de metodoPago inválido:', formValue.metodoPago);
+    Swal.fire(
+      'Error de Validación',
+      'Método de pago no seleccionado o inválido.',
+      'error'
+    );
+    return;
+  }
+
+  const isEditing = this.isEditMode;
+  const isLegacy = formValue.isLegacyClient;
+
+  if (isLegacy && !isEditing) {
+    if (
+      !formValue.legacyStartDate ||
+      !formValue.legacyInitialAmount ||
+      !formValue.legacyNextIncreaseDate
+    ) {
+      Swal.fire(
+        'Datos Incompletos',
+        'Para un cliente antiguo, la Fecha de Ingreso, Monto Inicial y Próximo Aumento son requeridos.',
+        'warning'
+      );
       return;
     }
-
-    // --- VALIDACIÓN DE MÉTODO DE PAGO ROBUSTA ---
-    // Verificamos si existe el objeto Y si tiene ID.
-    const paymentMethodId = formValue.metodoPago?.id;
-    if (!paymentMethodId || paymentMethodId <= 0) {
-        console.error('Valor de metodoPago inválido:', formValue.metodoPago);
-        Swal.fire('Error de Validación', 'Método de pago no seleccionado o inválido.', 'error');
-        return;
-    }
-    
-    const isEditing = this.isEditMode;
-    const isLegacy = formValue.isLegacyClient;
-    
-    if (isLegacy && !isEditing) { 
-        if (!formValue.legacyStartDate || !formValue.legacyInitialAmount || !formValue.legacyNextIncreaseDate) {
-            Swal.fire('Datos Incompletos', 'Para un cliente antiguo, la Fecha de Ingreso, Monto Inicial y Próximo Aumento son requeridos.', 'warning');
-            return;
-        }
-    }
-
-    this.isLoading = true;
-    
-    let nextIncreaseDate: Date | null = null;
-    let legacyStartDate: Date | null = null;
-
-    if (isLegacy) {
-        if(formValue.legacyNextIncreaseDate) nextIncreaseDate = new Date(formValue.legacyNextIncreaseDate + '-01T12:00:00Z');
-        if(formValue.legacyStartDate) legacyStartDate = new Date(formValue.legacyStartDate + 'T12:00:00Z');
-    } else if (isEditing) {
-      nextIncreaseDate = this.clientData?.nextIncreaseDay ? new Date(this.clientData.nextIncreaseDay) : null;
-    }
-
-    const safeRegistrationDate = isEditing && this.clientData?.registrationDate 
-                                 ? new Date(this.clientData.registrationDate) 
-                                 : new Date();
-
-    const dto: CreateClientDTO = {
-      id: isEditing ? this.clientData?.id : undefined,
-      paymentIdentifier: Number(formValue.numeroIdentificacion) || 0,
-      firstName: formValue.nombre,
-      lastName: formValue.apellido,
-      notes: formValue.observaciones || null,
-      dni: formValue.numeroDocumento || null,
-      cuit: formValue.cuit || null,
-      billingTypeId: formValue.billingTypeId,
-      emails: formValue.emails.filter((e: string | null): e is string => !!e && !!e.trim()),
-      phones: formValue.telefonos
-        .filter((p: any) => p.number && p.number.trim())
-        .map((p: any) => ({
-          number: p.number.trim(),
-          whatsapp: !!p.whatsapp,
-        })),
-
-      addressDto: {
-        street: formValue.direccion,
-        city: formValue.ciudad,
-        province: formValue.provincia,
-      },
-      preferredPaymentMethodId: paymentMethodId, // <-- USAMOS EL ID EXTRAÍDO
-      ivaCondition: formValue.condicionIVA || null,
-      amount: formValue.montoManual,
-      userID: 1,
-      
-      registrationDate: isLegacy && legacyStartDate ? legacyStartDate : safeRegistrationDate,
-      startDate: isLegacy && legacyStartDate ? legacyStartDate : safeRegistrationDate,
-      
-      prepaidMonths: isLegacy ? Number(formValue.prepaidMonths) : 0,
-      isLegacyClient: isLegacy,
-      isLegacy6MonthPromo: formValue.isLegacy6MonthPromo, 
-      legacyInitialAmount: isLegacy ? formValue.legacyInitialAmount : null,
-      legacyNextIncreaseDate: nextIncreaseDate || undefined,
-
-      lockerIds: [],
-      spaceRequests: [],
-      contractedM3: formValue.contractedM3 || 0,
-      occupiedSpaces: formValue.occupiedSpaces || 0, // <-- MAPEO DEL NUEVO CAMPO
-    };
-    
-    if (isEditing) {
-        dto.lockerIds = formValue.lockersAsignados.filter((id: any): id is number => typeof id === 'number' && id > 0);
-    } else {
-        dto.spaceRequests = formValue.spaceRequests;
-    }
-
-    console.log('Enviando DTO:', dto);
-
-    let apiCall: Observable<any>;
-    if (isEditing) {
-      apiCall = this.clientService.updateClient(this.clientData!.id, dto);
-    } else {
-      apiCall = this.clientService.CreateClient(dto);
-    }
-
-    apiCall.subscribe({
-      next: (response) => {
-        this.isLoading = false;
-        this.saveSuccess.emit();
-        Swal.fire({
-          icon: 'success',
-          title: `Cliente ${isEditing ? 'actualizado' : 'creado'}`,
-          text: `El cliente se ha guardado correctamente.`,
-          confirmButtonColor: '#2563eb'
-        });
-      },
-      error: (err) => {
-        this.isLoading = false;
-        console.error('Error al guardar:', err);
-        let errorDetails = '';
-        if (err.error && err.error.errors) {
-            errorDetails = Object.entries(err.error.errors)
-                                 .map(([key, value]) => `<b>${key}:</b> ${(value as string[]).join(', ')}`)
-                                 .join('<br>');
-        }
-        const errorMsg = errorDetails || err.error?.message || err.statusText || 'Ocurrió un error desconocido.';
-        Swal.fire({
-            icon: 'error',
-            title: `Error al ${isEditing ? 'actualizar' : 'crear'}`,
-            html: `No se pudo guardar el cliente.<br><br><small class="text-left">${errorMsg}</small>`,
-            confirmButtonColor: '#2563eb'
-        });
-      },
-    });
   }
+
+  this.isLoading = true;
+
+  let nextIncreaseDate: Date | null = null;
+  let legacyStartDate: Date | null = null;
+
+  if (isLegacy) {
+    if (formValue.legacyNextIncreaseDate)
+      nextIncreaseDate = new Date(
+        formValue.legacyNextIncreaseDate + '-01T12:00:00Z'
+      );
+    if (formValue.legacyStartDate)
+      legacyStartDate = new Date(formValue.legacyStartDate + 'T12:00:00Z');
+  } else if (isEditing) {
+    nextIncreaseDate = this.clientData?.nextIncreaseDay
+      ? new Date(this.clientData.nextIncreaseDay)
+      : null;
+  }
+
+  const safeRegistrationDate =
+    isEditing && this.clientData?.registrationDate
+      ? new Date(this.clientData.registrationDate)
+      : new Date();
+
+  const dto: CreateClientDTO = {
+    id: isEditing ? this.clientData?.id : undefined,
+    paymentIdentifier: Number(formValue.numeroIdentificacion) || 0,
+    firstName: formValue.nombre,
+    lastName: formValue.apellido,
+    notes: formValue.observaciones || null,
+    dni: formValue.numeroDocumento || null,
+    cuit: formValue.cuit || null,
+    billingTypeId: formValue.billingTypeId,
+    emails: formValue.emails.filter(
+      (e: string | null): e is string => !!e && !!e.trim()
+    ),
+    // Map phone objects to the structure expected by your DTO/API
+    // Filters out empty numbers and ensures whatsapp is boolean
+    phones: formValue.telefonos
+      .filter((p: any) => p.number && p.number.trim())
+      .map((p: any) => ({
+        number: p.number.trim(),
+        whatsapp: !!p.whatsapp,
+      })),
+
+    addressDto: {
+      street: formValue.direccion,
+      city: formValue.ciudad,
+      province: formValue.provincia,
+    },
+    receiveCommunications: !!formValue.receiveCommunications,
+    preferredPaymentMethodId: paymentMethodId,
+    ivaCondition: formValue.condicionIVA || null,
+    amount: formValue.montoManual,
+    userID: 1,
+
+    registrationDate:
+      isLegacy && legacyStartDate ? legacyStartDate : safeRegistrationDate,
+    startDate:
+      isLegacy && legacyStartDate ? legacyStartDate : safeRegistrationDate,
+
+    prepaidMonths: isLegacy ? Number(formValue.prepaidMonths) : 0,
+    isLegacyClient: isLegacy,
+    isLegacy6MonthPromo: formValue.isLegacy6MonthPromo,
+    legacyInitialAmount: isLegacy ? formValue.legacyInitialAmount : null,
+    legacyNextIncreaseDate: nextIncreaseDate || undefined,
+
+    lockerIds: [],
+    spaceRequests: [],
+    contractedM3: formValue.contractedM3 || 0,
+    occupiedSpaces: formValue.occupiedSpaces || 0,
+  };
+
+  if (isEditing) {
+    dto.lockerIds = formValue.lockersAsignados.filter(
+      (id: any): id is number => typeof id === 'number' && id > 0
+    );
+  } else {
+    dto.spaceRequests = formValue.spaceRequests;
+  }
+
+  console.log('Enviando DTO:', dto);
+
+  let apiCall: Observable<any>;
+  if (isEditing) {
+    apiCall = this.clientService.updateClient(this.clientData!.id, dto);
+  } else {
+    apiCall = this.clientService.CreateClient(dto);
+  }
+
+  apiCall.subscribe({
+    next: (response) => {
+      this.isLoading = false;
+      this.saveSuccess.emit();
+      Swal.fire({
+        icon: 'success',
+        title: `Cliente ${isEditing ? 'actualizado' : 'creado'}`,
+        text: `El cliente se ha guardado correctamente.`,
+        confirmButtonColor: '#2563eb',
+      });
+    },
+    error: (err) => {
+      this.isLoading = false;
+      console.error('Error al guardar:', err);
+      let errorDetails = '';
+      if (err.error && err.error.errors) {
+        errorDetails = Object.entries(err.error.errors)
+          .map(
+            ([key, value]) =>
+              `<b>${key}:</b> ${(value as string[]).join(', ')}`
+          )
+          .join('<br>');
+      }
+      const errorMsg =
+        errorDetails ||
+        err.error?.message ||
+        err.statusText ||
+        'Ocurrió un error desconocido.';
+      Swal.fire({
+        icon: 'error',
+        title: `Error al ${isEditing ? 'actualizar' : 'crear'}`,
+        html: `No se pudo guardar el cliente.<br><br><small class="text-left">${errorMsg}</small>`,
+        confirmButtonColor: '#2563eb',
+      });
+    },
+  });
+}
 
 
   // --- Métodos Helper de Cálculo ---
