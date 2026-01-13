@@ -277,6 +277,7 @@ export class ClientsComponent implements OnInit {
       .subscribe((clientDetail) => {
         this.clientToView = clientDetail;
         this.showDetailClientModal = true;
+        console.log('Cliente cargado para detalle:', clientDetail);
       });
   }
 
