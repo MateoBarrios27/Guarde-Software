@@ -275,9 +275,9 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT DISTINCT
                     c.client_id AS Id,
                     c.first_name + ' ' + c.last_name AS Name,
-                    (SELECT TOP 1 e.address 
-                     FROM emails e 
-                     WHERE e.client_id = c.client_id AND e.active = 1) AS Email,
+                    ISNULL((SELECT STRING_AGG(e.address, ';') 
+                    FROM emails e 
+                    WHERE e.client_id = c.client_id AND e.active = 1), '') AS Email,
                     (SELECT TOP 1 p.number 
                      FROM phones p 
                      WHERE p.client_id = c.client_id AND p.whatsapp = 1 AND p.active = 1) AS Phone

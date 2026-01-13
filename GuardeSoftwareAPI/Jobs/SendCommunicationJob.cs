@@ -183,24 +183,41 @@ namespace GuardeSoftwareAPI.Jobs
             }
         }
 
-        private MimeMessage CreateEmailMessage(ChannelForSendingDto channel, RecipientForSendingDto recipient, SmtpSettingsModel smtpSettings, List<AttachmentDto> attachments)
+        private MimeMessage CreateEmailMessage(ChannelForSendingDto channel, RecipientForSendingDto recipient, SmtpSettingsModel settings, List<AttachmentDto> attachments)
         {
             var message = new MimeMessage();
+            message.From.Add(new MailboxAddress("Guarde lo que quiera - Abono", settings.Email));
+
+            // --- CAMBIO AQUÍ: Soportar múltiples destinatarios ---
             
-            message.From.Add(new MailboxAddress("Guarde lo que quiera - Abono", smtpSettings.Email));
-            
-            message.To.Add(new MailboxAddress(recipient.Name, recipient.Email));
-            
-            if (smtpSettings.EnableBcc && !string.IsNullOrEmpty(smtpSettings.BccEmail))
+            if (!string.IsNullOrEmpty(recipient.Email))
             {
-                message.Bcc.Add(new MailboxAddress("Copia comunicado", smtpSettings.BccEmail));
+                // Separamos por punto y coma (que fue lo que pusimos en el SQL)
+                var addresses = recipient.Email.Split(';', StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (var address in addresses)
+                {
+                    try 
+                    {
+                        // Limpiamos espacios en blanco por seguridad
+                        message.To.Add(MailboxAddress.Parse(address.Trim()));
+                    }
+                    catch 
+                    { 
+                        // Si un mail es inválido, lo ignoramos para no bloquear a los otros
+                        continue; 
+                    }
+                }
             }
-            
+            // ----------------------------------------------------
+
             message.Subject = channel.Subject;
 
-            var builder = new BodyBuilder { HtmlBody = channel.Content };
+            var builder = new BodyBuilder();
+            builder.HtmlBody = channel.Content;
 
-            if (attachments != null)
+            // Adjuntar archivos si existen
+            if (attachments != null && attachments.Count > 0)
             {
                 foreach (var att in attachments)
                 {
