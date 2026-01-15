@@ -53,6 +53,8 @@ export class FinancesComponent{
   
   searchClient: string = '';
 
+  amountOriginal = 0;
+
 
   paymentDto: CreatePaymentDTO = {
       clientId: 0,
@@ -209,41 +211,51 @@ closeClientModal() {
   this.selectedClientIdentifier = 0;
   this.selectedClientName = '';
 
+  this.manualDateEnabled = false;
+  const now = new Date();
+  this.dateString = now.toISOString().split('T')[0];
+
   this.paymentDto = {
-      clientId: 0,
-      movementType: 'CREDITO',
-      concept: ` `,
-      amount: 0,
-      paymentMethodId: 1,
-      date: new Date(),
-      isAdvancePayment: false,
-      advanceMonths: null
-    };
+    clientId: 0,
+    movementType: 'CREDITO',
+    concept: ` `,
+    amount: 0,
+    paymentMethodId: 1,
+    date: now,
+    isAdvancePayment: false,
+    advanceMonths: null
+  };
+
+  this.updateConceptFromDate(now);
 }
 
-OpenPaymentModal(){
+
+OpenPaymentModal() {
   this.showClientModal = true;
 
-   this.searchClient = '';
-   this.selectedClientId = 0;
-   this.selectedClientIdentifier = 0;
+  this.searchClient = '';
+  this.selectedClientId = 0;
+  this.selectedClientIdentifier = 0;
 
-   const now = new Date();
+  const now = new Date();
 
-    this.paymentDto = {
-      clientId: 0,
-      movementType: 'CREDITO',
-      concept: ` `,
-      amount: 0,
-      paymentMethodId: 1,
-      date: new Date(),
-      isAdvancePayment: false,
-      advanceMonths: null
-    };
+  this.manualDateEnabled = false;
+  this.dateString = now.toISOString().split('T')[0];
 
-    this.updateConceptFromDate(now);
+  this.paymentDto = {
+    clientId: 0,
+    movementType: 'CREDITO',
+    concept: ` `,
+    amount: 0,
+    paymentMethodId: 1,
+    date: now,
+    isAdvancePayment: false,
+    advanceMonths: null
+  };
 
+  this.updateConceptFromDate(now);
 }
+
 
 commision:number = 0;
 newAmount: number = 0;
@@ -259,6 +271,20 @@ AmountWithComission(amount: number, paymentMethodId: number): number{
 }
 
 savePaymentModal(dto : CreatePaymentDTO){
+
+      if (this.manualDateEnabled && this.dateString) {
+        const [year, month, day] = this.dateString.split('-').map(Number);
+        const currentTime = new Date();
+        this.paymentDto.date = new Date(
+          year,
+          month - 1,
+          day,
+          currentTime.getHours(),
+          currentTime.getMinutes(),
+          currentTime.getSeconds()
+        );
+      }
+
       if (!dto.amount || dto.amount <= 0) {
         Swal.fire({
           icon: 'warning',
@@ -281,6 +307,25 @@ savePaymentModal(dto : CreatePaymentDTO){
         return;
       }
 
+      if (dto.isAdvancePayment) {
+        if (
+          dto.advanceMonths === null ||
+          dto.advanceMonths === undefined ||
+          isNaN(Number(dto.advanceMonths)) ||
+          dto.advanceMonths < 1
+        ) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Pago adelantado incompleto',
+            text: 'Debes ingresar la cantidad de meses adelantados (mínimo 1).',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#2563eb',
+          });
+          return;
+        }
+      }
+
+      this.amountOriginal = dto.amount;
       dto.amount = this.AmountWithComission(dto.amount, dto.paymentMethodId);
       
       Swal.fire({
@@ -329,6 +374,7 @@ savePaymentModal(dto : CreatePaymentDTO){
             }
           });  
         }
+        dto.amount = this.amountOriginal;
       });
 }
 
@@ -341,15 +387,21 @@ selectClient(client: any) {
 
 
   toggleManualDate() {
-    this.manualDateEnabled = !this.manualDateEnabled;
+  this.manualDateEnabled = !this.manualDateEnabled;
 
-    if (!this.manualDateEnabled) {
-      const now = new Date();
-      this.paymentDto.date = now;
-      this.dateString = now.toISOString().split('T')[0];
+  if (!this.manualDateEnabled) {
+    const now = new Date();
+    this.paymentDto.date = now;
+    this.dateString = now.toISOString().split('T')[0];
+
+    if (this.paymentDto.isAdvancePayment) {
+      this.updateAdvanceConcept();
+    } else {
       this.updateConceptFromDate(now);
     }
-  }  
+  }
+}
+
 
   private updateConceptFromDate(date: Date) {
     const monthNames = [
@@ -363,27 +415,68 @@ selectClient(client: any) {
   }
 
   onManualDateChange(value: string) {
-    if (!value) return;
-    const [year, month, day] = value.split('-').map(Number);
-    const currentTime = new Date();
-    const dateWithTime = new Date(year, month - 1, day, currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds());
+  if (!value) return;
 
-    this.paymentDto.date = dateWithTime;
-    this.dateString = value;
+  const [year, month, day] = value.split('-').map(Number);
+  const currentTime = new Date();
+  const dateWithTime = new Date(
+    year,
+    month - 1,
+    day,
+    currentTime.getHours(),
+    currentTime.getMinutes(),
+    currentTime.getSeconds()
+  );
+
+  this.paymentDto.date = dateWithTime;
+  this.dateString = value;
+
+  if (this.paymentDto.isAdvancePayment) {
+    this.updateAdvanceConcept();
+  } else {
     this.updateConceptFromDate(dateWithTime);
   }
-
-  get filteredClients(): Client[] {
-  const term = this.searchClient?.toLowerCase().trim();
-
-  if (!term) return this.clients;
-
-  return this.clients.filter(c => {
-    const fullName = `${c.firstName ?? ''} ${c.lastName ?? ''}`.toLowerCase();
-    const identifier = (c.paymentIdentifier ?? '').toString().toLowerCase();
-
-    return fullName.includes(term) || identifier.includes(term);
-  });
 }
+
+
+    get filteredClients(): Client[] {
+      const term = this.searchClient?.toLowerCase().trim();
+
+      if (!term) return this.clients;
+
+      return this.clients.filter(c => {
+        const fullName = `${c.firstName ?? ''} ${c.lastName ?? ''}`.toLowerCase();
+        const identifier = (c.paymentIdentifier ?? '').toString().toLowerCase();
+
+        return fullName.includes(term) || identifier.includes(term);
+      });
+    }
+
+    private updateAdvanceConcept() {
+      const months = this.paymentDto.advanceMonths;
+
+      if (months === null || months === undefined || months === 0) {
+        this.paymentDto.concept = 'Pago adelantado';
+        return;
+      }
+
+      this.paymentDto.concept = `Pago adelantado de ${months} mes${months === 1 ? '' : 'es'}`;
+    }
+
+    onAdvancePaymentToggle() {
+      if (!this.paymentDto.isAdvancePayment) {
+        this.paymentDto.advanceMonths = null;
+        this.updateConceptFromDate(this.paymentDto.date);
+      } else {
+        this.updateAdvanceConcept();
+      }
+    }
+
+    onAdvanceMonthsChange() {
+      if (this.paymentDto.isAdvancePayment) {
+        this.updateAdvanceConcept();
+      }
+    }
+
 
 }
