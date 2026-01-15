@@ -217,6 +217,25 @@ export class DashboardComponent {
       return;
     }
 
+    if (dto.isAdvancePayment) {
+      if (
+        dto.advanceMonths === null ||
+        dto.advanceMonths === undefined ||
+        isNaN(Number(dto.advanceMonths)) ||
+        dto.advanceMonths < 1
+      ) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Pago adelantado incompleto',
+          text: 'Debes ingresar la cantidad de meses adelantados (mínimo 1).',
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#2563eb',
+        });
+        return;
+      }
+    }
+
+
     this.amountOriginal = dto.amount;
     dto.amount = this.AmountWithComission(dto.amount, dto.paymentMethodId);
     
