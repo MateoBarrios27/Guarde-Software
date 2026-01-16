@@ -228,8 +228,10 @@ export class SettingsComponent implements OnInit {
       userName: '', firstName: '', lastName: '', password: '', userTypeId: 2,
     };
     this.showCreateUserModal = true; 
+    console.log(this.showCreateUserModal);
+    
   }
-
+ 
   saveCreateUser(dto: CreateUserDTO){
     dto.userName = dto.userName?.trim() || '';
     dto.firstName = dto.firstName?.trim() || '';
