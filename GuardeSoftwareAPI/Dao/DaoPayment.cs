@@ -31,7 +31,7 @@ namespace GuardeSoftwareAPI.Dao
                     p.payment_id,
                     p.client_id,
                     c.payment_identifier,
-                    c.first_name,
+                    CONCAT(c.first_name, ' ', c.last_name) AS first_name,
                     p.payment_method_id,
                     p.payment_date,
                     p.amount
@@ -42,6 +42,7 @@ namespace GuardeSoftwareAPI.Dao
 
             return await accessDB.GetTableAsync("payments", query);
         }
+        
 
         public async Task<DataTable> GetPaymentById(int id)
         {

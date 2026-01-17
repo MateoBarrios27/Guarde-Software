@@ -354,11 +354,11 @@ namespace GuardeSoftwareAPI.Dao
                     FROM lockers l
                     WHERE l.rental_id IS NOT NULL
                     GROUP BY l.rental_id
-                )
+                ) 
                 SELECT 
                     r.rental_id,
                     r.client_id,
-                    c.first_name AS client_name, 
+                    CONCAT(c.first_name, ' ', c.last_name) AS client_name,
                     c.payment_identifier, 
                     r.months_unpaid,
                     ISNULL(acc.Balance, 0) AS balance,
