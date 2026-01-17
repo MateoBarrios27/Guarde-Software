@@ -2,12 +2,14 @@ using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.LockerType;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.lockerType;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class LockerTypeController : ControllerBase
     {
         private readonly ILockerTypeService _lockerTypeService;

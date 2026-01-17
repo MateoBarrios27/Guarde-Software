@@ -1,5 +1,6 @@
 using GuardeSoftwareAPI.Dtos.MonthlyIncrease;
 using GuardeSoftwareAPI.Services.monthlyIncrease;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 
@@ -7,6 +8,7 @@ namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class MonthlyIncreaseController : ControllerBase
     {
         private readonly IMonthlyIncreaseService _increaseService;

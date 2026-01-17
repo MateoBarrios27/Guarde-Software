@@ -2,12 +2,14 @@ using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.Warehouse;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.warehouse;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class WarehouseController : ControllerBase
     {
         private readonly IWarehouseService _warehouseService;

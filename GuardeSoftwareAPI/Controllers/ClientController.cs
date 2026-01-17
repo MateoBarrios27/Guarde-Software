@@ -3,11 +3,13 @@ using GuardeSoftwareAPI.Services.client;
 using GuardeSoftwareAPI.Dtos.Client;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class ClientController : ControllerBase
     {
         private readonly IClientService _clientService;

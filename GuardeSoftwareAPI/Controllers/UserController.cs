@@ -1,12 +1,14 @@
 using GuardeSoftwareAPI.Dtos.User;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.user;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;

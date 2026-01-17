@@ -2,12 +2,14 @@ using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.PaymentMethod;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.paymentMethod;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
 
     public class PaymentMethodController : ControllerBase
     {

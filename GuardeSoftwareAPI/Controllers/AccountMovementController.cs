@@ -2,12 +2,14 @@ using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.AccountMovement;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.accountMovement;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class AccountMovementController : ControllerBase
     {
         readonly IAccountMovementService _accountMovementService;

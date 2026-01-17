@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using GuardeSoftwareAPI.Dao; // Ajusta namespace
 using GuardeSoftwareAPI.Dtos.Communication;
+using Microsoft.AspNetCore.Authorization;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class SmtpConfigurationsController : ControllerBase
     {
         private readonly CommunicationDao _dao; // Reutilizamos el DAO o crea uno nuevo

@@ -3,11 +3,13 @@ using GuardeSoftwareAPI.Services.email;
 using Microsoft.AspNetCore.Mvc;
 using GuardeSoftwareAPI.Dtos.Email;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class EmailController : ControllerBase
     {
         readonly IEmailService _emailService;

@@ -1,12 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
 using GuardeSoftwareAPI.Dtos.Communication;
 using GuardeSoftwareAPI.Services.communication;
+using Microsoft.AspNetCore.Authorization;
 // using System.Security.Claims; // To get the real user ID
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class CommunicationsController : ControllerBase
     {
         private readonly ICommunicationService _communicationService;

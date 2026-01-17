@@ -1,11 +1,13 @@
 using GuardeSoftwareAPI.Dtos.Statistics;
 using GuardeSoftwareAPI.Services.statistics;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class StatisticsController : ControllerBase
     {
         private readonly IStatisticsService _statisticsService;

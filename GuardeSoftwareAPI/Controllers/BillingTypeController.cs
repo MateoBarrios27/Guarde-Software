@@ -1,5 +1,6 @@
 using GuardeSoftwareAPI.Dtos.BillingType;
 using GuardeSoftwareAPI.Services.billingType;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
@@ -9,6 +10,7 @@ namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class BillingTypeController : ControllerBase
     {
         private readonly IBillingTypeService _billingTypeService;

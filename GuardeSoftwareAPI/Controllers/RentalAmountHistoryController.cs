@@ -2,12 +2,14 @@ using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.RentalAmountHistoryDto;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class RentalAmountHistoryController : ControllerBase
     {
         private readonly IRentalAmountHistoryService _rentalAmountHistoryService;

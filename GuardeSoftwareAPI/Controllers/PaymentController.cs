@@ -3,11 +3,13 @@ using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.payment;
 using Microsoft.AspNetCore.Mvc;
 using GuardeSoftwareAPI.Dtos.Payment;
+using Microsoft.AspNetCore.Authorization;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class PaymentController : ControllerBase
     {
         private readonly IPaymentService _paymentService;

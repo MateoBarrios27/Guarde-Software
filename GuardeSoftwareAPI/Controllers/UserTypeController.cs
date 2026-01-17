@@ -2,12 +2,14 @@ using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.UserType;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.userType;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class UserTypeController : ControllerBase
     {
         private readonly IUserTypeService _userTypeService;

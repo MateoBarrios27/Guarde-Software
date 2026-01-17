@@ -1,12 +1,14 @@
 using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.increaseRegimen;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class IncreaseRegimenController : ControllerBase
     {
         private readonly IIncreaseRegimenService _increaseRegimenService;

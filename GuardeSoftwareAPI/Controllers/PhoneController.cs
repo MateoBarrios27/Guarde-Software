@@ -1,10 +1,12 @@
 using GuardeSoftwareAPI.Services.phone;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers.phone
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class PhoneController : ControllerBase
     {
         private readonly IPhoneService _phoneService;

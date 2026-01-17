@@ -3,12 +3,14 @@ using GuardeSoftwareAPI.Services.address;
 using Microsoft.AspNetCore.Mvc;
 using GuardeSoftwareAPI.Dtos.Address;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 
 namespace GuardeSoftwareAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class AddressController : ControllerBase
     {
         private readonly IAddressService _addressService;
