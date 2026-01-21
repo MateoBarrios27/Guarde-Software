@@ -68,6 +68,10 @@ export class DashboardComponent {
 
   amountOriginal= 0;
   
+
+  selectedPreferredPaymentId: number = 1;
+
+
   constructor(
     private rentalService: RentalService,
     private paymentService: PaymentService,
@@ -98,6 +102,7 @@ export class DashboardComponent {
       next: (data) => {
         this.filteredPendingRentals = data;
         this.pendingRentals = data;
+        console.log(data);
       },
       error: (err) => console.error('Error al cargar pendientes:', err)
     });
@@ -147,6 +152,8 @@ export class DashboardComponent {
     this.isAdvancePayment = false;
     this.advanceMonths = null;
 
+    this.selectedPreferredPaymentId = Number(item.preferredPayment ?? 1);
+
     this.paymentDto = {
       clientId: item.clientId ?? 0,
       movementType: 'CREDITO',
@@ -183,15 +190,38 @@ export class DashboardComponent {
   newAmount: number = 0;
   
 
-  AmountWithComission(amount: number, paymentMethodId: number): number{
+  // AmountWithComission(amount: number, paymentMethodId: number): number{
 
-      const numericId = Number(paymentMethodId);
-      const method = this.paymentMethods.find(m => m.id === numericId);
-      this.commision = method ? method.commission : 0;
-      this.newAmount = amount + (amount * this.commision / 100);
+  //     const numericId = Number(paymentMethodId);
+  //     const method = this.paymentMethods.find(m => m.id === numericId);
+  //     this.commision = method ? method.commission : 0;
+  //     this.newAmount = amount + (amount * this.commision / 100);
 
-      return this.newAmount;
+  //     return this.newAmount;
+  // }
+
+  private getCommissionByMethodId(paymentMethodId: number): number {
+    const id = Number(paymentMethodId);
+    const method = this.paymentMethods.find(m => m.id === id);
+    return method?.commission ?? 0; 
   }
+
+  AmountWithComission(amount: number, selectedMethodId: number, preferredPaymentId: number): number {
+    const selectedCommission = this.getCommissionByMethodId(selectedMethodId);
+
+    const includedCommission = this.getCommissionByMethodId(preferredPaymentId);
+
+    const extraCommission = Math.max(0, selectedCommission - includedCommission);
+
+    this.commision = extraCommission;
+
+    const newAmount = amount + (amount * extraCommission / 100);
+    this.newAmount = newAmount;
+
+    return newAmount;
+  }
+
+
 
   savePayment(dto: CreatePaymentDTO): void {
 
@@ -237,7 +267,7 @@ export class DashboardComponent {
 
 
     this.amountOriginal = dto.amount;
-    dto.amount = this.AmountWithComission(dto.amount, dto.paymentMethodId);
+    dto.amount = this.AmountWithComission(dto.amount, dto.paymentMethodId, this.selectedPreferredPaymentId);
     
     Swal.fire({
     title: '¿Deseas registrar este pago?',
