@@ -135,7 +135,8 @@ namespace GuardeSoftwareAPI.Services.rental
 					Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0m,
 					LockerIdentifiers = row["locker_identifiers"] != DBNull.Value
 						? row["locker_identifiers"].ToString()!
-						: string.Empty
+						: string.Empty,
+					PreferredPayment = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : null,
 
 				};
 				pendingRentals.Add(rental);

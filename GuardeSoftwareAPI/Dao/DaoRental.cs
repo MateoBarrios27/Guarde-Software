@@ -360,6 +360,7 @@ namespace GuardeSoftwareAPI.Dao
                     r.client_id,
                     CONCAT(c.first_name, ' ', c.last_name) AS client_name,
                     c.payment_identifier, 
+                    c.preferred_payment_method_id,
                     r.months_unpaid,
                     ISNULL(acc.Balance, 0) AS balance,
                     cra.CurrentRent,

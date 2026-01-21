@@ -8,4 +8,6 @@ public class PendingRentalDTO
     public decimal Balance { get; set; }
     public decimal CurrentRent { get; set; }
     public string LockerIdentifiers { get; set; } = string.Empty;
+    
+    public int? PreferredPayment{ get; set; }
 }
