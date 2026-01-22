@@ -33,6 +33,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Globalization;
+using GuardeSoftwareAPI.Services.cash;
 
 
 
@@ -131,6 +132,7 @@ builder.Services.AddScoped<IWarehouseService, WarehouseService>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<DaoStatistics>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICashService, CashService>();
 
 // --- Configuration Quartz.NET ---
 builder.Services.AddQuartz(q =>

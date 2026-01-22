@@ -1,0 +1,30 @@
+/* Input que parece texto hasta que se hace focus */
+.table-input {
+  width: 100%;
+  text-align: right;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.875rem; /* text-sm */
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.table-input:hover {
+  background-color: #f3f4f6; /* gray-100 */
+}
+
+.table-input:focus {
+  background-color: white;
+  border-color: #d1d5db; /* gray-300 */
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); /* ring */
+}
+
+/* Ocultar flechas de input number */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}

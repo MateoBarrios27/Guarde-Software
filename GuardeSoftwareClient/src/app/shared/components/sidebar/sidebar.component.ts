@@ -43,7 +43,8 @@ export class SidebarComponent {
     { path: '/lockers', title: 'Bauleras', icon: 'package' },
     { path: '/statistics', title: 'Estadísticas', icon: 'file-text' },
     // { path: '/reports', title: 'Reportes', icon: 'file-text' },
-    { path: '/settings', title: 'Configuración', icon: 'settings' }
+    { path: '/settings', title: 'Configuración', icon: 'settings' },
+    { path: '/cash', title: 'Caja', icon: 'dollar' },
   ];
 
   onLinkClick() {
