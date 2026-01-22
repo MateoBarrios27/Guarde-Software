@@ -252,7 +252,6 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     // Suscripción Legacy
     this.newClientForm.get('isLegacyClient')?.valueChanges.subscribe((isLegacy) => {
        if (this.isEditMode) return;
-       // ... (tu lógica de legacy existente) ...
        const fields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate', 'isLegacy6MonthPromo', 'prepaidMonths'];
        const requiredFields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate'];
        if (isLegacy) {
@@ -345,7 +344,6 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
           }
       }
 
-      // Resto del populate...
       if (data.email?.length > 0) data.email.forEach(e => this.emails.push(this.fb.control(e, [Validators.required, Validators.email]))); else this.addEmail();
       
       if (data.phones && data.phones.length > 0) {

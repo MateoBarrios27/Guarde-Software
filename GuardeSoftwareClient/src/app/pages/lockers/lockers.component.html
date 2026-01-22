@@ -274,7 +274,7 @@
           <select [(ngModel)]="newLocker.lockerTypeId"
                   class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none">
             <option [ngValue]="0" disabled>Seleccionar tipo...</option> <!-- Cambiado a 0 -->
-            <option *ngFor="let lt of lockerTypes" [value]="lt.id">{{ lt.name }} ({{ lt.amount | currency:'ARS':'$' }})</option>
+            <option *ngFor="let lt of lockerTypes" [value]="lt.id">{{ lt.name }} </option>
           </select>
         </div>
       </div>
