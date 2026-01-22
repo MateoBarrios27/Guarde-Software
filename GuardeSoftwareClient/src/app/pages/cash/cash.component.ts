@@ -29,7 +29,16 @@ export class CashComponent implements OnInit {
   accounts: FinancialAccount[] = [];
 
   // Totales Locales de la Tabla (Columnas)
-  totals = { depo: 0, casa: 0, pagado: 0, retiros: 0, extras: 0 };
+  totals = { 
+    depo: 0, 
+    casa: 0, 
+    pagado: 0, 
+    retiros: 0, 
+    extras: 0,
+    // Nuevos calculados
+    aPagar: 0,      // (Depo + Casa)
+    faltaPagar: 0   // (A Pagar - Pagado)
+  };
 
   // Control de Guardado Automático
   private saveSubject = new Subject<CashFlowItem>();
@@ -117,22 +126,36 @@ export class CashComponent implements OnInit {
   // --- Cálculos ---
 
   calculateLocalTotals(): void {
-    // 1. Sumar columnas
+    // 1. Sumar columnas individuales
     this.totals = this.items.reduce((acc, curr) => ({
+      ...acc, // Mantenemos propiedades previas para sobreescribir
       depo: acc.depo + (Number(curr.depo) || 0),
       casa: acc.casa + (Number(curr.casa) || 0),
       pagado: acc.pagado + (Number(curr.pagado) || 0),
       retiros: acc.retiros + (Number(curr.retiros) || 0),
       extras: acc.extras + (Number(curr.extras) || 0),
-    }), { depo: 0, casa: 0, pagado: 0, retiros: 0, extras: 0 });
+    }), { 
+      depo: 0, casa: 0, pagado: 0, retiros: 0, extras: 0, 
+      aPagar: 0, faltaPagar: 0 // Reset de nuevos valores
+    });
 
-    // 2. Actualizar el total de gastos en el resumen
-    // Asumimos que "Gastos" es la suma de todo lo que sale (CASA + PAGADO + RETIROS + EXTRAS)
-    // OJO: DEPO suele ser ingreso manual o movimiento interno. Ajustar según lógica del cliente.
-    // Según Excel: DEPO parece ser columna informativa o ingreso extra. 
-    // Asumiremos GASTOS = CASA + PAGADO + RETIROS + EXTRAS
-    this.summary.totalManualExpenses = this.totals.casa + this.totals.pagado + this.totals.retiros + this.totals.extras;
+    // 2. Cálculos de Agrupación (Lógica de Negocio Solicitada)
     
+    // "A PAGAR" = Gastos previstos (Depo + Casa)
+    this.totals.aPagar = this.totals.depo + this.totals.casa;
+
+    // "FALTA PAGAR" = Lo que debía pagar menos lo que realmente pagué
+    this.totals.faltaPagar = this.totals.aPagar - this.totals.pagado;
+
+    // 3. Actualizar resumen para el cálculo de Ganancia Neta
+    // Aquí la lógica depende de qué considera el cliente "Ganancia Real".
+    // Opción A (Caja Real): Ingresos - Lo que realmente salió (Pagado + Retiros + Extras)
+    // Opción B (Devengado): Ingresos - Lo que debería salir (A Pagar + Retiros + Extras)
+    
+    // Usaremos Opción A (Caja Real) que suele ser lo que buscan en estas planillas:
+    const totalSalidasReales = this.totals.pagado + this.totals.retiros + this.totals.extras;
+    
+    this.summary.totalManualExpenses = totalSalidasReales;
     this.calculateNetBalance();
   }
 
@@ -151,12 +174,76 @@ export class CashComponent implements OnInit {
     if (m > 12) { m = 1; y++; }
     if (m < 1) { m = 12; y--; }
 
+    // VALIDACIÓN: No ir al futuro
+    const today = new Date();
+    // Creamos fecha del primer dia del mes seleccionado
+    const selectedDate = new Date(y, m - 1, 1);
+    // Creamos fecha del primer dia del mes actual
+    const currentDate = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    if (selectedDate > currentDate) {
+        Swal.fire('Atención', 'No se puede gestionar la caja de meses futuros.', 'warning');
+        return;
+    }
+
     this.selectedMonth = m;
     this.selectedYear = y;
     this.loadData();
   }
-  
+
+
   onAccountChange(account: FinancialAccount): void {
-      this.cashService.updateAccountBalance(account.id, account.balance).subscribe();
+    // Persistencia inmediata al cambiar el valor
+    this.cashService.updateAccountBalance(account.id, account.balance).subscribe({
+        error: () => Swal.fire('Error', 'No se pudo actualizar el saldo', 'error')
+    });
+  }
+
+  addAccount(): void {
+    Swal.fire({
+      title: 'Nueva Cuenta / Caja',
+      html: `
+        <input id="acc-name" class="swal2-input" placeholder="Nombre (ej: Banco Galicia)">
+        <select id="acc-type" class="swal2-input">
+          <option value="Banco">Banco</option>
+          <option value="Caja Fuerte">Caja Fuerte</option>
+          <option value="Billetera">Billetera</option>
+          <option value="Otro">Otro</option>
+        </select>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Crear',
+      preConfirm: () => {
+        const name = (document.getElementById('acc-name') as HTMLInputElement).value;
+        const type = (document.getElementById('acc-type') as HTMLSelectElement).value;
+        if (!name) Swal.showValidationMessage('El nombre es requerido');
+        return { name, type, balance: 0, currency: 'ARS' } as FinancialAccount;
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.cashService.createAccount(result.value).subscribe(id => {
+          const newAcc = { ...result.value, id };
+          this.accounts.push(newAcc);
+          Swal.fire('Creada', 'La cuenta ha sido agregada.', 'success');
+        });
+      }
+    });
+  }
+
+  deleteAccount(account: FinancialAccount, index: number): void {
+    Swal.fire({
+      title: '¿Eliminar cuenta?',
+      text: `Se borrará "${account.name}" y su saldo actual.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Sí, eliminar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.cashService.deleteAccount(account.id).subscribe(() => {
+          this.accounts.splice(index, 1);
+        });
+      }
+    });
   }
 }

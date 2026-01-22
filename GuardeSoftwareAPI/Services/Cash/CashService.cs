@@ -13,9 +13,24 @@ namespace GuardeSoftwareAPI.Services.cash
         }
 
         // --- Items Manuales ---
+        // En CashFlowService.cs
+
         public async Task<List<CashFlowItemDto>> GetItemsAsync(int month, int year)
         {
-            return await _dao.GetItemsAsync(month, year);
+            // 1. Intentar obtener items del mes actual
+            var items = await _dao.GetItemsAsync(month, year);
+
+            // 2. Si no hay items (es un mes nuevo virgen), intentamos copiar del mes anterior
+            if (items.Count == 0)
+            {
+                // Ejecutamos la copia
+                await _dao.CopyConceptsFromPreviousMonthAsync(month, year);
+                
+                // Volvemos a consultar (ahora debería traer los copiados)
+                items = await _dao.GetItemsAsync(month, year);
+            }
+
+            return items;
         }
 
         public async Task<int> UpsertItemAsync(CashFlowItemDto item)
@@ -67,6 +82,16 @@ namespace GuardeSoftwareAPI.Services.cash
                 NetBalance = netBalance,
                 PendingCollection = pending
             };
+        }
+
+        public async Task<int> CreateAccountAsync(FinancialAccountDto account)
+        {
+            return await _dao.CreateAccountAsync(account);
+        }
+
+        public async Task DeleteAccountAsync(int id)
+        {
+            await _dao.DeleteAccountAsync(id);
         }
     }
 }

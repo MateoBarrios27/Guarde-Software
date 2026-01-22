@@ -40,4 +40,12 @@ export class CashService {
   updateAccountBalance(id: number, newBalance: number): Observable<void> {
     return this.http.put<void>(`${this.apiUrl}/accounts/${id}`, { balance: newBalance });
   }
+
+  createAccount(account: FinancialAccount): Observable<number> {
+    return this.http.post<number>(`${this.apiUrl}/accounts`, account);
+  }
+
+  deleteAccount(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/accounts/${id}`);
+  }
 }

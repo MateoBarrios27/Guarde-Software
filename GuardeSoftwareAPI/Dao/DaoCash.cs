@@ -183,5 +183,68 @@ namespace GuardeSoftwareAPI.Dao
         }
 
         #endregion
+
+
+        public async Task CopyConceptsFromPreviousMonthAsync(int currentMonth, int currentYear)
+        {
+            // 1. Calcular mes anterior
+            var date = new DateTime(currentYear, currentMonth, 1).AddMonths(-1);
+            int prevMonth = date.Month;
+            int prevYear = date.Year;
+
+            // 2. Query modificada: COPIAR VALORES
+            string query = @"
+                INSERT INTO cash_flow_items (
+                    month, year, movement_date, description, 
+                    amount_depo, amount_casa, amount_pagado, amount_retiros, amount_extras
+                )
+                SELECT 
+                    @CurrentMonth, 
+                    @CurrentYear, 
+                    DATEFROMPARTS(@CurrentYear, @CurrentMonth, 1), -- Fecha default: día 1
+                    description, 
+                    amount_depo,    -- <--- Aquí copiamos el valor real
+                    amount_casa,    -- <--- Aquí copiamos el valor real
+                    amount_pagado,  -- <--- Aquí copiamos el valor real
+                    amount_retiros, -- <--- Aquí copiamos el valor real
+                    amount_extras   -- <--- Aquí copiamos el valor real
+                FROM cash_flow_items
+                WHERE month = @PrevMonth AND year = @PrevYear
+                AND is_confirmed = 1"; 
+
+            var parameters = new[] {
+                new SqlParameter("@CurrentMonth", currentMonth),
+                new SqlParameter("@CurrentYear", currentYear),
+                new SqlParameter("@PrevMonth", prevMonth),
+                new SqlParameter("@PrevYear", prevYear)
+            };
+
+            await _accessDB.ExecuteCommandAsync(query, parameters);
+        }
+
+        // En la región #region 2. Cuentas Financieras
+
+        public async Task<int> CreateAccountAsync(FinancialAccountDto account)
+        {
+            string query = @"
+                INSERT INTO financial_accounts (name, type, currency, current_balance, last_updated)
+                OUTPUT INSERTED.account_id
+                VALUES (@Name, @Type, 'ARS', @Balance, GETDATE())"; // Default ARS por ahora
+
+            var parameters = new[] {
+                new SqlParameter("@Name", account.Name),
+                new SqlParameter("@Type", account.Type),
+                new SqlParameter("@Balance", account.Balance)
+            };
+
+            var result = await _accessDB.ExecuteScalarAsync(query, parameters);
+            return Convert.ToInt32(result);
+        }
+
+        public async Task DeleteAccountAsync(int id)
+        {
+            string query = "DELETE FROM financial_accounts WHERE account_id = @Id";
+            await _accessDB.ExecuteCommandAsync(query, new[] { new SqlParameter("@Id", id) });
+        }
     }
 }

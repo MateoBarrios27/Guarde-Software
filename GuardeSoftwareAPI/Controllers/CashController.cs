@@ -71,5 +71,21 @@ namespace GuardeSoftwareAPI.Controllers
             await _service.UpdateAccountBalanceAsync(id, request.Balance);
             return NoContent();
         }
+
+        // POST: api/cashflow/accounts
+        [HttpPost("accounts")]
+        public async Task<IActionResult> CreateAccount([FromBody] FinancialAccountDto account)
+        {
+            int id = await _service.CreateAccountAsync(account);
+            return Ok(id);
+        }
+
+        // DELETE: api/cashflow/accounts/5
+        [HttpDelete("accounts/{id}")]
+        public async Task<IActionResult> DeleteAccount(int id)
+        {
+            await _service.DeleteAccountAsync(id);
+            return NoContent();
+        }
     }
 }

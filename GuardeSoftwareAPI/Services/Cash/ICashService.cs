@@ -9,5 +9,7 @@ namespace GuardeSoftwareAPI.Services.cash
         Task<List<FinancialAccountDto>> GetAccountsAsync();
         Task UpdateAccountBalanceAsync(int id, decimal balance);
         Task<MonthlyFinancialSummaryDto> GetMonthlySummaryAsync(int month, int year);
+        Task<int> CreateAccountAsync(FinancialAccountDto account);
+        Task DeleteAccountAsync(int id);
     }
 }
