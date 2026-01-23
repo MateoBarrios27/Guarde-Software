@@ -64,11 +64,14 @@ namespace GuardeSoftwareAPI.Dao
             {
                 query = @"
                     UPDATE cash_flow_items 
-                    SET movement_date = @Date, description = @Desc, 
-                        amount_depo = @Depo, amount_casa = @Casa, amount_pagado = @Pagado, 
-                        amount_retiros = @Retiros, amount_extras = @Extras
-                    WHERE item_id = @Id;
-                    SELECT @Id;";
+                    SET movement_date = @Date, 
+                        description = @Desc, 
+                        amount_depo = @Depo, 
+                        amount_casa = @Casa, 
+                        amount_pagado = @Pagado, 
+                        amount_retiros = @Retiros, 
+                        amount_extras = @Extras
+                    WHERE item_id = @Id";
             }
 
             var parameters = new[] {
@@ -187,30 +190,29 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task CopyConceptsFromPreviousMonthAsync(int currentMonth, int currentYear)
         {
-            // 1. Calcular mes anterior
             var date = new DateTime(currentYear, currentMonth, 1).AddMonths(-1);
             int prevMonth = date.Month;
             int prevYear = date.Year;
 
-            // 2. Query modificada: COPIAR VALORES
+            // CORRECCIÓN CLAVE:
+            // 1. Insertamos @CurrentMonth y @CurrentYear en las columnas month/year
+            // 2. Generamos la fecha movement_date forzada al día 1 del mes actual (DATEFROMPARTS)
+            // 3. Copiamos los montos del mes anterior
+            
             string query = @"
                 INSERT INTO cash_flow_items (
                     month, year, movement_date, description, 
                     amount_depo, amount_casa, amount_pagado, amount_retiros, amount_extras
                 )
                 SELECT 
-                    @CurrentMonth, 
-                    @CurrentYear, 
-                    DATEFROMPARTS(@CurrentYear, @CurrentMonth, 1), -- Fecha default: día 1
+                    @CurrentMonth,  -- Forzamos el MES ACTUAL
+                    @CurrentYear,   -- Forzamos el AÑO ACTUAL
+                    DATEFROMPARTS(@CurrentYear, @CurrentMonth, 1), -- Ponemos fecha día 1 por defecto
                     description, 
-                    amount_depo,    -- <--- Aquí copiamos el valor real
-                    amount_casa,    -- <--- Aquí copiamos el valor real
-                    amount_pagado,  -- <--- Aquí copiamos el valor real
-                    amount_retiros, -- <--- Aquí copiamos el valor real
-                    amount_extras   -- <--- Aquí copiamos el valor real
+                    amount_depo, amount_casa, amount_pagado, amount_retiros, amount_extras
                 FROM cash_flow_items
                 WHERE month = @PrevMonth AND year = @PrevYear
-                AND is_confirmed = 1"; 
+                AND is_confirmed = 1"; // Opcional: filtrar por confirmados
 
             var parameters = new[] {
                 new SqlParameter("@CurrentMonth", currentMonth),

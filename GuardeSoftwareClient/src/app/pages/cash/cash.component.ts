@@ -16,36 +16,33 @@ import { CashFlowItem, FinancialAccount, MonthlySummary } from '../../core/model
 })
 export class CashComponent implements OnInit {
   
-  // Estado de Fechas
   currentDate = new Date();
   selectedMonth = this.currentDate.getMonth() + 1;
   selectedYear = this.currentDate.getFullYear();
   
-  // Datos
   items: CashFlowItem[] = [];
   summary: MonthlySummary = {
     totalSystemIncome: 0, totalAdvancePayments: 0, totalManualExpenses: 0, netBalance: 0, pendingCollection: 0
   };
   accounts: FinancialAccount[] = [];
 
-  // Totales Locales de la Tabla (Columnas)
   totals = { 
     depo: 0, 
     casa: 0, 
     pagado: 0, 
     retiros: 0, 
     extras: 0,
-    // Nuevos calculados
-    aPagar: 0,      // (Depo + Casa)
-    faltaPagar: 0   // (A Pagar - Pagado)
+    aPagar: 0, 
+    faltaPagar: 0 
   };
+
+  accountTotals = { total: 0, banks: 0, cash: 0 };
 
   // Control de Guardado Automático
   private saveSubject = new Subject<CashFlowItem>();
   isLoading = false;
 
   constructor(private cashService: CashService) {
-    // Configurar debounce: Espera 1s después de que el usuario deja de escribir para guardar
     this.saveSubject.pipe(
       debounceTime(1000) 
     ).subscribe(item => this.saveItem(item));
@@ -56,16 +53,20 @@ export class CashComponent implements OnInit {
   }
 
   loadData(): void {
-    this.isLoading = true;
-    
-    // 1. Cargar Items Manuales
-    this.cashService.getItems(this.selectedMonth, this.selectedYear).subscribe(data => {
-      this.items = data;
-      // Si no hay items, agregamos una fila vacía para empezar
-      if (this.items.length === 0) this.addNewRow(); 
-      this.calculateLocalTotals();
-      this.isLoading = false;
+  this.isLoading = true;
+  
+  this.cashService.getItems(this.selectedMonth, this.selectedYear).subscribe(data => {
+    this.items = data.map(item => {
+      if (item.date && item.date.includes('T')) {
+        item.date = item.date.split('T')[0];
+      }
+      return item;
     });
+
+    if (this.items.length === 0) this.addNewRow(); 
+    this.calculateLocalTotals();
+    this.isLoading = false;
+  });
 
     // 2. Cargar Resumen Automático (Ingresos del Sistema)
     this.cashService.getMonthlySummary(this.selectedMonth, this.selectedYear).subscribe(sum => {
@@ -74,35 +75,37 @@ export class CashComponent implements OnInit {
     });
 
     // 3. Cargar Cuentas
-    this.cashService.getAccounts().subscribe(acc => this.accounts = acc);
+    this.cashService.getAccounts().subscribe(acc => {
+        this.accounts = acc;
+        this.calculateAccountTotals();
+    });
   }
 
-  // --- Lógica de Tabla Editable ---
 
   addNewRow(): void {
-    const newItem: CashFlowItem = {
-      date: new Date().toISOString().split('T')[0], // Hoy
-      description: '',
-      depo: 0, casa: 0, pagado: 0, retiros: 0, extras: 0
-    };
-    this.items.push(newItem);
-  }
+  const newItem: CashFlowItem = {
+    date: new Date().toISOString().split('T')[0], 
+    description: '',
+    depo: 0, casa: 0, pagado: 0, retiros: 0, extras: 0
+  };
+  this.items.push(newItem);
+}
 
   onItemChange(item: CashFlowItem): void {
-    this.calculateLocalTotals(); // Actualizar totales visuales inmediatamente
-    this.saveSubject.next(item); // Encolar guardado
+    this.calculateLocalTotals(); 
+    this.saveSubject.next(item); 
   }
 
   saveItem(item: CashFlowItem): void {
     this.cashService.upsertItem(item).subscribe(id => {
-      item.id = id; // Asignar ID si era nuevo
+      item.id = id; 
       console.log('Item guardado/actualizado');
     });
   }
 
   deleteItem(item: CashFlowItem, index: number): void {
     if (!item.id) {
-      this.items.splice(index, 1); // Si no está en BD, solo borrar del array
+      this.items.splice(index, 1); 
       return;
     }
 
@@ -128,7 +131,7 @@ export class CashComponent implements OnInit {
   calculateLocalTotals(): void {
     // 1. Sumar columnas individuales
     this.totals = this.items.reduce((acc, curr) => ({
-      ...acc, // Mantenemos propiedades previas para sobreescribir
+      ...acc,
       depo: acc.depo + (Number(curr.depo) || 0),
       casa: acc.casa + (Number(curr.casa) || 0),
       pagado: acc.pagado + (Number(curr.pagado) || 0),
@@ -139,20 +142,10 @@ export class CashComponent implements OnInit {
       aPagar: 0, faltaPagar: 0 // Reset de nuevos valores
     });
 
-    // 2. Cálculos de Agrupación (Lógica de Negocio Solicitada)
-    
-    // "A PAGAR" = Gastos previstos (Depo + Casa)
     this.totals.aPagar = this.totals.depo + this.totals.casa;
 
-    // "FALTA PAGAR" = Lo que debía pagar menos lo que realmente pagué
     this.totals.faltaPagar = this.totals.aPagar - this.totals.pagado;
 
-    // 3. Actualizar resumen para el cálculo de Ganancia Neta
-    // Aquí la lógica depende de qué considera el cliente "Ganancia Real".
-    // Opción A (Caja Real): Ingresos - Lo que realmente salió (Pagado + Retiros + Extras)
-    // Opción B (Devengado): Ingresos - Lo que debería salir (A Pagar + Retiros + Extras)
-    
-    // Usaremos Opción A (Caja Real) que suele ser lo que buscan en estas planillas:
     const totalSalidasReales = this.totals.pagado + this.totals.retiros + this.totals.extras;
     
     this.summary.totalManualExpenses = totalSalidasReales;
@@ -160,13 +153,10 @@ export class CashComponent implements OnInit {
   }
 
   calculateNetBalance(): void {
-    // Ganancia = (Ingresos Sistema + Pagos Adelantados) - Gastos Manuales
-    // Nota: Ajustar fórmula según si DEPO suma o no.
     const totalIncome = (this.summary.totalSystemIncome || 0) + (this.summary.totalAdvancePayments || 0);
     this.summary.netBalance = totalIncome - this.summary.totalManualExpenses;
   }
 
-  // --- Cambio de Mes ---
   changeMonth(delta: number): void {
     let m = this.selectedMonth + delta;
     let y = this.selectedYear;
@@ -174,11 +164,8 @@ export class CashComponent implements OnInit {
     if (m > 12) { m = 1; y++; }
     if (m < 1) { m = 12; y--; }
 
-    // VALIDACIÓN: No ir al futuro
     const today = new Date();
-    // Creamos fecha del primer dia del mes seleccionado
     const selectedDate = new Date(y, m - 1, 1);
-    // Creamos fecha del primer dia del mes actual
     const currentDate = new Date(today.getFullYear(), today.getMonth(), 1);
 
     if (selectedDate > currentDate) {
@@ -193,7 +180,7 @@ export class CashComponent implements OnInit {
 
 
   onAccountChange(account: FinancialAccount): void {
-    // Persistencia inmediata al cambiar el valor
+    this.calculateAccountTotals(); // <--- RECALCULAR AL EDITAR MONTO
     this.cashService.updateAccountBalance(account.id, account.balance).subscribe({
         error: () => Swal.fire('Error', 'No se pudo actualizar el saldo', 'error')
     });
@@ -207,7 +194,6 @@ export class CashComponent implements OnInit {
         <select id="acc-type" class="swal2-input">
           <option value="Banco">Banco</option>
           <option value="Caja Fuerte">Caja Fuerte</option>
-          <option value="Billetera">Billetera</option>
           <option value="Otro">Otro</option>
         </select>
       `,
@@ -224,6 +210,7 @@ export class CashComponent implements OnInit {
         this.cashService.createAccount(result.value).subscribe(id => {
           const newAcc = { ...result.value, id };
           this.accounts.push(newAcc);
+          this.calculateAccountTotals(); // <--- RECALCULAR AL AGREGAR
           Swal.fire('Creada', 'La cuenta ha sido agregada.', 'success');
         });
       }
@@ -242,8 +229,25 @@ export class CashComponent implements OnInit {
       if (result.isConfirmed) {
         this.cashService.deleteAccount(account.id).subscribe(() => {
           this.accounts.splice(index, 1);
+          this.calculateAccountTotals();
         });
       }
     });
+  }
+
+  calculateAccountTotals(): void {
+    this.accountTotals = this.accounts.reduce((acc, curr) => {
+      const bal = Number(curr.balance) || 0;
+
+      acc.total += bal;
+
+      if (curr.type === 'Banco') {
+        acc.banks += bal;
+      } else if (['Caja Fuerte', 'Billetera', 'Caja'].includes(curr.type)) {
+        acc.cash += bal;
+      }
+
+      return acc;
+    }, { total: 0, banks: 0, cash: 0 });
   }
 }

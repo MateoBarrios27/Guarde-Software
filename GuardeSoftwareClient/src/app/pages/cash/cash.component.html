@@ -1,4 +1,4 @@
-<div class="flex flex-col h-full bg-gray-50 min-h-screen p-4 font-inter">
+<div class="flex flex-col h-full bg-gray-50 min-h-screen font-inter">
 
   <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border mb-4">
     <h1 class="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -56,7 +56,7 @@
               
               <td class="p-1"><input type="number" [(ngModel)]="item.retiros" (change)="onItemChange(item)" class="table-input text-gray-600"></td>
               <td class="p-1"><input type="number" [(ngModel)]="item.extras" (change)="onItemChange(item)" class="table-input text-purple-600"></td>
-              <td class="p-1 text-center"><button (click)="deleteItem(item, i)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><app-icon name="trash-2" class="h-4 w-4"></app-icon></button></td>
+              <td class="p-1 text-center"><button (click)="deleteItem(item, i)" class="text-gray-700"><app-icon name="Trash2" class="h-4 w-4 text-gray-300 hover:text-red-600"></app-icon></button></td>
             </tr>
           </tbody>
           <tfoot class="bg-gray-100 font-bold text-gray-700 border-t sticky bottom-0 z-10">
@@ -85,14 +85,14 @@
             <span class="text-gray-600 flex items-center gap-2">
               <div class="w-2 h-2 rounded-full bg-green-500"></div> Ingresos Sistema (Alquileres)
             </span>
-            <span class="font-bold text-gray-900">{{ (summary.totalSystemIncome || 0) | currency:'ARS' }}</span>
+            <span class="font-bold text-gray-900">{{ (summary.totalSystemIncome || 0) | currency:'ARS':'symbol-narrow':'1.0-0' }}</span>
           </div>
 
           <div class="flex justify-between items-center">
             <span class="text-gray-600 flex items-center gap-2">
               <div class="w-2 h-2 rounded-full bg-blue-400"></div> Pagos Adelantados
             </span>
-            <span class="font-bold text-blue-700">{{ (summary.totalAdvancePayments || 0) | currency:'ARS' }}</span>
+            <span class="font-bold text-blue-700">{{ (summary.totalAdvancePayments || 0) | currency:'ARS':'symbol-narrow':'1.0-0' }}</span>
           </div>
 
           <div class="border-t border-dashed pt-2 space-y-2">
@@ -100,31 +100,31 @@
               <span class="text-gray-600 flex items-center gap-2">
                 <div class="w-2 h-2 rounded-full bg-orange-400"></div> Total A Pagar (Depo + Casa)
               </span>
-              <span class="font-semibold text-orange-600">{{ totals.aPagar | currency:'ARS' }}</span>
+              <span class="font-semibold text-orange-600">{{ totals.aPagar | currency:'ARS':'symbol-narrow':'1.0-0' }}</span>
             </div>
 
             <div class="flex justify-between items-center">
               <span class="text-gray-600 flex items-center gap-2">
                 <div class="w-2 h-2 rounded-full bg-green-500"></div> Total Pagado
               </span>
-              <span class="font-semibold text-green-600">- {{ totals.pagado | currency:'ARS' }}</span>
+              <span class="font-semibold text-green-600">- {{ totals.pagado | currency:'ARS':'symbol-narrow':'1.0-0' }}</span>
             </div>
 
             <div class="flex justify-between items-center bg-red-50 p-2 rounded border border-red-100 mt-1">
               <span class="text-red-800 font-bold text-xs uppercase tracking-wider">Falta Pagar</span>
-              <span class="font-bold text-red-700">{{ totals.faltaPagar | currency:'ARS' }}</span>
+              <span class="font-bold text-red-700">{{ totals.faltaPagar | currency:'ARS':'symbol-narrow':'1.0-0' }}</span>
             </div>
           </div>
 
           <div class="flex justify-between items-center pt-1 border-t border-dashed">
              <span class="text-gray-500 text-xs">Otras Salidas (Retiros + Extras)</span>
-             <span class="text-gray-500 text-xs">- {{ (totals.retiros + totals.extras) | currency:'ARS' }}</span>
+             <span class="text-gray-500 text-xs">- {{ (totals.retiros + totals.extras) | currency:'ARS':'symbol-narrow':'1.0-0' }}</span>
           </div>
           
           <div class="mt-4 pt-3 border-t-2 border-gray-100 flex justify-between items-center">
             <span class="text-lg font-bold text-gray-800">Caja Real (Ganancia)</span>
             <span class="text-xl font-bold" [ngClass]="summary.netBalance >= 0 ? 'text-green-600' : 'text-red-600'">
-              {{ summary.netBalance | currency:'ARS' }}
+              {{ summary.netBalance | currency:'ARS':'symbol-narrow':'1.0-0' }}
             </span>
           </div>
         </div>
@@ -142,10 +142,10 @@
                 No hay cuentas registradas.
             </div>
 
-            <div *ngFor="let acc of accounts; let i = index" class="flex items-center justify-between group p-2 rounded hover:bg-gray-50 transition-colors">
+            <div *ngFor="let acc of accounts; let i = index" class="flex items-center justify-between group p-2 rounded hover:bg-gray-50  ">
                 <div class="flex items-center gap-3">
-                    <button (click)="deleteAccount(acc, i)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" title="Eliminar cuenta">
-                        <app-icon name="trash-2" class="h-4 w-4"></app-icon>
+                    <button (click)="deleteAccount(acc, i)" class="" title="Eliminar cuenta">
+                        <app-icon name="Trash2" class="h-4 w-4 text-gray-300 hover:text-red-600"></app-icon>
                     </button>
                     <div class="flex flex-col">
                         <span class="text-sm font-medium text-gray-700">{{ acc.name }}</span>
@@ -164,6 +164,25 @@
         <button (click)="addAccount()" class="mt-6 w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 font-medium rounded-lg hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all text-sm flex items-center justify-center gap-2">
           <app-icon name="plus-circle" class="h-4 w-4"></app-icon> Nueva Cuenta / Caja
         </button>
+
+        <div class="pt-4 border-t border-gray-100 grid grid-cols-3 gap-2">
+            <div class="bg-blue-50 p-2 rounded text-center border border-blue-100">
+                <p class="text-[10px] uppercase tracking-wider font-bold text-blue-600">Bancos</p>
+                <p class="text-sm font-bold text-blue-800">{{ accountTotals.banks | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+            </div>
+            
+            <div class="bg-green-50 p-2 rounded text-center border border-green-100">
+                <p class="text-[10px] uppercase tracking-wider font-bold text-green-600">Cajas</p>
+                <p class="text-sm font-bold text-green-800">{{ accountTotals.cash | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+            </div>
+
+            <div class="bg-gray-100 p-2 rounded text-center border border-gray-200">
+                <p class="text-[10px] uppercase tracking-wider font-bold text-gray-600">Total</p>
+                <p class="text-sm font-extrabold text-gray-900">{{ accountTotals.total | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+            </div>
+        </div>
+
+        
       </div>
 
     </div>
