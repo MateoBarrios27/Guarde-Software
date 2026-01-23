@@ -539,28 +539,30 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<ClientFinancialDto> GetClientFinancialData(int clientId)
         {
-            // LÓGICA DE NEGOCIO (Réplica del Excel/CSV):
-            // 1. Saldo Actual: La suma total de la cuenta corriente.
-            // 2. Saldo Anterior: El saldo total calculado hasta el último día del mes pasado.
-            // 3. Recargo: La suma de conceptos "Recargo" o "Interés" generados este mes.
-
             string query = @"
                 DECLARE @StartOfMonth DATE = DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1);
 
                 SELECT 
-                    -- Saldo Actual (Total histórico)
-                    ISNULL(SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END), 0) as CurrentBalance,
+                    -- 1. Saldo Actual (Total histórico + Identificador de Pago)
+                    (
+                        ISNULL(SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END), 0)
+                        + 
+                        ISNULL((SELECT payment_identifier FROM clients WHERE client_id = @ClientId), 0)
+                    ) as CurrentBalance,
                     
-                    -- Saldo Anterior (Total histórico hasta antes de este mes)
+                    -- 2. Saldo Anterior (Total histórico hasta antes de este mes)
+                    -- Nota: Al saldo anterior NO se le suele sumar el identificador porque es deuda histórica pura, 
+                    -- pero si tu lógica de negocio lo requiere, agrégalo aquí también. Por ahora lo dejo puro.
                     ISNULL(SUM(CASE 
                         WHEN movement_date < @StartOfMonth AND movement_type = 'DEBITO' THEN amount 
                         WHEN movement_date < @StartOfMonth AND movement_type != 'DEBITO' THEN -amount 
                         ELSE 0 END), 0) as PreviousBalance,
 
-                    -- Recargo del mes (Busca movimientos que digan 'Recargo' o 'Interés por mora' en el concepto y sean de este mes)
+                    -- 3. Recargo del mes
                     ISNULL(SUM(CASE 
                         WHEN movement_date >= @StartOfMonth AND (concept LIKE '%Recargo%' OR concept LIKE '%Interés por mora%') THEN amount 
                         ELSE 0 END), 0) as Surcharge
+
                 FROM account_movements am
                 JOIN rentals r ON am.rental_id = r.rental_id
                 WHERE r.client_id = @ClientId";
