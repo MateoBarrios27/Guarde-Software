@@ -8,4 +8,5 @@ export interface DetailedPaymentDTO{
     paymentMethodName: string;
     concept: string;
     movementType: string;
+    preferredPayment: number;
 }
