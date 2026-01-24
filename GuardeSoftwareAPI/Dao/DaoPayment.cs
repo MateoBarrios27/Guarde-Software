@@ -121,6 +121,7 @@ namespace GuardeSoftwareAPI.Dao
                     p.payment_id,
                     c.first_name + ' ' + c.last_name AS client_name,
                     c.payment_identifier,
+                    c.preferred_payment_method_id,
                     p.amount,
                     p.payment_date,
                     pm.name AS payment_method_name,

@@ -12,5 +12,7 @@ namespace GuardeSoftwareAPI.Dtos.Payment
         public string PaymentMethodName { get; set; } = string.Empty; 
         public string Concept { get; set; } = string.Empty;     
         public string MovementType { get; set; } = string.Empty; 
+
+        public int? PreferredPayment { get; set; }
     }
 }

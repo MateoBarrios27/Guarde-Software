@@ -239,7 +239,8 @@ namespace GuardeSoftwareAPI.Services.payment
 					PaymentDate = Convert.ToDateTime(row["payment_date"]),
 					PaymentMethodName = row["payment_method_name"]?.ToString() ?? string.Empty,
 					Concept = row["concept"]?.ToString() ?? string.Empty,
-					MovementType = row["movement_type"]?.ToString() ?? string.Empty
+					MovementType = row["movement_type"]?.ToString() ?? string.Empty,
+					PreferredPayment = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : null,
 				});
 			}
 
