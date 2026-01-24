@@ -55,6 +55,8 @@ export class FinancesComponent{
 
   amountOriginal = 0;
 
+  selectedPreferredPaymentId: number = 1;
+
 
   paymentDto: CreatePaymentDTO = {
       clientId: 0,
@@ -81,7 +83,6 @@ export class FinancesComponent{
         const dateB = new Date(b.paymentDate).getTime();
         return dateB - dateA; 
       });
-
       this.payments = sorted;
       this.filteredPayments = sorted;
       },
@@ -237,6 +238,7 @@ OpenPaymentModal() {
   this.selectedClientId = 0;
   this.selectedClientIdentifier = 0;
 
+
   const now = new Date();
 
   this.manualDateEnabled = false;
@@ -260,17 +262,69 @@ OpenPaymentModal() {
 commision:number = 0;
 newAmount: number = 0;
 
-AmountWithComission(amount: number, paymentMethodId: number): number{
+// AmountWithComission(amount: number, paymentMethodId: number): number{
 
-    const numericId = Number(paymentMethodId);
-    const method = this.paymentMethods.find(m => m.id === numericId);
-    this.commision = method ? method.commission : 0;
-    this.newAmount = amount + (amount * this.commision / 100);
+//     const numericId = Number(paymentMethodId);
+//     const method = this.paymentMethods.find(m => m.id === numericId);
+//     this.commision = method ? method.commission : 0;
+//     this.newAmount = amount + (amount * this.commision / 100);
 
-    return this.newAmount;
+//     return this.newAmount;
+// }
+private calcCommissions(selectedMethodId: number, preferredPaymentId: number) {
+  const selectedCommission = this.getCommissionByMethodId(selectedMethodId);
+  const includedCommission = this.getCommissionByMethodId(preferredPaymentId);
+  const extraCommission = Math.max(0, selectedCommission - includedCommission);
+
+  return { selectedCommission, includedCommission, extraCommission };
 }
 
+
+ private getCommissionByMethodId(paymentMethodId: number): number {
+  const id = Number(paymentMethodId);
+  if (!id || Number.isNaN(id)) return 0;
+  const method = this.paymentMethods.find(m => m.id === id);
+  return method?.commission ?? 0;
+}
+
+
+  AmountWithComission(amount: number, selectedMethodId: number, preferredPaymentId: number): number {
+    const selectedCommission = this.getCommissionByMethodId(selectedMethodId);
+
+    const includedCommission = this.getCommissionByMethodId(preferredPaymentId);
+
+    const extraCommission = Math.max(0, selectedCommission - includedCommission);
+
+    this.commision = extraCommission;
+
+    const newAmount = amount + (amount * extraCommission / 100);
+    this.newAmount = newAmount;
+
+    return newAmount;
+  }
+
 savePaymentModal(dto : CreatePaymentDTO){
+
+
+      if (!this.paymentMethods?.length) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Cargando métodos de pago',
+          text: 'Esperá a que carguen los métodos de pago para registrar el pago.',
+          confirmButtonColor: '#2563eb'
+        });
+        return;
+      }
+
+      if (!this.paymentDto.clientId || this.paymentDto.clientId <= 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Cliente requerido',
+          text: 'Tenés que seleccionar un cliente antes de registrar el pago.',
+          confirmButtonColor: '#2563eb'
+        });
+        return;
+      }
 
       if (this.manualDateEnabled && this.dateString) {
         const [year, month, day] = this.dateString.split('-').map(Number);
@@ -326,27 +380,85 @@ savePaymentModal(dto : CreatePaymentDTO){
       }
 
       this.amountOriginal = dto.amount;
-      dto.amount = this.AmountWithComission(dto.amount, dto.paymentMethodId);
+
+      const { selectedCommission, includedCommission, extraCommission } =
+        this.calcCommissions(dto.paymentMethodId, this.selectedPreferredPaymentId);
+
+      // Para mantener consistencia con tu variable usada en pantalla
+      this.commision = extraCommission;
+
+      dto.amount = this.AmountWithComission(dto.amount, dto.paymentMethodId, this.selectedPreferredPaymentId);
       
       Swal.fire({
-      title: '¿Deseas registrar este pago?',
-      html: `<div class="flex flex-col gap-2 ml-9">
-             <p class="text-gray-700">Medio de pago: <b>${this.getNamePaymentMethodById(dto.paymentMethodId)}</b></p>
-             <p class="text-gray-700">Importe: <b>$${dto.amount}</b></p>
-             <p class="text-gray-700">Comisión: <b>${this.commision}%</b></p> </div>`,
+      title: 'Confirmar registro de pago',
+      html: `
+        <div class="text-left space-y-3">
+          <div class="pb-3 border-b border-gray-200">
+            <div class="text-sm text-gray-500">Método de pago</div>
+            <div class="text-base font-semibold text-gray-800">
+              ${this.getNamePaymentMethodById(dto.paymentMethodId)}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
+              <div class="text-sm text-gray-500">Monto base</div>
+              <div class="text-lg font-semibold text-gray-900">$${this.amountOriginal}</div>
+            </div>
+
+            <div class="p-3 rounded-lg bg-blue-50 border border-blue-200">
+              <div class="text-sm text-blue-800">Total a cobrar</div>
+              <div class="text-lg font-bold text-blue-900">$${dto.amount}</div>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-lg border border-gray-200 bg-white">
+            <div class="text-base font-semibold text-gray-800 mb-2">Detalle de comisiones</div>
+
+            <div class="flex justify-between text-sm text-gray-700">
+              <span>Comisión del método</span>
+              <span class="font-semibold">${selectedCommission}%</span>
+            </div>
+
+            <div class="flex justify-between text-sm text-gray-700 mt-1">
+              <span>Comisión incluida (predefinida)</span>
+              <span class="font-semibold">${includedCommission}%</span>
+            </div>
+
+            <div class="flex justify-between text-sm text-gray-700 mt-1 pt-2 border-t border-gray-200">
+              <span>Comisión extra aplicada</span>
+              <span class="font-semibold">${extraCommission}%</span>
+            </div>
+
+            ${
+              extraCommission === 0
+                ? `<div class="mt-2 text-xs text-gray-500">
+                    No se aplica comisión extra porque el monto base ya contempla una comisión mayor o igual.
+                  </div>`
+                : `<div class="mt-2 text-xs text-gray-500">
+                    Se aplica únicamente la diferencia de comisión por elegir un método con mayor porcentaje.
+                  </div>`
+            }
+          </div>
+
+          <div class="text-xs text-gray-500">
+            Nota: el monto base ya incluye la comisión del método preferido del cliente.
+          </div>
+        </div>
+      `,
       icon: 'question',
-      showCancelButton: true, 
-      confirmButtonText: 'Confirmar',
+      showCancelButton: true,
+      confirmButtonText: 'Registrar pago',
       cancelButtonText: 'Cancelar',
       buttonsStyling: false,
       customClass: {
         confirmButton:
-          'bg-blue-600 text-white px-4 py-2 p-2 rounded-md hover:bg-blue-700 transition-all duration-150',
+          'bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-all duration-150',
         cancelButton:
           'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
-         actions:
-          'flex justify-center gap-4 mt-4',
-        popup: 'rounded-xl shadow-lg'
+        actions: 'flex justify-end gap-3 mt-4',
+        popup: 'rounded-xl shadow-lg p-4',
+        icon: 'scale-60 mt-1',
       }
       }).then((result) => {
         if (result.isConfirmed) {
@@ -382,6 +494,10 @@ selectClient(client: any) {
   this.selectedClientId = client.id;
   this.selectedClientIdentifier = client.paymentIdentifier;
   this.paymentDto.clientId = client.id;
+  
+  this.selectedPreferredPaymentId = Number(client.preferredPaymentMethodId ?? 1); 
+  console.log(client.preferredPaymentMethodId);
+  console.log('preferred:', this.selectedPreferredPaymentId);
 }
 
 

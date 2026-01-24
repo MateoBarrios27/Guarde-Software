@@ -221,7 +221,13 @@ export class DashboardComponent {
     return newAmount;
   }
 
+  private calcCommissions(selectedMethodId: number, preferredPaymentId: number) {
+    const selectedCommission = this.getCommissionByMethodId(selectedMethodId);
+    const includedCommission = this.getCommissionByMethodId(preferredPaymentId);
+    const extraCommission = Math.max(0, selectedCommission - includedCommission);
 
+    return { selectedCommission, includedCommission, extraCommission };
+  }
 
   savePayment(dto: CreatePaymentDTO): void {
 
@@ -267,28 +273,86 @@ export class DashboardComponent {
 
 
     this.amountOriginal = dto.amount;
+
+    const { selectedCommission, includedCommission, extraCommission } =
+        this.calcCommissions(dto.paymentMethodId, this.selectedPreferredPaymentId);
+
+      // Para mantener consistencia con tu variable usada en pantalla
+      this.commision = extraCommission;
+
     dto.amount = this.AmountWithComission(dto.amount, dto.paymentMethodId, this.selectedPreferredPaymentId);
     
     Swal.fire({
-    title: '¿Deseas registrar este pago?',
-    html: `<div class="flex flex-col gap-2 ml-9">
-           <p class="text-gray-700">Medio de pago: <b>${this.getNamePaymentMethodById(dto.paymentMethodId)}</b></p>
-           <p class="text-gray-700">Importe: <b>$${dto.amount}</b></p>
-           <p class="text-gray-700">Comisión: <b>${this.commision}%</b></p> </div>`,
-    icon: 'question',
-    showCancelButton: true, 
-    confirmButtonText: 'Confirmar',
-    cancelButtonText: 'Cancelar',
-    buttonsStyling: false,
-    customClass: {
-      confirmButton:
-        'bg-blue-600 text-white px-4 py-2 p-2 rounded-md hover:bg-blue-700 transition-all duration-150',
-      cancelButton:
-        'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
-       actions:
-        'flex justify-center gap-4 mt-4',
-      popup: 'rounded-xl shadow-lg'
-    }
+    title: 'Confirmar registro de pago',
+      html: `
+        <div class="text-left space-y-3">
+          <div class="pb-3 border-b border-gray-200">
+            <div class="text-sm text-gray-500">Método de pago</div>
+            <div class="text-base font-semibold text-gray-800">
+              ${this.getNamePaymentMethodById(dto.paymentMethodId)}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
+              <div class="text-sm text-gray-500">Monto base</div>
+              <div class="text-lg font-semibold text-gray-900">$${this.amountOriginal}</div>
+            </div>
+
+            <div class="p-3 rounded-lg bg-blue-50 border border-blue-200">
+              <div class="text-sm text-blue-800">Total a cobrar</div>
+              <div class="text-lg font-bold text-blue-900">$${dto.amount}</div>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-lg border border-gray-200 bg-white">
+            <div class="text-base font-semibold text-gray-800 mb-2">Detalle de comisiones</div>
+
+            <div class="flex justify-between text-sm text-gray-700">
+              <span>Comisión del método</span>
+              <span class="font-semibold">${selectedCommission}%</span>
+            </div>
+
+            <div class="flex justify-between text-sm text-gray-700 mt-1">
+              <span>Comisión incluida (predefinida)</span>
+              <span class="font-semibold">${includedCommission}%</span>
+            </div>
+
+            <div class="flex justify-between text-sm text-gray-700 mt-1 pt-2 border-t border-gray-200">
+              <span>Comisión extra aplicada</span>
+              <span class="font-semibold">${extraCommission}%</span>
+            </div>
+
+            ${
+              extraCommission === 0
+                ? `<div class="mt-2 text-xs text-gray-500">
+                    No se aplica comisión extra porque el monto base ya contempla una comisión mayor o igual.
+                  </div>`
+                : `<div class="mt-2 text-xs text-gray-500">
+                    Se aplica únicamente la diferencia de comisión por elegir un método con mayor porcentaje.
+                  </div>`
+            }
+          </div>
+
+          <div class="text-xs text-gray-500">
+            Nota: el monto base ya incluye la comisión del método preferido del cliente.
+          </div>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Registrar pago',
+      cancelButtonText: 'Cancelar',
+      buttonsStyling: false,
+      customClass: {
+        confirmButton:
+          'bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-all duration-150',
+        cancelButton:
+          'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
+        actions: 'flex justify-end gap-3 mt-4',
+        popup: 'rounded-xl shadow-lg p-4',
+        icon: 'scale-60 mt-1',
+      }
     }).then((result) => {
       if (result.isConfirmed) {
         this.paymentService.CreatePayment(dto).subscribe({
