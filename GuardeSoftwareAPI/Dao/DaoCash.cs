@@ -248,5 +248,23 @@ namespace GuardeSoftwareAPI.Dao
             string query = "DELETE FROM financial_accounts WHERE account_id = @Id";
             await _accessDB.ExecuteCommandAsync(query, new[] { new SqlParameter("@Id", id) });
         }
+
+        public async Task<decimal> GetCalculatedIvaAsync(int month, int year)
+        {
+            string query = @"
+                SELECT ISNULL(SUM(amount), 0)
+                FROM payments
+                WHERE payment_method_id = 2
+                AND MONTH(payment_date) = @Month 
+                AND YEAR(payment_date) = @Year";
+
+            var result = await _accessDB.ExecuteScalarAsync(query, new[] { 
+                new SqlParameter("@Month", month), 
+                new SqlParameter("@Year", year) 
+            });
+            
+            decimal totalTransfers = Convert.ToDecimal(result);
+            return totalTransfers * 0.21m;
+        }
     }
 }

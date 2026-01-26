@@ -45,18 +45,43 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-             <tr *ngFor="let item of items; let i = index" class="hover:bg-blue-50/30 transition-colors group">
-              <td class="p-1"><input type="date" [(ngModel)]="item.date" (change)="onItemChange(item)" class="w-full bg-transparent border-none text-xs text-gray-600 p-1"></td>
-              <td class="p-1"><input type="text" [(ngModel)]="item.description" (blur)="onItemChange(item)" class="w-full bg-transparent border-none text-sm font-medium text-gray-800 p-1"></td>
+             <tr *ngFor="let item of items; let i = index" class="hover:bg-blue-50/30 transition-colors group"
+                [ngClass]="{'bg-purple-50': item.id === -1}"> <td class="p-1">
+                <input type="date" [(ngModel)]="item.date" (change)="onItemChange(item)" 
+                      [disabled]="item.id === -1" 
+                      class="w-full bg-transparent border-none text-xs text-gray-600 p-1 disabled:opacity-50">
+              </td>
+
+              <td class="p-1">
+                <input type="text" [(ngModel)]="item.description" (blur)="onItemChange(item)" 
+                      [disabled]="item.id === -1"
+                      class="w-full bg-transparent border-none text-sm font-medium text-gray-800 p-1 disabled:font-bold disabled:text-purple-800">
+              </td>
+
+              <td class="p-1 bg-blue-50/20">
+                <input type="text" appCurrencyFormat [(ngModel)]="item.depo" (change)="onItemChange(item)" [disabled]="item.id === -1" class="table-input text-blue-700 font-semibold disabled:opacity-50">
+              </td>
+              <td class="p-1 bg-orange-50/20">
+                <input type="text" appCurrencyFormat [(ngModel)]="item.casa" (change)="onItemChange(item)" [disabled]="item.id === -1" class="table-input text-orange-700 font-semibold disabled:opacity-50">
+              </td>
+              <td class="p-1 bg-green-50/20">
+                <input type="text" appCurrencyFormat [(ngModel)]="item.pagado" (change)="onItemChange(item)" [disabled]="item.id === -1" class="table-input text-green-700 font-bold disabled:opacity-50">
+              </td>
+              <td class="p-1">
+                <input type="text" appCurrencyFormat [(ngModel)]="item.retiros" (change)="onItemChange(item)" [disabled]="item.id === -1" class="table-input text-gray-600 disabled:opacity-50">
+              </td>
               
-              <td class="p-1 bg-blue-50/20"><input type="number" [(ngModel)]="item.depo" (change)="onItemChange(item)" class="table-input text-blue-700 font-semibold"></td>
-              <td class="p-1 bg-orange-50/20"><input type="number" [(ngModel)]="item.casa" (change)="onItemChange(item)" class="table-input text-orange-700 font-semibold"></td>
-              
-              <td class="p-1 bg-green-50/20"><input type="number" [(ngModel)]="item.pagado" (change)="onItemChange(item)" class="table-input text-green-700 font-bold"></td>
-              
-              <td class="p-1"><input type="number" [(ngModel)]="item.retiros" (change)="onItemChange(item)" class="table-input text-gray-600"></td>
-              <td class="p-1"><input type="number" [(ngModel)]="item.extras" (change)="onItemChange(item)" class="table-input text-purple-600"></td>
-              <td class="p-1 text-center"><button (click)="deleteItem(item, i)" class="text-gray-700"><app-icon name="Trash2" class="h-4 w-4 text-gray-300 hover:text-red-600"></app-icon></button></td>
+              <td class="p-1">
+                <input type="text" appCurrencyFormat [(ngModel)]="item.extras" (change)="onItemChange(item)" 
+                      [disabled]="item.id === -1" 
+                      class="table-input text-purple-600 disabled:font-bold disabled:text-purple-800">
+              </td>
+
+              <td class="p-1 text-center">
+                <button *ngIf="item.id !== -1" (click)="deleteItem(item, i)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <app-icon name="trash-2" class="h-4 w-4"></app-icon>
+                </button>
+              </td>
             </tr>
           </tbody>
           <tfoot class="bg-gray-100 font-bold text-gray-700 border-t sticky bottom-0 z-10">

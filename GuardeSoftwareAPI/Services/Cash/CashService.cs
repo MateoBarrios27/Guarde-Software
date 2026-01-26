@@ -12,23 +12,37 @@ namespace GuardeSoftwareAPI.Services.cash
             _dao = new CashDao(accessDB);
         }
 
-        // --- Items Manuales ---
-        // En CashFlowService.cs
-
         public async Task<List<CashFlowItemDto>> GetItemsAsync(int month, int year)
         {
-            // 1. Intentar obtener items del mes actual
+            // 1. Obtener items manuales
             var items = await _dao.GetItemsAsync(month, year);
 
-            // 2. Si no hay items (es un mes nuevo virgen), intentamos copiar del mes anterior
+            // 2. Copia automática de mes anterior (Lógica existente)
             if (items.Count == 0)
             {
-                // Ejecutamos la copia
                 await _dao.CopyConceptsFromPreviousMonthAsync(month, year);
-                
-                // Volvemos a consultar (ahora debería traer los copiados)
                 items = await _dao.GetItemsAsync(month, year);
             }
+
+            // 3. NUEVO: Obtener IVA calculado
+            decimal ivaValue = await _dao.GetCalculatedIvaAsync(month, year);
+
+            // 4. Inyectar Fila Virtual de IVA
+            // Usamos ID = -1 para que el Frontend sepa que es especial/no editable
+            var ivaItem = new CashFlowItemDto 
+            {
+                Id = -1, 
+                Date = new DateTime(year, month, 1), // Fecha 1 del mes
+                Description = "IVA (21% Transferencias)",
+                Depo = ivaValue,
+                Casa = 0,
+                Pagado = 0, 
+                Retiros = 0,
+                Extras = 0,
+            };
+
+            // Insertar al inicio de la lista
+            items.Insert(0, ivaItem);
 
             return items;
         }
