@@ -103,6 +103,7 @@ namespace GuardeSoftwareAPI.Dao
                 resultDto.DeudaTotalDelMes = row["DeudaTotalDelMes"] != DBNull.Value ? Convert.ToDecimal(row["DeudaTotalDelMes"]) : 0;
                 resultDto.BalanceGlobalActual = row["BalanceGlobalActual"] != DBNull.Value ? Convert.ToDecimal(row["BalanceGlobalActual"]) : 0;
                 resultDto.TotalEspaciosOcupados = row["TotalEspaciosOcupados"] != DBNull.Value ? Convert.ToInt32(row["TotalEspaciosOcupados"]) : 0;
+                resultDto.TotalAdvancePayments = await GetTotalAdvancePaymentsAsync(month, year);
             }
 
             string queryWarehouses = @"
@@ -202,6 +203,72 @@ namespace GuardeSoftwareAPI.Dao
                 }
             }
             return new ClientStatisticsDto();
+        }
+
+        public async Task<decimal> GetTotalAdvancePaymentsAsync(int month, int year)
+        {
+            string query = @"
+                DECLARE @TargetDate DATE = DATEFROMPARTS(@Year, @Month, 1);
+                WITH AccountSummary AS (
+                    SELECT
+                        r.client_id,
+                        SUM(
+                            CASE 
+                                WHEN am.movement_type = 'DEBITO' THEN -am.amount 
+                                ELSE am.amount 
+                            END
+                        ) AS RentalBalance
+                    FROM account_movements am
+                    INNER JOIN rentals r ON am.rental_id = r.rental_id
+                    WHERE r.active = 1
+                    GROUP BY r.client_id
+                ),
+                ClientsWithPositiveBalance AS (
+                    SELECT client_id
+                    FROM AccountSummary
+                    GROUP BY client_id
+                    HAVING SUM(RentalBalance) > 0 -- Solo nos interesan los que tienen saldo a favor
+                ),
+
+                MonthlyPayments AS (
+                    SELECT 
+                        client_id, 
+                        SUM(amount) as TotalPagadoMes
+                    FROM payments
+                    WHERE MONTH(payment_date) = @Month
+                    AND YEAR(payment_date) = @Year
+                    GROUP BY client_id
+                ),
+
+                HistoricalRent AS (
+                    SELECT 
+                        r.client_id, 
+                        SUM(h.amount) as AlquilerCorrespondiente
+                    FROM rentals r
+                    INNER JOIN rental_amount_history h ON r.rental_id = h.rental_id
+                    WHERE r.active = 1
+                    AND @TargetDate BETWEEN h.start_date AND ISNULL(h.end_date, '9999-12-31')
+                    GROUP BY r.client_id
+                )
+
+                -- CÁLCULO FINAL
+                -- (Pagado en el Mes - Costo Alquiler) SOLO SI:
+                -- 1. El cliente tiene saldo a favor global.
+                -- 2. El pago del mes superó al costo del alquiler.
+                SELECT ISNULL(SUM(mp.TotalPagadoMes - hr.AlquilerCorrespondiente), 0)
+                FROM ClientsWithPositiveBalance cpb
+                INNER JOIN MonthlyPayments mp ON cpb.client_id = mp.client_id
+                INNER JOIN HistoricalRent hr ON cpb.client_id = hr.client_id
+                WHERE mp.TotalPagadoMes > hr.AlquilerCorrespondiente;
+            ";
+
+            var parameters = new[] {
+                new SqlParameter("@Month", month),
+                new SqlParameter("@Year", year)
+            };
+
+            var result = await accessDB.ExecuteScalarAsync(query, parameters);
+            return Convert.ToDecimal(result);
         }
     }
 }

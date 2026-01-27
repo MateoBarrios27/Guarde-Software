@@ -86,6 +86,19 @@
           <app-icon name="file-text" class="h-5 w-5 text-orange-500"></app-icon>
         </div>
       </div>
+
+      <div class="bg-white p-4 rounded-xl shadow border border-blue-100 flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-500 font-medium">Pagos Adelantados (Mes)</p>
+          <h3 class="text-2xl font-bold text-blue-600">
+            {{ stats.totalAdvancePayments | currency:'ARS':'symbol':'1.0-0' }}
+          </h3>
+          <p class="text-xs text-blue-400 mt-1">Saldo a favor generado este mes</p>
+        </div>
+        <div class="p-3 bg-blue-50 rounded-full text-blue-500">
+          <app-icon name="trending-up" class="h-6 w-6"></app-icon>
+        </div>
+      </div>
     </div>
 
     <div>

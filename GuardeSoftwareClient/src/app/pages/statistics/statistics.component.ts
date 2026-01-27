@@ -24,6 +24,7 @@ export class StatisticsComponent implements OnInit {
     totalIntereses: 0,
     deudaTotalDelMes: 0,
     totalPagado: 0,
+    totalAdvancePayments: 0,
     totalEspaciosOcupados: 0,
     warehouseRevenues: []
   };

@@ -84,28 +84,23 @@ namespace GuardeSoftwareAPI.Services.cash
             await _dao.UpdateAccountBalanceAsync(id, balance);
         }
 
-        // --- Resumen Mensual (El núcleo de la lógica financiera) ---
         public async Task<MonthlyFinancialSummaryDto> GetMonthlySummaryAsync(int month, int year)
         {
-            // 1. Ingresos del Sistema (Automático desde Pagos)
             decimal systemIncome = await _dao.GetSystemIncomeAsync(month, year);
             
-            // 2. Gastos Manuales (Suma de la grilla de caja)
             decimal manualExpenses = await _dao.GetManualExpensesTotalAsync(month, year);
             
-            // 3. Deuda pendiente (Estado actual general)
             decimal pending = await _dao.GetPendingCollectionAsync(month, year);
 
-            // 4. Calcular Neto
-            // Fórmula: Ingresos - Gastos. 
-            // Nota: Aquí podrías sumar 'Total Advance Payments' si tuvieras lógica para detectarlos separadamente.
+            decimal advancePayments = await _dao.GetTotalAdvancePaymentsAsync(month, year);
+
             decimal netBalance = systemIncome - manualExpenses;
 
             return new MonthlyFinancialSummaryDto
             {
                 TotalSystemIncome = systemIncome,
                 TotalManualExpenses = manualExpenses,
-                // TotalAdvancePayments = 0, // Placeholder si quieres implementarlo a futuro
+                TotalAdvancePayments = advancePayments,
                 NetBalance = netBalance,
                 PendingCollection = pending
             };

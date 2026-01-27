@@ -10,6 +10,7 @@ namespace GuardeSoftwareAPI.Dtos.Statistics
         public decimal DeudaTotalDelMes { get; set; }
         public decimal BalanceGlobalActual { get; set; }
         public int TotalEspaciosOcupados { get; set; }
+        public decimal TotalAdvancePayments { get; set; }
         public List<WarehouseRevenueDto>? WarehouseRevenues { get; set; }
     }
 }
