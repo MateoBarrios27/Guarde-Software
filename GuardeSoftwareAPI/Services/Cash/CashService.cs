@@ -17,32 +17,45 @@ namespace GuardeSoftwareAPI.Services.cash
             // 1. Obtener items manuales
             var items = await _dao.GetItemsAsync(month, year);
 
-            // 2. Copia automática de mes anterior (Lógica existente)
-            if (items.Count == 0)
+            // 2. Copia automática (si aplica)
+            if (items.Count == 0) if (items.Count == 0)
             {
                 await _dao.CopyConceptsFromPreviousMonthAsync(month, year);
                 items = await _dao.GetItemsAsync(month, year);
             }
-
-            // 3. NUEVO: Obtener IVA calculado
+            
+            // 3. Obtener Valor Calculado
             decimal ivaValue = await _dao.GetCalculatedIvaAsync(month, year);
 
-            // 4. Inyectar Fila Virtual de IVA
-            // Usamos ID = -1 para que el Frontend sepa que es especial/no editable
-            var ivaItem = new CashFlowItemDto 
-            {
-                Id = -1, 
-                Date = new DateTime(year, month, 1), // Fecha 1 del mes
-                Description = "IVA (21% Transferencias)",
-                Depo = ivaValue,
-                Casa = 0,
-                Pagado = 0, 
-                Retiros = 0,
-                Extras = 0,
-            };
+            // 4. Buscar si ya existe la fila de IVA en la lista recuperada
+            var ivaItem = items.FirstOrDefault(x => x.Description == "IVA (21% Transferencias)");
 
-            // Insertar al inicio de la lista
-            items.Insert(0, ivaItem);
+            if (ivaItem != null)
+            {
+                // Si existe, actualizamos SOLO el valor calculado (Depo) para que esté al día
+                // Mantenemos Pagado, Retiros, etc. que vienen de la BD
+                ivaItem.Depo = ivaValue; 
+                
+                // Opcional: Si quieres persistir este nuevo valor calculado en la BD ahora mismo:
+                // await _dao.UpsertItemAsync(ivaItem, month, year);
+            }
+            else
+            {
+                // Si no existe, lo creamos y lo agregamos a la lista
+                var newIva = new CashFlowItemDto
+                {
+                    Date = new DateTime(year, month, 1),
+                    Description = "IVA (21% Transferencias)",
+                    Depo = ivaValue, // Valor calculado
+                    Casa = 0, Pagado = 0, Retiros = 0, Extras = 0
+                };
+                
+                // Lo guardamos en BD para tener ID real y permitir editar Pagado después
+                int newId = await _dao.UpsertItemAsync(newIva, month, year);
+                newIva.Id = newId;
+                
+                items.Insert(0, newIva);
+            }
 
             return items;
         }

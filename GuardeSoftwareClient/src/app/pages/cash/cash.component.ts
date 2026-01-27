@@ -97,13 +97,10 @@ export class CashComponent implements OnInit {
   }
 
   saveItem(item: CashFlowItem): void {
-  if (item.id === -1) return;
-
-  this.cashService.upsertItem(item).subscribe(id => {
-    item.id = id;
-    console.log('Item guardado/actualizado');
-  });
-}
+    this.cashService.upsertItem(item).subscribe(id => {
+      item.id = id;
+    });
+  }
 
   deleteItem(item: CashFlowItem, index: number): void {
     if (!item.id) {
