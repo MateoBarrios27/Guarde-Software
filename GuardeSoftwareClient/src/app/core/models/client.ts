@@ -10,5 +10,6 @@ export interface Client{
     cuit: string;
     preferredPaymentMethod: number;
     ivaCondition: string;
+    balance?: number;
 }
 

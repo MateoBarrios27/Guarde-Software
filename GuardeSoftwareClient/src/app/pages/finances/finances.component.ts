@@ -36,6 +36,7 @@ export class FinancesComponent{
   selectedClientId: number | 0 = 0;
   selectedClientName: string = '';
   selectedClientIdentifier: number | 0 = 0;
+  selectedClientBalance: number | 0 = 0;
 
   pendingRentals: PendingRentalDTO[] = [];
   payments: DetailedPaymentDTO[] = [];
@@ -211,6 +212,7 @@ closeClientModal() {
   this.selectedClientId = 0;
   this.selectedClientIdentifier = 0;
   this.selectedClientName = '';
+  this.selectedClientBalance = 0;
 
   this.manualDateEnabled = false;
   const now = new Date();
@@ -494,6 +496,7 @@ selectClient(client: any) {
   this.selectedClientId = client.id;
   this.selectedClientIdentifier = client.paymentIdentifier;
   this.paymentDto.clientId = client.id;
+  this.selectedClientBalance = client.balance;
   
   this.selectedPreferredPaymentId = Number(client.preferredPaymentMethodId ?? 1); 
   console.log(client.preferredPaymentMethodId);

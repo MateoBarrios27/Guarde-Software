@@ -260,18 +260,34 @@
 
           <!-- CAMBIO: scroll interno si falta altura -->
           <div class="text-sm flex-1 min-h-0 overflow-y-auto pr-1 space-y-3">
-
             <label class="block mb-1 font-medium text-indigo-900">
               Cliente seleccionado
             </label>
-            <div class="mb-4 p-3 bg-white/70 rounded border text-sm text-gray-700">
-              <label class="block mb-1 font-medium text-indigo-900">
-                {{ getClientNameById(selectedClientId) }}
-              </label>
-              <p class="text-sm text-gray-500">
-                ID Pago: {{ selectedClientIdentifier }}
-              </p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 ">
+              
+              
+              <div class="p-3 bg-white/70 rounded border text-sm text-gray-700 ">
+                <label class="block font-medium text-indigo-900">
+                  {{ getClientNameById(selectedClientId) }}
+                </label>
+                <p class="text-sm text-gray-500">
+                  ID Pago: {{ selectedClientIdentifier }}
+                </p>
+              </div>
+
+              
+              <div class="p-3 bg-white/70 rounded border text-sm text-gray-700">
+                <p class="block font-medium text-indigo-900">
+                  Balance
+                </p>
+                <p class="text-sm text-gray-800">
+                  {{ selectedClientBalance | currency:'USD':'symbol':'1.2-2' }}
+                </p>
+              </div>
+
             </div>
+
 
             <div>
               <label class="block mb-1 font-medium text-indigo-900">
