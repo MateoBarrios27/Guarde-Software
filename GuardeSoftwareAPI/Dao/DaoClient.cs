@@ -19,11 +19,65 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-        public async Task<DataTable> GetClients()
+       public async Task<DataTable> GetClients()
         {
-            string query = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes, billing_type_id, increase_frequency_months, initial_amount FROM clients WHERE active=1";
+            string query = @"
+                WITH AccountSummary AS (
+                    SELECT
+                        rental_id,
+                        SUM(
+                            CASE 
+                                WHEN movement_type = 'DEBITO' THEN -amount 
+                                ELSE amount 
+                            END
+                        ) AS Balance
+                    FROM account_movements
+                    GROUP BY rental_id
+                )
+                SELECT
+                    c.client_id,
+                    c.payment_identifier,
+                    c.first_name,
+                    c.last_name,
+                    c.registration_date,
+                    c.dni,
+                    c.cuit,
+                    c.preferred_payment_method_id,
+                    c.iva_condition,
+                    c.notes,
+                    c.billing_type_id,
+                    c.increase_frequency_months,
+                    c.initial_amount,
+
+                    -- BALANCE TOTAL DEL CLIENTE (suma de todos los rentals activos)
+                    ISNULL(SUM(ISNULL(acc.Balance, 0)), 0) AS balance
+
+                FROM clients c
+                LEFT JOIN rentals r
+                    ON c.client_id = r.client_id
+                    AND r.active = 1
+                LEFT JOIN AccountSummary acc
+                    ON r.rental_id = acc.rental_id
+                WHERE c.active = 1
+                GROUP BY
+                    c.client_id,
+                    c.payment_identifier,
+                    c.first_name,
+                    c.last_name,
+                    c.registration_date,
+                    c.dni,
+                    c.cuit,
+                    c.preferred_payment_method_id,
+                    c.iva_condition,
+                    c.notes,
+                    c.billing_type_id,
+                    c.increase_frequency_months,
+                    c.initial_amount;
+            ";
+
             return await accessDB.GetTableAsync("clients", query);
         }
+
 
         public async Task<DataTable> GetClientById(int id)
         {

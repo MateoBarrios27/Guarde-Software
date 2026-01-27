@@ -68,7 +68,7 @@ namespace GuardeSoftwareAPI.Services.client
                 int clientId = (int)row["client_id"];
 
                 Client client = new()
-                {
+                { 
                     Id = clientId,
                     PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
                     FirstName = row["first_name"]?.ToString() ?? string.Empty,
@@ -78,6 +78,7 @@ namespace GuardeSoftwareAPI.Services.client
                     Dni = row["dni"]?.ToString() ?? string.Empty,
                     Cuit = row["cuit"]?.ToString() ?? string.Empty,
                     PreferredPaymentMethodId = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : 0,
+                    Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0m,
                 };
                 clients.Add(client);
             }

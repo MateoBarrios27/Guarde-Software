@@ -17,5 +17,7 @@
         public decimal? InitialAmount { get; set; }
         public bool ReceiveCommunications { get; set; } = true;
         public bool? Active { get; set; }
+
+        public decimal? Balance {get; set;}
     }
 }
