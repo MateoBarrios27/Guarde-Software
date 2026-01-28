@@ -209,8 +209,8 @@ namespace GuardeSoftwareAPI.Dao
                 AccountSummary AS (
                     SELECT
                         rental_id,
-                        SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END) AS Balance,
-                        MAX(CASE WHEN movement_type = 'DEBITO' THEN movement_date END) AS LastDebitDate
+                            SUM(CASE WHEN movement_type = 'DEBITO' THEN -amount ELSE amount END) AS Balance,
+                            MAX(CASE WHEN movement_type = 'DEBITO' THEN movement_date END) AS LastDebitDate
                     FROM account_movements
                     GROUP BY rental_id
                 )
@@ -296,19 +296,14 @@ namespace GuardeSoftwareAPI.Dao
         {
             var filterParameters = new List<SqlParameter>();
             
-            // Construimos la cláusula WHERE para la consulta FINAL (fuera de la CTE)
             var finalWhereClause = new StringBuilder("WHERE 1=1 ");
 
-            // 1. Filtro de Activos/Inactivos
-            // Si request.Active es true, solo mostramos activos. Si es false, solo inactivos (dados de baja).
-            // Si es null (no debería pasar con tu lógica actual), mostramos todos.
             if (request.Active.HasValue)
             {
                 finalWhereClause.Append("AND Active = @Active ");
                 filterParameters.Add(new SqlParameter("@Active", request.Active.Value));
             }
 
-            // 2. Filtro del buscador potente
             if (!string.IsNullOrEmpty(request.SearchTerm))
             {
                 finalWhereClause.Append(@"
@@ -321,16 +316,12 @@ namespace GuardeSoftwareAPI.Dao
                 filterParameters.Add(new SqlParameter("@SearchTerm", $"%{request.SearchTerm}%"));
             }
 
-            // 3. Filtro de estado (Moroso, Al día, etc.)
-            // Este filtro aplica sobre la columna CALCULADA 'Status'
             if (!string.IsNullOrEmpty(request.StatusFilter) && request.StatusFilter != "Todos")
             {
                 finalWhereClause.Append("AND Status = @StatusFilter ");
                 filterParameters.Add(new SqlParameter("@StatusFilter", request.StatusFilter));
             }
 
-            // --- CONSTRUCCIÓN DE LA QUERY ---
-            // Movemos el cálculo de Status dentro de la CTE para poder filtrar por él después
             string fullQuery = $@"
                 WITH ClientData AS (
                     SELECT
@@ -349,7 +340,9 @@ namespace GuardeSoftwareAPI.Dao
                         CASE
                             WHEN c.active = 0 THEN 'Baja'
                             WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso'
-                            WHEN ISNULL(balance_sub.balance, 0) <= 0 THEN 'Al día'
+                            -- CAMBIO 2: Ajuste de lógica de estado
+                            -- Como ahora Deuda es Negativo, 'Al día' es cuando el balance es >= 0 (0 o a favor)
+                            WHEN ISNULL(balance_sub.balance, 0) >= 0 THEN 'Al día' 
                             ELSE 'Pendiente'
                         END AS Status
                     FROM 
@@ -357,7 +350,18 @@ namespace GuardeSoftwareAPI.Dao
                     OUTER APPLY ( SELECT TOP 1 e.address FROM emails e WHERE e.client_id = c.client_id AND e.active = 1 ORDER BY e.email_id ) AS first_email
                     OUTER APPLY ( SELECT TOP 1 p.number FROM phones p WHERE p.client_id = c.client_id AND p.active = 1 ORDER BY p.phone_id ) AS first_phone
                     LEFT JOIN addresses a ON c.client_id = a.client_id
-                    LEFT JOIN ( SELECT r.client_id, SUM(am.amount * CASE WHEN am.movement_type = 'DEBITO' THEN 1 ELSE -1 END) as balance FROM rentals r JOIN account_movements am ON r.rental_id = am.rental_id GROUP BY r.client_id ) balance_sub ON c.client_id = balance_sub.client_id
+                    
+                    -- CAMBIO 1: Invertir el signo del cálculo del balance
+                    -- DEBITO = -1 (Resta, genera saldo negativo/deuda)
+                    -- CREDITO = 1 (Suma, genera saldo a favor)
+                    LEFT JOIN ( 
+                        SELECT r.client_id, 
+                               SUM(am.amount * CASE WHEN am.movement_type = 'DEBITO' THEN -1 ELSE 1 END) as balance 
+                        FROM rentals r 
+                        JOIN account_movements am ON r.rental_id = am.rental_id 
+                        GROUP BY r.client_id 
+                    ) balance_sub ON c.client_id = balance_sub.client_id
+                    
                     LEFT JOIN ( SELECT r.client_id, STRING_AGG(l.identifier, ', ') as lockers FROM rentals r JOIN lockers l ON r.rental_id = l.rental_id GROUP BY r.client_id ) locker_sub ON c.client_id = locker_sub.client_id
                     LEFT JOIN ( SELECT r.client_id, SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid FROM rentals r WHERE r.active = 1 GROUP BY r.client_id ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
                 ),
@@ -374,7 +378,7 @@ namespace GuardeSoftwareAPI.Dao
             ";
 
             var dataParameters = new List<SqlParameter>();
-            dataParameters.AddRange(filterParameters); // Usar los parámetros creados arriba
+            dataParameters.AddRange(filterParameters);
             dataParameters.Add(new SqlParameter("@Offset", (request.PageNumber - 1) * request.PageSize));
             dataParameters.Add(new SqlParameter("@PageSize", request.PageSize));
 

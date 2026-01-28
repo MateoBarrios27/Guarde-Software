@@ -55,7 +55,7 @@ namespace GuardeSoftwareAPI.Dao
 
                 DECLARE @SaldoHistorico DECIMAL(18, 2) = (
                     SELECT ISNULL(SUM(
-                        CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END
+                        CASE WHEN movement_type = 'DEBITO' THEN -amount ELSE amount END
                     ), 0)
                     FROM account_movements
                     WHERE movement_date < @StartDate
@@ -65,7 +65,7 @@ namespace GuardeSoftwareAPI.Dao
 
                 DECLARE @BalanceGlobal DECIMAL(18, 2) = (
                     SELECT ISNULL(SUM(
-                        CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END
+                        CASE WHEN movement_type = 'DEBITO' THEN -amount ELSE amount END
                     ), 0)
                     FROM account_movements
                 );
