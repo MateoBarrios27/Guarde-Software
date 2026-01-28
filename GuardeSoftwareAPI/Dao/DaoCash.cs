@@ -269,13 +269,11 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<decimal> GetTotalAdvancePaymentsAsync(int month, int year)
         {
-            // Fecha referencia para buscar el precio histórico del alquiler
+            // Lógica Corregida: "Intersección entre lo pagado este mes y el saldo a favor actual"
             string query = @"
-                DECLARE @TargetDate DATE = DATEFROMPARTS(@Year, @Month, 1);
-
-                -- CTE 1: BALANCE GLOBAL DEL CLIENTE (Tu lógica corregida)
-                -- Determinamos qué clientes tienen saldo a favor globalmente
-                WITH AccountSummary AS (
+                -- CTE 1: BALANCE GLOBAL POSITIVO
+                -- Buscamos clientes que AL DÍA DE HOY tengan saldo a favor.
+                WITH PositiveBalances AS (
                     SELECT
                         r.client_id,
                         SUM(
@@ -283,51 +281,38 @@ namespace GuardeSoftwareAPI.Dao
                                 WHEN am.movement_type = 'DEBITO' THEN -am.amount 
                                 ELSE am.amount 
                             END
-                        ) AS RentalBalance
+                        ) AS CurrentGlobalBalance
                     FROM account_movements am
                     INNER JOIN rentals r ON am.rental_id = r.rental_id
                     WHERE r.active = 1
                     GROUP BY r.client_id
-                ),
-                ClientsWithPositiveBalance AS (
-                    SELECT client_id
-                    FROM AccountSummary
-                    GROUP BY client_id
-                    HAVING SUM(RentalBalance) > 0 -- Solo nos interesan los que tienen saldo a favor
+                    HAVING SUM(CASE WHEN am.movement_type = 'DEBITO' THEN -am.amount ELSE am.amount END) > 0
                 ),
 
-                -- CTE 2: PAGOS DEL MES (Sin columna active)
+                -- CTE 2: PAGOS DEL MES
+                -- Buscamos cuánto pagaron efectivamente en el mes consultado.
                 MonthlyPayments AS (
                     SELECT 
                         client_id, 
-                        SUM(amount) as TotalPagadoMes
+                        SUM(amount) as TotalPaidInMonth
                     FROM payments
                     WHERE MONTH(payment_date) = @Month
                     AND YEAR(payment_date) = @Year
                     GROUP BY client_id
-                ),
-
-                -- CTE 3: COSTO ALQUILER HISTÓRICO (Cuánto salía en ese mes)
-                HistoricalRent AS (
-                    SELECT 
-                        r.client_id, 
-                        SUM(h.amount) as AlquilerCorrespondiente
-                    FROM rentals r
-                    INNER JOIN rental_amount_history h ON r.rental_id = h.rental_id
-                    WHERE r.active = 1
-                    AND @TargetDate BETWEEN h.start_date AND ISNULL(h.end_date, '9999-12-31')
-                    GROUP BY r.client_id
                 )
 
-                -- CÁLCULO FINAL
-                -- (Pagado en el Mes - Costo Alquiler) SOLO SI:
-                -- 1. El cliente tiene saldo a favor global.
-                -- 2. El pago del mes superó al costo del alquiler.
-                SELECT ISNULL(SUM(mp.TotalPagadoMes - hr.AlquilerCorrespondiente), 0)
-                FROM ClientsWithPositiveBalance cpb
-                INNER JOIN MonthlyPayments mp ON cpb.client_id = mp.client_id
-                INNER JOIN HistoricalRent hr ON cpb.client_id = hr.client_id
-                WHERE mp.TotalPagadoMes > hr.AlquilerCorrespondiente;
+                -- CÁLCULO FINAL:
+                -- Cruzamos los que pagaron este mes CON los que terminaron con saldo positivo.
+                -- Si pagó 73.000 pero su saldo final es 9.700 -> El adelanto real es 9.700.
+                -- Si pagó 10.000 y su saldo final es 50.000 (venía acumulando) -> El adelanto generado ESTE MES es 10.000.
+                SELECT ISNULL(SUM(
+                    CASE 
+                        WHEN mp.TotalPaidInMonth < pb.CurrentGlobalBalance THEN mp.TotalPaidInMonth
+                        ELSE pb.CurrentGlobalBalance
+                    END
+                ), 0)
+                FROM MonthlyPayments mp
+                INNER JOIN PositiveBalances pb ON mp.client_id = pb.client_id;
             ";
 
             var parameters = new[] {
