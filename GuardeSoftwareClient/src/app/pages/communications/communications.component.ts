@@ -30,7 +30,7 @@ interface FormDataState {
   sendTime: string;
   channels: ('Email' | 'WhatsApp')[];
   recipients: string[];
-  type: 'programar' | 'borrador'; // This is for the form's radio button (Spanish UI)
+  type: 'programar' | 'borrador' | 'enviar_ahora'; // This is for the form's radio button (Spanish UI)
   isAccountStatement: boolean;
   smtpConfigId?: number | null
 }
@@ -206,21 +206,23 @@ export class CommunicationsComponent implements OnInit {
   isFormValid = computed(() => {
     const data = this.formData();
     
+    // Validar contenido (lógica del Estado de Cuenta que hicimos antes)
     const isContentEmpty = !data.content || data.content.trim() === '<p><br></p>' || data.content.trim() === '';
-    const contentIsValid = data.isAccountStatement || !isContentEmpty; 
+    const contentIsValid = data.isAccountStatement || !isContentEmpty;
 
     let baseValid = data.title.trim().length > 0 && 
-                    contentIsValid &&
+                    contentIsValid && 
                     data.channels.length > 0 && 
                     data.recipients.length > 0;
     
+    // Lógica de fechas según el tipo
     if (data.type === 'programar') {
       return baseValid && data.sendDate.length > 0 && data.sendTime.length > 0;
     }
     
+    // Para 'borrador' y 'enviar_ahora', solo validamos lo básico
     return baseValid;
   });
-
   // --- Methods ---
 
   private resetForm(): void {
@@ -305,13 +307,36 @@ export class CommunicationsComponent implements OnInit {
     const data = this.formData();
     if (!this.isFormValid()) { return; }
 
+    // Variables para la fecha
+    let finalSendDate = '';
+    let finalSendTime = '';
+    let finalType = 'draft';
+
+    if (data.type === 'programar') {
+      finalType = 'schedule';
+      finalSendDate = data.sendDate;
+      finalSendTime = data.sendTime;
+    } 
+    else if (data.type === 'enviar_ahora') {
+      finalType = 'schedule'; // Para el backend, es un agendamiento
+      
+      // Generamos la fecha actual automágicamente
+      const now = new Date();
+      
+      // Formato YYYY-MM-DD
+      finalSendDate = now.toISOString().split('T')[0]; 
+      
+      // Formato HH:mm (Ajustado a local si es necesario, o simple)
+      // Nota: toTimeString da HH:mm:ss GMT-0300... tomamos los primeros 5 chars
+      finalSendTime = now.toTimeString().slice(0, 5);
+    }
+
     const request = {
       ...data,
       content: data.isAccountStatement ? 'Estado de cuenta (Autm.)' : data.content,
-      
-      type: data.type === 'programar' ? 'schedule' : 'draft',
-      sendDate: data.type === 'programar' ? data.sendDate : '',
-      sendTime: data.type === 'programar' ? data.sendTime : ''
+      type: finalType,
+      sendDate: finalSendDate,
+      sendTime: finalSendTime
     };
 
     this.commService.createCommunication(request, this.selectedFiles()).subscribe({

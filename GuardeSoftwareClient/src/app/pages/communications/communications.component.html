@@ -1,4 +1,5 @@
 <div class="space-y-6 bg-gray-50 min-h-screen font-inter">
+  
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-white rounded-xl shadow-lg">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">Comunicaciones</h1>
@@ -151,24 +152,17 @@
       <p class="text-xs text-gray-500 mt-1">Puedes seleccionar grupos completos y excluir personas específicas.</p>
     </div>
 
-    <div class="space-y-4">
+    <div class="space-y-4 pt-2 border-t border-dashed">
       
-      <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
-        <div class="flex items-center justify-between">
-          <div class="flex flex-col">
-            <span class="font-bold text-blue-900 text-sm">¿Es un Estado de Cuenta?</span>
-            <span class="text-xs text-blue-600 mt-1">
-              Si activas esto, el contenido del mail se generará automáticamente con los saldos de cada cliente.
-            </span>
-          </div>
-          <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" 
-                   [ngModel]="formData().isAccountStatement" 
-                   (ngModelChange)="updateFormField('isAccountStatement', $event)" 
-                   class="sr-only peer">
-            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-          </label>
+      <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-center justify-between">
+        <div>
+            <span class="block font-bold text-blue-900 text-sm">¿Es un Estado de Cuenta?</span>
+            <span class="block text-xs text-blue-600 mt-0.5">El contenido se generará automáticamente con los saldos.</span>
         </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" [ngModel]="formData().isAccountStatement" (ngModelChange)="updateFormField('isAccountStatement', $event)" class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+        </label>
       </div>
 
       <div class="relative">
@@ -178,14 +172,9 @@
         
         <div *ngIf="formData().isAccountStatement" 
              class="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex items-center justify-center rounded-lg border border-gray-200 mt-6">
-          <div class="bg-white px-4 py-3 rounded-lg shadow-md border border-blue-100 flex items-center gap-3">
-            <div class="p-2 bg-blue-100 text-blue-600 rounded-full">
-              <app-icon name="file-text" class="h-5 w-5"></app-icon>
-            </div>
-            <div>
-              <p class="text-sm font-bold text-gray-800">Contenido Automático</p>
-              <p class="text-xs text-gray-500">Se enviará el contenido de los estados de cuenta.</p>
-            </div>
+          <div class="bg-white px-4 py-2 rounded-lg shadow-sm border border-blue-100 flex items-center gap-2">
+            <app-icon name="file-text" class="h-5 w-5 text-blue-600"></app-icon>
+            <span class="text-sm font-medium text-gray-700">Contenido generado por sistema</span>
           </div>
         </div>
 
@@ -230,7 +219,7 @@
       </div>
     </div>
 
-    <div class="mt-4">
+    <div>
       <label class="block text-sm font-medium text-gray-700 mb-1">Archivos Adjuntos</label>
       <div class="flex items-center gap-4">
           <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg border border-gray-300 transition flex items-center shadow-sm">
@@ -251,48 +240,75 @@
     </div>
 
     <div class="border-t pt-4">
-      <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de acción</label>
-      <div class="flex gap-4">
-        <div class="flex items-center">
-          <input type="radio" id="programar" name="type" value="programar" [ngModel]="formData().type"
-                 (ngModelChange)="updateFormField('type', $event)"
-            class="text-blue-600 focus:ring-blue-500 h-4 w-4" />
-          <label for="programar" class="ml-2 text-sm text-gray-700 cursor-pointer">Programar envío</label>
+      <label class="block text-sm font-medium text-gray-700 mb-2">¿Cuándo enviar?</label>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        
+        <div class="flex items-center p-3 border rounded-lg cursor-pointer transition hover:bg-gray-50"
+             [ngClass]="formData().type === 'enviar_ahora' ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300' : 'border-gray-200'"
+             (click)="updateFormField('type', 'enviar_ahora')">
+          <input type="radio" name="type" value="enviar_ahora" 
+                 [ngModel]="formData().type" class="text-blue-600 pointer-events-none" />
+          <div class="ml-2">
+            <span class="block text-sm font-semibold text-gray-900">Ahora</span>
+            <span class="block text-[10px] text-gray-500 leading-tight">Envío inmediato</span>
+          </div>
         </div>
-        <div class="flex items-center">
-          <input type="radio" id="borrador" name="type" value="borrador" [ngModel]="formData().type"
-                 (ngModelChange)="updateFormField('type', $event)"
-            class="text-blue-600 focus:ring-blue-500 h-4 w-4" />
-          <label for="borrador" class="ml-2 text-sm text-gray-700 cursor-pointer">Guardar como borrador</label>
+
+        <div class="flex items-center p-3 border rounded-lg cursor-pointer transition hover:bg-gray-50"
+             [ngClass]="formData().type === 'programar' ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300' : 'border-gray-200'"
+             (click)="updateFormField('type', 'programar')">
+          <input type="radio" name="type" value="programar" 
+                 [ngModel]="formData().type" class="text-blue-600 pointer-events-none" />
+          <div class="ml-2">
+            <span class="block text-sm font-semibold text-gray-900">Programar</span>
+            <span class="block text-[10px] text-gray-500 leading-tight">Elegir fecha</span>
+          </div>
         </div>
+
+        <div class="flex items-center p-3 border rounded-lg cursor-pointer transition hover:bg-gray-50"
+             [ngClass]="formData().type === 'borrador' ? 'bg-gray-100 border-gray-400' : 'border-gray-200'"
+             (click)="updateFormField('type', 'borrador')">
+          <input type="radio" name="type" value="borrador" 
+                 [ngModel]="formData().type" class="text-gray-600 pointer-events-none" />
+          <div class="ml-2">
+            <span class="block text-sm font-medium text-gray-700">Borrador</span>
+            <span class="block text-[10px] text-gray-500 leading-tight">Guardar para después</span>
+          </div>
+        </div>
+
       </div>
     </div>
 
     @if (formData().type === 'programar') {
-    <div class="grid grid-cols-2 gap-4 animate-fade-in">
+    <div class="grid grid-cols-2 gap-4 animate-fade-in bg-gray-50 p-3 rounded-lg border border-gray-200">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de envío</label>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Fecha de envío</label>
         <input type="date" [ngModel]="formData().sendDate"
                (ngModelChange)="updateFormField('sendDate', $event)"
-          class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+          class="w-full p-2 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" />
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Hora de envío</label>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Hora de envío</label>
         <input type="time" [ngModel]="formData().sendTime"
                (ngModelChange)="updateFormField('sendTime', $event)"
-          class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+          class="w-full p-2 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" />
       </div>
     </div>
     }
 
-    <div class="flex gap-2 pt-4 border-t mt-4">
+    <div class="flex gap-3 pt-2 mt-2">
       <button (click)="currentModal() === 'add' ? addCommunication() : editCommunication()" [disabled]="!isFormValid()"
-        class="flex-1 px-4 py-2.5 rounded-full text-white shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+        class="flex-1 px-4 py-3 rounded-lg text-white shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-bold flex justify-center items-center gap-2"
         [ngClass]="isFormValid() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'">
-        {{ formData().type === 'programar' ? 'Programar Comunicado' : 'Guardar Borrador' }}
+        
+        @switch (formData().type) {
+          @case ('enviar_ahora') { <app-icon name="Send" class="h-4 w-4"></app-icon> Enviar Ahora }
+          @case ('programar') { <app-icon name="Calendar" class="h-4 w-4"></app-icon> Programar Comunicado }
+          @case ('borrador') { <app-icon name="save" class="h-4 w-4"></app-icon> Guardar Borrador }
+        }
       </button>
       <button (click)="closeModal()"
-        class="flex-1 px-4 py-2.5 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200 font-medium">
+        class="px-6 py-3 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition duration-200 font-medium">
         Cancelar
       </button>
     </div>
