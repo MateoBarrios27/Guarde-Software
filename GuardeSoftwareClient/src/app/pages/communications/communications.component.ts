@@ -353,29 +353,56 @@ export class CommunicationsComponent implements OnInit {
   editCommunication(): void {
     const data = this.formData();
     const commId = data.id;
+
     if (!commId || !this.isFormValid()) { return; }
+
+    let finalSendDate = '';
+    let finalSendTime = '';
+    let finalType: 'draft' | 'schedule' = 'draft';
+
+    if (data.type === 'programar') {
+      finalType = 'schedule';
+      finalSendDate = data.sendDate;
+      finalSendTime = data.sendTime;
+    } 
+    else if (data.type === 'enviar_ahora') {
+      finalType = 'schedule';
+      
+      const now = new Date();
+      // Formato YYYY-MM-DD
+      finalSendDate = now.toISOString().split('T')[0]; 
+      finalSendTime = now.toTimeString().slice(0, 5);
+    }
 
     const request: UpsertComunicacionRequest = {
       id: commId,
       title: data.title,
-      content: data.isAccountStatement ? 'Estado de cuenta (Autm.)' : data.content,
-      
-      sendDate: data.type === 'programar' ? data.sendDate : null,
-      sendTime: data.type === 'programar' ? data.sendTime : null,
+      content: data.isAccountStatement ? '' : data.content,
+      type: finalType,
+      sendDate: finalType === 'schedule' ? finalSendDate : null,
+      sendTime: finalType === 'schedule' ? finalSendTime : null,
       channels: data.channels,
       recipients: data.recipients,
-      type: data.type === 'programar' ? 'schedule' : 'draft',
       smtpConfigId: data.smtpConfigId,
-      isAccountStatement: data.isAccountStatement 
+      isAccountStatement: data.isAccountStatement
     };
 
     this.commService.updateCommunication(commId, request).subscribe({
       next: (updatedComm) => {
         this.communications.update(comms => comms.map(c => c.id === commId ? updatedComm : c));
+        
         this.closeModal();
-        this.showToast('¡Comunicado actualizado!', 'Los cambios se guardaron', '✏️', 'success');
+
+        const msg = data.type === 'enviar_ahora' 
+          ? '¡Enviando comunicado!' 
+          : '¡Comunicado actualizado!';
+          
+        this.showToast(msg, 'Los cambios se guardaron correctamente', '✏️', 'success');
       },
-      error: (err) => this.showToast('Error', 'No se pudo actualizar', '❌', 'error')
+      error: (err) => {
+        console.error(err);
+        this.showToast('Error', 'No se pudo actualizar el comunicado', '❌', 'error');
+      }
     });
   }
 
