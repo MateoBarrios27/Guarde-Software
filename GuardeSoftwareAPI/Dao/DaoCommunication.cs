@@ -539,33 +539,41 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<ClientFinancialDto> GetClientFinancialData(int clientId)
         {
+            // CAMBIO: Usamos una subconsulta (Calculos) para obtener los montos crudos.
+            // Luego, en el SELECT principal, aplicamos la lógica: Si es negativo (< 0), mostramos 0.
+            
             string query = @"
                 DECLARE @StartOfMonth DATE = DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1);
 
                 SELECT 
-                    -- 1. Saldo Actual (Total histórico + Identificador de Pago)
-                    (
-                        ISNULL(SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END), 0)
-                        + 
-                        ISNULL((SELECT payment_identifier FROM clients WHERE client_id = @ClientId), 0)
-                    ) as CurrentBalance,
-                    
-                    -- 2. Saldo Anterior (Total histórico hasta antes de este mes)
-                    -- Nota: Al saldo anterior NO se le suele sumar el identificador porque es deuda histórica pura, 
-                    -- pero si tu lógica de negocio lo requiere, agrégalo aquí también. Por ahora lo dejo puro.
-                    ISNULL(SUM(CASE 
-                        WHEN movement_date < @StartOfMonth AND movement_type = 'DEBITO' THEN amount 
-                        WHEN movement_date < @StartOfMonth AND movement_type != 'DEBITO' THEN -amount 
-                        ELSE 0 END), 0) as PreviousBalance,
+                    -- Aplicar regla: Si hay saldo a favor (negativo), mostrar 0 deuda.
+                    CASE WHEN Calculos.RawCurrentBalance < 0 THEN 0 ELSE Calculos.RawCurrentBalance END AS CurrentBalance,
+                    CASE WHEN Calculos.RawPreviousBalance < 0 THEN 0 ELSE Calculos.RawPreviousBalance END AS PreviousBalance,
+                    Calculos.Surcharge
+                FROM (
+                    SELECT 
+                        -- 1. Cálculo Crudo Saldo Actual (Histórico + Identificador)
+                        (
+                            ISNULL(SUM(CASE WHEN am.movement_type = 'DEBITO' THEN am.amount ELSE -am.amount END), 0)
+                            + 
+                            ISNULL((SELECT payment_identifier FROM clients WHERE client_id = @ClientId), 0)
+                        ) as RawCurrentBalance,
+                        
+                        -- 2. Cálculo Crudo Saldo Anterior (Histórico hasta mes pasado)
+                        ISNULL(SUM(CASE 
+                            WHEN am.movement_date < @StartOfMonth AND am.movement_type = 'DEBITO' THEN am.amount 
+                            WHEN am.movement_date < @StartOfMonth AND am.movement_type != 'DEBITO' THEN -am.amount 
+                            ELSE 0 END), 0) as RawPreviousBalance,
 
-                    -- 3. Recargo del mes
-                    ISNULL(SUM(CASE 
-                        WHEN movement_date >= @StartOfMonth AND (concept LIKE '%Recargo%' OR concept LIKE '%Interés por mora%') THEN amount 
-                        ELSE 0 END), 0) as Surcharge
+                        -- 3. Recargo del mes (Siempre es positivo o 0, no requiere cambio)
+                        ISNULL(SUM(CASE 
+                            WHEN am.movement_date >= @StartOfMonth AND (am.concept LIKE '%Recargo%' OR am.concept LIKE '%Interés por mora%') THEN am.amount 
+                            ELSE 0 END), 0) as Surcharge
 
-                FROM account_movements am
-                JOIN rentals r ON am.rental_id = r.rental_id
-                WHERE r.client_id = @ClientId";
+                    FROM account_movements am
+                    JOIN rentals r ON am.rental_id = r.rental_id
+                    WHERE r.client_id = @ClientId
+                ) AS Calculos";
 
             var dt = await _accessDB.GetTableAsync("Financial", query, new[] { new SqlParameter("@ClientId", clientId) });
             
