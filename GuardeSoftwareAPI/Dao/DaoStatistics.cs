@@ -100,7 +100,7 @@ namespace GuardeSoftwareAPI.Dao
                 resultDto.TotalPagado = row["TotalPagado"] != DBNull.Value ? Convert.ToDecimal(row["TotalPagado"]) : 0;
                 resultDto.TotalAlquileres = row["TotalAlquileres"] != DBNull.Value ? Convert.ToDecimal(row["TotalAlquileres"]) : 0;
                 resultDto.TotalIntereses = row["TotalIntereses"] != DBNull.Value ? Convert.ToDecimal(row["TotalIntereses"]) : 0;
-                resultDto.DeudaTotalDelMes = row["DeudaTotalDelMes"] != DBNull.Value ? Convert.ToDecimal(row["DeudaTotalDelMes"]) : 0;
+                resultDto.DeudaTotalDelMes = await GetPreviousPeriodDebtAsync(month, year);
                 resultDto.BalanceGlobalActual = row["BalanceGlobalActual"] != DBNull.Value ? Convert.ToDecimal(row["BalanceGlobalActual"]) : 0;
                 resultDto.TotalEspaciosOcupados = row["TotalEspaciosOcupados"] != DBNull.Value ? Convert.ToInt32(row["TotalEspaciosOcupados"]) : 0;
                 resultDto.TotalAdvancePayments = await GetTotalAdvancePaymentsAsync(month, year);
@@ -285,5 +285,47 @@ namespace GuardeSoftwareAPI.Dao
             var result = await accessDB.ExecuteScalarAsync(query, parameters);
             return Convert.ToDecimal(result);
         }   
+
+        public async Task<decimal> GetPreviousPeriodDebtAsync(int month, int year)
+        {
+            // Lógica:
+            // 1. Calculamos el saldo histórico de cada cliente hasta el último momento del mes anterior.
+            // 2. Filtramos SOLO aquellos que quedaron con saldo negativo (Deuda).
+            // 3. Sumamos esas deudas (convertidas a positivo para la estadística visual).
+
+            string query = @"
+                DECLARE @StartOfMonth DATE = DATEFROMPARTS(@Year, @Month, 1);
+
+                WITH HistoricalBalances AS (
+                    SELECT
+                        r.client_id,
+                        SUM(
+                            CASE 
+                                WHEN am.movement_type = 'DEBITO' THEN -am.amount 
+                                ELSE am.amount 
+                            END
+                        ) AS BalanceAlCierreAnterior
+                    FROM account_movements am
+                    INNER JOIN rentals r ON am.rental_id = r.rental_id
+                    WHERE r.active = 1
+                    AND am.movement_date < @StartOfMonth -- Todo lo anterior a este mes
+                    GROUP BY r.client_id
+                )
+                
+                -- Solo sumamos los balances negativos (Deuda)
+                -- Usamos ABS para devolver un número positivo que represente la magnitud de la deuda total.
+                SELECT ISNULL(ABS(SUM(BalanceAlCierreAnterior)), 0)
+                FROM HistoricalBalances
+                WHERE BalanceAlCierreAnterior < 0; -- CLAVE: Ignoramos saldos a favor (créditos)
+            ";
+
+            var parameters = new[] {
+                new SqlParameter("@Month", month),
+                new SqlParameter("@Year", year)
+            };
+
+            var result = await accessDB.ExecuteScalarAsync(query, parameters);
+            return Convert.ToDecimal(result);
+        }
     }
 }
