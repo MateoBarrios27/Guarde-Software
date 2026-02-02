@@ -333,13 +333,11 @@ namespace GuardeSoftwareAPI.Dao
         {
             string query = @"
                 WITH CurrentRentalAmount AS (
-                    SELECT rental_id, amount AS CurrentRent
-                    FROM (
-                        SELECT rental_id, amount,
-                            ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY start_date DESC) AS rn
-                        FROM rental_amount_history
-                    ) AS sub
-                    WHERE rn = 1
+                    SELECT 
+                        rental_id, 
+                        amount AS CurrentRent
+                    FROM rental_amount_history
+                    WHERE GETDATE() BETWEEN start_date AND ISNULL(end_date, '9999-12-31')
                 ),
                 AccountSummary AS (
                     SELECT rental_id,
