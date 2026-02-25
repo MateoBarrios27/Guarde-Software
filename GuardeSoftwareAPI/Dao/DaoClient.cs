@@ -209,8 +209,10 @@ namespace GuardeSoftwareAPI.Dao
                 AccountSummary AS (
                     SELECT
                         rental_id,
-                            SUM(CASE WHEN movement_type = 'DEBITO' THEN -amount ELSE amount END) AS Balance,
-                            MAX(CASE WHEN movement_type = 'DEBITO' THEN movement_date END) AS LastDebitDate
+                        SUM(CASE WHEN movement_type = 'DEBITO' THEN -amount ELSE amount END) AS Balance,
+                        MAX(CASE WHEN movement_type = 'DEBITO' THEN movement_date END) AS LastDebitDate,
+                        SUM(CASE WHEN movement_type = 'CREDITO' THEN amount ELSE 0 END) AS TotalPaid
+                        
                     FROM account_movements
                     GROUP BY rental_id
                 )
@@ -233,6 +235,8 @@ namespace GuardeSoftwareAPI.Dao
                     
                     cra.CurrentRent AS rent_amount,
                     ISNULL(acc.Balance, 0) AS balance,
+                    
+                    ISNULL(acc.TotalPaid, 0) AS total_paid,
                     
                     CASE
                         WHEN ISNULL(acc.Balance, 0) <= 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))

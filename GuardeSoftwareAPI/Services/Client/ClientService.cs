@@ -455,6 +455,7 @@ namespace GuardeSoftwareAPI.Services.client
                 PreferredPaymentMethod = row["preferred_payment_method"]?.ToString() ?? "No especificado",
                 BillingTypeId = row["billing_type_id"] != DBNull.Value ? Convert.ToInt32(row["billing_type_id"]) : null,
                 BillingType = row["billing_type"]?.ToString() ?? "No especificado",
+                TotalPaid = Convert.ToDecimal(row["total_paid"]),
 
                 // --- CAMPOS ACTUALIZADOS ---
                 IncreaseFrequencyMonths = Convert.ToInt32(row["increase_frequency_months"]),

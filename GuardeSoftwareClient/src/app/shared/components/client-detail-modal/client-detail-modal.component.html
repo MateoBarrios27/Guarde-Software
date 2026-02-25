@@ -329,10 +329,10 @@
                   <label class="font-medium text-gray-500">Espacios Ocupados</label>
                   <p class="text-gray-800">{{ client.occupiedSpaces || 'N/A' }}</p>
                 </div>
-                <!-- <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 mt-4 flex justify-between items-center">
-                    <span class="text-gray-600 font-medium">Espacios Ocupados (Manual):</span>
-                    <span class="text-indigo-700 font-bold text-lg">{{ client.occupiedSpaces || 0 }}</span>
-                </div> -->
+                <div>
+                  <label class="font-medium text-gray-500">Total Pagado</label>
+                  <p class="text-gray-800">{{ client.totalPaid | currency : "ARS" : "symbol-narrow" : "1.0-0" }}</p>
+                </div>
               </div>
             </div>
             

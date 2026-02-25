@@ -34,6 +34,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public decimal RentAmount { get; set; }
         public int? BillingTypeId { get; set; } 
         public string BillingType { get; set; } = string.Empty;
+        public decimal TotalPaid { get; set; }
 
         //Locker Information
         //If the client no longer rents lockers, this list will be empty

@@ -34,6 +34,7 @@ export interface ClientDetailDTO{
     balance: number;
     paymentStatus: string;
     rentAmount: number;
+    totalPaid?: number;
 
     //locker info
     lockersList?: LockerClientDetailDTO[];

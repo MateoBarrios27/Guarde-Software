@@ -192,7 +192,7 @@ export class CashComponent implements OnInit {
         <input id="acc-name" class="swal2-input" placeholder="Nombre (ej: Banco Galicia)">
         <select id="acc-type" class="swal2-input">
           <option value="Banco">Banco</option>
-          <option value="Caja Fuerte">Caja Fuerte</option>
+          <option value="Caja">Caja</option>
           <option value="Otro">Otro</option>
         </select>
       `,
