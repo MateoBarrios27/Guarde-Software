@@ -20,12 +20,10 @@ import { CommunicationService } from '../../../core/services/communication-servi
 import { AccountMovementDTO } from '../../../core/dtos/accountMovement/account-movement.dto';
 import { ClientCommunicationDTO } from '../../../core/dtos/communications/client-comunication.dto';
 import { CreateMovementModalComponent } from '../create-movement-modal/create-movement-modal.component';
-import { PhonePipe } from '../../pipes/phone.pipe';
 
 // --- IMPORTAR PAGINACIÓN ---
 import { NgxPaginationModule } from 'ngx-pagination';
 import { TimeDurationPipe } from '../../pipes/time-duration.pipe';
-import { SafeHtmlPipe } from '../../pipes/safe-html.pipe';
 
 export interface IClientCommunication {
   id: number;
@@ -43,10 +41,8 @@ export interface IClientCommunication {
     IconComponent,
     CurrencyPipe,
     DatePipe,
-    SafeHtmlPipe,
     CreateMovementModalComponent, // Modal de creación
     NgxPaginationModule,
-    PhonePipe,
     TimeDurationPipe
 ],
   templateUrl: './client-detail-modal.component.html',

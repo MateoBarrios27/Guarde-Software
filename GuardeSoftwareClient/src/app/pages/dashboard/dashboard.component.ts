@@ -465,41 +465,57 @@ export class DashboardComponent {
     this.paymentDto.date = dateWithTime;
     this.dateString = value;
       if (this.paymentDto.isAdvancePayment) {
-    this.updateAdvanceConcept();
-  } else {
-    this.updateConceptFromDate(dateWithTime);
-  }
+        this.updateAdvanceConcept();
+      } else {
+        this.updateConceptFromDate(dateWithTime);
+      }
   }
 
-    generatePdf(item: Payment){
-
+    generatePdf(item: Payment) {
       Swal.fire({
-              title: 'Generar recibo: ',
-              html: `
-              <p class="text-gray-700">Cliente: <b>${item.clientName}</b></p>
-              <p class="text-gray-700">Importe: <b>$${item.amount}</b></p>`,
-              icon: 'question',
-              showCancelButton: true, 
-              confirmButtonText: 'Confirmar',
-              cancelButtonText: 'Cancelar',
-              buttonsStyling: false,
-              customClass: {
-                confirmButton: 'bg-blue-600 text-white px-4 py-2 p-2 rounded-md hover:bg-blue-700 transition-all duration-150',
-                cancelButton: 'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
-                actions: 'flex justify-center gap-4 mt-4',
-                popup: 'rounded-xl shadow-lg'
-              }
-              }).then((result) => {
-                if (result.isConfirmed) {
-                  console.log('Generando PDF...');
-                  this.pdfGeneratorService.generateBauleraReceipt({
-                    date: this.formatDate(item.paymentDate),
-                    clientNumber: Number(item.paymentIdentifier) || 0,
-                    amount: item.amount,
-                    clientName: item.clientName ?? ""
-                  });
-                }
-              });
+        title: 'Generar recibo',
+        html: `
+          <div class="text-left px-1"> 
+            <p class="text-gray-700">Cliente: <b>${item.clientName}</b></p>
+            <p class="text-gray-700 mb-4">Importe: <b>$${item.amount}</b></p>
+            <label class="text-sm font-medium text-gray-600">Descripción del recibo:</label>
+          </div>`,
+        input: 'text',
+        inputValue: 'SERVICIO DE BAULERAS',
+        inputAttributes: {
+          autocapitalize: 'off'
+        },
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Confirmar',
+        cancelButtonText: 'Cancelar',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-all duration-150',
+          cancelButton: 'bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
+          actions: 'flex justify-center gap-4 mt-6',
+          popup: 'rounded-xl shadow-lg p-4 custom-swal-overflow', // Agregamos p-4 y una clase opcional
+          input: 'max-w-full m-0 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm'
+        },
+        preConfirm: (inputValue) => {
+          if (!inputValue) {
+            Swal.showValidationMessage('¡La descripción es obligatoria!');
+          }
+          return inputValue;
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          const customDescription = result.value; // Capturamos el texto del input
+
+          this.pdfGeneratorService.generateBauleraReceipt({
+            date: this.formatDate(item.paymentDate),
+            clientNumber: Number(item.paymentIdentifier) || 0,
+            amount: item.amount,
+            clientName: item.clientName ?? "",
+            description: customDescription // <-- Pasamos la descripción al servicio
+          });
+        }
+      });
     }
     
     private formatDate(date: any): string {

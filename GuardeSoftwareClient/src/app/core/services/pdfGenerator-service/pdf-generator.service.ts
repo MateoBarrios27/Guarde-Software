@@ -5,6 +5,7 @@ export interface ReceiptData {
   clientNumber: number;
   amount: number;
   clientName: string;
+  description: string;
 }
 
 @Injectable({
@@ -82,7 +83,7 @@ export class PdfGeneratorService {
               ],
               [
                 {
-                  text: 'SERVICIO DE BAULERAS',
+                  text: data.description,
                   colSpan: 3,
                   margin: [3, 8, 0, 530] 
                 },

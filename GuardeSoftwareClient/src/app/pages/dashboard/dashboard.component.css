@@ -1,0 +1,11 @@
+/* Fuerza al input de SweetAlert a quedarse dentro de la caja */
+::ng-deep .swal2-input {
+    box-sizing: border-box !important;
+    width: 80% !important;
+    margin: 0 0px 0px 30px !important; /* Margen superior para separarlo del label */
+}
+
+/* Evita que el contenedor tenga scroll horizontal innecesario */
+::ng-deep .swal2-html-container {
+    overflow: hidden !important;
+}
