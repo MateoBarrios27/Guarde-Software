@@ -63,8 +63,6 @@ export class CashComponent implements OnInit {
         }
         return item;
       });
-
-      // 1. ORDENAR LOS ITEMS AQUÍ
       this.sortItems();
 
       if (this.items.length === 0) this.addNewRow(); 
@@ -72,10 +70,9 @@ export class CashComponent implements OnInit {
       this.isLoading = false;
     });
 
-    // 2. Cargar Resumen Automático (Ingresos del Sistema)
     this.cashService.getMonthlySummary(this.selectedMonth, this.selectedYear).subscribe(sum => {
       this.summary = sum;
-      this.calculateNetBalance(); // Recalcular con los gastos manuales cargados
+      this.calculateNetBalance();
     });
 
     // 3. Cargar Cuentas
@@ -87,15 +84,12 @@ export class CashComponent implements OnInit {
 
   sortItems(): void {
     this.items.sort((a, b) => {
-      // 1. Regla de oro: El IVA siempre va arriba de todo
       if (a.description === 'IVA (21% Transferencias)') return -1;
       if (b.description === 'IVA (21% Transferencias)') return 1;
       
-      // 2. Regla secundaria: El resto se ordena cronológicamente por fecha
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
       
-      // Si quieres que los más recientes estén abajo, usa dateA - dateB
       return dateA - dateB; 
     });
   }
@@ -179,18 +173,19 @@ export class CashComponent implements OnInit {
     let m = this.selectedMonth + delta;
     let y = this.selectedYear;
     
-    if (m > 12) { m = 1; y++; }
-    if (m < 1) { m = 12; y--; }
-
-    const today = new Date();
-    const selectedDate = new Date(y, m - 1, 1);
-    const currentDate = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    if (selectedDate > currentDate) {
-        Swal.fire('Atención', 'No se puede gestionar la caja de meses futuros.', 'warning');
-        return;
+    if (m > 12) { 
+        m = 1; 
+        y++; 
+    }
+    if (m < 1) { 
+        m = 12; 
+        y--; 
     }
 
+    if (y < 2026) {
+        Swal.fire('Atención', 'No se pueden consultar o planificar datos anteriores al 2026.', 'warning');
+        return;
+    }
     this.selectedMonth = m;
     this.selectedYear = y;
     this.loadData();
