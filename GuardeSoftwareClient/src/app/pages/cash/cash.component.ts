@@ -53,20 +53,24 @@ export class CashComponent implements OnInit {
   }
 
   loadData(): void {
-  this.isLoading = true;
-  
-  this.cashService.getItems(this.selectedMonth, this.selectedYear).subscribe(data => {
-    this.items = data.map(item => {
-      if (item.date && item.date.includes('T')) {
-        item.date = item.date.split('T')[0];
-      }
-      return item;
-    });
+    this.isLoading = true;
+    
+    this.cashService.getItems(this.selectedMonth, this.selectedYear).subscribe(data => {
+      this.items = data.map(item => {
+        // Corrección de fecha (si la tenías)
+        if (item.date && item.date.includes('T')) {
+          item.date = item.date.split('T')[0];
+        }
+        return item;
+      });
 
-    if (this.items.length === 0) this.addNewRow(); 
-    this.calculateLocalTotals();
-    this.isLoading = false;
-  });
+      // 1. ORDENAR LOS ITEMS AQUÍ
+      this.sortItems();
+
+      if (this.items.length === 0) this.addNewRow(); 
+      this.calculateLocalTotals();
+      this.isLoading = false;
+    });
 
     // 2. Cargar Resumen Automático (Ingresos del Sistema)
     this.cashService.getMonthlySummary(this.selectedMonth, this.selectedYear).subscribe(sum => {
@@ -78,6 +82,21 @@ export class CashComponent implements OnInit {
     this.cashService.getAccounts().subscribe(acc => {
         this.accounts = acc;
         this.calculateAccountTotals();
+    });
+  }
+
+  sortItems(): void {
+    this.items.sort((a, b) => {
+      // 1. Regla de oro: El IVA siempre va arriba de todo
+      if (a.description === 'IVA (21% Transferencias)') return -1;
+      if (b.description === 'IVA (21% Transferencias)') return 1;
+      
+      // 2. Regla secundaria: El resto se ordena cronológicamente por fecha
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      
+      // Si quieres que los más recientes estén abajo, usa dateA - dateB
+      return dateA - dateB; 
     });
   }
 
