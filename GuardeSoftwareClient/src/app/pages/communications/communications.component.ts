@@ -56,7 +56,7 @@ interface ClientSelectorItem {
 
 const COMMUNICATION_CHANNELS: Channel[] = [
   { id: 1, name: 'Email', spanishLabel: 'Email', icon: 'Mail' },
-//   { id: 2, name: 'WhatsApp', spanishLabel: 'WhatsApp', icon: 'whatsapp' }
+  { id: 2, name: 'WhatsApp', spanishLabel: 'WhatsApp', icon: 'whatsapp' }
 ];
 
 @Component({
@@ -377,7 +377,7 @@ export class CommunicationsComponent implements OnInit {
     const request: UpsertComunicacionRequest = {
       id: commId,
       title: data.title,
-      content: data.isAccountStatement ? '' : data.content,
+      content: data.isAccountStatement ? 'Estado de cuenta (Autm.)' : data.content,
       type: finalType,
       sendDate: finalType === 'schedule' ? finalSendDate : null,
       sendTime: finalType === 'schedule' ? finalSendTime : null,

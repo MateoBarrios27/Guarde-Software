@@ -37,10 +37,10 @@ export class CommunicationService {
 
     // Arrays
     if (request.channels) {
-        request.channels.forEach((c: string) => formData.append('channels', c));
+        request.channels.forEach((c: string, index: number) => formData.append(`channels[${index}]`, c));
     }
     if (request.recipients) {
-        request.recipients.forEach((r: string) => formData.append('recipients', r));
+        request.recipients.forEach((r: string, index: number) => formData.append(`recipients[${index}]`, r));
     }
 
     // Archivos

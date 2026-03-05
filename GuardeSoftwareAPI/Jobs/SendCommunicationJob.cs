@@ -6,6 +6,8 @@ using MailKit.Security;
 using MimeKit;
 using System.Text;
 using GuardeSoftwareAPI.Dtos.Client;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace GuardeSoftwareAPI.Jobs
 {
@@ -51,7 +53,7 @@ namespace GuardeSoftwareAPI.Jobs
                 var whatsappChannel = channels.FirstOrDefault(c => c.ChannelName == "WhatsApp");
                 if (whatsappChannel != null)
                 {
-                    await ProcessWhatsAppChannel(whatsappChannel, recipients, errorLog);
+                    await ProcessWhatsAppChannel(whatsappChannel, recipients, errorLog, comunicadoId);
                 }
 
                 string finalStatus = errorLog.Length > 0 ? "Finished w/ Errors" : "Finished";
@@ -68,14 +70,9 @@ namespace GuardeSoftwareAPI.Jobs
 
         private async Task ProcessEmailChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog, int communicationId)
         {
-            // 1. Obtener Config SMTP de la BD
             var dbSmtp = await _communicationDao.GetSmtpSettingsAsync(communicationId);
-
             bool isAccountStatement = await _communicationDao.IsAccountStatementAsync(communicationId);
             
-            // 2. CONSTRUIR OBJETO DE CONFIGURACIÓN "EFECTIVO"
-            // Si dbSmtp es null, creamos uno manualmente con los datos de appsettings.
-            // Esto evita que pasemos un objeto nulo a CreateEmailMessage.
             SmtpSettingsModel effectiveSettings;
 
             if (dbSmtp != null)
@@ -84,7 +81,6 @@ namespace GuardeSoftwareAPI.Jobs
             }
             else
             {
-                // Fallback a appsettings.json
                 effectiveSettings = new SmtpSettingsModel
                 {
                     Host = _config["SmtpSettings:Server"],
@@ -92,7 +88,6 @@ namespace GuardeSoftwareAPI.Jobs
                     Email = _config["SmtpSettings:SenderEmail"],
                     Password = _config["SmtpSettings:Password"],
                     UseSsl = bool.Parse(_config["SmtpSettings:UseSsl"]),
-                    // Intentamos leer configuración de BCC si existe en appsettings, sino defaults
                     EnableBcc = bool.TryParse(_config["SmtpSettings:EnableBcc"], out var bcc) && bcc,
                     BccEmail = _config["SmtpSettings:BccEmail"] ?? ""
                 };
@@ -104,11 +99,9 @@ namespace GuardeSoftwareAPI.Jobs
             using var smtp = new SmtpClient();
             try
             {
-                // Ignorar validación de certificado (útil para hosts compartidos)
                 smtp.CheckCertificateRevocation = false;
                 smtp.ServerCertificateValidationCallback = (s, c, h, e) => true;
 
-                // Conectar usando el objeto "effectiveSettings" que garantizamos NO es nulo
                 await smtp.ConnectAsync(effectiveSettings.Host, effectiveSettings.Port, effectiveSettings.UseSsl);
                 await smtp.AuthenticateAsync(effectiveSettings.Email, effectiveSettings.Password);
 
@@ -120,11 +113,9 @@ namespace GuardeSoftwareAPI.Jobs
 
                         if (isAccountStatement)
                         {
-                            // LÓGICA ESPECIAL: Generar HTML dinámico
-                            var financialData = await _communicationDao.GetClientFinancialData(recipient.ClientId); // Ver paso 4
+                            var financialData = await _communicationDao.GetClientFinancialData(recipient.ClientId);
                             string dynamicHtml = GenerateAccountStatementHtml(recipient.Name, financialData);
                             
-                            // Creamos un canal temporal con el HTML generado
                             var tempChannel = new ChannelForSendingDto 
                             { 
                                 Subject = $"Estado de Cuenta {DateTime.Now:MM/yyyy}", 
@@ -166,57 +157,32 @@ namespace GuardeSoftwareAPI.Jobs
             }
         }
 
-        private async Task ProcessWhatsAppChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog)
-        {
-            _logger.LogInformation("Processing WhatsApp channel (placeholder)...");
-            
-            foreach (var recipient in recipients)
-            {
-                if (string.IsNullOrEmpty(recipient.Phone))
-                {
-                    await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", "Client has no phone number");
-                    continue;
-                }
-                
-                // Placeholder logic...
-                await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", "WhatsApp sending not implemented");
-            }
-        }
-
         private MimeMessage CreateEmailMessage(ChannelForSendingDto channel, RecipientForSendingDto recipient, SmtpSettingsModel settings, List<AttachmentDto> attachments)
         {
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress("Guarde lo que quiera - Abono", settings.Email));
-
-            // --- CAMBIO AQUÍ: Soportar múltiples destinatarios ---
             
             if (!string.IsNullOrEmpty(recipient.Email))
             {
-                // Separamos por punto y coma (que fue lo que pusimos en el SQL)
                 var addresses = recipient.Email.Split(';', StringSplitOptions.RemoveEmptyEntries);
 
                 foreach (var address in addresses)
                 {
                     try 
                     {
-                        // Limpiamos espacios en blanco por seguridad
                         message.To.Add(MailboxAddress.Parse(address.Trim()));
                     }
                     catch 
                     { 
-                        // Si un mail es inválido, lo ignoramos para no bloquear a los otros
                         continue; 
                     }
                 }
             }
-            // ----------------------------------------------------
-
             message.Subject = channel.Subject;
 
             var builder = new BodyBuilder();
             builder.HtmlBody = channel.Content;
 
-            // Adjuntar archivos si existen
             if (attachments != null && attachments.Count > 0)
             {
                 foreach (var att in attachments)
@@ -234,10 +200,7 @@ namespace GuardeSoftwareAPI.Jobs
 
         private string GenerateAccountStatementHtml(string clientName, ClientFinancialDto data)
         {
-            // Variables de tiempo (igual que time.strftime("%m/%Y"))
             string monthYear = DateTime.Now.ToString("MM/yyyy");
-            
-            // Formato de moneda (N2 para 2 decimales, igual que el CSV original)
             string recargo = data.Surcharge.ToString("N2");
             string saldoAnterior = data.PreviousBalance.ToString("N2");
             string saldoActual = data.CurrentBalance.ToString("N2");
@@ -299,6 +262,108 @@ namespace GuardeSoftwareAPI.Jobs
                     <b style='color: green;'><p></p>
                 </body>
             </html>";
+        }
+
+        private async Task SendWhatsAppViaWahaAsync(string phone, string messageText)
+        {
+            string wahaUrl = "http://127.0.0.1:3000/api/sendText"; 
+
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add("X-Api-Key", _config["WAHASettings:ApiKey"]);
+                
+                client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+                var payload = new
+                {
+                    chatId = phone, 
+                    text = messageText,
+                    session = "default" 
+                };
+
+                var json = JsonSerializer.Serialize(payload);
+                
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                try 
+                {
+                    var response = await client.PostAsync(wahaUrl, content);
+                    
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        var errorBody = await response.Content.ReadAsStringAsync();
+                        throw new Exception($"WAHA HTTP {response.StatusCode}: {errorBody}");
+                    }
+                }
+                catch (HttpRequestException ex)
+                {
+                    throw new Exception($"Fallo de red hacia WAHA (Verifica Docker): {ex.Message}");
+                }
+            }
+        }
+
+        private string FormatPhoneForWhatsApp(string phone)
+        {
+            if (string.IsNullOrWhiteSpace(phone)) return null;
+
+            var clean = new string(phone.Where(char.IsDigit).ToArray());
+
+            if (!clean.StartsWith("549"))
+            {
+                clean = "549" + clean;
+            }
+
+            return $"{clean}@c.us";
+        }
+
+        private string StripHtmlForWhatsApp(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+            
+            string text = input.Replace("<br>", "\n").Replace("<br/>", "\n").Replace("</p>", "\n");
+            
+            text = Regex.Replace(text, "<.*?>", string.Empty);
+
+            text = System.Net.WebUtility.HtmlDecode(text);
+            
+            return text.Trim();
+        }
+
+        private async Task ProcessWhatsAppChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog, int communicationId)
+        {
+            bool isAccountStatement = await _communicationDao.IsAccountStatementAsync(communicationId);
+
+            if (isAccountStatement)
+            {
+                _logger.LogInformation("El comunicado {Id} es un Estado de Cuenta. Se omite el envío por WhatsApp.", communicationId);
+                return; 
+            }
+
+            foreach (var recipient in recipients)
+            {
+                try 
+                {
+                    if (string.IsNullOrWhiteSpace(recipient.Phone))
+                    {
+                        await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Failed", "Sin número de teléfono");
+                        continue;
+                    }
+
+                    string formattedPhone = FormatPhoneForWhatsApp(recipient.Phone);
+                    
+                    string messageToSend = StripHtmlForWhatsApp(channel.Content); 
+
+                    await SendWhatsAppViaWahaAsync(formattedPhone, messageToSend);
+                    await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Exitoso", "Enviado vía WAHA");
+                    
+                    await Task.Delay(3000); 
+                }
+                catch (Exception ex)
+                {
+                    await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Failed", ex.Message);
+                    errorLog.AppendLine($"Error WAHA para {recipient.Name}: {ex.Message}");
+                }
+            }
         }
     }
 }
