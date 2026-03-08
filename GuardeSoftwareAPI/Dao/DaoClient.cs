@@ -286,6 +286,15 @@ namespace GuardeSoftwareAPI.Dao
             return count > 0;
         }
 
+        public async Task<bool> ExistsByPaymentIdentifierAsync(decimal paymentIdentifier, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = "SELECT COUNT(1) FROM clients WHERE payment_identifier = @paymentIdentifier";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@paymentIdentifier", SqlDbType.Decimal) { Value = paymentIdentifier });
+            int count = (int)await command.ExecuteScalarAsync();
+            return count > 0;
+        }
+
         //This method returns a tuple with the list of clients and the total count for pagination
         //Not returns a datatable like the others because we need to map it to a dto, the method is
         //below this (MapDataTableToDto)
@@ -555,6 +564,18 @@ namespace GuardeSoftwareAPI.Dao
             using (var command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.Add(new SqlParameter("@cuit", SqlDbType.VarChar) { Value = cuit });
+                command.Parameters.Add(new SqlParameter("@excludeClientId", SqlDbType.Int) { Value = excludeClientId });
+                object result = await command.ExecuteScalarAsync();
+                return (result != null && result != DBNull.Value) ? Convert.ToInt32(result) > 0 : false;
+            }
+        }
+
+        public async Task<bool> ExistsByPaymentIdentifierAsync(decimal paymentIdentifier, int excludeClientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = "SELECT COUNT(1) FROM clients WHERE payment_identifier = @paymentIdentifier AND client_id != @excludeClientId AND active = 1";
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.Add(new SqlParameter("@paymentIdentifier", SqlDbType.Decimal) { Value = paymentIdentifier });
                 command.Parameters.Add(new SqlParameter("@excludeClientId", SqlDbType.Int) { Value = excludeClientId });
                 object result = await command.ExecuteScalarAsync();
                 return (result != null && result != DBNull.Value) ? Convert.ToInt32(result) > 0 : false;

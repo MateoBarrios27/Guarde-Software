@@ -169,6 +169,11 @@ namespace GuardeSoftwareAPI.Services.client
                             throw new InvalidOperationException("A client with this CUIT already exists.");
                         }
 
+                        if (dto.PaymentIdentifier != null && await daoClient.ExistsByPaymentIdentifierAsync(dto.PaymentIdentifier.Value, connection, transaction))
+                        {
+                            throw new InvalidOperationException("A client with this Payment Identifier already exists.");
+                        }
+
                         Client client = new()
                         {
                             PaymentIdentifier = dto.PaymentIdentifier,
@@ -545,6 +550,8 @@ namespace GuardeSoftwareAPI.Services.client
                             throw new InvalidOperationException("Ya existe otro cliente con este DNI.");
                         if (!string.IsNullOrWhiteSpace(dto.Cuit) && await daoClient.ExistsByCuitAsync(dto.Cuit, id, connection, transaction))
                             throw new InvalidOperationException("Ya existe otro cliente con este CUIT.");
+                        if (dto.PaymentIdentifier != null && await daoClient.ExistsByPaymentIdentifierAsync(dto.PaymentIdentifier.Value, id, connection, transaction))
+                            throw new InvalidOperationException("Ya existe otro cliente con este número identificador de pago.");
 
                         Client clientToUpdate = new()
                         {
