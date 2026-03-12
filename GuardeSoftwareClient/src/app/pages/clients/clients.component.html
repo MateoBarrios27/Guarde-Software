@@ -299,7 +299,7 @@
                     [name]="getEstadoIcon(cliente.status)"
                     class="h-3 w-3"
                   ></app-icon>
-                  {{ cliente.status }}
+                  {{ getDisplayStatus(cliente.status) }}
                 </span>
               </td>
               <td class="p-4 font-medium text-gray-800">

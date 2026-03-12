@@ -245,7 +245,7 @@ namespace GuardeSoftwareAPI.Dao
 
                     CASE 
                         WHEN c.active = 0 THEN 'Baja'
-                        WHEN r.months_unpaid > 0 THEN 'Moroso'
+                        WHEN r.months_unpaid > 0 THEN 'Moroso N' + CAST(r.months_unpaid AS VARCHAR(10))
                         WHEN ISNULL(acc.Balance, 0) > 0 THEN 'Pendiente'
                         ELSE 'Al día'
                     END AS payment_status
@@ -347,10 +347,8 @@ namespace GuardeSoftwareAPI.Dao
                         c.active AS Active,
                         CASE
                             WHEN c.active = 0 THEN 'Baja'
-                            WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso'
-                            -- CAMBIO 2: Ajuste de lógica de estado
-                            -- Como ahora Deuda es Negativo, 'Al día' es cuando el balance es >= 0 (0 o a favor)
-                            WHEN ISNULL(balance_sub.balance, 0) >= 0 THEN 'Al día' 
+                            WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso N' + CAST(ISNULL(months_unpaid_sub.total_months_unpaid, 0) AS VARCHAR(10))
+                            WHEN ISNULL(balance_sub.balance, 0) >= 0 THEN 'Al día'
                             ELSE 'Pendiente'
                         END AS Status
                     FROM 

@@ -188,25 +188,50 @@ export class ClientsComponent implements OnInit {
     this.loadClients();
   } 
   
-  // --- Style Helpers ---
   getEstadoBadgeColor(estado: string): string {
+    if (!estado) return 'bg-gray-100 text-gray-800';
+
+    if (estado.startsWith('Moroso')) {
+      return 'bg-red-100 text-red-800';
+    }
+
     const colors: Record<string, string> = {
       'Al día': 'bg-green-100 text-green-800',
-      Moroso: 'bg-red-100 text-red-800',
-      Pendiente: 'bg-yellow-100 text-yellow-800',
-      Baja: 'bg-gray-200 text-gray-800',
+      'Pendiente': 'bg-yellow-100 text-yellow-800',
+      'Baja': 'bg-gray-200 text-gray-800',
     };
+
     return colors[estado] || 'bg-gray-100 text-gray-800';
   }
 
   getEstadoIcon(estado: string): string {
+    if (!estado) return 'help-circle';
+
+    // Misma lógica para el ícono
+    if (estado.startsWith('Moroso')) {
+      return 'alert-triangle';
+    }
+
     const icons: Record<string, string> = {
       'Al día': 'check-circle',
-      Moroso: 'alert-triangle',
-      Pendiente: 'clock',
-      Baja: 'user-x',
+      'Pendiente': 'clock',
+      'Baja': 'user-x',
     };
+
     return icons[estado] || 'help-circle';
+  }
+
+  getDisplayStatus(status: string): string {
+    if (!status) return '';
+
+    if (status.startsWith('Moroso N')) {
+      const nivel = parseInt(status.replace('Moroso N', ''), 10);
+      
+      if (nivel > 3) {
+        return 'Moroso N3';
+      }
+    }
+    return status;
   }
 
   getDocumentoBadgeColor(documento: string): string {
