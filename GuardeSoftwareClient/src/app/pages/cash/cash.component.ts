@@ -96,13 +96,23 @@ export class CashComponent implements OnInit {
 
 
   addNewRow(): void {
-  const newItem: CashFlowItem = {
-    date: new Date().toISOString().split('T')[0], 
-    description: '',
-    depo: 0, casa: 0, pagado: 0, retiros: 0, extras: 0
-  };
-  this.items.push(newItem);
-}
+    const y = this.selectedYear;
+    const m = this.selectedMonth.toString().padStart(2, '0'); 
+    
+    const defaultDate = `${y}-${m}-01`;
+
+    const newItem: CashFlowItem = {
+      date: defaultDate,
+      description: '',
+      depo: 0, 
+      casa: 0, 
+      pagado: 0, 
+      retiros: 0, 
+      extras: 0
+    };
+    
+    this.items.push(newItem);
+  }
 
   onItemChange(item: CashFlowItem): void {
     this.calculateLocalTotals(); 
