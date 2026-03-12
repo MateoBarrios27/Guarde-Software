@@ -12,10 +12,12 @@ namespace GuardeSoftwareAPI.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly ILogger<UserController> _logger;
 
-        public UserController(IUserService userService)
+        public UserController(IUserService userService, ILogger<UserController> logger)
         {
             _userService = userService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -110,6 +112,7 @@ namespace GuardeSoftwareAPI.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error creating user");
                 return StatusCode(500, $"Error creating user: {ex.Message}");
             }
         }

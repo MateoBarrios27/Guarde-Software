@@ -247,6 +247,11 @@ namespace GuardeSoftwareAPI.Services.payment
 			return list;
 		}
 
+		public async Task<bool> DeletePaymentAsync(int paymentId)
+		{
+			return await _daoPayment.DeletePaymentTransactionAsync(paymentId);
+		}
+
 		
 	}
 }

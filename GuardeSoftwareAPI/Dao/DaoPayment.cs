@@ -137,6 +137,41 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.GetTableAsync("detailed_payments", query);
         }
 
+        public async Task<bool> DeletePaymentTransactionAsync(int paymentId)
+        {
+            using SqlConnection connection = accessDB.GetConnectionClose();
+            
+            await connection.OpenAsync();
+
+            using SqlTransaction transaction = connection.BeginTransaction();
+
+            try
+            {
+                string deleteMovementQuery = "DELETE FROM account_movements WHERE payment_id = @PaymentId";
+                using (var cmdMovement = new SqlCommand(deleteMovementQuery, connection, transaction))
+                {
+                    cmdMovement.Parameters.Add(new SqlParameter("@PaymentId", paymentId));
+                    await cmdMovement.ExecuteNonQueryAsync();
+                }
+
+                string deletePaymentQuery = "DELETE FROM payments WHERE payment_id = @PaymentId";
+                int rowsAffected;
+                using (var cmdPayment = new SqlCommand(deletePaymentQuery, connection, transaction))
+                {
+                    cmdPayment.Parameters.Add(new SqlParameter("@PaymentId", paymentId));
+                    rowsAffected = await cmdPayment.ExecuteNonQueryAsync();
+                }
+                transaction.Commit();
+                
+                return rowsAffected > 0;
+            }
+            catch (Exception)
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
 
         
     }

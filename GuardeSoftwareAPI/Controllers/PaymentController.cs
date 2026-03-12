@@ -124,5 +124,24 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpDelete("{id}")]
+        // [Authorize(Role = "Admin")] // Recomendable to restrict this action to admin users only
+        public async Task<IActionResult> DeletePayment(int id)
+        {
+            try
+            {
+                bool success = await _paymentService.DeletePaymentAsync(id);
+                
+                if (!success) 
+                    return NotFound(new { message = "El pago no existe o ya fue eliminado." });
+
+                return Ok(new { message = "Pago y movimiento eliminados correctamente." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error interno del servidor", details = ex.Message });
+            }
+        }
+
     }
 }

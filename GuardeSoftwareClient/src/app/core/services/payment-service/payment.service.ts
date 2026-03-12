@@ -33,6 +33,9 @@ export class PaymentService {
   public getDetailedPayment(): Observable<DetailedPaymentDTO[]>{
       return this.httpCliente.get<DetailedPaymentDTO[]>(`${this.url}/Payment/detailed`);
   }
-  
+
+  deletePayment(paymentId: number): Observable<any> {
+    return this.httpCliente.delete(`${this.url}/Payment/${paymentId}`);
+  }
   
 }

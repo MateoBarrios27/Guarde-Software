@@ -597,5 +597,42 @@ selectClient(client: any) {
       }
     }
 
+    deletePayment(paymentId: number): void {
+    Swal.fire({
+      title: '¿Estás seguro?',
+      text: 'Esta acción borrará el pago y modificará el saldo del cliente. Esta acción no se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33', 
+      cancelButtonColor: '#9ca3af', 
+      confirmButtonText: 'Sí, eliminar pago',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.paymentService.deletePayment(paymentId).subscribe({
+          next: () => {
+            Swal.fire({
+              title: '¡Eliminado!',
+              text: 'El pago ha sido borrado correctamente.',
+              icon: 'success',
+              confirmButtonColor: '#2563eb'
+            });
+
+            this.loadPayments(); 
+          },
+          error: (err) => {
+            console.error('Error al eliminar pago:', err);
+            Swal.fire({
+              title: 'Error',
+              text: 'Hubo un problema al intentar borrar el pago.',
+              icon: 'error',
+              confirmButtonColor: '#2563eb'
+            });
+          }
+        });
+      }
+    });
+  }
+
 
 }
