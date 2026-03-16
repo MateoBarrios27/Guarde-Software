@@ -103,8 +103,8 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
         {
             if (oldHistoryId <= 0) throw new ArgumentException("Invalid old history ID.");
             if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.");
-            if (newAmount <= 0) throw new ArgumentException("New amount must be positive.");
-            if (startDate == default) throw new ArgumentException("Invalid start date.");
+            if (newAmount < 0) throw new ArgumentException("El monto tiene que ser 0 o positivo.");
+            if (startDate == default) throw new ArgumentException("Fecha de inicio inválida.");
 
             DateTime endDate = startDate.Date.AddDays(-1);
             await _daoRentalAmountHistory.EndRentalAmountHistoryTransactionAsync(oldHistoryId, endDate, connection, transaction);

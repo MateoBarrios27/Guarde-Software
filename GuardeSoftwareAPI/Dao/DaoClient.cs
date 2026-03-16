@@ -401,23 +401,18 @@ namespace GuardeSoftwareAPI.Dao
             return (clients, totalCount);
         }
 
-        // Helper methods to avoid SQL injection
-       // En tu método GetTableClientsAsync del DAO
-
         private string GetSortColumn(string sortField)
         {
-            // Usamos un diccionario que ignora mayúsculas/minúsculas
             var validSortFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) 
             {
-                // "Clave del Front-end", "Nombre de la Columna en la CTE"
                 { "FirstName", "FirstName" },
                 { "LastName", "LastName" },
                 { "Baulera", "Lockers" },
                 { "Estado", "Status" },
-                { "Balance", "Balance" } // "Renta" en la imagen, "Balance" en el código
+                { "Balance", "Balance" },
+                { "PaymentIdentifier", "PaymentIdentifier" }
             };
             
-            // Si el campo existe en el diccionario, lo devuelve. Si no, devuelve "Id" por defecto.
             return validSortFields.TryGetValue(sortField, out var dbColumn) ? dbColumn : "Id";
         }
 

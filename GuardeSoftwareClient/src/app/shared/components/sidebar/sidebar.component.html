@@ -27,13 +27,13 @@
     <div class="p-4 border-t border-white border-opacity-20 flex-shrink-0">
   <div class="flex items-center gap-3 text-white">
     <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white font-bold font-sans">
-      U
+      R
     </div>
 
     <div class="flex-1 min-w-0">
       <div class="flex items-center justify-between gap-2">
         <div class="text-sm font-sans truncate">
-          {{ userName }}
+          {{ firstName + " " + lastName }}
         </div>
 
         <button
@@ -46,7 +46,7 @@
         </button>
       </div>
       <div class="text-xs text-blue-100 font-sans truncate">
-        {{ firstName + " " + lastName }}
+        {{ userName }}
       </div>
     </div>
   </div>

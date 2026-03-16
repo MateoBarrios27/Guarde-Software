@@ -55,7 +55,7 @@ export class ClientsComponent implements OnInit {
   public currentPageClientes = 1;
   public itemsPerPageClientes = 10;
   public itemsPerPageOptions = [10, 20, 50];
-  public sortFieldClientes = 'FirstName';
+  public sortFieldClientes = 'PaymentIdentifier';
   public sortDirectionClientes: 'asc' | 'desc' = 'asc';
   public readonly Math = Math;
 
@@ -174,19 +174,14 @@ export class ClientsComponent implements OnInit {
 
   handleResetFilters(): void {
     this.searchClientes = '';
-
     this.filterEstadoClientes = 'Todos';
-
     this.showInactivos = false;
-
     this.currentPageClientes = 1;
-
-    this.sortFieldClientes = 'FirstName';
-
+    this.sortFieldClientes = 'PaymentIdentifier';
     this.sortDirectionClientes = 'asc';
-
+    
     this.loadClients();
-  } 
+  }
   
   getEstadoBadgeColor(estado: string): string {
     if (!estado) return 'bg-gray-100 text-gray-800';
