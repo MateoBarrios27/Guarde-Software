@@ -255,7 +255,7 @@ namespace GuardeSoftwareAPI.Services.client
                             await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
                             {
                                 RentalId = rentalId,
-                                Amount = initialAmount,
+                                Amount = dto.Amount,
                                 StartDate = dto.StartDate, 
                                 EndDate = (dto.LegacyNextIncreaseDate.HasValue && dto.LegacyNextIncreaseDate.Value > dto.StartDate) 
                                                 ? dto.LegacyNextIncreaseDate.Value.AddDays(-1) 

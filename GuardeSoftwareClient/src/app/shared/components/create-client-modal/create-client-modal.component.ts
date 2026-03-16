@@ -70,7 +70,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   isLoading: boolean = false;
   private areBasicDataLoaded = false;
   public phonesSignal: WritableSignal<PhoneInputDto[]> = signal([
-    { number: '', whatsapp: false },
+    { number: '', whatsapp: true },
   ]);
 
   constructor(
@@ -170,7 +170,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
         } else if (!this.isEditMode) {
             // Modo Creación
             this.newClientForm.get('isLegacyClient')?.enable();
-            this.phonesSignal.set([{ number: '', whatsapp: false }]);
+            this.phonesSignal.set([{ number: '', whatsapp: true }]);
         }
     }
   }
@@ -273,7 +273,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   createPhoneGroup(): FormGroup {
     return this.fb.group({
       number: [''],
-      whatsapp: [false],
+      whatsapp: [true],
     });
   }
 
@@ -523,8 +523,6 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     emails: formValue.emails.filter(
       (e: string | null): e is string => !!e && !!e.trim()
     ),
-    // Map phone objects to the structure expected by your DTO/API
-    // Filters out empty numbers and ensures whatsapp is boolean
     phones: formValue.telefonos
       .filter((p: any) => p.number && p.number.trim())
       .map((p: any) => ({
