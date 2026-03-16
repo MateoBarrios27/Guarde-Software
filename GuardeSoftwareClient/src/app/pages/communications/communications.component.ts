@@ -167,7 +167,7 @@ export class CommunicationsComponent implements OnInit {
     sendTime: '',
     channels: [],
     recipients: [],
-    type: 'programar',
+    type: 'enviar_ahora',
     smtpConfigId: null,
     isAccountStatement: false
   });
@@ -206,7 +206,6 @@ export class CommunicationsComponent implements OnInit {
   isFormValid = computed(() => {
     const data = this.formData();
     
-    // Validar contenido (lógica del Estado de Cuenta que hicimos antes)
     const isContentEmpty = !data.content || data.content.trim() === '<p><br></p>' || data.content.trim() === '';
     const contentIsValid = data.isAccountStatement || !isContentEmpty;
 
@@ -215,30 +214,30 @@ export class CommunicationsComponent implements OnInit {
                     data.channels.length > 0 && 
                     data.recipients.length > 0;
     
-    // Lógica de fechas según el tipo
     if (data.type === 'programar') {
       return baseValid && data.sendDate.length > 0 && data.sendTime.length > 0;
     }
     
-    // Para 'borrador' y 'enviar_ahora', solo validamos lo básico
     return baseValid;
   });
-  // --- Methods ---
+
 
   private resetForm(): void {
-    this.formData.set({
-      id: null,
-      title: '',
-      content: '',
-      sendDate: '',
-      sendTime: '',
-      channels: [],
-      recipients: [],
-      type: 'programar',
-      smtpConfigId: null,
+    const defaultSmtp = this.smtpConfigs().length > 0 ? this.smtpConfigs()[0].id : null;
+
+    this.formData.set({
+      id: null,
+      title: '',
+      content: '',
+      sendDate: '',
+      sendTime: '',
+      channels: [],
+      recipients: [],
+      type: 'enviar_ahora',
+      smtpConfigId: defaultSmtp,
       isAccountStatement: false
-    });
-  }
+    });
+  }
 
   private showToast(message: string, description: string, icon: string, color: 'success' | 'error'): void {
     this.toast.set({ show: true, message, description, icon, color });
@@ -262,35 +261,37 @@ export class CommunicationsComponent implements OnInit {
       if (communication.channel.includes('WhatsApp')) channelsArray.push('WhatsApp');
 
       // 2. Determinar tipo de formulario
-      // Si es 'isResend' (Clonar), siempre empieza como 'programar' o 'borrador' limpio.
-      // Si es 'edit' de un fallido, mantenemos su estado lógico.
-      const formType = (communication.status === 'Scheduled' || communication.status === 'Processing') 
-        ? 'programar' 
-        : 'borrador';
+      let formType: 'programar' | 'borrador' | 'enviar_ahora' = 'borrador';
+      
+      // Si es un comunicado que ya estaba programado, mantenemos su estado
+      if (communication.status === 'Scheduled' || communication.status === 'Processing') {
+        formType = 'programar';
+      } 
+      // Si es un reintento por error, por defecto queremos que se envíe ahora
+      else if (communication.status === 'Failed' || communication.status === 'Finished w/ Errors') {
+        formType = 'enviar_ahora';
+      } 
+      // Si estamos editando un borrador, lo mantenemos como borrador
+      else {
+        formType = 'borrador';
+      }
 
       this.formData.set({
-        // Si es 'isResend', el ID es null (creará uno nuevo). Si es edit, usa el ID existente.
         id: isResend ? null : communication.id, 
-        
         title: communication.title,
         content: communication.content,
-        
-        // Si es clonación, limpiamos fechas. Si es edición, las mantenemos.
         sendDate: isResend ? '' : (communication.sendDate || ''),
         sendTime: isResend ? '' : (communication.sendTime || ''),
-        
         channels: channelsArray,
         recipients: [...communication.recipients],
         
-        // Si es clonación, forzamos 'programar' para que el usuario elija fecha.
-        type: isResend ? 'programar' : formType,
+        // <--- CAMBIO AQUÍ: Si clonamos (isResend), forzamos 'enviar_ahora'. Si no, usamos la lógica de arriba.
+        type: isResend ? 'enviar_ahora' : formType,
         
-        // Mantenemos la config SMTP si existe
         smtpConfigId: communication.smtpConfigId || null,
         isAccountStatement: communication.isAccountStatement || false
       });
       
-      // Si estamos clonando, cambiamos el modo a 'add' para que el botón diga "Crear"
       if (isResend) finalModalType = 'add';
     }
     
@@ -429,12 +430,25 @@ export class CommunicationsComponent implements OnInit {
   }
 
   toggleChannel(channelName: 'Email' | 'WhatsApp'): void {
-    const currentChannels = this.formData().channels;
-    const newChannels = currentChannels.includes(channelName)
-      ? currentChannels.filter(c => c !== channelName)
-      : [...currentChannels, channelName];
-    this.formData.update(data => ({ ...data, channels: newChannels }));
-  }
+    const currentChannels = this.formData().channels;
+    const isAdding = !currentChannels.includes(channelName);
+    
+    const newChannels = isAdding
+      ? [...currentChannels, channelName]
+      : currentChannels.filter(c => c !== channelName);
+
+    let newIsAccountStatement = this.formData().isAccountStatement;
+    
+    if (channelName === 'WhatsApp' && isAdding) {
+      newIsAccountStatement = false;
+    }
+
+    this.formData.update(data => ({ 
+      ...data, 
+      channels: newChannels,
+      isAccountStatement: newIsAccountStatement
+    }));
+  }
 
   addRecipientFromList(recipient: string, inputElement: HTMLInputElement): void {
     if (recipient && !this.formData().recipients.includes(recipient)) {
@@ -514,8 +528,9 @@ export class CommunicationsComponent implements OnInit {
     this.commService.getAllSmtpConfigs().subscribe({
         next: (configs) => {
             this.smtpConfigs.set(configs);
-            // Opcional: Si quieres pre-seleccionar el primero
-            // if (configs.length > 0) this.updateFormField('smtpConfigId', configs[0].id);
+            if (configs.length > 0 && !this.formData().smtpConfigId) {
+                this.updateFormField('smtpConfigId', configs[0].id);
+            }
         },
         error: () => console.error('No se pudieron cargar las configuraciones SMTP')
     });

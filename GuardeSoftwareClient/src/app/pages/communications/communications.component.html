@@ -154,6 +154,7 @@
 
     <div class="space-y-4 pt-2 border-t border-dashed">
       
+      @if (!formData().channels.includes('WhatsApp')) {
       <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-center justify-between">
         <div>
             <span class="block font-bold text-blue-900 text-sm">¿Es un Estado de Cuenta?</span>
@@ -164,6 +165,7 @@
             <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
         </label>
       </div>
+      }
 
       <div class="relative">
         <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -205,7 +207,8 @@
       </div>
     </div>
 
-    <div>
+    @if (formData().channels.includes('Email')) {
+    <div class="animate-fade-in">
       <label class="block text-sm font-medium text-gray-700 mb-1">Servidor de Envío</label>
       <div class="relative">
         <select [ngModel]="formData().smtpConfigId" 
@@ -218,8 +221,10 @@
         </div>
       </div>
     </div>
+    }
 
-    <div>
+    @if (formData().channels.includes('Email')) {
+    <div class="animate-fade-in">
       <label class="block text-sm font-medium text-gray-700 mb-1">Archivos Adjuntos</label>
       <div class="flex items-center gap-4">
           <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg border border-gray-300 transition flex items-center shadow-sm">
@@ -238,6 +243,7 @@
           </div>
       </div>
     </div>
+    }
 
     <div class="border-t pt-4">
       <label class="block text-sm font-medium text-gray-700 mb-2">¿Cuándo enviar?</label>
