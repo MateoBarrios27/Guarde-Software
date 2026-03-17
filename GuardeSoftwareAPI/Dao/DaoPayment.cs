@@ -31,7 +31,7 @@ namespace GuardeSoftwareAPI.Dao
                     p.payment_id,
                     p.client_id,
                     c.payment_identifier,
-                    CONCAT(c.first_name, ' ', c.last_name) AS first_name,
+                    c.full_name,
                     p.payment_method_id,
                     p.payment_date,
                     p.amount
@@ -49,10 +49,10 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "SELECT payment_id, client_id, payment_method_id, payment_date, amount FROM payments WHERE payment_id = @payment_id";
 
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
 
-                new SqlParameter("@payment_id", SqlDbType.Int){Value  = id},
-            };
+                new("@payment_id", SqlDbType.Int){Value  = id},
+            ];
 
             return await accessDB.GetTableAsync("payments", query, parameters);
         }
@@ -61,12 +61,12 @@ namespace GuardeSoftwareAPI.Dao
         {
             string query = "INSERT INTO payments (client_id, payment_method_id, payment_date, amount) VALUES (@client_id, @payment_method_id, @payment_date, @amount)";
 
-            SqlParameter[] parameters = new SqlParameter[] {
-                new SqlParameter("@client_id", SqlDbType.Int){Value  = payment.ClientId},
-                new SqlParameter("@payment_method_id", SqlDbType.Int){Value  = payment.PaymentMethodId},
-                new SqlParameter("@payment_date", SqlDbType.DateTime){Value  = payment.PaymentDate},
-                new SqlParameter("@amount", SqlDbType.Decimal){Value  = payment.Amount},
-            };
+            SqlParameter[] parameters = [
+                new("@client_id", SqlDbType.Int){Value  = payment.ClientId},
+                new("@payment_method_id", SqlDbType.Int){Value  = payment.PaymentMethodId},
+                new("@payment_date", SqlDbType.DateTime){Value  = payment.PaymentDate},
+                new("@amount", SqlDbType.Decimal){Value  = payment.Amount},
+            ];
 
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
@@ -80,13 +80,13 @@ namespace GuardeSoftwareAPI.Dao
                 OUTPUT INSERTED.payment_id
                 VALUES (@client_id, @payment_method_id, @payment_date, @amount);";
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new("@client_id", SqlDbType.Int) { Value = payment.ClientId },
                 new("@payment_method_id", SqlDbType.Int) { Value = payment.PaymentMethodId },
                 new("@payment_date", SqlDbType.DateTime) { Value = payment.PaymentDate },
                 new("@amount", SqlDbType.Decimal) { Value = payment.Amount }
-            };
+            ];
 
             using var command = new SqlCommand(query, connection, transaction);
             command.Parameters.AddRange(parameters);
@@ -119,7 +119,7 @@ namespace GuardeSoftwareAPI.Dao
             string query = @"
                 SELECT 
                     p.payment_id,
-                    c.first_name + ' ' + c.last_name AS client_name,
+                    c.full_name,
                     c.payment_identifier,
                     c.preferred_payment_method_id,
                     p.amount,

@@ -71,8 +71,7 @@ namespace GuardeSoftwareAPI.Services.client
                 { 
                     Id = clientId,
                     PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
-                    FirstName = row["first_name"]?.ToString() ?? string.Empty,
-                    LastName = row["last_name"]?.ToString() ?? string.Empty,
+                    FullName = row["full_name"]?.ToString() ?? string.Empty,
                     RegistrationDate = (DateTime)row["registration_date"],
                     Notes = row["notes"]?.ToString() ?? string.Empty,
                     Dni = row["dni"]?.ToString() ?? string.Empty,
@@ -98,8 +97,7 @@ namespace GuardeSoftwareAPI.Services.client
                 {
                     Id = clientId,
                     PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
-                    FirstName = row["first_name"]?.ToString() ?? string.Empty,
-                    LastName = row["last_name"]?.ToString() ?? string.Empty,
+                    FullName = row["full_name"]?.ToString() ?? string.Empty,
                     RegistrationDate = (DateTime)row["registration_date"],
                     Notes = row["notes"]?.ToString() ?? string.Empty,
                     Dni = row["dni"]?.ToString() ?? string.Empty,
@@ -114,8 +112,7 @@ namespace GuardeSoftwareAPI.Services.client
         public async Task<int> CreateClientAsync(CreateClientDTO dto)
         {
             ArgumentNullException.ThrowIfNull(dto);
-            if (string.IsNullOrWhiteSpace(dto.FirstName)) throw new ArgumentException("FirstName is required.");
-            if (string.IsNullOrWhiteSpace(dto.LastName)) throw new ArgumentException("LastName is required.");
+            if (string.IsNullOrWhiteSpace(dto.FullName)) throw new ArgumentException("FullName is required.");
             if (dto.Amount < 0) throw new ArgumentException("Amount must be greater than 0.");
             if (dto.LockerIds.Any(id => id <= 0)) throw new ArgumentException("LockerIds must be positive numbers.");
             if (dto.LockerIds.Distinct().Count() != dto.LockerIds.Count) throw new ArgumentException("Duplicate lockerIds are not allowed.");
@@ -177,8 +174,7 @@ namespace GuardeSoftwareAPI.Services.client
                         Client client = new()
                         {
                             PaymentIdentifier = dto.PaymentIdentifier,
-                            FirstName = dto.FirstName.Trim(),
-                            LastName = dto.LastName.Trim(),
+                            FullName = dto.FullName.Trim(),
                             RegistrationDate = registrationDate,
                             Dni = string.IsNullOrWhiteSpace(dto.Dni) ? null : dto.Dni.Trim(),
                             Cuit = string.IsNullOrWhiteSpace(dto.Cuit) ? null : dto.Cuit.Trim(),
@@ -443,8 +439,7 @@ namespace GuardeSoftwareAPI.Services.client
                 // Personal information
                 Id = Convert.ToInt32(row["client_id"]),
                 PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
-                Name = row["first_name"]?.ToString() ?? string.Empty,
-                LastName = row["last_name"]?.ToString() ?? string.Empty,
+                FullName = row["full_name"]?.ToString() ?? string.Empty,
                 City = row["city"]?.ToString() ?? string.Empty,
                 Province = row["province"]?.ToString() ?? string.Empty, // El DTO de TS usa 'state', aquí 'Province'
                 Cuit = row["cuit"]?.ToString() ?? string.Empty,
@@ -557,8 +552,7 @@ namespace GuardeSoftwareAPI.Services.client
                         {
                             Id = id,
                             PaymentIdentifier = dto.PaymentIdentifier,
-                            FirstName = dto.FirstName.Trim(),
-                            LastName = dto.LastName.Trim(),
+                            FullName = dto.FullName.Trim(),
                             Dni = string.IsNullOrWhiteSpace(dto.Dni) ? null : dto.Dni.Trim(),
                             Cuit = string.IsNullOrWhiteSpace(dto.Cuit) ? null : dto.Cuit.Trim(),
                             PreferredPaymentMethodId = dto.PreferredPaymentMethodId ?? existingClient.PreferredPaymentMethodId,

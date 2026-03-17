@@ -19,7 +19,7 @@ namespace GuardeSoftwareAPI.Services.rental
 		public async Task<List<Rental>> GetRentalsList()
 		{
 			DataTable rentalTable = await _daoRental.GetRentals();
-			List<Rental> rentals = new List<Rental>();
+			List<Rental> rentals = [];
 
 			if (rentalTable.Rows.Count == 0) throw new ArgumentException("No rentals found.");
 

@@ -2,8 +2,7 @@
 export interface TableClient {
   id: number;
   paymentIdentifier: number | null;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   email: string | null;
   phone: string | null;
   city: string;

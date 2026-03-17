@@ -37,8 +37,7 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT
                     c.client_id,
                     c.payment_identifier,
-                    c.first_name,
-                    c.last_name,
+                    c.full_name,
                     c.registration_date,
                     c.dni,
                     c.cuit,
@@ -48,8 +47,6 @@ namespace GuardeSoftwareAPI.Dao
                     c.billing_type_id,
                     c.increase_frequency_months,
                     c.initial_amount,
-
-                    -- BALANCE TOTAL DEL CLIENTE (suma de todos los rentals activos)
                     ISNULL(SUM(ISNULL(acc.Balance, 0)), 0) AS balance
 
                 FROM clients c
@@ -62,8 +59,7 @@ namespace GuardeSoftwareAPI.Dao
                 GROUP BY
                     c.client_id,
                     c.payment_identifier,
-                    c.first_name,
-                    c.last_name,
+                    c.full_name,
                     c.registration_date,
                     c.dni,
                     c.cuit,
@@ -81,7 +77,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<DataTable> GetClientById(int id)
         {
-            string query = "SELECT client_id, payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes, billing_type_id, increase_frequency_months, initial_amount FROM clients WHERE client_id = @client_id";
+            string query = "SELECT client_id, payment_identifier,full_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes, billing_type_id, increase_frequency_months, initial_amount FROM clients WHERE client_id = @client_id";
             SqlParameter[] parameters = { new("@client_id", SqlDbType.Int) { Value = id } };
             return await accessDB.GetTableAsync("clients", query, parameters);
         }
@@ -91,8 +87,7 @@ namespace GuardeSoftwareAPI.Dao
             SqlParameter[] parameters = [
 
                 new("@payment_identifier",SqlDbType.Decimal) {Value = client.PaymentIdentifier},
-                new("@first_name",SqlDbType.VarChar) {Value = client.FirstName },
-                new("@last_name",SqlDbType.VarChar) {Value = client.LastName},
+                new("@full_name",SqlDbType.VarChar) {Value = client.FullName },
                 new("@registration_date",SqlDbType.DateTime) {Value = client.RegistrationDate},
                 new("@dni",SqlDbType.VarChar) {Value = client.Dni},
                 new("@cuit",SqlDbType.VarChar) {Value = client.Cuit},
@@ -101,8 +96,8 @@ namespace GuardeSoftwareAPI.Dao
                 new("@notes",SqlDbType.VarChar) {Value = client.Notes},
             ];
 
-            string query = "INSERT INTO clients(payment_identifier,first_name,last_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes)"
-            + "VALUES(@payment_identifier,@first_name,@last_name,@registration_date,@dni,@cuit,@preferred_payment_method_id,@iva_condition, @notes)";
+            string query = "INSERT INTO clients(payment_identifier,full_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes)"
+            + "VALUES(@payment_identifier,@full_name,@registration_date,@dni,@cuit,@preferred_payment_method_id,@iva_condition, @notes)";
 
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
@@ -131,8 +126,7 @@ namespace GuardeSoftwareAPI.Dao
                     Scale = 2,
                     Value = (object?)client.PaymentIdentifier ?? DBNull.Value
                 },
-                new("@first_name", SqlDbType.VarChar) { Value = (object?)client.FirstName?.Trim() ?? DBNull.Value },
-                new("@last_name", SqlDbType.VarChar) { Value = (object?)client.LastName?.Trim() ?? DBNull.Value },
+                new("@full_name", SqlDbType.VarChar) { Value = (object?)client.FullName?.Trim() ?? DBNull.Value },
                 new("@registration_date", SqlDbType.DateTime) { Value = client.RegistrationDate },
                 new("@dni", SqlDbType.VarChar) { Value = (object?)client.Dni?.Trim() ?? DBNull.Value },
                 new("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },
@@ -147,9 +141,9 @@ namespace GuardeSoftwareAPI.Dao
             // Important: OUTPUT INSERTED.id returns the id even though there are triggers. 
             // instead: Identity scope can return the wrong ID if there are triggers
             string query = @"
-            INSERT INTO clients(payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes)
+            INSERT INTO clients(payment_identifier, full_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes)
             OUTPUT INSERTED.client_id
-            VALUES(@payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes);";
+            VALUES(@payment_identifier, @full_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes);";
 
             object result = await accessDB.ExecuteScalarAsync(query, parameters);
 
@@ -166,8 +160,7 @@ namespace GuardeSoftwareAPI.Dao
             SqlParameter[] parameters =
             [
                 new("@payment_identifier", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)client.PaymentIdentifier ?? DBNull.Value },
-                new("@first_name", SqlDbType.VarChar) { Value = (object?)client.FirstName?.Trim() ?? DBNull.Value },
-                new("@last_name", SqlDbType.VarChar) { Value = (object?)client.LastName?.Trim() ?? DBNull.Value },
+                new("@full_name", SqlDbType.VarChar) { Value = (object?)client.FullName?.Trim() ?? DBNull.Value },
                 new("@registration_date", SqlDbType.DateTime) { Value = client.RegistrationDate },
                 new("@dni", SqlDbType.VarChar) { Value = (object?)client.Dni?.Trim() ?? DBNull.Value },
                 new("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },
@@ -181,9 +174,9 @@ namespace GuardeSoftwareAPI.Dao
             ];
 
             string query = @"
-                INSERT INTO clients(payment_identifier, first_name, last_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes, billing_type_id, increase_frequency_months, initial_amount, receive_communications)
+                INSERT INTO clients(payment_identifier, full_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes, billing_type_id, increase_frequency_months, initial_amount, receive_communications)
                 OUTPUT INSERTED.client_id
-                VALUES(@payment_identifier, @first_name, @last_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes, @billing_type_id, @increase_frequency_months, @initial_amount, @receive_communications);";
+                VALUES(@payment_identifier, @full_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes, @billing_type_id, @increase_frequency_months, @initial_amount, @receive_communications);";
 
             using var command = new SqlCommand(query, connection, transaction);
             command.Parameters.AddRange(parameters);
@@ -217,7 +210,7 @@ namespace GuardeSoftwareAPI.Dao
                     GROUP BY rental_id
                 )
                 SELECT 
-                    c.client_id, c.payment_identifier, c.first_name, c.last_name, c.registration_date,
+                    c.client_id, c.payment_identifier, c.full_name, c.registration_date,
                     c.dni, c.cuit, c.iva_condition, c.notes, c.receive_communications,
                     
                     c.initial_amount, 
@@ -316,7 +309,7 @@ namespace GuardeSoftwareAPI.Dao
             {
                 finalWhereClause.Append(@"
                     AND (
-                        ISNULL(FirstName, '') + ' ' + ISNULL(LastName, '') LIKE @SearchTerm OR
+                        ISNULL(FullName, '') LIKE @SearchTerm OR
                         ISNULL(Email, '') LIKE @SearchTerm OR
                         ISNULL(Document, '') LIKE @SearchTerm OR
                         CAST(PaymentIdentifier AS NVARCHAR(50)) LIKE @SearchTerm
@@ -335,8 +328,7 @@ namespace GuardeSoftwareAPI.Dao
                     SELECT
                         c.client_id AS Id,
                         c.payment_identifier AS PaymentIdentifier,
-                        c.first_name AS FirstName,
-                        c.last_name AS LastName,
+                        c.full_name AS FullName,
                         first_email.address AS Email,
                         first_phone.number AS Phone,
                         a.city AS City,
@@ -405,8 +397,7 @@ namespace GuardeSoftwareAPI.Dao
         {
             var validSortFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) 
             {
-                { "FirstName", "FirstName" },
-                { "LastName", "LastName" },
+                { "FullName", "FullName" },
                 { "Baulera", "Lockers" },
                 { "Estado", "Status" },
                 { "Balance", "Balance" },
@@ -432,8 +423,7 @@ namespace GuardeSoftwareAPI.Dao
                 {
                     Id = Convert.ToInt32(row["Id"]),
                     PaymentIdentifier = row["PaymentIdentifier"] != DBNull.Value ? Convert.ToDecimal(row["PaymentIdentifier"]) : null,
-                    FirstName = row["FirstName"]?.ToString() ?? string.Empty,
-                    LastName = row["LastName"]?.ToString() ?? string.Empty,
+                    FullName = row["FullName"]?.ToString() ?? string.Empty,
                     Email = row["Email"]?.ToString(),
                     Phone = row["Phone"]?.ToString(),
                     City = row["City"]?.ToString() ?? string.Empty,
@@ -451,13 +441,13 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<List<string>> GetActiveClientNamesAsync()
         {
             var names = new List<string>();
-            string query = "SELECT first_name, last_name FROM clients WHERE active = 1 ORDER BY first_name, last_name";
+            string query = "SELECT full_name FROM clients WHERE active = 1 ORDER BY full_name";
 
             DataTable table = await accessDB.GetTableAsync("ClientNames", query);
 
             foreach (DataRow row in table.Rows)
             {
-                names.Add($"{row["first_name"]} {row["last_name"]}");
+                names.Add($"{row["full_name"]}");
             }
             return names;
         }
@@ -466,20 +456,16 @@ namespace GuardeSoftwareAPI.Dao
         {
             var names = new List<string>();
 
-            // Buscamos coincidencias en nombre, apellido o nombre completo
             string sqlQuery = @"
-                SELECT first_name, last_name 
+                SELECT full_name 
                 FROM clients 
                 WHERE active = 1 AND 
-                    (first_name LIKE @Query OR 
-                    last_name LIKE @Query OR 
-                    (first_name + ' ' + last_name) LIKE @Query)
-                ORDER BY first_name, last_name
+                    (full_name LIKE @Query)
+                ORDER BY full_name
                 OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY; -- Limitamos a 10 resultados
             ";
 
             var parameters = new[] { 
-                // Añadimos '%' para que funcione como un 'CONTAINS'
                 new SqlParameter("@Query", $"%{query}%")
             };
 
@@ -487,7 +473,7 @@ namespace GuardeSoftwareAPI.Dao
 
             foreach (DataRow row in table.Rows)
             {
-                names.Add($"{row["first_name"]} {row["last_name"]}");
+                names.Add($"{row["full_name"]}");
             }
             return names;
         }
@@ -516,8 +502,7 @@ namespace GuardeSoftwareAPI.Dao
                         {
                             Id = Convert.ToInt32(reader["client_id"]),
                             PaymentIdentifier = reader["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(reader["payment_identifier"]) : null,
-                            FirstName = reader["first_name"].ToString() ?? "",
-                            LastName = reader["last_name"].ToString() ?? "",
+                            FullName = reader["full_name"].ToString() ?? "",
                             RegistrationDate = Convert.ToDateTime(reader["registration_date"]),
                             Notes = reader["notes"] != DBNull.Value ? reader["notes"].ToString() : null,
                             Dni = reader["dni"] != DBNull.Value ? reader["dni"].ToString() : null,
@@ -536,8 +521,6 @@ namespace GuardeSoftwareAPI.Dao
             return null;
         }
 
-
-        // Verifica DNI existente EXCLUYENDO un ID de cliente
         public async Task<bool> ExistsByDniAsync(string dni, int excludeClientId, SqlConnection connection, SqlTransaction transaction)
         {
             const string query = "SELECT COUNT(1) FROM clients WHERE dni = @dni AND client_id != @excludeClientId AND active = 1";
@@ -582,8 +565,7 @@ namespace GuardeSoftwareAPI.Dao
             string query = @"
                 UPDATE clients SET
                     payment_identifier = @payment_identifier,
-                    first_name = @first_name,
-                    last_name = @last_name,
+                    full_name = @full_name,
                     registration_date = @registration_date,
                     dni = @dni,
                     cuit = @cuit,
@@ -599,8 +581,7 @@ namespace GuardeSoftwareAPI.Dao
             SqlParameter[] parameters =
             [
                 new("@payment_identifier", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)client.PaymentIdentifier ?? DBNull.Value },
-                new("@first_name", SqlDbType.VarChar) { Value = (object?)client.FirstName?.Trim() ?? DBNull.Value },
-                new("@last_name", SqlDbType.VarChar) { Value = (object?)client.LastName?.Trim() ?? DBNull.Value },
+                new("@full_name", SqlDbType.VarChar) { Value = (object?)client.FullName?.Trim() ?? DBNull.Value },
                 new("@registration_date", SqlDbType.DateTime) { Value = client.RegistrationDate },
                 new("@dni", SqlDbType.VarChar) { Value = (object?)client.Dni?.Trim() ?? DBNull.Value },
                 new("@cuit", SqlDbType.VarChar) { Value = (object?)client.Cuit?.Trim() ?? DBNull.Value },

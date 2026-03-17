@@ -356,7 +356,7 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT 
                     r.rental_id,
                     r.client_id,
-                    CONCAT(c.first_name, ' ', c.last_name) AS client_name,
+                    c.full_name AS client_name,
                     c.payment_identifier, 
                     c.preferred_payment_method_id,
                     r.months_unpaid,

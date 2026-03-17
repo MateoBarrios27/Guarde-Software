@@ -7,8 +7,7 @@ export interface ClientDetailDTO{
 
     id: number;
     paymentIdentifier: number;
-    name: string;
-    lastName: string;
+    fullName: string;
     city: string;
     province: string;
     cuit: string;

@@ -39,7 +39,7 @@ namespace GuardeSoftwareAPI.Dao
                  WHERE ccc.communication_id = c.communication_id) AS Channel,
                 
                 ISNULL(
-                    (SELECT STRING_AGG(cl.first_name + ' ' + cl.last_name, ',')
+                    (SELECT STRING_AGG(cl.full_name, ',')
                      FROM communication_recipients cr
                      JOIN clients cl ON cr.client_id = cl.client_id
                      WHERE cr.communication_id = c.communication_id), 
@@ -174,8 +174,8 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT DISTINCT @CommunicationId, c.client_id
                 FROM clients c
                 WHERE c.active = 1 
-                AND (c.first_name + ' ' + c.last_name) IN (
-                    SELECT value FROM STRING_SPLIT(@ClientNames, ',')
+                AND c.full_name IN (
+                    SELECT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@ClientNames, ',')
                 )";
 
             string joinedNames = string.Join(",", recipients);
@@ -274,7 +274,7 @@ namespace GuardeSoftwareAPI.Dao
             string query = @"
                 SELECT DISTINCT
                     c.client_id AS Id,
-                    c.first_name + ' ' + c.last_name AS Name,
+                    c.full_name AS Name,
                     ISNULL((SELECT STRING_AGG(e.address, ';') 
                     FROM emails e 
                     WHERE e.client_id = c.client_id AND e.active = 1), '') AS Email,
@@ -501,7 +501,7 @@ namespace GuardeSoftwareAPI.Dao
             string query = @"
                 SELECT 
                     c.client_id AS Id,
-                    c.first_name + ' ' + c.last_name AS FullName,
+                    c.full_name AS FullName,
                     (SELECT TOP 1 address FROM emails WHERE client_id = c.client_id AND active = 1) AS Email,
                     
                     ISNULL((
@@ -519,7 +519,7 @@ namespace GuardeSoftwareAPI.Dao
 
                 FROM clients c
                 WHERE c.active = 1
-                ORDER BY c.first_name, c.last_name";
+                ORDER BY c.full_name ASC";
 
             var dt = await _accessDB.GetTableAsync("ClientsSelector", query);
 
@@ -575,7 +575,7 @@ namespace GuardeSoftwareAPI.Dao
                     WHERE r.client_id = @ClientId
                 ) AS Calculos";
 
-            var dt = await _accessDB.GetTableAsync("Financial", query, new[] { new SqlParameter("@ClientId", clientId) });
+            var dt = await _accessDB.GetTableAsync("Financial", query, [new SqlParameter("@ClientId", clientId)]);
             
             if(dt.Rows.Count > 0) {
                 return new ClientFinancialDto {
@@ -590,7 +590,7 @@ namespace GuardeSoftwareAPI.Dao
         // Helper para saber el tipo
         public async Task<bool> IsAccountStatementAsync(int communicationId) {
             string q = "SELECT is_account_statement FROM communications WHERE communication_id = @Id";
-            var res = await _accessDB.ExecuteScalarAsync(q, new[]{ new SqlParameter("@Id", communicationId)});
+            var res = await _accessDB.ExecuteScalarAsync(q, [new SqlParameter("@Id", communicationId)]);
             return res != null && Convert.ToBoolean(res);
         }
 

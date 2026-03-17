@@ -47,7 +47,7 @@ namespace GuardeSoftwareAPI.Services.payment
 					PaymentDate = row["payment_date"] != DBNull.Value ? (DateTime)row["payment_date"] : DateTime.MinValue,
 					PaymentMethodId = row["payment_method_id"] != DBNull.Value ? (int)row["payment_method_id"] : 0,
 					ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
-					ClientName = row["first_name"]?.ToString() ?? string.Empty,
+					ClientName = row["full_name"]?.ToString() ?? string.Empty,
 					PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
 				};
 
@@ -226,14 +226,14 @@ namespace GuardeSoftwareAPI.Services.payment
 		public async Task<List<DetailedPaymentDto>> GetDetailedPaymentsAsync()
 		{
 			DataTable table = await _daoPayment.GetDetailedPaymentsAsync();
-			List<DetailedPaymentDto> list = new List<DetailedPaymentDto>();
+			List<DetailedPaymentDto> list = [];
 
 			foreach (DataRow row in table.Rows)
 			{
 				list.Add(new DetailedPaymentDto
 				{
 					PaymentId = Convert.ToInt32(row["payment_id"]),
-					ClientName = row["client_name"]?.ToString() ?? string.Empty,
+					ClientName = row["full_name"]?.ToString() ?? string.Empty,
 					PaymentIdentifier = row["payment_identifier"]?.ToString() ?? string.Empty,
 					Amount = Convert.ToDecimal(row["amount"]),
 					PaymentDate = Convert.ToDateTime(row["payment_date"]),

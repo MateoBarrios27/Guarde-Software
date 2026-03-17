@@ -75,23 +75,23 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = "UPDATE users SET active = 0 WHERE user_id = @user_id";
 
-            SqlParameter[] parameters = new SqlParameter[] {
+            SqlParameter[] parameters = [
 
-                new SqlParameter("user_id", SqlDbType.Int){Value = userId},
-            };
+                new("user_id", SqlDbType.Int){Value = userId},
+            ];
 
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
         public async Task<bool> UpdateUser(User user){
 
-            SqlParameter[] parameters = new SqlParameter[]{
-                new SqlParameter("user_id", SqlDbType.Int) { Value = user.Id},
-                new SqlParameter("user_type_id", SqlDbType.Int){Value = user.UserTypeId},
-                new SqlParameter("username", SqlDbType.NVarChar, 100){Value = user.UserName},
-                new SqlParameter("first_name", SqlDbType.NVarChar, 100){Value = user.FirstName},
-                new SqlParameter("last_name", SqlDbType.NVarChar, 100){Value = user.LastName},
-            };
+            SqlParameter[] parameters = [
+                new("user_id", SqlDbType.Int) { Value = user.Id},
+                new("user_type_id", SqlDbType.Int){Value = user.UserTypeId},
+                new("username", SqlDbType.NVarChar, 100){Value = user.UserName},
+                new("first_name", SqlDbType.NVarChar, 100){Value = user.FirstName},
+                new("last_name", SqlDbType.NVarChar, 100){Value = user.LastName},
+            ];
 
             string query = "UPDATE users SET user_type_id = @user_type_id , username = @username, first_name = @first_name, last_name = @last_name WHERE user_id = @user_id";
 

@@ -374,7 +374,7 @@ export class ClientsComponent implements OnInit {
     Swal.fire({
       title: '¿Reactivar Cliente?',
       html: `
-        Vas a reactivar a <strong>${cliente.firstName} ${cliente.lastName}</strong>.<br><br>
+        Vas a reactivar a <strong>${cliente.fullName}</strong>.<br><br>
         <ul style="text-align: left; font-size: 0.9em; margin-left: 20px;">
           <li>Se generará un <strong>nuevo Número de Identificación</strong>.</li>
           <li>Se abrirá el formulario para <strong>confirmar los datos</strong>.</li>

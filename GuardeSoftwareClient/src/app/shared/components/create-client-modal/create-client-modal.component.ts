@@ -49,13 +49,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   private _clientData: ClientDetailDTO | null = null;
   public isEditMode = false; 
 
-@Input() isReactivation = false;
-
-  // --- CAMBIO 2: Input simple para clientData (Quitamos el 'set' complejo) ---
+ @Input() isReactivation = false;
   @Input() clientData: ClientDetailDTO | null = null;
-
-  // get clientData(): ClientDetailDTO | null { return this._clientData; }
-
   @Output() closeModal = new EventEmitter<void>();
   @Output() saveSuccess = new EventEmitter<void>();
 
@@ -179,8 +174,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     // Definición base
     this.newClientForm = this.fb.group({
       numeroIdentificacion: [''],
-      nombre: ['', Validators.required],
-      apellido: ['', Validators.required],
+      nombreCompleto: ['', Validators.required],
       tipoDocumento: ['DNI'],
       numeroDocumento: ['', Validators.required],
       cuit: [''],
@@ -356,8 +350,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
 
       this.newClientForm.patchValue({
         numeroIdentificacion: data.paymentIdentifier,
-        nombre: data.name,
-        apellido: data.lastName,
+        nombreCompleto: data.fullName,
         numeroDocumento: data.dni,
         cuit: data.cuit,
         condicionIVA: data.ivaCondition,
@@ -514,8 +507,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   const dto: CreateClientDTO = {
     id: isEditing ? this.clientData?.id : undefined,
     paymentIdentifier: Number(formValue.numeroIdentificacion) || 0,
-    firstName: formValue.nombre,
-    lastName: formValue.apellido,
+    fullName: formValue.nombreCompleto,
     notes: formValue.observaciones || null,
     dni: formValue.numeroDocumento || null,
     cuit: formValue.cuit || null,

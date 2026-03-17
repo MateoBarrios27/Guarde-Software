@@ -2,8 +2,7 @@
 export interface Client{
     id: number;
     paymentIdentifier: number;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     registrationDate: Date;
     notes: string;
     dni: string;

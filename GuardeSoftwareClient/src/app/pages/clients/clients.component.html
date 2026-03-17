@@ -187,14 +187,14 @@
         <table class="w-full text-sm">
           <thead class="text-xs text-gray-700 bg-gray-50">
             <tr class="border-b">
-              <th class="p-4 text-left font-medium cursor-pointer" (click)="handleSort('FirstName')">
+              <th class="p-4 text-left font-medium cursor-pointer" (click)="handleSort('FullName')">
                 <div class="flex items-center gap-1 group">
                   Cliente
                   <app-icon 
-                    [name]="getSortIcon('FirstName')" 
+                    [name]="getSortIcon('FullName')" 
                     class="w-4 h-4 transition-colors duration-200"
-                    [class.text-blue-600]="sortFieldClientes === 'FirstName'"
-                    [class.text-gray-400]="sortFieldClientes !== 'FirstName'">
+                    [class.text-blue-600]="sortFieldClientes === 'FullName'"
+                    [class.text-gray-400]="sortFieldClientes !== 'FullName'">
                   </app-icon>
                 </div>
               </th>
@@ -259,13 +259,13 @@
                     class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0"
                   >
                     <span class="text-blue-800 text-sm font-semibold">{{
-                      cliente.firstName.charAt(0)
+                      cliente.fullName.charAt(0)
                     }}</span>
                   </div>
                   <div>
                     <div class="flex items-center gap-2">
                       <span class="font-semibold text-gray-900"
-                        >{{ cliente.firstName }} {{ cliente.lastName }}</span
+                        >{{ cliente.fullName }}</span
                       >
 
                       <span

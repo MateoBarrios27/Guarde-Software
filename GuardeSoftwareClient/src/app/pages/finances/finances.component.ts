@@ -122,8 +122,8 @@ export class FinancesComponent{
   }
 
   getClientNameById(id: number): string {
-  const client = this.clients.find(m => m.id === id);
-  return client ? client.firstName + ' ' + client.lastName: ' ';
+    const client = this.clients.find(m => m.id === id);
+    return client ? client.fullName: ' ';
   }
 
   // filterPayments(): void {
@@ -564,7 +564,7 @@ selectClient(client: any) {
       if (!term) return this.clients;
 
       return this.clients.filter(c => {
-        const fullName = `${c.firstName ?? ''} ${c.lastName ?? ''}`.toLowerCase();
+        const fullName = c.fullName.toLowerCase();
         const identifier = (c.paymentIdentifier ?? '').toString().toLowerCase();
 
         return fullName.includes(term) || identifier.includes(term);
