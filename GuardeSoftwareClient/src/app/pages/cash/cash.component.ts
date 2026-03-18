@@ -106,7 +106,7 @@ export class CashComponent implements OnInit {
       description: '',
       depo: 0, 
       casa: 0, 
-      pagado: 0, 
+      isPaid: false, 
       retiros: 0, 
       extras: 0
     };
@@ -148,30 +148,28 @@ export class CashComponent implements OnInit {
     });
   }
 
-  // --- Cálculos ---
-
   calculateLocalTotals(): void {
-    // 1. Sumar columnas individuales
-    this.totals = this.items.reduce((acc, curr) => ({
-      ...acc,
-      depo: acc.depo + (Number(curr.depo) || 0),
-      casa: acc.casa + (Number(curr.casa) || 0),
-      pagado: acc.pagado + (Number(curr.pagado) || 0),
-      retiros: acc.retiros + (Number(curr.retiros) || 0),
-      extras: acc.extras + (Number(curr.extras) || 0),
-    }), { 
-      depo: 0, casa: 0, pagado: 0, retiros: 0, extras: 0, 
-      aPagar: 0, faltaPagar: 0 // Reset de nuevos valores
+    this.totals = { depo: 0, casa: 0, retiros: 0, extras: 0, pagado: 0, aPagar: 0, faltaPagar: 0 };
+
+    this.items.forEach(item => {
+      this.totals.depo += Number(item.depo) || 0;
+      this.totals.casa += Number(item.casa) || 0;
+      this.totals.retiros += Number(item.retiros) || 0;
+      this.totals.extras += Number(item.extras) || 0;
+
+      const costoFila = (Number(item.depo) || 0) + 
+                        (Number(item.casa) || 0) + 
+                        (Number(item.retiros) || 0) + 
+                        (Number(item.extras) || 0);
+
+      if (item.isPaid) {
+        this.totals.pagado += costoFila;
+      }
     });
 
     this.totals.aPagar = this.totals.depo + this.totals.casa;
-
-    this.totals.faltaPagar = this.totals.aPagar - this.totals.pagado;
-
-    const totalSalidasReales = this.totals.pagado + this.totals.retiros + this.totals.extras;
     
-    this.summary.totalManualExpenses = totalSalidasReales;
-    this.calculateNetBalance();
+    this.totals.faltaPagar = this.totals.aPagar - this.totals.pagado; 
   }
 
   calculateNetBalance(): void {

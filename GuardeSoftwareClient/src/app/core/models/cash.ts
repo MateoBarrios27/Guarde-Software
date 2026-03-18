@@ -1,27 +1,27 @@
 export interface CashFlowItem {
-  id?: number; // Opcional para nuevos
-  date: string; // YYYY-MM-DD
+  id?: number;
+  date: string;
   description: string;
   depo: number;
   casa: number;
-  pagado: number;
+  isPaid: boolean;
   retiros: number;
   extras: number;
   isConfirmed?: boolean;
 }
 
 export interface MonthlySummary {
-  totalSystemIncome: number;    // Recaudación automática del sistema
-  totalAdvancePayments: number; // Pagos adelantados
-  totalManualExpenses: number;  // Suma de gastos manuales (calculado en back o front)
-  netBalance: number;           // Ganancia Neta
-  pendingCollection: number;    // Deuda de clientes
+  totalSystemIncome: number;    
+  totalAdvancePayments: number; 
+  totalManualExpenses: number;  
+  netBalance: number;         
+  pendingCollection: number;  
 }
 
 export interface FinancialAccount {
   id: number;
   name: string;
-  type: string; // 'Banco', 'Fisico', etc.
+  type: string; 
   currency: string;
   balance: number;
 }

@@ -19,7 +19,7 @@ namespace GuardeSoftwareAPI.Dao
         {
             var list = new List<CashFlowItemDto>();
             string query = @"
-                SELECT item_id, movement_date, description, amount_depo, amount_casa, amount_pagado, amount_retiros, amount_extras
+                SELECT item_id, movement_date, description, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras
                 FROM cash_flow_items
                 WHERE month = @Month AND year = @Year
                 ORDER BY movement_date ASC";
@@ -40,7 +40,7 @@ namespace GuardeSoftwareAPI.Dao
                     Description = row["description"].ToString(),
                     Depo = Convert.ToDecimal(row["amount_depo"]),
                     Casa = Convert.ToDecimal(row["amount_casa"]),
-                    Pagado = Convert.ToDecimal(row["amount_pagado"]),
+                    IsPaid = Convert.ToBoolean(row["is_paid"]),
                     Retiros = Convert.ToDecimal(row["amount_retiros"]),
                     Extras = Convert.ToDecimal(row["amount_extras"])
                 });
@@ -56,9 +56,9 @@ namespace GuardeSoftwareAPI.Dao
             if (item.Id == null || item.Id == 0)
             {
                 query = @"
-                    INSERT INTO cash_flow_items (month, year, movement_date, description, amount_depo, amount_casa, amount_pagado, amount_retiros, amount_extras)
+                    INSERT INTO cash_flow_items (month, year, movement_date, description, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras)
                     OUTPUT INSERTED.item_id
-                    VALUES (@Month, @Year, @Date, @Desc, @Depo, @Casa, @Pagado, @Retiros, @Extras)";
+                    VALUES (@Month, @Year, @Date, @Desc, @Depo, @Casa, @IsPaid, @Retiros, @Extras)";
             }
             else
             {
@@ -68,7 +68,7 @@ namespace GuardeSoftwareAPI.Dao
                         description = @Desc, 
                         amount_depo = @Depo, 
                         amount_casa = @Casa, 
-                        amount_pagado = @Pagado, 
+                        is_paid = @IsPaid, 
                         amount_retiros = @Retiros, 
                         amount_extras = @Extras
                     WHERE item_id = @Id";
@@ -82,7 +82,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@Desc", item.Description ?? ""),
                 new SqlParameter("@Depo", item.Depo),
                 new SqlParameter("@Casa", item.Casa),
-                new SqlParameter("@Pagado", item.Pagado),
+                new SqlParameter("@IsPaid", item.IsPaid),
                 new SqlParameter("@Retiros", item.Retiros),
                 new SqlParameter("@Extras", item.Extras)
             };
@@ -202,14 +202,14 @@ namespace GuardeSoftwareAPI.Dao
             string query = @"
                 INSERT INTO cash_flow_items (
                     month, year, movement_date, description, 
-                    amount_depo, amount_casa, amount_pagado, amount_retiros, amount_extras
+                    amount_depo, amount_casa, is_paid, amount_retiros, amount_extras
                 )
                 SELECT 
                     @CurrentMonth,  -- Forzamos el MES ACTUAL
                     @CurrentYear,   -- Forzamos el AÑO ACTUAL
                     DATEFROMPARTS(@CurrentYear, @CurrentMonth, 1), -- Ponemos fecha día 1 por defecto
                     description, 
-                    amount_depo, amount_casa, amount_pagado, amount_retiros, amount_extras
+                    amount_depo, amount_casa, is_paid, amount_retiros, amount_extras
                 FROM cash_flow_items
                 WHERE month = @PrevMonth AND year = @PrevYear
                 AND is_confirmed = 1"; // Opcional: filtrar por confirmados

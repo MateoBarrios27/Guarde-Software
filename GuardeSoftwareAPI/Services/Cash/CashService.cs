@@ -47,7 +47,7 @@ namespace GuardeSoftwareAPI.Services.cash
                     Date = new DateTime(year, month, 1),
                     Description = "IVA (21% Transferencias)",
                     Depo = ivaValue, // Valor calculado
-                    Casa = 0, Pagado = 0, Retiros = 0, Extras = 0
+                    Casa = 0, IsPaid = false, Retiros = 0, Extras = 0
                 };
                 
                 // Lo guardamos en BD para tener ID real y permitir editar Pagado después
