@@ -32,6 +32,7 @@ namespace GuardeSoftwareAPI.Dao
                 (SELECT name FROM smtp_configurations WHERE smtp_id = c.smtp_configuration_id) AS SmtpName,
                 c.smtp_configuration_id AS SmtpConfigId,
                 c.is_account_statement,
+                c.is_next_month_statement,
 
                 (SELECT STRING_AGG(chan.name, ' + ') 
                  FROM communication_channel_content ccc
@@ -93,7 +94,8 @@ namespace GuardeSoftwareAPI.Dao
                 Recipients = string.IsNullOrEmpty(recipientsCsv)
                              ? new List<string>()
                              : recipientsCsv.Split(',').ToList(),
-                IsAccountStatement = row["is_account_statement"] is not DBNull && Convert.ToBoolean(row["is_account_statement"])
+                IsAccountStatement = row["is_account_statement"] is not DBNull && Convert.ToBoolean(row["is_account_statement"]),
+                IsNextMonthStatement = row["is_next_month_statement"] is not DBNull && Convert.ToBoolean(row["is_next_month_statement"])
             };
         }
 
@@ -104,9 +106,9 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<int> InsertCommunicationAsync(UpsertCommunicationRequest request, int userId, DateTime? scheduledAt, string status, SqlConnection connection, SqlTransaction transaction)
         {
             string query = @"
-                INSERT INTO communications (creator_user_id, title, creation_date, scheduled_date, status, smtp_configuration_id, is_account_statement)
+                INSERT INTO communications (creator_user_id, title, creation_date, scheduled_date, status, smtp_configuration_id, is_account_statement, is_next_month_statement)
                 OUTPUT INSERTED.communication_id
-                VALUES (@CreatorUserId, @Title, GETDATE(), @ScheduledDate, @Status, @SmtpConfigId, @IsAccountStatement);";
+                VALUES (@CreatorUserId, @Title, GETDATE(), @ScheduledDate, @Status, @SmtpConfigId, @IsAccountStatement, @IsNextMonthStatement);";
 
             using (SqlCommand command = new(query, connection, transaction))
             {
@@ -116,6 +118,7 @@ namespace GuardeSoftwareAPI.Dao
                 command.Parameters.AddWithValue("@Status", status); 
                 command.Parameters.AddWithValue("@SmtpConfigId", (object)request.SmtpConfigId ?? DBNull.Value);
                 command.Parameters.AddWithValue("@IsAccountStatement", request.IsAccountStatement);
+                command.Parameters.AddWithValue("@IsNextMonthStatement", request.IsNextMonthStatement);
 
                 object result = await command.ExecuteScalarAsync();
                 return Convert.ToInt32(result);
@@ -537,63 +540,113 @@ namespace GuardeSoftwareAPI.Dao
             return list;
         }
 
-        public async Task<ClientFinancialDto> GetClientFinancialData(int clientId)
+        public async Task<ClientFinancialDto> GetClientFinancialData(int clientId, bool isNextMonth = false)
         {
-            // CAMBIO: Usamos una subconsulta (Calculos) para obtener los montos crudos.
-            // Luego, en el SELECT principal, aplicamos la lógica: Si es negativo (< 0), mostramos 0.
-            
             string query = @"
                 DECLARE @StartOfMonth DATE = DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1);
-
                 SELECT 
-                    -- Aplicar regla: Si hay saldo a favor (negativo), mostrar 0 deuda.
                     CASE WHEN Calculos.RawCurrentBalance < 0 THEN 0 ELSE Calculos.RawCurrentBalance END AS CurrentBalance,
                     CASE WHEN Calculos.RawPreviousBalance < 0 THEN 0 ELSE Calculos.RawPreviousBalance END AS PreviousBalance,
-                    Calculos.Surcharge
+                    Calculos.Surcharge,
+                    Calculos.RawCurrentBalance
                 FROM (
                     SELECT 
-                        -- 1. Cálculo Crudo Saldo Actual (Histórico + Identificador)
-                        (
-                            ISNULL(SUM(CASE WHEN am.movement_type = 'DEBITO' THEN am.amount ELSE -am.amount END), 0)
-                            + 
-                            ISNULL((SELECT payment_identifier FROM clients WHERE client_id = @ClientId), 0)
-                        ) as RawCurrentBalance,
-                        
-                        -- 2. Cálculo Crudo Saldo Anterior (Histórico hasta mes pasado)
-                        ISNULL(SUM(CASE 
-                            WHEN am.movement_date < @StartOfMonth AND am.movement_type = 'DEBITO' THEN am.amount 
-                            WHEN am.movement_date < @StartOfMonth AND am.movement_type != 'DEBITO' THEN -am.amount 
-                            ELSE 0 END), 0) as RawPreviousBalance,
-
-                        -- 3. Recargo del mes (Siempre es positivo o 0, no requiere cambio)
-                        ISNULL(SUM(CASE 
-                            WHEN am.movement_date >= @StartOfMonth AND (am.concept LIKE '%Recargo%' OR am.concept LIKE '%Interés por mora%') THEN am.amount 
-                            ELSE 0 END), 0) as Surcharge
-
+                        (ISNULL(SUM(CASE WHEN am.movement_type = 'DEBITO' THEN am.amount ELSE -am.amount END), 0) + ISNULL((SELECT payment_identifier FROM clients WHERE client_id = @ClientId), 0)) as RawCurrentBalance,
+                        ISNULL(SUM(CASE WHEN am.movement_date < @StartOfMonth AND am.movement_type = 'DEBITO' THEN am.amount WHEN am.movement_date < @StartOfMonth AND am.movement_type != 'DEBITO' THEN -am.amount ELSE 0 END), 0) as RawPreviousBalance,
+                        ISNULL(SUM(CASE WHEN am.movement_date >= @StartOfMonth AND (am.concept LIKE '%Recargo%' OR am.concept LIKE '%Interés por mora%') THEN am.amount ELSE 0 END), 0) as Surcharge
                     FROM account_movements am
                     JOIN rentals r ON am.rental_id = r.rental_id
                     WHERE r.client_id = @ClientId
                 ) AS Calculos";
 
             var dt = await _accessDB.GetTableAsync("Financial", query, [new SqlParameter("@ClientId", clientId)]);
+            var data = new ClientFinancialDto();
             
-            if(dt.Rows.Count > 0) {
-                return new ClientFinancialDto {
-                    CurrentBalance = Convert.ToDecimal(dt.Rows[0]["CurrentBalance"]),
-                    PreviousBalance = Convert.ToDecimal(dt.Rows[0]["PreviousBalance"]),
-                    Surcharge = Convert.ToDecimal(dt.Rows[0]["Surcharge"])
-                };
+            decimal rawCurrentBalance = 0; 
+
+            if (dt.Rows.Count > 0)
+            {
+                data.CurrentBalance = Convert.ToDecimal(dt.Rows[0]["CurrentBalance"]);
+                data.PreviousBalance = Convert.ToDecimal(dt.Rows[0]["PreviousBalance"]);
+                data.Surcharge = Convert.ToDecimal(dt.Rows[0]["Surcharge"]);
+                rawCurrentBalance = Convert.ToDecimal(dt.Rows[0]["RawCurrentBalance"]); 
             }
-            return new ClientFinancialDto();
+
+            if (!isNextMonth) return data;
+
+            data.PreviousBalance = data.CurrentBalance;
+            
+            decimal projectedNextMonthRent = await CalculateProjectedNextMonthRentAsync(clientId);
+            decimal newCalculatedBalance = rawCurrentBalance + projectedNextMonthRent;
+            data.CurrentBalance = newCalculatedBalance < 0 ? 0 : newCalculatedBalance;
+            data.Surcharge = 0; 
+
+            return data;
         }
 
-        // Helper para saber el tipo
+        private async Task<decimal> CalculateProjectedNextMonthRentAsync(int clientId)
+        {
+            decimal totalProjectedRent = 0;
+            DateTime nextMonthFirstDay = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(1);
+
+            string query = @"
+                SELECT 
+                    r.rental_id, 
+                    h.amount AS CurrentAmount, 
+                    r.increase_anchor_date AS NextIncreaseDate
+                FROM rentals r
+                JOIN rental_amount_history h ON r.rental_id = h.rental_id AND h.end_date IS NULL
+                WHERE r.client_id = @ClientId AND r.active = 1";
+
+            var dt = await _accessDB.GetTableAsync("ActiveRentals", query, new[] { new SqlParameter("@ClientId", clientId) });
+
+            foreach (DataRow row in dt.Rows)
+            {
+                decimal currentAmount = Convert.ToDecimal(row["CurrentAmount"]);
+                DateTime nextIncreaseDate = row["NextIncreaseDate"] != DBNull.Value ? Convert.ToDateTime(row["NextIncreaseDate"]) : DateTime.MaxValue;
+
+                if (nextIncreaseDate <= nextMonthFirstDay)
+                {
+                    string percentageQuery = "SELECT percentage FROM monthly_increase_settings WHERE YEAR(effective_date) = @Year AND MONTH(effective_date) = @Month";
+                    var parameters = new[] { 
+                        new SqlParameter("@Year", nextMonthFirstDay.Year),
+                        new SqlParameter("@Month", nextMonthFirstDay.Month) 
+                    };
+                    
+                    var percentageResult = await _accessDB.ExecuteScalarAsync(percentageQuery, parameters);
+                    
+                    if (percentageResult != null && percentageResult != DBNull.Value)
+                    {
+                        decimal percentage = Convert.ToDecimal(percentageResult);
+                        decimal increasedAmount = currentAmount * (1 + (percentage / 100));
+                        totalProjectedRent += RoundUpToNearest100(increasedAmount);
+                        continue;
+                    }
+                }
+                
+                totalProjectedRent += currentAmount;
+            }
+
+            return totalProjectedRent;
+        }
+
+        private decimal RoundUpToNearest100(decimal amount)
+        {
+            if (amount == 0) return 0;
+            return Math.Ceiling(amount / 100.0m) * 100;
+        }
+
+        public async Task<bool> IsNextMonthStatementAsync(int communicationId)
+        {
+            string q = "SELECT is_next_month_statement FROM communications WHERE communication_id = @Id";
+            var res = await _accessDB.ExecuteScalarAsync(q, [new SqlParameter("@Id", communicationId)]);
+            return res != null && Convert.ToBoolean(res);
+        }
+
         public async Task<bool> IsAccountStatementAsync(int communicationId) {
             string q = "SELECT is_account_statement FROM communications WHERE communication_id = @Id";
             var res = await _accessDB.ExecuteScalarAsync(q, [new SqlParameter("@Id", communicationId)]);
             return res != null && Convert.ToBoolean(res);
         }
-
     }
-
 }

@@ -1,14 +1,7 @@
 using GuardeSoftwareAPI.Dao;
-using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
-using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Logging;
 using Quartz;
-using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Linq; // Para OrderBy
-using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Jobs
 {
@@ -102,18 +95,15 @@ namespace GuardeSoftwareAPI.Jobs
                                      _logger.LogWarning($"  -> OMITIENDO aumento para {settingDate:MM/yyyy} (Rental ID {rentalId}) - No se definió porcentaje global para ese mes.");
                                 }
 
-                                // Calculamos el *próximo* ancla
                                 newAnchorDate = newAnchorDate.AddMonths(frequency);
                             }
 
-                            // 5. Redondear y aplicar el cambio
                             decimal finalAmount = RoundUpToNearest100(newAmount);
 
                             if (finalAmount > currentAmount)
                             {
                                 _logger.LogInformation($"Monto final para Rental ID {rentalId}: {finalAmount:C} (redondeado desde {newAmount:C}). Actualizando BD.");
                                 
-                                // 5a. Cerrar historial viejo y crear el nuevo
                                 await _rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(
                                     lastHistoryId,
                                     rentalId,
@@ -151,10 +141,6 @@ namespace GuardeSoftwareAPI.Jobs
             _logger.LogInformation("--- Job de Aplicación de Aumentos finalizado ---");
         }
 
-        /// <summary>
-        /// Redondea un monto hacia ARRIBA a los 100 más cercanos.
-        /// Ej: 141,420 -> 141,500. Ej: 141,501 -> 141,600
-        /// </summary>
         private decimal RoundUpToNearest100(decimal amount)
         {
             if (amount == 0) return 0;

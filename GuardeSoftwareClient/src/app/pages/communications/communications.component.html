@@ -160,12 +160,28 @@
             <span class="block font-bold text-blue-900 text-sm">¿Es un Estado de Cuenta?</span>
             <span class="block text-xs text-blue-600 mt-0.5">El contenido se generará automáticamente con los saldos.</span>
         </div>
+        
         <label class="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" [ngModel]="formData().isAccountStatement" (ngModelChange)="updateFormField('isAccountStatement', $event)" class="sr-only peer">
             <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
         </label>
       </div>
-      }
+
+        @if (formData().isAccountStatement) {
+        <div class="bg-indigo-50 p-3 rounded-lg border border-indigo-200 flex items-center justify-between">
+          <div>
+              <span class="block font-bold text-indigo-900 text-sm">¿Proyectar al mes siguiente?</span>
+              <span class="block text-xs text-indigo-600 mt-0.5">Calcula el saldo simulando los cargos del próximo mes.</span>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" [ngModel]="formData().isNextMonthStatement" (ngModelChange)="updateFormField('isNextMonthStatement', $event)" class="sr-only peer">
+              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+          </label>
+        </div>
+        }
+      } 
+
+      
 
       <div class="relative">
         <label class="block text-sm font-medium text-gray-700 mb-1">

@@ -184,7 +184,8 @@ namespace GuardeSoftwareAPI.Services.communication
                                 scheduled_date = @ScheduledDate, 
                                 status = @Status,
                                 smtp_configuration_id = @SmtpConfigId,
-                                is_account_statement = @IsAccountStatement
+                                is_account_statement = @IsAccountStatement,
+                                is_next_month_statement = @IsNextMonthStatement
                             WHERE communication_id = @Id";
                         
                         using (var cmdUpdate = new SqlCommand(updateQuery, connection, transaction))
@@ -195,6 +196,7 @@ namespace GuardeSoftwareAPI.Services.communication
                             cmdUpdate.Parameters.AddWithValue("@Status", status);
                             cmdUpdate.Parameters.AddWithValue("@SmtpConfigId", (object)request.SmtpConfigId ?? DBNull.Value);
                             cmdUpdate.Parameters.AddWithValue("@IsAccountStatement", request.IsAccountStatement);
+                            cmdUpdate.Parameters.AddWithValue("@IsNextMonthStatement", request.IsNextMonthStatement);
                             await cmdUpdate.ExecuteNonQueryAsync();
                         }
 

@@ -30,6 +30,7 @@ export class CommunicationService {
     formData.append('content', request.content);
     formData.append('type', request.type);
     formData.append('isAccountStatement', request.isAccountStatement ? 'true' : 'false');
+    formData.append('isNextMonthStatement', request.isNextMonthStatement ? 'true' : 'false');
     
     if (request.sendDate) formData.append('sendDate', request.sendDate);
     if (request.sendTime) formData.append('sendTime', request.sendTime);
@@ -71,10 +72,7 @@ export class CommunicationService {
     return this.http.post<ComunicacionDto>(`${this.url}/Communications/${id}/retry`, {});
   }
 
-  // --- GESTIÓN DE SERVIDORES SMTP (NUEVO) ---
-
   getAllSmtpConfigs(): Observable<SmtpConfig[]> {
-    // Asumiendo que creaste el controller SmtpConfigurationsController
     return this.http.get<SmtpConfig[]>(`${this.url}/SmtpConfigurations`);
   }
 

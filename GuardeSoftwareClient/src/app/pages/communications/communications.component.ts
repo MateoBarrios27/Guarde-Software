@@ -32,6 +32,7 @@ interface FormDataState {
   recipients: string[];
   type: 'programar' | 'borrador' | 'enviar_ahora'; // This is for the form's radio button (Spanish UI)
   isAccountStatement: boolean;
+  isNextMonthStatement: boolean;
   smtpConfigId?: number | null
 }
 
@@ -169,7 +170,8 @@ export class CommunicationsComponent implements OnInit {
     recipients: [],
     type: 'enviar_ahora',
     smtpConfigId: null,
-    isAccountStatement: false
+    isAccountStatement: false,
+    isNextMonthStatement: false
   });
   
   currentModal = signal<'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm' | 'none'>('none');
@@ -235,7 +237,8 @@ export class CommunicationsComponent implements OnInit {
       recipients: [],
       type: 'enviar_ahora',
       smtpConfigId: defaultSmtp,
-      isAccountStatement: false
+      isAccountStatement: false,
+      isNextMonthStatement: false
     });
   }
 
@@ -289,7 +292,8 @@ export class CommunicationsComponent implements OnInit {
         type: isResend ? 'enviar_ahora' : formType,
         
         smtpConfigId: communication.smtpConfigId || null,
-        isAccountStatement: communication.isAccountStatement || false
+        isAccountStatement: communication.isAccountStatement || false,
+        isNextMonthStatement: communication.isNextMonthStatement || false
       });
       
       if (isResend) finalModalType = 'add';
@@ -385,7 +389,8 @@ export class CommunicationsComponent implements OnInit {
       channels: data.channels,
       recipients: data.recipients,
       smtpConfigId: data.smtpConfigId,
-      isAccountStatement: data.isAccountStatement
+      isAccountStatement: data.isAccountStatement,
+      isNextMonthStatement: data.isNextMonthStatement
     };
 
     this.commService.updateCommunication(commId, request).subscribe({

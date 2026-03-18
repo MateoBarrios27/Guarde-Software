@@ -72,6 +72,7 @@ namespace GuardeSoftwareAPI.Jobs
         {
             var dbSmtp = await _communicationDao.GetSmtpSettingsAsync(communicationId);
             bool isAccountStatement = await _communicationDao.IsAccountStatementAsync(communicationId);
+            bool isNextMonth = await _communicationDao.IsNextMonthStatementAsync(communicationId);
             
             SmtpSettingsModel effectiveSettings;
 
@@ -113,12 +114,14 @@ namespace GuardeSoftwareAPI.Jobs
 
                         if (isAccountStatement)
                         {
-                            var financialData = await _communicationDao.GetClientFinancialData(recipient.ClientId);
-                            string dynamicHtml = GenerateAccountStatementHtml(recipient.Name, financialData);
+                            var financialData = await _communicationDao.GetClientFinancialData(recipient.ClientId, isNextMonth);
                             
+                            string dynamicHtml = GenerateAccountStatementHtml(recipient.Name, financialData, isNextMonth);
+                            
+                            DateTime targetDate = isNextMonth ? DateTime.Now.AddMonths(1) : DateTime.Now;
                             var tempChannel = new ChannelForSendingDto 
                             { 
-                                Subject = $"Estado de Cuenta {DateTime.Now:MM/yyyy}", 
+                                Subject = $"Estado de Cuenta {targetDate:MM/yyyy}", 
                                 Content = dynamicHtml 
                             };
                             message = CreateEmailMessage(tempChannel, recipient, effectiveSettings, attachments);
@@ -198,9 +201,13 @@ namespace GuardeSoftwareAPI.Jobs
             return message;
         }
 
-        private string GenerateAccountStatementHtml(string clientName, ClientFinancialDto data)
+        private string GenerateAccountStatementHtml(string clientName, ClientFinancialDto data, bool isNextMonth)
         {
-            string monthYear = DateTime.Now.ToString("MM/yyyy");
+            DateTime targetDate = isNextMonth ? DateTime.Now.AddMonths(1) : DateTime.Now;
+            string monthYear = targetDate.ToString("MM/yyyy");
+            
+            string headerTag = isNextMonth ? $"<b style='color: blue;'>PROYECCIÓN PRÓXIMO MES - {monthYear}</b><br><br>" : "";
+
             string recargo = data.Surcharge.ToString("N2");
             string saldoAnterior = data.PreviousBalance.ToString("N2");
             string saldoActual = data.CurrentBalance.ToString("N2");
@@ -209,8 +216,8 @@ namespace GuardeSoftwareAPI.Jobs
             <html>
                 <head></head>
                 <body>
-                    <p><b style='color: black;'> Estimado/a: {clientName}</b></p> 
                     
+                    <p><b style='color: black;'> Estimado/a: {clientName}</b></p> 
                     <p>Le recordamos que el vencimiento de la cuota correspondiente al mes {monthYear} es el 10/{monthYear}. Vencido dicho plazo el importe mensual tendrá un recargo del 10%, sin excepción.</p>
                     
                     <b style='color: green;'> ""No pierda su beneficio por pago puntual"", por atrasos reiterados su abono será ajustado a los valores actuales""</b></p>

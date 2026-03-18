@@ -13,6 +13,7 @@ public class CommunicationDto
     public string CreationDate { get; set; } = string.Empty; // yyyy-MM-dd
     public int? SmtpConfigId { get; set; }
     public bool IsAccountStatement { get; set; }
+    public bool IsNextMonthStatement { get; set; }
 }
     
     public class UpsertCommunicationRequest
@@ -28,4 +29,5 @@ public class CommunicationDto
     public List<string> Recipients { get; set; } = [];
     public List<IFormFile>? Attachments { get; set; }
     public bool IsAccountStatement { get; set; }
+    public bool IsNextMonthStatement { get; set; }
 }
