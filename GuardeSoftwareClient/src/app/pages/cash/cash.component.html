@@ -25,9 +25,20 @@
 
  <div class="w-full flex flex-col bg-white rounded-xl shadow-md border h-auto">
       
-      <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
-        <h2 class="font-semibold text-gray-700">Planilla de Movimientos</h2>
+      <div class="p-4 border-b bg-gray-50 flex justify-between items-center flex-wrap gap-4">
+       <h2 class="font-semibold text-gray-700">Planilla de Movimientos</h2>
+       
+        <div class="relative w-full max-w-sm">
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <app-icon name="search" class="w-4 h-4 text-gray-400"></app-icon>
+          </div>
+          <input type="text" 
+                 [(ngModel)]="searchTerm" 
+                 (input)="filterItems()"
+                 placeholder="Buscar concepto..." 
+                 class="bg-white border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2 transition-colors shadow-sm">
         </div>
+      </div>
 
       <div class="relative">
         <table class="w-full text-sm text-left border-collapse">
@@ -45,30 +56,30 @@
           </thead>
           
           <tbody class="divide-y divide-gray-100">
-            <tr *ngFor="let item of items; let i = index" class="hover:bg-blue-50/30 transition-colors group"
-                [ngClass]="{'bg-purple-50': item.description === 'IVA (21% Transferencias)'}">
+            <tr *ngFor="let item of filteredItems" class="hover:bg-blue-50/30 transition-colors group"
+                >
               
               <td class="p-1">
                 <input type="date" [(ngModel)]="item.date" (change)="onItemChange(item)" 
-                      [disabled]="item.description === 'IVA (21% Transferencias)'" 
+                      
                       class="w-full bg-transparent border-none text-xs text-gray-600 p-1 disabled:opacity-50">
               </td>
 
               <td class="p-1">
                 <input type="text" [(ngModel)]="item.description" (blur)="onItemChange(item)" 
-                      [disabled]="item.description === 'IVA (21% Transferencias)'"
+                      
                       class="w-full bg-transparent border-none text-sm font-medium text-gray-800 p-1 disabled:font-bold disabled:text-purple-800">
               </td>
 
               <td class="p-1 bg-blue-50/20">
                 <input type="text" appCurrencyFormat [(ngModel)]="item.depo" (change)="onItemChange(item)" 
-                      [disabled]="item.description === 'IVA (21% Transferencias)'" 
+                      
                       class="table-input text-blue-700 font-semibold disabled:opacity-80">
               </td>
 
               <td class="p-1 bg-orange-50/20">
                 <input type="text" appCurrencyFormat [(ngModel)]="item.casa" (change)="onItemChange(item)" 
-                      [disabled]="item.description === 'IVA (21% Transferencias)'" 
+                     
                       class="table-input text-orange-700 font-semibold disabled:opacity-50">
               </td>
 
@@ -84,13 +95,13 @@
                 <input type="checkbox" 
                       [(ngModel)]="item.isPaid" 
                       (change)="onItemChange(item)"
-                      [disabled]="item.description === 'IVA (21% Transferencias)'"
+                     
                       class="w-5 h-5 text-green-600 bg-white border-gray-300 rounded focus:ring-green-500 focus:ring-2 cursor-pointer disabled:opacity-50 transition-all shadow-sm mt-1">
               </td>
 
               <td class="p-1 text-center">
-                <button *ngIf="item.description !== 'IVA (21% Transferencias)'" (click)="deleteItem(item, i)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100">
-                  <app-icon name="trash-2" class="h-4 w-4"></app-icon>
+                <button  (click)="deleteItem(item)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100">
+                  <app-icon name="Trash2" class="h-4 w-4"></app-icon>
                 </button>
               </td>
             </tr>
@@ -112,7 +123,7 @@
               <td class="px-2 py-2 text-right text-orange-700">{{ totals.casa | number:'1.0-0' }}</td>
               <td class="px-2 py-2 text-right text-gray-700">{{ totals.retiros | number:'1.0-0' }}</td>
               <td class="px-2 py-2 text-right text-purple-700">{{ totals.extras | number:'1.0-0' }}</td>
-              <!-- <td class="px-2 py-2 text-center text-green-700 bg-green-100/50">{{ totals.pagado | number:'1.0-0' }}</td> -->
+              <td class="px-2 py-2 text-center text-green-700 bg-green-100/50">{{ totals.pagado | number:'1.0-0' }}</td>
               <td></td>
             </tr>
           </tfoot>

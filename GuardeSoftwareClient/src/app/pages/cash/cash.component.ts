@@ -42,6 +42,9 @@ export class CashComponent implements OnInit {
   private saveSubject = new Subject<CashFlowItem>();
   isLoading = false;
 
+  searchTerm: string = '';
+  filteredItems: any[] = [];
+
   constructor(private cashService: CashService) {
     this.saveSubject.pipe(
       debounceTime(1000) 
@@ -65,6 +68,8 @@ export class CashComponent implements OnInit {
       });
       this.sortItems();
 
+      this.filterItems();
+
       if (this.items.length === 0) this.addNewRow(); 
       this.calculateLocalTotals();
       this.isLoading = false;
@@ -84,8 +89,8 @@ export class CashComponent implements OnInit {
 
   sortItems(): void {
     this.items.sort((a, b) => {
-      if (a.description === 'IVA (21% Transferencias)') return -1;
-      if (b.description === 'IVA (21% Transferencias)') return 1;
+      // if (a.description === 'IVA (21% Transferencias)') return -1;
+      // if (b.description === 'IVA (21% Transferencias)') return 1;
       
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
@@ -112,6 +117,9 @@ export class CashComponent implements OnInit {
     };
     
     this.items.push(newItem);
+
+    this.searchTerm = ''; 
+    this.filterItems();
   }
 
   onItemChange(item: CashFlowItem): void {
@@ -125,11 +133,8 @@ export class CashComponent implements OnInit {
     });
   }
 
-  deleteItem(item: CashFlowItem, index: number): void {
-    if (!item.id) {
-      this.items.splice(index, 1); 
-      return;
-    }
+  deleteItem(item: any): void {
+
 
     Swal.fire({
       title: '¿Eliminar concepto?',
@@ -140,10 +145,17 @@ export class CashComponent implements OnInit {
       confirmButtonText: 'Sí, eliminar'
     }).then((result) => {
       if (result.isConfirmed) {
+        const realIndex = this.items.indexOf(item);
         this.cashService.deleteItem(item.id!).subscribe(() => {
-          this.items.splice(index, 1);
+          // this.items.splice(index, 1);
           this.calculateLocalTotals();
         });
+
+        if (realIndex !== -1) {
+          this.items.splice(realIndex, 1);
+          this.filterItems(); // Actualizamos la vista
+          this.calculateLocalTotals(); // Recalculamos totales
+        }
       }
     });
   }
@@ -158,9 +170,9 @@ export class CashComponent implements OnInit {
       this.totals.extras += Number(item.extras) || 0;
 
       const costoFila = (Number(item.depo) || 0) + 
-                        (Number(item.casa) || 0) + 
-                        (Number(item.retiros) || 0) + 
-                        (Number(item.extras) || 0);
+                        (Number(item.casa) || 0);
+                        // (Number(item.retiros) || 0) + 
+                        // (Number(item.extras) || 0);
 
       if (item.isPaid) {
         this.totals.pagado += costoFila;
@@ -270,5 +282,17 @@ export class CashComponent implements OnInit {
 
       return acc;
     }, { total: 0, banks: 0, cash: 0 });
+  }
+
+  filterItems(): void {
+    const term = this.searchTerm.toLowerCase().trim();
+    
+    if (!term) {
+      this.filteredItems = [...this.items];
+    } else {
+      this.filteredItems = this.items.filter(item => 
+        (item.description || '').toLowerCase().includes(term)
+      );
+    }
   }
 }

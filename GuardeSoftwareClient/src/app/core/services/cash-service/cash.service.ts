@@ -48,4 +48,6 @@ export class CashService {
   deleteAccount(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/accounts/${id}`);
   }
+
+  
 }
