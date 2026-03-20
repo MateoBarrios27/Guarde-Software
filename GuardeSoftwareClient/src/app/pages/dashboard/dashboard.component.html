@@ -278,7 +278,8 @@
             <label class="block text-sm text-gray-600 mb-1 font-medium">Monto a registrar</label>
             <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-400">
               <span class="px-3 text-gray-500 select-none">$</span>
-              <input type="number"
+              <input type="text"
+                    appCurrencyFormat
                     min="0.01"
                     step="0.01"
                     [(ngModel)]="paymentDto.amount"

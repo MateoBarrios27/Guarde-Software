@@ -12,10 +12,11 @@ import { PaymentMethodService } from '../../core/services/paymentMethod-service/
 import { PaymentMethod } from '../../core/models/payment-method';
 import Swal from 'sweetalert2';
 import { PdfGeneratorService } from '../../core/services/pdfGenerator-service/pdf-generator.service';
+import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, IconComponent, FormsModule, NgxPaginationModule,],
+  imports: [CommonModule, IconComponent, FormsModule, NgxPaginationModule, CurrencyFormatDirective],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
@@ -95,6 +96,16 @@ export class DashboardComponent {
 
     this.paymentDto.concept = `Pago adelantado de ${months} mes${months === 1 ? '' : 'es'}`;
   }
+
+  formatARS = (value: number) => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  };
+
 
 
   LoadPedingRentals(): void{
@@ -296,12 +307,12 @@ export class DashboardComponent {
           <div class="grid grid-cols-2 gap-3">
             <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
               <div class="text-sm text-gray-500">Monto base</div>
-              <div class="text-lg font-semibold text-gray-900">$${this.amountOriginal}</div>
+              <div class="text-lg font-semibold text-gray-900">${this.formatARS(this.amountOriginal)}</div>
             </div>
 
             <div class="p-3 rounded-lg bg-blue-50 border border-blue-200">
               <div class="text-sm text-blue-800">Total a cobrar</div>
-              <div class="text-lg font-bold text-blue-900">$${dto.amount}</div>
+              <div class="text-lg font-bold text-blue-900">${this.formatARS(dto.amount)}
             </div>
           </div>
 
@@ -477,7 +488,7 @@ export class DashboardComponent {
         html: `
           <div class="text-left px-1"> 
             <p class="text-gray-700">Cliente: <b>${item.clientName}</b></p>
-            <p class="text-gray-700 mb-4">Importe: <b>$${item.amount}</b></p>
+            <p class="text-gray-700 mb-4">Importe: <b>${this.formatARS(item.amount)}</b></p>
             <label class="text-sm font-medium text-gray-600">Descripción del recibo:</label>
           </div>`,
         input: 'text',
@@ -505,14 +516,14 @@ export class DashboardComponent {
         }
       }).then((result) => {
         if (result.isConfirmed) {
-          const customDescription = result.value; // Capturamos el texto del input
+          const customDescription = result.value; 
 
           this.pdfGeneratorService.generateBauleraReceipt({
             date: this.formatDate(item.paymentDate),
             clientNumber: Number(item.paymentIdentifier) || 0,
             amount: item.amount,
             clientName: item.clientName ?? "",
-            description: customDescription // <-- Pasamos la descripción al servicio
+            description: customDescription 
           });
         }
       });

@@ -14,10 +14,11 @@ import { ClientService } from '../../core/services/client-service/client.service
 import { Client } from '../../core/models/client';
 import { CreatePaymentDTO } from '../../core/dtos/payment/CreatePaymentDTO';
 import Swal from 'sweetalert2';
+import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 
 @Component({
   selector: 'app-finances',
-  imports: [FormsModule, CommonModule, IconComponent,NgxPaginationModule],
+  imports: [FormsModule, CommonModule, IconComponent,NgxPaginationModule, CurrencyFormatDirective],
   templateUrl: './finances.component.html',
   styleUrl: './finances.component.css'
 })
@@ -391,6 +392,15 @@ savePaymentModal(dto : CreatePaymentDTO){
 
       dto.amount = this.AmountWithComission(dto.amount, dto.paymentMethodId, this.selectedPreferredPaymentId);
       
+      const formatARS = (value: number) => {
+        return new Intl.NumberFormat('es-AR', {
+          style: 'currency',
+          currency: 'ARS',
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }).format(value);
+      };
+
       Swal.fire({
       title: 'Confirmar registro de pago',
       html: `
@@ -405,12 +415,12 @@ savePaymentModal(dto : CreatePaymentDTO){
           <div class="grid grid-cols-2 gap-3">
             <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
               <div class="text-sm text-gray-500">Monto base</div>
-              <div class="text-lg font-semibold text-gray-900">$${this.amountOriginal}</div>
+              <div class="text-lg font-semibold text-gray-900">${formatARS(this.amountOriginal)}</div>
             </div>
 
             <div class="p-3 rounded-lg bg-blue-50 border border-blue-200">
               <div class="text-sm text-blue-800">Total a cobrar</div>
-              <div class="text-lg font-bold text-blue-900">$${dto.amount}</div>
+              <div class="text-lg font-bold text-blue-900">${formatARS(dto.amount)}</div>
             </div>
           </div>
 

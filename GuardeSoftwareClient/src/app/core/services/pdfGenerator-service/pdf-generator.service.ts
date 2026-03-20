@@ -23,10 +23,15 @@ export class PdfGeneratorService {
     const pdfFonts: any = pdfFontsModule as any;
     pdfMake.vfs = pdfFonts.vfs || (pdfFonts.pdfMake && pdfFonts.pdfMake.vfs);
 
+    const formattedAmount = new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(data.amount);
+
     const docDefinition: any = {
       pageSize: 'A4',
       pageMargins: [40, 50, 40, 40],          
-      defaultStyle: { fontSize: 10 },         
+      defaultStyle: { fontSize: 10 },        
 
       content: [
         {
@@ -90,7 +95,7 @@ export class PdfGeneratorService {
                 {},
                 {},
                 {
-                  text: '$ ' + data.amount.toFixed(2),
+                  text: '$ ' + formattedAmount,
                   alignment: 'right',
                   margin: [0, 8, 3, 530]
                 }
@@ -99,7 +104,7 @@ export class PdfGeneratorService {
                 { text: 'Cliente Nº', bold: true },
                 { text: String(data.clientNumber || ''), margin: [3, 0, 0, 0] },
                 { text: 'TOTAL', bold: true, alignment: 'right' },
-                { text: '$ ' + data.amount.toFixed(2), alignment: 'right' }
+                { text: '$ ' + formattedAmount, alignment: 'right' }
               ]
             ]
           },

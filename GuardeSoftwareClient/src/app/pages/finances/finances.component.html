@@ -293,7 +293,7 @@
                   Balance
                 </p>
                 <p class="text-sm text-gray-800">
-                  {{ selectedClientBalance | currency:'USD':'symbol':'1.2-2' }}
+                  {{ selectedClientBalance | currency:'ARS':'symbol':'1.2-2' }}
                 </p>
               </div>
 
@@ -318,7 +318,8 @@
                 <div class="relative">
                   <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                   <input
-                    type="number"
+                    type="text"
+                    appCurrencyFormat
                     min="0.01"
                     step="0.01"
                     [(ngModel)]="paymentDto.amount"
