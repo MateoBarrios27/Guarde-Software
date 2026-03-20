@@ -7,12 +7,13 @@ import { IconComponent } from "../../shared/components/icon/icon.component";
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CashFlowItem, FinancialAccount, MonthlySummary } from '../../core/models/cash';
+import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 
 @Component({
   selector: 'app-cash',
   templateUrl: './cash.component.html',
   styleUrls: ['./cash.component.css'],
-  imports: [IconComponent, CommonModule, FormsModule]
+  imports: [IconComponent, CommonModule, FormsModule, CurrencyFormatDirective]
 })
 export class CashComponent implements OnInit {
   

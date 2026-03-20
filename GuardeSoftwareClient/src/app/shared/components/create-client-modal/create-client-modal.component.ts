@@ -38,11 +38,12 @@ import { forkJoin, Observable, of } from 'rxjs';
 import { BillingType } from '../../../core/models/billing-type.model';
 import { BillingTypeService } from '../../../core/services/billingType-service/billing-type.service';
 import { PhoneInputDto } from '../../../core/dtos/phone/PhoneInputDto';
+import { CurrencyFormatDirective } from "../../directives/currency-format.directive";
 
 @Component({
   selector: 'app-create-client-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, IconComponent],
+  imports: [CommonModule, ReactiveFormsModule, IconComponent, CurrencyFormatDirective],
   templateUrl: './create-client-modal.component.html',
 })
 export class CreateClientModalComponent implements OnInit, OnChanges {

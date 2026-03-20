@@ -49,7 +49,7 @@
               <th class="px-2 py-3 text-right bg-gray-50 text-blue-800">Depo (Gasto)</th>
               <th class="px-2 py-3 text-right bg-gray-50 text-orange-800">Casa (Gasto)</th>
               <th class="px-2 py-3 text-right bg-gray-50">Retiros</th>
-              <th class="px-2 py-3 text-right bg-gray-50">Extras</th>
+              <!-- <th class="px-2 py-3 text-right bg-gray-50">Extras</th> -->
               <th class="px-2 py-3 text-center bg-gray-50 text-green-800">Pagado</th>
               <th class="px-1 py-3 w-10 bg-gray-50"></th>
             </tr>
@@ -87,9 +87,9 @@
                 <input type="text" appCurrencyFormat [(ngModel)]="item.retiros" (change)="onItemChange(item)" class="table-input text-gray-600">
               </td>
 
-              <td class="p-1">
+              <!-- <td class="p-1">
                 <input type="text" appCurrencyFormat [(ngModel)]="item.extras" (change)="onItemChange(item)" class="table-input text-purple-600">
-              </td>
+              </td> -->
 
               <td class="p-1 bg-green-50/20 text-center align-middle">
                 <input type="checkbox" 
@@ -100,7 +100,7 @@
               </td>
 
               <td class="p-1 text-center">
-                <button  (click)="deleteItem(item)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100">
+                <button  (click)="deleteItem(item)" class="text-gray-5  00 hover:text-red-500">
                   <app-icon name="Trash2" class="h-4 w-4"></app-icon>
                 </button>
               </td>
@@ -119,11 +119,11 @@
           <tfoot class=" font-bold text-gray-700 border-t">
             <tr>
               <td colspan="2" class="px-4 py-2 text-right text-xs uppercase tracking-wider">Totales Columna:</td>
-              <td class="px-2 py-2 text-right text-blue-700">{{ totals.depo | number:'1.0-0' }}</td>
-              <td class="px-2 py-2 text-right text-orange-700">{{ totals.casa | number:'1.0-0' }}</td>
-              <td class="px-2 py-2 text-right text-gray-700">{{ totals.retiros | number:'1.0-0' }}</td>
-              <td class="px-2 py-2 text-right text-purple-700">{{ totals.extras | number:'1.0-0' }}</td>
-              <td class="px-2 py-2 text-center text-green-700 bg-green-100/50">{{ totals.pagado | number:'1.0-0' }}</td>
+              <td class="px-2 py-2 text-right text-blue-700">{{ totals.depo | number:'1.2-2' }}</td>
+              <td class="px-2 py-2 text-right text-orange-700">{{ totals.casa | number:'1.2-2' }}</td>
+              <td class="px-2 py-2 text-right text-gray-700">{{ totals.retiros | number:'1.2-2' }}</td>
+              <!-- <td class="px-2 py-2 text-right text-purple-700">{{ totals.extras | number:'1.2-2' }}</td> -->
+              <td class="px-2 py-2 text-center text-green-700">{{ totals.pagado | number:'1.2-2' }}</td>
               <td></td>
             </tr>
           </tfoot>
@@ -166,13 +166,13 @@
           </div>
           <div class="flex justify-between items-center bg-red-50 p-2 rounded border border-red-100 mt-1">
             <span class="text-red-800 font-bold text-xs uppercase tracking-wider">Falta Pagar</span>
-            <span class="font-bold text-red-700">{{ totals.faltaPagar | currency:'ARS' }}</span>
+            <span class="font-bold text-red-700">{{ totals.faltaPagar | number:'1.2-2' }}</span>
           </div>
         </div>
 
         <div class="flex justify-between items-center pt-1 border-t border-dashed">
            <span class="text-gray-500 text-xs">Otras Salidas (Retiros + Extras)</span>
-           <span class="text-gray-500 text-xs">- {{ (totals.retiros + totals.extras) | currency:'ARS' }}</span>
+           <span class="text-gray-500 text-xs">- {{ (totals.retiros + totals.extras) | number:'1.2-2' }}</span>
         </div>
         
         <div class="mt-4 pt-3 border-t-2 border-gray-100 flex justify-between items-center">
@@ -219,15 +219,15 @@
       <div class="pt-4 border-t border-gray-100 grid grid-cols-3 gap-2">
           <div class="bg-blue-50 p-2 rounded text-center border border-blue-100">
               <p class="text-[10px] uppercase tracking-wider font-bold text-blue-600">Bancos</p>
-              <p class="text-sm font-bold text-blue-800">{{ accountTotals.banks | currency:'ARS':'symbol':'1.0-0' }}</p>
+              <p class="text-sm font-bold text-blue-800">{{ accountTotals.banks | currency:'ARS' }}</p>
           </div>
           <div class="bg-green-50 p-2 rounded text-center border border-green-100">
               <p class="text-[10px] uppercase tracking-wider font-bold text-green-600">Cajas</p>
-              <p class="text-sm font-bold text-green-800">{{ accountTotals.cash | currency:'ARS':'symbol':'1.0-0' }}</p>
+              <p class="text-sm font-bold text-green-800">{{ accountTotals.cash | currency:'ARS' }}</p>
           </div>
           <div class="bg-gray-100 p-2 rounded text-center border border-gray-200">
               <p class="text-[10px] uppercase tracking-wider font-bold text-gray-600">Total</p>
-              <p class="text-sm font-extrabold text-gray-900">{{ accountTotals.total | currency:'ARS':'symbol':'1.0-0' }}</p>
+              <p class="text-sm font-extrabold text-gray-900">{{ accountTotals.total | currency:'ARS' }}</p>
           </div>
       </div>
 
