@@ -53,15 +53,13 @@
             <div>
               <label class="text-sm font-medium text-gray-500">Balance</label>
               <p class="text-2xl font-bold text-blue-700">
-                {{ client.balance | currency : "ARS" : "symbol-narrow" : "1.0-0" }}
+                $ {{ client.balance | number:'1.2-2' }}
               </p>
             </div>
             <hr />
             <div class="flex justify-between">
               <span class="text-sm text-gray-600">Monto Alquiler:</span>
-              <span class="text-sm font-semibold text-gray-800">{{
-                client.rentAmount | currency : "ARS" : "symbol-narrow" : "1.0-0"
-              }}</span>
+              <span class="text-sm font-semibold text-gray-800">$ {{ client.rentAmount | number:'1.2-2' }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-sm text-gray-600">Próx. Pago:</span>
@@ -220,7 +218,7 @@
                       >
                         <span *ngIf="mov.movementType === 'CREDITO'">+</span>
                         <span *ngIf="mov.movementType === 'DEBITO'">-</span>
-                        {{ mov.amount | currency : "ARS" : "symbol-narrow" : "1.0-0" }}
+                        $ {{ mov.amount | number:'1.2-2' }}
                       </td>
                       <td class="p-3 text-center">
                         <button (click)="deleteMovement(mov.id)" class="p-1 text-black hover:text-red-600" title="Eliminar Movimiento">
@@ -323,7 +321,7 @@
                 </div>
                 <div>
                   <label class="font-medium text-gray-500">Monto inicial</label>
-                  <p class="text-gray-800">{{ client.initialAmount | currency : "ARS" : "symbol-narrow" : "1.0-0" }}</p>
+                  <p class="text-gray-800">$ {{ client.initialAmount | number:'1.2-2'}}</p>
                 </div>
                 <div>
                   <label class="font-medium text-gray-500">Espacios Ocupados</label>
@@ -331,7 +329,7 @@
                 </div>
                 <div>
                   <label class="font-medium text-gray-500">Total Pagado</label>
-                  <p class="text-gray-800">{{ client.totalPaid | currency : "ARS" : "symbol-narrow" : "1.0-0" }}</p>
+                  <p class="text-gray-800">$ {{ client.totalPaid | number:'1.2-2' }}</p>
                 </div>
               </div>
             </div>

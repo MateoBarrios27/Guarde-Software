@@ -5,11 +5,12 @@ import { IconComponent } from '../icon/icon.component';
 import { AccountMovementService } from '../../../core/services/accountMovement-service/account-movement.service';
 import { CreateAccountMovementDTO } from '../../../core/dtos/accountMovement/create-account-movement.dto';
 import Swal from 'sweetalert2';
+import { CurrencyFormatDirective } from "../../directives/currency-format.directive";
 
 @Component({
   selector: 'app-create-movement-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, IconComponent],
+  imports: [CommonModule, ReactiveFormsModule, IconComponent, CurrencyFormatDirective],
   templateUrl: './create-movement-modal.component.html',
 })
 export class CreateMovementModalComponent implements OnInit {

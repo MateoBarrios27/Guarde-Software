@@ -119,7 +119,7 @@
                 <div class="relative flex-1">
                   <input
                     formControlName="number"
-
+                    placeholder="11 1234-5678"
                     class="w-full pr-10 p-2 border rounded-md focus:outline-none"
                     [ngClass]="
                       tel.get('whatsapp')?.value
@@ -147,6 +147,8 @@
 
                 </div>
 
+                
+
                 <!-- BOTÓN ELIMINAR -->
                 <button
                   *ngIf="telefonos.length > 1"
@@ -160,6 +162,8 @@
                 </button>
 
               </div>
+
+              
 
               <!-- AGREGAR -->
               <button

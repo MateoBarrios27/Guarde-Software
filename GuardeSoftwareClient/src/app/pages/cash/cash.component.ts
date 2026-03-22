@@ -212,6 +212,8 @@ export class CashComponent implements OnInit {
     this.loadData();
   }
 
+  
+
 
   onAccountChange(account: FinancialAccount): void {
     this.calculateAccountTotals(); // <--- RECALCULAR AL EDITAR MONTO

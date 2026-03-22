@@ -50,15 +50,41 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<int> UpsertItemAsync(CashFlowItemDto item, int month, int year)
         {
-            // Lógica: Si ID es nulo o 0, INSERT. Si no, UPDATE.
             string query = "";
             
             if (item.Id == null || item.Id == 0)
             {
+                // Usamos una variable de tabla para guardar el ID nuevo de forma segura 
+                // antes de hacer la replicación a meses futuros.
                 query = @"
+                    DECLARE @InsertedId TABLE (Id INT);
+
                     INSERT INTO cash_flow_items (month, year, movement_date, description, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras)
-                    OUTPUT INSERTED.item_id
-                    VALUES (@Month, @Year, @Date, @Desc, @Depo, @Casa, @IsPaid, @Retiros, @Extras)";
+                    OUTPUT INSERTED.item_id INTO @InsertedId
+                    VALUES (@Month, @Year, @Date, @Desc, @Depo, @Casa, @IsPaid, @Retiros, @Extras);
+
+                    -- REPLICACIÓN AL FUTURO (Solo si el ítem es del mes y año actual real)
+                    IF @Month = MONTH(GETDATE()) AND @Year = YEAR(GETDATE())
+                    BEGIN
+                        INSERT INTO cash_flow_items (month, year, movement_date, description, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras)
+                        SELECT DISTINCT 
+                            month, 
+                            year, 
+                            DATEFROMPARTS(year, month, 1), 
+                            @Desc, 
+                            0, 0, 0, 0, 0  -- Montos en 0 para meses futuros
+                        FROM cash_flow_items
+                        WHERE 
+                            (year > YEAR(GETDATE()) OR (year = YEAR(GETDATE()) AND month > MONTH(GETDATE())))
+                            AND NOT EXISTS (
+                                SELECT 1 FROM cash_flow_items c2 
+                                WHERE c2.description = @Desc 
+                                AND c2.month = cash_flow_items.month 
+                                AND c2.year = cash_flow_items.year
+                            )
+                    END
+
+                    SELECT Id FROM @InsertedId;";
             }
             else
             {
@@ -71,7 +97,30 @@ namespace GuardeSoftwareAPI.Dao
                         is_paid = @IsPaid, 
                         amount_retiros = @Retiros, 
                         amount_extras = @Extras
-                    WHERE item_id = @Id";
+                    WHERE item_id = @Id;
+
+                    -- REPLICACIÓN AL FUTURO PARA ACTUALIZACIONES (Crea el concepto si le cambiaron el nombre)
+                    IF @Month = MONTH(GETDATE()) AND @Year = YEAR(GETDATE())
+                    BEGIN
+                        INSERT INTO cash_flow_items (month, year, movement_date, description, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras)
+                        SELECT DISTINCT 
+                            month, 
+                            year, 
+                            DATEFROMPARTS(year, month, 1), 
+                            @Desc, 
+                            0, 0, 0, 0, 0
+                        FROM cash_flow_items
+                        WHERE 
+                            (year > YEAR(GETDATE()) OR (year = YEAR(GETDATE()) AND month > MONTH(GETDATE())))
+                            AND NOT EXISTS (
+                                SELECT 1 FROM cash_flow_items c2 
+                                WHERE c2.description = @Desc 
+                                AND c2.month = cash_flow_items.month 
+                                AND c2.year = cash_flow_items.year
+                            )
+                    END
+
+                    SELECT @Id;";
             }
 
             var parameters = new[] {
@@ -93,7 +142,26 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task DeleteItemAsync(int id)
         {
-            string query = "DELETE FROM cash_flow_items WHERE item_id = @Id";
+            string query = @"
+                DECLARE @Desc NVARCHAR(255);
+                DECLARE @ItemMonth INT;
+                DECLARE @ItemYear INT;
+
+                -- 1. Capturamos los datos del concepto antes de volatilizarlo
+                SELECT @Desc = description, @ItemMonth = month, @ItemYear = year 
+                FROM cash_flow_items 
+                WHERE item_id = @Id;
+
+                -- 2. Borramos el ítem solicitado
+                DELETE FROM cash_flow_items WHERE item_id = @Id;
+
+                IF @ItemMonth = MONTH(GETDATE()) AND @ItemYear = YEAR(GETDATE())
+                BEGIN
+                    DELETE FROM cash_flow_items 
+                    WHERE description = @Desc 
+                    AND (year > YEAR(GETDATE()) OR (year = YEAR(GETDATE()) AND month > MONTH(GETDATE())))
+                END";
+
             await _accessDB.ExecuteCommandAsync(query, new[] { new SqlParameter("@Id", id) });
         }
 
@@ -207,12 +275,12 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT 
                     @CurrentMonth,  -- Forzamos el MES ACTUAL
                     @CurrentYear,   -- Forzamos el AÑO ACTUAL
-                    DATEFROMPARTS(@CurrentYear, @CurrentMonth, 1), -- Ponemos fecha día 1 por defecto
+                    DATEFROMPARTS(@CurrentYear, @CurrentMonth, 1), 
                     description, 
-                    amount_depo, amount_casa, is_paid, amount_retiros, amount_extras
+                    0, 0, 0, 0, 0
                 FROM cash_flow_items
                 WHERE month = @PrevMonth AND year = @PrevYear
-                AND is_confirmed = 1"; // Opcional: filtrar por confirmados
+                AND is_confirmed = 1";
 
             var parameters = new[] {
                 new SqlParameter("@CurrentMonth", currentMonth),
