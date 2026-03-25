@@ -606,15 +606,26 @@ export class CommunicationsComponent implements OnInit {
 
   applyFilter(type: 'Todos' | 'Morosos' | 'Pendientes' | 'AlDia' | 'Ninguno'): void {
       this.allClients.update(list => list.map(c => {
-          let shouldSelect = c.selected;
+          let shouldSelect = c.selected; 
           
           switch(type) {
-              case 'Todos': shouldSelect = true; break;
-              case 'Ninguno': shouldSelect = false; break;
-              case 'Morosos': shouldSelect = c.status === 'Moroso'; break;
-              case 'Pendientes': shouldSelect = c.status === 'Pendiente'; break;
-              case 'AlDia': shouldSelect = c.status === 'AlDia'; break;
+              case 'Todos': 
+                  shouldSelect = true; 
+                  break;
+              case 'Ninguno': 
+                  shouldSelect = false; 
+                  break;
+              case 'Morosos': 
+                  if (c.status === 'Moroso') shouldSelect = true; 
+                  break;
+              case 'Pendientes': 
+                  if (c.status === 'Pendiente') shouldSelect = true; 
+                  break;
+              case 'AlDia': 
+                  if (c.status === 'AlDia') shouldSelect = true; 
+                  break;
           }
+          
           return { ...c, selected: shouldSelect };
       }));
 
