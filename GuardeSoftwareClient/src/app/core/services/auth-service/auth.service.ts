@@ -34,6 +34,7 @@ export class AuthService {
         localStorage.setItem('userName', res.userName);
         localStorage.setItem('firstName', res.firstName);
         localStorage.setItem('lastName', res.lastName);
+        localStorage.setItem('userTypeId', res.userTypeId.toString());
       })
     );
   }
@@ -41,6 +42,10 @@ export class AuthService {
   logout() {
     localStorage.removeItem('authToken');
     localStorage.removeItem('expiresAt');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('firstName');
+    localStorage.removeItem('lastName');
+    localStorage.removeItem('userTypeId'); 
   }
 
   getToken(): string | null {
@@ -55,5 +60,10 @@ export class AuthService {
     if (!exp) return false;
 
     return new Date() < new Date(exp);
+  }
+
+  isAdmin(): boolean {
+    const typeId = localStorage.getItem('userTypeId');
+    return typeId === '1'; 
   }
 }

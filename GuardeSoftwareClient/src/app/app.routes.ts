@@ -10,6 +10,7 @@ import { StatisticsComponent } from './pages/statistics/statistics.component';
 import { LoginComponent } from './pages/auth/login/login.component';
 import { AuthGuard } from './core/guards/auth.guard';
 import { CashComponent } from './pages/cash/cash.component';
+import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
   // Redirect the root path to /clients by default
@@ -25,7 +26,7 @@ export const routes: Routes = [
   { path: 'reports', component: ReportsComponent, canActivate: [AuthGuard], data: { title: 'Reportes' } },
   { path: 'statistics', component: StatisticsComponent, canActivate: [AuthGuard], data: { title: 'Estadísitcas' } },
   { path: 'settings', component: SettingsComponent, canActivate: [AuthGuard], data: { title: 'Configuración' } },
-  { path: 'cash', component: CashComponent, canActivate: [AuthGuard], data: { title: 'Caja' } },
+  { path: 'cash', component: CashComponent, canActivate: [adminGuard], data: { title: 'Caja' } },
   
   // Wildcard route to handle not-found URLs
   { path: '**', redirectTo: '/login' }

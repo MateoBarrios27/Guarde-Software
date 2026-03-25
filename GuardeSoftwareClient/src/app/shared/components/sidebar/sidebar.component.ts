@@ -9,6 +9,7 @@ interface MenuItem {
   path: string;
   title: string;
   icon: string;
+  adminOnly?: boolean;
 }
 
 @Component({
@@ -44,7 +45,7 @@ export class SidebarComponent {
     { path: '/statistics', title: 'Estadísticas', icon: 'file-text' },
     // { path: '/reports', title: 'Reportes', icon: 'file-text' },
     { path: '/settings', title: 'Configuración', icon: 'settings' },
-    { path: '/cash', title: 'Caja', icon: 'dollar' },
+    { path: '/cash', title: 'Caja', icon: 'dollar', adminOnly: true },
   ];
 
   onLinkClick() {
