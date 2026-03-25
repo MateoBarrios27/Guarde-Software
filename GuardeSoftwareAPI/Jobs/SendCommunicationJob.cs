@@ -163,8 +163,9 @@ namespace GuardeSoftwareAPI.Jobs
         private MimeMessage CreateEmailMessage(ChannelForSendingDto channel, RecipientForSendingDto recipient, SmtpSettingsModel settings, List<AttachmentDto> attachments)
         {
             var message = new MimeMessage();
-            message.From.Add(new MailboxAddress("Guarde lo que quiera - Abono", settings.Email));
             
+            message.From.Add(new MailboxAddress("Guarde lo que quiera - Abono", settings.Email));
+
             if (!string.IsNullOrEmpty(recipient.Email))
             {
                 var addresses = recipient.Email.Split(';', StringSplitOptions.RemoveEmptyEntries);
@@ -172,8 +173,8 @@ namespace GuardeSoftwareAPI.Jobs
                 foreach (var address in addresses)
                 {
                     try 
-                    {
-                        message.To.Add(MailboxAddress.Parse(address.Trim()));
+                    { 
+                        message.To.Add(MailboxAddress.Parse(address.Trim())); 
                     }
                     catch 
                     { 
@@ -181,11 +182,29 @@ namespace GuardeSoftwareAPI.Jobs
                     }
                 }
             }
+
+            if (settings.EnableBcc && !string.IsNullOrWhiteSpace(settings.BccEmail))
+            {
+                var bccAddresses = settings.BccEmail.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var bccAddress in bccAddresses)
+                {
+                    try
+                    {
+                        message.Bcc.Add(MailboxAddress.Parse(bccAddress.Trim()));
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                }
+            }
+
             message.Subject = channel.Subject;
 
             var builder = new BodyBuilder();
             builder.HtmlBody = channel.Content;
 
+            // Adjuntar archivos si existen
             if (attachments != null && attachments.Count > 0)
             {
                 foreach (var att in attachments)
