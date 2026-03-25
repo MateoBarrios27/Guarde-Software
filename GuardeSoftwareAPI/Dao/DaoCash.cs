@@ -19,7 +19,7 @@ namespace GuardeSoftwareAPI.Dao
         {
             var list = new List<CashFlowItemDto>();
             string query = @"
-                SELECT item_id, movement_date, description, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras
+                SELECT item_id, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras
                 FROM cash_flow_items
                 WHERE month = @Month AND year = @Year
                 ORDER BY movement_date ASC";
@@ -38,6 +38,7 @@ namespace GuardeSoftwareAPI.Dao
                     Id = Convert.ToInt32(row["item_id"]),
                     Date = Convert.ToDateTime(row["movement_date"]),
                     Description = row["description"].ToString(),
+                    Comment = row["comment"] != DBNull.Value ? row["comment"].ToString() : null,
                     Depo = Convert.ToDecimal(row["amount_depo"]),
                     Casa = Convert.ToDecimal(row["amount_casa"]),
                     IsPaid = Convert.ToBoolean(row["is_paid"]),
@@ -50,38 +51,24 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<int> UpsertItemAsync(CashFlowItemDto item, int month, int year)
         {
-            string query = "";
+            string query;
             
             if (item.Id == null || item.Id == 0)
             {
-                // Usamos una variable de tabla para guardar el ID nuevo de forma segura 
-                // antes de hacer la replicación a meses futuros.
                 query = @"
                     DECLARE @InsertedId TABLE (Id INT);
 
-                    INSERT INTO cash_flow_items (month, year, movement_date, description, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras)
+                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras)
                     OUTPUT INSERTED.item_id INTO @InsertedId
-                    VALUES (@Month, @Year, @Date, @Desc, @Depo, @Casa, @IsPaid, @Retiros, @Extras);
+                    VALUES (@Month, @Year, @Date, @Desc, @Comment, @Depo, @Casa, @IsPaid, @Retiros, @Extras);
 
-                    -- REPLICACIÓN AL FUTURO (Solo si el ítem es del mes y año actual real)
                     IF @Month = MONTH(GETDATE()) AND @Year = YEAR(GETDATE())
                     BEGIN
-                        INSERT INTO cash_flow_items (month, year, movement_date, description, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras)
-                        SELECT DISTINCT 
-                            month, 
-                            year, 
-                            DATEFROMPARTS(year, month, 1), 
-                            @Desc, 
-                            0, 0, 0, 0, 0  -- Montos en 0 para meses futuros
+                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras)
+                        SELECT DISTINCT month, year, DATEFROMPARTS(year, month, 1), @Desc, @Comment, 0, 0, 0, 0, 0
                         FROM cash_flow_items
-                        WHERE 
-                            (year > YEAR(GETDATE()) OR (year = YEAR(GETDATE()) AND month > MONTH(GETDATE())))
-                            AND NOT EXISTS (
-                                SELECT 1 FROM cash_flow_items c2 
-                                WHERE c2.description = @Desc 
-                                AND c2.month = cash_flow_items.month 
-                                AND c2.year = cash_flow_items.year
-                            )
+                        WHERE (year > YEAR(GETDATE()) OR (year = YEAR(GETDATE()) AND month > MONTH(GETDATE())))
+                        AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year)
                     END
 
                     SELECT Id FROM @InsertedId;";
@@ -90,34 +77,16 @@ namespace GuardeSoftwareAPI.Dao
             {
                 query = @"
                     UPDATE cash_flow_items 
-                    SET movement_date = @Date, 
-                        description = @Desc, 
-                        amount_depo = @Depo, 
-                        amount_casa = @Casa, 
-                        is_paid = @IsPaid, 
-                        amount_retiros = @Retiros, 
-                        amount_extras = @Extras
+                    SET movement_date = @Date, description = @Desc, comment = @Comment, amount_depo = @Depo, amount_casa = @Casa, is_paid = @IsPaid, amount_retiros = @Retiros, amount_extras = @Extras
                     WHERE item_id = @Id;
 
-                    -- REPLICACIÓN AL FUTURO PARA ACTUALIZACIONES (Crea el concepto si le cambiaron el nombre)
                     IF @Month = MONTH(GETDATE()) AND @Year = YEAR(GETDATE())
                     BEGIN
-                        INSERT INTO cash_flow_items (month, year, movement_date, description, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras)
-                        SELECT DISTINCT 
-                            month, 
-                            year, 
-                            DATEFROMPARTS(year, month, 1), 
-                            @Desc, 
-                            0, 0, 0, 0, 0
+                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras)
+                        SELECT DISTINCT month, year, DATEFROMPARTS(year, month, 1), @Desc, @Comment, 0, 0, 0, 0, 0
                         FROM cash_flow_items
-                        WHERE 
-                            (year > YEAR(GETDATE()) OR (year = YEAR(GETDATE()) AND month > MONTH(GETDATE())))
-                            AND NOT EXISTS (
-                                SELECT 1 FROM cash_flow_items c2 
-                                WHERE c2.description = @Desc 
-                                AND c2.month = cash_flow_items.month 
-                                AND c2.year = cash_flow_items.year
-                            )
+                        WHERE (year > YEAR(GETDATE()) OR (year = YEAR(GETDATE()) AND month > MONTH(GETDATE())))
+                        AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year)
                     END
 
                     SELECT @Id;";
@@ -129,6 +98,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@Year", year),
                 new SqlParameter("@Date", item.Date),
                 new SqlParameter("@Desc", item.Description ?? ""),
+                new SqlParameter("@Comment", (object?)item.Comment ?? DBNull.Value),
                 new SqlParameter("@Depo", item.Depo),
                 new SqlParameter("@Casa", item.Casa),
                 new SqlParameter("@IsPaid", item.IsPaid),
@@ -147,12 +117,10 @@ namespace GuardeSoftwareAPI.Dao
                 DECLARE @ItemMonth INT;
                 DECLARE @ItemYear INT;
 
-                -- 1. Capturamos los datos del concepto antes de volatilizarlo
                 SELECT @Desc = description, @ItemMonth = month, @ItemYear = year 
                 FROM cash_flow_items 
                 WHERE item_id = @Id;
 
-                -- 2. Borramos el ítem solicitado
                 DELETE FROM cash_flow_items WHERE item_id = @Id;
 
                 IF @ItemMonth = MONTH(GETDATE()) AND @ItemYear = YEAR(GETDATE())

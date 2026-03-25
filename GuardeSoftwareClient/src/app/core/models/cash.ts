@@ -2,6 +2,7 @@ export interface CashFlowItem {
   id?: number;
   date: string;
   description: string;
+  comment?: string;
   depo: number;
   casa: number;
   isPaid: boolean;

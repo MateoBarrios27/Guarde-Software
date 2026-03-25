@@ -20,6 +20,7 @@ export class CashComponent implements OnInit {
   currentDate = new Date();
   selectedMonth = this.currentDate.getMonth() + 1;
   selectedYear = this.currentDate.getFullYear();
+  activeCommentItem: CashFlowItem | null = null;
   
   items: CashFlowItem[] = [];
   summary: MonthlySummary = {
@@ -110,6 +111,7 @@ export class CashComponent implements OnInit {
     const newItem: CashFlowItem = {
       date: defaultDate,
       description: '',
+      comment: '',
       depo: 0, 
       casa: 0, 
       isPaid: false, 
@@ -298,4 +300,33 @@ export class CashComponent implements OnInit {
       );
     }
   }
+
+  toggleComment(item: CashFlowItem): void {
+    if (this.activeCommentItem === item) {
+      this.activeCommentItem = null;
+    } else {
+      this.activeCommentItem = item;
+      // Le damos un milisegundo a Angular para renderizar el cuadro y ajustamos su altura
+      setTimeout(() => {
+        const activeTextarea = document.getElementById('excel-comment-' + item.id) as HTMLTextAreaElement;
+        if (activeTextarea) {
+          activeTextarea.style.height = 'auto';
+          activeTextarea.style.height = activeTextarea.scrollHeight + 'px';
+          activeTextarea.focus(); // Hacemos foco automáticamente
+        }
+      }, 0);
+    }
+  }
+
+  closeComment(item: CashFlowItem): void {
+    this.activeCommentItem = null;
+    this.onItemChange(item); // Guardamos en BD al cerrar el cuadro
+  }
+
+  autoResizeTextarea(event: Event): void {
+    const textarea = event.target as HTMLTextAreaElement;
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+  }
+  
 }
