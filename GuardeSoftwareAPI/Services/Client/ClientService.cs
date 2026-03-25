@@ -322,7 +322,7 @@ namespace GuardeSoftwareAPI.Services.client
                                 int daysToCharge = daysInMonth - startDate.Day; 
                                 decimal dailyRate = dto.Amount / daysInMonth;
                                 decimal proportionalRaw = dailyRate * daysToCharge;
-                                decimal debitAmountProportional = RoundUpToNearest100(proportionalRaw);
+                                decimal debitAmountProportional = RoundToNearest1000(proportionalRaw);
 
                                 string currentMonthName = culture.DateTimeFormat.GetMonthName(startDate.Month);
                                 string currentMonthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(currentMonthName);
@@ -721,10 +721,10 @@ namespace GuardeSoftwareAPI.Services.client
             }
         }
 
-        private decimal RoundUpToNearest100(decimal amount)
+        private decimal RoundToNearest1000(decimal amount)
         {
             if (amount == 0) return 0;
-            return Math.Ceiling(amount / 100.0m) * 100;
+            return Math.Round(amount / 1000m, MidpointRounding.AwayFromZero) * 1000m;
         }
 
         public async Task ReactivateClientAsync(int clientId)

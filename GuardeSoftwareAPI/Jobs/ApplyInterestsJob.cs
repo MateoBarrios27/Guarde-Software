@@ -41,7 +41,7 @@ public class ApplyInterestsJob : IJob
                     _logger.LogWarning("Cliente del alquiler ID {rentalId} está en mora...", rentalId);
 
                     var interestAmount = Math.Round(balance * 0.10m, 2);
-                    var roundedInterest = RoundUpToNearest100(interestAmount);
+                    var roundedInterest = RoundToNearest1000(interestAmount);
 
                     await _daoRental.IncrementUnpaidMonthsAndApplyInterestAsync(rentalId, roundedInterest, concept);
                     _logger.LogInformation("Interés de ${amount} aplicado al alquiler ID {rentalId}.", roundedInterest, rentalId);
@@ -63,9 +63,13 @@ public class ApplyInterestsJob : IJob
         }
     }
 
-    private decimal RoundUpToNearest100(decimal amount)
-    {
-        if (amount == 0) return 0;
-        return Math.Ceiling(amount / 100.0m) * 100;
-    }
+        private decimal RoundToNearest1000(decimal amount)
+        {
+            if (amount == 0) return 0;
+
+            // Math.Round con MidpointRounding.AwayFromZero asegura que los .5 suban.
+            // Ej: 12500 / 1000 = 12.5 -> Round da 13 -> 13 * 1000 = 13000
+            // Ej: 12499 / 1000 = 12.499 -> Round da 12 -> 12 * 1000 = 12000
+            return Math.Round(amount / 1000m, MidpointRounding.AwayFromZero) * 1000m;
+        }
 }

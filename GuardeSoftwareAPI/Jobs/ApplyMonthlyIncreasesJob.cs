@@ -98,7 +98,7 @@ namespace GuardeSoftwareAPI.Jobs
                                 newAnchorDate = newAnchorDate.AddMonths(frequency);
                             }
 
-                            decimal finalAmount = RoundUpToNearest100(newAmount);
+                            decimal finalAmount = RoundToNearest1000(newAmount);
 
                             if (finalAmount > currentAmount)
                             {
@@ -141,10 +141,14 @@ namespace GuardeSoftwareAPI.Jobs
             _logger.LogInformation("--- Job de Aplicación de Aumentos finalizado ---");
         }
 
-        private decimal RoundUpToNearest100(decimal amount)
+        private decimal RoundToNearest1000(decimal amount)
         {
             if (amount == 0) return 0;
-            return Math.Ceiling(amount / 100.0m) * 100;
+
+            // Math.Round with MidpointRounding.AwayFromZero rounds .5 up to the next integer, which is what we want for our rounding logic.
+            // Ej: 12500 / 1000 = 12.5 -> Round is 13 -> 13 * 1000 = 13000
+            // Ej: 12499 / 1000 = 12.499 -> Round is 12 -> 12 * 1000 = 12000
+            return Math.Round(amount / 1000m, MidpointRounding.AwayFromZero) * 1000m;
         }
     }
 }
