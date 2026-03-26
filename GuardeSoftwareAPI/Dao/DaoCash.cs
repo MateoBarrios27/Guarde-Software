@@ -51,7 +51,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<int> UpsertItemAsync(CashFlowItemDto item, int month, int year)
         {
-            string query;
+            string query = "";
             
             if (item.Id == null || item.Id == 0)
             {
@@ -62,12 +62,20 @@ namespace GuardeSoftwareAPI.Dao
                     OUTPUT INSERTED.item_id INTO @InsertedId
                     VALUES (@Month, @Year, @Date, @Desc, @Comment, @Depo, @Casa, @IsPaid, @Retiros, @Extras);
 
-                    IF @Month = MONTH(GETDATE()) AND @Year = YEAR(GETDATE())
+                    -- REPLICACIÓN AL FUTURO (Si editamos el mes actual O un mes futuro)
+                    IF (@Year > YEAR(GETDATE()) OR (@Year = YEAR(GETDATE()) AND @Month >= MONTH(GETDATE())))
                     BEGIN
+                        -- 1. Actualizamos el comentario en los meses posteriores al editado que YA EXISTEN
+                        UPDATE cash_flow_items
+                        SET comment = @Comment
+                        WHERE description = @Desc
+                        AND (year > @Year OR (year = @Year AND month > @Month));
+
+                        -- 2. Creamos el concepto en los meses posteriores al editado donde NO EXISTE
                         INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras)
                         SELECT DISTINCT month, year, DATEFROMPARTS(year, month, 1), @Desc, @Comment, 0, 0, 0, 0, 0
                         FROM cash_flow_items
-                        WHERE (year > YEAR(GETDATE()) OR (year = YEAR(GETDATE()) AND month > MONTH(GETDATE())))
+                        WHERE (year > @Year OR (year = @Year AND month > @Month))
                         AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year)
                     END
 
@@ -80,12 +88,17 @@ namespace GuardeSoftwareAPI.Dao
                     SET movement_date = @Date, description = @Desc, comment = @Comment, amount_depo = @Depo, amount_casa = @Casa, is_paid = @IsPaid, amount_retiros = @Retiros, amount_extras = @Extras
                     WHERE item_id = @Id;
 
-                    IF @Month = MONTH(GETDATE()) AND @Year = YEAR(GETDATE())
+                    IF (@Year > YEAR(GETDATE()) OR (@Year = YEAR(GETDATE()) AND @Month >= MONTH(GETDATE())))
                     BEGIN
+                        UPDATE cash_flow_items
+                        SET comment = @Comment
+                        WHERE description = @Desc
+                        AND (year > @Year OR (year = @Year AND month > @Month));
+                        
                         INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras)
                         SELECT DISTINCT month, year, DATEFROMPARTS(year, month, 1), @Desc, @Comment, 0, 0, 0, 0, 0
                         FROM cash_flow_items
-                        WHERE (year > YEAR(GETDATE()) OR (year = YEAR(GETDATE()) AND month > MONTH(GETDATE())))
+                        WHERE (year > @Year OR (year = @Year AND month > @Month))
                         AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year)
                     END
 
@@ -123,11 +136,13 @@ namespace GuardeSoftwareAPI.Dao
 
                 DELETE FROM cash_flow_items WHERE item_id = @Id;
 
-                IF @ItemMonth = MONTH(GETDATE()) AND @ItemYear = YEAR(GETDATE())
+                -- ELIMINACIÓN EN CASCADA (Si el borrado es en el mes actual O un mes futuro)
+                IF (@ItemYear > YEAR(GETDATE()) OR (@ItemYear = YEAR(GETDATE()) AND @ItemMonth >= MONTH(GETDATE())))
                 BEGIN
                     DELETE FROM cash_flow_items 
                     WHERE description = @Desc 
-                    AND (year > YEAR(GETDATE()) OR (year = YEAR(GETDATE()) AND month > MONTH(GETDATE())))
+                    -- Borramos de los meses posteriores al mes donde se ejecutó la acción
+                    AND (year > @ItemYear OR (year = @ItemYear AND month > @ItemMonth))
                 END";
 
             await _accessDB.ExecuteCommandAsync(query, new[] { new SqlParameter("@Id", id) });

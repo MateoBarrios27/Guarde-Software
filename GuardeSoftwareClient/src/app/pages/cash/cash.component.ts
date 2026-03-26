@@ -328,5 +328,14 @@ export class CashComponent implements OnInit {
     textarea.style.height = 'auto';
     textarea.style.height = textarea.scrollHeight + 'px';
   }
+
+  blurInput(event: Event): void {
+    (event.target as HTMLElement).blur();
+  }
+
+  onCommentEnter(event: Event, item: CashFlowItem): void {
+    event.preventDefault(); 
+    this.closeComment(item);
+  }
   
 }

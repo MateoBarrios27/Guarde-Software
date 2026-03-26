@@ -68,7 +68,9 @@
               <td class="p-1 relative min-w-[300px]">
                 
                 <div class="flex items-center group/desc relative w-full">
-                  <input type="text" [(ngModel)]="item.description" (blur)="onItemChange(item)" 
+                  <input type="text" [(ngModel)]="item.description" 
+                        (blur)="onItemChange(item)" 
+                        (keydown.enter)="blurInput($event)" 
                         [disabled]="item.description === 'IVA (21% Transferencias)'"
                         class="w-full bg-transparent border-none text-sm font-medium text-gray-800 p-1 pr-8 disabled:font-bold disabled:text-purple-800 text-ellipsis overflow-hidden">
                   
@@ -98,8 +100,9 @@
                     <textarea [id]="'excel-comment-' + item.id"
                               [(ngModel)]="item.comment" 
                               (input)="autoResizeTextarea($event)"
-                              class="w-full bg-transparent border-none text-sm text-gray-800 p-0 resize-none overflow-hidden min-h-[60px]"
-                              placeholder="Escriba una comentario..."></textarea>
+                              (keydown.enter)="onCommentEnter($event, item)"
+                              class="w-full bg-transparent border-none focus:ring-0 text-sm text-gray-800 p-0 resize-none overflow-hidden min-h-[60px]"
+                              placeholder="Escribe una observación..."></textarea>
                   </div>
                 </div>
 
