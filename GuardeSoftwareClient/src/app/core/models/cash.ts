@@ -9,6 +9,7 @@ export interface CashFlowItem {
   retiros: number;
   extras: number;
   isConfirmed?: boolean;
+  displayOrder?: number;
 }
 
 export interface MonthlySummary {

@@ -104,5 +104,10 @@ namespace GuardeSoftwareAPI.Services.cash
         {
             await _dao.DeleteAccountAsync(id);
         }
+        
+        public async Task UpdateItemsOrderAsync(List<CashItemOrderDto> itemsOrder)
+        {
+            await _dao.UpdateItemsOrderAsync(itemsOrder);
+        }
     }
 }

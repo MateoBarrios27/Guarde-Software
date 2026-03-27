@@ -87,5 +87,23 @@ namespace GuardeSoftwareAPI.Controllers
             await _service.DeleteAccountAsync(id);
             return NoContent();
         }
+
+        [HttpPost("update-order")]
+        public async Task<IActionResult> UpdateOrder([FromBody] List<CashItemOrderDto> itemsOrder)
+        {
+            if (itemsOrder == null || itemsOrder.Count == 0)
+                return BadRequest("La lista de ordenamiento está vacía.");
+
+            try
+            {
+                await _service.UpdateItemsOrderAsync(itemsOrder);
+                return Ok(new { message = "Orden actualizado correctamente" });
+            }
+            catch (Exception ex)
+            {
+                // Registrá el error real en tus logs
+                return StatusCode(500, "Ocurrió un error interno al guardar el orden.");
+            }
+        }
     }
 }

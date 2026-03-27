@@ -49,5 +49,8 @@ export class CashService {
     return this.http.delete<void>(`${this.apiUrl}/accounts/${id}`);
   }
 
-  
+  updateItemsOrder(itemsOrder: { id?: number, displayOrder: number }[]) {
+    return this.http.post(`${this.apiUrl}/update-order`, itemsOrder);
+  }
+
 }

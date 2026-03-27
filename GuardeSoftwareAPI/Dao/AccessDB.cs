@@ -86,6 +86,19 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
 
+        public async Task<int> ExecuteCommandTransactionAsync(string query, SqlParameter[]? parameters, SqlConnection connection, SqlTransaction transaction)
+        {
+            using (SqlCommand command = new SqlCommand(query, connection, transaction))
+            {
+                if (parameters != null)
+                {
+                    command.Parameters.AddRange(parameters);
+                }
+
+                int rowsAffected = await command.ExecuteNonQueryAsync();
+                return rowsAffected;
+            }
+        }
 
     }
 }

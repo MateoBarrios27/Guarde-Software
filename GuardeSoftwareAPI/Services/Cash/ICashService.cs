@@ -1,4 +1,4 @@
-
+using GuardeSoftwareAPI.Dtos.Cash;
 namespace GuardeSoftwareAPI.Services.cash
 {
     public interface ICashService
@@ -11,5 +11,6 @@ namespace GuardeSoftwareAPI.Services.cash
         Task<MonthlyFinancialSummaryDto> GetMonthlySummaryAsync(int month, int year);
         Task<int> CreateAccountAsync(FinancialAccountDto account);
         Task DeleteAccountAsync(int id);
+        Task UpdateItemsOrderAsync(List<CashItemOrderDto> itemsOrder);
     }
 }

@@ -8,12 +8,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CashFlowItem, FinancialAccount, MonthlySummary } from '../../core/models/cash';
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 
 @Component({
   selector: 'app-cash',
   templateUrl: './cash.component.html',
   styleUrls: ['./cash.component.css'],
-  imports: [IconComponent, CommonModule, FormsModule, CurrencyFormatDirective]
+  imports: [IconComponent, CommonModule, FormsModule, CurrencyFormatDirective, DragDropModule]
 })
 export class CashComponent implements OnInit {
   
@@ -91,9 +92,15 @@ export class CashComponent implements OnInit {
 
   sortItems(): void {
     this.items.sort((a, b) => {
-      // if (a.description === 'IVA (21% Transferencias)') return -1;
-      // if (b.description === 'IVA (21% Transferencias)') return 1;
+      // 1. Primero priorizamos el orden visual que elegiste (Drag & Drop)
+      const orderA = a.displayOrder || 0;
+      const orderB = b.displayOrder || 0;
+
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
       
+      // 2. Si tienen exactamente el mismo orden, desempatamos por fecha
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
       
@@ -306,13 +313,12 @@ export class CashComponent implements OnInit {
       this.activeCommentItem = null;
     } else {
       this.activeCommentItem = item;
-      // Le damos un milisegundo a Angular para renderizar el cuadro y ajustamos su altura
       setTimeout(() => {
         const activeTextarea = document.getElementById('excel-comment-' + item.id) as HTMLTextAreaElement;
         if (activeTextarea) {
           activeTextarea.style.height = 'auto';
           activeTextarea.style.height = activeTextarea.scrollHeight + 'px';
-          activeTextarea.focus(); // Hacemos foco automáticamente
+          activeTextarea.focus();
         }
       }, 0);
     }
@@ -320,7 +326,7 @@ export class CashComponent implements OnInit {
 
   closeComment(item: CashFlowItem): void {
     this.activeCommentItem = null;
-    this.onItemChange(item); // Guardamos en BD al cerrar el cuadro
+    this.onItemChange(item); 
   }
 
   autoResizeTextarea(event: Event): void {
@@ -334,8 +340,21 @@ export class CashComponent implements OnInit {
   }
 
   onCommentEnter(event: Event, item: CashFlowItem): void {
-    event.preventDefault(); 
+    event.preventDefault();
     this.closeComment(item);
+  }
+
+  drop(event: CdkDragDrop<CashFlowItem[]>) {
+    moveItemInArray(this.filteredItems, event.previousIndex, event.currentIndex);
+    
+    // Le asignamos el nuevo orden a cada elemento
+    const reorderedItems = this.filteredItems.map((item, index) => ({
+      id: item.id,
+      displayOrder: index
+    }));
+
+    // Llamamos al servicio para que guarde el nuevo orden en BD (lo crearemos en el Paso 3)
+    this.cashService.updateItemsOrder(reorderedItems).subscribe();
   }
   
 }

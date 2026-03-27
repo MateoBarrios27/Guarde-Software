@@ -44,6 +44,7 @@
         <table class="w-full text-sm text-left border-collapse">
           <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b">
             <tr>
+              <th class="w-6 bg-gray-50"></th> 
               <th class="px-2 py-3 w-32 bg-gray-50">Fecha Pago</th>
               <th class="px-2 py-3 min-w-[300px] bg-gray-50">Concepto / Detalle</th>
               <th class="px-2 py-3 text-right bg-gray-50 text-blue-800">Depo (Gasto)</th>
@@ -55,10 +56,13 @@
             </tr>
           </thead>
           
-          <tbody class="divide-y divide-gray-100">
-            <tr *ngFor="let item of filteredItems" class="hover:bg-blue-50/30 transition-colors group"
-                >
-              
+          <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="drop($event)">
+            <tr *ngFor="let item of filteredItems" cdkDrag class="hover:bg-blue-50/30 transition-colors group bg-white">
+
+              <td class   ="p-1 w-6 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 align-middle" cdkDragHandle>
+                <app-icon name="grip-vertical" class="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity mx-auto"></app-icon>
+              </td>
+
               <td class="p-1">
                 <input type="date" [(ngModel)]="item.date" (change)="onItemChange(item)" 
                       
@@ -71,7 +75,7 @@
                   <input type="text" [(ngModel)]="item.description" 
                         (blur)="onItemChange(item)" 
                         (keydown.enter)="blurInput($event)" 
-                        [disabled]="item.description === 'IVA (21% Transferencias)'"
+        
                         class="w-full bg-transparent border-none text-sm font-medium text-gray-800 p-1 pr-8 disabled:font-bold disabled:text-purple-800 text-ellipsis overflow-hidden">
                   
                   <button *ngIf="item.description !== 'IVA (21% Transferencias)'" 

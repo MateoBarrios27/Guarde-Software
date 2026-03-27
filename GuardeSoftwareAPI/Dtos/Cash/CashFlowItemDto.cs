@@ -8,4 +8,5 @@ public class CashFlowItemDto {
     public bool IsPaid { get; set; }
     public decimal Retiros { get; set; }
     public decimal Extras { get; set; }
+    public int DisplayOrder { get; set; }
 }
