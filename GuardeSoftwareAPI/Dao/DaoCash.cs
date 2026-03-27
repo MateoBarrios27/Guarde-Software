@@ -62,35 +62,27 @@ namespace GuardeSoftwareAPI.Dao
                     DECLARE @InsertedId TABLE (Id INT);
                     DECLARE @NewDisplayOrder INT;
 
-                    -- 1. Calculamos la última posición disponible en la tabla
                     SELECT @NewDisplayOrder = ISNULL(MAX(display_order), 0) + 1 FROM cash_flow_items;
 
-                    -- 2. Insertamos el concepto en el mes actual asignándole esa última posición
                     INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order)
                     OUTPUT INSERTED.item_id INTO @InsertedId
                     VALUES (@Month, @Year, @Date, @Desc, @Comment, @Depo, @Casa, @IsPaid, @Retiros, @Extras, @NewDisplayOrder);
 
-                    -- REPLICACIÓN AL FUTURO
-                    IF (@Year > YEAR(GETDATE()) OR (@Year = YEAR(GETDATE()) AND @Month >= MONTH(GETDATE())))
-                    BEGIN
-                        -- Actualizamos concepto si ya existe
-                        UPDATE cash_flow_items
-                        SET comment = @Comment,
-                            movement_date = DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END)
-                        WHERE description = @Desc
-                        AND (year > @Year OR (year = @Year AND month > @Month));
+                    UPDATE cash_flow_items
+                    SET comment = @Comment,
+                        movement_date = DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END)
+                    WHERE description = @Desc
+                    AND (year > @Year OR (year = @Year AND month > @Month));
 
-                        -- 3. Si lo creamos en los meses futuros, también le pasamos la última posición (@NewDisplayOrder)
-                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order)
-                        SELECT DISTINCT 
-                            month, 
-                            year, 
-                            DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END), 
-                            @Desc, @Comment, 0, 0, 0, 0, 0, @NewDisplayOrder
-                        FROM cash_flow_items
-                        WHERE (year > @Year OR (year = @Year AND month > @Month))
-                        AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year)
-                    END
+                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order)
+                    SELECT DISTINCT 
+                        month, 
+                        year, 
+                        DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END), 
+                        @Desc, @Comment, 0, 0, 0, 0, 0, @NewDisplayOrder
+                    FROM cash_flow_items
+                    WHERE (year > @Year OR (year = @Year AND month > @Month))
+                    AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year);
 
                     SELECT Id FROM @InsertedId;";
             }
@@ -98,35 +90,32 @@ namespace GuardeSoftwareAPI.Dao
             {
                 query = @"
                     DECLARE @CurrentDisplayOrder INT;
+                    DECLARE @OldDesc NVARCHAR(255);
                     
-                    -- Buscamos qué posición tiene el concepto que estamos editando
-                    SELECT @CurrentDisplayOrder = display_order FROM cash_flow_items WHERE item_id = @Id;
+                    SELECT @CurrentDisplayOrder = display_order, @OldDesc = description 
+                    FROM cash_flow_items 
+                    WHERE item_id = @Id;
 
                     UPDATE cash_flow_items 
                     SET movement_date = @Date, description = @Desc, comment = @Comment, amount_depo = @Depo, amount_casa = @Casa, is_paid = @IsPaid, amount_retiros = @Retiros, amount_extras = @Extras
                     WHERE item_id = @Id;
 
-                    -- REPLICACIÓN AL FUTURO
-                    IF (@Year > YEAR(GETDATE()) OR (@Year = YEAR(GETDATE()) AND @Month >= MONTH(GETDATE())))
-                    BEGIN
-                        -- Actualizamos concepto si ya existe
-                        UPDATE cash_flow_items
-                        SET comment = @Comment,
-                            movement_date = DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END)
-                        WHERE description = @Desc
-                        AND (year > @Year OR (year = @Year AND month > @Month));
+                    UPDATE cash_flow_items
+                    SET description = @Desc,
+                        comment = @Comment,
+                        movement_date = DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END)
+                    WHERE description = @OldDesc
+                    AND (year > @Year OR (year = @Year AND month > @Month));
 
-                        -- Si al editar este mes provocamos que se cree en meses futuros, le heredamos la posición actual
-                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order)
-                        SELECT DISTINCT 
-                            month, 
-                            year, 
-                            DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END), 
-                            @Desc, @Comment, 0, 0, 0, 0, 0, @CurrentDisplayOrder
-                        FROM cash_flow_items
-                        WHERE (year > @Year OR (year = @Year AND month > @Month))
-                        AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year)
-                    END
+                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order)
+                    SELECT DISTINCT 
+                        month, 
+                        year, 
+                        DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END), 
+                        @Desc, @Comment, 0, 0, 0, 0, 0, @CurrentDisplayOrder
+                    FROM cash_flow_items
+                    WHERE (year > @Year OR (year = @Year AND month > @Month))
+                    AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year);
 
                     SELECT @Id;";
             }
@@ -424,21 +413,24 @@ namespace GuardeSoftwareAPI.Dao
                 await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
                 {
-
                     string query = @"
                         DECLARE @Desc NVARCHAR(255);
+                        DECLARE @ItemMonth INT;
+                        DECLARE @ItemYear INT;
                         
-                        -- Obtenemos el nombre del concepto usando el ID que mandó el front
-                        SELECT @Desc = description 
+                        -- 1. Buscamos el nombre, mes y año exacto del ítem que movió el usuario
+                        SELECT @Desc = description, @ItemMonth = month, @ItemYear = year
                         FROM cash_flow_items 
                         WHERE item_id = @Id;
                         
-                        -- Si encontró el nombre, actualizamos toda la historia y el futuro
+                        -- 2. Si encontró el concepto, actualizamos su posición en este mes y hacia el futuro
                         IF @Desc IS NOT NULL AND @Desc <> ''
                         BEGIN
                             UPDATE cash_flow_items 
                             SET display_order = @DisplayOrder 
-                            WHERE description = @Desc;
+                            WHERE description = @Desc
+                            -- ACÁ ESTÁ EL FILTRO MÁGICO: Solo afecta al mes de origen y los siguientes
+                            AND (year > @ItemYear OR (year = @ItemYear AND month >= @ItemMonth));
                         END";
                     
                     foreach (var item in itemsOrder)
