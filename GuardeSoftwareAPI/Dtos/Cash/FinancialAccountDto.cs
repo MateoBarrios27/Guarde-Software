@@ -4,4 +4,5 @@ public class FinancialAccountDto {
     public string Type { get; set; } = string.Empty;
     public decimal Balance { get; set; }
     public string Currency { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
 }

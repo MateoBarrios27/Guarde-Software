@@ -32,7 +32,6 @@ export class CashService {
     return this.http.get<MonthlySummary>(`${this.apiUrl}/summary`, { params });
   }
 
-  // --- BLOQUE 3: Cuentas ---
   getAccounts(): Observable<FinancialAccount[]> {
     return this.http.get<FinancialAccount[]>(`${this.apiUrl}/accounts`);
   }
@@ -51,6 +50,10 @@ export class CashService {
 
   updateItemsOrder(itemsOrder: { id?: number, displayOrder: number }[]) {
     return this.http.post(`${this.apiUrl}/update-order`, itemsOrder);
+  }
+
+   updateAccountsOrder(accountsOrder: { id: number, displayOrder: number }[]) {
+    return this.http.post(`${this.apiUrl}/update-accounts-order`, accountsOrder);
   }
 
 }

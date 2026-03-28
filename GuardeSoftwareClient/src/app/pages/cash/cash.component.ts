@@ -55,6 +55,18 @@ export class CashComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    const savedMonth = localStorage.getItem('cash_selected_month');
+    const savedYear = localStorage.getItem('cash_selected_year');
+
+    if (savedMonth && savedYear) {
+      this.selectedMonth = parseInt(savedMonth, 10);
+      this.selectedYear = parseInt(savedYear, 10);
+    } else {
+      const today = new Date();
+      this.selectedMonth = today.getMonth() + 1;
+      this.selectedYear = today.getFullYear();
+    }
+
     this.loadData();
   }
 
@@ -83,9 +95,13 @@ export class CashComponent implements OnInit {
       this.calculateNetBalance();
     });
 
-    // 3. Cargar Cuentas
     this.cashService.getAccounts().subscribe(acc => {
         this.accounts = acc;
+        this.calculateAccountTotals();
+    });
+
+    this.cashService.getAccounts().subscribe(acc => {
+        this.accounts = acc.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
         this.calculateAccountTotals();
     });
   }
@@ -144,8 +160,6 @@ export class CashComponent implements OnInit {
   }
 
   deleteItem(item: any): void {
-
-
     Swal.fire({
       title: '¿Eliminar concepto?',
       text: "No podrás revertir esto.",
@@ -156,16 +170,14 @@ export class CashComponent implements OnInit {
     }).then((result) => {
       if (result.isConfirmed) {
         const realIndex = this.items.indexOf(item);
+        
         this.cashService.deleteItem(item.id!).subscribe(() => {
-          // this.items.splice(index, 1);
-          this.calculateLocalTotals();
+          if (realIndex !== -1) {
+            this.items.splice(realIndex, 1);
+            this.filterItems(); 
+            this.calculateLocalTotals(); 
+          }
         });
-
-        if (realIndex !== -1) {
-          this.items.splice(realIndex, 1);
-          this.filterItems(); // Actualizamos la vista
-          this.calculateLocalTotals(); // Recalculamos totales
-        }
       }
     });
   }
@@ -181,8 +193,6 @@ export class CashComponent implements OnInit {
 
       const costoFila = (Number(item.depo) || 0) + 
                         (Number(item.casa) || 0);
-                        // (Number(item.retiros) || 0) + 
-                        // (Number(item.extras) || 0);
 
       if (item.isPaid) {
         this.totals.pagado += costoFila;
@@ -216,16 +226,18 @@ export class CashComponent implements OnInit {
         Swal.fire('Atención', 'No se pueden consultar o planificar datos anteriores al 2026.', 'warning');
         return;
     }
+    
     this.selectedMonth = m;
     this.selectedYear = y;
+
+    localStorage.setItem('cash_selected_month', this.selectedMonth.toString());
+    localStorage.setItem('cash_selected_year', this.selectedYear.toString());
+
     this.loadData();
   }
 
-  
-
-
   onAccountChange(account: FinancialAccount): void {
-    this.calculateAccountTotals(); // <--- RECALCULAR AL EDITAR MONTO
+    this.calculateAccountTotals();
     this.cashService.updateAccountBalance(account.id, account.balance).subscribe({
         error: () => Swal.fire('Error', 'No se pudo actualizar el saldo', 'error')
     });
@@ -255,7 +267,7 @@ export class CashComponent implements OnInit {
         this.cashService.createAccount(result.value).subscribe(id => {
           const newAcc = { ...result.value, id };
           this.accounts.push(newAcc);
-          this.calculateAccountTotals(); // <--- RECALCULAR AL AGREGAR
+          this.calculateAccountTotals();
           Swal.fire('Creada', 'La cuenta ha sido agregada.', 'success');
         });
       }
@@ -344,17 +356,26 @@ export class CashComponent implements OnInit {
     this.closeComment(item);
   }
 
-  drop(event: CdkDragDrop<CashFlowItem[]>) {
+  dropItem(event: CdkDragDrop<CashFlowItem[]>) {
     moveItemInArray(this.filteredItems, event.previousIndex, event.currentIndex);
-    
-    // Le asignamos el nuevo orden a cada elemento
+
     const reorderedItems = this.filteredItems.map((item, index) => ({
       id: item.id,
       displayOrder: index
     }));
 
-    // Llamamos al servicio para que guarde el nuevo orden en BD (lo crearemos en el Paso 3)
     this.cashService.updateItemsOrder(reorderedItems).subscribe();
+  }
+
+  dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
+    moveItemInArray(this.accounts, event.previousIndex, event.currentIndex);
+
+    const reorderedAccounts = this.accounts.map((acc, index) => ({
+      id: acc.id!,
+      displayOrder: index
+    }));
+
+    this.cashService.updateAccountsOrder(reorderedAccounts).subscribe();
   }
   
 }

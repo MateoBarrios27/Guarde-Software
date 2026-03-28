@@ -56,7 +56,7 @@
             </tr>
           </thead>
           
-          <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="drop($event)">
+          <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropItem($event)">
             <tr *ngFor="let item of filteredItems" cdkDrag class="hover:bg-blue-50/30 transition-colors group bg-white">
 
               <td class   ="p-1 w-6 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 align-middle" cdkDragHandle>
@@ -231,27 +231,44 @@
           <span class="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">{{ accounts.length }} cuentas</span>
       </h3>
       
-      <div class="space-y-4 flex-1">
-          <div *ngIf="accounts.length === 0" class="text-center py-6 text-gray-400 text-sm">No hay cuentas registradas.</div>
-
-          <div *ngFor="let acc of accounts; let i = index" class="flex items-center justify-between group p-2 rounded hover:bg-gray-50 transition-colors">
-              <div class="flex items-center gap-3">
-                  <button (click)="deleteAccount(acc, i)" class="h-4 w-4 text-gray-500 hover:text-red-600">
-                      <app-icon name="Trash2" class="h-4 w-4"></app-icon>
-                  </button>
-                  <div class="flex flex-col">
-                      <span class="text-sm font-medium text-gray-700">{{ acc.name }}</span>
-                      <span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">{{ acc.type }}</span>
-                  </div>
-              </div>
+     <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left border-collapse bg-white rounded-lg">
+            <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropAccount($event)">
               
-              <div class="relative w-44">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
-                <input type="text" appCurrencyFormat [(ngModel)]="acc.balance" (change)="onAccountChange(acc)" 
-                       class="w-full text-right pl-6 pr-3 py-1.5 bg-white border border-gray-200 rounded text-sm font-bold text-gray-700 focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all shadow-sm">
-              </div>
-          </div>
-      </div>
+              <tr *ngFor="let account of accounts; let i = index" cdkDrag class="hover:bg-blue-50/30 group transition-colors bg-white">
+                
+                <td class="p-2 w-16 align-middle">
+                  <div class="flex items-center gap-1 justify-start">
+                    
+                    <button (click)="deleteAccount(account, i)" 
+                            class="text-gray-400 hover:text-red-600 p-1 opacity-60 group-hover:opacity-100 transition-opacity" 
+                            title="Eliminar cuenta">
+                      <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+                    </button>
+
+                    <div cdkDragHandle 
+                         class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 p-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                      <app-icon name="grip-vertical" class="h-3.5 w-3.5"></app-icon>
+                    </div>
+
+                  </div>
+                </td>
+
+                <td class="p-2 align-middle pl-0">
+                  <div class="font-medium text-gray-900">{{ account.name }}</div>
+                  <div class="text-xs text-gray-500">{{ account.type }}</div>
+                </td>
+                
+                <td class="p-2 align-middle text-right">
+                  <input type="text" [(ngModel)]="account.balance" 
+                         (blur)="onAccountChange(account)"
+                         appCurrencyFormat class="w-28 text-sm text-right bg-transparent border-none p-1 focus:ring-1 focus:ring-blue-300 rounded">
+                </td>
+              
+              </tr>
+            </tbody>
+          </table>
+        </div>
       
       <button (click)="addAccount()" class="mt-6 mb-4 w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 font-medium rounded-lg hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all text-sm flex items-center justify-center gap-2">
         <app-icon name="plus-circle" class="h-4 w-4"></app-icon> Nueva Cuenta / Caja

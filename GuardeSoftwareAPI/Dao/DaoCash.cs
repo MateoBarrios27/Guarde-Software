@@ -170,7 +170,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<List<FinancialAccountDto>> GetAccountsAsync()
         {
             var list = new List<FinancialAccountDto>();
-            string query = "SELECT account_id, name, type, currency, current_balance FROM financial_accounts";
+            string query = "SELECT id, name, type, balance, currency, display_order FROM financial_accounts ORDER BY display_order ASC, name ASC";
             var dt = await _accessDB.GetTableAsync("Accounts", query);
 
             foreach (DataRow row in dt.Rows)
@@ -287,14 +287,17 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<int> CreateAccountAsync(FinancialAccountDto account)
         {
             string query = @"
-                INSERT INTO financial_accounts (name, type, currency, current_balance, last_updated)
-                OUTPUT INSERTED.account_id
-                VALUES (@Name, @Type, 'ARS', @Balance, GETDATE())"; // Default ARS por ahora
+                DECLARE @NewOrder INT;
+                SELECT @NewOrder = ISNULL(MAX(display_order), 0) + 1 FROM financial_accounts;
+
+                INSERT INTO financial_accounts (name, type, balance, currency, display_order) 
+                VALUES (@Name, @Type, @Balance, @Currency, @NewOrder);";
 
             var parameters = new[] {
                 new SqlParameter("@Name", account.Name),
                 new SqlParameter("@Type", account.Type),
-                new SqlParameter("@Balance", account.Balance)
+                new SqlParameter("@Balance", account.Balance),
+                new SqlParameter("@Currency", account.Currency)
             };
 
             var result = await _accessDB.ExecuteScalarAsync(query, parameters);
@@ -441,6 +444,26 @@ namespace GuardeSoftwareAPI.Dao
                         }, connection, transaction);
                     }
                     
+                    await transaction.CommitAsync();
+                }
+            }
+        }
+        public async Task UpdateAccountsOrderAsync(List<AccountOrderDto> accountsOrder)
+        {
+            using (var connection = _accessDB.GetConnectionClose())
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    string query = "UPDATE financial_accounts SET display_order = @DisplayOrder WHERE id = @Id";
+                    
+                    foreach (var item in accountsOrder)
+                    {
+                        await _accessDB.ExecuteCommandTransactionAsync(query, new[] {
+                            new SqlParameter("@DisplayOrder", item.DisplayOrder),
+                            new SqlParameter("@Id", item.Id)
+                        }, connection, transaction);
+                    }
                     await transaction.CommitAsync();
                 }
             }

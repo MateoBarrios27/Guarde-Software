@@ -26,4 +26,6 @@ export interface FinancialAccount {
   type: string; 
   currency: string;
   balance: number;
+  displayOrder: number;
 }
+
