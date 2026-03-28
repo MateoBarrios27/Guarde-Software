@@ -40,12 +40,12 @@ export class CashComponent implements OnInit {
   };
 
   accountTotals = { total: 0, banks: 0, cash: 0 };
-
-  // Control de Guardado Automático
+  usdExchangeRate: number = 1;
   private saveSubject = new Subject<CashFlowItem>();
   isLoading = false;
 
   searchTerm: string = '';
+  searchDate: string = '';
   filteredItems: any[] = [];
 
   constructor(private cashService: CashService) {
@@ -65,6 +65,11 @@ export class CashComponent implements OnInit {
       const today = new Date();
       this.selectedMonth = today.getMonth() + 1;
       this.selectedYear = today.getFullYear();
+    }
+
+    const savedRate = localStorage.getItem('usd_exchange_rate');
+    if (savedRate) {
+      this.usdExchangeRate = parseFloat(savedRate);
     }
 
     this.loadData();
@@ -145,7 +150,22 @@ export class CashComponent implements OnInit {
     this.items.push(newItem);
 
     this.searchTerm = ''; 
+    this.searchDate = '';
     this.filterItems();
+  }
+
+  get filterMinDate(): string {
+    const y = this.selectedYear;
+    const m = this.selectedMonth.toString().padStart(2, '0');
+    return `${y}-${m}-01`;
+  }
+
+  get filterMaxDate(): string {
+    const y = this.selectedYear;
+    const m = this.selectedMonth;
+    const lastDay = new Date(y, m, 0).getDate(); 
+    const mStr = m.toString().padStart(2, '0');
+    return `${y}-${mStr}-${lastDay.toString().padStart(2, '0')}`;
   }
 
   onItemChange(item: CashFlowItem): void {
@@ -253,22 +273,28 @@ export class CashComponent implements OnInit {
           <option value="Caja">Caja</option>
           <option value="Otro">Otro</option>
         </select>
+        <select id="acc-currency" class="swal2-input">
+          <option value="ARS">Pesos Argentinos (ARS)</option>
+          <option value="USD">Dólares (USD)</option>
+        </select>
       `,
       showCancelButton: true,
       confirmButtonText: 'Crear',
       preConfirm: () => {
         const name = (document.getElementById('acc-name') as HTMLInputElement).value;
         const type = (document.getElementById('acc-type') as HTMLSelectElement).value;
+        const currency = (document.getElementById('acc-currency') as HTMLSelectElement).value;
         if (!name) Swal.showValidationMessage('El nombre es requerido');
-        return { name, type, balance: 0, currency: 'ARS' } as FinancialAccount;
+        return { name, type, balance: 0, currency } as FinancialAccount;
       }
     }).then((result) => {
       if (result.isConfirmed) {
         this.cashService.createAccount(result.value).subscribe(id => {
           const newAcc = { ...result.value, id };
           this.accounts.push(newAcc);
-          this.calculateAccountTotals();
+          this.calculateAccountTotals(); 
           Swal.fire('Creada', 'La cuenta ha sido agregada.', 'success');
+          console.log('Cuenta creada:', newAcc);
         });
       }
     });
@@ -294,7 +320,11 @@ export class CashComponent implements OnInit {
 
   calculateAccountTotals(): void {
     this.accountTotals = this.accounts.reduce((acc, curr) => {
-      const bal = Number(curr.balance) || 0;
+      let bal = Number(curr.balance) || 0;
+
+      if (curr.currency === 'USD') {
+        bal = bal * this.usdExchangeRate;
+      }
 
       acc.total += bal;
 
@@ -310,14 +340,20 @@ export class CashComponent implements OnInit {
 
   filterItems(): void {
     const term = this.searchTerm.toLowerCase().trim();
+    const dateFilter = this.searchDate;
     
-    if (!term) {
-      this.filteredItems = [...this.items];
-    } else {
-      this.filteredItems = this.items.filter(item => 
-        (item.description || '').toLowerCase().includes(term)
-      );
-    }
+    this.filteredItems = this.items.filter(item => {
+      const matchesText = !term || (item.description || '').toLowerCase().includes(term);
+      
+      const matchesDate = !dateFilter || item.date === dateFilter;
+
+      return matchesText && matchesDate;
+    });
+  }
+
+  clearDateFilter(): void {
+    this.searchDate = '';
+    this.filterItems();
   }
 
   toggleComment(item: CashFlowItem): void {
@@ -376,6 +412,11 @@ export class CashComponent implements OnInit {
     }));
 
     this.cashService.updateAccountsOrder(reorderedAccounts).subscribe();
+  }
+
+  onExchangeRateChange(): void {
+    localStorage.setItem('usd_exchange_rate', this.usdExchangeRate.toString());
+    this.calculateAccountTotals();
   }
   
 }

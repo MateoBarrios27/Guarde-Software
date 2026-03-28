@@ -170,7 +170,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<List<FinancialAccountDto>> GetAccountsAsync()
         {
             var list = new List<FinancialAccountDto>();
-            string query = "SELECT id, name, type, balance, currency, display_order FROM financial_accounts ORDER BY display_order ASC, name ASC";
+            string query = "SELECT account_id, name, type, current_balance, currency, display_order FROM financial_accounts ORDER BY display_order ASC, name ASC";
             var dt = await _accessDB.GetTableAsync("Accounts", query);
 
             foreach (DataRow row in dt.Rows)
@@ -290,17 +290,25 @@ namespace GuardeSoftwareAPI.Dao
                 DECLARE @NewOrder INT;
                 SELECT @NewOrder = ISNULL(MAX(display_order), 0) + 1 FROM financial_accounts;
 
-                INSERT INTO financial_accounts (name, type, balance, currency, display_order) 
-                VALUES (@Name, @Type, @Balance, @Currency, @NewOrder);";
+                INSERT INTO financial_accounts (name, type, current_balance, currency, display_order) 
+                VALUES (@Name, @Type, @Balance, @Currency, @NewOrder);
+
+                SELECT SCOPE_IDENTITY();";
 
             var parameters = new[] {
-                new SqlParameter("@Name", account.Name),
-                new SqlParameter("@Type", account.Type),
-                new SqlParameter("@Balance", account.Balance),
-                new SqlParameter("@Currency", account.Currency)
+                new SqlParameter("@Name", SqlDbType.NVarChar) { Value = account.Name },
+                new SqlParameter("@Type", SqlDbType.NVarChar) { Value = account.Type },
+                new SqlParameter("@Balance", SqlDbType.Decimal) { Value = account.Balance != null ? account.Balance : 0 },
+                new SqlParameter("@Currency", SqlDbType.NVarChar) { Value = account.Currency != null ? account.Currency : "" }
             };
 
             var result = await _accessDB.ExecuteScalarAsync(query, parameters);
+            
+            if (result == DBNull.Value || result == null)
+            {
+                return 0;
+            }
+
             return Convert.ToInt32(result);
         }
 

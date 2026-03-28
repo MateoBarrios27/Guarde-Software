@@ -28,16 +28,35 @@
       <div class="p-4 border-b bg-gray-50 flex justify-between items-center flex-wrap gap-4">
        <h2 class="font-semibold text-gray-700">Planilla de Movimientos</h2>
        
-        <div class="relative w-full max-w-sm">
-          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <app-icon name="search" class="w-4 h-4 text-gray-400"></app-icon>
+        <div class="flex items-center gap-3 w-full sm:w-auto">
+          <div class="relative w-full sm:w-64">
+            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <app-icon name="search" class="w-4 h-4 text-gray-400"></app-icon>
+            </div>
+            <input type="text" 
+                   [(ngModel)]="searchTerm" 
+                   (input)="filterItems()"
+                   placeholder="Buscar concepto..." 
+                   class="bg-white border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2 transition-colors shadow-sm">
           </div>
-          <input type="text" 
-                 [(ngModel)]="searchTerm" 
-                 (input)="filterItems()"
-                 placeholder="Buscar concepto..." 
-                 class="bg-white border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2 transition-colors shadow-sm">
+
+          <div class="relative w-full sm:w-40">
+            <input type="date" 
+                   [(ngModel)]="searchDate" 
+                   (change)="filterItems()"
+                   [min]="filterMinDate"
+                   [max]="filterMaxDate"
+                   title="Filtrar por fecha exacta"
+                   class="bg-white border border-gray-200 text-gray-600 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2 cursor-pointer shadow-sm pr-8">
+            
+            <button *ngIf="searchDate" 
+                    (click)="clearDateFilter()" 
+                    class="absolute inset-y-0 right-1 flex items-center p-1 text-gray-400 hover:text-red-600 transition-colors">
+              <app-icon name="x" class="w-4 h-4"></app-icon>
+            </button>
+          </div>
         </div>
+
       </div>
 
       <div class="relative">
@@ -226,66 +245,97 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-md border p-5 flex flex-col h-full">
-      <h3 class="font-bold text-gray-800 border-b pb-2 mb-4 flex justify-between items-center">
-          Saldos Disponibles
-          <span class="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">{{ accounts.length }} cuentas</span>
+      
+      <h3 class="font-bold text-gray-800 border-b pb-2 mb-4 flex justify-between items-center flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            Saldos Disponibles
+            <!-- <span class="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">{{ accounts.length }} cuentas</span> -->
+          </div>
+          
+          <div class="flex items-center gap-2 bg-green-50 px-2 py-1 rounded border border-green-200 shadow-sm">
+            <span class="text-[11px] uppercase tracking-wider font-bold text-green-700">Cotización U$D:</span>
+            <div class="relative flex items-center">
+              <span class="text-green-700 font-bold mr-1">$</span>
+              <input type="text" 
+                     [(ngModel)]="usdExchangeRate"
+                     appCurrencyFormat 
+                     (input)="onExchangeRateChange()" 
+                     class="w-20 p-0 text-sm font-bold text-green-800 bg-transparent border-none focus:ring-0 text-right hide-arrows">
+            </div>
+          </div>
       </h3>
       
-     <div class="overflow-x-auto">
+      <div class="overflow-x-auto">
           <table class="w-full text-sm text-left border-collapse bg-white rounded-lg">
             <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropAccount($event)">
               
               <tr *ngFor="let account of accounts; let i = index" cdkDrag class="hover:bg-blue-50/30 group transition-colors bg-white">
                 
                 <td class="p-2 w-16 align-middle">
-                  <div class="flex items-center gap-1 justify-start">
-                    
+                  <div class="flex items-center gap-2 justify-start">
                     <button (click)="deleteAccount(account, i)" 
                             class="text-gray-400 hover:text-red-600 p-1 opacity-60 group-hover:opacity-100 transition-opacity" 
                             title="Eliminar cuenta">
-                      <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+                      <app-icon name="Trash2" class="h-4 w-4"></app-icon>
                     </button>
-
                     <div cdkDragHandle 
                          class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 p-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                      <app-icon name="grip-vertical" class="h-3.5 w-3.5"></app-icon>
+                      <app-icon name="grip-vertical" class="h-4 w-4"></app-icon>
                     </div>
-
                   </div>
                 </td>
 
                 <td class="p-2 align-middle pl-0">
-                  <div class="font-medium text-gray-900">{{ account.name }}</div>
-                  <div class="text-xs text-gray-500">{{ account.type }}</div>
+                  <div class="font-semibold text-gray-900 text-base">{{ account.name }}</div>
+                  <div class="text-xs font-bold tracking-wide" 
+                       [ngClass]="account.currency === 'USD' ? 'text-green-600' : 'text-gray-500'">
+                    {{ account.type }} • {{ account.currency || 'ARS' }}
+                  </div>
                 </td>
                 
-                <td class="p-2 align-middle text-right">
-                  <input type="text" [(ngModel)]="account.balance" 
-                         (blur)="onAccountChange(account)"
-                         appCurrencyFormat class="w-28 text-sm text-right bg-transparent border-none p-1 focus:ring-1 focus:ring-blue-300 rounded">
+                <td class="p-2 align-middle text-right w-40">
+                  <div class="flex flex-col items-end justify-center">
+                    
+                    <div class="flex items-center justify-end w-full">
+                      <span class="font-bold text-gray-500 mr-1" [ngClass]="{'text-green-700': account.currency === 'USD'}">
+                        {{ account.currency === 'USD' ? 'U$D' : '$' }}
+                      </span>
+                      <input type="text" 
+                        [(ngModel)]="usdExchangeRate" 
+                        appCurrencyFormat
+                        (input)="onExchangeRateChange()" 
+                        (keydown.enter)="blurInput($event)"
+                        class="w-48 p-0 text-sm font-bold text-green-800 bg-transparent border-none focus:ring-0 text-right hide-arrows">
+                    </div>
+
+                    <div *ngIf="account.currency === 'USD'" class=" text-gray-400 font-medium mt-[-4px]">
+                      ≈ $ {{ (account.balance * usdExchangeRate) | number:'1.2-2' }}
+                    </div>
+
+                  </div>
                 </td>
               
               </tr>
             </tbody>
           </table>
-        </div>
+      </div>
       
-      <button (click)="addAccount()" class="mt-6 mb-4 w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 font-medium rounded-lg hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all text-sm flex items-center justify-center gap-2">
-        <app-icon name="plus-circle" class="h-4 w-4"></app-icon> Nueva Cuenta / Caja
+      <button (click)="addAccount()" class="mt-6 mb-4 w-full py-2.5 border-2 border-dashed border-gray-300 text-gray-500 font-semibold rounded-lg hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all text-sm flex items-center justify-center gap-2">
+        <app-icon name="plus-circle" class="h-5 w-5"></app-icon> Nueva Cuenta / Caja
       </button>
 
-      <div class="pt-4 border-t border-gray-100 grid grid-cols-3 gap-2">
-          <div class="bg-blue-50 p-2 rounded text-center border border-blue-100">
-              <p class="text-[10px] uppercase tracking-wider font-bold text-blue-600">Bancos</p>
-              <p class="text-sm font-bold text-blue-800">$ {{ accountTotals.banks | number:'1.2-2' }}</p>
+      <div class="pt-4 border-t border-gray-100 grid grid-cols-3 gap-3">
+          <div class="bg-blue-50 p-2.5 rounded text-center border border-blue-100">
+              <p class="text-[10px] uppercase tracking-wider font-bold text-blue-600">Bancos (ARS)</p>
+              <p class="text-base font-bold text-blue-800">$ {{ accountTotals.banks | number:'1.2-2' }}</p>
           </div>
-          <div class="bg-green-50 p-2 rounded text-center border border-green-100">
-              <p class="text-[10px] uppercase tracking-wider font-bold text-green-600">Cajas</p>
-              <p class="text-sm font-bold text-green-800">$ {{ accountTotals.cash | number:'1.2-2' }}</p>
+          <div class="bg-green-50 p-2.5 rounded text-center border border-green-100">
+              <p class="text-[10px] uppercase tracking-wider font-bold text-green-600">Cajas (ARS)</p>
+              <p class="text-base font-bold text-green-800">$ {{ accountTotals.cash | number:'1.2-2' }}</p>
           </div>
-          <div class="bg-gray-100 p-2 rounded text-center border border-gray-200">
-              <p class="text-[10px] uppercase tracking-wider font-bold text-gray-600">Total</p>
-              <p class="text-sm font-extrabold text-gray-900">$ {{ accountTotals.total | number:'1.2-2' }}</p>
+          <div class="bg-gray-100 p-2.5 rounded text-center border border-gray-200">
+              <p class="text-[10px] uppercase tracking-wider font-bold text-gray-600">Total (ARS)</p>
+              <p class="text-base font-extrabold text-gray-900">$ {{ accountTotals.total | number:'1.2-2' }}</p>
           </div>
       </div>
 
