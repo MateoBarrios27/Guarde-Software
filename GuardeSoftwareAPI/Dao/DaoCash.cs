@@ -463,7 +463,7 @@ namespace GuardeSoftwareAPI.Dao
                 await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
                 {
-                    string query = "UPDATE financial_accounts SET display_order = @DisplayOrder WHERE id = @Id";
+                    string query = "UPDATE financial_accounts SET display_order = @DisplayOrder WHERE account_id = @Id";
                     
                     foreach (var item in accountsOrder)
                     {

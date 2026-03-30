@@ -176,13 +176,24 @@
             </tr>
           </tbody>
 
-          <tfoot class=" font-bold text-gray-700 border-t">
+          <tfoot class="font-bold text-gray-700 border-t bg-gray-50/50">
             <tr>
-              <td colspan="2" class="px-4 py-2 text-right text-xs uppercase tracking-wider">Totales Columna:</td>
-              <td class="px-2 py-2 text-right text-blue-700 whitespace-nowrap">$ {{ totals.depo | number:'1.2-2' }}</td>
-              <td class="px-2 py-2 text-right text-orange-700 whitespace-nowrap">$ {{ totals.casa | number:'1.2-2' }}</td>
-              <td class="px-2 py-2 text-right text-gray-700 whitespace-nowrap">$ {{ totals.retiros | number:'1.2-2' }}</td>
-              <td class="px-2 py-2 text-center text-green-700 whitespace-nowrap">$ {{ totals.pagado | number:'1.2-2' }}</td>
+              <td colspan="3" class="px-4 py-3 text-right text-xs uppercase tracking-wider text-gray-500">
+                Totales Columna:
+              </td>
+              
+              <td class="px-2 py-3 text-right text-blue-700 text-base whitespace-nowrap">
+                $ {{ totals.depo | number:'1.2-2' }}
+              </td>
+              <td class="px-2 py-3 text-right text-orange-700 text-base whitespace-nowrap">
+                $ {{ totals.casa | number:'1.2-2' }}
+              </td>
+              <td class="px-2 py-3 text-right text-gray-700 text-base whitespace-nowrap">
+                $ {{ totals.retiros | number:'1.2-2' }}
+              </td>
+              <td class="px-2 py-3 text-center text-green-700 text-base whitespace-nowrap">
+                $ {{ totals.pagado | number:'1.2-2' }}
+              </td>
               
               <td></td>
             </tr>
@@ -301,11 +312,11 @@
                         {{ account.currency === 'USD' ? 'U$D' : '$' }}
                       </span>
                       <input type="text" 
-                        [(ngModel)]="usdExchangeRate" 
-                        appCurrencyFormat
-                        (input)="onExchangeRateChange()" 
-                        (keydown.enter)="blurInput($event)"
-                        class="w-48 p-0 text-sm font-bold text-green-800 bg-transparent border-none focus:ring-0 text-right hide-arrows">
+                             [(ngModel)]="account.balance" 
+                             (blur)="onAccountChange(account)"
+                             (keydown.enter)="blurInput($event)"
+                             appCurrencyFormat 
+                             class="w-48 text-base font-bold text-right bg-transparent border-none p-1 focus:ring-1 focus:ring-blue-300 rounded text-gray-800">
                     </div>
 
                     <div *ngIf="account.currency === 'USD'" class=" text-gray-400 font-medium mt-[-4px]">

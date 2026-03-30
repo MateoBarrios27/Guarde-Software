@@ -12,5 +12,6 @@ namespace GuardeSoftwareAPI.Services.cash
         Task<int> CreateAccountAsync(FinancialAccountDto account);
         Task DeleteAccountAsync(int id);
         Task UpdateItemsOrderAsync(List<CashItemOrderDto> itemsOrder);
+        Task UpdateAccountsOrderAsync(List<AccountOrderDto> accountsOrder);
     }
 }

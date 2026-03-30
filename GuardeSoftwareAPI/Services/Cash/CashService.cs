@@ -62,7 +62,6 @@ namespace GuardeSoftwareAPI.Services.cash
             await _dao.DeleteItemAsync(id);
         }
 
-        // --- Accounts ---
         public async Task<List<FinancialAccountDto>> GetAccountsAsync()
         {
             return await _dao.GetAccountsAsync();
@@ -108,6 +107,11 @@ namespace GuardeSoftwareAPI.Services.cash
         public async Task UpdateItemsOrderAsync(List<CashItemOrderDto> itemsOrder)
         {
             await _dao.UpdateItemsOrderAsync(itemsOrder);
+        }
+
+        public async Task UpdateAccountsOrderAsync(List<AccountOrderDto> accountsOrder)
+        {
+            await _dao.UpdateAccountsOrderAsync(accountsOrder);
         }
     }
 }

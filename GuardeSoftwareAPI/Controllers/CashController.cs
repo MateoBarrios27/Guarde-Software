@@ -17,7 +17,6 @@ namespace GuardeSoftwareAPI.Controllers
             _service = service;
         }
 
-        // GET: api/cashflow/items?month=8&year=2025
         [HttpGet("items")]
         public async Task<IActionResult> GetItems([FromQuery] int month, [FromQuery] int year)
         {
@@ -25,7 +24,6 @@ namespace GuardeSoftwareAPI.Controllers
             return Ok(items);
         }
 
-        // POST: api/cashflow/items (Sirve para Crear y Editar)
         [HttpPost("items")]
         public async Task<IActionResult> UpsertItem([FromBody] CashFlowItemDto item)
         {
@@ -40,7 +38,6 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
-        // DELETE: api/cashflow/items/5
         [HttpDelete("items/{id}")]
         public async Task<IActionResult> DeleteItem(int id)
         {
@@ -48,7 +45,6 @@ namespace GuardeSoftwareAPI.Controllers
             return NoContent();
         }
 
-        // GET: api/cashflow/summary?month=8&year=2025
         [HttpGet("summary")]
         public async Task<IActionResult> GetSummary([FromQuery] int month, [FromQuery] int year)
         {
@@ -56,7 +52,6 @@ namespace GuardeSoftwareAPI.Controllers
             return Ok(summary);
         }
 
-        // GET: api/cashflow/accounts
         [HttpGet("accounts")]
         public async Task<IActionResult> GetAccounts()
         {
@@ -64,7 +59,6 @@ namespace GuardeSoftwareAPI.Controllers
             return Ok(accounts);
         }
 
-        // PUT: api/cashflow/accounts/1
         [HttpPut("accounts/{id}")]
         public async Task<IActionResult> UpdateAccount(int id, [FromBody] UpdateAccountRequest request)
         {
@@ -72,7 +66,6 @@ namespace GuardeSoftwareAPI.Controllers
             return NoContent();
         }
 
-        // POST: api/cashflow/accounts
         [HttpPost("accounts")]
         public async Task<IActionResult> CreateAccount([FromBody] FinancialAccountDto account)
         {
@@ -80,7 +73,6 @@ namespace GuardeSoftwareAPI.Controllers
             return Ok(id);
         }
 
-        // DELETE: api/cashflow/accounts/5
         [HttpDelete("accounts/{id}")]
         public async Task<IActionResult> DeleteAccount(int id)
         {
@@ -103,6 +95,24 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 // Registrá el error real en tus logs
                 return StatusCode(500, "Ocurrió un error interno al guardar el orden.");
+            }
+        }
+
+        [HttpPost("update-accounts-order")]
+        public async Task<IActionResult> UpdateAccountOrder([FromBody] List<AccountOrderDto> accountsOrder)
+        {
+            if (accountsOrder == null || accountsOrder.Count == 0)
+                return BadRequest("La lista de ordenamiento está vacía.");
+
+            try
+            {
+                await _service.UpdateAccountsOrderAsync(accountsOrder);
+                return Ok(new { message = "Orden de cuentas actualizado correctamente" });
+            }
+            catch (Exception ex)
+            {
+                // Registrá el error real en tus logs
+                return StatusCode(500, "Ocurrió un error interno al guardar el orden de cuentas.");
             }
         }
     }
