@@ -5,13 +5,11 @@ import {
   EventEmitter,
   OnChanges,
   SimpleChanges,
-  inject, // Importar inject
 } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { IconComponent } from '../icon/icon.component';
 import { ClientDetailDTO } from '../../../core/dtos/client/ClientDetailDTO';
 
-// --- Importaciones de Servicios y DTOs reales ---
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import Swal from 'sweetalert2';
@@ -21,7 +19,6 @@ import { AccountMovementDTO } from '../../../core/dtos/accountMovement/account-m
 import { ClientCommunicationDTO } from '../../../core/dtos/communications/client-comunication.dto';
 import { CreateMovementModalComponent } from '../create-movement-modal/create-movement-modal.component';
 
-// --- IMPORTAR PAGINACIÓN ---
 import { NgxPaginationModule } from 'ngx-pagination';
 import { TimeDurationPipe } from '../../pipes/time-duration.pipe';
 
@@ -41,7 +38,7 @@ export interface IClientCommunication {
     IconComponent,
     CurrencyPipe,
     DatePipe,
-    CreateMovementModalComponent, // Modal de creación
+    CreateMovementModalComponent, 
     NgxPaginationModule,
     TimeDurationPipe
 ],
@@ -54,20 +51,17 @@ export class ClientDetailModalComponent implements OnChanges {
   public activeTab: 'movimientos' | 'comunicaciones' | 'detalles' =
     'movimientos';
 
-  // --- Datos reales de las pestañas ---
   public historialMovimientos: AccountMovementDTO[] = [];
   public historialComunicaciones: ClientCommunicationDTO[] = [];
   public isLoadingHistory = false;
   public historyError: string | null = null;
 
-  // --- Control del modal de creación ---
   public showNewMovementModal = false;
 
-  // --- PROPIEDADES DE PAGINACIÓN AÑADIDAS ---
   public movementCurrentPage: number = 1;
-  public movementItemsPerPage: number = 5; // 5 movimientos por página
+  public movementItemsPerPage: number = 5;
   public commCurrentPage: number = 1;
-  public commItemsPerPage: number = 5; // 5 comunicaciones por página
+  public commItemsPerPage: number = 5; 
 
   constructor(
     private accountMovementService: AccountMovementService,
@@ -78,8 +72,8 @@ export class ClientDetailModalComponent implements OnChanges {
     if (changes['client'] && this.client) {
       this.loadHistoriales(this.client.id);
       this.activeTab = 'movimientos';
-      this.movementCurrentPage = 1; // Resetear página al cambiar de cliente
-      this.commCurrentPage = 1; // Resetear página al cambiar de cliente
+      this.movementCurrentPage = 1;
+      this.commCurrentPage = 1;
     }
   }
 
@@ -115,8 +109,6 @@ export class ClientDetailModalComponent implements OnChanges {
       });
   }
 
-  // --- Métodos para la gestión de Movimientos ---
-
   openNewMovementModal(): void {
     this.showNewMovementModal = true;
   }
@@ -127,9 +119,9 @@ export class ClientDetailModalComponent implements OnChanges {
 
   onMovementSaveSuccess(): void {
     this.closeNewMovementModal();
-    this.movementCurrentPage = 1; // <-- Resetear paginación
+    this.movementCurrentPage = 1; 
     if (this.client) {
-      this.loadHistoriales(this.client.id); // Recargar
+      this.loadHistoriales(this.client.id); 
     }
   }
 
@@ -157,8 +149,8 @@ export class ClientDetailModalComponent implements OnChanges {
               icon: 'success',
               confirmButtonColor: '#2563eb'
             });
-            this.movementCurrentPage = 1; // <-- Resetear paginación
-            this.loadHistoriales(clientId); // Recargar
+            this.movementCurrentPage = 1;
+            this.loadHistoriales(clientId); 
           },
           error: (err) => {
             this.isLoadingHistory = false;
@@ -175,7 +167,6 @@ export class ClientDetailModalComponent implements OnChanges {
     });
   }
 
-  // --- Style Helpers ---
   getEstadoBadgeColor(estado: string): string {
      const colors: Record<string, string> = {
       'Al día': 'bg-green-100 text-green-800',

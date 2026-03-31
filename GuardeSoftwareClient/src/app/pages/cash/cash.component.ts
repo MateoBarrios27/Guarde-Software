@@ -10,7 +10,7 @@ import { CashFlowItem, FinancialAccount, MonthlySummary } from '../../core/model
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 
-@Component({
+@Component({ 
   selector: 'app-cash',
   templateUrl: './cash.component.html',
   styleUrls: ['./cash.component.css'],
@@ -39,7 +39,10 @@ export class CashComponent implements OnInit {
     faltaPagar: 0 
   };
 
-  accountTotals = { total: 0, banks: 0, cash: 0 };
+  accountTotals = { 
+    ars: { total: 0, banks: 0, cash: 0 },
+    usd: { total: 0, banks: 0, cash: 0 }
+  };
   usdExchangeRate: number = 1;
   private saveSubject = new Subject<CashFlowItem>();
   isLoading = false;
@@ -319,23 +322,26 @@ export class CashComponent implements OnInit {
   }
 
   calculateAccountTotals(): void {
-    this.accountTotals = this.accounts.reduce((acc, curr) => {
-      let bal = Number(curr.balance) || 0;
+    // Reseteamos los contadores
+    this.accountTotals = {
+      ars: { total: 0, banks: 0, cash: 0 },
+      usd: { total: 0, banks: 0, cash: 0 }
+    };
 
-      if (curr.currency === 'USD') {
-        bal = bal * this.usdExchangeRate;
-      }
+    this.accounts.forEach(curr => {
+      const bal = Number(curr.balance) || 0;
+      
+      // Determinamos a qué moneda sumar
+      const currency = curr.currency === 'USD' ? 'usd' : 'ars';
 
-      acc.total += bal;
+      this.accountTotals[currency].total += bal;
 
       if (curr.type === 'Banco') {
-        acc.banks += bal;
+        this.accountTotals[currency].banks += bal;
       } else if (['Caja Fuerte', 'Billetera', 'Caja'].includes(curr.type)) {
-        acc.cash += bal;
+        this.accountTotals[currency].cash += bal;
       }
-
-      return acc;
-    }, { total: 0, banks: 0, cash: 0 });
+    });
   }
 
   filterItems(): void {
