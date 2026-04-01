@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CashService } from '../../core/services/cash-service/cash.service';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, groupBy, mergeMap } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 import { IconComponent } from "../../shared/components/icon/icon.component";
 import { CommonModule } from '@angular/common';
@@ -53,7 +53,8 @@ export class CashComponent implements OnInit {
 
   constructor(private cashService: CashService) {
     this.saveSubject.pipe(
-      debounceTime(1000) 
+      groupBy(item => item), 
+      mergeMap(group => group.pipe(debounceTime(400))) 
     ).subscribe(item => this.saveItem(item));
   }
 
