@@ -424,5 +424,10 @@ export class CashComponent implements OnInit {
     localStorage.setItem('usd_exchange_rate', this.usdExchangeRate.toString());
     this.calculateAccountTotals();
   }
+
+  deleteComment(item: CashFlowItem): void {
+    item.comment = '';
+    this.closeComment(item); 
+  }
   
 }
