@@ -150,21 +150,37 @@
 
               </td>
 
-              <td class="p-1 bg-blue-50/20">
-                <input type="text" appCurrencyFormat [(ngModel)]="item.depo" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)" 
-                      
-                      class="table-input text-blue-700 font-semibold disabled:opacity-80">
+              <td class="p-1 bg-blue-50/20 relative group/amt">
+                <div class="flex items-center justify-end w-full h-full relative">
+                  <button *ngIf="item.depo != 0" (click)="item.depo = 0; onItemChange(item)" tabindex="-1"
+                          class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
+                    <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+                  </button>
+                  <input type="text" appCurrencyFormat [(ngModel)]="item.depo" (change)="onItemChange(item)" 
+                        class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-blue-700 font-bold p-1.5 focus:ring-1 focus:ring-blue-400 rounded disabled:opacity-80">
+                </div>
               </td>
 
-              <td class="p-1 bg-orange-50/20">
-                <input type="text" appCurrencyFormat [(ngModel)]="item.casa" (change)="onItemChange(item) " (keydown.enter)="blurInput($event)"
-                     
-                      class="table-input text-orange-700 font-semibold disabled:opacity-50">
+              <td class="p-1 bg-orange-50/20 relative group/amt">
+                <div class="flex items-center justify-end w-full h-full relative">
+                  <button *ngIf="item.casa != 0" (click)="item.casa = 0; onItemChange(item)" tabindex="-1"
+                          class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
+                    <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+                  </button>
+                  <input type="text" appCurrencyFormat [(ngModel)]="item.casa" (change)="onItemChange(item)" 
+                        class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-orange-700 font-bold p-1.5 focus:ring-1 focus:ring-orange-400 rounded disabled:opacity-50">
+                </div>
               </td>
 
-              <td class="p-1">
-                <input type="text" appCurrencyFormat [(ngModel)]="item.retiros" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
-                       class="table-input text-gray-600">
+              <td class="p-1 relative group/amt">
+                <div class="flex items-center justify-end w-full h-full relative">
+                  <button *ngIf="item.retiros != 0" (click)="item.retiros = 0; onItemChange(item)" tabindex="-1"
+                          class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
+                    <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+                  </button>
+                  <input type="text" appCurrencyFormat [(ngModel)]="item.retiros" (change)="onItemChange(item)" 
+                        class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-gray-700 font-semibold p-1.5 focus:ring-1 focus:ring-gray-300 rounded">
+                </div>
               </td>
 
               <!-- <td class="p-1">
@@ -324,22 +340,33 @@
                   </div>
                 </td>
                 
-                <td class="p-2 align-middle text-right w-40">
-                  <div class="flex flex-col items-end justify-center">
+                <td class="p-2 align-middle text-right group/amt">
+                  <div class="flex flex-col items-end justify-center w-full">
                     
-                    <div class="flex items-center justify-end w-full">
-                      <span class="font-bold text-gray-500 mr-1" [ngClass]="{'text-green-700': account.currency === 'USD'}">
+                    <div class="flex items-center justify-end">
+                      
+                      <span class="font-bold mr-2 text-right" [ngClass]="account.currency === 'USD' ? 'text-green-700' : 'text-gray-500'">
                         {{ account.currency === 'USD' ? 'U$D' : '$' }}
                       </span>
-                      <input type="text" 
-                             [(ngModel)]="account.balance" 
-                             (blur)="onAccountChange(account)"
-                             (keydown.enter)="blurInput($event)"
-                             appCurrencyFormat 
-                             class="w-48 text-base font-bold text-right bg-transparent border-none p-1 focus:ring-1 focus:ring-blue-300 rounded text-gray-800">
+                      
+                      <div class="relative w-48">
+                        
+                        <button *ngIf="account.balance != 0" (click)="account.balance = 0; onAccountChange(account)" tabindex="-1"
+                                class="absolute left-2 top-0 bottom-0 flex items-center opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar saldo a 0">
+                          <app-icon name="Trash2" class="h-4 w-4 block"></app-icon>
+                        </button>
+                        
+                        <input type="text" 
+                               [(ngModel)]="account.balance" 
+                               (blur)="onAccountChange(account)"
+                               (keydown.enter)="blurInput($event)"
+                               appCurrencyFormat 
+                               class="w-full pl-8 pr-2 py-1 text-base font-bold text-right bg-transparent border-none focus:ring-1 focus:ring-blue-300 rounded text-gray-800">
+                      </div>
+
                     </div>
 
-                    <div *ngIf="account.currency === 'USD'" class=" text-gray-400 font-medium mt-[-4px]">
+                    <div *ngIf="account.currency === 'USD'" class="text-[10px] text-gray-400 font-medium mt-0.5 pr-2">
                       ≈ $ {{ (account.balance * usdExchangeRate) | number:'1.2-2' }}
                     </div>
 
