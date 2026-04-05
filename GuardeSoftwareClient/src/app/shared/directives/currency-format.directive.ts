@@ -34,18 +34,15 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
     this.onTouched = fn;
   }
 
-  // 1. FORMATEO EN TIEMPO REAL (Mientras el usuario escribe)
-  // 1. FORMATEO EN TIEMPO REAL (Con retención de cursor)
   @HostListener('input', ['$event'])
   onInput(event: any) {
     const input = event.target;
     let val = input.value;
-
-    // A. Guardamos la posición original del cursor y la longitud del texto
     let cursorPosition = input.selectionStart;
     const originalLength = val.length;
 
-    // B. Limpiamos y formateamos (misma lógica de antes)
+    const isNegative = val.startsWith('-');
+
     val = val.replace(/[^0-9,]/g, '');
     let parts = val.split(',');
     if (parts.length > 2) {
@@ -69,23 +66,25 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
       formattedStr += ',';
     }
 
-    // C. Mostramos el número enmascarado en el input
+    if (isNegative) {
+      if (formattedStr !== '') {
+        formattedStr = '-' + formattedStr;
+      } else {
+        formattedStr = '-'; 
+      }
+    }
+
     this.el.nativeElement.value = formattedStr;
 
-    // D. RESTAURACIÓN DEL CURSOR
-    // Calculamos si la longitud cambió (ej: si se agregó o se quitó un punto de miles)
     const newLength = formattedStr.length;
     cursorPosition = cursorPosition + (newLength - originalLength);
 
-    // Evitamos posiciones negativas por seguridad
     if (cursorPosition < 0) cursorPosition = 0;
 
-    // Usamos setTimeout para que el navegador aplique la posición DESPUÉS de renderizar el nuevo texto
     setTimeout(() => {
       input.setSelectionRange(cursorPosition, cursorPosition);
     }, 0);
 
-    // E. Actualizamos el modelo numérico por debajo
     const cleanValue = formattedStr.replace(/\./g, '').replace(',', '.');
     const numberValue = parseFloat(cleanValue);
 
@@ -96,12 +95,17 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
     }
   }
   
-  // 2. AL SALIR DEL INPUT (Rellena con ceros si es necesario, ej: 1.500,5 -> 1.500,50)
   @HostListener('blur')
   onBlur() {
     this.onTouched();
     const val = this.el.nativeElement.value;
     
+    if (val === '-') {
+      this.onChange(null);
+      this.el.nativeElement.value = '';
+      return;
+    }
+
     const cleanValue = val.replace(/\./g, '').replace(',', '.');
     const numberValue = parseFloat(cleanValue);
 
@@ -114,7 +118,6 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
     }
   }
 
-  // Lógica de formato oficial
   private formatNumber(value: number): string {
     return new Intl.NumberFormat('es-AR', {
       minimumFractionDigits: 2,

@@ -50,6 +50,12 @@ export class DashboardComponent {
   selectedPaymentIdentifier = 0;
   selectedBalance = 0;
   selectedCurrentRent = 0;
+  receiptDateStr: string = '';
+  
+  //receipt modal
+  showReceiptModal = false;
+  receiptPaymentInfo: Payment | null = null;
+  receiptConcepts: { description: string, amount: number }[] = [];
 
   //dto save payment
   paymentDto: CreatePaymentDTO = {
@@ -68,10 +74,12 @@ export class DashboardComponent {
   dateString: string = '';
 
   amountOriginal= 0;
-  
+  isAdvancePayment = false;
+  advanceMonths: number | null = null;
 
   selectedPreferredPaymentId: number = 1;
-
+  commision:number = 0;
+  newAmount: number = 0;
 
   constructor(
     private rentalService: RentalService,
@@ -195,21 +203,6 @@ export class DashboardComponent {
     this.paymentDto.isAdvancePayment = false;
     this.paymentDto.advanceMonths = null;
   }
-
-
-  commision:number = 0;
-  newAmount: number = 0;
-  
-
-  // AmountWithComission(amount: number, paymentMethodId: number): number{
-
-  //     const numericId = Number(paymentMethodId);
-  //     const method = this.paymentMethods.find(m => m.id === numericId);
-  //     this.commision = method ? method.commission : 0;
-  //     this.newAmount = amount + (amount * this.commision / 100);
-
-  //     return this.newAmount;
-  // }
 
   private getCommissionByMethodId(paymentMethodId: number): number {
     const id = Number(paymentMethodId);
@@ -482,66 +475,66 @@ export class DashboardComponent {
       }
   }
 
-    generatePdf(item: Payment) {
-      Swal.fire({
-        title: 'Generar recibo',
-        html: `
-          <div class="text-left px-1"> 
-            <p class="text-gray-700">Cliente: <b>${item.clientName}</b></p>
-            <p class="text-gray-700 mb-4">Importe: <b>${this.formatARS(item.amount)}</b></p>
-            <label class="text-sm font-medium text-gray-600">Descripción del recibo:</label>
-          </div>`,
-        input: 'text',
-        inputValue: 'SERVICIO DE BAULERAS',
-        inputAttributes: {
-          autocapitalize: 'off'
-        },
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Confirmar',
-        cancelButtonText: 'Cancelar',
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: 'bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-all duration-150',
-          cancelButton: 'bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
-          actions: 'flex justify-center gap-4 mt-6',
-          popup: 'rounded-xl shadow-lg p-4 custom-swal-overflow', // Agregamos p-4 y una clase opcional
-          input: 'max-w-full m-0 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm'
-        },
-        preConfirm: (inputValue) => {
-          if (!inputValue) {
-            Swal.showValidationMessage('¡La descripción es obligatoria!');
-          }
-          return inputValue;
-        }
-      }).then((result) => {
-        if (result.isConfirmed) {
-          const customDescription = result.value; 
-
-          this.pdfGeneratorService.generateBauleraReceipt({
-            date: this.formatDate(item.paymentDate),
-            clientNumber: Number(item.paymentIdentifier) || 0,
-            amount: item.amount,
-            clientName: item.clientName ?? "",
-            description: customDescription 
-          });
-        }
-      });
-    }
+  openReceiptModal(item: Payment) {
+    this.receiptPaymentInfo = item;
     
-    private formatDate(date: any): string {
-
-    const dt = new Date(date); 
-
-    const d = dt.getDate().toString().padStart(2, '0');
-    const m = (dt.getMonth() + 1).toString().padStart(2, '0');
+    // Formateamos la fecha del pago a YYYY-MM-DD para que el <input type="date"> la entienda
+    const dt = new Date(item.paymentDate);
     const y = dt.getFullYear();
+    const m = (dt.getMonth() + 1).toString().padStart(2, '0');
+    const d = dt.getDate().toString().padStart(2, '0');
+    this.receiptDateStr = `${y}-${m}-${d}`;
 
-    return `${d}/${m}/${y}`;
+    this.receiptConcepts = [
+      { description: 'SERVICIO DE BAULERAS', amount: item.amount }
+    ];
+    this.showReceiptModal = true;
   }
 
-  isAdvancePayment = false;
-  advanceMonths: number | null = null;
+  closeReceiptModal() {
+    this.showReceiptModal = false;
+    this.receiptPaymentInfo = null;
+    this.receiptConcepts = [];
+    this.receiptDateStr = ''; // Limpiamos
+  }
+
+  confirmGenerateReceipt() {
+    if (!this.receiptPaymentInfo) return;
+
+    if (this.receiptConcepts.some(c => !c.description.trim())) {
+      Swal.fire('Atención', 'Todas las descripciones deben estar completas.', 'warning');
+      return;
+    }
+
+    // Convertimos la fecha elegida en el input (YYYY-MM-DD) al formato del PDF (DD/MM/YYYY)
+    const [year, month, day] = this.receiptDateStr.split('-');
+    const finalReceiptDate = `${day}/${month}/${year}`;
+
+    this.pdfGeneratorService.generateBauleraReceipt({
+      date: finalReceiptDate, // USAMOS LA FECHA ELEGIDA EN EL INPUT
+      clientNumber: Number(this.receiptPaymentInfo.paymentIdentifier) || 0,
+      clientName: this.receiptPaymentInfo.clientName ?? "",
+      concepts: this.receiptConcepts,
+      totalAmount: this.receiptTotalAmount
+    });
+
+    this.closeReceiptModal();
+  }
+
+  addReceiptConcept() {
+    this.receiptConcepts.push({ description: '', amount: 0 });
+  }
+
+  removeReceiptConcept(index: number) {
+    if (this.receiptConcepts.length > 1) {
+      this.receiptConcepts.splice(index, 1);
+    }
+  }
+
+  get receiptTotalAmount(): number {
+    return this.receiptConcepts.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+  }
+    
 
   onAdvancePaymentToggle() {
     if (!this.paymentDto.isAdvancePayment) {
@@ -559,6 +552,4 @@ export class DashboardComponent {
     }
   }
 
-
-    
 }
