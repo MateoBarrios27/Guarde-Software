@@ -6,14 +6,9 @@ import { CommunicationService } from '../../core/services/communication-service/
 import { ComunicacionDto, UpsertComunicacionRequest } from '../../core/dtos/communications/communicationDto';
 import { ClientService } from '../../core/services/client-service/client.service';
 import { catchError, debounceTime, distinctUntilChanged, of, Subject, switchMap } from 'rxjs';
-
-// --- NUEVAS IMPORTACIONES ---
 import { QuillModule } from 'ngx-quill';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
-// --- Type Definitions (English Code) ---
-
-/** Represents a single communication channel */
 interface Channel {
   id: number;
   name: 'Email' | 'WhatsApp';
@@ -25,12 +20,12 @@ interface Channel {
 interface FormDataState {
   id: number | null;
   title: string;
-  content: string; // This content will now be HTML
+  content: string; 
   sendDate: string;
   sendTime: string;
   channels: ('Email' | 'WhatsApp')[];
   recipients: string[];
-  type: 'programar' | 'borrador' | 'enviar_ahora'; // This is for the form's radio button (Spanish UI)
+  type: 'programar' | 'borrador' | 'enviar_ahora';
   isAccountStatement: boolean;
   isNextMonthStatement: boolean;
   smtpConfigId?: number | null
@@ -63,7 +58,6 @@ const COMMUNICATION_CHANNELS: Channel[] = [
 @Component({
   selector: 'communications',
   standalone: true,
-  // --- IMPORTANTE: Añadir QuillModule aquí ---
   imports: [CommonModule, FormsModule, IconComponent, QuillModule],
   templateUrl: './communications.component.html',
   styleUrl: './communications.component.css',
@@ -71,7 +65,6 @@ const COMMUNICATION_CHANNELS: Channel[] = [
 })
 export class CommunicationsComponent implements OnInit {
 
-  // --- Signals (State Management) ---
   communications = signal<ComunicacionDto[]>([]); 
   staticGroups = signal<string[]>([]); 
   searchResults = signal<string[]>([]);
@@ -163,7 +156,7 @@ export class CommunicationsComponent implements OnInit {
   formData = signal<FormDataState>({
     id: null,
     title: '',
-    content: '', // Este será el HTML de Quill
+    content: '', 
     sendDate: '',
     sendTime: '',
     channels: [],
@@ -312,7 +305,6 @@ export class CommunicationsComponent implements OnInit {
     const data = this.formData();
     if (!this.isFormValid()) { return; }
 
-    // Variables para la fecha
     let finalSendDate = '';
     let finalSendTime = '';
     let finalType = 'draft';
@@ -323,17 +315,18 @@ export class CommunicationsComponent implements OnInit {
       finalSendTime = data.sendTime;
     } 
     else if (data.type === 'enviar_ahora') {
-      finalType = 'schedule'; // Para el backend, es un agendamiento
+      finalType = 'schedule';
       
-      // Generamos la fecha actual automágicamente
       const now = new Date();
-      
-      // Formato YYYY-MM-DD
-      finalSendDate = now.toISOString().split('T')[0]; 
-      
-      // Formato HH:mm (Ajustado a local si es necesario, o simple)
-      // Nota: toTimeString da HH:mm:ss GMT-0300... tomamos los primeros 5 chars
-      finalSendTime = now.toTimeString().slice(0, 5);
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      finalSendDate = `${year}-${month}-${day}`; 
+
+      // Asegurar formato HH:mm usando la zona horaria local
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      finalSendTime = `${hours}:${minutes}`;
     }
 
     const request = {
@@ -374,9 +367,16 @@ export class CommunicationsComponent implements OnInit {
       finalType = 'schedule';
       
       const now = new Date();
-      // Formato YYYY-MM-DD
-      finalSendDate = now.toISOString().split('T')[0]; 
-      finalSendTime = now.toTimeString().slice(0, 5);
+      // Asegurar formato YYYY-MM-DD usando la zona horaria local
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      finalSendDate = `${year}-${month}-${day}`; 
+
+      // Asegurar formato HH:mm usando la zona horaria local
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      finalSendTime = `${hours}:${minutes}`;
     }
 
     const request: UpsertComunicacionRequest = {
@@ -467,8 +467,7 @@ export class CommunicationsComponent implements OnInit {
   removeRecipient(recipient: string): void {
     this.formData.update(data => ({ ...data, recipients: data.recipients.filter(d => d !== recipient) }));
   }
-  
-  // --- Template Helpers ---
+
 
   getBadgeMeta(status: ComunicacionDto['status']): { text: string; classes: string; icon?: string } {
     let colorClass = '';
