@@ -1,7 +1,5 @@
 import { Component } from '@angular/core';
 import { PaymentService } from '../../core/services/payment-service/payment.service';
-import { Payment } from '../../core/models/payment';
-import { RentalService } from '../../core/services/rental-service/rental.service';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
 import { PendingRentalDTO } from '../../core/dtos/rental/PendingRentalDTO';
 import { PaymentMethod } from '../../core/models/payment-method';
@@ -27,7 +25,6 @@ export class FinancesComponent{
   constructor
   (
     private paymentService: PaymentService,
-    private rentalService: RentalService,
     private paymentMethodService: PaymentMethodService,
     private clientService: ClientService
   ){}
@@ -38,6 +35,8 @@ export class FinancesComponent{
   selectedClientName: string = '';
   selectedClientIdentifier: number | 0 = 0;
   selectedClientBalance: number | 0 = 0;
+  selectedClientRentAmount: number | 0 = 0;
+  selectedPreferredPaymentId: number = 1;
 
   pendingRentals: PendingRentalDTO[] = [];
   payments: DetailedPaymentDTO[] = [];
@@ -49,16 +48,12 @@ export class FinancesComponent{
   page: number = 1;
   itemsPerPage: number = 10;
 
-   //for logic of payment date edit
   manualDateEnabled = false;
   dateString: string = '';
   
   searchClient: string = '';
 
   amountOriginal = 0;
-
-  selectedPreferredPaymentId: number = 1;
-
 
   paymentDto: CreatePaymentDTO = {
       clientId: 0,
@@ -127,28 +122,6 @@ export class FinancesComponent{
     return client ? client.fullName: ' ';
   }
 
-  // filterPayments(): void {
-  //   const term = this.searchPayment.toLowerCase().trim();
-
-  //   this.filteredPayments = this.payments.filter(item => {
-  //     const clientName = (item.clientName ?? '').toString().toLowerCase();
-  //     const paymentIdentifier = (item.paymentIdentifier ?? '').toString().toLowerCase();
-  //     const paymentMethod = (item.paymentMethodName ?? '').toString().toLowerCase();
-
-  //     return (
-  //       clientName.includes(term) ||
-  //       paymentIdentifier.includes(term) ||
-  //       paymentMethod.includes(term)
-  //     );
-  //   });
-
-  //   this.filteredPayments.sort((a, b) => {
-  //     const dateA = new Date(a.paymentDate).getTime();
-  //     const dateB = new Date(b.paymentDate).getTime();
-  //     return dateB - dateA;
-  //   });
-  // }
-
   selectedMethodFilter: string = '';
   selectedMonth: string = '';
 
@@ -159,47 +132,47 @@ export class FinancesComponent{
     this.filteredPayments = [...this.payments];
   }
 
-    getTotalRecaudado(): number {
-      return this.payments.reduce((sum, p) => sum + p.amount, 0);
-    }
+  getTotalRecaudado(): number {
+    return this.payments.reduce((sum, p) => sum + p.amount, 0);
+  }
 
-    getPagosMesActual(): number {
-      const currentMonth = new Date().getMonth();
-      return this.payments.filter(p => new Date(p.paymentDate).getMonth() === currentMonth).length;
-    }
+  getPagosMesActual(): number {
+    const currentMonth = new Date().getMonth();
+    return this.payments.filter(p => new Date(p.paymentDate).getMonth() === currentMonth).length;
+  }
 
-    getPagosPorMetodo(method: string): number {
-      return this.payments.filter(p => p.paymentMethodName === method).length;
-    }
+  getPagosPorMetodo(method: string): number {
+    return this.payments.filter(p => p.paymentMethodName === method).length;
+  }
 
-    uniqueClientsCount(): number {
-      const uniqueClients = new Set(this.payments.map(p => p.clientName));
-      return uniqueClients.size;
-    }
+  uniqueClientsCount(): number {
+    const uniqueClients = new Set(this.payments.map(p => p.clientName));
+    return uniqueClients.size;
+  }
 
-   filterPayments(): void {
-  const term = this.searchPayment.toLowerCase().trim();
-  const method = this.selectedMethodFilter.toLowerCase();
-  const month = this.selectedMonth;
+  filterPayments(): void {
+    const term = this.searchPayment.toLowerCase().trim();
+    const method = this.selectedMethodFilter.toLowerCase();
+    const month = this.selectedMonth;
 
-  this.filteredPayments = this.payments.filter(p => {
-    const clientName = p.clientName?.toLowerCase() || '';
-    const paymentIdentifier = p.paymentIdentifier?.toLowerCase() || '';
-    const paymentMethodName = p.paymentMethodName?.toLowerCase() || '';
+    this.filteredPayments = this.payments.filter(p => {
+      const clientName = p.clientName?.toLowerCase() || '';
+      const paymentIdentifier = p.paymentIdentifier?.toLowerCase() || '';
+      const paymentMethodName = p.paymentMethodName?.toLowerCase() || '';
 
-    const matchesSearch =
-      clientName.includes(term) ||
-      paymentIdentifier.includes(term)
+      const matchesSearch =
+        clientName.includes(term) ||
+        paymentIdentifier.includes(term)
 
-    const matchesMethod =
-      !method || paymentMethodName === method;
+      const matchesMethod =
+        !method || paymentMethodName === method;
 
-    const matchesMonth =
-      !month ||
-      new Date(p.paymentDate).toISOString().startsWith(month);
+      const matchesMonth =
+        !month ||
+        new Date(p.paymentDate).toISOString().startsWith(month);
 
-    return matchesSearch && matchesMethod && matchesMonth;
-  });
+      return matchesSearch && matchesMethod && matchesMonth;
+    });
 
   this.filteredPayments.sort(
     (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
@@ -214,6 +187,7 @@ closeClientModal() {
   this.selectedClientIdentifier = 0;
   this.selectedClientName = '';
   this.selectedClientBalance = 0;
+  this.selectedClientRentAmount = 0;
 
   this.manualDateEnabled = false;
   const now = new Date();
@@ -265,15 +239,6 @@ OpenPaymentModal() {
 commision:number = 0;
 newAmount: number = 0;
 
-// AmountWithComission(amount: number, paymentMethodId: number): number{
-
-//     const numericId = Number(paymentMethodId);
-//     const method = this.paymentMethods.find(m => m.id === numericId);
-//     this.commision = method ? method.commission : 0;
-//     this.newAmount = amount + (amount * this.commision / 100);
-
-//     return this.newAmount;
-// }
 private calcCommissions(selectedMethodId: number, preferredPaymentId: number) {
   const selectedCommission = this.getCommissionByMethodId(selectedMethodId);
   const includedCommission = this.getCommissionByMethodId(preferredPaymentId);
@@ -507,6 +472,7 @@ selectClient(client: any) {
   this.selectedClientIdentifier = client.paymentIdentifier;
   this.paymentDto.clientId = client.id;
   this.selectedClientBalance = client.balance;
+  this.selectedClientRentAmount = client.currentRent;
   
   this.selectedPreferredPaymentId = Number(client.preferredPaymentMethodId ?? 1); 
   console.log(client.preferredPaymentMethodId);
@@ -516,20 +482,20 @@ selectClient(client: any) {
 
 
   toggleManualDate() {
-  this.manualDateEnabled = !this.manualDateEnabled;
+    this.manualDateEnabled = !this.manualDateEnabled;
 
-  if (!this.manualDateEnabled) {
-    const now = new Date();
-    this.paymentDto.date = now;
-    this.dateString = now.toISOString().split('T')[0];
+    if (!this.manualDateEnabled) {
+      const now = new Date();
+      this.paymentDto.date = now;
+      this.dateString = now.toISOString().split('T')[0];
 
-    if (this.paymentDto.isAdvancePayment) {
-      this.updateAdvanceConcept();
-    } else {
-      this.updateConceptFromDate(now);
+      if (this.paymentDto.isAdvancePayment) {
+        this.updateAdvanceConcept();
+      } else {
+        this.updateConceptFromDate(now);
+      }
     }
   }
-}
 
 
   private updateConceptFromDate(date: Date) {
@@ -544,105 +510,103 @@ selectClient(client: any) {
   }
 
   onManualDateChange(value: string) {
-  if (!value) return;
+    if (!value) return;
 
-  const [year, month, day] = value.split('-').map(Number);
-  const currentTime = new Date();
-  const dateWithTime = new Date(
-    year,
-    month - 1,
-    day,
-    currentTime.getHours(),
-    currentTime.getMinutes(),
-    currentTime.getSeconds()
-  );
+    const [year, month, day] = value.split('-').map(Number);
+    const currentTime = new Date();
+    const dateWithTime = new Date(
+      year,
+      month - 1,
+      day,
+      currentTime.getHours(),
+      currentTime.getMinutes(),
+      currentTime.getSeconds()
+    );
 
-  this.paymentDto.date = dateWithTime;
-  this.dateString = value;
+    this.paymentDto.date = dateWithTime;
+    this.dateString = value;
 
-  if (this.paymentDto.isAdvancePayment) {
-    this.updateAdvanceConcept();
-  } else {
-    this.updateConceptFromDate(dateWithTime);
+    if (this.paymentDto.isAdvancePayment) {
+      this.updateAdvanceConcept();
+    } else {
+      this.updateConceptFromDate(dateWithTime);
+    }
   }
-}
 
 
-    get filteredClients(): Client[] {
-      const term = this.searchClient?.toLowerCase().trim();
+  get filteredClients(): Client[] {
+    const term = this.searchClient?.toLowerCase().trim();
 
-      if (!term) return this.clients;
+    if (!term) return this.clients;
 
-      return this.clients.filter(c => {
-        const fullName = c.fullName.toLowerCase();
-        const identifier = (c.paymentIdentifier ?? '').toString().toLowerCase();
+    return this.clients.filter(c => {
+      const fullName = c.fullName.toLowerCase();
+      const identifier = (c.paymentIdentifier ?? '').toString().toLowerCase();
 
-        return fullName.includes(term) || identifier.includes(term);
-      });
-    }
-
-    private updateAdvanceConcept() {
-      const months = this.paymentDto.advanceMonths;
-
-      if (months === null || months === undefined || months === 0) {
-        this.paymentDto.concept = 'Pago adelantado';
-        return;
-      }
-
-      this.paymentDto.concept = `Pago adelantado de ${months} mes${months === 1 ? '' : 'es'}`;
-    }
-
-    onAdvancePaymentToggle() {
-      if (!this.paymentDto.isAdvancePayment) {
-        this.paymentDto.advanceMonths = null;
-        this.updateConceptFromDate(this.paymentDto.date);
-      } else {
-        this.updateAdvanceConcept();
-      }
-    }
-
-    onAdvanceMonthsChange() {
-      if (this.paymentDto.isAdvancePayment) {
-        this.updateAdvanceConcept();
-      }
-    }
-
-    deletePayment(paymentId: number): void {
-    Swal.fire({
-      title: '¿Estás seguro?',
-      text: 'Esta acción borrará el pago y modificará el saldo del cliente. Esta acción no se puede deshacer.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33', 
-      cancelButtonColor: '#9ca3af', 
-      confirmButtonText: 'Sí, eliminar pago',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.paymentService.deletePayment(paymentId).subscribe({
-          next: () => {
-            Swal.fire({
-              title: '¡Eliminado!',
-              text: 'El pago ha sido borrado correctamente.',
-              icon: 'success',
-              confirmButtonColor: '#2563eb'
-            });
-
-            this.loadPayments(); 
-          },
-          error: (err) => {
-            console.error('Error al eliminar pago:', err);
-            Swal.fire({
-              title: 'Error',
-              text: 'Hubo un problema al intentar borrar el pago.',
-              icon: 'error',
-              confirmButtonColor: '#2563eb'
-            });
-          }
-        });
-      }
+      return fullName.includes(term) || identifier.includes(term);
     });
   }
 
+  private updateAdvanceConcept() {
+    const months = this.paymentDto.advanceMonths;
 
-}
+    if (months === null || months === undefined || months === 0) {
+      this.paymentDto.concept = 'Pago adelantado';
+      return;
+    }
+
+    this.paymentDto.concept = `Pago adelantado de ${months} mes${months === 1 ? '' : 'es'}`;
+  }
+
+  onAdvancePaymentToggle() {
+    if (!this.paymentDto.isAdvancePayment) {
+      this.paymentDto.advanceMonths = null;
+      this.updateConceptFromDate(this.paymentDto.date);
+    } else {
+      this.updateAdvanceConcept();
+    }
+  }
+
+  onAdvanceMonthsChange() {
+    if (this.paymentDto.isAdvancePayment) {
+      this.updateAdvanceConcept();
+    }
+  }
+
+    deletePayment(paymentId: number): void {
+      Swal.fire({
+        title: '¿Estás seguro?',
+        text: 'Esta acción borrará el pago y modificará el saldo del cliente. Esta acción no se puede deshacer.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33', 
+        cancelButtonColor: '#9ca3af', 
+        confirmButtonText: 'Sí, eliminar pago',
+        cancelButtonText: 'Cancelar'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          this.paymentService.deletePayment(paymentId).subscribe({
+            next: () => {
+              Swal.fire({
+                title: '¡Eliminado!',
+                text: 'El pago ha sido borrado correctamente.',
+                icon: 'success',
+                confirmButtonColor: '#2563eb'
+              });
+
+              this.loadPayments(); 
+            },
+            error: (err) => {
+              console.error('Error al eliminar pago:', err);
+              Swal.fire({
+                title: 'Error',
+                text: 'Hubo un problema al intentar borrar el pago.',
+                icon: 'error',
+                confirmButtonColor: '#2563eb'
+              });
+            }
+          });
+        }
+      });
+    }
+  }

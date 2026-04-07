@@ -19,7 +19,7 @@ namespace GuardeSoftwareAPI.Dao
             accessDB = _accessDB;
         }
 
-       public async Task<DataTable> GetClients()
+        public async Task<DataTable> GetClients()
         {
             string query = @"
                 WITH AccountSummary AS (
@@ -33,6 +33,13 @@ namespace GuardeSoftwareAPI.Dao
                         ) AS Balance
                     FROM account_movements
                     GROUP BY rental_id
+                ),
+                CurrentRentalAmount AS (
+                    SELECT 
+                        rental_id, 
+                        amount as CurrentRent
+                    FROM rental_amount_history
+                    WHERE GETDATE() BETWEEN start_date AND ISNULL(end_date, '9999-12-31')
                 )
                 SELECT
                     c.client_id,
@@ -47,6 +54,7 @@ namespace GuardeSoftwareAPI.Dao
                     c.billing_type_id,
                     c.increase_frequency_months,
                     c.initial_amount,
+                    ISNULL(SUM(ISNULL(cra.CurrentRent, 0)), 0) AS rent_amount,
                     ISNULL(SUM(ISNULL(acc.Balance, 0)), 0) AS balance
 
                 FROM clients c
@@ -55,6 +63,8 @@ namespace GuardeSoftwareAPI.Dao
                     AND r.active = 1
                 LEFT JOIN AccountSummary acc
                     ON r.rental_id = acc.rental_id
+                LEFT JOIN CurrentRentalAmount cra 
+                    ON r.rental_id = cra.rental_id 
                 WHERE c.active = 1
                 GROUP BY
                     c.client_id,
@@ -73,7 +83,6 @@ namespace GuardeSoftwareAPI.Dao
 
             return await accessDB.GetTableAsync("clients", query);
         }
-
 
         public async Task<DataTable> GetClientById(int id)
         {

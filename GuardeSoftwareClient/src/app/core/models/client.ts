@@ -10,5 +10,6 @@ export interface Client{
     preferredPaymentMethod: number;
     ivaCondition: string;
     balance?: number;
+    currentRent?: number;
 }
 
