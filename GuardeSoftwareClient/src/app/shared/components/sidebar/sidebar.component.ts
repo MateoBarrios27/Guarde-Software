@@ -37,7 +37,7 @@ export class SidebarComponent {
   }
 
   menuItems: MenuItem[] = [
-    { path: '/dashboard', title: 'Dashboard', icon: 'layout-dashboard' },
+    { path: '/dashboard', title: 'Panel Principal', icon: 'layout-dashboard' },
     { path: '/clients', title: 'Clientes', icon: 'user' },
     { path: '/finances', title: 'Finanzas', icon: 'dollar-sign' },
     { path: '/communications', title: 'Comunicaciones', icon: 'message-circle' },

@@ -164,7 +164,7 @@ namespace GuardeSoftwareAPI.Jobs
         {
             var message = new MimeMessage();
             
-            message.From.Add(new MailboxAddress("Guarde lo que quiera", settings.Email));
+            message.From.Add(new MailboxAddress("Guarde Lo Que Quiera", settings.Email));
 
             if (!string.IsNullOrEmpty(recipient.Email))
             {

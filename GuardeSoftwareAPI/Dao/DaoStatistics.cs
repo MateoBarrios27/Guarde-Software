@@ -67,7 +67,9 @@ namespace GuardeSoftwareAPI.Dao
                     SELECT ISNULL(SUM(
                         CASE WHEN movement_type = 'DEBITO' THEN -amount ELSE amount END
                     ), 0)
-                    FROM account_movements
+                    FROM account_movements am
+                    INNER JOIN rentals r ON am.rental_id = r.rental_id
+                    WHERE r.active = 1
                 );
 
                 DECLARE @EspaciosOcupados INT = (
@@ -114,8 +116,6 @@ namespace GuardeSoftwareAPI.Dao
                 FROM account_movements am
                 INNER JOIN rentals r ON am.rental_id = r.rental_id
                 INNER JOIN (
-                    -- Obtenemos un único warehouse_id por rental desde la tabla lockers
-                    -- para evitar duplicar el monto si el cliente tiene múltiples lockers.
                     SELECT rental_id, MIN(warehouse_id) as warehouse_id
                     FROM lockers
                     WHERE rental_id IS NOT NULL
@@ -288,10 +288,10 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<decimal> GetPreviousPeriodDebtAsync(int month, int year)
         {
-            // Lógica:
-            // 1. Calculamos el saldo histórico de cada cliente hasta el último momento del mes anterior.
-            // 2. Filtramos SOLO aquellos que quedaron con saldo negativo (Deuda).
-            // 3. Sumamos esas deudas (convertidas a positivo para la estadística visual).
+            // Lógic:
+            // 1. We calculate the global balance for each client up to the end of the previous month (month-1, year).
+            // 2. We filter only those clients whose balance was negative (debt) at that point in time, ignoring those with zero or positive balance (credit).
+            // 3. We sum the absolute value of those negative balances to get the total debt from previous periods that was still pending at the start of the given month/year.
 
             string query = @"
                 DECLARE @StartOfMonth DATE = DATEFROMPARTS(@Year, @Month, 1);
@@ -308,15 +308,13 @@ namespace GuardeSoftwareAPI.Dao
                     FROM account_movements am
                     INNER JOIN rentals r ON am.rental_id = r.rental_id
                     WHERE r.active = 1
-                    AND am.movement_date < @StartOfMonth -- Todo lo anterior a este mes
+                    AND am.movement_date < @StartOfMonth 
                     GROUP BY r.client_id
                 )
                 
-                -- Solo sumamos los balances negativos (Deuda)
-                -- Usamos ABS para devolver un número positivo que represente la magnitud de la deuda total.
                 SELECT ISNULL(ABS(SUM(BalanceAlCierreAnterior)), 0)
                 FROM HistoricalBalances
-                WHERE BalanceAlCierreAnterior < 0; -- CLAVE: Ignoramos saldos a favor (créditos)
+                WHERE BalanceAlCierreAnterior < 0;
             ";
 
             var parameters = new[] {
