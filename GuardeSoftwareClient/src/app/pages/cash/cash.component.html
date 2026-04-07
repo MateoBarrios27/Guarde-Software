@@ -77,21 +77,29 @@
           
           <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropItem($event)">
             <tr *ngFor="let item of filteredItems" cdkDrag class="hover:bg-blue-50/30 transition-colors group bg-white">
-              <td class="p-1 w-6 cursor-grab flex items-center justify-center active:cursor-grabbing text-gray-400 hover:text-gray-600 align-middle" cdkDragHandle>
-                <app-icon name="grip-vertical" class="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity mx-auto"></app-icon>
+              <td class="p-1 w-6 align-middle text-center">
+                <div cdkDragHandle class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 inline-flex items-center justify-center p-1">
+                  <app-icon name="grip-vertical" class="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity"></app-icon>
+                </div>
               </td>
 
               <td class="p-1 text-center align-middle w-16">
                 
                 <div class="relative flex items-center justify-center w-8 h-8 mx-auto rounded-md hover:bg-blue-50 transition-colors group/cal">
                   
-                  <app-icon name="calendar" class="w-4 h-4 text-gray-400 group-hover/cal:text-blue-600 transition-colors"></app-icon>
+                  <span *ngIf="item.date" class="text-sm font-bold text-gray-700 group-hover/cal:text-blue-600 transition-colors pointer-events-none">
+                    {{ item.date | slice:-2 }}
+                  </span>
+                  
+                  <app-icon *ngIf="!item.date" name="calendar" class="w-4 h-4 text-gray-400 group-hover/cal:text-blue-600 transition-colors pointer-events-none"></app-icon>
                   
                   <input type="date" 
                          [(ngModel)]="item.date" 
                          (change)="onItemChange(item)" 
                          [title]="'Fecha seleccionada: ' + item.date"
+                         required 
                          class="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed">
+                
                 </div>
 
               </td>
@@ -193,8 +201,8 @@
                       class="w-5 h-5 text-green-600 bg-white border-gray-300 rounded focus:ring-green-500 focus:ring-2 cursor-pointer disabled:opacity-50 transition-all shadow-sm mt-1">
               </td>
 
-              <td class="p-1 text-center">
-                <button  (click)="deleteItem(item)" class="text-gray-5 opacity-60  00 hover:text-red-500">
+              <td class="p-1 text-center align-middle">
+                <button (click)="deleteItem(item)" class="text-gray-400 opacity-60 hover:text-red-500 inline-flex items-center justify-center p-1 transition-colors">
                   <app-icon name="Trash2" class="h-4 w-4"></app-icon>
                 </button>
               </td>
@@ -318,16 +326,19 @@
               <tr *ngFor="let account of accounts; let i = index" cdkDrag class="hover:bg-blue-50/30 group transition-colors bg-white">
                 
                 <td class="p-2 w-16 align-middle">
-                  <div class="flex items-center gap-2 justify-start">
+                  <div class="flex items-center gap-2 justify-start h-full">
+                    
                     <button (click)="deleteAccount(account, i)" 
-                            class="text-gray-400 hover:text-red-600 p-1 opacity-60 group-hover:opacity-100 transition-opacity" 
+                            class="text-gray-400 hover:text-red-600 p-1 opacity-60 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center" 
                             title="Eliminar cuenta">
                       <app-icon name="Trash2" class="h-4 w-4"></app-icon>
                     </button>
+                    
                     <div cdkDragHandle 
-                         class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 p-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                         class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 p-1 opacity-60 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center">
                       <app-icon name="grip-vertical" class="h-4 w-4"></app-icon>
                     </div>
+
                   </div>
                 </td>
 
