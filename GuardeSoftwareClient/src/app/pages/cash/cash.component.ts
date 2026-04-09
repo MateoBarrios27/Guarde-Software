@@ -204,7 +204,7 @@ export class CashComponent implements OnInit {
   calculateLocalTotals(): void {
     this.totals = { depo: 0, casa: 0, retiros: 0, extras: 0, pagado: 0, aPagar: 0, faltaPagar: 0 };
 
-    this.items.forEach(item => {
+    this.filteredItems.forEach(item => {
       this.totals.depo += Number(item.depo) || 0;
       this.totals.casa += Number(item.casa) || 0;
       this.totals.retiros += Number(item.retiros) || 0;
@@ -219,7 +219,6 @@ export class CashComponent implements OnInit {
     });
 
     this.totals.aPagar = this.totals.depo + this.totals.casa;
-    
     this.totals.faltaPagar = this.totals.aPagar - this.totals.pagado; 
   }
 
@@ -346,11 +345,12 @@ export class CashComponent implements OnInit {
     
     this.filteredItems = this.items.filter(item => {
       const matchesText = !term || (item.description || '').toLowerCase().includes(term);
-      
       const matchesDate = !dateFilter || item.date === dateFilter;
 
       return matchesText && matchesDate;
     });
+
+    this.calculateLocalTotals();
   }
 
   clearDateFilter(): void {
