@@ -160,18 +160,28 @@ namespace GuardeSoftwareAPI.Dao
                     AND (year > @ItemYear OR (year = @ItemYear AND month > @ItemMonth))
                 END";
 
-            await _accessDB.ExecuteCommandAsync(query, new[] { new SqlParameter("@Id", id) });
+            await _accessDB.ExecuteCommandAsync(query, [new SqlParameter("@Id", id)]);
         }
 
         #endregion
 
         #region 2. Cuentas Financieras
 
-        public async Task<List<FinancialAccountDto>> GetAccountsAsync()
+        public async Task<List<FinancialAccountDto>> GetAccountsAsync(int month, int year)
         {
             var list = new List<FinancialAccountDto>();
-            string query = "SELECT account_id, name, type, current_balance, currency, display_order FROM financial_accounts ORDER BY display_order ASC, name ASC";
-            var dt = await _accessDB.GetTableAsync("Accounts", query);
+            string query = @"
+                SELECT account_id, name, type, current_balance, currency, display_order 
+                FROM financial_accounts 
+                WHERE month = @Month AND year = @Year
+                ORDER BY display_order ASC, name ASC";
+
+            var parameters = new[] {
+                new SqlParameter("@Month", month),
+                new SqlParameter("@Year", year)
+            };
+
+            var dt = await _accessDB.GetTableAsync("Accounts", query, parameters);
 
             foreach (DataRow row in dt.Rows)
             {
@@ -200,8 +210,6 @@ namespace GuardeSoftwareAPI.Dao
         #endregion
 
         #region 3. Cálculos para Resumen (Automático)
-
-        // Obtiene la suma total de pagos reales registrados en el sistema para ese mes
         public async Task<decimal> GetSystemIncomeAsync(int month, int year)
         {
             string query = @"
@@ -218,12 +226,9 @@ namespace GuardeSoftwareAPI.Dao
             return Convert.ToDecimal(result);
         }
 
-        // Obtiene la deuda total actual (sumatoria de alquileres impagos o saldos negativos)
-        // Esta query puede variar según cómo calcules la deuda en tu sistema hoy
+
         public async Task<decimal> GetPendingCollectionAsync(int month, int year)
         {
-            // Opción A: Sumar saldos de clientes con deuda (balance > 0 o < 0 según tu lógica)
-            // Asumiré que balance positivo es deuda según tu contexto anterior ("Morosos")
             DateTime startDate = new(year, month, 1);
             SqlParameter[] parameters = [
                 new SqlParameter("@StartDate", SqlDbType.DateTime) { Value = startDate }
@@ -235,10 +240,8 @@ namespace GuardeSoftwareAPI.Dao
             return Convert.ToDecimal(result);
         }
 
-        // Obtiene totales de la tabla manual para el resumen
         public async Task<decimal> GetManualExpensesTotalAsync(int month, int year)
         {
-            // Sumamos Casa + Pagado + Retiros + Extras (Excluyendo Depo si es ingreso)
             string query = @"
                 SELECT ISNULL(SUM(amount_casa + amount_pagado + amount_retiros + amount_extras), 0)
                 FROM cash_flow_items
@@ -260,8 +263,8 @@ namespace GuardeSoftwareAPI.Dao
             int prevMonth = date.Month;
             int prevYear = date.Year;
 
-            // Le agregamos 'display_order' al INSERT y al SELECT
-            string query = @"
+            // 1. COPIAMOS LOS CONCEPTOS (Tu código intacto)
+            string queryItems = @"
                 INSERT INTO cash_flow_items (
                     month, year, movement_date, description, comment, 
                     amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order
@@ -273,6 +276,15 @@ namespace GuardeSoftwareAPI.Dao
                 WHERE month = @PrevMonth AND year = @PrevYear
                 AND is_confirmed = 1";
 
+            string queryAccounts = @"
+                INSERT INTO financial_accounts (
+                    name, type, current_balance, currency, display_order, month, year
+                )
+                SELECT 
+                    name, type, current_balance, currency, display_order, @CurrentMonth, @CurrentYear
+                FROM financial_accounts
+                WHERE month = @PrevMonth AND year = @PrevYear";
+
             var parameters = new[] {
                 new SqlParameter("@CurrentMonth", currentMonth),
                 new SqlParameter("@CurrentYear", currentYear),
@@ -280,18 +292,18 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@PrevYear", prevYear)
             };
 
-            await _accessDB.ExecuteCommandAsync(query, parameters);
+            await _accessDB.ExecuteCommandAsync(queryItems, parameters);
+            await _accessDB.ExecuteCommandAsync(queryAccounts, parameters);
         }
-        // En la región #region 2. Cuentas Financieras
 
-        public async Task<int> CreateAccountAsync(FinancialAccountDto account)
+        public async Task<int> CreateAccountAsync(FinancialAccountDto account, int month, int year)
         {
             string query = @"
                 DECLARE @NewOrder INT;
-                SELECT @NewOrder = ISNULL(MAX(display_order), 0) + 1 FROM financial_accounts;
+                SELECT @NewOrder = ISNULL(MAX(display_order), 0) + 1 FROM financial_accounts WHERE month = @Month AND year = @Year;
 
-                INSERT INTO financial_accounts (name, type, current_balance, currency, display_order) 
-                VALUES (@Name, @Type, @Balance, @Currency, @NewOrder);
+                INSERT INTO financial_accounts (name, type, current_balance, currency, display_order, month, year) 
+                VALUES (@Name, @Type, @Balance, @Currency, @NewOrder, @Month, @Year);
 
                 SELECT SCOPE_IDENTITY();";
 
@@ -299,17 +311,13 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@Name", SqlDbType.NVarChar) { Value = account.Name },
                 new SqlParameter("@Type", SqlDbType.NVarChar) { Value = account.Type },
                 new SqlParameter("@Balance", SqlDbType.Decimal) { Value = account.Balance != null ? account.Balance : 0 },
-                new SqlParameter("@Currency", SqlDbType.NVarChar) { Value = account.Currency != null ? account.Currency : "" }
+                new SqlParameter("@Currency", SqlDbType.NVarChar) { Value = account.Currency != null ? account.Currency : "" },
+                new SqlParameter("@Month", month),
+                new SqlParameter("@Year", year)
             };
 
             var result = await _accessDB.ExecuteScalarAsync(query, parameters);
-            
-            if (result == DBNull.Value || result == null)
-            {
-                return 0;
-            }
-
-            return Convert.ToInt32(result);
+            return result != DBNull.Value && result != null ? Convert.ToInt32(result) : 0;
         }
 
         public async Task DeleteAccountAsync(int id)
@@ -339,8 +347,6 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<decimal> GetTotalAdvancePaymentsAsync(int month, int year)
         {
             string query = @"
-                -- 1. BALANCE GLOBAL POSITIVO (Filtro de seguridad)
-                -- Solo consideramos clientes que 'hoy' tienen plata a favor.
                 WITH PositiveBalances AS (
                     SELECT
                         r.client_id,
@@ -357,9 +363,6 @@ namespace GuardeSoftwareAPI.Dao
                     HAVING SUM(CASE WHEN am.movement_type = 'DEBITO' THEN -am.amount ELSE am.amount END) > 0
                 ),
 
-                -- 2. CRÉDITOS REALES DEL MES (Dinero a favor generado este mes)
-                -- Aquí sumamos Pagos, Notas de Crédito, Ajustes, etc.
-                -- Todo lo que NO sea 'DEBITO'.
                 MonthlyCredits AS (
                     SELECT 
                         r.client_id,
@@ -372,7 +375,6 @@ namespace GuardeSoftwareAPI.Dao
                     GROUP BY r.client_id
                 ),
 
-                -- 3. DÉBITOS REALES DEL MES (Lo que se cobró: Alquiler, Proporcionales, etc)
                 MonthlyDebits AS (
                     SELECT 
                         r.client_id,
@@ -385,18 +387,11 @@ namespace GuardeSoftwareAPI.Dao
                     GROUP BY r.client_id
                 )
 
-                -- CÁLCULO FINAL:
-                -- (Créditos del Mes - Débitos del Mes) = Excedente generado este mes.
-                -- Ajustado por el tope de su saldo global real actual.
                 SELECT ISNULL(SUM(
                     CASE 
-                        -- Si el excedente del mes es mayor que su saldo global actual, 
-                        -- significa que parte de ese crédito se usó para cubrir deuda vieja que ya no existe,
-                        -- o que el saldo se consumió después. Solo tomamos el 'saldo vivo'.
                         WHEN (mc.TotalCreditedInMonth - ISNULL(md.TotalDebitedInMonth, 0)) > pb.CurrentGlobalBalance 
                         THEN pb.CurrentGlobalBalance
                         
-                        -- Caso normal: El adelanto es la diferencia pura generada en este mes
                         ELSE (mc.TotalCreditedInMonth - ISNULL(md.TotalDebitedInMonth, 0))
                     END
                 ), 0)
@@ -404,7 +399,6 @@ namespace GuardeSoftwareAPI.Dao
                 INNER JOIN PositiveBalances pb ON mc.client_id = pb.client_id
                 LEFT JOIN MonthlyDebits md ON mc.client_id = md.client_id
                 WHERE 
-                    -- Solo sumamos si los Créditos superaron a los Débitos este mes
                     mc.TotalCreditedInMonth > ISNULL(md.TotalDebitedInMonth, 0);
             ";
 
@@ -429,18 +423,15 @@ namespace GuardeSoftwareAPI.Dao
                         DECLARE @ItemMonth INT;
                         DECLARE @ItemYear INT;
                         
-                        -- 1. Buscamos el nombre, mes y año exacto del ítem que movió el usuario
                         SELECT @Desc = description, @ItemMonth = month, @ItemYear = year
                         FROM cash_flow_items 
                         WHERE item_id = @Id;
                         
-                        -- 2. Si encontró el concepto, actualizamos su posición en este mes y hacia el futuro
                         IF @Desc IS NOT NULL AND @Desc <> ''
                         BEGIN
                             UPDATE cash_flow_items 
                             SET display_order = @DisplayOrder 
                             WHERE description = @Desc
-                            -- ACÁ ESTÁ EL FILTRO MÁGICO: Solo afecta al mes de origen y los siguientes
                             AND (year > @ItemYear OR (year = @ItemYear AND month >= @ItemMonth));
                         END";
                     

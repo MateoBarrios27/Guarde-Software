@@ -104,15 +104,11 @@ export class CashComponent implements OnInit {
       this.calculateNetBalance();
     });
 
-    this.cashService.getAccounts().subscribe(acc => {
-        this.accounts = acc;
-        this.calculateAccountTotals();
-    });
+    this.cashService.getAccounts(this.selectedMonth, this.selectedYear).subscribe(acc => {
+      this.accounts = acc.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+      this.calculateAccountTotals();
+  });
 
-    this.cashService.getAccounts().subscribe(acc => {
-        this.accounts = acc.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-        this.calculateAccountTotals();
-    });
   }
 
   sortItems(): void {
@@ -287,7 +283,7 @@ export class CashComponent implements OnInit {
       }
     }).then((result) => {
       if (result.isConfirmed) {
-        this.cashService.createAccount(result.value).subscribe(id => {
+        this.cashService.createAccount(result.value, this.selectedMonth, this.selectedYear).subscribe(id => {
           const newAcc = { ...result.value, id };
           this.accounts.push(newAcc);
           this.calculateAccountTotals(); 

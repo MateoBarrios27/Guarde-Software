@@ -6,10 +6,10 @@ namespace GuardeSoftwareAPI.Services.cash
         Task<List<CashFlowItemDto>> GetItemsAsync(int month, int year);
         Task<int> UpsertItemAsync(CashFlowItemDto item, int month, int year);
         Task DeleteItemAsync(int id);
-        Task<List<FinancialAccountDto>> GetAccountsAsync();
+        Task<List<FinancialAccountDto>> GetAccountsAsync(int month, int year);
         Task UpdateAccountBalanceAsync(int id, decimal balance);
         Task<MonthlyFinancialSummaryDto> GetMonthlySummaryAsync(int month, int year);
-        Task<int> CreateAccountAsync(FinancialAccountDto account);
+        Task<int> CreateAccountAsync(FinancialAccountDto account, int month, int year);
         Task DeleteAccountAsync(int id);
         Task UpdateItemsOrderAsync(List<CashItemOrderDto> itemsOrder);
         Task UpdateAccountsOrderAsync(List<AccountOrderDto> accountsOrder);

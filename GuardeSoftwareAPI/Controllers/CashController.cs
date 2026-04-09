@@ -53,9 +53,9 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpGet("accounts")]
-        public async Task<IActionResult> GetAccounts()
+        public async Task<IActionResult> GetAccounts([FromQuery] int month, [FromQuery] int year)
         {
-            var accounts = await _service.GetAccountsAsync();
+            var accounts = await _service.GetAccountsAsync(month, year);
             return Ok(accounts);
         }
 
@@ -67,9 +67,9 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost("accounts")]
-        public async Task<IActionResult> CreateAccount([FromBody] FinancialAccountDto account)
+        public async Task<IActionResult> CreateAccount([FromBody] FinancialAccountDto account, [FromQuery] int month, [FromQuery] int year)
         {
-            int id = await _service.CreateAccountAsync(account);
+            int id = await _service.CreateAccountAsync(account, month, year);
             return Ok(id);
         }
 

@@ -31,16 +31,18 @@ export class CashService {
     return this.http.get<MonthlySummary>(`${this.apiUrl}/summary`, { params });
   }
 
-  getAccounts(): Observable<FinancialAccount[]> {
-    return this.http.get<FinancialAccount[]>(`${this.apiUrl}/accounts`);
+  getAccounts(month: number, year: number): Observable<FinancialAccount[]> {
+    const params = new HttpParams().set('month', month).set('year', year);
+    return this.http.get<FinancialAccount[]>(`${this.apiUrl}/accounts`, { params });
   }
 
   updateAccountBalance(id: number, newBalance: number): Observable<void> {
     return this.http.put<void>(`${this.apiUrl}/accounts/${id}`, { balance: newBalance });
   }
 
-  createAccount(account: FinancialAccount): Observable<number> {
-    return this.http.post<number>(`${this.apiUrl}/accounts`, account);
+  createAccount(account: FinancialAccount, month: number, year: number): Observable<number> {
+    const params = new HttpParams().set('month', month).set('year', year);
+    return this.http.post<number>(`${this.apiUrl}/accounts`, account, { params });
   }
 
   deleteAccount(id: number): Observable<void> {

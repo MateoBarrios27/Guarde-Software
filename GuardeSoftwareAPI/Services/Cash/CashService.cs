@@ -31,21 +31,6 @@ namespace GuardeSoftwareAPI.Services.cash
                 ivaItem.Depo = ivaValue; 
                 
             }
-            else
-            {   // IVA as a separate item if it doesn't exist yet
-                // var newIva = new CashFlowItemDto
-                // {
-                //     Date = new DateTime(year, month, 1),
-                //     Description = "IVA (21% Transferencias)",
-                //     Depo = ivaValue, // Valor calculado
-                //     Casa = 0, IsPaid = false, Retiros = 0, Extras = 0
-                // };
-                
-                // int newId = await _dao.UpsertItemAsync(newIva, month, year);
-                // newIva.Id = newId;
-                
-                // items.Insert(0, newIva);
-            }
 
             return items;
         }
@@ -60,9 +45,9 @@ namespace GuardeSoftwareAPI.Services.cash
             await _dao.DeleteItemAsync(id);
         }
 
-        public async Task<List<FinancialAccountDto>> GetAccountsAsync()
+        public async Task<List<FinancialAccountDto>> GetAccountsAsync(int month, int year)
         {
-            return await _dao.GetAccountsAsync();
+            return await _dao.GetAccountsAsync(month, year);
         }
 
         public async Task UpdateAccountBalanceAsync(int id, decimal balance)
@@ -92,9 +77,9 @@ namespace GuardeSoftwareAPI.Services.cash
             };
         }
 
-        public async Task<int> CreateAccountAsync(FinancialAccountDto account)
+        public async Task<int> CreateAccountAsync(FinancialAccountDto account, int month, int year)
         {
-            return await _dao.CreateAccountAsync(account);
+            return await _dao.CreateAccountAsync(account, month, year);
         }
 
         public async Task DeleteAccountAsync(int id)
