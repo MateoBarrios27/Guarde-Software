@@ -117,7 +117,6 @@ export class CashComponent implements OnInit {
 
   sortItems(): void {
     this.items.sort((a, b) => {
-      // 1. Primero priorizamos el orden visual que elegiste (Drag & Drop)
       const orderA = a.displayOrder || 0;
       const orderB = b.displayOrder || 0;
 
@@ -125,23 +124,16 @@ export class CashComponent implements OnInit {
         return orderA - orderB;
       }
       
-      // 2. Si tienen exactamente el mismo orden, desempatamos por fecha
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
+      const dateA = (a.date && a.date !== '') ? new Date(a.date).getTime() : 0;
+      const dateB = (b.date && b.date !== '') ? new Date(b.date).getTime() : 0;
       
       return dateA - dateB; 
     });
   }
 
-
   addNewRow(): void {
-    const y = this.selectedYear;
-    const m = this.selectedMonth.toString().padStart(2, '0'); 
-    
-    const defaultDate = `${y}-${m}-01`;
-
     const newItem: CashFlowItem = {
-      date: defaultDate,
+      date: null as any,
       description: '',
       comment: '',
       depo: 0, 
@@ -173,12 +165,15 @@ export class CashComponent implements OnInit {
   }
 
   onItemChange(item: CashFlowItem): void {
+    if (item.date === '') {
+      item.date = null as any;
+    }
     this.calculateLocalTotals(); 
     this.saveSubject.next(item); 
   }
 
   saveItem(item: CashFlowItem): void {
-    this.cashService.upsertItem(item).subscribe(id => {
+    this.cashService.upsertItem(item, this.selectedMonth, this.selectedYear).subscribe(id => {
       item.id = id;
     });
   }

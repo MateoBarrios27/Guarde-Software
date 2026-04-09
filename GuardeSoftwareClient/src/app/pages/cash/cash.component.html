@@ -94,11 +94,10 @@
                   <app-icon *ngIf="!item.date" name="calendar" class="w-4 h-4 text-gray-400 group-hover/cal:text-blue-600 transition-colors pointer-events-none"></app-icon>
                   
                   <input type="date" 
-                         [(ngModel)]="item.date" 
-                         (change)="onItemChange(item)" 
-                         [title]="'Fecha seleccionada: ' + item.date"
-                         required 
-                         class="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed">
+                    [(ngModel)]="item.date" 
+                    (change)="onItemChange(item)" 
+                    [title]="'Fecha seleccionada: ' + item.date"
+                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed">
                 
                 </div>
 

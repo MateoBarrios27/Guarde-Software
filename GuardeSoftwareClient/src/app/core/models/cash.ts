@@ -1,6 +1,6 @@
 export interface CashFlowItem {
   id?: number;
-  date: string;
+  date?: string;
   description: string;
   comment?: string;
   depo: number;

@@ -25,11 +25,11 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost("items")]
-        public async Task<IActionResult> UpsertItem([FromBody] CashFlowItemDto item)
+        public async Task<IActionResult> UpsertItem([FromBody] CashFlowItemDto item, [FromQuery] int month, [FromQuery] int year)
         {
             try
             {
-                int id = await _service.UpsertItemAsync(item);
+                int id = await _service.UpsertItemAsync(item, month, year);
                 return Ok(id);
             }
             catch (Exception ex)

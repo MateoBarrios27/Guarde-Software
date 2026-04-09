@@ -37,7 +37,7 @@ namespace GuardeSoftwareAPI.Dao
                 list.Add(new CashFlowItemDto
                 {
                     Id = Convert.ToInt32(row["item_id"]),
-                    Date = Convert.ToDateTime(row["movement_date"]),
+                    Date = row["movement_date"] != DBNull.Value ? Convert.ToDateTime(row["movement_date"]) : null,
                     Description = row["description"].ToString(),
                     Comment = row["comment"] != DBNull.Value ? row["comment"].ToString() : null,
                     Depo = Convert.ToDecimal(row["amount_depo"]),
@@ -70,7 +70,7 @@ namespace GuardeSoftwareAPI.Dao
 
                     UPDATE cash_flow_items
                     SET comment = @Comment,
-                        movement_date = DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END)
+                        movement_date = CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END
                     WHERE description = @Desc
                     AND (year > @Year OR (year = @Year AND month > @Month));
 
@@ -78,7 +78,7 @@ namespace GuardeSoftwareAPI.Dao
                     SELECT DISTINCT 
                         month, 
                         year, 
-                        DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END), 
+                        CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END,
                         @Desc, @Comment, 0, 0, 0, 0, 0, @NewDisplayOrder
                     FROM cash_flow_items
                     WHERE (year > @Year OR (year = @Year AND month > @Month))
@@ -103,7 +103,7 @@ namespace GuardeSoftwareAPI.Dao
                     UPDATE cash_flow_items
                     SET description = @Desc,
                         comment = @Comment,
-                        movement_date = DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END)
+                        movement_date = CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END
                     WHERE description = @OldDesc
                     AND (year > @Year OR (year = @Year AND month > @Month));
 
@@ -111,7 +111,7 @@ namespace GuardeSoftwareAPI.Dao
                     SELECT DISTINCT 
                         month, 
                         year, 
-                        DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END), 
+                        CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END,
                         @Desc, @Comment, 0, 0, 0, 0, 0, @CurrentDisplayOrder
                     FROM cash_flow_items
                     WHERE (year > @Year OR (year = @Year AND month > @Month))
@@ -124,7 +124,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@Id", item.Id),
                 new SqlParameter("@Month", month),
                 new SqlParameter("@Year", year),
-                new SqlParameter("@Date", item.Date),
+                new SqlParameter("@Date", (object?)item.Date ?? DBNull.Value),
                 new SqlParameter("@Desc", item.Description ?? ""),
                 new SqlParameter("@Comment", (object?)item.Comment ?? DBNull.Value),
                 new SqlParameter("@Depo", item.Depo),

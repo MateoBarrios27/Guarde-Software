@@ -50,10 +50,8 @@ namespace GuardeSoftwareAPI.Services.cash
             return items;
         }
 
-        public async Task<int> UpsertItemAsync(CashFlowItemDto item)
+        public async Task<int> UpsertItemAsync(CashFlowItemDto item, int month, int year)
         {
-            int month = item.Date.Month;
-            int year = item.Date.Year;
             return await _dao.UpsertItemAsync(item, month, year);
         }
 
