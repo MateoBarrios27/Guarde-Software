@@ -18,9 +18,8 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<List<CashFlowItemDto>> GetItemsAsync(int month, int year)
         {
             var list = new List<CashFlowItemDto>();
-            // Agregamos display_order al SELECT y al ORDER BY
             string query = @"
-                SELECT item_id, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order
+                SELECT item_id, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order, replication_state
                 FROM cash_flow_items
                 WHERE month = @Month AND year = @Year
                 ORDER BY display_order ASC, movement_date ASC";
@@ -45,8 +44,8 @@ namespace GuardeSoftwareAPI.Dao
                     IsPaid = Convert.ToBoolean(row["is_paid"]),
                     Retiros = Convert.ToDecimal(row["amount_retiros"]),
                     Extras = Convert.ToDecimal(row["amount_extras"]),
-                    // Mapeamos el orden:
-                    DisplayOrder = row["display_order"] != DBNull.Value ? Convert.ToInt32(row["display_order"]) : 0
+                    DisplayOrder = row["display_order"] != DBNull.Value ? Convert.ToInt32(row["display_order"]) : 0,
+                    ReplicationState = row["replication_state"] != DBNull.Value ? Convert.ToInt32(row["replication_state"]) : 0
                 });
             }
             return list;
@@ -64,25 +63,41 @@ namespace GuardeSoftwareAPI.Dao
 
                     SELECT @NewDisplayOrder = ISNULL(MAX(display_order), 0) + 1 FROM cash_flow_items;
 
-                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order)
+                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order, replication_state)
                     OUTPUT INSERTED.item_id INTO @InsertedId
-                    VALUES (@Month, @Year, @Date, @Desc, @Comment, @Depo, @Casa, @IsPaid, @Retiros, @Extras, @NewDisplayOrder);
+                    VALUES (@Month, @Year, @Date, @Desc, @Comment, @Depo, @Casa, @IsPaid, @Retiros, @Extras, @NewDisplayOrder, @RepState);
 
-                    UPDATE cash_flow_items
-                    SET comment = @Comment,
-                        movement_date = CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END
-                    WHERE description = @Desc
-                    AND (year > @Year OR (year = @Year AND month > @Month));
+                    IF @RepState IN (1, 2)
+                    BEGIN
+                        UPDATE cash_flow_items
+                        SET comment = @Comment,
+                            replication_state = @RepState,
+                            movement_date = CASE WHEN @RepState = 2 THEN CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END ELSE NULL END,
+                            amount_depo = CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END,
+                            amount_casa = CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END,
+                            amount_retiros = CASE WHEN @RepState = 2 THEN @Retiros ELSE 0 END,
+                            amount_extras = CASE WHEN @RepState = 2 THEN @Extras ELSE 0 END
+                        WHERE description = @Desc
+                        AND (year > @Year OR (year = @Year AND month > @Month));
 
-                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order)
-                    SELECT DISTINCT 
-                        month, 
-                        year, 
-                        CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END,
-                        @Desc, @Comment, 0, 0, 0, 0, 0, @NewDisplayOrder
-                    FROM cash_flow_items
-                    WHERE (year > @Year OR (year = @Year AND month > @Month))
-                    AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year);
+                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order, replication_state)
+                        SELECT DISTINCT 
+                            month, 
+                            year, 
+                            CASE WHEN @RepState = 2 THEN CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END ELSE NULL END,
+                            @Desc, 
+                            @Comment, 
+                            CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END, 
+                            CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END, 
+                            0,
+                            CASE WHEN @RepState = 2 THEN @Retiros ELSE 0 END, 
+                            CASE WHEN @RepState = 2 THEN @Extras ELSE 0 END, 
+                            @NewDisplayOrder, 
+                            @RepState
+                        FROM cash_flow_items
+                        WHERE (year > @Year OR (year = @Year AND month > @Month))
+                        AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year);
+                    END
 
                     SELECT Id FROM @InsertedId;";
             }
@@ -97,25 +112,47 @@ namespace GuardeSoftwareAPI.Dao
                     WHERE item_id = @Id;
 
                     UPDATE cash_flow_items 
-                    SET movement_date = @Date, description = @Desc, comment = @Comment, amount_depo = @Depo, amount_casa = @Casa, is_paid = @IsPaid, amount_retiros = @Retiros, amount_extras = @Extras
+                    SET movement_date = @Date, description = @Desc, comment = @Comment, amount_depo = @Depo, amount_casa = @Casa, is_paid = @IsPaid, amount_retiros = @Retiros, amount_extras = @Extras, replication_state = @RepState
                     WHERE item_id = @Id;
 
-                    UPDATE cash_flow_items
-                    SET description = @Desc,
-                        comment = @Comment,
-                        movement_date = CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END
-                    WHERE description = @OldDesc
-                    AND (year > @Year OR (year = @Year AND month > @Month));
+                    IF @RepState IN (1, 2)
+                    BEGIN
+                        UPDATE cash_flow_items
+                        SET description = @Desc,
+                            comment = @Comment,
+                            replication_state = @RepState,
+                            movement_date = CASE WHEN @RepState = 2 THEN CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END ELSE NULL END,
+                            amount_depo = CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END,
+                            amount_casa = CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END,
+                            amount_retiros = CASE WHEN @RepState = 2 THEN @Retiros ELSE 0 END,
+                            amount_extras = CASE WHEN @RepState = 2 THEN @Extras ELSE 0 END
+                        WHERE description = @OldDesc
+                        AND (year > @Year OR (year = @Year AND month > @Month));
 
-                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order)
-                    SELECT DISTINCT 
-                        month, 
-                        year, 
-                        CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END,
-                        @Desc, @Comment, 0, 0, 0, 0, 0, @CurrentDisplayOrder
-                    FROM cash_flow_items
-                    WHERE (year > @Year OR (year = @Year AND month > @Month))
-                    AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year);
+                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order, replication_state)
+                        SELECT DISTINCT 
+                            month, 
+                            year, 
+                            CASE WHEN @RepState = 2 THEN CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END ELSE NULL END,
+                            @Desc, 
+                            @Comment, 
+                            CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END, 
+                            CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END, 
+                            0,
+                            CASE WHEN @RepState = 2 THEN @Retiros ELSE 0 END, 
+                            CASE WHEN @RepState = 2 THEN @Extras ELSE 0 END, 
+                            @CurrentDisplayOrder, 
+                            @RepState
+                        FROM cash_flow_items
+                        WHERE (year > @Year OR (year = @Year AND month > @Month))
+                        AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year);
+                    END
+                    ELSE IF @RepState = 0
+                    BEGIN
+                        DELETE FROM cash_flow_items 
+                        WHERE description = @OldDesc 
+                        AND (year > @Year OR (year = @Year AND month > @Month));
+                    END
 
                     SELECT @Id;";
             }
@@ -131,7 +168,8 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@Casa", item.Casa),
                 new SqlParameter("@IsPaid", item.IsPaid),
                 new SqlParameter("@Retiros", item.Retiros),
-                new SqlParameter("@Extras", item.Extras)
+                new SqlParameter("@Extras", item.Extras),
+                new SqlParameter("@RepState", item.ReplicationState) 
             };
 
             var result = await _accessDB.ExecuteScalarAsync(query, parameters);
@@ -151,12 +189,10 @@ namespace GuardeSoftwareAPI.Dao
 
                 DELETE FROM cash_flow_items WHERE item_id = @Id;
 
-                -- ELIMINACIÓN EN CASCADA (Si el borrado es en el mes actual O un mes futuro)
                 IF (@ItemYear > YEAR(GETDATE()) OR (@ItemYear = YEAR(GETDATE()) AND @ItemMonth >= MONTH(GETDATE())))
                 BEGIN
                     DELETE FROM cash_flow_items 
                     WHERE description = @Desc 
-                    -- Borramos de los meses posteriores al mes donde se ejecutó la acción
                     AND (year > @ItemYear OR (year = @ItemYear AND month > @ItemMonth))
                 END";
 
@@ -263,18 +299,43 @@ namespace GuardeSoftwareAPI.Dao
             int prevMonth = date.Month;
             int prevYear = date.Year;
 
-            // 1. COPIAMOS LOS CONCEPTOS (Tu código intacto)
             string queryItems = @"
                 INSERT INTO cash_flow_items (
                     month, year, movement_date, description, comment, 
-                    amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order
+                    amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, 
+                    display_order, replication_state
                 )
                 SELECT 
-                    @CurrentMonth, @CurrentYear, DATEFROMPARTS(@CurrentYear, @CurrentMonth, 1), 
-                    description, comment, 0, 0, 0, 0, 0, display_order
+                    @CurrentMonth, @CurrentYear, 
+                    
+                    CASE 
+                        WHEN replication_state = 2 THEN 
+                            CASE WHEN movement_date IS NULL THEN NULL 
+                            ELSE DATEFROMPARTS(@CurrentYear, @CurrentMonth, CASE WHEN DAY(movement_date) > DAY(EOMONTH(DATEFROMPARTS(@CurrentYear, @CurrentMonth, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(@CurrentYear, @CurrentMonth, 1))) ELSE DAY(movement_date) END) END
+                        ELSE NULL 
+                    END, 
+                    
+                    description, 
+                    comment, 
+                    
+                    CASE WHEN replication_state = 2 THEN amount_depo ELSE 0 END, 
+                    CASE WHEN replication_state = 2 THEN amount_casa ELSE 0 END, 
+                    
+                    0,
+                    
+                    CASE WHEN replication_state = 2 THEN amount_retiros ELSE 0 END, 
+                    CASE WHEN replication_state = 2 THEN amount_extras ELSE 0 END, 
+                    
+                    display_order,
+                    replication_state
                 FROM cash_flow_items
                 WHERE month = @PrevMonth AND year = @PrevYear
-                AND is_confirmed = 1";
+                AND replication_state IN (1, 2)
+                AND NOT EXISTS (
+                    SELECT 1 FROM cash_flow_items c2 
+                    WHERE c2.description = cash_flow_items.description 
+                    AND c2.month = @CurrentMonth AND c2.year = @CurrentYear
+                )";
 
             string queryAccounts = @"
                 INSERT INTO financial_accounts (
@@ -283,17 +344,30 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT 
                     name, type, current_balance, currency, display_order, @CurrentMonth, @CurrentYear
                 FROM financial_accounts
-                WHERE month = @PrevMonth AND year = @PrevYear";
+                WHERE month = @PrevMonth AND year = @PrevYear
+                AND NOT EXISTS (
+                    SELECT 1 FROM financial_accounts f2 
+                    WHERE f2.name = financial_accounts.name 
+                    AND f2.month = @CurrentMonth AND f2.year = @CurrentYear
+                )";
 
-            var parameters = new[] {
+            var parametersItems = new[] {
                 new SqlParameter("@CurrentMonth", currentMonth),
                 new SqlParameter("@CurrentYear", currentYear),
                 new SqlParameter("@PrevMonth", prevMonth),
                 new SqlParameter("@PrevYear", prevYear)
             };
 
-            await _accessDB.ExecuteCommandAsync(queryItems, parameters);
-            await _accessDB.ExecuteCommandAsync(queryAccounts, parameters);
+            var parametersAccounts = new[] {
+                new SqlParameter("@CurrentMonth", currentMonth),
+                new SqlParameter("@CurrentYear", currentYear),
+                new SqlParameter("@PrevMonth", prevMonth),
+                new SqlParameter("@PrevYear", prevYear)
+            };
+
+            await _accessDB.ExecuteCommandAsync(queryItems, parametersItems);
+            await _accessDB.ExecuteCommandAsync(queryAccounts, parametersAccounts);
+        
         }
 
         public async Task<int> CreateAccountAsync(FinancialAccountDto account, int month, int year)
@@ -369,7 +443,7 @@ namespace GuardeSoftwareAPI.Dao
                         ISNULL(SUM(am.amount), 0) as TotalCreditedInMonth
                     FROM account_movements am
                     INNER JOIN rentals r ON am.rental_id = r.rental_id
-                    WHERE am.movement_type <> 'DEBITO' -- <--- EL CAMBIO CLAVE
+                    WHERE am.movement_type <> 'DEBITO' 
                     AND MONTH(am.movement_date) = @Month
                     AND YEAR(am.movement_date) = @Year
                     GROUP BY r.client_id

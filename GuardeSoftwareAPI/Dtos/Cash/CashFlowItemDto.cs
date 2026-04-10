@@ -9,4 +9,5 @@ public class CashFlowItemDto {
     public decimal Retiros { get; set; }
     public decimal Extras { get; set; }
     public int DisplayOrder { get; set; }
+    public int ReplicationState { get; set; }
 }

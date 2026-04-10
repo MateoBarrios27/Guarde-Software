@@ -136,7 +136,8 @@ export class CashComponent implements OnInit {
       casa: 0, 
       isPaid: false, 
       retiros: 0, 
-      extras: 0
+      extras: 0,
+      replicationState: 0
     };
     
     this.items.push(newItem);
@@ -144,6 +145,11 @@ export class CashComponent implements OnInit {
     this.searchTerm = ''; 
     this.searchDate = '';
     this.filterItems();
+  }
+
+  toggleReplication(item: CashFlowItem): void {
+    item.replicationState = (item.replicationState + 1) % 3;
+    this.onItemChange(item);
   }
 
   get filterMinDate(): string {

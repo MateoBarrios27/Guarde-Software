@@ -10,6 +10,7 @@ export interface CashFlowItem {
   extras: number;
   isConfirmed?: boolean;
   displayOrder?: number;
+  replicationState: number;
 }
 
 export interface MonthlySummary {
