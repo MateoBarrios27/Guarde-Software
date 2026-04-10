@@ -93,7 +93,6 @@ namespace GuardeSoftwareAPI.Controllers
             }
             catch (Exception ex)
             {
-                // Registrá el error real en tus logs
                 return StatusCode(500, "Ocurrió un error interno al guardar el orden.");
             }
         }
@@ -111,9 +110,22 @@ namespace GuardeSoftwareAPI.Controllers
             }
             catch (Exception ex)
             {
-                // Registrá el error real en tus logs
                 return StatusCode(500, "Ocurrió un error interno al guardar el orden de cuentas.");
             }
+        }
+
+        [HttpGet("usd-rate")]
+        public async Task<IActionResult> GetUsdRate([FromQuery] int month, [FromQuery] int year)
+        {
+            var rate = await _service.GetUsdRateAsync(month, year);
+            return Ok(rate);
+        }
+
+        [HttpPost("usd-rate")]
+        public async Task<IActionResult> UpdateUsdRate([FromBody] UpdateAccountRequest request, [FromQuery] int month, [FromQuery] int year)
+        {
+            await _service.UpdateUsdRateAsync(request.Balance, month, year);
+            return Ok();
         }
     }
 }

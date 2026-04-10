@@ -96,5 +96,15 @@ namespace GuardeSoftwareAPI.Services.cash
         {
             await _dao.UpdateAccountsOrderAsync(accountsOrder);
         }
+
+        public async Task<decimal> GetUsdRateAsync(int month, int year)
+        {
+            return await _dao.GetUsdRateAsync(month, year);
+        }
+
+        public async Task UpdateUsdRateAsync(decimal rate, int month, int year)
+        {
+            await _dao.UpdateUsdRateAsync(rate, month, year);
+        }
     }
 }

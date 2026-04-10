@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CashService } from '../../core/services/cash-service/cash.service';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, groupBy, mergeMap } from 'rxjs/operators';
+import { debounceTime, groupBy, mergeMap } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 import { IconComponent } from "../../shared/components/icon/icon.component";
 import { CommonModule } from '@angular/common';
@@ -43,10 +43,10 @@ export class CashComponent implements OnInit {
     ars: { total: 0, banks: 0, cash: 0 },
     usd: { total: 0, banks: 0, cash: 0 }
   };
+
   usdExchangeRate: number = 1;
   private saveSubject = new Subject<CashFlowItem>();
   isLoading = false;
-
   searchTerm: string = '';
   searchDate: string = '';
   filteredItems: any[] = [];
@@ -71,11 +71,6 @@ export class CashComponent implements OnInit {
       this.selectedYear = today.getFullYear();
     }
 
-    const savedRate = localStorage.getItem('usd_exchange_rate');
-    if (savedRate) {
-      this.usdExchangeRate = parseFloat(savedRate);
-    }
-
     this.loadData();
   }
 
@@ -83,17 +78,15 @@ export class CashComponent implements OnInit {
     this.isLoading = true;
     
     this.cashService.getItems(this.selectedMonth, this.selectedYear).subscribe(data => {
+
       this.items = data.map(item => {
         if (item.date && item.date.includes('T')) {
           item.date = item.date.split('T')[0];
         }
-        
-        // EL TRUCO VISUAL: Si la BD manda 0, lo vaciamos para que no haga ruido
         item.depo = item.depo === 0 ? null as any : item.depo;
         item.casa = item.casa === 0 ? null as any : item.casa;
         item.retiros = item.retiros === 0 ? null as any : item.retiros;
         item.extras = item.extras === 0 ? null as any : item.extras;
-        
         return item;
       });
       
@@ -101,9 +94,23 @@ export class CashComponent implements OnInit {
       this.filterItems();
       if (this.items.length === 0) this.addNewRow(); 
       this.calculateLocalTotals();
+      
+      this.cashService.getUsdRate(this.selectedMonth, this.selectedYear).subscribe(rate => {
+        this.usdExchangeRate = rate;
+
+        this.cashService.getAccounts(this.selectedMonth, this.selectedYear).subscribe(acc => {
+            this.accounts = acc.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+            this.calculateAccountTotals();
+        });
+      });
+
+      this.cashService.getMonthlySummary(this.selectedMonth, this.selectedYear).subscribe(sum => {
+        this.summary = sum;
+        this.calculateNetBalance();
+      });
+
       this.isLoading = false;
     });
-
   }
 
   sortItems(): void {
@@ -262,7 +269,7 @@ export class CashComponent implements OnInit {
 
   onAccountChange(account: FinancialAccount): void {
     this.calculateAccountTotals();
-    this.cashService.updateAccountBalance(account.id, account.balance).subscribe({
+    this.cashService.updateAccountBalance(account.id!, account.balance, this.selectedMonth, this.selectedYear).subscribe({
         error: () => Swal.fire('Error', 'No se pudo actualizar el saldo', 'error')
     });
   }
@@ -323,7 +330,6 @@ export class CashComponent implements OnInit {
   }
 
   calculateAccountTotals(): void {
-    // Reseteamos los contadores
     this.accountTotals = {
       ars: { total: 0, banks: 0, cash: 0 },
       usd: { total: 0, banks: 0, cash: 0 }
@@ -332,7 +338,6 @@ export class CashComponent implements OnInit {
     this.accounts.forEach(curr => {
       const bal = Number(curr.balance) || 0;
       
-      // Determinamos a qué moneda sumar
       const currency = curr.currency === 'USD' ? 'usd' : 'ars';
 
       this.accountTotals[currency].total += bal;
@@ -423,7 +428,7 @@ export class CashComponent implements OnInit {
   }
 
   onExchangeRateChange(): void {
-    localStorage.setItem('usd_exchange_rate', this.usdExchangeRate.toString());
+    this.cashService.updateUsdRate(this.usdExchangeRate, this.selectedMonth, this.selectedYear).subscribe();
     this.calculateAccountTotals();
   }
 
@@ -431,5 +436,4 @@ export class CashComponent implements OnInit {
     item.comment = '';
     this.closeComment(item); 
   }
-  
 }

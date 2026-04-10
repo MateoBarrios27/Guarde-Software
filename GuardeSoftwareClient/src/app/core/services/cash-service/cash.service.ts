@@ -36,8 +36,9 @@ export class CashService {
     return this.http.get<FinancialAccount[]>(`${this.apiUrl}/accounts`, { params });
   }
 
-  updateAccountBalance(id: number, newBalance: number): Observable<void> {
-    return this.http.put<void>(`${this.apiUrl}/accounts/${id}`, { balance: newBalance });
+  updateAccountBalance(id: number, newBalance: number, month: number, year: number): Observable<void> {
+    const params = new HttpParams().set('month', month).set('year', year);
+    return this.http.put<void>(`${this.apiUrl}/accounts/${id}`, { balance: newBalance }, { params });
   }
 
   createAccount(account: FinancialAccount, month: number, year: number): Observable<number> {
@@ -55,6 +56,16 @@ export class CashService {
 
    updateAccountsOrder(accountsOrder: { id: number, displayOrder: number }[]) {
     return this.http.post(`${this.apiUrl}/update-accounts-order`, accountsOrder);
+  }
+
+  getUsdRate(month: number, year: number): Observable<number> {
+    const params = new HttpParams().set('month', month).set('year', year);
+    return this.http.get<number>(`${this.apiUrl}/usd-rate`, { params });
+  }
+
+  updateUsdRate(rate: number, month: number, year: number): Observable<void> {
+    const params = new HttpParams().set('month', month).set('year', year);
+    return this.http.post<void>(`${this.apiUrl}/usd-rate`, { balance: rate }, { params });
   }
 
 }

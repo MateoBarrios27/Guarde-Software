@@ -13,5 +13,7 @@ namespace GuardeSoftwareAPI.Services.cash
         Task DeleteAccountAsync(int id);
         Task UpdateItemsOrderAsync(List<CashItemOrderDto> itemsOrder);
         Task UpdateAccountsOrderAsync(List<AccountOrderDto> accountsOrder);
+        Task<decimal> GetUsdRateAsync(int month, int year);
+        Task UpdateUsdRateAsync(decimal rate, int month, int year);
     }
 }

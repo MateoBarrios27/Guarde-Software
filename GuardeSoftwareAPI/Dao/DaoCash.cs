@@ -235,7 +235,22 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task UpdateAccountBalanceAsync(int id, decimal balance)
         {
-            string query = "UPDATE financial_accounts SET current_balance = @Balance, last_updated = GETDATE() WHERE account_id = @Id";
+            string query = @"
+                DECLARE @AccMonth INT;
+                DECLARE @AccYear INT;
+                DECLARE @AccName NVARCHAR(255);
+
+                SELECT @AccMonth = month, @AccYear = year, @AccName = name 
+                FROM financial_accounts WHERE account_id = @Id;
+
+                UPDATE financial_accounts SET current_balance = @Balance, last_updated = GETDATE() WHERE account_id = @Id;
+
+                IF (@AccYear > YEAR(GETDATE()) OR (@AccYear = YEAR(GETDATE()) AND @AccMonth >= MONTH(GETDATE())))
+                BEGIN
+                    UPDATE financial_accounts SET current_balance = @Balance, last_updated = GETDATE()
+                    WHERE name = @AccName AND (year > @AccYear OR (year = @AccYear AND month > @AccMonth));
+                END";
+
             var parameters = new[] {
                 new SqlParameter("@Balance", balance),
                 new SqlParameter("@Id", id)
@@ -351,6 +366,23 @@ namespace GuardeSoftwareAPI.Dao
                     AND f2.month = @CurrentMonth AND f2.year = @CurrentYear
                 )";
 
+            string querySettings = @"
+                INSERT INTO monthly_cash_settings (month, year, usd_exchange_rate)
+                SELECT @CurrentMonth, @CurrentYear, usd_exchange_rate
+                FROM monthly_cash_settings
+                WHERE month = @PrevMonth AND year = @PrevYear
+                AND NOT EXISTS (
+                    SELECT 1 FROM monthly_cash_settings 
+                    WHERE month = @CurrentMonth AND year = @CurrentYear
+                )";
+
+            var parametersSettings = new[] {
+                new SqlParameter("@CurrentMonth", currentMonth),
+                new SqlParameter("@CurrentYear", currentYear),
+                new SqlParameter("@PrevMonth", prevMonth),
+                new SqlParameter("@PrevYear", prevYear)
+            };
+
             var parametersItems = new[] {
                 new SqlParameter("@CurrentMonth", currentMonth),
                 new SqlParameter("@CurrentYear", currentYear),
@@ -367,6 +399,7 @@ namespace GuardeSoftwareAPI.Dao
 
             await _accessDB.ExecuteCommandAsync(queryItems, parametersItems);
             await _accessDB.ExecuteCommandAsync(queryAccounts, parametersAccounts);
+            await _accessDB.ExecuteCommandAsync(querySettings, parametersSettings);
         
         }
 
@@ -379,7 +412,21 @@ namespace GuardeSoftwareAPI.Dao
                 INSERT INTO financial_accounts (name, type, current_balance, currency, display_order, month, year) 
                 VALUES (@Name, @Type, @Balance, @Currency, @NewOrder, @Month, @Year);
 
-                SELECT SCOPE_IDENTITY();";
+                DECLARE @InsertedId INT = SCOPE_IDENTITY();
+
+                IF (@Year > YEAR(GETDATE()) OR (@Year = YEAR(GETDATE()) AND @Month >= MONTH(GETDATE())))
+                BEGIN
+                    INSERT INTO financial_accounts (name, type, current_balance, currency, display_order, month, year)
+                    SELECT DISTINCT @Name, @Type, @Balance, @Currency, @NewOrder, month, year
+                    FROM financial_accounts
+                    WHERE (year > @Year OR (year = @Year AND month > @Month))
+                    AND NOT EXISTS (
+                        SELECT 1 FROM financial_accounts f2 
+                        WHERE f2.name = @Name AND f2.month = financial_accounts.month AND f2.year = financial_accounts.year
+                    );
+                END
+
+                SELECT @InsertedId;";
 
             var parameters = new[] {
                 new SqlParameter("@Name", SqlDbType.NVarChar) { Value = account.Name },
@@ -396,7 +443,22 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task DeleteAccountAsync(int id)
         {
-            string query = "DELETE FROM financial_accounts WHERE account_id = @Id";
+            string query = @"
+                DECLARE @AccMonth INT;
+                DECLARE @AccYear INT;
+                DECLARE @AccName NVARCHAR(255);
+
+                SELECT @AccMonth = month, @AccYear = year, @AccName = name 
+                FROM financial_accounts WHERE account_id = @Id;
+
+                DELETE FROM financial_accounts WHERE account_id = @Id;
+
+                IF (@AccYear > YEAR(GETDATE()) OR (@AccYear = YEAR(GETDATE()) AND @AccMonth >= MONTH(GETDATE())))
+                BEGIN
+                    DELETE FROM financial_accounts 
+                    WHERE name = @AccName AND (year > @AccYear OR (year = @AccYear AND month > @AccMonth));
+                END";
+            
             await _accessDB.ExecuteCommandAsync(query, new[] { new SqlParameter("@Id", id) });
         }
 
@@ -521,6 +583,7 @@ namespace GuardeSoftwareAPI.Dao
                 }
             }
         }
+
         public async Task UpdateAccountsOrderAsync(List<AccountOrderDto> accountsOrder)
         {
             using (var connection = _accessDB.GetConnectionClose())
@@ -528,7 +591,24 @@ namespace GuardeSoftwareAPI.Dao
                 await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
                 {
-                    string query = "UPDATE financial_accounts SET display_order = @DisplayOrder WHERE account_id = @Id";
+                    string query = @"
+                        DECLARE @AccMonth INT;
+                        DECLARE @AccYear INT;
+                        DECLARE @AccName NVARCHAR(255);
+
+                        SELECT @AccMonth = month, @AccYear = year, @AccName = name 
+                        FROM financial_accounts WHERE account_id = @Id;
+
+                        IF @AccName IS NOT NULL
+                        BEGIN
+                            UPDATE financial_accounts SET display_order = @DisplayOrder WHERE account_id = @Id;
+
+                            IF (@AccYear > YEAR(GETDATE()) OR (@AccYear = YEAR(GETDATE()) AND @AccMonth >= MONTH(GETDATE())))
+                            BEGIN
+                                UPDATE financial_accounts SET display_order = @DisplayOrder 
+                                WHERE name = @AccName AND (year > @AccYear OR (year = @AccYear AND month > @AccMonth));
+                            END
+                        END";
                     
                     foreach (var item in accountsOrder)
                     {
@@ -540,6 +620,44 @@ namespace GuardeSoftwareAPI.Dao
                     await transaction.CommitAsync();
                 }
             }
+        }
+
+        public async Task<decimal> GetUsdRateAsync(int month, int year)
+        {
+            string query = "SELECT usd_exchange_rate FROM monthly_cash_settings WHERE month = @Month AND year = @Year";
+            var result = await _accessDB.ExecuteScalarAsync(query, new[] {
+                new SqlParameter("@Month", month),
+                new SqlParameter("@Year", year)
+            });
+            return result != null && result != DBNull.Value ? Convert.ToDecimal(result) : 1m;
+        }
+
+        public async Task UpdateUsdRateAsync(decimal rate, int month, int year)
+        {
+            string query = @"
+                IF EXISTS (SELECT 1 FROM monthly_cash_settings WHERE month = @Month AND year = @Year)
+                BEGIN
+                    UPDATE monthly_cash_settings SET usd_exchange_rate = @Rate WHERE month = @Month AND year = @Year
+                END
+                ELSE
+                BEGIN
+                    INSERT INTO monthly_cash_settings (month, year, usd_exchange_rate) VALUES (@Month, @Year, @Rate)
+                END
+
+                IF (@Year > YEAR(GETDATE()) OR (@Year = YEAR(GETDATE()) AND @Month >= MONTH(GETDATE())))
+                BEGIN
+                    UPDATE monthly_cash_settings 
+                    SET usd_exchange_rate = @Rate 
+                    WHERE (year > @Year OR (year = @Year AND month > @Month));
+                END";
+            
+            var parameters = new[] {
+                new SqlParameter("@Rate", rate),
+                new SqlParameter("@Month", month),
+                new SqlParameter("@Year", year)
+            };
+            
+            await _accessDB.ExecuteCommandAsync(query, parameters);
         }
     }
 }
