@@ -84,30 +84,25 @@ export class CashComponent implements OnInit {
     
     this.cashService.getItems(this.selectedMonth, this.selectedYear).subscribe(data => {
       this.items = data.map(item => {
-        // Corrección de fecha (si la tenías)
         if (item.date && item.date.includes('T')) {
           item.date = item.date.split('T')[0];
         }
+        
+        // EL TRUCO VISUAL: Si la BD manda 0, lo vaciamos para que no haga ruido
+        item.depo = item.depo === 0 ? null as any : item.depo;
+        item.casa = item.casa === 0 ? null as any : item.casa;
+        item.retiros = item.retiros === 0 ? null as any : item.retiros;
+        item.extras = item.extras === 0 ? null as any : item.extras;
+        
         return item;
       });
+      
       this.sortItems();
-
       this.filterItems();
-
       if (this.items.length === 0) this.addNewRow(); 
       this.calculateLocalTotals();
       this.isLoading = false;
     });
-
-    this.cashService.getMonthlySummary(this.selectedMonth, this.selectedYear).subscribe(sum => {
-      this.summary = sum;
-      this.calculateNetBalance();
-    });
-
-    this.cashService.getAccounts(this.selectedMonth, this.selectedYear).subscribe(acc => {
-      this.accounts = acc.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-      this.calculateAccountTotals();
-  });
 
   }
 
@@ -132,11 +127,11 @@ export class CashComponent implements OnInit {
       date: null as any,
       description: '',
       comment: '',
-      depo: 0, 
-      casa: 0, 
+      depo: null as any, 
+      casa: null as any, 
       isPaid: false, 
-      retiros: 0, 
-      extras: 0,
+      retiros: null as any, 
+      extras: null as any, 
       replicationState: 0
     };
     
@@ -175,7 +170,16 @@ export class CashComponent implements OnInit {
   }
 
   saveItem(item: CashFlowItem): void {
-    this.cashService.upsertItem(item, this.selectedMonth, this.selectedYear).subscribe(id => {
+
+    const payloadToSave: CashFlowItem = {
+      ...item,
+      depo: item.depo || 0,
+      casa: item.casa || 0,
+      retiros: item.retiros || 0,
+      extras: item.extras || 0
+    };
+
+    this.cashService.upsertItem(payloadToSave, this.selectedMonth, this.selectedYear).subscribe(id => {
       item.id = id;
     });
   }

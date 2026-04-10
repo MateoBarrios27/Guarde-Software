@@ -361,9 +361,9 @@
 
               </td>
 
-              <td class="p-1 bg-blue-50/20 relative group/amt">
+              <td class="p-1 bg-blue-50/20 relative group/amt" >
                 <div class="flex items-center justify-end w-full h-full relative">
-                  <button *ngIf="item.depo != 0" (click)="item.depo = 0; onItemChange(item)" tabindex="-1"
+                 <button *ngIf="item.depo" (click)="item.depo = null; onItemChange(item)" tabindex="-1"
                           class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
                     <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
                   </button>
@@ -374,7 +374,7 @@
 
               <td class="p-1 bg-orange-50/20 relative group/amt">
                 <div class="flex items-center justify-end w-full h-full relative">
-                  <button *ngIf="item.casa != 0" (click)="item.casa = 0; onItemChange(item)" tabindex="-1"
+                  <button *ngIf="item.casa" (click)="item.casa = null; onItemChange(item)" tabindex="-1"
                           class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
                     <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
                   </button>
@@ -385,7 +385,7 @@
 
               <td class="p-1 relative group/amt">
                 <div class="flex items-center justify-end w-full h-full relative">
-                  <button *ngIf="item.retiros != 0" (click)="item.retiros = 0; onItemChange(item)" tabindex="-1"
+                  <button *ngIf="item.retiros" (click)="item.retiros = null; onItemChange(item)" tabindex="-1"
                           class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
                     <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
                   </button>
