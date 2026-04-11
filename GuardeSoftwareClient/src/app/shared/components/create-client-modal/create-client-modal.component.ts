@@ -632,4 +632,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     });
     return totalAmount;
   }
+
+  blurInput(event: Event): void {
+    (event.target as HTMLElement).blur();
+  }
 }
