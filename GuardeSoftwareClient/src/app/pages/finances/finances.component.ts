@@ -271,201 +271,153 @@ private calcCommissions(selectedMethodId: number, preferredPaymentId: number) {
     return newAmount;
   }
 
-savePaymentModal(dto : CreatePaymentDTO){
 
+  savePaymentModal(dto : CreatePaymentDTO){
 
       if (!this.paymentMethods?.length) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Cargando métodos de pago',
-          text: 'Esperá a que carguen los métodos de pago para registrar el pago.',
-          confirmButtonColor: '#2563eb'
-        });
+        Swal.fire({ icon: 'warning', title: 'Cargando métodos de pago', text: 'Esperá a que carguen los métodos de pago para registrar el pago.', confirmButtonColor: '#2563eb' });
         return;
       }
-
       if (!this.paymentDto.clientId || this.paymentDto.clientId <= 0) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Cliente requerido',
-          text: 'Tenés que seleccionar un cliente antes de registrar el pago.',
-          confirmButtonColor: '#2563eb'
-        });
+        Swal.fire({ icon: 'warning', title: 'Cliente requerido', text: 'Tenés que seleccionar un cliente antes de registrar el pago.', confirmButtonColor: '#2563eb' });
+        return;
+      }
+      if (!dto.amount || dto.amount <= 0) {
+        Swal.fire({ icon: 'warning', title: 'Monto inválido', text: 'Debes ingresar un monto válido antes de guardar el pago.', confirmButtonText: 'Entendido', confirmButtonColor: '#2563eb' });
+        return;
+      }
+      if (!dto.paymentMethodId) {
+         Swal.fire({ icon: 'warning', title: 'Método de pago requerido', text: 'Debes seleccionar un método de pago antes de continuar.', confirmButtonText: 'Entendido', confirmButtonColor: '#2563eb' });
         return;
       }
 
       if (this.manualDateEnabled && this.dateString) {
         const [year, month, day] = this.dateString.split('-').map(Number);
         const currentTime = new Date();
-        this.paymentDto.date = new Date(
-          year,
-          month - 1,
-          day,
-          currentTime.getHours(),
-          currentTime.getMinutes(),
-          currentTime.getSeconds()
-        );
-      }
-
-      if (!dto.amount || dto.amount <= 0) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Monto inválido',
-          text: 'Debes ingresar un monto válido antes de guardar el pago.',
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#2563eb', 
-        });
-        return;
-      }
-
-      if (!dto.paymentMethodId) {
-         Swal.fire({
-        icon: 'warning',
-        title: 'Método de pago requerido',
-        text: 'Debes seleccionar un método de pago antes de continuar.',
-        confirmButtonText: 'Entendido',
-        confirmButtonColor: '#2563eb'
-      });
-        return;
+        this.paymentDto.date = new Date(year, month - 1, day, currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds());
       }
 
       if (dto.isAdvancePayment) {
-        if (
-          dto.advanceMonths === null ||
-          dto.advanceMonths === undefined ||
-          isNaN(Number(dto.advanceMonths)) ||
-          dto.advanceMonths < 1
-        ) {
-          Swal.fire({
-            icon: 'warning',
-            title: 'Pago adelantado incompleto',
-            text: 'Debes ingresar la cantidad de meses adelantados (mínimo 1).',
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#2563eb',
-          });
+        if (dto.advanceMonths === null || dto.advanceMonths === undefined || isNaN(Number(dto.advanceMonths)) || dto.advanceMonths < 1) {
+          Swal.fire({ icon: 'warning', title: 'Pago adelantado incompleto', text: 'Debes ingresar la cantidad de meses adelantados (mínimo 1).', confirmButtonText: 'Entendido', confirmButtonColor: '#2563eb' });
           return;
         }
       }
 
-      this.amountOriginal = dto.amount;
+      const amountPhysicalEntered = dto.amount;
 
-      const { selectedCommission, includedCommission, extraCommission } =
-        this.calcCommissions(dto.paymentMethodId, this.selectedPreferredPaymentId);
+      const calc = this.getCalculatedAmounts(amountPhysicalEntered, dto.paymentMethodId, this.selectedPreferredPaymentId);
 
-      // Para mantener consistencia con tu variable usada en pantalla
-      this.commision = extraCommission;
-
-      dto.amount = this.AmountWithComission(dto.amount, dto.paymentMethodId, this.selectedPreferredPaymentId);
-      
-      const formatARS = (value: number) => {
-        return new Intl.NumberFormat('es-AR', {
-          style: 'currency',
-          currency: 'ARS',
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2
-        }).format(value);
+      const payloadToSave: CreatePaymentDTO = {
+        ...dto,
+        amount: calc.amountEntered, 
+        
+        commissionAmount: calc.isSurcharge ? calc.difference : (calc.isDiscount ? -calc.difference : 0),
+        
+        commissionConcept: calc.isSurcharge 
+            ? `Recargo por pago en ${this.getNamePaymentMethodById(dto.paymentMethodId)} (${calc.selectedCommission}%)`
+            : (calc.isDiscount ? `Bonificación por pago en ${this.getNamePaymentMethodById(dto.paymentMethodId)} (${calc.selectedCommission}%)` : '')
       };
 
+      const formatARS = (value: number) => {
+        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+      };
+
+      let commissionHtml = '';
+      if (calc.isSurcharge) {
+          commissionHtml = `
+              <div class="flex justify-between text-sm text-orange-600 mt-1 pt-2 border-t border-gray-200">
+                <span>Porción retenida por comisión</span>
+                <span class="font-bold">- ${formatARS(calc.difference)}</span>
+              </div>
+              <div class="mt-2 text-[11px] text-gray-500 leading-tight">
+                Al pagar con un método más caro (${calc.selectedCommission}%), una parte del ingreso no cancela deuda.
+              </div>`;
+      } else if (calc.isDiscount) {
+          commissionHtml = `
+              <div class="flex justify-between text-sm text-green-600 mt-1 pt-2 border-t border-gray-200">
+                <span>Bonificación a favor aplicada</span>
+                <span class="font-bold">+ ${formatARS(calc.difference)}</span>
+              </div>
+              <div class="mt-2 text-[11px] text-gray-500 leading-tight">
+                Al pagar con un método más barato (${calc.selectedCommission}%), el ingreso "rinde más" en su cuenta.
+              </div>`;
+      } else {
+          commissionHtml = `<div class="mt-2 text-xs text-gray-500">Mismo método de pago habitual. Sin diferencias.</div>`;
+      }
+
       Swal.fire({
-      title: 'Confirmar registro de pago',
+      title: 'Resumen de Transacción',
       html: `
         <div class="text-left space-y-3">
           <div class="pb-3 border-b border-gray-200">
-            <div class="text-sm text-gray-500">Método de pago</div>
-            <div class="text-base font-semibold text-gray-800">
-              ${this.getNamePaymentMethodById(dto.paymentMethodId)}
-            </div>
+            <div class="text-sm text-gray-500">Método de pago utilizado</div>
+            <div class="text-base font-semibold text-gray-800">${this.getNamePaymentMethodById(dto.paymentMethodId)}</div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
-              <div class="text-sm text-gray-500">Monto base</div>
-              <div class="text-lg font-semibold text-gray-900">${formatARS(this.amountOriginal)}</div>
+              <div class="text-sm text-gray-500">Dinero ingresado</div>
+              <div class="text-lg font-semibold text-gray-900">${formatARS(calc.amountEntered)}</div>
             </div>
 
-            <div class="p-3 rounded-lg bg-blue-50 border border-blue-200">
-              <div class="text-sm text-blue-800">Total a cobrar</div>
-              <div class="text-lg font-bold text-blue-900">${formatARS(dto.amount)}</div>
+            <div class="p-3 rounded-lg ${calc.isDiscount ? 'bg-green-50 border-green-200' : (calc.isSurcharge ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200')}">
+              <div class="text-sm ${calc.isDiscount ? 'text-green-800' : (calc.isSurcharge ? 'text-orange-800' : 'text-blue-800')}">Deuda cancelada</div>
+              <div class="text-lg font-bold ${calc.isDiscount ? 'text-green-900' : (calc.isSurcharge ? 'text-orange-900' : 'text-blue-900')}">${formatARS(calc.equivalentDebtPaid)}</div>
             </div>
           </div>
 
           <div class="p-4 rounded-lg border border-gray-200 bg-white">
-            <div class="text-base font-semibold text-gray-800 mb-2">Detalle de comisiones</div>
-
+            <div class="text-base font-semibold text-gray-800 mb-2">Desglose de cuenta corriente</div>
             <div class="flex justify-between text-sm text-gray-700">
-              <span>Comisión del método</span>
-              <span class="font-semibold">${selectedCommission}%</span>
+              <span>Acreditación base</span>
+              <span class="font-semibold">${formatARS(calc.amountEntered)}</span>
             </div>
-
-            <div class="flex justify-between text-sm text-gray-700 mt-1">
-              <span>Comisión incluida (predefinida)</span>
-              <span class="font-semibold">${includedCommission}%</span>
-            </div>
-
-            <div class="flex justify-between text-sm text-gray-700 mt-1 pt-2 border-t border-gray-200">
-              <span>Comisión extra aplicada</span>
-              <span class="font-semibold">${extraCommission}%</span>
-            </div>
-
-            ${
-              extraCommission === 0
-                ? `<div class="mt-2 text-xs text-gray-500">
-                    No se aplica comisión extra porque el monto base ya contempla una comisión mayor o igual.
-                  </div>`
-                : `<div class="mt-2 text-xs text-gray-500">
-                    Se aplica únicamente la diferencia de comisión por elegir un método con mayor porcentaje.
-                  </div>`
-            }
-          </div>
-
-          <div class="text-xs text-gray-500">
-            Nota: el monto base ya incluye la comisión del método preferido del cliente.
+            ${commissionHtml}
           </div>
         </div>
       `,
-      icon: 'question',
+      icon: 'info',
       showCancelButton: true,
       confirmButtonText: 'Registrar pago',
       cancelButtonText: 'Cancelar',
       buttonsStyling: false,
       customClass: {
-        confirmButton:
-          'bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-all duration-150',
-        cancelButton:
-          'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
+        confirmButton: 'bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-all duration-150',
+        cancelButton: 'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
         actions: 'flex justify-end gap-3 mt-4',
         popup: 'rounded-xl shadow-lg p-4',
         icon: 'scale-60 mt-1',
       }
       }).then((result) => {
         if (result.isConfirmed) {
-          this.paymentService.CreatePayment(dto).subscribe({
+          
+          this.paymentService.CreatePayment(payloadToSave).subscribe({
             next: () => {
               Swal.fire({
-              title: 'Pago registrado',
-              text: 'El pago fue registrado correctamente.',
-              icon: 'success',
-              confirmButtonText: 'Aceptar',
-              confirmButtonColor: '#2563eb'
-            });
+                title: 'Pago registrado', 
+                text: 'El pago y el ajuste de cuenta fueron registrados correctamente.', 
+                icon: 'success',
+                confirmButtonColor: '#2563eb'
+              });
               this.closeClientModal();
               setTimeout(() => this.loadPayments(), 100); 
             },
             error: (err) => {
-            console.error('Error al guardar payment:', err);
-            Swal.fire({
-              title: 'Error',
-              text: 'Hubo un problema al registrar el pago.',
-              icon: 'error',
-              confirmButtonText: 'Aceptar',
-              confirmButtonColor: '#2563eb'
-            });
+              console.error('Error al guardar payment:', err);
+              Swal.fire({
+                title: 'Error', 
+                text: 'Hubo un problema al registrar la transacción en la base de datos.', 
+                icon: 'error',
+                confirmButtonColor: '#2563eb'
+              });
             }
           });  
+        } else {
+            dto.amount = amountPhysicalEntered; 
         }
-        dto.amount = this.amountOriginal;
       });
-}
+  }
 
 selectClient(client: any) {
   this.selectedClientId = client.id;
@@ -609,4 +561,48 @@ selectClient(client: any) {
         }
       });
     }
+
+  blurInput(event: Event): void {
+    (event.target as HTMLElement).blur();
   }
+
+  getCalculatedAmounts(amountEntered: number, selectedMethodId: number, preferredPaymentId: number) {
+    if (!amountEntered || amountEntered <= 0) {
+        return { amountEntered: 0, equivalentDebtPaid: 0, difference: 0, isSurcharge: false, isDiscount: false, selectedCommission: 0, includedCommission: 0 };
+    }
+
+    const selectedCommission = this.getCommissionByMethodId(selectedMethodId);
+    const includedCommission = this.getCommissionByMethodId(preferredPaymentId);
+    
+    if (selectedCommission === includedCommission) {
+        return { 
+          amountEntered, 
+          equivalentDebtPaid: amountEntered, 
+          difference: 0, 
+          isSurcharge: false, 
+          isDiscount: false, 
+          selectedCommission, 
+          includedCommission 
+        };
+    }
+
+    const rawBaseAmount = amountEntered / (1 + (selectedCommission / 100));
+
+    const equivalentDebtPaid = rawBaseAmount * (1 + (includedCommission / 100));
+
+    const difference = amountEntered - equivalentDebtPaid;
+
+    return {
+        amountEntered: amountEntered,             
+        equivalentDebtPaid: equivalentDebtPaid,   
+        difference: Math.abs(difference),           
+        isSurcharge: difference > 0,               
+        isDiscount: difference < 0,              
+        selectedCommission,
+        includedCommission
+    };
+  }
+ 
+}
+
+  

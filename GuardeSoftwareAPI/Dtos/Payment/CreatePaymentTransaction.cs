@@ -16,8 +16,12 @@ namespace GuardeSoftwareAPI.Dtos.Payment
         public DateTime Date { get; set; }
 
         //for logical of advance payments
-         public bool IsAdvancePayment { get; set; }
-         public int? AdvanceMonths { get; set; }
+        public bool IsAdvancePayment { get; set; }
+        public int? AdvanceMonths { get; set; }
+
+        //for commission
+        public decimal? CommissionAmount { get; set; }
+        public string? CommissionConcept { get; set; }
         
     }
 }

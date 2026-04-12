@@ -174,46 +174,54 @@ namespace GuardeSoftwareAPI.Services.payment
 				}
 
 				var movement = new AccountMovement
-				{
-					RentalId = rental.Id,
-					PaymentId = paymentId,
-					MovementDate = dto.Date, // Igual que arriba
-					MovementType = string.IsNullOrWhiteSpace(dto.MovementType) ? "CREDITO" : dto.MovementType,
-					Concept = string.IsNullOrWhiteSpace(dto.Concept) ? "Pago de alquiler" : dto.Concept,
-					Amount = dto.Amount
-				};
+                {
+                    RentalId = rental.Id,
+                    PaymentId = paymentId, 
+                    MovementDate = dto.Date,
+                    MovementType = string.IsNullOrWhiteSpace(dto.MovementType) ? "CREDITO" : dto.MovementType,
+                    Concept = string.IsNullOrWhiteSpace(dto.Concept) ? "Pago de alquiler" : dto.Concept,
+                    Amount = dto.Amount // Este monto ya viene con recargo o descuento desde Angular
+                };
+                await accountMovementService.CreateAccountMovementTransactionAsync(movement, connection, transaction);
 
-				await accountMovementService.CreateAccountMovementTransactionAsync(movement, connection, transaction);
+                // --- 2. INICIO LÓGICA DE BALANCE (RECARGOS/DESCUENTOS) ---
+                if (dto.CommissionAmount.HasValue && dto.CommissionAmount.Value != 0)
+                {
+                    var commMovement = new AccountMovement
+                    {
+                        RentalId = rental.Id,
+                        PaymentId = paymentId, // Lo atamos al mismo pago para borrado en cascada
+                        MovementDate = dto.Date,
+                        
+                        // Si vino positivo (>0) es un recargo -> Hacemos un DÉBITO
+                        // Si vino negativo (<0) es descuento -> Hacemos un CRÉDITO a favor
+                        MovementType = dto.CommissionAmount.Value > 0 ? "DEBITO" : "CREDITO",
+                        
+                        Concept = string.IsNullOrWhiteSpace(dto.CommissionConcept) ? "Ajuste por método de pago" : dto.CommissionConcept,
+                        
+                        Amount = Math.Abs(dto.CommissionAmount.Value) // Siempre positivo en BD
+                    };
 
-				// --- INICIO DE LA NUEVA LÓGICA ---
-				
-				// Solo chequeamos si es un "CREDITO" (un pago que reduce deuda)
-				if (movement.MovementType == "CREDITO")
-				{
-					// 1. Obtenemos el balance actualizado DENTRO de la transacción
-					decimal newBalance = await daoRental.GetBalanceByRentalIdTransactionAsync(rental.Id, connection, transaction);
-					
-					logger.LogInformation("Pago de ${Amount} registrado para Rental ID {RentalId}. Nuevo balance: ${NewBalance}", dto.Amount, rental.Id, newBalance);
+                    await accountMovementService.CreateAccountMovementTransactionAsync(commMovement, connection, transaction);
+                    logger.LogInformation("Se registró un ajuste de cuenta por {Amount} tipo {Type} (Rental: {RentalId})", commMovement.Amount, commMovement.MovementType, rental.Id);
+                }
+                // --- FIN LÓGICA DE BALANCE ---
 
-					// 2. Validamos el balance
-					// (Tu lógica de balance es DEBITO - CREDITO, así que > 0 significa que debe)
-					if (newBalance <= 0)
-					{
-						// 3. ¡El cliente saldó su deuda! Reseteamos el contador de mora.
-						await daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
-						logger.LogInformation("Balance saldado para Rental ID {RentalId}. Contador de meses impagos reseteado a 0.", rental.Id);
-					}
-					else
-					{
-						// El cliente pagó, pero sigue debiendo (pago parcial)
-						logger.LogInformation("Pago parcial registrado para Rental ID {RentalId}. El cliente aún debe ${NewBalance}. No se resetea el contador de mora.", rental.Id, newBalance);
-					}
-				}
-				
-				// --- FIN DE LA NUEVA LÓGICA ---
+                // 3. REVISIÓN DE MORA FINAL (Chequeamos después de que entraron todos los movimientos)
+                if (movement.MovementType == "CREDITO")
+                {
+                    decimal newBalance = await daoRental.GetBalanceByRentalIdTransactionAsync(rental.Id, connection, transaction);
+                    logger.LogInformation("Pago de ${Amount} registrado para Rental ID {RentalId}. Nuevo balance: ${NewBalance}", dto.Amount, rental.Id, newBalance);
 
-				await transaction.CommitAsync();
-				return true;
+                    if (newBalance <= 0)
+                    {
+                        await daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
+                        logger.LogInformation("Balance saldado para Rental ID {RentalId}. Contador de mora reseteado a 0.", rental.Id);
+                    }
+                }
+
+                await transaction.CommitAsync();
+                return true;
 			}
 			catch (Exception ex)
 			{

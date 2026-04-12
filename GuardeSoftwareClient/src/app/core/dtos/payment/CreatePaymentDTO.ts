@@ -8,4 +8,6 @@ export interface CreatePaymentDTO{
     date: Date;
     isAdvancePayment: boolean;
     advanceMonths?: number | null;
+    commissionAmount?: number;
+    commissionConcept?: string;
 }

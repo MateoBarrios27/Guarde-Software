@@ -276,33 +276,44 @@
                 Cliente seleccionado
               </label>
 
-              <div class="grid grid-cols-1 lg:grid-cols-3 bg-white/70 border rounded divide-y lg:divide-y-0 lg:divide-x border-gray-200">
+              <div class="bg-white/70 border rounded-md border-gray-200 overflow-hidden flex flex-col">
                 
-                <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
-                  <label class="block font-medium text-indigo-900 truncate">
-                    {{ getClientNameById(selectedClientId) }}
-                  </label>
-                  <p class="text-sm text-gray-500">
-                    ID Pago: {{ selectedClientIdentifier }}
-                  </p>
+                <div class="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x border-gray-200">
+                  
+                  <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
+                    <label class="block font-medium text-indigo-900 truncate">
+                      {{ getClientNameById(selectedClientId) }}
+                    </label>
+                    <p class="text-sm text-gray-500">
+                      ID Pago: {{ selectedClientIdentifier }}
+                    </p>
+                  </div>
+
+                  <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
+                    <p class="block font-medium text-indigo-900 mb-0.5">
+                      Balance
+                    </p>
+                    <p class="text-sm text-gray-800">
+                      $ {{ selectedClientBalance | number:'1.2-2' }}
+                    </p>
+                  </div>
+
+                  <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
+                    <p class="block font-medium text-indigo-900 mb-0.5">
+                      Pago mensual
+                    </p>
+                    <p class="text-sm text-gray-800">
+                      $ {{ selectedClientRentAmount | number:'1.2-2' }}
+                    </p>
+                  </div>
+
                 </div>
 
-                <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
-                  <p class="block font-medium text-indigo-900 mb-0.5">
-                    Balance
-                  </p>
-                  <p class="text-sm text-gray-800">
-                    $ {{ selectedClientBalance | number:'1.2-2' }}
-                  </p>
-                </div>
-
-                <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
-                  <p class="block font-medium text-indigo-900 mb-0.5">
-                    Pago mensual
-                  </p>
-                  <p class="text-sm text-gray-800">
-                    $ {{ selectedClientRentAmount | number:'1.2-2' }}
-                  </p>
+                <div class="bg-indigo-50/50 border-t border-gray-200 p-2 px-3 text-xs md:text-sm text-gray-600 flex justify-between items-center">
+                  <span>Método de pago del cliente:</span>
+                  <span class="font-semibold text-indigo-900 bg-indigo-50/50 px-2 py-0.5 rounded">
+                    {{ getNamePaymentMethodById(selectedPreferredPaymentId) }}
+                  </span>
                 </div>
 
               </div>
@@ -330,6 +341,7 @@
                   <input
                     type="text"
                     appCurrencyFormat
+                    (keydown.enter)="blurInput($event)"
                     min="0.01"
                     step="0.01"
                     [(ngModel)]="paymentDto.amount"
