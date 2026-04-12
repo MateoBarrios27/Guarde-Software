@@ -181,159 +181,194 @@
 
 
 <div *ngIf="showPaymentModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
      (keydown.escape)="closePaymentModal()"
      tabindex="-1">
 
-  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
+  <div class="w-full max-w-3xl bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl shadow-2xl p-5 md:p-6 border border-indigo-200 flex flex-col max-h-[95vh] max-w-[75vh] relative animate-fadeIn"
        (click)="$event.stopPropagation()">
 
-    <div class="flex items-center justify-between border-b pb-3 mb-4">
-      <div class="flex items-center gap-2">
-        <app-icon name="wallet" class="h-6 w-6 text-green-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">Registrar Pago</h3>
-      </div>
+    <div class="flex items-center justify-between mb-4 border-b border-indigo-200/60 pb-3">
+      <h4 class="font-medium text-indigo-900 flex items-center gap-2 text-lg">
+        <app-icon name="dollar-sign" class="h-5 w-5"></app-icon>
+        Detalle del Pago
+      </h4>
       <button type="button"
               (click)="closePaymentModal()"
-              class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+              class="text-indigo-400 hover:text-indigo-800 transition-colors text-2xl leading-none">
+        ×
+      </button>
     </div>
 
-    <!-- Body -->
-    <div class="space-y-5">
-
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 rounded-lg  text-lg text-gray-600">
-        <div class="flex items-center gap-2">
-          <app-icon name="user" class="h-6 w-6 text-blue-500"></app-icon>
-          <span class="font-medium text-gray-800">{{ selectedClientName }}</span>
-        </div>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Identificador de pago</label>
-          <span class="block px-3 py-2 rounded-md text-sm text-gray-800 border border-gray-200">{{ selectedPaymentIdentifier }}</span>
-
-        </div>
-        <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Concepto</label>
-          <span class="block px-3 py-2 rounded-md text-sm text-gray-800 border border-gray-200">
-            {{ paymentDto.concept }}
-          </span>
-        </div>
-
-        <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Balance actual</label>
-          <span class="block px-3 py-2 rounded-md text-sm text-gray-800 bg-gray-50 border border-gray-200">
-            ${{ selectedBalance | number:'1.2-2' }}
-          </span>
-        </div>
-
-        <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Pago mensual</label>
-          <span class="block px-3 py-2 rounded-md text-sm text-gray-800 bg-gray-50 border border-gray-200">
-            ${{ selectedCurrentRent | number:'1.2-2' }}
-          </span>
-        </div>
-
+    <div class="text-sm flex-1 min-h-0 overflow-y-auto pr-1 space-y-4 custom-scrollbar">
       
+      <div>
+        <label class="block mb-1.5 font-medium text-indigo-900">
+          Cliente seleccionado
+        </label>
 
-         <div class="md:col-span-2">
-            <div class="flex items-center justify-between mb-2">
-              <span class="block text-sm text-gray-600 font-medium">Fecha de pago</span>
-              <button
-                type="button"
-                class="text-sm text-gray-800 underline" 
-                (click)="toggleManualDate()">
-                {{ manualDateEnabled ? 'Usar fecha actual' : 'Editar fecha' }}
-              </button>
-            </div>
-
-            <div *ngIf="!manualDateEnabled" class="text-sm text-gray-600 mb-2">
-              Se usará la fecha y hora actual al guardar.
-            </div>
-
-            <div *ngIf="manualDateEnabled">
-              <input
-                type="date"
-                [disabled]="!manualDateEnabled"
-                [(ngModel)]="dateString"
-                (ngModelChange)="onManualDateChange($event)"
-              >
-            </div>
-          </div>
-         <div class="md:col-span-2">
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Medio de pago</label>
-            <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-400 bg-white">
-              <select [(ngModel)]="paymentDto.paymentMethodId"
-                      class="w-full px-3 py-2 text-gray-800 focus:outline-none bg-white">
-                <option *ngFor="let method of paymentMethods" [value]="method.id">
-                  {{ method.name }}
-                </option>
-              </select>
-            </div>
-          </div>
-          <div class="md:col-span-2">
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Monto a registrar</label>
-            <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-400">
-              <span class="px-3 text-gray-500 select-none">$</span>
-              <input type="text"
-                    appCurrencyFormat
-                    min="0.01"
-                    step="0.01"
-                    [(ngModel)]="paymentDto.amount"
-                    class="w-full px-3 py-2 focus:outline-none text-gray-800">
-            </div>
-          </div>
-
-          <!-- Pago adelantado -->
-          <div class="md:col-span-2">
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Pago adelantado</label>
-
-            <div class="flex flex-col md:flex-row md:items-center gap-3">
-              <label
-                class="flex items-center gap-2  rounded-lg px-3 py-2 bg-white
-                      cursor-pointer select-none"
-              >
-                <input
-                  type="checkbox"
-                   [(ngModel)]="paymentDto.isAdvancePayment"
-                  (change)="onAdvancePaymentToggle()"
-                  class="h-4 w-4"
-                />
-                <span class="text-gray-800">Pago adelantado</span>
+        <div class="bg-white/80 border rounded-md border-gray-200 overflow-hidden flex flex-col shadow-sm">
+          <div class="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x border-gray-200">
+            
+            <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
+              <label class="block font-medium text-indigo-900 truncate">
+                {{ selectedClientName }}
               </label>
-
-              <div *ngIf="paymentDto.isAdvancePayment"
-                  class="flex items-center border border-gray-300 rounded-lg overflow-hidden
-                          focus-within:ring-2 focus-within:ring-gray-200 bg-white">
-                <span class="px-3 text-gray-500 select-none">Meses adelantados</span>
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                     [(ngModel)]="paymentDto.advanceMonths"
-                     (ngModelChange)="onAdvanceMonthsChange()"
-                  class="w-24 px-3 py-2 focus:outline-none text-gray-800"
-                  placeholder="1"
-                />
-              </div>
+              <p class="text-sm text-gray-500">
+                ID Pago: {{ selectedPaymentIdentifier }}
+              </p>
             </div>
+
+            <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
+              <p class="block font-medium text-indigo-900 mb-0.5">
+                Balance
+              </p>
+              <p class="text-sm text-gray-800">
+                $ {{ selectedBalance | number:'1.2-2' }}
+              </p>
+            </div>
+
+            <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
+              <p class="block font-medium text-indigo-900 mb-0.5">
+                Pago mensual
+              </p>
+              <p class="text-sm text-gray-800">
+                $ {{ selectedCurrentRent | number:'1.2-2' }}
+              </p>
+            </div>
+
           </div>
 
-
+          <div class="bg-indigo-50/50 border-t border-gray-200 p-2 px-3 text-xs md:text-sm text-gray-600 flex justify-between items-center">
+            <span>Método de pago del cliente:</span>
+            <span class="font-semibold text-indigo-900 px-2 py-0.5 rounded">
+              {{ getNamePaymentMethodById(selectedPreferredPaymentId) }}
+            </span>
+          </div>
+        </div>
       </div>
+
+      <div>
+        <label class="block mb-1.5 font-medium text-indigo-900">
+          Concepto
+        </label>
+        <input 
+          type="text"
+          [(ngModel)]="paymentDto.concept"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white/90 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm transition-all"
+          placeholder="Ej: Pago alquiler marzo"
+        />
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <label class="block mb-1.5 font-medium text-indigo-900">
+            Monto
+          </label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
+            <input
+              type="text"
+              appCurrencyFormat
+              min="0.01"
+              step="0.01"
+              [(ngModel)]="paymentDto.amount"
+              (ngModelChange)="onAmountChange($event)"
+              class="w-full pl-7 pr-2 py-2 border border-gray-300 rounded-md bg-white/90 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm transition-all"
+            />
+          </div>
+          <div *ngIf="paymentDto.amount > 0" class="mt-1.5 text-[11px] text-indigo-700/80 font-medium">
+             Rinde para deuda: <span class="font-bold text-indigo-900">{{ newAmount | currency:'ARS':'symbol-narrow':'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="block mb-1.5 font-medium text-indigo-900">
+            Método de pago
+          </label>
+          <select
+            [(ngModel)]="paymentDto.paymentMethodId"
+            (ngModelChange)="onAmountChange(paymentDto.amount)"
+            class="w-full px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-white/90 border border-gray-300 rounded-md shadow-sm transition-all"
+          >
+            <option *ngFor="let method of paymentMethods" [value]="method.id">
+              {{ method.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-medium text-indigo-900">Fecha de pago</span>
+          <button
+            type="button"
+            class="text-xs text-indigo-600 underline hover:text-indigo-800 transition-colors"
+            (click)="toggleManualDate()">
+            {{ manualDateEnabled ? 'Usar fecha actual' : 'Editar fecha' }}
+          </button>
+        </div>
+
+        <div *ngIf="!manualDateEnabled" class="text-xs text-gray-500 mb-2">
+          Se usará la fecha y hora actual al guardar.
+        </div>
+
+        <div *ngIf="manualDateEnabled" class="animate-fadeIn">
+          <input
+            type="date"
+            [(ngModel)]="dateString"
+            (ngModelChange)="onManualDateChange($event)"
+            class="w-full p-2 border border-gray-300 rounded-md bg-white/90 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm transition-all"
+          />
+        </div>
+      </div>
+      
+      <div>
+        <label class="block mb-2 font-medium text-indigo-900">
+          Pago adelantado
+        </label>
+
+        <div class="flex flex-col gap-3">
+          <label class="flex items-center gap-2 cursor-pointer select-none w-fit">
+            <input
+              type="checkbox"
+              [(ngModel)]="paymentDto.isAdvancePayment"
+              (change)="onAdvancePaymentToggle()"
+              class="h-4.5 w-4.5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer transition-all"
+            />
+            <span class="text-gray-800 font-medium">Pago adelantado</span>
+          </label>
+
+          <div
+            *ngIf="paymentDto.isAdvancePayment"
+            class="flex items-center border border-gray-300 rounded-md overflow-hidden bg-white/90 w-fit focus-within:ring-2 focus-within:ring-indigo-500/50 shadow-sm animate-fadeIn"
+          >
+            <span class="px-3 py-2 text-xs font-medium text-gray-500 select-none bg-gray-50 border-r border-gray-200">Meses adelantados</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              [(ngModel)]="paymentDto.advanceMonths"
+              (ngModelChange)="onAdvanceMonthsChange()"
+              class="w-20 px-3 py-2 focus:outline-none text-gray-800 text-sm font-medium"
+              placeholder="1"
+            />
+          </div>
+        </div>
+      </div>
+
     </div>
 
-    <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+    <div class="mt-4 pt-4 border-t border-indigo-200/60 flex justify-end gap-3">
       <button type="button"
               (click)="closePaymentModal()"
-              class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">
+              class="px-4 py-2 rounded-md border border-indigo-200 text-indigo-700 bg-white/50 hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
         Cancelar
       </button>
       <button type="button"
               (click)="savePayment(paymentDto)"
-              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">
-        Guardar pago
+              class="px-5 py-2 rounded-md bg-indigo-600 text-white font-medium hover:bg-indigo-700 hover:shadow-md transition-all text-sm">
+        Guardar Pago
       </button>
     </div>
 
