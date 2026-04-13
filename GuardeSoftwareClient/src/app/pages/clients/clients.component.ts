@@ -409,5 +409,15 @@ export class ClientsComponent implements OnInit {
     });
   }
 
+  onClientDataUpdated(clientId: number): void {
+    this.loadClients();
+
+    this.loadStatistics();
+
+    this.clientService.getClientDetailById(clientId).subscribe((clientDetail) => {
+      this.clientToView = clientDetail;
+    });
+  }
+
 }
 

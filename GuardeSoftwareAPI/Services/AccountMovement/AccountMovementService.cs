@@ -308,11 +308,11 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                 var movement = new AccountMovement
                 {
                     RentalId = rental.Id,
-                    MovementDate = DateTime.Now,
+                    MovementDate = dto.Date ?? DateTime.Now,
                     MovementType = dto.MovementType.ToUpper(), // "DEBITO" o "CREDITO"
                     Concept = dto.Concept,
                     Amount = dto.Amount,
-                    PaymentId = null // Es un movimiento manual
+                    PaymentId = null
                 };
 
                 // 3. Guardar el movimiento en la BD

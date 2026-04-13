@@ -3,4 +3,5 @@ export interface CreateAccountMovementDTO {
   movementType: 'DEBITO' | 'CREDITO';
   amount: number;
   concept: string;
+  date?: Date;
 }

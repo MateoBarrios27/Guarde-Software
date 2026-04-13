@@ -5,6 +5,7 @@ import {
   EventEmitter,
   OnChanges,
   SimpleChanges,
+  SimpleChange,
 } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { IconComponent } from '../icon/icon.component';
@@ -47,6 +48,7 @@ export interface IClientCommunication {
 export class ClientDetailModalComponent implements OnChanges {
   @Input() client: ClientDetailDTO | null = null;
   @Output() closeModal = new EventEmitter<void>();
+  @Output() dataUpdated = new EventEmitter<number>();
 
   public activeTab: 'movimientos' | 'comunicaciones' | 'detalles' =
     'movimientos';
@@ -70,10 +72,15 @@ export class ClientDetailModalComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['client'] && this.client) {
-      this.loadHistoriales(this.client.id);
-      this.activeTab = 'movimientos';
-      this.movementCurrentPage = 1;
-      this.commCurrentPage = 1;
+
+      const previousClient = changes['client'].previousValue;
+      
+      if (!previousClient || previousClient.id !== this.client.id) {
+        this.loadHistoriales(this.client.id);
+        this.activeTab = 'movimientos';
+        this.movementCurrentPage = 1;
+        this.commCurrentPage = 1;
+      }
     }
   }
 
@@ -122,6 +129,7 @@ export class ClientDetailModalComponent implements OnChanges {
     this.movementCurrentPage = 1; 
     if (this.client) {
       this.loadHistoriales(this.client.id); 
+      this.dataUpdated.emit(this.client.id);
     }
   }
 
@@ -143,24 +151,14 @@ export class ClientDetailModalComponent implements OnChanges {
         this.isLoadingHistory = true; 
         this.accountMovementService.deleteMovement(movementId).subscribe({
           next: () => {
-            Swal.fire({
-              title: 'Eliminado',
-              text: 'El movimiento ha sido eliminado.',
-              icon: 'success',
-              confirmButtonColor: '#2563eb'
-            });
+            Swal.fire({ title: 'Eliminado', text: 'El movimiento ha sido eliminado.', icon: 'success', confirmButtonColor: '#2563eb' });
             this.movementCurrentPage = 1;
             this.loadHistoriales(clientId); 
+            this.dataUpdated.emit(clientId);
           },
           error: (err) => {
             this.isLoadingHistory = false;
-            console.error('Error al eliminar movimiento:', err);
-            Swal.fire({
-              title: 'Error',
-              text: 'No se pudo eliminar el movimiento. ' + (err.error?.message || ''),
-              icon: 'error',
-              confirmButtonColor: '#2563eb'
-            });
+            Swal.fire({ title: 'Error', text: 'No se pudo eliminar el movimiento. ' + (err.error?.message || ''), icon: 'error', confirmButtonColor: '#2563eb' });
           },
         });
       }

@@ -343,5 +343,5 @@
   *ngIf="showDetailClientModal"
   [client]="clientToView"
   (closeModal)="closeDetailClientModal()"
->
+  (dataUpdated)="onClientDataUpdated($event)"  >
 </app-client-detail-modal>
