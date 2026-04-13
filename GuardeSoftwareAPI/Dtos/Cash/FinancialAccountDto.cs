@@ -5,4 +5,5 @@ public class FinancialAccountDto {
     public decimal Balance { get; set; }
     public string Currency { get; set; } = string.Empty;
     public int DisplayOrder { get; set; }
+    public string? Color { get; set; }
 }

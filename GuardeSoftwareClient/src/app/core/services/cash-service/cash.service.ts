@@ -68,4 +68,7 @@ export class CashService {
     return this.http.post<void>(`${this.apiUrl}/usd-rate`, { balance: rate }, { params });
   }
 
+  updateAccountColor(id: number, color: string): Observable<void> {
+    return this.http.put<void>(`${this.apiUrl}/${id}/color`, { color });
+  }
 }

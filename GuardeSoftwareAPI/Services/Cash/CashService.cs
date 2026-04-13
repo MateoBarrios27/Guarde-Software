@@ -106,5 +106,10 @@ namespace GuardeSoftwareAPI.Services.cash
         {
             await _dao.UpdateUsdRateAsync(rate, month, year);
         }
+
+        public async Task UpdateAccountColorAsync(int id, string color)
+        {
+            await _dao.UpdateAccountColorAsync(id, color);
+        }
     }
 }

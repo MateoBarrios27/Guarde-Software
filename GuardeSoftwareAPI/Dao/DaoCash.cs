@@ -659,5 +659,17 @@ namespace GuardeSoftwareAPI.Dao
             
             await _accessDB.ExecuteCommandAsync(query, parameters);
         }
+
+        public async Task UpdateAccountColorAsync(int accountId, string color)
+        {
+            string query = "UPDATE financial_accounts SET color = @Color WHERE account_id = @AccountId";
+            
+            var parameters = new[] {
+                new SqlParameter("@Color", (object)color ?? DBNull.Value),
+                new SqlParameter("@AccountId", accountId)
+            };
+            
+            await _accessDB.ExecuteCommandAsync(query, parameters);
+        }
     }
 }

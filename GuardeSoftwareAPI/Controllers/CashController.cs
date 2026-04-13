@@ -127,5 +127,23 @@ namespace GuardeSoftwareAPI.Controllers
             await _service.UpdateUsdRateAsync(request.Balance, month, year);
             return Ok();
         }
+
+        [HttpPut("{id}/color")]
+        public async Task<IActionResult> UpdateAccountColor(int id, [FromBody] UpdateAccountColorDto request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.Color))
+                    return BadRequest("El color no puede estar vacío.");
+
+                await _service.UpdateAccountColorAsync(id, request.Color);
+                
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error interno al actualizar el color: {ex.Message}");
+            }
+        }
     }
 }
