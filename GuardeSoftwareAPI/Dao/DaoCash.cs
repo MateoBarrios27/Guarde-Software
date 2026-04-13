@@ -410,15 +410,15 @@ namespace GuardeSoftwareAPI.Dao
                 DECLARE @NewOrder INT;
                 SELECT @NewOrder = ISNULL(MAX(display_order), 0) + 1 FROM financial_accounts WHERE month = @Month AND year = @Year;
 
-                INSERT INTO financial_accounts (name, type, current_balance, currency, display_order, month, year) 
-                VALUES (@Name, @Type, @Balance, @Currency, @NewOrder, @Month, @Year);
+                INSERT INTO financial_accounts (name, type, current_balance, currency, display_order, month, year, color) 
+                VALUES (@Name, @Type, @Balance, @Currency, @NewOrder, @Month, @Year, @Color);
 
                 DECLARE @InsertedId INT = SCOPE_IDENTITY();
 
                 IF (@Year > YEAR(GETDATE()) OR (@Year = YEAR(GETDATE()) AND @Month >= MONTH(GETDATE())))
                 BEGIN
-                    INSERT INTO financial_accounts (name, type, current_balance, currency, display_order, month, year)
-                    SELECT DISTINCT @Name, @Type, @Balance, @Currency, @NewOrder, month, year
+                    INSERT INTO financial_accounts (name, type, current_balance, currency, display_order, month, year, color)
+                    SELECT DISTINCT @Name, @Type, @Balance, @Currency, @NewOrder, month, year, @Color
                     FROM financial_accounts
                     WHERE (year > @Year OR (year = @Year AND month > @Month))
                     AND NOT EXISTS (
@@ -433,7 +433,8 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@Name", SqlDbType.NVarChar) { Value = account.Name },
                 new SqlParameter("@Type", SqlDbType.NVarChar) { Value = account.Type },
                 new SqlParameter("@Balance", SqlDbType.Decimal) { Value = account.Balance != null ? account.Balance : 0 },
-                new SqlParameter("@Currency", SqlDbType.NVarChar) { Value = account.Currency != null ? account.Currency : "" },
+                new SqlParameter("@Currency", SqlDbType.NVarChar) { Value = account.Currency ?? "" },
+                new SqlParameter("@Color", SqlDbType.VarChar) { Value = !string.IsNullOrEmpty(account.Color) ? account.Color : "#1f2937" },
                 new SqlParameter("@Month", month),
                 new SqlParameter("@Year", year)
             };
@@ -663,7 +664,23 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task UpdateAccountColorAsync(int accountId, string color)
         {
-            string query = "UPDATE financial_accounts SET color = @Color WHERE account_id = @AccountId";
+            string query = @"
+                DECLARE @AccMonth INT;
+                DECLARE @AccYear INT;
+                DECLARE @AccName NVARCHAR(255);
+
+                SELECT @AccMonth = month, @AccYear = year, @AccName = name 
+                FROM financial_accounts WHERE account_id = @AccountId;
+
+                UPDATE financial_accounts SET color = @Color WHERE account_id = @AccountId;
+
+                IF (@AccYear > YEAR(GETDATE()) OR (@AccYear = YEAR(GETDATE()) AND @AccMonth >= MONTH(GETDATE())))
+                BEGIN
+                    UPDATE financial_accounts 
+                    SET color = @Color 
+                    WHERE name = @AccName 
+                    AND (year > @AccYear OR (year = @AccYear AND month > @AccMonth));
+                END";
             
             var parameters = new[] {
                 new SqlParameter("@Color", (object)color ?? DBNull.Value),
