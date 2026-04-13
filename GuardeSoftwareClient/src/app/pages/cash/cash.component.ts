@@ -51,8 +51,6 @@ export class CashComponent implements OnInit {
   searchDate: string = '';
   filteredItems: any[] = [];
 
-  accountsTextColor: string = '#1f2937';
-
   constructor(private cashService: CashService) {
     this.saveSubject.pipe(
       groupBy(item => item), 
@@ -71,11 +69,6 @@ export class CashComponent implements OnInit {
       const today = new Date();
       this.selectedMonth = today.getMonth() + 1;
       this.selectedYear = today.getFullYear();
-    }
-
-    const savedColor = localStorage.getItem('accounts_text_color');
-    if (savedColor) {
-      this.accountsTextColor = savedColor;
     }
 
     this.loadData();
@@ -442,10 +435,6 @@ export class CashComponent implements OnInit {
   deleteComment(item: CashFlowItem): void {
     item.comment = '';
     this.closeComment(item); 
-  }
-
-  onColorChange(): void {
-    localStorage.setItem('accounts_text_color', this.accountsTextColor);
   }
 
   onAccountColorChange(account: FinancialAccount): void {

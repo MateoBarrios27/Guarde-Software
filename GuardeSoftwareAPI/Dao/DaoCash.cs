@@ -207,7 +207,7 @@ namespace GuardeSoftwareAPI.Dao
         {
             var list = new List<FinancialAccountDto>();
             string query = @"
-                SELECT account_id, name, type, current_balance, currency, display_order 
+                SELECT account_id, name, type, current_balance, currency, display_order, color 
                 FROM financial_accounts 
                 WHERE month = @Month AND year = @Year
                 ORDER BY display_order ASC, name ASC";
@@ -227,7 +227,8 @@ namespace GuardeSoftwareAPI.Dao
                     Name = row["name"].ToString(),
                     Type = row["type"].ToString(),
                     Currency = row["currency"].ToString(),
-                    Balance = Convert.ToDecimal(row["current_balance"])
+                    Balance = Convert.ToDecimal(row["current_balance"]),
+                    Color = row["color"] != DBNull.Value ? row["color"].ToString() : null,
                 });
             }
             return list;
@@ -354,10 +355,10 @@ namespace GuardeSoftwareAPI.Dao
 
             string queryAccounts = @"
                 INSERT INTO financial_accounts (
-                    name, type, current_balance, currency, display_order, month, year
+                    name, type, current_balance, currency, display_order, month, year, color
                 )
                 SELECT 
-                    name, type, current_balance, currency, display_order, @CurrentMonth, @CurrentYear
+                    name, type, current_balance, currency, display_order, @CurrentMonth, @CurrentYear, color
                 FROM financial_accounts
                 WHERE month = @PrevMonth AND year = @PrevYear
                 AND NOT EXISTS (
