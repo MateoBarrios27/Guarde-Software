@@ -345,8 +345,12 @@
                     min="0.01"
                     step="0.01"
                     [(ngModel)]="paymentDto.amount"
+                    (ngModelChange)="onAmountChange($event)"
                     class="w-full pl-7 pr-2 py-2 border rounded-md bg-white"
                   />
+                </div>
+                <div *ngIf="paymentDto.amount > 0" class="mt-1.5 text-[11px] text-indigo-700/80 font-medium">
+                  Cancela deuda por: <span class="font-bold text-indigo-900">{{ newAmount | currency:'ARS':'symbol-narrow':'1.2-2' }}</span>
                 </div>
               </div>
 
@@ -356,6 +360,7 @@
                 </label>
                 <select
                   [(ngModel)]="paymentDto.paymentMethodId"
+                  (ngModelChange)="onAmountChange(paymentDto.amount)"
                   class="w-full px-3 py-2 text-gray-800 focus:outline-none bg-white border rounded-md"
                 >
                   <option *ngFor="let method of paymentMethods" [value]="method.id">

@@ -13,17 +13,6 @@
   <span>{{ toastMessage }}</span>
 </div>
 
-
-<!-- <div class="space-y-6"> -->
-  <!-- <div class="grid w-full grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
-    <button (click)="activeTab = 'clientes'" [ngClass]="{ 'bg-white text-gray-900 shadow-sm': activeTab === 'clientes' }" class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold transition-all">
-      <app-icon name="users" class="h-4 w-4"></app-icon> Gestión de Clientes
-    </button>
-    <button (click)="activeTab = 'pagos'" [ngClass]="{ 'bg-white text-gray-900 shadow-sm': activeTab === 'pagos' }" class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold transition-all">
-      <app-icon name="recipt" class="h-4 w-4"></app-icon> Gestión de Pagos
-    </button>
-  </div> -->
-
   <div *ngIf="activeTab === 'clientes'" class="space-y-6">
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
       <div class="bg-white p-4 rounded-xl border shadow-sm">
@@ -114,25 +103,22 @@
           <div class="relative flex-grow">
             <app-icon
               name="search"
-              class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"
-            ></app-icon
-            ><input
+              class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4">
+            </app-icon>
+            
+            <input
               [(ngModel)]="searchClientes"
+              
               (ngModelChange)="onSearchChange()"
               placeholder="Buscar cliente..."
               class="w-80 pl-10 pr-4 py-2 border rounded-lg"
+              
             />
+            <button *ngIf="this.searchClientes" (click)="this.searchClientes = ''" (ngModelChange)="onSearchChange()" tabindex="-1"
+                    class="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
+                    <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+            </button>
           </div>
-          <!-- <select
-            [(ngModel)]="filterEstadoClientes"
-            (ngModelChange)="onFilterChange()"
-            class="border rounded-lg px-3 py-2 w-40"
-          >
-            <option value="Todos">Todos</option>
-            <option value="Al día">Al día</option>
-            <option value="Moroso">Moroso</option>
-            <option value="Pendiente">Pendiente</option>
-          </select> -->
           <button
             (click)="toggleInactivos()" 
             class="px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2 transition-colors"
@@ -141,12 +127,7 @@
             <app-icon name="user-x" class="h-4 w-4"></app-icon> 
             {{ showInactivos ? 'Ver Activos' : 'Ver Dados de Baja' }}
           </button>
-          <!-- <button
-            (click)="handleResetFilters()"
-            class="px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-2"
-          >
-            Limpiar Filtros
-          </button> -->
+
         </div>
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
@@ -289,7 +270,6 @@
               <td class="p-4 font-mono text-gray-700">
                 {{ cliente.lockers?.join(", ") }}
               </td>
-              <!-- <td class="p-4"><span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="getDocumentoBadgeColor(cliente.document || '')">{{ cliente.document }}</span></td> -->
               <td class="p-4">
                 <span
                   class="inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full"

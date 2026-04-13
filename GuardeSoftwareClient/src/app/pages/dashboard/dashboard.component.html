@@ -185,7 +185,7 @@
      (keydown.escape)="closePaymentModal()"
      tabindex="-1">
 
-  <div class="w-full max-w-3xl bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl shadow-2xl p-5 md:p-6 border border-indigo-200 flex flex-col max-h-[95vh] max-w-[75vh] relative animate-fadeIn"
+  <div class="w-full max-w-3xl bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl shadow-2xl p-5 md:p-6 border border-indigo-200 flex flex-col max-h-[95vh] max-w-[85vh] relative animate-fadeIn"
        (click)="$event.stopPropagation()">
 
     <div class="flex items-center justify-between mb-4 border-b border-indigo-200/60 pb-3">
@@ -200,14 +200,14 @@
       </button>
     </div>
 
-    <div class="text-sm flex-1 min-h-0 overflow-y-auto pr-1 space-y-4 custom-scrollbar">
+    <div class="text-sm flex-1 min-h-0 p-1 overflow-y-auto pr-1 space-y-4 custom-scrollbar">
       
       <div>
         <label class="block mb-1.5 font-medium text-indigo-900">
           Cliente seleccionado
         </label>
 
-        <div class="bg-white/80 border rounded-md border-gray-200 overflow-hidden flex flex-col shadow-sm">
+        <div class="bg-white/70 border rounded-md border-gray-200 overflow-hidden flex flex-col shadow-sm">
           <div class="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x border-gray-200">
             
             <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
@@ -241,7 +241,7 @@
 
           <div class="bg-indigo-50/50 border-t border-gray-200 p-2 px-3 text-xs md:text-sm text-gray-600 flex justify-between items-center">
             <span>Método de pago del cliente:</span>
-            <span class="font-semibold text-indigo-900 px-2 py-0.5 rounded">
+            <span class="font-semibold text-indigo-900 px-2 py-0.5">
               {{ getNamePaymentMethodById(selectedPreferredPaymentId) }}
             </span>
           </div>
@@ -273,12 +273,13 @@
               min="0.01"
               step="0.01"
               [(ngModel)]="paymentDto.amount"
+              (keydown.enter)="blurInput($event)"
               (ngModelChange)="onAmountChange($event)"
               class="w-full pl-7 pr-2 py-2 border border-gray-300 rounded-md bg-white/90 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm transition-all"
             />
           </div>
           <div *ngIf="paymentDto.amount > 0" class="mt-1.5 text-[11px] text-indigo-700/80 font-medium">
-             Rinde para deuda: <span class="font-bold text-indigo-900">{{ newAmount | currency:'ARS':'symbol-narrow':'1.2-2' }}</span>
+             Cancela deuda por: <span class="font-bold text-indigo-900">{{ newAmount | currency:'ARS':'symbol-narrow':'1.2-2' }}</span>
           </div>
         </div>
 

@@ -233,7 +233,10 @@ export class DashboardComponent {
     return { selectedCommission, includedCommission, extraCommission };
   }
 
-  // 1. NUEVA FUNCIÓN MATEMÁTICA (Calcula el rendimiento del dinero)
+  blurInput(event: Event): void {
+    (event.target as HTMLElement).blur();
+  }
+
   getCalculatedAmounts(amountEntered: number, selectedMethodId: number, preferredPaymentId: number) {
     if (!amountEntered || amountEntered <= 0) {
         return { amountEntered: 0, equivalentDebtPaid: 0, difference: 0, isSurcharge: false, isDiscount: false, selectedCommission: 0, includedCommission: 0 };
@@ -261,7 +264,6 @@ export class DashboardComponent {
     };
   }
 
-  // 2. DISPARADOR EN TIEMPO REAL (Para el HTML)
   onAmountChange(newAmount: number) {
       if (newAmount && this.paymentDto.paymentMethodId) {
           const calc = this.getCalculatedAmounts(newAmount, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);

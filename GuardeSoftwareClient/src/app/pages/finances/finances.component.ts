@@ -566,6 +566,17 @@ selectClient(client: any) {
     (event.target as HTMLElement).blur();
   }
 
+  onAmountChange(newAmount: number) {
+      if (newAmount && this.paymentDto.paymentMethodId) {
+          const calc = this.getCalculatedAmounts(newAmount, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
+          this.commision = calc.difference; 
+          this.newAmount = calc.equivalentDebtPaid; 
+      } else {
+          this.commision = 0;
+          this.newAmount = 0;
+      }
+  }
+
   getCalculatedAmounts(amountEntered: number, selectedMethodId: number, preferredPaymentId: number) {
     if (!amountEntered || amountEntered <= 0) {
         return { amountEntered: 0, equivalentDebtPaid: 0, difference: 0, isSurcharge: false, isDiscount: false, selectedCommission: 0, includedCommission: 0 };
