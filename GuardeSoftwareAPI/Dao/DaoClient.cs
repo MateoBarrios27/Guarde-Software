@@ -297,6 +297,15 @@ namespace GuardeSoftwareAPI.Dao
             return count > 0;
         }
 
+        public async Task<bool> ExistsByFullNameAsync(string fullName, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = "SELECT COUNT(1) FROM clients WHERE full_name = @fullName AND active = 1";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@fullName", SqlDbType.VarChar) { Value = fullName });
+            int count = (int)await command.ExecuteScalarAsync();
+            return count > 0;
+        }
+
         //This method returns a tuple with the list of clients and the total count for pagination
         //Not returns a datatable like the others because we need to map it to a dto, the method is
         //below this (MapDataTableToDto)
@@ -522,7 +531,7 @@ namespace GuardeSoftwareAPI.Dao
                             BillingTypeId = reader["billing_type_id"] != DBNull.Value ? Convert.ToInt32(reader["billing_type_id"]) : null,
                             IncreaseFrequencyMonths = Convert.ToInt32(reader["increase_frequency_months"]),
                             InitialAmount = reader["initial_amount"] != DBNull.Value ? Convert.ToDecimal(reader["initial_amount"]) : null,
-                            ReceiveCommunications = reader["receive_communications"] != DBNull.Value ? Convert.ToBoolean(reader["receive_communications"]) : false
+                            ReceiveCommunications = reader["receive_communications"] != DBNull.Value && Convert.ToBoolean(reader["receive_communications"])
                         };
                     }
                 }
@@ -538,7 +547,7 @@ namespace GuardeSoftwareAPI.Dao
                 command.Parameters.Add(new SqlParameter("@dni", SqlDbType.VarChar) { Value = dni });
                 command.Parameters.Add(new SqlParameter("@excludeClientId", SqlDbType.Int) { Value = excludeClientId });
                 object result = await command.ExecuteScalarAsync();
-                return (result != null && result != DBNull.Value) ? Convert.ToInt32(result) > 0 : false;
+                return (result != null && result != DBNull.Value) && Convert.ToInt32(result) > 0;
             }
         }
 

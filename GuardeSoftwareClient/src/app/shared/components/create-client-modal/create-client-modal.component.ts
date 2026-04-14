@@ -156,8 +156,6 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   }
 
   private tryPopulateForm(): void {
-    // Verificamos que el formulario tenga controles antes de intentar poblar
-    // (A veces initNewClientForm no se ha llamado si clientData es null al inicio)
     if (this.newClientForm && Object.keys(this.newClientForm.controls).length > 0) {
         
         if (this.isEditMode && this._clientData) {
@@ -280,8 +278,10 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   createSpaceRequestGroup(): FormGroup {
     return this.fb.group({
       warehouseId: [null, Validators.required],
-      m3: [null, [Validators.required, Validators.min(0.1)]],
+      m3: [null, [Validators.min(0)]], // <-- Le quitamos el Validators.required y cambiamos el min a 0
       quantity: [1, [Validators.required, Validators.min(1)]],
+      comment: [''], // <-- Nuevo campo para el texto del comentario
+      showComment: [false] // <-- Flag auxiliar para la UI (ocultar/mostrar input)
     });
   }
 
@@ -556,7 +556,12 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
       (id: any): id is number => typeof id === 'number' && id > 0
     );
   } else {
-    dto.spaceRequests = formValue.spaceRequests;
+    dto.spaceRequests = formValue.spaceRequests.map((req: any) => ({
+       warehouseId: req.warehouseId,
+       m3: req.m3 || 0,
+       quantity: req.quantity,
+       comment: req.comment || null
+    }));
   }
 
   console.log('Enviando DTO:', dto);

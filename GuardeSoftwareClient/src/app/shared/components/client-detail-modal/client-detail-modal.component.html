@@ -365,16 +365,25 @@
                <div class="border rounded-lg bg-indigo-50 border-indigo-100">
                  <ul class="divide-y divide-indigo-200">
                    <li *ngFor="let req of client.spaceRequests" class="p-3 flex justify-between items-center">
-                     <div>
-                        <span class="font-medium text-indigo-900 block">
-                            {{ req.quantity }} {{ req.quantity === 1 ? 'espacio' : 'espacios' }} de {{ req.m3 }} m³
-                        </span>
-                        <span class="text-xs text-indigo-600">
-                            Depósito: {{ req.warehouse }}
-                        </span>
+                     <div class="w-full">
+                        <div class="flex justify-between items-start">
+                          <div>
+                            <span class="font-medium text-indigo-900 block">
+                                {{ req.quantity }} {{ req.quantity === 1 ? 'espacio' : 'espacios' }} 
+                                <span *ngIf="req.m3 && req.m3 > 0">de {{ req.m3 }} m³</span>
+                            </span>
+                            <span class="text-xs text-indigo-600 block mt-0.5">
+                                Depósito: {{ req.warehouse }}
+                            </span>
+                          </div>
+                          <app-icon name="clipboard" class="h-4 w-4 text-indigo-400 mt-1"></app-icon>
+                        </div>
+                        
+                        <div *ngIf="req.comment" class="mt-2 text-[11px] text-indigo-700/80 italic leading-tight border-l-2 border-indigo-300 pl-2">
+                          "{{ req.comment }}"
+                        </div>
+                        
                      </div>
-                     <!-- Puedes poner un ícono o badge si quieres -->
-                     <app-icon name="clipboard" class="h-4 w-4 text-indigo-400"></app-icon>
                    </li>
                  </ul>
                </div>

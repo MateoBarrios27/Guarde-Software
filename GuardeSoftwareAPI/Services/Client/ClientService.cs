@@ -112,20 +112,20 @@ namespace GuardeSoftwareAPI.Services.client
         public async Task<int> CreateClientAsync(CreateClientDTO dto)
         {
             ArgumentNullException.ThrowIfNull(dto);
-            if (string.IsNullOrWhiteSpace(dto.FullName)) throw new ArgumentException("FullName is required.");
-            if (dto.Amount < 0) throw new ArgumentException("Amount must be greater than 0.");
-            if (dto.LockerIds.Any(id => id <= 0)) throw new ArgumentException("LockerIds must be positive numbers.");
-            if (dto.LockerIds.Distinct().Count() != dto.LockerIds.Count) throw new ArgumentException("Duplicate lockerIds are not allowed.");
-            if (dto.UserID <= 0) throw new ArgumentException("Invalid UserID.");
+            if (string.IsNullOrWhiteSpace(dto.FullName)) throw new ArgumentException("El nombre completo es requerido.");
+            if (dto.Amount < 0) throw new ArgumentException("El monto debe ser mayor que 0.");
+            if (dto.LockerIds.Any(id => id <= 0)) throw new ArgumentException("Los IDs de los casilleros deben ser números positivos.");
+            if (dto.LockerIds.Distinct().Count() != dto.LockerIds.Count) throw new ArgumentException("No se permiten IDs de casilleros duplicados.");
+            if (dto.UserID <= 0) throw new ArgumentException("El ID del usuario es inválido.");
 
             if (!string.IsNullOrEmpty(dto.Dni) && string.IsNullOrWhiteSpace(dto.Dni))
-                throw new ArgumentException("DNI cannot be empty or whitespace.", nameof(dto.Dni));
+                throw new ArgumentException("El DNI no puede estar vacío o contener solo espacios en blanco.", nameof(dto.Dni));
 
             if (dto.IsLegacyClient)
             {
-                if (dto.StartDate == default) throw new ArgumentException("Legacy start date is required.");
-                if (!dto.LegacyInitialAmount.HasValue || dto.LegacyInitialAmount < 0) throw new ArgumentException("Legacy initial amount is required.");
-                if (!dto.LegacyNextIncreaseDate.HasValue) throw new ArgumentException("Legacy next increase date is required.");
+                if (dto.StartDate == default) throw new ArgumentException("La fecha de inicio de cliente heredado es requerida.");
+                if (!dto.LegacyInitialAmount.HasValue || dto.LegacyInitialAmount < 0) throw new ArgumentException("El monto inicial de cliente heredado es requerido.");
+                if (!dto.LegacyNextIncreaseDate.HasValue) throw new ArgumentException("La fecha de próxima incremento de cliente heredado es requerida.");
             }
             
             // Asign dates if not legacy
@@ -158,17 +158,22 @@ namespace GuardeSoftwareAPI.Services.client
 
                         if (dto.Dni != null && await daoClient.ExistsByDniAsync(dto.Dni, connection, transaction))
                         {
-                            throw new InvalidOperationException("A client with this DNI already exists.");
+                            throw new InvalidOperationException("Ya existe un cliente con este DNI.");
                         }
 
                         if (dto.Cuit != null && !dto.Cuit.IsNullOrEmpty() && await daoClient.ExistsByCuitAsync(dto.Cuit, connection, transaction))
                         {
-                            throw new InvalidOperationException("A client with this CUIT already exists.");
+                            throw new InvalidOperationException("Ya existe un cliente con este CUIT.");
                         }
 
                         if (dto.PaymentIdentifier != null && await daoClient.ExistsByPaymentIdentifierAsync(dto.PaymentIdentifier.Value, connection, transaction))
                         {
-                            throw new InvalidOperationException("A client with this Payment Identifier already exists.");
+                            throw new InvalidOperationException("Ya existe un cliente con este Identificador de Pago.");
+                        }
+
+                        if (await daoClient.ExistsByFullNameAsync(dto.FullName, connection, transaction))
+                        {
+                            throw new InvalidOperationException("Ya existe un cliente con este nombre completo.");
                         }
 
                         Client client = new()
@@ -237,7 +242,8 @@ namespace GuardeSoftwareAPI.Services.client
                                     RentalId = rentalId,
                                     WarehouseId = req.WarehouseId,
                                     Quantity = req.Quantity,
-                                    M3 = req.M3
+                                    M3 = req.M3,
+                                    Comment = req.Comment
                                 };
                                 await _daoRentalSpaceRequest.CreateRequestTransactionAsync(spaceRequest, connection, transaction);
                             }
@@ -547,6 +553,8 @@ namespace GuardeSoftwareAPI.Services.client
                             throw new InvalidOperationException("Ya existe otro cliente con este CUIT.");
                         if (dto.PaymentIdentifier != null && await daoClient.ExistsByPaymentIdentifierAsync(dto.PaymentIdentifier.Value, id, connection, transaction))
                             throw new InvalidOperationException("Ya existe otro cliente con este número identificador de pago.");
+                        if (!string.IsNullOrWhiteSpace(dto.FullName) && await daoClient.ExistsByFullNameAsync(dto.FullName, connection, transaction))
+                            throw new InvalidOperationException("Ya existe otro cliente con este nombre completo.");
 
                         Client clientToUpdate = new()
                         {

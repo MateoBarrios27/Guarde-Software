@@ -62,6 +62,14 @@ namespace GuardeSoftwareAPI.Controllers
 
                 return CreatedAtAction(nameof(GetClientById), new { id = newId }, newId);
             }
+            catch (InvalidOperationException ex) // Captura excepciones específicas (ej: DNI duplicado en otro cliente)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (ArgumentException ex) // Captura errores de validación
+            {
+                return BadRequest(new { message = ex.Message });
+            }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Error loading the client: {ex.Message}");
