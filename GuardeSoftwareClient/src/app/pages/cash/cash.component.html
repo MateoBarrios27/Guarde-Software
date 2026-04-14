@@ -33,13 +33,19 @@
           <span class="text-gray-600 flex items-center gap-2">
             <div class="w-2 h-2 rounded-full bg-green-500"></div> Ingresos Sistema (Alquileres)
           </span>
-          <span class="font-bold text-gray-900">$ {{ (summary.totalSystemIncome || 0) | number:'1.2-2' }}</span>
+          <div class="flex flex-col items-end">
+            <span class="font-bold text-gray-900 leading-tight">$ {{ (summary.totalSystemIncome || 0) | number:'1.2-2' }}</span>
+            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.totalSystemIncome || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+          </div>
         </div>
         <div class="flex justify-between items-center">
           <span class="text-gray-600 flex items-center gap-2">
             <div class="w-2 h-2 rounded-full bg-blue-400"></div> Pagos Adelantados
           </span>
-          <span class="font-bold text-blue-700">$ {{ (summary.totalAdvancePayments || 0) | number:'1.2-2' }}</span>
+          <div class="flex flex-col items-end">
+            <span class="font-bold text-blue-700 leading-tight">$ {{ (summary.totalAdvancePayments || 0) | number:'1.2-2' }}</span>
+            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.totalAdvancePayments || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+          </div>
         </div>
 
         <div class="border-t border-dashed pt-2 space-y-2">
@@ -47,30 +53,47 @@
             <span class="text-gray-600 flex items-center gap-2">
               <div class="w-2 h-2 rounded-full bg-orange-400"></div> Total A Pagar (Depo + Casa)
             </span>
-            <span class="font-semibold text-orange-600">$ {{ totals.aPagar | number:'1.2-2' }}</span>
+            <div class="flex flex-col items-end">
+              <span class="font-semibold text-orange-600 leading-tight">$ {{ totals.aPagar | number:'1.2-2' }}</span>
+              <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ (totals.aPagar / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+            </div>
           </div>
           <div class="flex justify-between items-center">
             <span class="text-gray-600 flex items-center gap-2">
               <div class="w-2 h-2 rounded-full bg-green-500"></div> Total Pagado
             </span>
-            <span class="font-semibold text-green-600">- $ {{ totals.pagado | number:'1.2-2' }}</span>
+            <div class="flex flex-col items-end">
+              <span class="font-semibold text-green-600 leading-tight">- $ {{ totals.pagado | number:'1.2-2' }}</span>
+              <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ (totals.pagado / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+            </div>
           </div>
           <div class="flex justify-between items-center bg-red-50 p-2 rounded border border-red-100 mt-1">
             <span class="text-red-800 font-bold text-xs uppercase tracking-wider">Falta Pagar</span>
-            <span class="font-bold text-red-700">$ {{ totals.faltaPagar | number:'1.2-2' }}</span>
+            <div class="flex flex-col items-end">
+              <span class="font-bold text-red-700 leading-tight">$ {{ totals.faltaPagar | number:'1.2-2' }}</span>
+              <span class="text-[10px] text-red-500 font-medium">≈ U$D {{ (totals.faltaPagar / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+            </div>
           </div>
         </div>
 
         <div class="flex justify-between items-center pt-1 border-t border-dashed">
            <span class="text-gray-500 text-xs">Otras Salidas (Retiros + Extras)</span>
-           <span class="text-gray-500 text-xs">- $ {{ (totals.retiros + totals.extras) | number:'1.2-2' }}</span>
+           <div class="flex flex-col items-end">
+             <span class="text-gray-500 text-xs font-semibold leading-tight">- $ {{ (totals.retiros + totals.extras) | number:'1.2-2' }}</span>
+             <span class="text-[9px] text-gray-400 font-medium">≈ U$D {{ ((totals.retiros + totals.extras) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+           </div>
         </div>
         
         <div class="mt-4 pt-3 border-t-2 border-gray-100 flex justify-between items-center">
           <span class="text-lg font-bold text-gray-800">Caja Real (Ganancia)</span>
-          <span class="text-xl font-bold" [ngClass]="summary.netBalance >= 0 ? 'text-green-600' : 'text-red-600'">
-            $ {{ summary.netBalance | number:'1.2-2' }}
-          </span>
+          <div class="flex flex-col items-end">
+            <span class="text-xl font-bold leading-tight" [ngClass]="summary.netBalance >= 0 ? 'text-green-600' : 'text-red-600'">
+              $ {{ summary.netBalance | number:'1.2-2' }}
+            </span>
+            <span class="text-xs text-gray-500 font-medium mt-0.5">
+              ≈ U$D {{ (summary.netBalance / (usdExchangeRate || 1)) | number:'1.2-2' }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -104,30 +127,25 @@
                 
                 <td class="p-2 w-16 align-middle">
                   <div class="flex items-center gap-2 justify-start h-full">
-                    
                     <button (click)="deleteAccount(account, i)" 
                             class="text-gray-400 hover:text-red-600 p-1 opacity-60 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center" 
                             title="Eliminar cuenta">
                       <app-icon name="Trash2" class="h-4 w-4"></app-icon>
                     </button>
-                    
                     <div cdkDragHandle 
                          class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 p-1 opacity-60 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center">
                       <app-icon name="grip-vertical" class="h-4 w-4"></app-icon>
                     </div>
-
                   </div>
                 </td>
 
                 <td class="p-2 align-middle">
                   <div class="flex items-center gap-2">
-                    
                     <input type="color" 
                            [(ngModel)]="account.color" 
                            (change)="onAccountColorChange(account)"
                            title="Cambiar color de esta cuenta"
                            class="w-2 h-11 cursor-pointer bg-transparent">
-                    
                     <div>
                       <div class="font-semibold text-base transition-colors" 
                            [style.color]="account.color || '#1f2937'">
@@ -138,25 +156,20 @@
                         {{ account.type }} • {{ account.currency || 'ARS' }}
                       </div>
                     </div>
-
                   </div>
                 </td>
                 
                 <td class="p-2 align-middle text-right group/amt">
                   <div class="flex flex-col items-end justify-center w-full">
-                    
                     <div class="flex items-center justify-end">
-                      
                       <span class="font-bold mr-2 text-right transition-colors">
                         {{ account.currency === 'USD' ? 'U$D' : '$' }}
                       </span>
-                      
                       <div class="relative w-48">
                         <button *ngIf="account.balance != 0" (click)="account.balance = 0; onAccountChange(account)" tabindex="-1"
                                 class="absolute left-2 top-0 bottom-0 flex items-center opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar saldo a 0">
                           <app-icon name="Trash2" class="h-4 w-4 block"></app-icon>
                         </button>
-                        
                         <input type="text" 
                                [(ngModel)]="account.balance" 
                                (blur)="onAccountChange(account)"
@@ -164,16 +177,17 @@
                                appCurrencyFormat 
                                class="w-full pl-8 pr-2 py-1 text-base font-bold text-right bg-transparent border-none focus:ring-1 focus:ring-blue-300 rounded transition-colors">
                       </div>
-
                     </div>
 
                     <div *ngIf="account.currency === 'USD'" class="text-[10px] text-gray-400 font-medium mt-0.5 pr-2">
                       ≈ $ {{ (account.balance * usdExchangeRate) | number:'1.2-2' }}
                     </div>
+                    <div *ngIf="account.currency !== 'USD'" class="text-[10px] text-gray-400 font-medium mt-0.5 pr-2">
+                      ≈ U$D {{ (account.balance / (usdExchangeRate || 1)) | number:'1.2-2' }}
+                    </div>
 
                   </div>
                 </td>
-              
               </tr>
             </tbody>
           </table>
@@ -193,14 +207,17 @@
                 <div class="p-3 text-center hover:bg-gray-50 transition-colors flex flex-col justify-center">
                     <p class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Bancos</p>
                     <p class="text-sm font-bold text-gray-800">$ {{ accountTotals.ars.banks | number:'1.2-2' }}</p>
+                    <p class="text-[9px] text-gray-400 font-medium mt-0.5">≈ U$D {{ (accountTotals.ars.banks / (usdExchangeRate || 1)) | number:'1.2-2' }}</p>
                 </div>
                 <div class="p-3 text-center hover:bg-gray-50 transition-colors flex flex-col justify-center">
                     <p class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Cajas</p>
                     <p class="text-sm font-bold text-gray-800">$ {{ accountTotals.ars.cash | number:'1.2-2' }}</p>
+                    <p class="text-[9px] text-gray-400 font-medium mt-0.5">≈ U$D {{ (accountTotals.ars.cash / (usdExchangeRate || 1)) | number:'1.2-2' }}</p>
                 </div>
                 <div class="p-3 text-center bg-blue-50/20 flex flex-col justify-center">
                     <p class="text-[10px] uppercase tracking-wider font-bold text-blue-600 mb-1">Total ARS</p>
-                    <p class="text-base font-extrabold text-blue-700">$ {{ accountTotals.ars.total | number:'1.2-2' }}</p>
+                    <p class="text-base font-extrabold text-blue-700 leading-tight">$ {{ accountTotals.ars.total | number:'1.2-2' }}</p>
+                    <p class="text-[10px] text-blue-500/80 font-bold mt-0.5">≈ U$D {{ (accountTotals.ars.total / (usdExchangeRate || 1)) | number:'1.2-2' }}</p>
                 </div>
             </div>
         </div>
@@ -222,15 +239,18 @@
                 </div>
                 <div class="p-3 text-center bg-green-50/30 flex flex-col justify-center">
                     <p class="text-[10px] uppercase tracking-wider font-bold text-green-600 mb-1">Total USD</p>
-                    <p class="text-base font-extrabold text-green-700">U$D {{ accountTotals.usd.total | number:'1.2-2' }}</p>
+                    <p class="text-base font-extrabold text-green-700 leading-tight">U$D {{ accountTotals.usd.total | number:'1.2-2' }}</p>
                     <p class="text-[10px] text-green-600/70 font-bold mt-0.5">≈ $ {{ (accountTotals.usd.total * usdExchangeRate) | number:'1.2-2' }}</p>
                 </div>
             </div>
         </div>
         
         <div class="flex justify-between items-center p-3.5 bg-gray-900 rounded-xl text-white shadow-md border border-gray-800">
-              <span class="text-[11px] uppercase tracking-wider font-semibold text-gray-300">Patrimonio Total (Equiv. ARS)</span>
-              <span class="text-lg font-black tracking-tight">$ {{ (accountTotals.ars.total + (accountTotals.usd.total * usdExchangeRate)) | number:'1.2-2' }}</span>
+            <span class="text-[11px] uppercase tracking-wider font-semibold text-gray-300">Patrimonio Total</span>
+            <div class="flex flex-col items-end">
+              <span class="text-lg font-black tracking-tight leading-none">$ {{ (accountTotals.ars.total + (accountTotals.usd.total * usdExchangeRate)) | number:'1.2-2' }}</span>
+              <span class="text-[10px] text-gray-400 font-medium mt-1">≈ U$D {{ ((accountTotals.ars.total / (usdExchangeRate || 1)) + accountTotals.usd.total) | number:'1.2-2' }}</span>
+            </div>
         </div>
 
       </div>
@@ -239,20 +259,14 @@
   </div>
 
 
-  
+  <div class="w-full flex flex-col bg-gray-50 rounded-lg shadow-md border h-auto">
 
- <div class="w-full flex flex-col bg-gray-50 rounded-lg shadow-md border h-auto">
-
-      
-      
       <div class="p-4 border-b bg-gray-50 rounded-lg flex justify-between items-center flex-wrap gap-4">
        <h2 class="font-semibold text-gray-700">Planilla de Movimientos</h2>
        
         <div class="flex items-center gap-3 w-full sm:w-auto">
           
           <div class="flex flex-col sm:flex-row justify-between items-center rounded-lg bg-gray-50 shadow-sm border">
-            
-            
             <div class="flex items-center gap-4  p-1 rounded-lg">
               <button (click)="changeMonth(-1)" 
                       [disabled]="selectedYear === 2026 && selectedMonth === 1"
@@ -309,7 +323,6 @@
               <th class="px-2 py-3 text-right bg-gray-50 text-blue-800">Depo (Gasto)</th>
               <th class="px-2 py-3 text-right bg-gray-50 text-orange-800">Casa (Gasto)</th>
               <th class="px-2 py-3 text-right bg-gray-50">Retiros</th>
-              <!-- <th class="px-2 py-3 text-right bg-gray-50">Extras</th> -->
               <th class="px-2 py-3 text-center bg-gray-50 text-green-800">Pagado</th>
               <th class="px-2 py-3 text-center bg-gray-50 text-indigo-800">Replicar</th>
               <th class="px-1 py-3 w-10 bg-gray-50"></th>
@@ -325,32 +338,24 @@
               </td>
 
               <td class="p-1 text-center align-middle w-16">
-                
                 <div class="relative flex items-center justify-center w-8 h-8 mx-auto rounded-md hover:bg-blue-50 transition-colors group/cal">
-                  
                   <span *ngIf="item.date" class="text-sm font-bold text-gray-700 group-hover/cal:text-blue-600 transition-colors pointer-events-none">
                     {{ item.date | slice:-2 }}
                   </span>
-                  
                   <app-icon *ngIf="!item.date" name="calendar" class="w-4 h-4 text-gray-400 group-hover/cal:text-blue-600 transition-colors pointer-events-none"></app-icon>
-                  
                   <input type="date" 
                     [(ngModel)]="item.date" 
                     (change)="onItemChange(item)" 
                     [title]="'Fecha seleccionada: ' + item.date"
                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed">
-                
                 </div>
-
               </td>
 
-              <td class="p-1 relative min-w-[300px]">
-                
+              <td class="p-1 relative min-w-[300px] align-middle">
                 <div class="flex items-center group/desc relative w-full">
                   <input type="text" [(ngModel)]="item.description" 
                         (blur)="onItemChange(item)" 
                         (keydown.enter)="blurInput($event)" 
-        
                         class="w-full bg-transparent border-none text-sm font-medium text-gray-800 p-1 pr-8 disabled:font-bold disabled:text-purple-800 text-ellipsis overflow-hidden">
                   
                   <button *ngIf="item.description !== 'IVA (21% Transferencias)'" 
@@ -391,52 +396,61 @@
                       Borrar
                     </button>
                   </div>
-                  
-                </div>
-
-              </td>
-
-              <td class="p-1 bg-blue-50/20 relative group/amt" >
-                <div class="flex items-center justify-end w-full h-full relative">
-                  <button *ngIf="item.depo" (click)="item.depo = null; onItemChange(item)" tabindex="-1"
-                          class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
-                    <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
-                  </button> 
-                  <input type="text" appCurrencyFormat [(ngModel)]="item.depo" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)" 
-                        class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-blue-700 font-bold p-1.5 focus:ring-1 focus:ring-blue-400 rounded disabled:opacity-80">
                 </div>
               </td>
 
-              <td class="p-1 bg-orange-50/20 relative group/amt">
-                <div class="flex items-center justify-end w-full h-full relative">
-                  <button *ngIf="item.casa" (click)="item.casa = null; onItemChange(item)" tabindex="-1"
-                          class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
-                    <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
-                  </button>
-                  <input type="text" appCurrencyFormat [(ngModel)]="item.casa" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
-                        class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-orange-700 font-bold p-1.5 focus:ring-1 focus:ring-orange-400 rounded disabled:opacity-50">
+              <td class="p-1 bg-blue-50/20 relative group/amt align-middle">
+                <div class="flex flex-col items-end justify-center w-full h-full relative">
+                  <div class="flex items-center justify-end w-full relative">
+                    <button *ngIf="item.depo" (click)="item.depo = null; onItemChange(item)" tabindex="-1"
+                            class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
+                      <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+                    </button> 
+                    <input type="text" appCurrencyFormat [(ngModel)]="item.depo" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)" 
+                          class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-blue-700 font-bold p-1.5 focus:ring-1 focus:ring-blue-400 rounded disabled:opacity-80">
+                  </div>
+                  <div *ngIf="item.depo" class="text-[9px] text-blue-500/80 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
+                    ≈ U$D {{ (item.depo / (usdExchangeRate || 1)) | number:'1.2-2' }}
+                  </div>
                 </div>
               </td>
 
-              <td class="p-1 relative group/amt">
-                <div class="flex items-center justify-end w-full h-full relative">
-                  <button *ngIf="item.retiros" (click)="item.retiros = null; onItemChange(item)" tabindex="-1"
-                          class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
-                    <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
-                  </button>
-                  <input type="text" appCurrencyFormat [(ngModel)]="item.retiros" (change)="onItemChange(item)"  (keydown.enter)="blurInput($event)"
-                        class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-gray-700 font-semibold p-1.5 focus:ring-1 focus:ring-gray-300 rounded">
+              <td class="p-1 bg-orange-50/20 relative group/amt align-middle">
+                <div class="flex flex-col items-end justify-center w-full h-full relative">
+                  <div class="flex items-center justify-end w-full relative">
+                    <button *ngIf="item.casa" (click)="item.casa = null; onItemChange(item)" tabindex="-1"
+                            class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
+                      <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+                    </button>
+                    <input type="text" appCurrencyFormat [(ngModel)]="item.casa" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
+                          class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-orange-700 font-bold p-1.5 focus:ring-1 focus:ring-orange-400 rounded disabled:opacity-50">
+                  </div>
+                  <div *ngIf="item.casa" class="text-[9px] text-orange-500/80 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
+                    ≈ U$D {{ (item.casa / (usdExchangeRate || 1)) | number:'1.2-2' }}
+                  </div>
                 </div>
               </td>
 
-              <!-- <td class="p-1">
-                <input type="text" appCurrencyFormat [(ngModel)]="item.extras" (change)="onItemChange(item)" class="table-input text-purple-600">
-              </td> -->
+              <td class="p-1 relative group/amt align-middle">
+                <div class="flex flex-col items-end justify-center w-full h-full relative">
+                  <div class="flex items-center justify-end w-full relative">
+                    <button *ngIf="item.retiros" (click)="item.retiros = null; onItemChange(item)" tabindex="-1"
+                            class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
+                      <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+                    </button>
+                    <input type="text" appCurrencyFormat [(ngModel)]="item.retiros" (change)="onItemChange(item)"  (keydown.enter)="blurInput($event)"
+                          class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-gray-700 font-semibold p-1.5 focus:ring-1 focus:ring-gray-300 rounded">
+                  </div>
+                  <div *ngIf="item.retiros" class="text-[9px] text-gray-400 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
+                    ≈ U$D {{ (item.retiros / (usdExchangeRate || 1)) | number:'1.2-2' }}
+                  </div>
+                </div>
+              </td>
 
               <td class="p-1 bg-green-50/20 text-center align-middle">
                 <button (click)="item.isPaid = !item.isPaid; onItemChange(item)" 
                         title="Marcar como pagado"
-                        class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border mt-1"
+                        class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border"
                         [ngClass]="{
                             'border-gray-300 bg-white text-transparent': !item.isPaid,
                             'border-green-500 bg-green-500 text-white': item.isPaid
@@ -448,7 +462,7 @@
               <td class="p-1 bg-indigo-50/20 text-center align-middle">
                 <button (click)="toggleReplication(item)" 
                         title="Clic para cambiar: No replicar -> Replicar vacío -> Replicar con montos"
-                        class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border mt-1"
+                        class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border"
                         [ngClass]="{
                             'border-gray-300 bg-white text-transparent': item.replicationState === 0,
                             'border-blue-500 bg-blue-500 text-white': item.replicationState === 1,
@@ -467,7 +481,7 @@
             </tr>
             
             <tr class="group cursor-pointer hover:bg-gray-50 transition-colors" (click)="addNewRow()">
-              <td colspan="8" class="p-0">
+              <td colspan="9" class="p-0">
                 <div class="py-2.5 px-3 flex items-center gap-2 text-gray-400 group-hover:text-gray-700 transition-colors">
                   <app-icon name="plus" class="h-4 w-4"></app-icon>
                   <span class="text-sm font-medium">Nuevo concepto</span>
@@ -478,29 +492,32 @@
 
           <tfoot class="font-bold text-gray-700 border-t bg-gray-50/50">
             <tr>
-              <td colspan="3" class="px-4 py-3 text-right text-xs uppercase tracking-wider text-gray-500">
+              <td colspan="3" class="px-4 py-3 text-right text-xs uppercase tracking-wider text-gray-500 align-top pt-5">
                 Totales Columna:
               </td>
               
-              <td class="px-2 py-3 text-right text-blue-700 text-base whitespace-nowrap">
-                $ {{ totals.depo | number:'1.2-2' }}
+              <td class="px-2 py-3 text-right text-blue-700 whitespace-nowrap align-top">
+                 <div class="text-base font-bold">$ {{ totals.depo | number:'1.2-2' }}</div>
+                 <div class="text-[10px] text-blue-500/80 font-medium mt-0.5">≈ U$D {{ (totals.depo / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
-              <td class="px-2 py-3 text-right text-orange-700 text-base whitespace-nowrap">
-                $ {{ totals.casa | number:'1.2-2' }}
+              <td class="px-2 py-3 text-right text-orange-700 whitespace-nowrap align-top">
+                 <div class="text-base font-bold">$ {{ totals.casa | number:'1.2-2' }}</div>
+                 <div class="text-[10px] text-orange-500/80 font-medium mt-0.5">≈ U$D {{ (totals.casa / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
-              <td class="px-2 py-3 text-right text-gray-700 text-base whitespace-nowrap">
-                $ {{ totals.retiros | number:'1.2-2' }}
+              <td class="px-2 py-3 text-right text-gray-700 whitespace-nowrap align-top">
+                 <div class="text-base font-bold">$ {{ totals.retiros | number:'1.2-2' }}</div>
+                 <div class="text-[10px] text-gray-500 font-medium mt-0.5">≈ U$D {{ (totals.retiros / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
-              <td class="px-2 py-3 text-center text-green-700 text-base whitespace-nowrap">
-                $ {{ totals.pagado | number:'1.2-2' }}
+              <td class="px-2 py-3 text-center text-green-700 whitespace-nowrap align-top">
+                 <div class="text-base font-bold">$ {{ totals.pagado | number:'1.2-2' }}</div>
+                 <div class="text-[10px] text-green-500/80 font-medium mt-0.5">≈ U$D {{ (totals.pagado / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
               
-              <td></td>
+              <td colspan="2"></td>
             </tr>
           </tfoot>
         </table>
       </div>
   </div>
 
-  
 </div>
