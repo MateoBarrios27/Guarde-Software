@@ -50,7 +50,10 @@
               <input formControlName="numeroIdentificacion" placeholder="Ej: 0.14" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/>
             </div>
             <div class="col-span-2">
-              <div><label class="text-sm font-medium text-blue-700">Nombre Completo *</label><input formControlName="nombreCompleto" class="w-full mt-1 p-2 border rounded-md"/></div>
+              <div>
+                <label class="text-sm font-medium text-blue-700">Nombre Completo *</label>
+                <input formControlName="nombreCompleto" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/>
+              </div>
             </div>
             <div class="col-span-2">
               <label class="text-sm font-medium text-blue-700">Nº Doc. (DNI) *</label>
@@ -178,10 +181,18 @@
             </div>
 
 
-            <div><label class="text-sm font-medium text-green-700">Dirección *</label><input formControlName="direccion" class="w-full mt-1 p-2 border rounded-md"/></div>
+            <div><label class="text-sm font-medium text-green-700">Dirección *</label>
+              <input formControlName="direccion" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/>
+            </div>
             <div class="grid grid-cols-2 gap-4">
-              <div><label class="text-sm font-medium text-green-700">Ciudad *</label><input formControlName="ciudad" class="w-full mt-1 p-2 border rounded-md"/></div>
-              <div><label class="text-sm font-medium text-green-700">Provincia *</label><input formControlName="provincia" class="w-full mt-1 p-2 border rounded-md"/></div>
+              <div>
+                <label class="text-sm font-medium text-green-700">Ciudad *</label>
+                <input formControlName="ciudad" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/>
+              </div>
+              <div>
+                <label class="text-sm font-medium text-green-700">Provincia *</label>
+                <input formControlName="provincia" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/>
+              </div>
             </div>
             <div class="pt-4 mt-2 border-t border-green-100">
               <label class="flex items-center justify-between cursor-pointer group">

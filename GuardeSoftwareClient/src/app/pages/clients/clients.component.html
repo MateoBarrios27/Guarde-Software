@@ -245,16 +245,16 @@
                   </div>
                   <div>
                     <div class="flex items-center gap-2">
-                      <span class="font-semibold text-gray-900"
-                        >{{ cliente.fullName }}</span
-                      >
-
                       <span
                         *ngIf="cliente.paymentIdentifier"
                         class="inline-flex items-center font-medium text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md border border-gray-300"
                       >
                         N° {{ cliente.paymentIdentifier | number : "1.2-2" }}
                       </span>
+
+                      <span class="font-semibold text-gray-900"
+                        >{{ cliente.fullName }}</span
+                      >             
                     </div>
 
                     <div class="text-xs text-gray-500">{{ cliente.email }}</div>
