@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
 import { CashService } from '../../core/services/cash-service/cash.service';
 import { Subject } from 'rxjs';
 import { debounceTime, groupBy, mergeMap } from 'rxjs/operators';
@@ -443,5 +443,49 @@ export class CashComponent implements OnInit {
     this.cashService.updateAccountColor(account.id, account.color).subscribe({
         error: () => Swal.fire('Error', 'No se pudo guardar el color de la cuenta', 'error')
     });
+  }
+
+  // --- NUEVAS VARIABLES PARA SELECCIÓN DE SALDOS ---
+  @ViewChild('saldosContainer') saldosContainer!: ElementRef;
+  selectedAccountIds: number[] = [];
+
+  // --- LÓGICA DE CLIC AFUERA ---
+  @HostListener('document:click', ['$event'])
+  onClickOutside(event: Event) {
+    // Si hay cuentas seleccionadas, verificamos si el clic fue AFUERA del contenedor de saldos
+    if (this.selectedAccountIds.length > 0 && this.saldosContainer) {
+      const clickedInside = this.saldosContainer.nativeElement.contains(event.target);
+      if (!clickedInside) {
+        this.selectedAccountIds = []; // Limpiamos la selección
+      }
+    }
+  }
+
+  // --- LÓGICA DE SELECCIÓN Y CÁLCULO ---
+  toggleAccountSelection(account: FinancialAccount): void {
+    if (!account.id) return;
+    
+    const index = this.selectedAccountIds.indexOf(account.id);
+    if (index > -1) {
+      this.selectedAccountIds.splice(index, 1); // Deseleccionar
+    } else {
+      this.selectedAccountIds.push(account.id); // Seleccionar
+    }
+  }
+
+  get selectedAccountsSumARS(): number {
+    let sum = 0;
+    this.accounts.forEach(acc => {
+      if (acc.id && this.selectedAccountIds.includes(acc.id)) {
+        const balance = Number(acc.balance) || 0;
+        // Si la cuenta está en dólares, la pasamos a pesos para la suma total
+        sum += acc.currency === 'USD' ? balance * (this.usdExchangeRate || 1) : balance;
+      }
+    });
+    return sum;
+  }
+
+  get monthName(): string {
+    return this.currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
   }
 }
