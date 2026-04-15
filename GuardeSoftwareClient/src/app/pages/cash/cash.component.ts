@@ -488,6 +488,7 @@ export class CashComponent implements OnInit {
   }
 
   get monthName(): string {
-    return this.currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+    const date = new Date(this.selectedYear, this.selectedMonth - 1, 1);
+    return date.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
   }
 }
