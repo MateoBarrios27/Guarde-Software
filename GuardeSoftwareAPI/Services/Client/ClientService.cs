@@ -171,7 +171,7 @@ namespace GuardeSoftwareAPI.Services.client
                             throw new InvalidOperationException("Ya existe un cliente con este Identificador de Pago.");
                         }
 
-                        if (await daoClient.ExistsByFullNameAsync(dto.FullName, connection, transaction))
+                        if (dto.FullName != null && await daoClient.ExistsByFullNameAsync(dto.FullName, connection, transaction))
                         {
                             throw new InvalidOperationException("Ya existe un cliente con este nombre completo.");
                         }
@@ -553,7 +553,7 @@ namespace GuardeSoftwareAPI.Services.client
                             throw new InvalidOperationException("Ya existe otro cliente con este CUIT.");
                         if (dto.PaymentIdentifier != null && await daoClient.ExistsByPaymentIdentifierAsync(dto.PaymentIdentifier.Value, id, connection, transaction))
                             throw new InvalidOperationException("Ya existe otro cliente con este número identificador de pago.");
-                        if (!string.IsNullOrWhiteSpace(dto.FullName) && await daoClient.ExistsByFullNameAsync(dto.FullName, connection, transaction))
+                        if (!string.IsNullOrWhiteSpace(dto.FullName) && await daoClient.ExistsByFullNameAsync(dto.FullName, id, connection, transaction))
                             throw new InvalidOperationException("Ya existe otro cliente con este nombre completo.");
 
                         Client clientToUpdate = new()

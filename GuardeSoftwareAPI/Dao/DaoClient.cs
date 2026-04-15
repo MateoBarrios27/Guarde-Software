@@ -576,6 +576,16 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
 
+        public async Task<bool> ExistsByFullNameAsync(string fullName, int excludeClientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = "SELECT COUNT(1) FROM clients WHERE full_name = @fullName AND client_id != @excludeClientId AND active = 1";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@fullName", SqlDbType.VarChar) { Value = fullName });
+            command.Parameters.Add(new SqlParameter("@excludeClientId", SqlDbType.Int) { Value = excludeClientId });
+            int count = (int)await command.ExecuteScalarAsync();
+            return count > 0;
+        }
+
 
         // Actualiza un cliente DENTRO de una transacción
         public async Task<bool> UpdateClientTransactionAsync(Client client, SqlConnection connection, SqlTransaction transaction)
