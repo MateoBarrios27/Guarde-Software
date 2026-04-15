@@ -58,12 +58,10 @@ namespace GuardeSoftwareAPI.Services.cash
         public async Task<MonthlyFinancialSummaryDto> GetMonthlySummaryAsync(int month, int year)
         {
             decimal systemIncome = await _dao.GetSystemIncomeAsync(month, year);
-            
-            decimal manualExpenses = await _dao.GetManualExpensesTotalAsync(month, year);
-            
+            decimal manualExpenses = await _dao.GetManualExpensesTotalAsync(month, year);     
             decimal pending = await _dao.GetPendingCollectionAsync(month, year);
-
             decimal advancePayments = await _dao.GetTotalAdvancePaymentsAsync(month, year);
+            decimal abono = await _dao.GetTotalAbonosAsync(month, year);
 
             decimal netBalance = systemIncome - manualExpenses;
 
@@ -73,7 +71,8 @@ namespace GuardeSoftwareAPI.Services.cash
                 TotalManualExpenses = manualExpenses,
                 TotalAdvancePayments = advancePayments,
                 NetBalance = netBalance,
-                PendingCollection = pending
+                PendingCollection = pending,
+                Abono = abono
             };
         }
 

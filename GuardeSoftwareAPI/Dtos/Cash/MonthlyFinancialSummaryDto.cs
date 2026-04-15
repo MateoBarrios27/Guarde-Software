@@ -4,4 +4,5 @@ public class MonthlyFinancialSummaryDto {
     public decimal TotalManualExpenses { get; set; } // Suma de items manuales
     public decimal TotalAdvancePayments { get; set; } // Pagos adelantados  
     public decimal NetBalance { get; set; } // Income - Expenses
+    public decimal Abono { get; set; } // Suma de abonos
 }

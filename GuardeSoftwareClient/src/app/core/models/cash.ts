@@ -18,7 +18,8 @@ export interface MonthlySummary {
   totalAdvancePayments: number; 
   totalManualExpenses: number;  
   netBalance: number;         
-  pendingCollection: number;  
+  pendingCollection: number; 
+  abono: number; 
 }
 
 export interface FinancialAccount {

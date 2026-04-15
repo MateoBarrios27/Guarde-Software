@@ -278,6 +278,33 @@ namespace GuardeSoftwareAPI.Dao
             return Convert.ToDecimal(result);
         }
 
+        public async Task<decimal> GetTotalAbonosAsync(int month, int year)
+        {
+            string query = @"
+                DECLARE @StartDate DATE = DATEFROMPARTS(@Year, @Month, 1);
+                DECLARE @EndDate DATE = EOMONTH(@StartDate);
+
+                SELECT ISNULL(SUM(filtered.amount), 0)
+                FROM (
+                    SELECT 
+                        h.amount,
+                        ROW_NUMBER() OVER (PARTITION BY h.rental_id ORDER BY h.start_date DESC) as rn
+                    FROM rental_amount_history h
+                    WHERE 
+                        h.start_date <= @EndDate
+                        AND (h.end_date IS NULL OR h.end_date >= @StartDate)
+                ) filtered
+                WHERE filtered.rn = 1;";
+
+            var parameters = new[] {
+                new SqlParameter("@Month", month),
+                new SqlParameter("@Year", year)
+            };
+
+            var result = await _accessDB.ExecuteScalarAsync(query, parameters);
+            return Convert.ToDecimal(result);
+        }
+
 
         public async Task<decimal> GetPendingCollectionAsync(int month, int year)
         {

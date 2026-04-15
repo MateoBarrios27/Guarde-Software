@@ -29,34 +29,44 @@
     <div class="flex flex-col gap-4">
       
       <div class="bg-gray-50 rounded-xl shadow-md border p-5 space-y-4">
-        <h3 class="font-bold text-gray-800 border-b pb-2">Resumen Financiero</h3>
+      <h3 class="font-bold text-gray-800 border-b pb-2">Resumen Financiero</h3>
+      
+      <div class="space-y-3 text-sm">
         
-        <div class="space-y-3 text-sm">
-          
-          <div class="flex justify-between items-center">
-            <span class="text-gray-600 flex items-center gap-2">
-              <div class="w-2 h-2 rounded-full bg-green-500"></div> Ingresos Sistema (Alquileres)
-            </span>
-            <div class="flex flex-col items-end">
-              <span class="font-bold text-gray-900 leading-tight">$ {{ (summary.totalSystemIncome || 0) | number:'1.2-2' }}</span>
-              <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.totalSystemIncome || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
-            </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-green-500"></div> Ingresos Sistema (Alquileres)
+          </span>
+          <div class="flex flex-col items-end">
+            <span class="font-bold text-green-600 leading-tight">$ {{ (summary.totalSystemIncome || 0) | number:'1.2-2' }}</span>
+            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.totalSystemIncome || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
           </div>
-          <div class="flex justify-between items-center">
-            <span class="text-gray-600 flex items-center gap-2">
-              <div class="w-2 h-2 rounded-full bg-blue-400"></div> Pagos Adelantados
-            </span>
-            <div class="flex flex-col items-end">
-              <span class="font-bold text-blue-700 leading-tight">$ {{ (summary.totalAdvancePayments || 0) | number:'1.2-2' }}</span>
-              <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.totalAdvancePayments || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
-            </div>
-          </div>
+        </div>
 
-          <div class="border-t border-dashed pt-2 space-y-2">
-            <div class="flex justify-between items-center">
-              <span class="text-gray-600 flex items-center gap-2">
-                <div class="w-2 h-2 rounded-full bg-orange-400"></div> Total A Pagar (Depo + Casa)
-              </span>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-blue-400"></div> Pagos Adelantados
+          </span>
+          <div class="flex flex-col items-end">
+            <span class="font-bold text-blue-700 leading-tight">$ {{ (summary.totalAdvancePayments || 0) | number:'1.2-2' }}</span>
+            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.totalAdvancePayments || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-purple-500"></div> Abonos
+          </span>
+          <div class="flex flex-col items-end">
+            <span class="font-bold text-purple-700 leading-tight">$ {{ (summary.abono || 0) | number:'1.2-2' }}</span>
+            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.abono || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+          </div>
+        </div>
+        <div class="border-t border-dashed pt-2 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-gray-600 flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full bg-orange-400"></div> Total A Pagar (Depo + Casa)
+            </span>
               <div class="flex flex-col items-end">
                 <span class="font-semibold text-orange-600 leading-tight">$ {{ totals.aPagar | number:'1.2-2' }}</span>
                 <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ (totals.aPagar / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>

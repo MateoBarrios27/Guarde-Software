@@ -25,7 +25,7 @@ export class CashComponent implements OnInit {
   
   items: CashFlowItem[] = [];
   summary: MonthlySummary = {
-    totalSystemIncome: 0, totalAdvancePayments: 0, totalManualExpenses: 0, netBalance: 0, pendingCollection: 0
+    totalSystemIncome: 0, totalAdvancePayments: 0, totalManualExpenses: 0, netBalance: 0, pendingCollection: 0, abono: 0
   };
   accounts: FinancialAccount[] = [];
 
@@ -236,8 +236,10 @@ export class CashComponent implements OnInit {
   }
 
   calculateNetBalance(): void {
-    const totalIncome = (this.summary.totalSystemIncome || 0) + (this.summary.totalAdvancePayments || 0);
-    this.summary.netBalance = totalIncome - this.summary.totalManualExpenses;
+    const totalRealIncome = (this.summary.totalSystemIncome || 0) + 
+                            (this.summary.totalAdvancePayments || 0);
+                            
+    this.summary.netBalance = totalRealIncome - this.summary.totalManualExpenses;
   }
 
   changeMonth(delta: number): void {
