@@ -650,6 +650,82 @@ namespace GuardeSoftwareAPI.Dao
                 return rowsAffected > 0;
             }
         }
+
+        public async Task<List<ClientLockerHistory>> GetClientLockerHistoryAsync(int clientId)
+        {
+            var list = new List<ClientLockerHistory>();
+            
+            string query = @"
+                SELECT 
+                    h.history_id, 
+                    l.identifier AS locker_identifier, 
+                    w.name AS warehouse_name, 
+                    lt.name AS locker_type, 
+                    h.start_date, 
+                    h.end_date, 
+                    h.notes
+                FROM client_locker_history h
+                INNER JOIN lockers l ON h.locker_id = l.locker_id
+                INNER JOIN warehouses w ON l.warehouse_id = w.warehouse_id
+                LEFT JOIN locker_types lt ON l.locker_type_id = lt.locker_type_id
+                WHERE h.client_id = @ClientId
+                ORDER BY h.start_date DESC"; 
+
+            var dt = await accessDB.GetTableAsync("LockerHistory", query, new[] {
+                new SqlParameter("@ClientId", clientId)
+            });
+
+            foreach (DataRow row in dt.Rows)
+            {
+                list.Add(new ClientLockerHistory
+                {
+                    Id = Convert.ToInt32(row["history_id"]),
+                    LockerIdentifier = row["locker_identifier"].ToString(),
+                    WarehouseName = row["warehouse_name"].ToString(),
+                    LockerType = row["locker_type"] != DBNull.Value ? row["locker_type"].ToString() : "N/A",
+                    StartDate = Convert.ToDateTime(row["start_date"]),
+                    EndDate = row["end_date"] != DBNull.Value ? Convert.ToDateTime(row["end_date"]) : null,
+                    Notes = row["notes"] != DBNull.Value ? row["notes"].ToString() : null
+                });
+            }
+            return list;
+        }
+
+        public async Task CloseLockerHistoryTransactionAsync(int clientId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (lockerIds == null || lockerIds.Count == 0) return;
+
+            string ids = string.Join(",", lockerIds);
+            string query = $@"
+                UPDATE client_locker_history 
+                SET end_date = GETDATE() 
+                WHERE client_id = @ClientId AND locker_id IN ({ids}) AND end_date IS NULL";
+
+            using (var cmd = new SqlCommand(query, connection, transaction))
+            {
+                cmd.Parameters.AddWithValue("@ClientId", clientId);
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        public async Task OpenLockerHistoryTransactionAsync(int clientId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (lockerIds == null || lockerIds.Count == 0) return;
+
+            foreach (var lockerId in lockerIds)
+            {
+                string query = @"
+                    INSERT INTO client_locker_history (client_id, locker_id, start_date) 
+                    VALUES (@ClientId, @LockerId, GETDATE())";
+
+                using (var cmd = new SqlCommand(query, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@ClientId", clientId);
+                    cmd.Parameters.AddWithValue("@LockerId", lockerId);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+            }
+        }
     }
 }
 

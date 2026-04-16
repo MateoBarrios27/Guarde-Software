@@ -217,5 +217,19 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, new { message = "Ocurrió un error al reactivar el cliente." });
             }
         }
+
+        [HttpGet("{id}/locker-history")]
+        public async Task<IActionResult> GetLockerHistory(int id)
+        {
+            try
+            {
+                var history = await _clientService.GetClientLockerHistoryAsync(id);
+                return Ok(history);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al obtener historial de bauleras.", error = ex.Message });
+            }
+        }
     }
 }

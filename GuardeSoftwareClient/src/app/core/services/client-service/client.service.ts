@@ -9,6 +9,7 @@ import { CreateClientResponseDTO } from '../../dtos/client/CreateClientResponseD
 import { TableClient } from '../../dtos/client/TableClientDto';
 import { GetClientsRequest } from '../../dtos/client/GetClientsRequest';
 import { PaginatedResult } from '../../dtos/common/PaginatedResultDto';
+import { ClientLockerHistory } from '../../models/client-locker-history';
 
 @Injectable({
   providedIn: 'root'
@@ -16,26 +17,26 @@ import { PaginatedResult } from '../../dtos/common/PaginatedResultDto';
 export class ClientService {
 
   private url: string = environment.apiUrl
-  constructor(private httpCliente: HttpClient) { }
+  constructor(private httpClient: HttpClient) { }
 
   public getClients(): Observable<Client[]>{
-    return this.httpCliente.get<Client[]>(`${this.url}/Client`);
+    return this.httpClient.get<Client[]>(`${this.url}/Client`);
   }
 
   public getClientById(id: number): Observable<Client>{
-    return this.httpCliente.get<Client>(`${this.url}/Client/${id}`);
+    return this.httpClient.get<Client>(`${this.url}/Client/${id}`);
   }
 
   public getClientDetailById(id: number): Observable<ClientDetailDTO>{
-    return this.httpCliente.get<ClientDetailDTO>(`${this.url}/Client/detail/${id}`);
+    return this.httpClient.get<ClientDetailDTO>(`${this.url}/Client/detail/${id}`);
   }
 
   public CreateClient(dto: CreateClientDTO): Observable<CreateClientResponseDTO> {
-    return this.httpCliente.post<any>(`${this.url}/Client`, dto);
+    return this.httpClient.post<any>(`${this.url}/Client`, dto);
   }
 
   public updateClient(id: number, dto: CreateClientDTO): Observable<any> {
-    return this.httpCliente.put<any>(`${this.url}/Client/${id}`, dto);
+    return this.httpClient.put<any>(`${this.url}/Client/${id}`, dto);
   }
 
   /**
@@ -66,11 +67,11 @@ export class ClientService {
       params = params.append('active', request.active.toString());
     }
 
-    return this.httpCliente.get<PaginatedResult<TableClient>>(`${this.url}/Client/table`, { params });
+    return this.httpClient.get<PaginatedResult<TableClient>>(`${this.url}/Client/table`, { params });
   }
 
   public getRecipientOptions(): Observable<string[]> {
-    return this.httpCliente.get<string[]>(`${this.url}/Client/recipient-options`);
+    return this.httpClient.get<string[]>(`${this.url}/Client/recipient-options`);
   }
 
   searchClients(query: string): Observable<string[]> {
@@ -78,16 +79,20 @@ export class ClientService {
       // No busques si la consulta es muy corta
       return of([]);
     }
-    return this.httpCliente.get<string[]>(`${this.url}/Client/search`, {
+    return this.httpClient.get<string[]>(`${this.url}/Client/search`, {
       params: { query }
     })
   };
 
   public deactivateClient(id: number): Observable<void> {
-    return this.httpCliente.delete<void>(`${this.url}/Client/${id}`);
+    return this.httpClient.delete<void>(`${this.url}/Client/${id}`);
   }
 
   reactivateClient(clientId: number): Observable<any> {
-    return this.httpCliente.put(`${this.url}/Client/${clientId}/reactivate`, {});
+    return this.httpClient.put(`${this.url}/Client/${clientId}/reactivate`, {});
+  }
+
+  getClientLockerHistory(clientId: number): Observable<ClientLockerHistory[]> {
+    return this.httpClient.get<ClientLockerHistory[]>(`${this.url}/Client/${clientId}/locker-history`);
   }
 }

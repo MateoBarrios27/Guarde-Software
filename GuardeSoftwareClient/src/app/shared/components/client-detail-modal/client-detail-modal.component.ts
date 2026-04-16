@@ -22,6 +22,8 @@ import { CreateMovementModalComponent } from '../create-movement-modal/create-mo
 
 import { NgxPaginationModule } from 'ngx-pagination';
 import { TimeDurationPipe } from '../../pipes/time-duration.pipe';
+import { ClientLockerHistory } from '../../../core/models/client-locker-history';
+import { ClientService } from '../../../core/services/client-service/client.service';
 
 export interface IClientCommunication {
   id: number;
@@ -50,7 +52,7 @@ export class ClientDetailModalComponent implements OnChanges {
   @Output() closeModal = new EventEmitter<void>();
   @Output() dataUpdated = new EventEmitter<number>();
 
-  public activeTab: 'movimientos' | 'comunicaciones' | 'detalles' =
+  public activeTab: 'movimientos' | 'comunicaciones' | 'detalles' | 'bauleras' =
     'movimientos';
 
   public historialMovimientos: AccountMovementDTO[] = [];
@@ -65,9 +67,14 @@ export class ClientDetailModalComponent implements OnChanges {
   public commCurrentPage: number = 1;
   public commItemsPerPage: number = 5; 
 
+  public historialBauleras: ClientLockerHistory[] = [];
+  public lockerCurrentPage: number = 1;
+  public lockerItemsPerPage: number = 5;
+
   constructor(
     private accountMovementService: AccountMovementService,
-    private communicationService: CommunicationService
+    private communicationService: CommunicationService,
+    private clientService: ClientService
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -80,6 +87,7 @@ export class ClientDetailModalComponent implements OnChanges {
         this.activeTab = 'movimientos';
         this.movementCurrentPage = 1;
         this.commCurrentPage = 1;
+        this.lockerCurrentPage = 1;
       }
     }
   }
@@ -93,6 +101,7 @@ export class ClientDetailModalComponent implements OnChanges {
     forkJoin({
       movements: this.accountMovementService.getMovementsByClientId(clientId),
       communications: this.communicationService.getCommunicationsByClientId(clientId),
+      lockers: this.clientService.getClientLockerHistory(clientId)
     })
       .pipe(
         finalize(() => {
@@ -101,13 +110,13 @@ export class ClientDetailModalComponent implements OnChanges {
       )
       .subscribe({
         next: (results) => {
-          // Ordenar por fecha (más reciente primero)
           this.historialMovimientos = results.movements.sort((a, b) => 
             new Date(b.movementDate).getTime() - new Date(a.movementDate).getTime()
           );
           this.historialComunicaciones = results.communications.sort((a, b) => 
             new Date(b.date).getTime() - new Date(a.date).getTime()
           );
+          this.historialBauleras = results.lockers
         },
         error: (err) => {
           console.error('Error al cargar historiales:', err);

@@ -635,6 +635,7 @@ namespace GuardeSoftwareAPI.Services.client
 
                             if (lockersToRemove.Count != 0) {
                                 await lockerService.UnassignLockersFromRentalTransactionAsync(lockersToRemove, connection, transaction);
+                                await daoClient.CloseLockerHistoryTransactionAsync(id, lockersToRemove, connection, transaction);
                             }
                             if (lockersToAdd.Count != 0) {
                                 foreach(var lockerIdToAdd in lockersToAdd) {
@@ -643,6 +644,7 @@ namespace GuardeSoftwareAPI.Services.client
                                     }
                                 }
                                 await lockerService.AssignLockersToRentalTransactionAsync(currentRental.Id, lockersToAdd, connection, transaction);
+                                await daoClient.OpenLockerHistoryTransactionAsync(id, lockersToAdd, connection, transaction);
                             }
 
                             // Recalcular M3 si hubo cambios en lockers
@@ -651,11 +653,9 @@ namespace GuardeSoftwareAPI.Services.client
                                 await rentalService.UpdateContractedM3TransactionAsync(currentRental.Id, newContractedM3, connection, transaction);
                             }
                         } else if (dto.LockerIds != null && dto.LockerIds.Count != 0) {
-                            // Lógica para crear un nuevo rental si no existía y se asignan lockers?
                             Console.WriteLine($"Advertencia: Se asignaron lockers al cliente {id} pero no tiene un rental activo.");
                         }
 
-                    // Lógica para Régimen de Aumento (si aplica)
 
                         ActivityLog activityLog = new()
                         { 
@@ -664,7 +664,6 @@ namespace GuardeSoftwareAPI.Services.client
                             Action = "UPDATE",
                             TableName = "clients",
                             RecordId = id,
-                            // OldValue = oldClientState,
                             NewValue = JsonSerializer.Serialize(dto)
                         };
                         await activityLogService.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
@@ -700,19 +699,13 @@ namespace GuardeSoftwareAPI.Services.client
                     try
                     {
                         var today = DateTime.UtcNow.Date;
-
-                        // 2. Desactivar Cliente (Usando su propio DAO)
                         await daoClient.DeactivateClientTransactionAsync(clientId, connection, transaction);
-
-                        // 3. Obtener Rental Activo usando el SERVICIO inyectado (Forma Correcta)
                         int? activeRentalId = await rentalService.GetActiveRentalIdByClientIdTransactionAsync(clientId, connection, transaction);
 
                         if (activeRentalId.HasValue)
                         {
-                            // 4. Cerrar historial de montos usando el SERVICIO inyectado
                             await rentalAmountHistoryService.CloseOpenHistoriesByRentalIdTransactionAsync(activeRentalId.Value, today, connection, transaction);
                             
-                            // 5. Finalizar Rental usando el SERVICIO inyectado
                             await rentalService.EndActiveRentalByClientIdTransactionAsync(clientId, today, connection, transaction);
                         }
 
@@ -744,12 +737,7 @@ namespace GuardeSoftwareAPI.Services.client
                 {
                     try
                     {
-                        // 1. Validar que el cliente exista (opcional, pero recomendado)
-                        // var exists = await _daoClient.ExistsByIdAsync(clientId, connection, transaction);
-                        // if (!exists) throw new KeyNotFoundException("Cliente no encontrado.");
 
-                        // 2. Obtener el nuevo Número de Identificación (Lógica de autoincremento)
-                        // Usamos el mismo método que en CreateClient para mantener consistencia
                         decimal maxIdentifier = await daoClient.GetMaxPaymentIdentifierAsync(connection, transaction);
                         decimal newPaymentIdentifier = maxIdentifier + 0.01m;
 
@@ -766,10 +754,18 @@ namespace GuardeSoftwareAPI.Services.client
                     {
                         await transaction.RollbackAsync();
                         throw;
-                    }
+                    }                  
                 }
             }
         }
+
+        public async Task<List<ClientLockerHistory>> GetClientLockerHistoryAsync(int clientId)
+        {
+            if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
+
+            return await daoClient.GetClientLockerHistoryAsync(clientId);
+        }
+        
     }
 }
 
