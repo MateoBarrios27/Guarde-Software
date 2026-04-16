@@ -40,8 +40,8 @@ export class CashComponent implements OnInit {
   };
 
   accountTotals = { 
-    ars: { total: 0, banks: 0, cash: 0 },
-    usd: { total: 0, banks: 0, cash: 0 }
+    ars: { total: 0, banks: 0, cash: 0, others: 0 },
+    usd: { total: 0, banks: 0, cash: 0, others: 0 }
   };
 
   usdExchangeRate: number = 1;
@@ -333,8 +333,8 @@ export class CashComponent implements OnInit {
 
   calculateAccountTotals(): void {
     this.accountTotals = {
-      ars: { total: 0, banks: 0, cash: 0 },
-      usd: { total: 0, banks: 0, cash: 0 }
+      ars: { total: 0, banks: 0, cash: 0, others: 0 },
+      usd: { total: 0, banks: 0, cash: 0, others: 0 }
     };
 
     this.accounts.forEach(curr => {
@@ -348,9 +348,11 @@ export class CashComponent implements OnInit {
         this.accountTotals[currency].banks += bal;
       } else if (['Caja Fuerte', 'Billetera', 'Caja'].includes(curr.type)) {
         this.accountTotals[currency].cash += bal;
+      } else if (curr.type === 'Otro') { 
+        this.accountTotals[currency].others += bal;
       }
     });
-  }
+  } 
 
   filterItems(): void {
     const term = this.searchTerm.toLowerCase().trim();

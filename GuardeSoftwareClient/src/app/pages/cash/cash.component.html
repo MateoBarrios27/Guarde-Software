@@ -24,9 +24,9 @@
     </div>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start pb-6 bg-gray-100">
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start pb-6 bg-gray-100">
     
-    <div class="flex flex-col gap-4">
+    <div class="lg:col-span-2 flex flex-col gap-4">
       
       <div class="bg-gray-50 rounded-xl shadow-md border p-5 space-y-4">
       <h3 class="font-bold text-gray-800 border-b pb-2">Resumen Financiero</h3>
@@ -136,7 +136,7 @@
 
     </div>
 
-    <div #saldosContainer class="bg-gray-50 rounded-xl shadow-md border p-5 flex flex-col h-full">
+    <div #saldosContainer class="lg:col-span-3 bg-gray-50 rounded-xl shadow-md border p-5 flex flex-col h-full">
       
       <h3 class="font-bold text-gray-800 border-b pb-2 mb-4 flex justify-between items-center flex-wrap gap-2">
           <div class="flex items-center gap-3">
@@ -249,7 +249,7 @@
             <div class="bg-gray-50 px-3 py-2 border-b border-gray-200 flex items-center gap-2">
                 <span class="text-xs font-bold text-gray-700 uppercase tracking-wider">Saldos en Pesos (ARS)</span>
             </div>
-            <div class="grid grid-cols-3 divide-x divide-gray-100">
+            <div class="grid grid-cols-4 divide-x divide-gray-100">
                 <div class="p-3 text-center hover:bg-gray-50 transition-colors flex flex-col justify-center">
                     <p class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Bancos</p>
                     <p class="text-sm font-bold text-gray-800">$ {{ accountTotals.ars.banks | number:'1.2-2' }}</p>
@@ -260,6 +260,13 @@
                     <p class="text-sm font-bold text-gray-800">$ {{ accountTotals.ars.cash | number:'1.2-2' }}</p>
                     <p class="text-[9px] text-gray-400 font-medium mt-0.5">≈ U$D {{ (accountTotals.ars.cash / (usdExchangeRate || 1)) | number:'1.2-2' }}</p>
                 </div>
+                
+                <div class="p-3 text-center hover:bg-gray-50 transition-colors flex flex-col justify-center">
+                    <p class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Otros</p>
+                    <p class="text-sm font-bold text-gray-800">$ {{ accountTotals.ars.others | number:'1.2-2' }}</p>
+                    <p class="text-[9px] text-gray-400 font-medium mt-0.5">≈ U$D {{ (accountTotals.ars.others / (usdExchangeRate || 1)) | number:'1.2-2' }}</p>
+                </div>
+
                 <div class="p-3 text-center bg-blue-50/20 flex flex-col justify-center">
                     <p class="text-[10px] uppercase tracking-wider font-bold text-blue-600 mb-1">Total ARS</p>
                     <p class="text-base font-extrabold text-blue-700 leading-tight">$ {{ accountTotals.ars.total | number:'1.2-2' }}</p>
@@ -272,7 +279,7 @@
             <div class="bg-green-50/50 px-3 py-2 border-b border-green-100 flex items-center gap-2">
                 <span class="text-xs font-bold text-green-800 uppercase tracking-wider">Saldos en Dólares (USD)</span>
             </div>
-            <div class="grid grid-cols-3 divide-x divide-gray-100">
+            <div class="grid grid-cols-4 divide-x divide-gray-100">
                 <div class="p-3 text-center hover:bg-gray-50 transition-colors flex flex-col justify-center">
                     <p class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Bancos</p>
                     <p class="text-sm font-bold text-gray-800">U$D {{ accountTotals.usd.banks | number:'1.2-2' }}</p>
@@ -283,6 +290,13 @@
                     <p class="text-sm font-bold text-gray-800">U$D {{ accountTotals.usd.cash | number:'1.2-2' }}</p>
                     <p class="text-[9px] text-gray-400 font-medium mt-0.5">≈ $ {{ (accountTotals.usd.cash * usdExchangeRate) | number:'1.2-2' }}</p>
                 </div>
+                
+                <div class="p-3 text-center hover:bg-gray-50 transition-colors flex flex-col justify-center">
+                    <p class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Otros</p>
+                    <p class="text-sm font-bold text-gray-800">U$D {{ accountTotals.usd.others | number:'1.2-2' }}</p>
+                    <p class="text-[9px] text-gray-400 font-medium mt-0.5">≈ $ {{ (accountTotals.usd.others * usdExchangeRate) | number:'1.2-2' }}</p>
+                </div>
+
                 <div class="p-3 text-center bg-green-50/30 flex flex-col justify-center">
                     <p class="text-[10px] uppercase tracking-wider font-bold text-green-600 mb-1">Total USD</p>
                     <p class="text-base font-extrabold text-green-700 leading-tight">U$D {{ accountTotals.usd.total | number:'1.2-2' }}</p>
