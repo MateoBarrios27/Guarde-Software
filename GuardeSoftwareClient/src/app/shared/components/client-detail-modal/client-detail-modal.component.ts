@@ -177,7 +177,9 @@ export class ClientDetailModalComponent implements OnChanges {
   getEstadoBadgeColor(estado: string): string {
      const colors: Record<string, string> = {
       'Al día': 'bg-green-100 text-green-800',
-      'Moroso': 'bg-red-100 text-red-800',
+      'Moroso Nivel 1': 'bg-red-100 text-red-800',
+      'Moroso Nivel 2': 'bg-red-100 text-red-800',
+      'Moroso Nivel 3': 'bg-red-100 text-red-800',
       'Pendiente': 'bg-yellow-100 text-yellow-800',
       'Baja': 'bg-gray-200 text-gray-800',
     };
@@ -187,7 +189,9 @@ export class ClientDetailModalComponent implements OnChanges {
   getEstadoIcon(estado: string): string {
      const icons: Record<string, string> = {
       'Al día': 'check-circle',
-      'Moroso': 'alert-triangle',
+      'Moroso Nivel 1': 'alert-triangle',
+      'Moroso Nivel 2': 'alert-triangle',
+      'Moroso Nivel 3': 'alert-triangle',
       'Pendiente': 'clock',
       'Baja': 'user-x',
     };

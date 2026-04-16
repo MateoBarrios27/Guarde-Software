@@ -211,6 +211,8 @@ namespace GuardeSoftwareAPI.Dao
                 AccountSummary AS (
                     SELECT
                         rental_id,
+                        -- DEBITO = -1 (Resta, genera saldo negativo/deuda)
+                        -- CREDITO = 1 (Suma, genera saldo a favor)
                         SUM(CASE WHEN movement_type = 'DEBITO' THEN -amount ELSE amount END) AS Balance,
                         MAX(CASE WHEN movement_type = 'DEBITO' THEN movement_date END) AS LastDebitDate,
                         SUM(CASE WHEN movement_type = 'CREDITO' THEN amount ELSE 0 END) AS TotalPaid
@@ -247,9 +249,9 @@ namespace GuardeSoftwareAPI.Dao
 
                     CASE 
                         WHEN c.active = 0 THEN 'Baja'
-                        WHEN r.months_unpaid > 0 THEN 'Moroso N' + CAST(r.months_unpaid AS VARCHAR(10))
-                        WHEN ISNULL(acc.Balance, 0) > 0 THEN 'Pendiente'
-                        ELSE 'Al día'
+                        WHEN ISNULL(r.months_unpaid, 0) >= 1 THEN 'Moroso Nivel ' + CAST(ISNULL(r.months_unpaid, 0) AS VARCHAR(10))
+                        WHEN ISNULL(acc.Balance, 0) >= 0 THEN 'Al día'
+                        ELSE 'Pendiente'
                     END AS payment_status
                     
                 FROM 
