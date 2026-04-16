@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CashService } from '../../core/services/cash-service/cash.service';
 import { Subject } from 'rxjs';
 import { debounceTime, groupBy, mergeMap } from 'rxjs/operators';
@@ -16,7 +16,7 @@ import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-
   styleUrls: ['./cash.component.css'],
   imports: [IconComponent, CommonModule, FormsModule, CurrencyFormatDirective, DragDropModule]
 })
-export class CashComponent implements OnInit {
+export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   
   currentDate = new Date();
   selectedMonth = this.currentDate.getMonth() + 1;
@@ -51,11 +51,46 @@ export class CashComponent implements OnInit {
   searchDate: string = '';
   filteredItems: any[] = [];
 
+  @ViewChild('topAnchor') topAnchor!: ElementRef;
+  @ViewChild('bottomAnchor') bottomAnchor!: ElementRef;
+  
+  isScrolledDown: boolean = false;
+  private scrollObserver!: IntersectionObserver;
+
   constructor(private cashService: CashService) {
     this.saveSubject.pipe(
       groupBy(item => item), 
       mergeMap(group => group.pipe(debounceTime(400))) 
     ).subscribe(item => this.saveItem(item));
+  }
+
+  ngAfterViewInit() {
+    // Creamos un "vigilante" que mira constantemente nuestra ancla superior
+    this.scrollObserver = new IntersectionObserver(([entry]) => {
+      // Si el ancla superior deja de verse (porque bajamos), cambiamos el estado a true
+      this.isScrolledDown = !entry.isIntersecting;
+    }, { threshold: 0 });
+
+    if (this.topAnchor) {
+      this.scrollObserver.observe(this.topAnchor.nativeElement);
+    }
+  }
+
+  ngOnDestroy() {
+    // Limpiamos el vigilante al salir de la pantalla para no consumir memoria
+    if (this.scrollObserver) {
+      this.scrollObserver.disconnect();
+    }
+  }
+
+  toggleScroll() {
+    if (this.isScrolledDown) {
+      // Ir arriba
+      this.topAnchor.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      // Ir abajo
+      this.bottomAnchor.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
   }
 
   ngOnInit(): void {
