@@ -69,6 +69,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     { number: '', whatsapp: true },
   ]);
 
+    public assignmentMode: 'request' | 'direct' = 'request';
+
   constructor(
     private fb: FormBuilder,
     private lockerService: LockerService,
@@ -108,43 +110,32 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     this.isLoading = true;
     this.areBasicDataLoaded = false;
 
-    // ... (Tu lógica de carga de datos común igual que antes) ...
     const commonObservables = {
       warehouses: this.warehouseService.getWarehouses(),
       paymentMethods: this.paymentMethodService.getPaymentMethods(),
       billingTypes: this.billingTypeService.getBillingTypes(),
+      lockers: this.lockerService.getLockers(),           
+      lockerTypes: this.lockerTypeService.getLockerTypes()
     };
 
-    const editObservables = {
-      lockers: this.isEditMode
-        ? this.lockerService.getLockers()
-        : of([] as Locker[]),
-      lockerTypes: this.isEditMode
-        ? this.lockerTypeService.getLockerTypes()
-        : of([] as LockerType[]),
-    };
-
-    forkJoin({ ...commonObservables, ...editObservables }).subscribe({
+    forkJoin(commonObservables).subscribe({
       next: (results: any) => {
         this.warehouses = results.warehouses;
         this.paymentMethods = results.paymentMethods;
         this.billingTypes = results.billingTypes;
+        this.lockerTypes = results.lockerTypes; 
 
-        if (this.isEditMode) {
-          this.lockerTypes = results.lockerTypes;
-          this.availableLockers = results.lockers.filter(
-            (l: Locker) =>
-              l.status.toLowerCase() === 'disponible' ||
-              this.clientData?.lockersList?.some(
-                (assignedLocker) => assignedLocker.id === l.id
-              ) === true
-          );
-        }
+        this.availableLockers = results.lockers.filter(
+          (l: Locker) =>
+            l.status.toLowerCase() === 'disponible' ||
+            (this.clientData?.lockersList?.some(
+              (assignedLocker) => assignedLocker.id === l.id
+            ) === true)
+        );
 
         this.areBasicDataLoaded = true;
         this.isLoading = false;
         
-        // Intentar poblar ahora que tenemos datos maestros
         this.tryPopulateForm();
       },
       error: (err) => {
@@ -170,7 +161,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   }
 
   private initNewClientForm(): void {
-    // Definición base
+    // 1. Inicialización Base: TODOS los controles deben existir desde el principio
     this.newClientForm = this.fb.group({
       numeroIdentificacion: [''],
       nombreCompleto: ['', Validators.required],
@@ -202,47 +193,50 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
       montoManual: [0, [Validators.required, Validators.min(0)]],
       contractedM3: [0],
       occupiedSpaces: [0],
+
+      // --- SIEMPRE INICIALIZAMOS LOS CONTROLES DE LOCKERS Y ESPACIOS ---
+      spaceRequests: this.fb.array([]), // Para el modo 'request'
+      lockersAsignados: this.fb.array([]), // Para el modo 'direct' o edición
+      lockerSearch: [''],
+      selectedWarehouse: ['all'],
+      selectedLockerType: ['all'],
     });
 
-    // --- LÓGICA CRÍTICA QUE FALLABA ANTES ---
-    // Ahora 'this.isReactivation' está garantizado de ser correcto gracias a ngOnChanges
-    if (this.isEditMode && !this.isReactivation) {
+    // 2. Suscripciones y lógica de negocio para los FormArrays
+    
+    // A. Lógica para Lockers Físicos
+    const lockersAsignados = this.newClientForm.get('lockersAsignados') as FormArray;
+    lockersAsignados.valueChanges.subscribe((ids: (number | null)[]) => {
+      const validIds = ids.filter((id): id is number => typeof id === 'number' && id > 0);
       
-      // EDICIÓN NORMAL
-      console.log("Inicializando form en modo: EDICIÓN NORMAL (Lockers)");
-      this.newClientForm.addControl('lockersAsignados', this.fb.array([]));
-      this.newClientForm.addControl('lockerSearch', this.fb.control(''));
-      this.newClientForm.addControl('selectedWarehouse', this.fb.control('all'));
-      this.newClientForm.addControl('selectedLockerType', this.fb.control('all'));
+      // Solo recalculamos los M3 basados en lockers físicos si estamos editando
+      // o si estamos creando en modo "directo"
+      if (this.isEditMode || (!this.isEditMode && this.assignmentMode === 'direct')) {
+          this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validIds), { emitEvent: false });
+      }
+    });
 
-      const lockersAsignados = this.newClientForm.get('lockersAsignados') as FormArray;
-      lockersAsignados.valueChanges.subscribe((ids: (number | null)[]) => {
-        const validIds = ids.filter((id): id is number => typeof id === 'number' && id > 0);
-        this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validIds), { emitEvent: false });
-      });
-
-    } else {
-      
-      // CREACIÓN O REACTIVACIÓN
-      console.log("Inicializando form en modo: CREACIÓN/REACTIVACIÓN (Espacios)");
-      this.newClientForm.addControl('spaceRequests', this.fb.array([]));
-      this.addSpaceRequest(); // Asegura que el array no esté vacío
-
-      const spaceRequests = this.newClientForm.get('spaceRequests') as FormArray;
-      spaceRequests.valueChanges.subscribe((requests: any[]) => {
-        let totalM3 = 0;
-        let totalSpaces = 0;
-        requests.forEach((req) => {
-          const m3 = parseFloat(req.m3) || 0;
-          const qty = parseInt(req.quantity, 10) || 0;
-          totalM3 += m3 * qty;
-          totalSpaces += qty;
-        });
-        this.newClientForm.get('contractedM3')?.setValue(totalM3, { emitEvent: false });
-      });
+    const spaceRequests = this.newClientForm.get('spaceRequests') as FormArray;
+    if (!this.isEditMode || this.isReactivation) {
+        this.addSpaceRequest();
+        this.setAssignmentMode(this.assignmentMode);
     }
+    
+    spaceRequests.valueChanges.subscribe((requests: any[]) => {
+      let totalM3 = 0;
+      requests.forEach((req) => {
+        const m3 = parseFloat(req.m3) || 0;
+        const qty = parseInt(req.quantity, 10) || 0;
+        totalM3 += m3 * qty;
+      });
+      
+      // Solo recalculamos los M3 basados en solicitudes si estamos creando en modo "request"
+      if (!this.isEditMode && this.assignmentMode === 'request') {
+          this.newClientForm.get('contractedM3')?.setValue(totalM3, { emitEvent: false });
+      }
+    });
 
-    // Suscripción Legacy
+    // 3. Suscripción Legacy
     this.newClientForm.get('isLegacyClient')?.valueChanges.subscribe((isLegacy) => {
        if (this.isEditMode) return;
        const fields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate', 'isLegacy6MonthPromo', 'prepaidMonths'];
@@ -403,14 +397,17 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   }
   
   get filteredLockers(): Locker[] {
-    if (!this.isEditMode) return []; 
+    if (!this.isEditMode && this.assignmentMode !== 'direct') return []; 
+    
     const search = this.newClientForm.value.lockerSearch?.toLowerCase() || '';
     const warehouseId = this.newClientForm.value.selectedWarehouse;
     const typeId = this.newClientForm.value.selectedLockerType;
+    
     return this.availableLockers.filter((locker) => {
       const searchMatch = search === '' || locker.identifier.toLowerCase().includes(search) || (locker.features && locker.features.toLowerCase().includes(search));
       const warehouseMatch = warehouseId === 'all' || locker.warehouseId === Number(warehouseId);
       const typeMatch = typeId === 'all' || locker.lockerTypeId === Number(typeId);
+      
       return searchMatch && warehouseMatch && typeMatch;
     });
   }
@@ -552,17 +549,26 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   };
 
   if (isEditing) {
-    dto.lockerIds = formValue.lockersAsignados.filter(
-      (id: any): id is number => typeof id === 'number' && id > 0
-    );
-  } else {
-    dto.spaceRequests = formValue.spaceRequests.map((req: any) => ({
-       warehouseId: req.warehouseId,
-       m3: req.m3 || 0,
-       quantity: req.quantity,
-       comment: req.comment || null
-    }));
-  }
+      dto.lockerIds = formValue.lockersAsignados.filter(
+        (id: any): id is number => typeof id === 'number' && id > 0
+      );
+      dto.spaceRequests = []; 
+    } else {
+      if (this.assignmentMode === 'request') {
+        dto.spaceRequests = formValue.spaceRequests.map((req: any) => ({
+           warehouseId: req.warehouseId,
+           m3: req.m3 || 0,
+           quantity: req.quantity,
+           comment: req.comment || null
+        }));
+        dto.lockerIds = []; 
+      } else {
+        dto.spaceRequests = [];
+        dto.lockerIds = formValue.lockersAsignados.filter(
+          (id: any): id is number => typeof id === 'number' && id > 0
+        );
+      }
+    }
 
   console.log('Enviando DTO:', dto);
 
@@ -640,5 +646,16 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
 
   blurInput(event: Event): void {
     (event.target as HTMLElement).blur();
+  }
+
+  setAssignmentMode(mode: 'request' | 'direct'): void {
+    this.assignmentMode = mode;
+    const spaceRequests = this.newClientForm.get('spaceRequests') as FormArray;
+    
+    if (mode === 'direct') {
+      spaceRequests.disable(); 
+    } else {
+      spaceRequests.enable();
+    }
   }
 }

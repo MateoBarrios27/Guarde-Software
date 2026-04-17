@@ -220,7 +220,6 @@ namespace GuardeSoftwareAPI.Services.client
                             nextIncreaseAnchorDate = new DateTime(firstAnniversary.Year, firstAnniversary.Month, 1);
                         }
 
-                        // 4. Crear Rental
                         Rental rental = new()
                         {
                             ClientId = newClientId,
@@ -247,6 +246,21 @@ namespace GuardeSoftwareAPI.Services.client
                                 };
                                 await _daoRentalSpaceRequest.CreateRequestTransactionAsync(spaceRequest, connection, transaction);
                             }
+                        }
+                        
+                        if (dto.LockerIds != null && dto.LockerIds.Count != 0)
+                        {
+                            foreach (var lockerIdToAdd in dto.LockerIds)
+                            {
+                                if (!await lockerService.IsLockerAvailableAsync(lockerIdToAdd, connection, transaction))
+                                {
+                                    throw new InvalidOperationException($"El locker con ID {lockerIdToAdd} no está disponible.");
+                                }
+                            }
+                            
+                            await lockerService.AssignLockersToRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
+                            
+                            await daoClient.OpenLockerHistoryTransactionAsync(newClientId, dto.LockerIds, connection, transaction);
                         }
 
                         // 5. Crear Historial de Monto(s)
