@@ -425,8 +425,10 @@ selectClient(client: any) {
   this.paymentDto.clientId = client.id;
   this.selectedClientBalance = client.balance;
   this.selectedClientRentAmount = client.currentRent;
-  
   this.selectedPreferredPaymentId = Number(client.preferredPaymentMethodId ?? 1); 
+  this.paymentDto.paymentMethodId = this.selectedPreferredPaymentId;
+  this.onAmountChange(this.paymentDto.amount);
+
   console.log(client.preferredPaymentMethodId);
   console.log('preferred:', this.selectedPreferredPaymentId);
 }
