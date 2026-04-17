@@ -263,7 +263,18 @@
 
      
       <div class="min-h-0">
-        <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200 h-full flex flex-col min-h-0">
+        <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200 h-full flex flex-col min-h-0 relative overflow-hidden">
+          
+          <div *ngIf="selectedClientId === 0" 
+               class="absolute inset-0 z-10 bg-indigo-50/50 backdrop-blur-[100px] flex flex-col items-center justify-center p-6 text-center transition-all duration-300">
+            <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4 shadow-inner">
+              <app-icon name="user" class="h-8 w-8 text-indigo-500"></app-icon>
+            </div>
+            <h3 class="text-lg font-bold text-indigo-900 mb-1">Seleccioná un cliente</h3>
+            <p class="text-sm text-gray-600 max-w-xs mx-auto">
+              Buscá y hacé clic sobre un cliente en la lista de la izquierda para habilitar la carga del pago.
+            </p>
+          </div>
           <h4 class="font-medium text-indigo-900 mb-3 flex items-center gap-2">
             <app-icon name="dollar-sign" class="h-4 w-4"></app-icon>
             Detalle del Pago
@@ -293,7 +304,12 @@
                     <p class="block font-medium text-indigo-900 mb-0.5">
                       Balance
                     </p>
-                    <p class="text-sm text-gray-800">
+                    <p class="text-sm font-bold"
+                       [ngClass]="{
+                         'text-green-600': selectedClientBalance > 0,
+                         'text-red-600': selectedClientBalance < 0,
+                         'text-gray-800': selectedClientBalance === 0
+                       }">
                       $ {{ selectedClientBalance | number:'1.2-2' }}
                     </p>
                   </div>
@@ -445,7 +461,8 @@
       </button>
       <button
         (click)="savePaymentModal(paymentDto)"
-        class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition"
+        [disabled]="selectedClientId === 0"
+        class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
         Guardar Pago
       </button>
