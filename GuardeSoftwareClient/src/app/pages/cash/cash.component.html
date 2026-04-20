@@ -191,16 +191,21 @@
                            (change)="onAccountColorChange(account)"
                            title="Cambiar color de esta cuenta"
                            class="w-2 h-11 cursor-pointer bg-transparent">
-                    <div>
-                      <div class="font-semibold text-base transition-colors" 
-                           [style.color]="account.color || '#1f2937'">
-                        {{ account.name }}
-                      </div>
-                      <div class="text-xs font-bold tracking-wide" 
-                           [ngClass]="account.currency === 'USD' ? 'text-green-600' : 'text-gray-500'">
-                        {{ account.type }} • {{ account.currency || 'ARS' }}
-                      </div>
-                    </div>
+                        <div class="w-full">
+                          <input type="text" 
+                                (click)="$event.stopPropagation()"
+                                [(ngModel)]="account.name" 
+                                (change)="onAccountNameChange(account)"
+                                (keydown.enter)="blurInput($event)"
+                                [style.color]="account.color || '#1f2937'"
+                                class="font-semibold text-base transition-colors bg-transparent border-none p-0 focus:ring-1 focus:ring-blue-300 rounded w-full overflow-hidden text-ellipsis m-0 shadow-none focus:bg-white/50"
+                                placeholder="Nombre de la cuenta...">
+                                
+                          <div class="text-xs font-bold tracking-wide" 
+                              [ngClass]="account.currency === 'USD' ? 'text-green-600' : 'text-gray-500'">
+                            {{ account.type }} • {{ account.currency || 'ARS' }}
+                          </div>
+                        </div>
                   </div>
                 </td>
                 

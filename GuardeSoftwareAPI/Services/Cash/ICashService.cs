@@ -16,5 +16,6 @@ namespace GuardeSoftwareAPI.Services.cash
         Task<decimal> GetUsdRateAsync(int month, int year);
         Task UpdateUsdRateAsync(decimal rate, int month, int year);
         Task UpdateAccountColorAsync(int id, string color);
+        Task<bool> UpdateAccountNameAsync(int id, string name);
     }
 }

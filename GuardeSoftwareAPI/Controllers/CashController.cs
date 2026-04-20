@@ -145,5 +145,26 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, $"Error interno al actualizar el color: {ex.Message}");
             }
         }
+
+        // Creamos un DTO chiquito para recibir el string
+        public class UpdateAccountNameDto { public string Name { get; set; } }
+
+        [HttpPut("accounts/{id}/name")]
+        public async Task<IActionResult> UpdateAccountName(int id, [FromBody] UpdateAccountNameDto dto)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("El nombre no puede estar vacío.");
+                
+                bool success = await _service.UpdateAccountNameAsync(id, dto.Name);
+                if (!success) return NotFound("Cuenta no encontrada.");
+                
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al actualizar el nombre de la cuenta." });
+            }
+        }
     }
 }

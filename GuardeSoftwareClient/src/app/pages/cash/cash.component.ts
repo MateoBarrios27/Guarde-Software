@@ -311,6 +311,17 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  onAccountNameChange(account: FinancialAccount): void {
+    if (!account.name || account.name.trim() === '') {
+      Swal.fire('Atención', 'El nombre de la cuenta no puede quedar vacío.', 'warning');
+      return;
+    }
+
+    this.cashService.updateAccountName(account.id!, account.name).subscribe({
+        error: () => Swal.fire('Error', 'No se pudo guardar el nuevo nombre de la cuenta', 'error')
+    });
+  }
+
   addAccount(): void {
     Swal.fire({
       title: 'Nueva Cuenta / Caja',

@@ -689,32 +689,170 @@ namespace GuardeSoftwareAPI.Dao
             await _accessDB.ExecuteCommandAsync(query, parameters);
         }
 
-        public async Task UpdateAccountColorAsync(int accountId, string color)
+        public async Task<bool> UpdateAccountColorAsync(int accountId, string newColor)
         {
-            string query = @"
-                DECLARE @AccMonth INT;
-                DECLARE @AccYear INT;
-                DECLARE @AccName NVARCHAR(255);
+            using (var connection = _accessDB.GetConnectionClose())
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        string selectQuery = "SELECT name, type, currency, month, year FROM financial_accounts WHERE account_id = @Id";
+                        string name = "";
+                        string type = "";
+                        string currency = "";
+                        int month = 0;
+                        int year = 0;
 
-                SELECT @AccMonth = month, @AccYear = year, @AccName = name 
-                FROM financial_accounts WHERE account_id = @AccountId;
+                        using (var selectCmd = new SqlCommand(selectQuery, connection, transaction))
+                        {
+                            selectCmd.Parameters.AddWithValue("@Id", accountId);
+                            using (var reader = await selectCmd.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    name = reader["name"].ToString();
+                                    type = reader["type"].ToString();
+                                    currency = reader["currency"].ToString();
+                                    month = Convert.ToInt32(reader["month"]);
+                                    year = Convert.ToInt32(reader["year"]);
+                                }
+                                else return false;
+                            }
+                        }
 
-                UPDATE financial_accounts SET color = @Color WHERE account_id = @AccountId;
+                        DateTime now = DateTime.Now;
+                        bool isPastMonth = (year < now.Year) || (year == now.Year && month < now.Month);
 
-                IF (@AccYear > YEAR(GETDATE()) OR (@AccYear = YEAR(GETDATE()) AND @AccMonth >= MONTH(GETDATE())))
-                BEGIN
-                    UPDATE financial_accounts 
-                    SET color = @Color 
-                    WHERE name = @AccName 
-                    AND (year > @AccYear OR (year = @AccYear AND month > @AccMonth));
-                END";
-            
-            var parameters = new[] {
-                new SqlParameter("@Color", (object)color ?? DBNull.Value),
-                new SqlParameter("@AccountId", accountId)
-            };
-            
-            await _accessDB.ExecuteCommandAsync(query, parameters);
+                        string updateQuery;
+                        if (isPastMonth)
+                        {
+                            updateQuery = "UPDATE financial_accounts SET color = @Color WHERE account_id = @Id";
+                        }
+                        else
+                        {
+                            updateQuery = @"
+                                UPDATE financial_accounts 
+                                SET color = @Color 
+                                WHERE name = @Name 
+                                AND type = @Type 
+                                AND currency = @Currency
+                                AND (year > @Year OR (year = @Year AND month >= @Month))";
+                        }
+
+                        using (var updateCmd = new SqlCommand(updateQuery, connection, transaction))
+                        {
+                            updateCmd.Parameters.AddWithValue("@Color", newColor);
+                            updateCmd.Parameters.AddWithValue("@Id", accountId);
+
+                            if (!isPastMonth)
+                            {
+                                updateCmd.Parameters.AddWithValue("@Name", name);
+                                updateCmd.Parameters.AddWithValue("@Type", type);
+                                updateCmd.Parameters.AddWithValue("@Currency", currency);
+                                updateCmd.Parameters.AddWithValue("@Month", month);
+                                updateCmd.Parameters.AddWithValue("@Year", year);
+                            }
+
+                            await updateCmd.ExecuteNonQueryAsync();
+                        }
+
+                        await transaction.CommitAsync();
+                        return true;
+                    }
+                    catch
+                    {
+                        await transaction.RollbackAsync();
+                        throw;
+                    }
+                }
+            }
+        }
+
+        public async Task<bool> UpdateAccountNameAsync(int accountId, string newName)
+        {
+            using (var connection = _accessDB.GetConnectionClose()) 
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        string selectQuery = "SELECT name, type, currency, month, year FROM financial_accounts WHERE account_id = @Id";
+                        string oldName = "";
+                        string type = "";
+                        string currency = "";
+                        int month = 0;
+                        int year = 0;
+
+                        using (var selectCmd = new SqlCommand(selectQuery, connection, transaction))
+                        {
+                            selectCmd.Parameters.AddWithValue("@Id", accountId);
+                            using (var reader = await selectCmd.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    oldName = reader["name"].ToString();
+                                    type = reader["type"].ToString();
+                                    currency = reader["currency"].ToString();
+                                    month = Convert.ToInt32(reader["month"]);
+                                    year = Convert.ToInt32(reader["year"]);
+                                }
+                                else
+                                {
+                                    return false;
+                                }
+                            }
+                        }
+
+                        DateTime now = DateTime.Now;
+                        bool isPastMonth = (year < now.Year) || (year == now.Year && month < now.Month);
+
+                        string updateQuery;
+
+                        if (isPastMonth)
+                        {
+                            updateQuery = "UPDATE financial_accounts SET name = @NewName WHERE account_id = @Id";
+                        }
+                        else
+                        {
+                            updateQuery = @"
+                                UPDATE financial_accounts 
+                                SET name = @NewName 
+                                WHERE name = @OldName 
+                                AND type = @Type 
+                                AND currency = @Currency
+                                AND (year > @Year OR (year = @Year AND month >= @Month))";
+                        }
+
+                        using (var updateCmd = new SqlCommand(updateQuery, connection, transaction))
+                        {
+                            updateCmd.Parameters.AddWithValue("@NewName", newName.Trim());
+                            updateCmd.Parameters.AddWithValue("@Id", accountId);
+
+                            if (!isPastMonth)
+                            {
+                                updateCmd.Parameters.AddWithValue("@OldName", oldName);
+                                updateCmd.Parameters.AddWithValue("@Type", type);
+                                updateCmd.Parameters.AddWithValue("@Currency", currency);
+                                updateCmd.Parameters.AddWithValue("@Month", month);
+                                updateCmd.Parameters.AddWithValue("@Year", year);
+                            }
+
+                            await updateCmd.ExecuteNonQueryAsync();
+                        }
+
+                        await transaction.CommitAsync();
+                        return true;
+                    }
+                    catch
+                    {
+                        await transaction.RollbackAsync();
+                        throw;
+                    }
+                }
+            }
         }
     }
 }
