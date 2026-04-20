@@ -282,7 +282,11 @@
                   {{ getDisplayStatus(cliente.status) }}
                 </span>
               </td>
-              <td class="p-4 font-medium text-gray-800">
+              <td class="p-4 font-medium text-gray-800 " 
+                      [ngClass]="{
+                         'text-green-600': cliente.balance >= 0,
+                         'text-red-600': cliente.balance < 0,
+                       }">
                 $ {{
                   cliente.balance | number:'1.2-2'
                 }}
