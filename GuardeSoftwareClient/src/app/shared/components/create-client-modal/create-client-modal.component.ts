@@ -39,6 +39,7 @@ import { BillingType } from '../../../core/models/billing-type.model';
 import { BillingTypeService } from '../../../core/services/billingType-service/billing-type.service';
 import { PhoneInputDto } from '../../../core/dtos/phone/PhoneInputDto';
 import { CurrencyFormatDirective } from "../../directives/currency-format.directive";
+import { AuthService } from '../../../core/services/auth-service/auth.service';
 
 @Component({
   selector: 'app-create-client-modal',
@@ -50,7 +51,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   private _clientData: ClientDetailDTO | null = null;
   public isEditMode = false; 
 
- @Input() isReactivation = false;
+  @Input() isReactivation = false;
   @Input() clientData: ClientDetailDTO | null = null;
   @Output() closeModal = new EventEmitter<void>();
   @Output() saveSuccess = new EventEmitter<void>();
@@ -78,7 +79,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     private paymentMethodService: PaymentMethodService,
     private lockerTypeService: LockerTypeService,
     private billingTypeService: BillingTypeService,
-    private clientService: ClientService
+    private clientService: ClientService,
+    private authService: AuthService
   ) {
     this.newClientForm = this.fb.group({});
   }
@@ -525,7 +527,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     preferredPaymentMethodId: paymentMethodId,
     ivaCondition: formValue.condicionIVA || null,
     amount: formValue.montoManual,
-    userID: 1,
+    userID: 1, 
 
     registrationDate:
       isLegacy && legacyStartDate ? legacyStartDate : safeRegistrationDate,
@@ -569,11 +571,14 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   console.log('Enviando DTO:', dto);
 
   let apiCall: Observable<any>;
-  if (isEditing) {
-    apiCall = this.clientService.updateClient(this.clientData!.id, dto);
-  } else {
-    apiCall = this.clientService.CreateClient(dto);
-  }
+    
+    if (this.isReactivation) {
+      apiCall = this.clientService.reactivateClient(this.clientData!.id, dto);
+    } else if (isEditing) {
+      apiCall = this.clientService.updateClient(this.clientData!.id, dto);
+    } else {
+      apiCall = this.clientService.CreateClient(dto);
+    }
 
   apiCall.subscribe({
     next: (response) => {

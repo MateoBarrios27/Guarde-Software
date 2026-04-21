@@ -88,8 +88,8 @@ export class ClientService {
     return this.httpClient.delete<void>(`${this.url}/Client/${id}`);
   }
 
-  reactivateClient(clientId: number): Observable<any> {
-    return this.httpClient.put(`${this.url}/Client/${clientId}/reactivate`, {});
+  reactivateClient(id: number, dto: any): Observable<any> {
+    return this.httpClient.put(`${this.url}/Client/${id}/reactivate`, dto);
   }
 
   getClientLockerHistory(clientId: number): Observable<ClientLockerHistory[]> {

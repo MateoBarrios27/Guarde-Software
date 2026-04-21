@@ -759,8 +759,13 @@ namespace GuardeSoftwareAPI.Services.client
             return Math.Round(amount / 1000m, MidpointRounding.AwayFromZero) * 1000m;
         }
 
-        public async Task ReactivateClientAsync(int clientId)
+        public async Task ReactivateClientAsync(int clientId, CreateClientDTO dto)
         {
+            if (clientId <= 0) throw new ArgumentException("ID de cliente inválido.");
+            ArgumentNullException.ThrowIfNull(dto);
+
+            if (dto.UserID <= 0) throw new ArgumentException("El ID del usuario es inválido (El frontend no está enviando el UserID en el DTO).");
+
             using (var connection = accessDB.GetConnectionClose())
             {
                 await connection.OpenAsync();
@@ -768,20 +773,130 @@ namespace GuardeSoftwareAPI.Services.client
                 {
                     try
                     {
+                        var existingClient = await daoClient.GetClientByIdTransactionAsync(clientId, connection, transaction);
+                        if (existingClient == null) throw new Exception("Cliente no encontrado.");
 
+                        // 1. Reactivate in database and get new PaymentIdentifier
                         decimal maxIdentifier = await daoClient.GetMaxPaymentIdentifierAsync(connection, transaction);
                         decimal newPaymentIdentifier = maxIdentifier + 0.01m;
+                        await daoClient.ReactivateClientTransactionAsync(clientId, newPaymentIdentifier, connection, transaction);
 
-                        bool success = await daoClient.ReactivateClientTransactionAsync(clientId, newPaymentIdentifier, connection, transaction);
-
-                        if (!success)
+                        // 2. Update the client's details with the new PaymentIdentifier and other info from DTO
+                        Client clientToUpdate = new()
                         {
-                            throw new Exception("No se pudo reactivar el cliente. Verifique que el ID sea correcto.");
+                            Id = clientId,
+                            PaymentIdentifier = newPaymentIdentifier, // new payment identifier upon reactivation
+                            FullName = dto.FullName.Trim(),
+                            Dni = string.IsNullOrWhiteSpace(dto.Dni) ? null : dto.Dni.Trim(),
+                            Cuit = string.IsNullOrWhiteSpace(dto.Cuit) ? null : dto.Cuit.Trim(),
+                            PreferredPaymentMethodId = dto.PreferredPaymentMethodId ?? existingClient.PreferredPaymentMethodId,
+                            IvaCondition = string.IsNullOrWhiteSpace(dto.IvaCondition) ? existingClient.IvaCondition : dto.IvaCondition.Trim(),
+                            BillingTypeId = dto.BillingTypeId ?? existingClient.BillingTypeId,
+                            Notes = string.IsNullOrWhiteSpace(dto.Notes) ? existingClient.Notes : dto.Notes.Trim(),
+                            RegistrationDate = existingClient.RegistrationDate, 
+                            IncreaseFrequencyMonths = existingClient.IncreaseFrequencyMonths, 
+                            InitialAmount = existingClient.InitialAmount,
+                            ReceiveCommunications = dto.ReceiveCommunications
+                        };
+                        await daoClient.UpdateClientTransactionAsync(clientToUpdate, connection, transaction);
+
+                        // Update Contact Information: Emails, Phones, Address
+                        await emailService.DeleteEmailsByClientIdTransactionAsync(clientId, connection, transaction);
+                        if (dto.Emails != null) {
+                            foreach (string emailAddr in dto.Emails.Where(e => !string.IsNullOrWhiteSpace(e))) {
+                                await emailService.CreateEmailTransaction(new Email { ClientId = clientId, Address = emailAddr.Trim(), Type = "" }, connection, transaction);
+                            }
                         }
+
+                        await phoneService.DeletePhonesByClientIdTransactionAsync(clientId, connection, transaction);
+                        if (dto.Phones != null) {
+                            foreach (var phone in dto.Phones.Where(p => !string.IsNullOrWhiteSpace(p.Number))) {
+                                await phoneService.CreatePhoneTransaction(new Phone { ClientId = clientId, Number = phone.Number.Trim(), Type = "", Whatsapp = phone.Whatsapp }, connection, transaction);
+                            }
+                        }
+
+                        await addressService.DeleteAddressByClientIdTransactionAsync(clientId, connection, transaction);
+                        if (dto.AddressDto != null && !string.IsNullOrWhiteSpace(dto.AddressDto.Street)) {
+                            await addressService.CreateAddressTransaction(new Address { ClientId = clientId, Street = dto.AddressDto.Street.Trim(), City = "", Province = "" }, connection, transaction);
+                        }
+
+                        // 3. Create new Rental with the new PaymentIdentifier and details from DTO
+                        decimal calculatedTotalM3 = (dto.SpaceRequests != null && dto.SpaceRequests.Count != 0) 
+                            ? dto.SpaceRequests.Sum(r => r.M3 * r.Quantity) : (dto.ContractedM3 ?? 0m);
+
+                        DateTime startDate = DateTime.Now;
+                        DateTime calculationBaseDate = startDate.Date;
+                        if (calculationBaseDate.Day > 20) calculationBaseDate = calculationBaseDate.AddMonths(1);
+                        int frequency = existingClient.IncreaseFrequencyMonths > 0 ? existingClient.IncreaseFrequencyMonths : 4;
+                        var firstAnniversary = calculationBaseDate.AddMonths(frequency - 1); 
+                        DateTime nextIncreaseAnchorDate = new DateTime(firstAnniversary.Year, firstAnniversary.Month, 1);
+
+                        Rental rental = new()
+                        {
+                            ClientId = clientId,
+                            StartDate = startDate,
+                            ContractedM3 = calculatedTotalM3,
+                            MonthsUnpaid = 0,
+                            PriceLockEndDate = null,
+                            IncreaseAnchorDate = nextIncreaseAnchorDate,
+                            OccupiedSpaces = dto.OccupiedSpaces,
+                        };
+                        int rentalId = await rentalService.CreateRentalTransactionAsync(rental, connection, transaction);
+
+                        // 4. Assign lockers and create space requests if applicable
+                        if (dto.SpaceRequests != null && dto.SpaceRequests.Count != 0)
+                        {
+                            foreach (var req in dto.SpaceRequests)
+                            {
+                                await _daoRentalSpaceRequest.CreateRequestTransactionAsync(new RentalSpaceRequest { RentalId = rentalId, WarehouseId = req.WarehouseId, Quantity = req.Quantity, M3 = req.M3, Comment = req.Comment }, connection, transaction);
+                            }
+                        }
+                        else if (dto.LockerIds != null && dto.LockerIds.Count != 0)
+                        {
+                            foreach (var lockerIdToAdd in dto.LockerIds)
+                            {
+                                if (!await lockerService.IsLockerAvailableAsync(lockerIdToAdd, connection, transaction))
+                                    throw new InvalidOperationException($"El locker {lockerIdToAdd} ya no está disponible.");
+                            }
+                            await lockerService.AssignLockersToRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
+                            await daoClient.OpenLockerHistoryTransactionAsync(clientId, dto.LockerIds, connection, transaction);
+                        }
+
+                        // 5. New amoount history record with the new amount from DTO
+                        await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
+                        {
+                            RentalId = rentalId, Amount = dto.Amount, StartDate = startDate, EndDate = null
+                        }, connection, transaction);
+
+                        // 6. First debit movement for the rent (either full or proportional depending on the day of the month)
+                        var culture = new CultureInfo("es-AR");
+                        if (startDate.Day < 10)
+                        {
+                            string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(culture.DateTimeFormat.GetMonthName(startDate.Month));
+                            await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement { RentalId = rentalId, MovementDate = startDate, MovementType = "DEBITO", Concept = $"Alquiler {monthTitle} {startDate.Year} (Reactivación)", Amount = dto.Amount, PaymentId = null }, connection, transaction);
+                        }
+                        else
+                        {
+                            int daysInMonth = DateTime.DaysInMonth(startDate.Year, startDate.Month);
+                            int daysToCharge = daysInMonth - startDate.Day; 
+                            decimal dailyRate = dto.Amount / daysInMonth;
+                            decimal debitAmountProportional = RoundToNearest1000(dailyRate * daysToCharge);
+
+                            string currentMonthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(culture.DateTimeFormat.GetMonthName(startDate.Month));
+                            await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement { RentalId = rentalId, MovementDate = startDate, MovementType = "DEBITO", Concept = $"Alquiler {currentMonthTitle} {startDate.Year} (Reactivación Proporcional {daysToCharge} días)", Amount = debitAmountProportional, PaymentId = null }, connection, transaction);
+
+                            DateTime nextMonthDate = startDate.AddMonths(1);
+                            string nextMonthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(culture.DateTimeFormat.GetMonthName(nextMonthDate.Month));
+                            await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement { RentalId = rentalId, MovementDate = startDate, MovementType = "DEBITO", Concept = $"Alquiler {nextMonthTitle} {nextMonthDate.Year}", Amount = dto.Amount, PaymentId = null }, connection, transaction);
+                        }
+
+                        // 7. Log
+                        ActivityLog activityLog = new() { UserId = dto.UserID, LogDate = DateTime.UtcNow, Action = "REACTIVATE", TableName = "clients", RecordId = clientId };
+                        await activityLogService.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
 
                         await transaction.CommitAsync();
                     }
-                    catch (Exception)
+                    catch
                     {
                         await transaction.RollbackAsync();
                         throw;

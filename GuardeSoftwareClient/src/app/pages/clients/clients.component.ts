@@ -202,7 +202,6 @@ export class ClientsComponent implements OnInit {
   getEstadoIcon(estado: string): string {
     if (!estado) return 'help-circle';
 
-    // Misma lógica para el ícono
     if (estado.startsWith('Moroso')) {
       return 'alert-triangle';
     }
@@ -377,34 +376,21 @@ export class ClientsComponent implements OnInit {
         Vas a reactivar a <strong>${cliente.fullName}</strong>.<br><br>
         <ul style="text-align: left; font-size: 0.9em; margin-left: 20px;">
           <li>Se generará un <strong>nuevo Número de Identificación</strong>.</li>
-          <li>Se abrirá el formulario para <strong>confirmar los datos</strong>.</li>
+          <li>Se abrirá el formulario para <strong>confirmar los datos y asignar bauleras</strong>.</li>
         </ul>
       `,
       icon: 'info',
       showCancelButton: true,
-      confirmButtonColor: '#10b981', // Verde
+      confirmButtonColor: '#10b981', 
       cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Sí, reactivar y editar',
+      confirmButtonText: 'Sí, configurar reactivación',
       cancelButtonText: 'Cancelar',
     }).then((result) => {
       if (result.isConfirmed) {
-        this.isLoading = true;
-        this.clientService.reactivateClient(cliente.id).subscribe({
-          next: () => {
-            this.isLoading = false;
-            this.showToastNotification('Cliente reactivado.', 'success');
-            this.loadClients();
-            
-            this.isReactivationMode = true; 
-            this.fetchAndOpenModal(cliente.id);
-          },
-          error: (err) => {
-            this.isLoading = false;
-            console.error('Error al reactivar:', err);
-            const msg = err.error?.message || 'No se pudo reactivar el cliente.';
-            Swal.fire('Error', msg, 'error');
-          },
-        });
+        
+        this.isReactivationMode = true; 
+        this.fetchAndOpenModal(cliente.id);
+        
       }
     });
   }

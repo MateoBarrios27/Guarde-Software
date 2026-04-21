@@ -198,15 +198,15 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPut("{id}/reactivate")]
-        public async Task<IActionResult> ReactivateClient(int id)
+        public async Task<IActionResult> ReactivateClient(int id, [FromBody] CreateClientDTO dto)
         {
             try
             {
                 if (id <= 0) return BadRequest("ID de cliente inválido.");
-
-                await _clientService.ReactivateClientAsync(id);
                 
-                return Ok(new { message = "Cliente reactivado exitosamente." });
+                await _clientService.ReactivateClientAsync(id, dto);
+                
+                return Ok(new { message = "Cliente reactivado exitosamente con nuevo contrato." });
             }
             catch (KeyNotFoundException ex)
             {
@@ -214,7 +214,7 @@ namespace GuardeSoftwareAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Ocurrió un error al reactivar el cliente." });
+                return StatusCode(500, new { message = $"Ocurrió un error al reactivar el cliente: {ex.Message}" });
             }
         }
 
