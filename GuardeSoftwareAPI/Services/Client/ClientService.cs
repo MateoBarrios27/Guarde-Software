@@ -264,38 +264,36 @@ namespace GuardeSoftwareAPI.Services.client
                         }
 
                         // 5. Crear Historial de Monto(s)
+                        // 5. Crear Historial de Monto(s)
                         if (dto.IsLegacyClient)
                         {
-                            decimal initialAmount = dto.LegacyInitialAmount ?? dto.Amount;
-                            
+                            // Arranca en su fecha histórica con el monto inicial o actual. SIEMPRE ABIERTO.
                             await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
                             {
                                 RentalId = rentalId,
-                                Amount = dto.Amount,
-                                StartDate = dto.StartDate, 
-                                EndDate = (dto.LegacyNextIncreaseDate.HasValue && dto.LegacyNextIncreaseDate.Value > dto.StartDate) 
-                                                ? dto.LegacyNextIncreaseDate.Value.AddDays(-1) 
-                                                : null
+                                Amount = dto.LegacyInitialAmount ?? dto.Amount,
+                                StartDate = startDate, 
+                                EndDate = null // NUNCA se pre-cierra
                             }, connection, transaction);
-
-                            if (dto.Amount != initialAmount && dto.LegacyNextIncreaseDate.HasValue && dto.LegacyNextIncreaseDate.Value.Date <= today.Date)
+                            
+                            // Si el monto de hoy es distinto al inicial histórico, aplicamos el cambio a la hora actual
+                            if (dto.Amount != (dto.LegacyInitialAmount ?? dto.Amount))
                             {
-                                await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
+                                var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(rentalId, connection, transaction);
+                                if (lastAmountHistory != null)
                                 {
-                                    RentalId = rentalId,
-                                    Amount = dto.Amount,
-                                    StartDate = dto.LegacyNextIncreaseDate.Value.Date
-                                }, connection, transaction);
+                                    await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, rentalId, dto.Amount, DateTime.Now, connection, transaction);
+                                }
                             }
                         }
                         else
                         {
-                            // Cliente Nuevo
                             await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
                             {
                                 RentalId = rentalId,
                                 Amount = dto.Amount,
-                                StartDate = startDate
+                                StartDate = DateTime.Now,
+                                EndDate = null
                             }, connection, transaction);
                         }
 
@@ -634,7 +632,7 @@ namespace GuardeSoftwareAPI.Services.client
                             var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(currentRental.Id, connection, transaction);
                             if (lastAmountHistory != null && dto.Amount != lastAmountHistory.Amount)
                             {
-                                await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, currentRental.Id, dto.Amount, DateTime.UtcNow.Date, connection, transaction);
+                                await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, currentRental.Id, dto.Amount, DateTime.Now, connection, transaction);
                             }
 
                             if (dto.OccupiedSpaces != currentRental.OccupiedSpaces)

@@ -37,6 +37,13 @@ namespace GuardeSoftwareAPI.Jobs
             {
                 int rentalId = Convert.ToInt32(row["rental_id"]);
                 int frequency = Convert.ToInt32(row["increase_frequency_months"]);
+
+                if (frequency <= 0)
+                {
+                    _logger.LogWarning($"ALERTA: El alquiler {rentalId} tiene frecuencia {frequency}. Se fuerza a 4 para evitar loop infinito.");
+                    frequency = 4;
+                }
+
                 DateTime anchorDate = Convert.ToDateTime(row["increase_anchor_date"]);
                 decimal currentAmount = Convert.ToDecimal(row["CurrentAmount"]);
                 int lastHistoryId = Convert.ToInt32(row["LastHistoryId"]);
@@ -108,7 +115,7 @@ namespace GuardeSoftwareAPI.Jobs
                                     lastHistoryId,
                                     rentalId,
                                     finalAmount,
-                                    lastAppliedIncreaseDate, 
+                                    DateTime.Now, 
                                     connection,
                                     transaction
                                 );

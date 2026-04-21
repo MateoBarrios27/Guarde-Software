@@ -81,7 +81,6 @@ namespace GuardeSoftwareAPI.Dao
         }
 
 
-        //METHOD FOR TRANSACTION
         public async Task<int> CreateRentalAmountHistoryTransactionAsync(RentalAmountHistory rentalAmountHistory, SqlConnection connection, SqlTransaction transaction)
         {
             SqlParameter[] parameters =
@@ -93,14 +92,14 @@ namespace GuardeSoftwareAPI.Dao
                     Scale = 2,
                     Value = rentalAmountHistory.Amount
                 },
-                new SqlParameter("@start_date", SqlDbType.Date) { Value = rentalAmountHistory.StartDate }, // Usar Date
-                new SqlParameter("@end_date", SqlDbType.Date) { Value = (object?)rentalAmountHistory.EndDate ?? DBNull.Value } // Acepta nulos
+                new SqlParameter("@start_date", SqlDbType.DateTime) { Value = rentalAmountHistory.StartDate }, 
+                new SqlParameter("@end_date", SqlDbType.DateTime) { Value = (object?)rentalAmountHistory.EndDate ?? DBNull.Value } 
             ];
 
             string query = @"
                 INSERT INTO rental_amount_history (rental_id, amount, start_date, end_date)
                 OUTPUT INSERTED.rental_amount_history_id
-                VALUES (@rental_id, @amount, @start_date, @end_date);"; // Añadido end_date
+                VALUES (@rental_id, @amount, @start_date, @end_date);"; 
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
@@ -110,11 +109,15 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
 
-
         public async Task<RentalAmountHistory?> GetLatestRentalAmountHistoryTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
         {
-            string query = "SELECT TOP 1 * FROM rental_amount_history WHERE rental_id = @rental_id ORDER BY start_date DESC";
-            SqlParameter[] parameters = { new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId } };
+            string query = @"
+                SELECT TOP 1 * FROM rental_amount_history 
+                WHERE rental_id = @rental_id 
+                ORDER BY start_date DESC, 
+                        CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, 
+                        rental_amount_history_id DESC";
+            SqlParameter[] parameters = [new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId }];
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
@@ -141,10 +144,10 @@ namespace GuardeSoftwareAPI.Dao
         {
             string query = "UPDATE rental_amount_history SET end_date = @end_date WHERE rental_amount_history_id = @history_id AND end_date IS NULL";
             SqlParameter[] parameters =
-            {
-                new SqlParameter("@end_date", SqlDbType.Date) { Value = endDate },
-                new SqlParameter("@history_id", SqlDbType.Int) { Value = historyId }
-            };
+            [
+                new("@end_date", SqlDbType.DateTime) { Value = endDate },
+                new("@history_id", SqlDbType.Int) { Value = historyId }
+            ];
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
@@ -153,14 +156,13 @@ namespace GuardeSoftwareAPI.Dao
                 return rowsAffected > 0;
             }
         }
-
         public async Task CloseOpenHistoriesByRentalIdTransactionAsync(int rentalId, DateTime endDate, SqlConnection connection, SqlTransaction transaction)
         {
             string query = "UPDATE rental_amount_history SET end_date = @EndDate WHERE rental_id = @RentalId AND end_date IS NULL";
-            SqlParameter[] parameters = {
-                new SqlParameter("@RentalId", SqlDbType.Int) { Value = rentalId },
-                new SqlParameter("@EndDate", SqlDbType.Date) { Value = endDate }
-            };
+            SqlParameter[] parameters = [
+                new("@RentalId", SqlDbType.Int) { Value = rentalId },
+                new("@EndDate", SqlDbType.DateTime) { Value = endDate }
+            ];
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
