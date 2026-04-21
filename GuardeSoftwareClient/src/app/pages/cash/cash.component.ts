@@ -10,6 +10,17 @@ import { CashFlowItem, FinancialAccount, MonthlySummary } from '../../core/model
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 
+// --- ESTRUCTURA PARA EL HISTORIAL (CTRL+Z) ---
+export type ActionType = 'ACCOUNT_EDIT' | 'ACCOUNT_CREATE' | 'ACCOUNT_DELETE' | 'ITEM_EDIT' | 'ITEM_CREATE' | 'ITEM_DELETE';
+
+export interface UndoAction {
+  type: ActionType;
+  targetId?: number; 
+  oldState?: any;
+  anchorMonth: number;
+  anchorYear: number;
+}
+
 @Component({ 
   selector: 'app-cash',
   templateUrl: './cash.component.html',
@@ -57,6 +68,11 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   isScrolledDown: boolean = false;
   private scrollObserver!: IntersectionObserver;
 
+  // --- VARIABLES SISTEMA CTRL+Z ---
+  public undoStack: UndoAction[] = [];
+  private capturedAccountState: string = '';
+  private capturedItemState: string = '';
+
   constructor(private cashService: CashService) {
     this.saveSubject.pipe(
       groupBy(item => item), 
@@ -64,10 +80,189 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     ).subscribe(item => this.saveItem(item));
   }
 
+  private saveUndoStack(): void {
+    sessionStorage.setItem('cash_undo_stack', JSON.stringify(this.undoStack));
+  }
+
+  private loadUndoStack(): void {
+    const saved = sessionStorage.getItem('cash_undo_stack');
+    if (saved) {
+      this.undoStack = JSON.parse(saved);
+    }
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  handleKeyDown(event: KeyboardEvent) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+      const activeElement = document.activeElement as HTMLElement;
+      // Si está escribiendo dentro de un input, dejamos que el navegador haga su "deshacer" nativo de texto
+      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+        return;
+      }
+      event.preventDefault();
+      this.undoLastAction();
+    }
+  }
+
+  // --- CAPTURADORES DE ESTADOS ---
+  captureAccount(acc: FinancialAccount) {
+    this.capturedAccountState = JSON.stringify(acc);
+  }
+
+  checkAccountChange(acc: FinancialAccount) {
+    if (!this.capturedAccountState) return;
+    const oldState = JSON.parse(this.capturedAccountState);
+    if (oldState.name !== acc.name || oldState.color !== acc.color || oldState.balance !== acc.balance) {
+      this.undoStack.push({ 
+        type: 'ACCOUNT_EDIT', 
+        targetId: acc.id,
+        oldState,
+        anchorMonth: this.selectedMonth,
+        anchorYear: this.selectedYear
+      });
+      this.saveUndoStack();
+    }
+    this.capturedAccountState = '';
+  }
+
+  captureItem(item: CashFlowItem) {
+    this.capturedItemState = JSON.stringify(item);
+  }
+
+  checkItemChange(item: CashFlowItem) {
+    if (!this.capturedItemState) return;
+    const oldState = JSON.parse(this.capturedItemState);
+    if (JSON.stringify(oldState) !== JSON.stringify(item)) {
+      this.undoStack.push({ 
+        type: 'ITEM_EDIT', 
+        targetId: item.id, 
+        oldState,
+        anchorMonth: this.selectedMonth,
+        anchorYear: this.selectedYear
+      });
+      this.saveUndoStack(); 
+    }
+    this.capturedItemState = '';
+  }
+
+  // --- EJECUCIÓN DEL DESHACER CON ANCLAS TEMPORALES ---
+  // --- EJECUCIÓN DEL DESHACER (CON STORAGE Y ANCLAS) ---
+  undoLastAction() {
+    if (this.undoStack.length === 0) return;
+    const action = this.undoStack.pop()!;
+    this.saveUndoStack(); // Actualizamos el storage al sacar un elemento
+
+    const m = action.anchorMonth;
+    const y = action.anchorYear;
+    const isCurrentMonth = (m === this.selectedMonth && y === this.selectedYear);
+
+    switch (action.type) {
+      case 'ACCOUNT_EDIT':
+        this.cashService.updateAccountName(action.targetId!, action.oldState.name).subscribe();
+        this.cashService.updateAccountColor(action.targetId!, action.oldState.color).subscribe();
+        this.cashService.updateAccountBalance(action.targetId!, action.oldState.balance, m, y).subscribe();
+        
+        if (isCurrentMonth) {
+          const acc = this.accounts.find(a => a.id === action.targetId);
+          if (acc) Object.assign(acc, action.oldState);
+          this.calculateAccountTotals();
+        }
+        this.showUndoToast(`Cuenta revertida al estado de ${this.getMonthNameByNum(m)}, `);
+        break;
+
+      case 'ACCOUNT_CREATE':
+        this.cashService.deleteAccount(action.targetId!).subscribe();
+        if (isCurrentMonth) {
+          this.accounts = this.accounts.filter(a => a.id !== action.targetId);
+          this.calculateAccountTotals();
+        }
+        this.showUndoToast('Creación de cuenta desecha');
+        break;
+
+      case 'ACCOUNT_DELETE':
+        const accToRestore = { ...action.oldState };
+        delete accToRestore.id;
+        this.cashService.createAccount(accToRestore, m, y).subscribe({
+          next: (newId) => {
+            action.oldState.id = newId;
+            if (isCurrentMonth) {
+              this.accounts.push(action.oldState);
+              this.accounts.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+              this.calculateAccountTotals();
+            }
+            this.showUndoToast(`Cuenta restaurada en ${this.getMonthNameByNum(m)}, refrescar si no aparece`);
+          }
+        });
+        break;
+
+      case 'ITEM_EDIT':
+        // Reconstruimos el item para enviarlo a la BD
+        const restoredItem = { ...action.oldState, id: action.targetId };
+        this.saveItemGlobal(restoredItem, m, y); 
+        
+        if (isCurrentMonth) {
+          const itemMem = this.items.find(i => i.id === action.targetId);
+          if (itemMem) {
+             Object.assign(itemMem, action.oldState);
+             this.items = [...this.items]; // Forzamos el repintado
+             this.filterItems();
+             this.calculateLocalTotals();
+          }
+        }
+        this.showUndoToast(`Gasto revertido en ${this.getMonthNameByNum(m)}`);
+        break;
+
+      case 'ITEM_DELETE':
+        const itemToRestore = { ...action.oldState };
+        itemToRestore.id = 0; 
+        const payload: CashFlowItem = {
+          ...itemToRestore,
+          depo: itemToRestore.depo || 0,
+          casa: itemToRestore.casa || 0,
+          retiros: itemToRestore.retiros || 0,
+          extras: itemToRestore.extras || 0
+        };
+
+        this.cashService.upsertItem(payload, m, y).subscribe({
+          next: (newId) => {
+            action.oldState.id = newId; 
+            if (isCurrentMonth) {
+              this.items.push(action.oldState);
+              this.items = [...this.items]; // Forzamos el repintado
+              this.sortItems();
+              this.filterItems();
+              this.calculateLocalTotals();
+            }
+            this.showUndoToast(`Gasto restaurado en ${this.getMonthNameByNum(m)}, refrescar si no aparece`);
+          }
+        });
+        break;
+    }
+  }
+
+  // --- HELPER PARA GUARDAR EN UN MES ESPECÍFICO ---
+  private saveItemGlobal(item: CashFlowItem, month: number, year: number): void {
+    const payloadToSave: CashFlowItem = {
+      ...item,
+      depo: item.depo || 0,
+      casa: item.casa || 0,
+      retiros: item.retiros || 0,
+      extras: item.extras || 0
+    };
+    this.cashService.upsertItem(payloadToSave, month, year).subscribe();
+  }
+
+  private getMonthNameByNum(m: number): string {
+    const date = new Date(2000, m - 1, 1);
+    return date.toLocaleString('es-ES', { month: 'long' });
+  }
+
+  private showUndoToast(msg: string) {
+    Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Deshecho (Ctrl+Z)', text: msg, showConfirmButton: false, timer: 3500 });
+  }
+
   ngAfterViewInit() {
-    // Creamos un "vigilante" que mira constantemente nuestra ancla superior
     this.scrollObserver = new IntersectionObserver(([entry]) => {
-      // Si el ancla superior deja de verse (porque bajamos), cambiamos el estado a true
       this.isScrolledDown = !entry.isIntersecting;
     }, { threshold: 0 });
 
@@ -77,7 +272,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    // Limpiamos el vigilante al salir de la pantalla para no consumir memoria
     if (this.scrollObserver) {
       this.scrollObserver.disconnect();
     }
@@ -85,10 +279,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleScroll() {
     if (this.isScrolledDown) {
-      // Ir arriba
       this.topAnchor.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
-      // Ir abajo
       this.bottomAnchor.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }
@@ -106,6 +298,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedYear = today.getFullYear();
     }
 
+    this.loadUndoStack();
     this.loadData();
   }
 
@@ -184,9 +377,33 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     this.filterItems();
   }
 
+  // --- MÉTODOS DE TOGGLE Y LIMPIEZA CON CAPTURA (CTRL+Z) ---
   toggleReplication(item: CashFlowItem): void {
+    this.captureItem(item);
     item.replicationState = (item.replicationState + 1) % 3;
+    this.checkItemChange(item);
     this.onItemChange(item);
+  }
+
+  togglePaid(item: CashFlowItem): void {
+    this.captureItem(item);
+    item.isPaid = !item.isPaid;
+    this.checkItemChange(item);
+    this.onItemChange(item);
+  }
+
+  clearItemField(item: CashFlowItem, field: keyof CashFlowItem): void {
+    this.captureItem(item);
+    (item as any)[field] = null;
+    this.checkItemChange(item);
+    this.onItemChange(item);
+  }
+
+  clearAccountBalance(account: FinancialAccount): void {
+    this.captureAccount(account);
+    account.balance = 0;
+    this.checkAccountChange(account);
+    this.onAccountChange(account);
   }
 
   get filterMinDate(): string {
@@ -212,7 +429,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   saveItem(item: CashFlowItem): void {
-
     const payloadToSave: CashFlowItem = {
       ...item,
       depo: item.depo || 0,
@@ -229,17 +445,29 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   deleteItem(item: any): void {
     Swal.fire({
       title: '¿Eliminar concepto?',
-      text: "No podrás revertir esto.",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       confirmButtonText: 'Sí, eliminar'
     }).then((result) => {
       if (result.isConfirmed) {
+        const oldState = JSON.parse(JSON.stringify(item)); // Capturamos clon exacto
         const realIndex = this.items.indexOf(item);
         
-        this.cashService.deleteItem(item.id!).subscribe(() => {
+        if (!item.id) {
+            if (realIndex !== -1) {
+              this.undoStack.push({ type: 'ITEM_DELETE', oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear }); 
+              this.items.splice(realIndex, 1);
+              this.filterItems(); 
+              this.calculateLocalTotals(); 
+            }
+            return;
+        }
+
+        this.cashService.deleteItem(item.id).subscribe(() => {
           if (realIndex !== -1) {
+            this.undoStack.push({ type: 'ITEM_DELETE', targetId: item.id, oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear }); 
+            this.saveUndoStack(); 
             this.items.splice(realIndex, 1);
             this.filterItems(); 
             this.calculateLocalTotals(); 
@@ -350,10 +578,11 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       if (result.isConfirmed) {
         this.cashService.createAccount(result.value, this.selectedMonth, this.selectedYear).subscribe(id => {
           const newAcc = { ...result.value, id };
+          this.undoStack.push({ type: 'ACCOUNT_CREATE', targetId: newAcc.id, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
+          this.saveUndoStack();
           this.accounts.push(newAcc);
           this.calculateAccountTotals(); 
           Swal.fire('Creada', 'La cuenta ha sido agregada.', 'success');
-          console.log('Cuenta creada:', newAcc);
         });
       }
     });
@@ -369,7 +598,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       confirmButtonText: 'Sí, eliminar'
     }).then((result) => {
       if (result.isConfirmed) {
-        this.cashService.deleteAccount(account.id).subscribe(() => {
+        const oldState = JSON.parse(JSON.stringify(account));
+        this.cashService.deleteAccount(account.id!).subscribe(() => {
+          this.undoStack.push({ type: 'ACCOUNT_DELETE', targetId: account.id, oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
+          this.saveUndoStack();
           this.accounts.splice(index, 1);
           this.calculateAccountTotals();
         });
@@ -385,9 +617,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.accounts.forEach(curr => {
       const bal = Number(curr.balance) || 0;
-      
       const currency = curr.currency === 'USD' ? 'usd' : 'ars';
-
       this.accountTotals[currency].total += bal;
 
       if (curr.type === 'Banco') {
@@ -407,7 +637,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     this.filteredItems = this.items.filter(item => {
       const matchesText = !term || (item.description || '').toLowerCase().includes(term);
       const matchesDate = !dateFilter || item.date === dateFilter;
-
       return matchesText && matchesDate;
     });
 
@@ -436,6 +665,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   closeComment(item: CashFlowItem): void {
+    this.checkItemChange(item);
     this.activeCommentItem = null;
     this.onItemChange(item); 
   }
@@ -457,23 +687,13 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
   dropItem(event: CdkDragDrop<CashFlowItem[]>) {
     moveItemInArray(this.filteredItems, event.previousIndex, event.currentIndex);
-
-    const reorderedItems = this.filteredItems.map((item, index) => ({
-      id: item.id,
-      displayOrder: index
-    }));
-
+    const reorderedItems = this.filteredItems.map((item, index) => ({ id: item.id, displayOrder: index }));
     this.cashService.updateItemsOrder(reorderedItems).subscribe();
   }
 
   dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
     moveItemInArray(this.accounts, event.previousIndex, event.currentIndex);
-
-    const reorderedAccounts = this.accounts.map((acc, index) => ({
-      id: acc.id!,
-      displayOrder: index
-    }));
-
+    const reorderedAccounts = this.accounts.map((acc, index) => ({ id: acc.id!, displayOrder: index }));
     this.cashService.updateAccountsOrder(reorderedAccounts).subscribe();
   }
 
@@ -483,43 +703,40 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   deleteComment(item: CashFlowItem): void {
+    this.captureItem(item);
     item.comment = '';
+    this.checkItemChange(item);
     this.closeComment(item); 
   }
 
   onAccountColorChange(account: FinancialAccount): void {
     if (!account.color) account.color = '#1f2937';
 
-    this.cashService.updateAccountColor(account.id, account.color).subscribe({
+    this.cashService.updateAccountColor(account.id!, account.color).subscribe({
         error: () => Swal.fire('Error', 'No se pudo guardar el color de la cuenta', 'error')
     });
   }
 
-  // --- NUEVAS VARIABLES PARA SELECCIÓN DE SALDOS ---
   @ViewChild('saldosContainer') saldosContainer!: ElementRef;
   selectedAccountIds: number[] = [];
 
-  // --- LÓGICA DE CLIC AFUERA ---
   @HostListener('document:click', ['$event'])
   onClickOutside(event: Event) {
-    // Si hay cuentas seleccionadas, verificamos si el clic fue AFUERA del contenedor de saldos
     if (this.selectedAccountIds.length > 0 && this.saldosContainer) {
       const clickedInside = this.saldosContainer.nativeElement.contains(event.target);
       if (!clickedInside) {
-        this.selectedAccountIds = []; // Limpiamos la selección
+        this.selectedAccountIds = [];
       }
     }
   }
 
-  // --- LÓGICA DE SELECCIÓN Y CÁLCULO ---
   toggleAccountSelection(account: FinancialAccount): void {
     if (!account.id) return;
-    
     const index = this.selectedAccountIds.indexOf(account.id);
     if (index > -1) {
-      this.selectedAccountIds.splice(index, 1); // Deseleccionar
+      this.selectedAccountIds.splice(index, 1);
     } else {
-      this.selectedAccountIds.push(account.id); // Seleccionar
+      this.selectedAccountIds.push(account.id);
     }
   }
 
@@ -528,7 +745,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     this.accounts.forEach(acc => {
       if (acc.id && this.selectedAccountIds.includes(acc.id)) {
         const balance = Number(acc.balance) || 0;
-        // Si la cuenta está en dólares, la pasamos a pesos para la suma total
         sum += acc.currency === 'USD' ? balance * (this.usdExchangeRate || 1) : balance;
       }
     });

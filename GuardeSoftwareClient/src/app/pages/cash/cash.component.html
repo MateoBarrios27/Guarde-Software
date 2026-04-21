@@ -187,15 +187,17 @@
                   <div class="flex items-center gap-2">
                     <input type="color" 
                            (click)="$event.stopPropagation()"
+                           (focus)="captureAccount(account)"
                            [(ngModel)]="account.color" 
-                           (change)="onAccountColorChange(account)"
+                           (change)="checkAccountChange(account); onAccountColorChange(account)"
                            title="Cambiar color de esta cuenta"
                            class="w-2 h-11 cursor-pointer bg-transparent">
                         <div class="w-full">
                           <input type="text" 
                                 (click)="$event.stopPropagation()"
+                                (focus)="captureAccount(account)"
                                 [(ngModel)]="account.name" 
-                                (change)="onAccountNameChange(account)"
+                                (change)="checkAccountChange(account); onAccountNameChange(account)"
                                 (keydown.enter)="blurInput($event)"
                                 [style.color]="account.color || '#1f2937'"
                                 class="font-semibold text-base transition-colors bg-transparent border-none p-0 focus:ring-1 focus:ring-blue-300 rounded w-full overflow-hidden text-ellipsis m-0 shadow-none focus:bg-white/50"
@@ -217,14 +219,15 @@
                       </span>
                       <div class="relative w-48">
                         <button *ngIf="account.balance != 0" 
-                                (click)="account.balance = 0; onAccountChange(account); $event.stopPropagation()" tabindex="-1"
+                                (click)="clearAccountBalance(account); $event.stopPropagation()" tabindex="-1"
                                 class="absolute left-2 top-0 bottom-0 flex items-center opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar saldo a 0">
                           <app-icon name="Trash2" class="h-4 w-4 block"></app-icon>
                         </button>
                         <input type="text" 
                                (click)="$event.stopPropagation()"
+                               (focus)="captureAccount(account)"
                                [(ngModel)]="account.balance" 
-                               (blur)="onAccountChange(account)"
+                               (blur)="checkAccountChange(account); onAccountChange(account)"
                                (keydown.enter)="blurInput($event)"
                                appCurrencyFormat 
                                class="w-full pl-8 pr-2 py-1 text-base font-bold text-right bg-transparent border-none focus:ring-1 focus:ring-blue-300 rounded transition-colors">
@@ -410,8 +413,9 @@
                   </span>
                   <app-icon *ngIf="!item.date" name="calendar" class="w-4 h-4 text-gray-400 group-hover/cal:text-blue-600 transition-colors pointer-events-none"></app-icon>
                   <input type="date" 
+                    (focus)="captureItem(item)"
                     [(ngModel)]="item.date" 
-                    (change)="onItemChange(item)" 
+                    (change)="checkItemChange(item); onItemChange(item)" 
                     [title]="'Fecha seleccionada: ' + item.date"
                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed">
                 </div>
@@ -419,8 +423,10 @@
 
               <td class="p-1 relative min-w-[300px] align-middle">
                 <div class="flex items-center group/desc relative w-full">
-                  <input type="text" [(ngModel)]="item.description" 
-                        (blur)="onItemChange(item)" 
+                  <input type="text" 
+                        (focus)="captureItem(item)"
+                        [(ngModel)]="item.description" 
+                        (blur)="checkItemChange(item); onItemChange(item)" 
                         (keydown.enter)="blurInput($event)" 
                         class="w-full bg-transparent border-none text-sm font-medium text-gray-800 p-1 pr-8 disabled:font-bold disabled:text-purple-800 text-ellipsis overflow-hidden">
                   
@@ -448,6 +454,7 @@
                   
                   <div class="p-2">
                     <textarea [id]="'excel-comment-' + item.id"
+                              (focus)="captureItem(item)"
                               [(ngModel)]="item.comment" 
                               (input)="autoResizeTextarea($event)"
                               (keydown.enter)="onCommentEnter($event, item)"
@@ -468,11 +475,16 @@
               <td class="p-1 bg-blue-50/20 relative group/amt align-middle">
                 <div class="flex flex-col items-end justify-center w-full h-full relative">
                   <div class="flex items-center justify-end w-full relative">
-                    <button *ngIf="item.depo" (click)="item.depo = null; onItemChange(item)" tabindex="-1"
+                    <button *ngIf="item.depo" (click)="clearItemField(item, 'depo'); $event.stopPropagation()" tabindex="-1"
                             class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
                       <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
                     </button> 
-                    <input type="text" appCurrencyFormat [(ngModel)]="item.depo" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)" 
+                    <input type="text" appCurrencyFormat 
+                          (focus)="captureItem(item)"
+                          [(ngModel)]="item.depo" 
+                          (blur)="checkItemChange(item)"
+                          (change)="onItemChange(item)" 
+                          (keydown.enter)="blurInput($event)" 
                           class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-blue-700 font-bold p-1.5 focus:ring-1 focus:ring-blue-400 rounded disabled:opacity-80">
                   </div>
                   <div *ngIf="item.depo" class="text-[9px] text-blue-500/80 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
@@ -484,11 +496,16 @@
               <td class="p-1 bg-orange-50/20 relative group/amt align-middle">
                 <div class="flex flex-col items-end justify-center w-full h-full relative">
                   <div class="flex items-center justify-end w-full relative">
-                    <button *ngIf="item.casa" (click)="item.casa = null; onItemChange(item)" tabindex="-1"
+                    <button *ngIf="item.casa" (click)="clearItemField(item, 'casa'); $event.stopPropagation()" tabindex="-1"
                             class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
                       <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
                     </button>
-                    <input type="text" appCurrencyFormat [(ngModel)]="item.casa" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
+                    <input type="text" appCurrencyFormat 
+                          (focus)="captureItem(item)"
+                          [(ngModel)]="item.casa" 
+                          (blur)="checkItemChange(item)"
+                          (change)="onItemChange(item)" 
+                          (keydown.enter)="blurInput($event)"
                           class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-orange-700 font-bold p-1.5 focus:ring-1 focus:ring-orange-400 rounded disabled:opacity-50">
                   </div>
                   <div *ngIf="item.casa" class="text-[9px] text-orange-500/80 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
@@ -500,11 +517,16 @@
               <td class="p-1 relative group/amt align-middle">
                 <div class="flex flex-col items-end justify-center w-full h-full relative">
                   <div class="flex items-center justify-end w-full relative">
-                    <button *ngIf="item.retiros" (click)="item.retiros = null; onItemChange(item)" tabindex="-1"
+                    <button *ngIf="item.retiros" (click)="clearItemField(item, 'retiros'); $event.stopPropagation()" tabindex="-1"
                             class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
                       <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
                     </button>
-                    <input type="text" appCurrencyFormat [(ngModel)]="item.retiros" (change)="onItemChange(item)"  (keydown.enter)="blurInput($event)"
+                    <input type="text" appCurrencyFormat 
+                          (focus)="captureItem(item)"
+                          [(ngModel)]="item.retiros" 
+                          (blur)="checkItemChange(item)"
+                          (change)="onItemChange(item)"  
+                          (keydown.enter)="blurInput($event)"
                           class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-gray-700 font-semibold p-1.5 focus:ring-1 focus:ring-gray-300 rounded">
                   </div>
                   <div *ngIf="item.retiros" class="text-[9px] text-gray-400 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
@@ -514,7 +536,7 @@
               </td>
 
               <td class="p-1 bg-green-50/20 text-center align-middle">
-                <button (click)="item.isPaid = !item.isPaid; onItemChange(item)" 
+                <button (click)="togglePaid(item)" 
                         title="Marcar como pagado"
                         class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border"
                         [ngClass]="{
