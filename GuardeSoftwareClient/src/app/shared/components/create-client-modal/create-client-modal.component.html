@@ -181,19 +181,14 @@
             </div>
 
 
-            <div><label class="text-sm font-medium text-green-700">Dirección *</label>
-              <input formControlName="direccion" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/>
+            <div>
+              <label class="text-sm font-medium text-green-700">Dirección Completa *</label>
+              <input formControlName="direccion" 
+                     placeholder="Ej: Av. Siempre Viva 123, CABA" 
+                     class="w-full mt-1 p-2 border rounded-md" 
+                     (keydown.enter)="blurInput($event)"/>
             </div>
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="text-sm font-medium text-green-700">Ciudad *</label>
-                <input formControlName="ciudad" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/>
-              </div>
-              <div>
-                <label class="text-sm font-medium text-green-700">Provincia *</label>
-                <input formControlName="provincia" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/>
-              </div>
-            </div>
+            
             <div class="pt-4 mt-2 border-t border-green-100">
               <label class="flex items-center justify-between cursor-pointer group">
                 <div class="flex flex-col">
@@ -232,7 +227,7 @@
                 <div *ngIf="newClientForm.value.isLegacyClient; else newClientBlock" class="pt-4 border-t border-dashed space-y-4 animate-fade-in">
                     <div class="grid grid-cols-2 gap-4">
                       <div><label class="text-sm font-medium text-purple-700">Fecha de Ingreso *</label><input type="date" formControlName="legacyStartDate" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/></div>
-                      <div><label class="text-sm font-medium text-purple-700">Monto Inicial *</label><input type="number" formControlName="legacyInitialAmount" placeholder="0.00" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/></div>
+                      <div><label class="text-sm font-medium text-purple-700">Monto Inicial *</label><input type="text" appCurrencyFormat formControlName="legacyInitialAmount" placeholder="0.00" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/></div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                       <div><label class="text-sm font-medium text-purple-700">Próx. Aumento *</label><input type="month" formControlName="legacyNextIncreaseDate" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/></div>

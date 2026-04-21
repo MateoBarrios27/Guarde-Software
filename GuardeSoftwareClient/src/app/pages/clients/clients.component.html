@@ -252,12 +252,12 @@
                         N° {{ cliente.paymentIdentifier | number : "1.2-2" }}
                       </span>
 
-                      <span class="font-semibold text-gray-900"
-                        >{{ cliente.fullName }}</span
-                      >             
+                                 
                     </div>
-
-                    <div class="text-xs text-gray-500">{{ cliente.email }}</div>
+                    <span class="font-semibold text-gray-900"
+                        >{{ cliente.fullName }}</span
+                      >  
+                    <!-- <div class="text-xs text-gray-500">{{ cliente.email }}</div> -->
                   </div>
                 </div>
               </td>
@@ -265,7 +265,8 @@
                 <div class="font-medium text-gray-800">
                   {{ cliente.phone | phone }}
                 </div>
-                <div class="text-xs text-gray-500">{{ cliente.city }}</div>
+                <!-- <div class="text-xs text-gray-500">{{ cliente.city }}</div> -->
+                 <div class="text-xs text-gray-500">{{ cliente.email }}</div>
               </td>
               <td class="p-4 font-mono text-gray-700">
                 {{ cliente.lockers?.join(", ") }}

@@ -7,47 +7,49 @@ using GuardeSoftwareAPI.Dtos.Address;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 
-
-
 namespace GuardeSoftwareAPI.Services.address
 {
-
-	public class AddressService : IAddressService
+    public class AddressService : IAddressService
     {
-		private readonly DaoAddress daoAddress;
+        private readonly DaoAddress daoAddress;
 
-		public AddressService(AccessDB accessDB)
-		{
-			daoAddress = new  DaoAddress(accessDB);
-		}
+        public AddressService(AccessDB accessDB)
+        {
+            daoAddress = new DaoAddress(accessDB);
+        }
 
-		public async Task<List<Address>> GetAddressList() {
+        public async Task<List<Address>> GetAddressList() 
+        {
+            DataTable addressTable = await daoAddress.GetAddress();
+            List<Address> addresses = new List<Address>();
 
-			DataTable addressTable = await daoAddress.GetAddress();
-			List<Address> addresses = new List<Address>();
+            foreach (DataRow row in addressTable.Rows)
+            { 
+                int idAdress = (int)row["address_id"];
 
-			foreach (DataRow row in addressTable.Rows)
-			{ 
-				int idAdress = (int)row["address_id"];
+                string street = row["street"]?.ToString() ?? string.Empty;
+                string city = row["city"]?.ToString() ?? string.Empty;
+                string province = row["province"]?.ToString() ?? string.Empty;
 
-				Address adress = new Address
-				{
-					Id = idAdress,
-					ClientId = row["client_id"] != DBNull.Value
-					? (int)row["client_id"] : 0,
-					Street = row["street"]?.ToString() ?? string.Empty,
-					City = row["city"]?.ToString() ?? string.Empty,
-					Province = row["province"]?.ToString() ?? string.Empty,
+                string fullAddress = street;
+                if (!string.IsNullOrWhiteSpace(city)) fullAddress += $", {city}";
+                if (!string.IsNullOrWhiteSpace(province)) fullAddress += $", {province}";
 
-				};
-				addresses.Add(adress);
+                Address adress = new Address
+                {
+                    Id = idAdress,
+                    ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
+                    Street = fullAddress.TrimEnd(',', ' '), // Devolvemos todo unificado acá
+                    City = "", 
+                    Province = ""
+                };
+                addresses.Add(adress);
             }
-			return addresses;
-		}
+            return addresses;
+        }
 
         public async Task<List<Address>> GetAddressListByClientId(int id)
         {
-
             DataTable addressTable = await daoAddress.GetAddressByClientId(id);
             List<Address> addresses = new List<Address>();
 
@@ -55,21 +57,29 @@ namespace GuardeSoftwareAPI.Services.address
             {
                 int addressId = (int)row["address_id"];
 
+                string street = row["street"]?.ToString() ?? string.Empty;
+                string city = row["city"]?.ToString() ?? string.Empty;
+                string province = row["province"]?.ToString() ?? string.Empty;
+
+                string fullAddress = street;
+                if (!string.IsNullOrWhiteSpace(city)) fullAddress += $", {city}";
+                if (!string.IsNullOrWhiteSpace(province)) fullAddress += $", {province}";
+
                 Address address = new Address
                 {
                     Id = addressId,
                     ClientId = row["client_id"] != DBNull.Value ? (int)row["client_id"] : 0,
-                    Street = row["street"]?.ToString() ?? string.Empty,
-                    City = row["city"]?.ToString() ?? string.Empty,
-                    Province = row["province"]?.ToString() ?? string.Empty,
+                    Street = fullAddress.TrimEnd(',', ' '),
+                    City = "",
+                    Province = ""
                 };
                 addresses.Add(address);
             }
             return addresses;
         }
 
-		public async Task<Address> CreateAddress(Address address)
-		{
+        public async Task<Address> CreateAddress(Address address)
+        {
             if (address == null)
                 throw new ArgumentNullException(nameof(address));
 
@@ -77,16 +87,14 @@ namespace GuardeSoftwareAPI.Services.address
                 throw new ArgumentException("Invalid ClientId.");
 
             if (string.IsNullOrWhiteSpace(address.Street))
-                throw new ArgumentException("Street is required.");
+                throw new ArgumentException("Street (Dirección) is required.");
 
-            if (string.IsNullOrWhiteSpace(address.City))
-                throw new ArgumentException("City is required.");
-
-            address.Province = string.IsNullOrWhiteSpace(address.Province) ? null : address.Province.Trim();
+            // ELIMINADA LA VALIDACIÓN DE CITY OBLIGATORIA
+            address.City = string.IsNullOrWhiteSpace(address.City) ? "" : address.City.Trim();
+            address.Province = string.IsNullOrWhiteSpace(address.Province) ? "" : address.Province.Trim();
 
             return await daoAddress.CreateAddress(address);
-			
-		}
+        }
 
         public async Task<bool> UpdateAddress(int clientId, UpdateAddressDto dto)
         {
@@ -100,18 +108,17 @@ namespace GuardeSoftwareAPI.Services.address
                 throw new ArgumentException("Invalid Address Id.");
 
             if (string.IsNullOrWhiteSpace(dto.Street))
-                throw new ArgumentException("Street is required.");
+                throw new ArgumentException("Street (Dirección) is required.");
 
-            if (string.IsNullOrWhiteSpace(dto.City))
-                throw new ArgumentException("City is required.");
+            // ELIMINADA LA VALIDACIÓN DE CITY OBLIGATORIA
 
             var newAddress = new Address
             {
                 Id = dto.Id,
                 ClientId = clientId,
                 Street = dto.Street.Trim(),
-                City = dto.City.Trim(),
-                Province = string.IsNullOrWhiteSpace(dto.Province) ? null : dto.Province.Trim()
+                City = "", // Forzamos vacío
+                Province = "" // Forzamos vacío
             };
 
             return await daoAddress.UpdateAddress(newAddress);
@@ -126,22 +133,20 @@ namespace GuardeSoftwareAPI.Services.address
                 throw new ArgumentException("Invalid ClientId.");
 
             if (string.IsNullOrWhiteSpace(address.Street))
-                throw new ArgumentException("Street is required.");
+                throw new ArgumentException("Street (Dirección) is required.");
 
-            if (string.IsNullOrWhiteSpace(address.City))
-                throw new ArgumentException("City is required.");
-
-            address.Province = string.IsNullOrWhiteSpace(address.Province) ? null : address.Province.Trim();
+            // ELIMINADA LA VALIDACIÓN DE CITY OBLIGATORIA
+            address.City = string.IsNullOrWhiteSpace(address.City) ? "" : address.City.Trim();
+            address.Province = string.IsNullOrWhiteSpace(address.Province) ? "" : address.Province.Trim();
 
             return await daoAddress.CreateAddressTransaction(address, sqlConnection, transaction);
         }
 
-        public async Task<bool> DeleteAddressByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        public async Task<int> DeleteAddressByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
         {
             if (clientId <= 0) throw new ArgumentException("Invalid Client ID.");
             int rowsAffected = await daoAddress.DeleteAddressByClientIdTransactionAsync(clientId, connection, transaction);
-            return rowsAffected > 0; // Opcional: podrías no necesitar devolver bool si no te importa si existía o no
+            return rowsAffected; 
         }
-
     }
 }

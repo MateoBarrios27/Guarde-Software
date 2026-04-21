@@ -411,8 +411,8 @@ namespace GuardeSoftwareAPI.Services.client
                         {
                             ClientId = newClientId,
                             Street = dto.AddressDto.Street?.Trim() ?? string.Empty,
-                            City = dto.AddressDto.City?.Trim() ?? string.Empty,
-                            Province = dto.AddressDto.Province?.Trim() ?? string.Empty,
+                            City = "",   
+                            Province = "" 
                         };
                         
                         await addressService.CreateAddressTransaction(address, connection, transaction);
@@ -458,14 +458,15 @@ namespace GuardeSoftwareAPI.Services.client
                 Id = Convert.ToInt32(row["client_id"]),
                 PaymentIdentifier = row["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(row["payment_identifier"]) : 0m,
                 FullName = row["full_name"]?.ToString() ?? string.Empty,
-                City = row["city"]?.ToString() ?? string.Empty,
-                Province = row["province"]?.ToString() ?? string.Empty, // El DTO de TS usa 'state', aquí 'Province'
+                
                 Cuit = row["cuit"]?.ToString() ?? string.Empty,
                 Dni = row["dni"]?.ToString() ?? string.Empty,
                 RegistrationDate = Convert.ToDateTime(row["registration_date"]),
 
                 // Contact Information
                 Address = row["street"]?.ToString() ?? string.Empty,
+                City = row["city"]?.ToString() ?? string.Empty,
+                Province = row["province"]?.ToString() ?? string.Empty, 
                 // Email y Phone se cargan por separado más abajo
 
                 // Payment & rental Information
@@ -491,6 +492,18 @@ namespace GuardeSoftwareAPI.Services.client
                 Notes = row["notes"]?.ToString() ?? string.Empty,
                 ReceiveCommunications = Convert.ToBoolean(row["receive_communications"])
             };
+
+            // Contact Information
+                // Armamos la dirección completa concatenando si existen datos viejos
+                string street = row["street"]?.ToString() ?? string.Empty;
+                string city = row["city"]?.ToString() ?? string.Empty;
+                string province = row["province"]?.ToString() ?? string.Empty;
+
+                string fullAddress = street;
+                if (!string.IsNullOrWhiteSpace(city)) fullAddress += $", {city}";
+                if (!string.IsNullOrWhiteSpace(province)) fullAddress += $", {province}";
+
+                clientDetail.Address = fullAddress.TrimEnd(',', ' ');
 
             // --- Carga Asíncrona de Lockers, Emails y Phones (sin cambios) ---
             List<GetLockerClientDetailDTO> lockers = await lockerService.GetLockersByClientIdAsync(id);
@@ -622,8 +635,14 @@ namespace GuardeSoftwareAPI.Services.client
 
 
                         await addressService.DeleteAddressByClientIdTransactionAsync(id, connection, transaction);
-                        if (dto.AddressDto != null && !string.IsNullOrWhiteSpace(dto.AddressDto.Street) && !string.IsNullOrWhiteSpace(dto.AddressDto.City)) {
-                            await addressService.CreateAddressTransaction(new Address { ClientId = id, Street = dto.AddressDto.Street.Trim(), City = dto.AddressDto.City.Trim(), Province = string.IsNullOrWhiteSpace(dto.AddressDto.Province) ? null : dto.AddressDto.Province.Trim() }, connection, transaction);
+
+                        if (dto.AddressDto != null && !string.IsNullOrWhiteSpace(dto.AddressDto.Street)) {
+                            await addressService.CreateAddressTransaction(new Address { 
+                                ClientId = id, 
+                                Street = dto.AddressDto.Street.Trim(), 
+                                City = "", 
+                                Province = "" 
+                            }, connection, transaction);
                         }
 
                         var currentRental = await rentalService.GetRentalByClientIdTransactionAsync(id, connection, transaction);

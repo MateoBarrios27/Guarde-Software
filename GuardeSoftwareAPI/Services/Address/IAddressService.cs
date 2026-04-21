@@ -14,6 +14,6 @@ namespace GuardeSoftwareAPI.Services.address
 		Task<Address> CreateAddress(Address address);
 		Task<bool> UpdateAddress(int clientId, UpdateAddressDto dto);
 		Task<Address> CreateAddressTransaction(Address address,SqlConnection sqlConnection, SqlTransaction transaction);
-        Task<bool> DeleteAddressByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction);
+        Task<int> DeleteAddressByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction);
     }
 }
