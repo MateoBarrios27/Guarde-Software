@@ -344,7 +344,58 @@ namespace GuardeSoftwareAPI.Dao
             }
 
             string fullQuery = $@"
-                WITH ClientData AS (
+                -- 1. Definimos el inicio del mes actual para separar el saldo histórico del actual
+                DECLARE @StartOfMonth DATE = DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1);
+
+                WITH ActiveRentals AS (
+                    SELECT rental_id, client_id 
+                    FROM rentals 
+                    WHERE active = 1
+                ),
+                CurrentRentCTE AS (
+                    SELECT 
+                        h.rental_id,
+                        h.amount AS CurrentRent
+                    FROM (
+                        SELECT 
+                            rental_id, 
+                            amount,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY rental_id 
+                                ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC
+                            ) as rn
+                        FROM rental_amount_history
+                        WHERE start_date <= GETDATE()
+                    ) h
+                    WHERE h.rn = 1
+                ),
+                AccountSummaryCTE AS (
+                    SELECT 
+                        r.client_id,
+                        -- BALANCE TOTAL (Todo el historial)
+                        SUM(am.amount * CASE WHEN am.movement_type = 'DEBITO' THEN -1 ELSE 1 END) AS Balance,
+                        
+                        -- SALDO ANTERIOR (Todo lo que pasó ANTES del 1ro de este mes)
+                        SUM(CASE 
+                            WHEN am.movement_date < @StartOfMonth THEN 
+                                am.amount * CASE WHEN am.movement_type = 'DEBITO' THEN -1 ELSE 1 END
+                            ELSE 0 
+                        END) AS PreviousBalance,
+                        
+                        -- INTERÉS DEL MES (Débitos por mora DESDE el 1ro de este mes)
+                        SUM(CASE 
+                            WHEN am.movement_type = 'DEBITO' 
+                            AND am.concept LIKE 'Interés por mora%' 
+                            AND am.movement_date >= @StartOfMonth 
+                            THEN am.amount 
+                            ELSE 0 
+                        END) AS InterestAmount
+
+                    FROM rentals r
+                    JOIN account_movements am ON r.rental_id = am.rental_id
+                    GROUP BY r.client_id
+                ),
+                ClientData AS (
                     SELECT
                         c.client_id AS Id,
                         c.payment_identifier AS PaymentIdentifier,
@@ -352,7 +403,13 @@ namespace GuardeSoftwareAPI.Dao
                         first_email.address AS Email,
                         first_phone.number AS Phone,
                         a.city AS City,
-                        ISNULL(balance_sub.balance, 0) as Balance,
+                        
+                        -- NUEVAS COLUMNAS FINANCIERAS
+                        ISNULL(acc.PreviousBalance, 0) AS PreviousBalance,
+                        ISNULL(acc.InterestAmount, 0) AS InterestAmount,
+                        ISNULL(cr.CurrentRent, 0) AS CurrentRent,
+                        ISNULL(acc.Balance, 0) AS Balance,
+                        
                         c.preferred_payment_method_id AS PreferredPaymentMethodId,
                         c.dni AS Document, 
                         locker_sub.lockers as Lockers,
@@ -360,7 +417,7 @@ namespace GuardeSoftwareAPI.Dao
                         CASE
                             WHEN c.active = 0 THEN 'Baja'
                             WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso N' + CAST(ISNULL(months_unpaid_sub.total_months_unpaid, 0) AS VARCHAR(10))
-                            WHEN ISNULL(balance_sub.balance, 0) >= 0 THEN 'Al día'
+                            WHEN ISNULL(acc.Balance, 0) >= 0 THEN 'Al día'
                             ELSE 'Pendiente'
                         END AS Status
                     FROM 
@@ -369,16 +426,10 @@ namespace GuardeSoftwareAPI.Dao
                     OUTER APPLY ( SELECT TOP 1 p.number FROM phones p WHERE p.client_id = c.client_id AND p.active = 1 ORDER BY p.phone_id ) AS first_phone
                     LEFT JOIN addresses a ON c.client_id = a.client_id
                     
-                    -- CAMBIO 1: Invertir el signo del cálculo del balance
-                    -- DEBITO = -1 (Resta, genera saldo negativo/deuda)
-                    -- CREDITO = 1 (Suma, genera saldo a favor)
-                    LEFT JOIN ( 
-                        SELECT r.client_id, 
-                               SUM(am.amount * CASE WHEN am.movement_type = 'DEBITO' THEN -1 ELSE 1 END) as balance 
-                        FROM rentals r 
-                        JOIN account_movements am ON r.rental_id = am.rental_id 
-                        GROUP BY r.client_id 
-                    ) balance_sub ON c.client_id = balance_sub.client_id
+                    -- JOIN CON NUESTRAS CTEs
+                    LEFT JOIN ActiveRentals ar ON c.client_id = ar.client_id
+                    LEFT JOIN CurrentRentCTE cr ON ar.rental_id = cr.rental_id
+                    LEFT JOIN AccountSummaryCTE acc ON c.client_id = acc.client_id
                     
                     LEFT JOIN ( SELECT r.client_id, STRING_AGG(l.identifier, ', ') as lockers FROM rentals r JOIN lockers l ON r.rental_id = l.rental_id GROUP BY r.client_id ) locker_sub ON c.client_id = locker_sub.client_id
                     LEFT JOIN ( SELECT r.client_id, SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid FROM rentals r WHERE r.active = 1 GROUP BY r.client_id ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
@@ -418,7 +469,9 @@ namespace GuardeSoftwareAPI.Dao
             var validSortFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) 
             {
                 { "FullName", "FullName" },
-                { "Baulera", "Lockers" },
+                { "PreviousBalance", "PreviousBalance" },
+                { "InterestAmount", "InterestAmount" },
+                { "CurrentRent", "CurrentRent" },
                 { "Estado", "Status" },
                 { "Balance", "Balance" },
                 { "PaymentIdentifier", "PaymentIdentifier" }
@@ -444,14 +497,17 @@ namespace GuardeSoftwareAPI.Dao
                     Id = Convert.ToInt32(row["Id"]),
                     PaymentIdentifier = row["PaymentIdentifier"] != DBNull.Value ? Convert.ToDecimal(row["PaymentIdentifier"]) : null,
                     FullName = row["FullName"]?.ToString() ?? string.Empty,
-                    Email = row["Email"]?.ToString(),
-                    Phone = row["Phone"]?.ToString(),
-                    City = row["City"]?.ToString() ?? string.Empty,
                     Balance = Convert.ToDecimal(row["Balance"]),
                     Status = row["Status"]?.ToString() ?? "Pendiente",
-                    PreferredPaymentMethodId = row["PreferredPaymentMethodId"] != DBNull.Value ? Convert.ToInt32(row["PreferredPaymentMethodId"]) : null,
-                    Document = row["Document"]?.ToString(),
-                    Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,
+                    PreviousBalance = Convert.ToDecimal(row["PreviousBalance"]),
+                    InterestAmount = Convert.ToDecimal(row["InterestAmount"]),
+                    CurrentRent = Convert.ToDecimal(row["CurrentRent"]),
+                    // Email = row["Email"]?.ToString(),
+                    // Phone = row["Phone"]?.ToString(),
+                    // City = row["City"]?.ToString() ?? string.Empty,
+                    // PreferredPaymentMethodId = row["PreferredPaymentMethodId"] != DBNull.Value ? Convert.ToInt32(row["PreferredPaymentMethodId"]) : null,
+                    // Document = row["Document"]?.ToString(),
+                    // Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,
                     Active = Convert.ToBoolean(row["Active"])
                 });
             }

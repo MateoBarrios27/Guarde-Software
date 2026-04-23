@@ -52,7 +52,9 @@
            <div class="space-y-4">
             <div>
               <label class="text-sm font-medium text-gray-500">Balance</label>
-              <p class="text-2xl font-bold text-blue-700">
+              <p class="text-2xl font-bold text-blue-700"
+                [ngClass]="(client.balance || 0) >= 0 ? 'text-green-600' : 'text-red-600'"
+              >
                 $ {{ client.balance | number:'1.2-2' }}
               </p>
             </div>

@@ -5,14 +5,19 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public int Id { get; set; }
         public decimal? PaymentIdentifier { get; set; }
         public string FullName { get; set; } = string.Empty;
-        public string? Email { get; set; } = string.Empty;
-        public string? Phone { get; set; } = string.Empty;
-        public string City { get; set; } = string.Empty;
         public decimal Balance { get; set; }
+        public decimal PreviousBalance { get; set; }
+        public decimal InterestAmount { get; set; }    
+        public decimal CurrentRent { get; set; }
         public string Status { get; set; } = string.Empty; // 'Al Día', 'Pendiente', 'Moroso', 'Baja'
-        public int? PreferredPaymentMethodId { get; set; }
-        public string? Document { get; set; } = string.Empty;
+
+        // public int? PreferredPaymentMethodId { get; set; }
+        // public string? Document { get; set; } = string.Empty;
         public List<string>? Lockers { get; set; } = null;
+        // public string? Email { get; set; } = string.Empty;
+        // public string? Phone { get; set; } = string.Empty;
+        // public string City { get; set; } = string.Empty;
+
         public bool Active { get; set; }
 
     }

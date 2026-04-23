@@ -3,13 +3,15 @@ export interface TableClient {
   id: number;
   paymentIdentifier: number | null;
   fullName: string;
-  email: string | null;
-  phone: string | null;
   city: string;
   balance: number;
-  status: string; // "Al día", "Moroso", "Pendiente", "Baja"
-  preferredPaymentMethodId: number | null;
-  document: string | null;
+  previousBalance: number; 
+  interestAmount: number;   
+  currentRent: number;    
+  status: string; 
+  // preferredPaymentMethodId: number | null;
   lockers: string[] | null;
+  // email: string | null;
+  // phone: string | null;
   active: boolean;
 }
