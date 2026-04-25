@@ -257,12 +257,9 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             return await GetAccountMovementListByRentalId(rentalId);
         }
 
-        /// <summary>
-        /// Elimina un movimiento de cuenta, solo si no está atado a un pago.
-        /// </summary>
         public async Task<bool> DeleteAccountMovementAsync(int movementId)
         {
-            // 1. Obtener el movimiento para verificar si está atado a un pago
+            // 1. Obtains the movement to check if it's associated with a payment
             DataTable movTable = await _daoAccountMovement.GetAccountMovById(movementId);
             if (movTable.Rows.Count == 0)
             {
@@ -273,14 +270,14 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             DataRow row = movTable.Rows[0];
             int? paymentId = row["payment_id"] != DBNull.Value ? (int)row["payment_id"] : null;
 
-            // 2. Regla de Negocio: No permitir borrar movimientos de "CREDITO" asociados a un pago
+            // 2. Rule: Isn't allowed to delete a movement if it's associated with a payment
             if (paymentId.HasValue && paymentId > 0)
             {
                 _logger.LogError($"Intento de eliminar el movimiento ID {movementId}, pero está asociado al pago ID {paymentId}.");
-                throw new InvalidOperationException("No se puede eliminar un movimiento que está asociado a un pago registrado. Primero debe anular el pago.");
+                throw new InvalidOperationException("No se puede eliminar un movimiento que está asociado a un pago registrado. Vé al componente de finanzas para eliminar el pago.");
             }
 
-            // 3. Si es seguro, proceder a eliminar
+            // 3. If it's not associated with a payment, proceed to delete
             _logger.LogInformation($"Eliminando movimiento ID {movementId} (no asociado a pago).");
             return await _daoAccountMovement.DeleteAccountMovementByIdAsync(movementId);
         }

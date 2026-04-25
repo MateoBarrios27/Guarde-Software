@@ -241,6 +241,7 @@ namespace GuardeSoftwareAPI.Services.payment
 				list.Add(new DetailedPaymentDto
 				{
 					PaymentId = Convert.ToInt32(row["payment_id"]),
+					MovementId = Convert.ToInt32(row["movement_id"]),
 					ClientName = row["full_name"]?.ToString() ?? string.Empty,
 					PaymentIdentifier = row["payment_identifier"]?.ToString() ?? string.Empty,
 					Amount = Convert.ToDecimal(row["amount"]),
@@ -255,9 +256,9 @@ namespace GuardeSoftwareAPI.Services.payment
 			return list;
 		}
 
-		public async Task<bool> DeletePaymentAsync(int paymentId)
+		public async Task<bool> DeletePaymentAsync(int movementId)
 		{
-			return await _daoPayment.DeletePaymentTransactionAsync(paymentId);
+			return await _daoPayment.DeletePaymentTransactionAsync(movementId);
 		}
 
 		

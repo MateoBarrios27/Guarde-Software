@@ -157,9 +157,6 @@ namespace GuardeSoftwareAPI.Services.locker
             if (string.IsNullOrWhiteSpace(dto.Identifier))
                 throw new ArgumentException("Locker identifier is required.");
 
-            if (string.IsNullOrWhiteSpace(dto.Features))
-                throw new ArgumentException("Locker Features is required.");
-
             if (string.IsNullOrWhiteSpace(dto.Status))
                 throw new ArgumentException("Locker Status is required.");
 

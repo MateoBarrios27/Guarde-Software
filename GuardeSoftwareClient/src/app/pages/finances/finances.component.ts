@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { PaymentService } from '../../core/services/payment-service/payment.service';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
 import { PendingRentalDTO } from '../../core/dtos/rental/PendingRentalDTO';
@@ -14,16 +14,21 @@ import { CreatePaymentDTO } from '../../core/dtos/payment/CreatePaymentDTO';
 import Swal from 'sweetalert2';
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 
+// Extendemos el DTO para la vista visual
+export interface DetailedPaymentView extends DetailedPaymentDTO {
+  groupPos?: 'start' | 'middle' | 'end' | 'none';
+  isGrouped?: boolean;
+}
+
 @Component({
   selector: 'app-finances',
-  imports: [FormsModule, CommonModule, IconComponent,NgxPaginationModule, CurrencyFormatDirective],
+  imports: [FormsModule, CommonModule, IconComponent, NgxPaginationModule, CurrencyFormatDirective],
   templateUrl: './finances.component.html',
   styleUrl: './finances.component.css'
 })
-export class FinancesComponent{
+export class FinancesComponent implements OnInit {
 
-  constructor
-  (
+  constructor(
     private paymentService: PaymentService,
     private paymentMethodService: PaymentMethodService,
     private clientService: ClientService
@@ -39,10 +44,10 @@ export class FinancesComponent{
   selectedPreferredPaymentId: number = 1;
 
   pendingRentals: PendingRentalDTO[] = [];
-  payments: DetailedPaymentDTO[] = [];
+  payments: DetailedPaymentView[] = [];
   paymentMethods: PaymentMethod[] = [];
 
-  filteredPayments: DetailedPaymentDTO[] = [];
+  filteredPayments: DetailedPaymentView[] = [];
   searchPayment: string = '';
 
   page: number = 1;
@@ -50,9 +55,7 @@ export class FinancesComponent{
 
   manualDateEnabled = false;
   dateString: string = '';
-  
   searchClient: string = '';
-
   amountOriginal = 0;
 
   paymentDto: CreatePaymentDTO = {
@@ -72,47 +75,39 @@ export class FinancesComponent{
     this.loadClients();
   }
 
-  loadPayments(): void{
+  loadPayments(): void {
     this.paymentService.getDetailedPayment().subscribe({
       next: (data) => {
         const sorted = data.sort((a, b) => {
-        const dateA = new Date(a.paymentDate).getTime();
-        const dateB = new Date(b.paymentDate).getTime();
-        return dateB - dateA; 
-      });
-      this.payments = sorted;
-      this.filteredPayments = sorted;
+          const dateA = new Date(a.paymentDate).getTime();
+          const dateB = new Date(b.paymentDate).getTime();
+          return dateB - dateA; 
+        });
+        this.payments = sorted as DetailedPaymentView[];
+        this.filterPayments();
       },
-       error: (err) => console.error('Error al cargar payments:', err)
+      error: (err) => console.error('Error al cargar payments:', err)
     });
   }
 
   loadPaymentMethods(): void {
     this.paymentMethodService.getPaymentMethods().subscribe({
-      next: (data) =>{
-        this.paymentMethods = data;
-      },
+      next: (data) => this.paymentMethods = data,
       error: (err) => console.error('error al cargar los metodos de pago',err)
     });
   }
 
   loadClients(): void {
     this.clientService.getClients().subscribe({
-      next: (data) => {
-        this.clients = data;
-        console.log(data);
-      },
+      next: (data) => this.clients = data,
       error: (err) => console.log('error cargando clientes: ',err)
     });
-    
   }
 
   getNamePaymentMethodById(id: number | string | null | undefined): string {
     if (id === null || id === undefined) return 'Desconocido';
-
     const numericId = Number(id);
     if (Number.isNaN(numericId)) return 'Desconocido';
-
     const method = this.paymentMethods.find(m => m.id === numericId);
     return method ? method.name : 'Desconocido';
   }
@@ -129,7 +124,7 @@ export class FinancesComponent{
     this.searchPayment = '';
     this.selectedMethodFilter = '';
     this.selectedMonth = '';
-    this.filteredPayments = [...this.payments];
+    this.filterPayments();
   }
 
   getTotalRecaudado(): number {
@@ -155,125 +150,115 @@ export class FinancesComponent{
     const method = this.selectedMethodFilter.toLowerCase();
     const month = this.selectedMonth;
 
-    this.filteredPayments = this.payments.filter(p => {
+    let filtered = this.payments.filter(p => {
       const clientName = p.clientName?.toLowerCase() || '';
       const paymentIdentifier = p.paymentIdentifier?.toLowerCase() || '';
       const paymentMethodName = p.paymentMethodName?.toLowerCase() || '';
 
-      const matchesSearch =
-        clientName.includes(term) ||
-        paymentIdentifier.includes(term)
-
-      const matchesMethod =
-        !method || paymentMethodName === method;
-
-      const matchesMonth =
-        !month ||
-        new Date(p.paymentDate).toISOString().startsWith(month);
+      const matchesSearch = clientName.includes(term) || paymentIdentifier.includes(term);
+      const matchesMethod = !method || paymentMethodName === method;
+      const matchesMonth = !month || new Date(p.paymentDate).toISOString().startsWith(month);
 
       return matchesSearch && matchesMethod && matchesMonth;
     });
 
-  this.filteredPayments.sort(
-    (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
-  );
-}
+    filtered.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+    
+    this.filteredPayments = filtered;
+    this.processGroups(); // <-- Aplicamos UX de grupos
+  }
 
-closeClientModal() {
-  this.showClientModal = false;
+  // --- LÓGICA DE UX PARA AGRUPAR PAGOS ---
+  private processGroups(): void {
+    for (let i = 0; i < this.filteredPayments.length; i++) {
+      const p = this.filteredPayments[i];
+      const prev = this.filteredPayments[i - 1];
+      const next = this.filteredPayments[i + 1];
 
-  this.searchClient = '';
-  this.selectedClientId = 0;
-  this.selectedClientIdentifier = 0;
-  this.selectedClientName = '';
-  this.selectedClientBalance = 0;
-  this.selectedClientRentAmount = 0;
+      if (p.paymentId && p.paymentId > 0) {
+        const sameAsPrev = prev && prev.paymentId === p.paymentId;
+        const sameAsNext = next && next.paymentId === p.paymentId;
 
-  this.manualDateEnabled = false;
-  const now = new Date();
-  this.dateString = now.toISOString().split('T')[0];
+        if (!sameAsPrev && sameAsNext) {
+          p.groupPos = 'start';
+        } else if (sameAsPrev && sameAsNext) {
+          p.groupPos = 'middle';
+        } else if (sameAsPrev && !sameAsNext) {
+          p.groupPos = 'end';
+        } else {
+          p.groupPos = 'none';
+        }
+      } else {
+        p.groupPos = 'none';
+      }
+      
+      p.isGrouped = p.groupPos !== 'none';
+    }
+  }
 
-  this.paymentDto = {
-    clientId: 0,
-    movementType: 'CREDITO',
-    concept: ` `,
-    amount: 0,
-    paymentMethodId: 1,
-    date: now,
-    isAdvancePayment: false,
-    advanceMonths: null
-  };
+  closeClientModal() {
+    this.showClientModal = false;
+    this.searchClient = '';
+    this.selectedClientId = 0;
+    this.selectedClientIdentifier = 0;
+    this.selectedClientName = '';
+    this.selectedClientBalance = 0;
+    this.selectedClientRentAmount = 0;
+    this.manualDateEnabled = false;
+    
+    const now = new Date();
+    this.dateString = now.toISOString().split('T')[0];
 
-  this.updateConceptFromDate(now);
-}
+    this.paymentDto = {
+      clientId: 0, movementType: 'CREDITO', concept: ` `, amount: 0, paymentMethodId: 1, date: now, isAdvancePayment: false, advanceMonths: null
+    };
+    this.updateConceptFromDate(now);
+  }
 
+  OpenPaymentModal() {
+    this.showClientModal = true;
+    this.searchClient = '';
+    this.selectedClientId = 0;
+    this.selectedClientIdentifier = 0;
+    const now = new Date();
+    this.manualDateEnabled = false;
+    this.dateString = now.toISOString().split('T')[0];
+    this.paymentDto = {
+      clientId: 0, movementType: 'CREDITO', concept: ` `, amount: 0, paymentMethodId: 1, date: now, isAdvancePayment: false, advanceMonths: null
+    };
+    this.updateConceptFromDate(now);
+  }
 
-OpenPaymentModal() {
-  this.showClientModal = true;
+  commision:number = 0;
+  newAmount: number = 0;
 
-  this.searchClient = '';
-  this.selectedClientId = 0;
-  this.selectedClientIdentifier = 0;
+  private calcCommissions(selectedMethodId: number, preferredPaymentId: number) {
+    const selectedCommission = this.getCommissionByMethodId(selectedMethodId);
+    const includedCommission = this.getCommissionByMethodId(preferredPaymentId);
+    const extraCommission = Math.max(0, selectedCommission - includedCommission);
+    return { selectedCommission, includedCommission, extraCommission };
+  }
 
-
-  const now = new Date();
-
-  this.manualDateEnabled = false;
-  this.dateString = now.toISOString().split('T')[0];
-
-  this.paymentDto = {
-    clientId: 0,
-    movementType: 'CREDITO',
-    concept: ` `,
-    amount: 0,
-    paymentMethodId: 1,
-    date: now,
-    isAdvancePayment: false,
-    advanceMonths: null
-  };
-
-  this.updateConceptFromDate(now);
-}
-
-
-commision:number = 0;
-newAmount: number = 0;
-
-private calcCommissions(selectedMethodId: number, preferredPaymentId: number) {
-  const selectedCommission = this.getCommissionByMethodId(selectedMethodId);
-  const includedCommission = this.getCommissionByMethodId(preferredPaymentId);
-  const extraCommission = Math.max(0, selectedCommission - includedCommission);
-
-  return { selectedCommission, includedCommission, extraCommission };
-}
-
-
- private getCommissionByMethodId(paymentMethodId: number): number {
-  const id = Number(paymentMethodId);
-  if (!id || Number.isNaN(id)) return 0;
-  const method = this.paymentMethods.find(m => m.id === id);
-  return method?.commission ?? 0;
-}
-
+  private getCommissionByMethodId(paymentMethodId: number): number {
+    const id = Number(paymentMethodId);
+    if (!id || Number.isNaN(id)) return 0;
+    const method = this.paymentMethods.find(m => m.id === id);
+    return method?.commission ?? 0;
+  }
 
   AmountWithComission(amount: number, selectedMethodId: number, preferredPaymentId: number): number {
     const selectedCommission = this.getCommissionByMethodId(selectedMethodId);
-
     const includedCommission = this.getCommissionByMethodId(preferredPaymentId);
-
     const extraCommission = Math.max(0, selectedCommission - includedCommission);
 
     this.commision = extraCommission;
-
     const newAmount = amount + (amount * extraCommission / 100);
     this.newAmount = newAmount;
 
     return newAmount;
   }
 
-
   savePaymentModal(dto : CreatePaymentDTO){
-
       if (!this.paymentMethods?.length) {
         Swal.fire({ icon: 'warning', title: 'Cargando métodos de pago', text: 'Esperá a que carguen los métodos de pago para registrar el pago.', confirmButtonColor: '#2563eb' });
         return;
@@ -305,15 +290,12 @@ private calcCommissions(selectedMethodId: number, preferredPaymentId: number) {
       }
 
       const amountPhysicalEntered = dto.amount;
-
       const calc = this.getCalculatedAmounts(amountPhysicalEntered, dto.paymentMethodId, this.selectedPreferredPaymentId);
 
       const payloadToSave: CreatePaymentDTO = {
         ...dto,
         amount: calc.amountEntered, 
-        
         commissionAmount: calc.isSurcharge ? calc.difference : (calc.isDiscount ? -calc.difference : 0),
-        
         commissionConcept: calc.isSurcharge 
             ? `Recargo por pago en ${this.getNamePaymentMethodById(dto.paymentMethodId)} (${calc.selectedCommission}%)`
             : (calc.isDiscount ? `Bonificación por pago en ${this.getNamePaymentMethodById(dto.paymentMethodId)} (${calc.selectedCommission}%)` : '')
@@ -391,7 +373,6 @@ private calcCommissions(selectedMethodId: number, preferredPaymentId: number) {
       }
       }).then((result) => {
         if (result.isConfirmed) {
-          
           this.paymentService.CreatePayment(payloadToSave).subscribe({
             next: () => {
               Swal.fire({
@@ -419,25 +400,19 @@ private calcCommissions(selectedMethodId: number, preferredPaymentId: number) {
       });
   }
 
-selectClient(client: any) {
-  this.selectedClientId = client.id;
-  this.selectedClientIdentifier = client.paymentIdentifier;
-  this.paymentDto.clientId = client.id;
-  this.selectedClientBalance = client.balance;
-  this.selectedClientRentAmount = client.currentRent;
-  this.selectedPreferredPaymentId = Number(client.preferredPaymentMethodId ?? 1); 
-  this.paymentDto.paymentMethodId = this.selectedPreferredPaymentId;
-  this.onAmountChange(this.paymentDto.amount);
-
-  console.log(client.preferredPaymentMethodId);
-  console.log('preferred:', this.selectedPreferredPaymentId);
-}
-
-
+  selectClient(client: any) {
+    this.selectedClientId = client.id;
+    this.selectedClientIdentifier = client.paymentIdentifier;
+    this.paymentDto.clientId = client.id;
+    this.selectedClientBalance = client.balance;
+    this.selectedClientRentAmount = client.currentRent;
+    this.selectedPreferredPaymentId = Number(client.preferredPaymentMethodId ?? 1); 
+    this.paymentDto.paymentMethodId = this.selectedPreferredPaymentId;
+    this.onAmountChange(this.paymentDto.amount);
+  }
 
   toggleManualDate() {
     this.manualDateEnabled = !this.manualDateEnabled;
-
     if (!this.manualDateEnabled) {
       const now = new Date();
       this.paymentDto.date = now;
@@ -451,31 +426,17 @@ selectClient(client: any) {
     }
   }
 
-
   private updateConceptFromDate(date: Date) {
-    const monthNames = [
-      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
-    ];
-
+    const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
     const monthName = monthNames[date.getMonth()];
-
     this.paymentDto.concept = `Pago alquiler ${monthName}`;
   }
 
   onManualDateChange(value: string) {
     if (!value) return;
-
     const [year, month, day] = value.split('-').map(Number);
     const currentTime = new Date();
-    const dateWithTime = new Date(
-      year,
-      month - 1,
-      day,
-      currentTime.getHours(),
-      currentTime.getMinutes(),
-      currentTime.getSeconds()
-    );
+    const dateWithTime = new Date(year, month - 1, day, currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds());
 
     this.paymentDto.date = dateWithTime;
     this.dateString = value;
@@ -487,28 +448,23 @@ selectClient(client: any) {
     }
   }
 
-
   get filteredClients(): Client[] {
     const term = this.searchClient?.toLowerCase().trim();
-
     if (!term) return this.clients;
 
     return this.clients.filter(c => {
       const fullName = c.fullName.toLowerCase();
       const identifier = (c.paymentIdentifier ?? '').toString().toLowerCase();
-
       return fullName.includes(term) || identifier.includes(term);
     });
   }
 
   private updateAdvanceConcept() {
     const months = this.paymentDto.advanceMonths;
-
     if (months === null || months === undefined || months === 0) {
       this.paymentDto.concept = 'Pago adelantado';
       return;
     }
-
     this.paymentDto.concept = `Pago adelantado de ${months} mes${months === 1 ? '' : 'es'}`;
   }
 
@@ -527,34 +483,37 @@ selectClient(client: any) {
     }
   }
 
-    deletePayment(paymentId: number): void {
+  deletePayment(p: DetailedPaymentView): void {
+      const isGroup = p.isGrouped;
       Swal.fire({
-        title: '¿Estás seguro?',
-        text: 'Esta acción borrará el pago y modificará el saldo del cliente. Esta acción no se puede deshacer.',
+        title: isGroup ? '¿Eliminar transacción completa?' : '¿Eliminar movimiento?',
+        text: isGroup 
+           ? 'Se borrará el pago principal y su bonificación/recargo asociado. Esta acción no se puede deshacer.'
+           : 'Esta acción borrará este registro contable. No se puede deshacer.',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33', 
         cancelButtonColor: '#9ca3af', 
-        confirmButtonText: 'Sí, eliminar pago',
+        confirmButtonText: 'Sí, eliminar',
         cancelButtonText: 'Cancelar'
       }).then((result) => {
         if (result.isConfirmed) {
-          this.paymentService.deletePayment(paymentId).subscribe({
+          // El backend ya hace la cascada, nosotros le mandamos el ID del movimiento (que C# espera)
+          this.paymentService.deletePayment(p.movementId).subscribe({
             next: () => {
               Swal.fire({
                 title: '¡Eliminado!',
-                text: 'El pago ha sido borrado correctamente.',
+                text: 'El registro ha sido borrado correctamente.',
                 icon: 'success',
                 confirmButtonColor: '#2563eb'
               });
-
               this.loadPayments(); 
             },
             error: (err) => {
               console.error('Error al eliminar pago:', err);
               Swal.fire({
                 title: 'Error',
-                text: 'Hubo un problema al intentar borrar el pago.',
+                text: 'Hubo un problema al intentar borrar el registro.',
                 icon: 'error',
                 confirmButtonColor: '#2563eb'
               });
@@ -562,7 +521,7 @@ selectClient(client: any) {
           });
         }
       });
-    }
+  }
 
   blurInput(event: Event): void {
     (event.target as HTMLElement).blur();
@@ -600,22 +559,17 @@ selectClient(client: any) {
     }
 
     const rawBaseAmount = amountEntered / (1 + (selectedCommission / 100));
-
     const equivalentDebtPaid = rawBaseAmount * (1 + (includedCommission / 100));
-
     const difference = amountEntered - equivalentDebtPaid;
 
     return {
-        amountEntered: amountEntered,             
+        amountEntered: amountEntered,            
         equivalentDebtPaid: equivalentDebtPaid,   
-        difference: Math.abs(difference),           
+        difference: Math.abs(difference),          
         isSurcharge: difference > 0,               
         isDiscount: difference < 0,              
         selectedCommission,
         includedCommission
     };
   }
- 
 }
-
-  

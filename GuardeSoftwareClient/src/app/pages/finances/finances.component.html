@@ -128,39 +128,64 @@
 
       <tbody>
         <tr
-          *ngFor="let p of filteredPayments| paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'payments' }"
-          class="border-b hover:bg-gray-50 transition"
+          *ngFor="let p of filteredPayments | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'payments' }"
+          class="transition"
+          [ngClass]="{
+            'border-b hover:bg-gray-50': p.groupPos === 'none',
+            'bg-indigo-50/30 border-l-4 border-indigo-400': p.isGrouped,
+            'border-t border-r border-indigo-100': p.groupPos === 'start',
+            'border-r border-indigo-100': p.groupPos === 'middle',
+            'border-b border-r border-indigo-100': p.groupPos === 'end'
+          }"
         >
           <td class="py-3 px-4 font-medium text-gray-800">{{ p.clientName }}</td>
           <td class="py-3 px-4 text-gray-700">{{ p.paymentIdentifier }}</td>
-          <td class="py-3 px-4 text-gray-700">{{ p.paymentMethodName || '—' }}</td>
-          <td class="py-3 px-4 text-gray-700">{{ p.concept }}</td>
-          <td class="py-3 px-4 text-right font-semibold text-gray-900">
+          
+          <td class="py-3 px-4">
+            <span [ngClass]="p.paymentMethodName === 'Ajuste / Manual' ? 'bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-md text-xs font-semibold' : 'text-gray-700'">
+                {{ p.paymentMethodName || '—' }}
+            </span>
+          </td>
+          
+          <td class="py-3 px-4" [ngClass]="p.isGrouped && p.groupPos !== 'start' ? 'text-indigo-600 font-medium' : 'text-gray-700'">
+            {{ p.concept }}
+          </td>
+          
+          <td class="py-3 px-4 text-right font-semibold" [ngClass]="p.isGrouped && p.groupPos !== 'start' ? 'text-indigo-700' : 'text-gray-900'">
             ${{ p.amount | number: '1.2-2' }}
           </td>
+          
           <td class="py-3 px-4 text-gray-600 font-mono text-xs">
             {{ p.paymentDate | date: 'dd/MM/yyyy' }}
           </td>
-          <td class="px-4 py-3 text-center items-center">
-            <button 
-              (click)="deletePayment(p.paymentId)" 
-              class=" text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors items-center justify-center"
-              title="Eliminar Pago">
-              
+          
+          <td class="px-4 py-3 text-center align-middle">
+            
+            <button *ngIf="p.paymentId > 0 && (p.groupPos === 'none' || p.groupPos === 'start')"
+              (click)="deletePayment(p)" 
+              class="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors inline-flex items-center justify-center"
+              title="Eliminar">
               <app-icon name="Trash2" class="h-4 w-4"></app-icon>
-              
             </button>
+            
+            <span *ngIf="(!p.paymentId || p.paymentId === 0) && p.groupPos === 'none'" 
+                  class="text-xs text-gray-400 font-medium" 
+                  title="Movimiento automático (No se elimina desde aquí)">
+              —
+            </span>
+
+            <div *ngIf="p.groupPos === 'middle' || p.groupPos === 'end'" class="text-indigo-300">
+               <app-icon name="corner-down-right" class="w-4 h-4 mx-auto"></app-icon>
+            </div>
           </td>
         </tr>
 
         <tr *ngIf="filteredPayments.length === 0">
           <td colspan="7" class="text-center py-6 text-gray-400">
-            No se encontraron pagos.
+            No se encontraron movimientos.
           </td>
         </tr>
       </tbody>
-
-      
     </table>
 
     <pagination-template [id]="'payments'" #p="paginationApi" (pageChange)="page = $event">

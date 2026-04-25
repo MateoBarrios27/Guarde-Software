@@ -1,5 +1,6 @@
 
 export interface DetailedPaymentDTO{
+    movementId: number;
     paymentId: number;
     clientName: string;
     paymentIdentifier: string;
