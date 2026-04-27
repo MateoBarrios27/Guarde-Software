@@ -181,6 +181,18 @@
                 </div>
               </th>
 
+              <th class="p-4 text-left font-medium cursor-pointer" (click)="handleSort('Baulera')">
+                <div class="flex items-center gap-1">
+                  Baulera
+                  <app-icon 
+                    [name]="getSortIcon('Baulera')" 
+                    class="w-4 h-4 transition-colors duration-200"
+                    [class.text-blue-600]="sortFieldClientes === 'Baulera'"
+                    [class.text-gray-400]="sortFieldClientes !== 'Baulera'">
+                  </app-icon>
+                </div>
+              </th>
+
               <th class="p-4 text-right font-medium cursor-pointer" (click)="handleSort('PreviousBalance')">
                 <div class="flex items-center justify-end gap-1 group">
                   Saldo Anterior
@@ -252,6 +264,10 @@
                     <span class="font-semibold text-gray-900">{{ cliente.fullName }}</span>  
                   </div>
                 </div>
+              </td>
+
+              <td class="p-4 font-mono text-gray-700">
+                {{ cliente.lockers?.join(", ") }}
               </td>
 
               <td class="p-4 font-semibold text-right" 
