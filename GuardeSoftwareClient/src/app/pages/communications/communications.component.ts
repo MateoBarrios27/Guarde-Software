@@ -48,6 +48,7 @@ interface ClientSelectorItem {
   unpaidMonths: number;
   status: 'Moroso' | 'Pendiente' | 'AlDia';
   selected: boolean;
+  currentRentAmount: number;
 }
 
 const COMMUNICATION_CHANNELS: Channel[] = [
@@ -79,6 +80,7 @@ export class CommunicationsComponent implements OnInit {
   recipientSearchTerm = signal('');
   
   selectedCount = computed(() => this.formData().recipients.length);
+  modalSelectedCount = computed(() => this.allClients().filter(c => c.selected).length);
   currentSort = signal<'name' | 'status'>('name');
 
   selectedSummary = computed(() => {
@@ -251,23 +253,23 @@ export class CommunicationsComponent implements OnInit {
     let finalModalType = modalType;
 
     if (communication && (modalType === 'edit' || isResend)) {
-      // 1. Recuperar canales
+      // 1. Get channels as array
       let channelsArray: ('Email' | 'WhatsApp')[] = [];
       if (communication.channel.includes('Email')) channelsArray.push('Email');
       if (communication.channel.includes('WhatsApp')) channelsArray.push('WhatsApp');
 
-      // 2. Determinar tipo de formulario
+      // 2. Determine form type based on communication status and whether it's a resend
       let formType: 'programar' | 'borrador' | 'enviar_ahora' = 'borrador';
       
-      // Si es un comunicado que ya estaba programado, mantenemos su estado
+      // If it's a resend, default to 'enviar_ahora' regardless of original status
       if (communication.status === 'Scheduled' || communication.status === 'Processing') {
         formType = 'programar';
       } 
-      // Si es un reintento por error, por defecto queremos que se envíe ahora
+      // If the communication failed or had errors, we want to allow quick resend
       else if (communication.status === 'Failed' || communication.status === 'Finished w/ Errors') {
         formType = 'enviar_ahora';
       } 
-      // Si estamos editando un borrador, lo mantenemos como borrador
+      // If it's a draft, keep it as draft
       else {
         formType = 'borrador';
       }
@@ -281,7 +283,6 @@ export class CommunicationsComponent implements OnInit {
         channels: channelsArray,
         recipients: [...communication.recipients],
         
-        // <--- CAMBIO AQUÍ: Si clonamos (isResend), forzamos 'enviar_ahora'. Si no, usamos la lógica de arriba.
         type: isResend ? 'enviar_ahora' : formType,
         
         smtpConfigId: communication.smtpConfigId || null,
@@ -323,7 +324,6 @@ export class CommunicationsComponent implements OnInit {
       const day = String(now.getDate()).padStart(2, '0');
       finalSendDate = `${year}-${month}-${day}`; 
 
-      // Asegurar formato HH:mm usando la zona horaria local
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
       finalSendTime = `${hours}:${minutes}`;
@@ -367,13 +367,11 @@ export class CommunicationsComponent implements OnInit {
       finalType = 'schedule';
       
       const now = new Date();
-      // Asegurar formato YYYY-MM-DD usando la zona horaria local
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const day = String(now.getDate()).padStart(2, '0');
       finalSendDate = `${year}-${month}-${day}`; 
 
-      // Asegurar formato HH:mm usando la zona horaria local
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
       finalSendTime = `${hours}:${minutes}`;
@@ -566,7 +564,7 @@ export class CommunicationsComponent implements OnInit {
                 
                 if (c.maxUnpaidMonths > 0) {
                     status = 'Moroso';
-                } else if (c.balance > 0 && c.maxUnpaidMonths === 0) {
+                } else if (c.balance < 0 && c.maxUnpaidMonths === 0) { 
                     status = 'Pendiente';
                 } else {
                     status = 'AlDia'; 
@@ -578,6 +576,7 @@ export class CommunicationsComponent implements OnInit {
                     email: c.email,
                     balance: c.balance,
                     unpaidMonths: c.maxUnpaidMonths,
+                    currentRentAmount: c.currentRentAmount || 0,
                     status: status,
                     selected: false
                 };
@@ -603,7 +602,7 @@ export class CommunicationsComponent implements OnInit {
     this.showRecipientModal.set(true);
   }
 
-  applyFilter(type: 'Todos' | 'Morosos' | 'Pendientes' | 'AlDia' | 'Ninguno'): void {
+  applyFilter(type: 'Todos' | 'Morosos' | 'Pendientes' | 'AlDia' | 'Ninguno' | 'DesmarcarAdelantados'): void {
       this.allClients.update(list => list.map(c => {
           let shouldSelect = c.selected; 
           
@@ -622,6 +621,11 @@ export class CommunicationsComponent implements OnInit {
                   break;
               case 'AlDia': 
                   if (c.status === 'AlDia') shouldSelect = true; 
+                  break;
+              case 'DesmarcarAdelantados':
+                  if (c.balance >= c.currentRentAmount && c.currentRentAmount > 0) {
+                      shouldSelect = false;
+                  }
                   break;
           }
           

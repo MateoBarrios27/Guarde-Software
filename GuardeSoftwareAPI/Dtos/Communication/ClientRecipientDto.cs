@@ -7,5 +7,6 @@ namespace GuardeSoftwareAPI.Dtos.Communication
         public string Email { get; set; } = string.Empty;
         public decimal Balance { get; set; } 
         public int MaxUnpaidMonths { get; set; }
+        public decimal CurrentRentAmount { get; set; }
     }
 }

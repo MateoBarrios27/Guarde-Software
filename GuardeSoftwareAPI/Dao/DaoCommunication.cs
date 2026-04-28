@@ -508,7 +508,7 @@ namespace GuardeSoftwareAPI.Dao
                     (SELECT TOP 1 address FROM emails WHERE client_id = c.client_id AND active = 1) AS Email,
                     
                     ISNULL((
-                        SELECT SUM(CASE WHEN am.movement_type = 'DEBITO' THEN am.amount ELSE -am.amount END)
+                        SELECT SUM(CASE WHEN am.movement_type = 'DEBITO' THEN -am.amount ELSE am.amount END)
                         FROM account_movements am
                         JOIN rentals r ON am.rental_id = r.rental_id
                         WHERE r.client_id = c.client_id
@@ -518,7 +518,14 @@ namespace GuardeSoftwareAPI.Dao
                         SELECT MAX(months_unpaid) 
                         FROM rentals 
                         WHERE client_id = c.client_id AND active = 1
-                    ), 0) AS MaxUnpaidMonths
+                    ), 0) AS MaxUnpaidMonths,
+
+                    ISNULL((
+                        SELECT SUM(h.amount) 
+                        FROM rentals r2 
+                        JOIN rental_amount_history h ON r2.rental_id = h.rental_id AND h.end_date IS NULL 
+                        WHERE r2.client_id = c.client_id AND r2.active = 1
+                    ), 0) AS CurrentRentAmount
 
                 FROM clients c
                 WHERE c.active = 1
@@ -534,7 +541,8 @@ namespace GuardeSoftwareAPI.Dao
                     FullName = row["FullName"].ToString(),
                     Email = row["Email"].ToString(),
                     Balance = Convert.ToDecimal(row["Balance"]),
-                    MaxUnpaidMonths = Convert.ToInt32(row["MaxUnpaidMonths"])
+                    MaxUnpaidMonths = Convert.ToInt32(row["MaxUnpaidMonths"]),
+                    CurrentRentAmount = Convert.ToDecimal(row["CurrentRentAmount"]) 
                 });
             }
             return list;
