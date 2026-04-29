@@ -64,7 +64,6 @@ namespace GuardeSoftwareAPI.Controllers
             LockerType lockerType = new()
             {
                 Name = lockerTypeToCreate.Name,
-                Amount = lockerTypeToCreate.Amount,
                 M3 = lockerTypeToCreate.M3
             };
             
@@ -80,6 +79,62 @@ namespace GuardeSoftwareAPI.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"Error creating locker type: {ex.Message}");
+            }
+        }
+
+        [HttpPut("{id}")]
+        public async Task<ActionResult> UpdateLockerType(int id, [FromBody] UpdateLockerTypeDto lockerTypeToUpdate)
+        {
+            if (lockerTypeToUpdate == null)
+            {
+                return BadRequest("Locker type data is null.");
+            }
+
+            LockerType lockerType = new()
+            {
+                Id = id,
+                Name = lockerTypeToUpdate.Name,
+                M3 = lockerTypeToUpdate.M3
+            };
+
+            try
+            {
+                bool updated = await _lockerTypeService.UpdateLockerType(lockerType);
+                if (!updated)
+                {
+                    return NotFound($"Locker type with ID {id} not found.");
+                }
+                return NoContent();
+            }
+            catch (ArgumentException argEx)
+            {
+                return BadRequest(argEx.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error updating locker type: {ex.Message}");
+            }
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> DeleteLockerType(int id)
+        {
+            try
+            {
+                bool deleted = await _lockerTypeService.DeleteLockerType(id);
+                if (!deleted)
+                {
+                    return NotFound($"Locker type with ID {id} not found.");
+                }
+                return NoContent();
+            }
+            catch (ArgumentException argEx)
+            {
+                return BadRequest(argEx.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error deleting locker type: {ex.Message}");
             }
         }
     }

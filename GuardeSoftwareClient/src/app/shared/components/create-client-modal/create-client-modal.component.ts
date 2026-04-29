@@ -631,20 +631,6 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
      return Math.round(totalM3 * 100) / 100;
    }
 
-  private calculateTotalAmount(ids: number[]): number {
-    let totalAmount = 0;
-    ids.forEach((id) => {
-      const locker = this.availableLockers.find((l) => l.id === id);
-      const type = this.lockerTypes.find(
-        (lt) => lt.id === locker?.lockerTypeId
-      );
-      if (type) {
-        totalAmount += type.amount;
-      }
-    });
-    return totalAmount;
-  }
-
   blurInput(event: Event): void {
     (event.target as HTMLElement).blur();
   }

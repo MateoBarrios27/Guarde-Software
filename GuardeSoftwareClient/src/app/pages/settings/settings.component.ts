@@ -27,12 +27,16 @@ import { Warehouse } from '../../core/models/warehouse';
 import { WarehouseService } from '../../core/services/warehouse-service/warehouse.service';
 import { CreateWarehouseDto } from '../../core/dtos/warehouse/CreateWarehouseDto';
 import { UpdateWarehouseDto } from '../../core/dtos/warehouse/UpdateWarehouseDto';
+import { LockerTypeService } from '../../core/services/lockerType-service/locker-type.service';
+import { LockerType } from '../../core/models/locker-type';
+import { CreateLockerTypeDto } from '../../core/dtos/lockerType/CreateLockerTypeDto';
+import { ɵɵDir } from "@angular/cdk/scrolling";
 
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent], // DatePipe añadido
+  imports: [CommonModule, FormsModule, IconComponent, ɵɵDir], // DatePipe añadido
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css'
 })
@@ -45,7 +49,8 @@ export class SettingsComponent implements OnInit {
     private warehouseService: WarehouseService,
     private billingTypeService: BillingTypeService,
     private monthlyIncreaseService: MonthlyIncreaseService,
-    private communicationService: CommunicationService
+    private communicationService: CommunicationService,
+    private lockerTypeService: LockerTypeService
   ) {}
 
   activeSection: string = 'usuarios';
@@ -62,6 +67,7 @@ export class SettingsComponent implements OnInit {
     password: '',
     userTypeId: 2,
   }
+
   userEdit: User = {
     id: 0,
     userName: '',
@@ -69,12 +75,14 @@ export class SettingsComponent implements OnInit {
     lastName: '',
     userTypeId: 0,
   }
+
   userUpdated: UpdateUserDTO = {
     userName: '',
     firstName: '',
     lastName: '',
     userTypeId: 0,
   }
+
   SelectedUserId = 0;
   showCreateUserModal = false;
   showEditUserModal = false;
@@ -123,6 +131,12 @@ export class SettingsComponent implements OnInit {
     bccEmail: 'estadodecuenta@abono.com.ar' // Default value
   });
 
+  // --- LockerTypes properties ---
+  lockerTypes: LockerType[] = [];
+  newLockerType: CreateLockerTypeDto = { name: '', m3: 0 };
+  editingLockerType: LockerType = { id: 0, name: '', m3: 0 };
+  showCreateLockerTypeModal = false;
+  showEditLockerTypeModal = false;
 
   // --- Warehouses properties ---
   warehouses: Warehouse[] = [];
@@ -140,6 +154,7 @@ export class SettingsComponent implements OnInit {
     this.loadMonthlyIncreases();
     this.loadConfigs();
     this.loadWarehouses();
+    this.loadLockerTypes();
   }
 
   // --- Métodos de Carga ---
@@ -175,6 +190,7 @@ export class SettingsComponent implements OnInit {
       error: (err) => console.log('error al obtener tipos de usuario',err)
     });
   }
+
   loadUsers(): void{
     this.userService.getUsers().subscribe({
       next: (data) =>{
@@ -197,14 +213,29 @@ export class SettingsComponent implements OnInit {
     });
   }
 
+  loadLockerTypes(): void{
+    this.lockerTypeService.getLockerTypes().subscribe({
+      next: (data) => {
+        this.lockerTypes = data;
+      },
+      error: (err) => {
+        console.error('error: ',err);
+      }
+    });
+  }
+
+  
+
   // --- Navegación ---
   configSections = [
     { id: 'usuarios', title: 'Usuarios', icon: '👤' },
     { id: 'medios-pago', title: 'Medios de Pago', icon: '💳' },
     { id: 'facturacion', title: 'Facturación', icon: '📄' },
+    { id: 'locker-types', title: 'Tipos de Bauleras', icon: '🗄️' },
     { id: 'depositos', title: 'Depósitos', icon: '🏢' },
     { id: 'aumentos', title: 'Aumentos Mensuales', icon: '📈' },
     { id: 'smtp', title: 'Configuración SMTP', icon: '✉️' },
+    
     // { id: 'datos', title: 'Datos', icon: '🗄️' }
   ];
 
@@ -765,4 +796,77 @@ export class SettingsComponent implements OnInit {
       }
     });
   }
+
+  openCreateLockerTypeModal() {
+    this.newLockerType = { name: '', m3: 0 };
+    this.showCreateLockerTypeModal = true;
+  }
+
+  closeCreateLockerTypeModal() { this.showCreateLockerTypeModal = false; }
+
+  saveNewLockerType() {
+    if(!this.newLockerType.name) {
+       Swal.fire('Error', 'El nombre es obligatorio', 'warning');
+       return;
+    }
+    this.lockerTypeService.createLockerType(this.newLockerType).subscribe({
+      next: () => {
+         Swal.fire('Éxito', 'Tipo de baulera creado', 'success');
+          this.loadLockerTypes();
+          this.closeCreateLockerTypeModal();
+      },
+      error: (err) => Swal.fire('Error', 'No se pudo crear el tipo de baulera', 'error')
+    });
+  }
+
+  openUpdateLockerTypeModal(lt: LockerType) {
+    this.editingLockerType = { ...lt };
+    this.showEditLockerTypeModal = true;
+  }
+
+  deleteLockerType(lt: LockerType) {
+    Swal.fire({
+      title: '¿Estás seguro?',
+      text: `Eliminar tipo de baulera "${lt.name}".`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      confirmButtonColor: '#d33'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.lockerTypeService.deleteLockerType(lt.id).subscribe({
+          next: () => {
+            Swal.fire('Eliminado', 'Tipo de baulera eliminado.', 'success');
+            this.loadLockerTypes();
+          },
+          error: (err) => {
+            const msg = err.error?.message || 'Error al eliminar.';
+            Swal.fire('Error', msg, 'error');
+          }
+        });
+      }
+    });
+  }
+
+  closeEditLockerTypeModal() { this.showEditLockerTypeModal = false; }
+  
+  saveUpdatedLockerType() {
+    if(!this.editingLockerType.name) {
+       Swal.fire('Error', 'El nombre es obligatorio', 'warning');
+       return;
+    }
+    const dto: CreateLockerTypeDto = {
+      name: this.editingLockerType.name,
+      m3: this.editingLockerType.m3
+    };
+    this.lockerTypeService.updateLockerType(this.editingLockerType.id, dto).subscribe({
+      next: () => {
+         Swal.fire('Éxito', 'Tipo de baulera actualizado', 'success');
+         this.loadLockerTypes();
+         this.closeEditLockerTypeModal();
+      },
+      error: (err) => Swal.fire('Error', 'No se pudo actualizar el tipo de baulera', 'error')
+    });
+  }
+
 }

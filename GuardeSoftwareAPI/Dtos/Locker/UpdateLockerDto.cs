@@ -1,7 +1,4 @@
-﻿using System;
-
-
-namespace GuardeSoftwareAPI.Dtos.Locker
+﻿namespace GuardeSoftwareAPI.Dtos.Locker
 {
     public class UpdateLockerDto
     {     
