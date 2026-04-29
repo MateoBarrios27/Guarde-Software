@@ -103,8 +103,7 @@ namespace GuardeSoftwareAPI.Dao
                     lt.name AS locker_type,
                     l.identifier,
                     l.features,
-                    w.name AS warehouse,
-                    lt.amount
+                    w.name AS warehouse
                 FROM
                     lockers l
                 INNER JOIN

@@ -8,6 +8,5 @@ namespace GuardeSoftwareAPI.Dtos.Locker
         public string LockerType { get; set; } = string.Empty;
         public string Identifier { get; set; } = string.Empty;
         public string Features { get; set; } = string.Empty;
-        public decimal? Amount { get; set; }
     }
 }
