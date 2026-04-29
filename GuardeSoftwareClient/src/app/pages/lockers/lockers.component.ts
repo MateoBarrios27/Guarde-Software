@@ -27,21 +27,21 @@ export class LockersComponent implements OnInit {
   selectedLocker: Locker | null = null;
   
   warehouses: Warehouse[] = [];
-  lockerTypes: LockerType[] = []; // <-- NUEVA PROPIEDAD
+  lockerTypes: LockerType[] = [];
 
-  // --- Modal de Actualización (Corregido) ---
+  // --- Modal de Actualización ---
   lockerUpdate: LockerUpdateDTO = {
     identifier: '',
     status: '',
     features: '',
-    lockerTypeId: 0 // Añadido para consistencia
+    lockerTypeId: 0 
   };
-  lockerOriginal: LockerUpdateDTO = { ...this.lockerUpdate }; // Copia inicial
+  lockerOriginal: LockerUpdateDTO = { ...this.lockerUpdate }; 
   showUpdateLockerModal = false;
   idLockerUpdated = 0;
-  warehouseId = 0; // Solo para mostrar, no se edita
+  warehouseId = 0; 
 
-  // --- Modal de Creación (Corregido) ---
+  // --- Modal de Creación  ---
   public showCreateLockerModal = false;
   public newLocker: CreateLockerDTO = this.getDefaultNewLocker();
 
@@ -224,9 +224,9 @@ export class LockersComponent implements OnInit {
       identifier : item.identifier,
       status : item.status,
       features: item.features,
-      lockerTypeId: item.lockerTypeId // <-- CAMBIO: Añadido
+      lockerTypeId: item.lockerTypeId 
     };
-    this.lockerOriginal = { ...this.lockerUpdate }; // Copia correcta
+    this.lockerOriginal = { ...this.lockerUpdate };
     this.idLockerUpdated = item.id;
     this.warehouseId = item.warehouseId;
     this.showUpdateLockerModal = true;
@@ -244,10 +244,10 @@ export class LockersComponent implements OnInit {
        return;
      }
 
-     // El tipo de Locker no se puede editar desde aquí, solo identifier, status, features
      const hasChanged = dto.identifier !== this.lockerOriginal.identifier ||
                         dto.status !== this.lockerOriginal.status ||
-                        dto.features !== this.lockerOriginal.features;
+                        dto.features !== this.lockerOriginal.features ||
+                        dto.lockerTypeId !== this.lockerOriginal.lockerTypeId;
 
      if (!hasChanged) {
        Swal.fire({
@@ -296,6 +296,10 @@ export class LockersComponent implements OnInit {
       features: '',
       status: 'DISPONIBLE'
     };
+  }
+
+  blurInput(event: Event): void {
+    (event.target as HTMLElement).blur();
   }
 
   openCreateLockerModal(): void {

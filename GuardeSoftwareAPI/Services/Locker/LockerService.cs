@@ -160,12 +160,16 @@ namespace GuardeSoftwareAPI.Services.locker
             if (string.IsNullOrWhiteSpace(dto.Status))
                 throw new ArgumentException("Locker Status is required.");
 
+            if (dto.LockerTypeId <= 0)
+                throw new ArgumentException("Invalid Locker Type ID.");
+
             var Locker = new Locker
             {
                 Id = Id,
                 Identifier = dto.Identifier,
                 Features = dto.Features,
                 Status = dto.Status,
+                LockerTypeId = dto.LockerTypeId
             };
 
             return await daoLocker.UpdateLocker(Locker);  

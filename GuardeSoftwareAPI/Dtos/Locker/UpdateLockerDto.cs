@@ -3,6 +3,7 @@
     public class UpdateLockerDto
     {     
         public string? Identifier { get; set; } = string.Empty;
+        public int LockerTypeId { get; set; }
         public string? Features { get; set; } = string.Empty;
         public string? Status { get; set; } = string.Empty;
     }

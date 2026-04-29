@@ -150,15 +150,16 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<bool> UpdateLocker(Locker locker)
         {
-            SqlParameter[] parameters = new SqlParameter[]
-            {
-                new SqlParameter("@locker_id",SqlDbType.Int) { Value = locker.Id },
-                new SqlParameter("@identifier",SqlDbType.VarChar,100){Value = (object?)locker.Identifier ?? DBNull.Value},
-                new SqlParameter("@features",SqlDbType.VarChar){Value = (object?)locker.Features ?? DBNull.Value},
-                new SqlParameter("@status",SqlDbType.VarChar,50){Value = locker.Status},
-            };
+            SqlParameter[] parameters =
+            [
+                new("@locker_id",SqlDbType.Int) { Value = locker.Id },
+                new("@identifier",SqlDbType.VarChar,100){Value = (object?)locker.Identifier ?? DBNull.Value},
+                new("@features",SqlDbType.VarChar){Value = (object?)locker.Features ?? DBNull.Value},
+                new("@status",SqlDbType.VarChar,50){Value = locker.Status},
+                new("@locker_type_id",SqlDbType.Int){Value = locker.LockerTypeId},
+            ];
 
-            string query = "UPDATE lockers SET identifier = @identifier, features = @features, status = @status WHERE locker_id = @locker_id";
+            string query = "UPDATE lockers SET identifier = @identifier, features = @features, status = @status, locker_type_id = @locker_type_id WHERE locker_id = @locker_id";
 
             return await accessDB.ExecuteCommandAsync(query,parameters) > 0;   
         }
