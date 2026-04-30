@@ -86,13 +86,13 @@ namespace GuardeSoftwareAPI.Dao
             SqlParameter[] parameters =
             [
                 new SqlParameter("@payment_method_id", SqlDbType.Int) { Value = paymentMethodId },
+                new SqlParameter("@name", SqlDbType.NVarChar, 100) { Value = dto.Name ?? (object)DBNull.Value },
                 new SqlParameter("@commission", SqlDbType.Decimal) { Value = dto.Commission }
             ];
 
-            string query = "UPDATE payment_methods SET commission = @commission WHERE payment_method_id = @payment_method_id";
+            string query = "UPDATE payment_methods SET name = @name, commission = @commission WHERE payment_method_id = @payment_method_id";
 
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
-        
     }
 }

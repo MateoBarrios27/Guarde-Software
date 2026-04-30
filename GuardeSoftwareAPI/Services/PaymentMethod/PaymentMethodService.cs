@@ -77,6 +77,7 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 		public async Task<bool> UpdatePaymentMethod(int paymentMethodId, UpdatePaymentMethodDto dto)
 		{
 			if (paymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
+			if (dto.Name != null && string.IsNullOrWhiteSpace(dto.Name)) throw new ArgumentException("Payment method name cannot be empty.");
 			if (dto.Commission < 0m) throw new ArgumentException("Comission cannot be negative.");
 			if (await _daoPaymentMethod.UpdatePaymentMethod(paymentMethodId, dto)) return true;
 			else return false;

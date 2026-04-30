@@ -89,6 +89,7 @@ export class SettingsComponent implements OnInit {
 
   // --- Propiedades de Medios de Pago ---
   paymentMethodUpdate: UpdatePaymentMethodDTO = {
+    name: '',
     commission: 0,
   }
   SelectedPaymentMethodId = 0;
@@ -361,6 +362,7 @@ export class SettingsComponent implements OnInit {
 
   openUpdatePaymentModal(item: PaymentMethod){
     this.paymentMethodUpdate = {
+      name: item.name,
       commission : item.commission,
     }
     this.SelectedPaymentMethodId = item.id;

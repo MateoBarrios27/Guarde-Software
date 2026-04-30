@@ -2,6 +2,7 @@
 namespace GuardeSoftwareAPI.Dtos.PaymentMethod
 {
     public class UpdatePaymentMethodDto{
-        public decimal? Commission { get; set; }string name {get; set;}
+        public string Name { get; set; } = string.Empty;
+        public decimal? Commission { get; set; }
     }
 }
