@@ -20,6 +20,8 @@ export interface MonthlySummary {
   netBalance: number;         
   pendingCollection: number; 
   abono: number; 
+  ivaFacturaA: number;
+  ivaFacturaB: number;
 }
 
 export interface FinancialAccount {

@@ -10,7 +10,7 @@ import { CashFlowItem, FinancialAccount, MonthlySummary } from '../../core/model
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 
-// --- ESTRUCTURA PARA EL HISTORIAL (CTRL+Z) ---
+// --- Structure Historial (CTRL+Z) ---
 export type ActionType = 'ACCOUNT_EDIT' | 'ACCOUNT_CREATE' | 'ACCOUNT_DELETE' | 'ITEM_EDIT' | 'ITEM_CREATE' | 'ITEM_DELETE';
 
 export interface UndoAction {
@@ -35,9 +35,18 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   activeCommentItem: CashFlowItem | null = null;
   
   items: CashFlowItem[] = [];
+
   summary: MonthlySummary = {
-    totalSystemIncome: 0, totalAdvancePayments: 0, totalManualExpenses: 0, netBalance: 0, pendingCollection: 0, abono: 0
+    totalSystemIncome: 0,
+     totalAdvancePayments: 0,
+      totalManualExpenses: 0,
+      netBalance: 0,
+      pendingCollection: 0,
+      abono: 0,
+      ivaFacturaA: 0,
+      ivaFacturaB: 0
   };
+
   accounts: FinancialAccount[] = [];
 
   totals = { 
@@ -145,7 +154,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     this.capturedItemState = '';
   }
 
-  // --- EJECUCIÓN DEL DESHACER CON ANCLAS TEMPORALES ---
   // --- EJECUCIÓN DEL DESHACER (CON STORAGE Y ANCLAS) ---
   undoLastAction() {
     if (this.undoStack.length === 0) return;

@@ -62,6 +62,7 @@ namespace GuardeSoftwareAPI.Services.cash
             decimal pending = await _dao.GetPendingCollectionAsync(month, year);
             decimal advancePayments = await _dao.GetTotalAdvancePaymentsAsync(month, year);
             decimal abono = await _dao.GetTotalAbonosAsync(month, year);
+            var (IvaFacturaA, IvaFacturaB) = await _dao.GetIvaStatisticsAsync(month, year);
 
             decimal netBalance = systemIncome - manualExpenses;
 
@@ -72,7 +73,9 @@ namespace GuardeSoftwareAPI.Services.cash
                 TotalAdvancePayments = advancePayments,
                 NetBalance = netBalance,
                 PendingCollection = pending,
-                Abono = abono
+                Abono = abono,
+                IvaFacturaA = IvaFacturaA,
+                IvaFacturaB = IvaFacturaB
             };
         }
 

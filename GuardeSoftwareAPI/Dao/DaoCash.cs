@@ -854,5 +854,57 @@ namespace GuardeSoftwareAPI.Dao
                 }
             }
         }
+
+        public async Task<(decimal IvaFacturaA, decimal IvaFacturaB)> GetIvaStatisticsAsync(int month, int year)
+        {
+            string query = @"
+                SELECT 
+                    -- Verificamos el nombre en la tabla billing_types para Factura A
+                    ISNULL(SUM(CASE 
+                        WHEN bt.name LIKE 'Factura A%' 
+                        THEN am.amount * 0.21 
+                        ELSE 0 
+                    END), 0) AS IvaFacturaA,
+                    
+                    -- Verificamos el nombre en la tabla billing_types para Factura B
+                    ISNULL(SUM(CASE 
+                        WHEN bt.name LIKE 'Factura B%' 
+                        THEN am.amount * 0.21 
+                        ELSE 0 
+                    END), 0) AS IvaFacturaB
+
+                FROM account_movements am
+                LEFT JOIN payments p ON am.payment_id = p.payment_id
+                LEFT JOIN payment_methods pm ON p.payment_method_id = pm.payment_method_id
+                LEFT JOIN clients c_pay ON p.client_id = c_pay.client_id
+                LEFT JOIN rentals r ON am.rental_id = r.rental_id
+                LEFT JOIN clients c_rent ON r.client_id = c_rent.client_id
+                
+                -- NUEVO: Hacemos el JOIN con la tabla paramétrica usando el ID del cliente que aplique
+                LEFT JOIN billing_types bt ON bt.billing_type_id = ISNULL(c_pay.billing_type_id, c_rent.billing_type_id)
+                
+                WHERE 
+                    am.movement_type = 'CREDITO' 
+                    AND MONTH(am.movement_date) = @Month 
+                    AND YEAR(am.movement_date) = @Year
+                    AND ISNULL(pm.name, '') <> 'Efectivo'";
+
+            using SqlConnection connection = _accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using SqlCommand cmd = new SqlCommand(query, connection);
+            cmd.Parameters.Add(new SqlParameter("@Month", month));
+            cmd.Parameters.Add(new SqlParameter("@Year", year));
+
+            using SqlDataReader reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return (
+                    Convert.ToDecimal(reader["IvaFacturaA"]),
+                    Convert.ToDecimal(reader["IvaFacturaB"])
+                );
+            }
+
+            return (0m, 0m);
+        }
     }
 }
