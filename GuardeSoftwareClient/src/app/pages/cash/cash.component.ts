@@ -517,7 +517,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     let m = this.selectedMonth + delta;
     let y = this.selectedYear;
     
-    // 1. Calculamos a qué mes/año quiere ir
     if (m > 12) { 
         m = 1; 
         y++; 
@@ -527,17 +526,14 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
         y--; 
     }
 
-    // 2. Validación de seguridad de año mínimo
     if (y < 2026) {
         Swal.fire('Atención', 'No se pueden consultar o planificar datos anteriores al 2026.', 'warning');
         return;
     }
     
-    // 3. Obtenemos el nombre del mes al que va a ir (para mejor UX en la alerta)
     const targetDate = new Date(y, m - 1, 1);
     const targetMonthName = targetDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
 
-    // 4. Lanzamos la pregunta
     Swal.fire({
       title: `¿Ir a ${targetMonthName}?`,
       text: 'Se cargarán todos los movimientos y estadísticas de ese mes.',
@@ -548,7 +544,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       confirmButtonColor: '#2563eb',
       cancelButtonColor: '#9ca3af'
     }).then((result) => {
-      // 5. Si confirma, aplicamos los cambios y cargamos la data
       if (result.isConfirmed) {
         this.selectedMonth = m;
         this.selectedYear = y;

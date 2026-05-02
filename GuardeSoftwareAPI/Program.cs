@@ -145,7 +145,7 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(applyDebitsJobKey)
         .WithIdentity("ApplyDebits-Trigger")
-        .WithCronSchedule("0 40 23 20 * ?") // 4:00 AM del día 1 de cada mes
+        .WithCronSchedule("0 0 4 1 * ?") // 4:00 AM del día 1 de cada mes
     );
 
     // --- Job 2: ApplyRentIncreaseJob (with trigger) ---
