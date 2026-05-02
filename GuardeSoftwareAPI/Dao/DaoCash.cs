@@ -288,10 +288,18 @@ namespace GuardeSoftwareAPI.Dao
                 FROM (
                     SELECT 
                         h.amount,
-                        ROW_NUMBER() OVER (PARTITION BY h.rental_id ORDER BY h.start_date DESC) as rn
+                        ROW_NUMBER() OVER (
+                            PARTITION BY h.rental_id 
+                            ORDER BY 
+                                h.start_date DESC, 
+                                CASE WHEN h.end_date IS NULL THEN 1 ELSE 0 END DESC, 
+                                h.rental_amount_history_id DESC
+                        ) as rn
                     FROM rental_amount_history h
+                    INNER JOIN rentals r ON h.rental_id = r.rental_id
                     WHERE 
-                        h.start_date <= @EndDate
+                        r.active = 1
+                        AND h.start_date <= @EndDate
                         AND (h.end_date IS NULL OR h.end_date >= @StartDate)
                 ) filtered
                 WHERE filtered.rn = 1;";
@@ -304,7 +312,6 @@ namespace GuardeSoftwareAPI.Dao
             var result = await _accessDB.ExecuteScalarAsync(query, parameters);
             return Convert.ToDecimal(result);
         }
-
 
         public async Task<decimal> GetPendingCollectionAsync(int month, int year)
         {
