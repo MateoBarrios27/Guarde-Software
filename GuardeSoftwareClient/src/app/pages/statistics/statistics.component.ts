@@ -26,10 +26,10 @@ export class StatisticsComponent implements OnInit {
     totalPagado: 0,
     totalAdvancePayments: 0,
     totalEspaciosOcupados: 0,
+    totalIvaFacturaA: 0,
+    totalIvaFacturaB: 0,
     warehouseRevenues: []
   };
-
-  
 
   constructor(private statisticsService: StatisticsService) {}
 
@@ -55,8 +55,7 @@ export class StatisticsComponent implements OnInit {
     });
   }
 
-  // --- Navegación de Fechas ---
-
+  // Navigate between months
   prevMonth(): void {
     this.currentDate = new Date(this.currentDate.setMonth(this.currentDate.getMonth() - 1));
     this.loadStats();
@@ -68,7 +67,7 @@ export class StatisticsComponent implements OnInit {
     this.loadStats();
   }
 
-  // Helper para mostrar el nombre del mes en español
+  // Helper to show month name in spanish
   get monthName(): string {
     return this.currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
   }

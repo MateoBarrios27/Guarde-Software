@@ -11,5 +11,7 @@ export interface MonthlyStatisticsDTO {
   balanceGlobalActual: number;
   totalEspaciosOcupados: number;
   totalAdvancePayments: number;
+  totalIvaFacturaA: number;
+  totalIvaFacturaB: number;
   warehouseRevenues?: WarehouseRevenueDTO[];
 }

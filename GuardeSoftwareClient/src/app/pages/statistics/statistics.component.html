@@ -99,6 +99,33 @@
           <app-icon name="clock-clockwise" class="h-5 w-5 text-indigo-500"></app-icon>
         </div>
       </div>
+
+      <div class="bg-yellow-50/50 p-6 rounded-xl border border-yellow-200 shadow-sm relative">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-semibold text-yellow-600 uppercase tracking-wider">Total IVA Factura A</p>
+            <div class="mt-3 text-3xl font-bold text-yellow-600">
+              {{ stats.totalIvaFacturaA | currency:'ARS':'symbol-narrow':'1.0-0' }}
+            </div>
+            <p class="text-xs text-yellow-500 mt-1">IVA generado en facturas A</p>
+          </div>
+          <app-icon name="file-invoice" class="h-5 w-5 text-yellow-500"></app-icon>
+        </div>
+      </div>
+
+      <div class="bg-yellow-50/50 p-6 rounded-xl border border-yellow-200 shadow-sm relative">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-semibold text-yellow-600 uppercase tracking-wider">Total IVA Factura B</p>
+            <div class="mt-3 text-3xl font-bold text-yellow-600">
+              {{ stats.totalIvaFacturaB | currency:'ARS':'symbol-narrow':'1.0-0' }}
+            </div>
+            <p class="text-xs text-yellow-500 mt-1">IVA generado en facturas B</p>
+          </div>
+          <app-icon name="file-invoice" class="h-5 w-5 text-yellow-500"></app-icon>
+        </div>
+      </div>
+
     </div>
 
     <div>
