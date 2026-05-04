@@ -172,27 +172,33 @@ export class DashboardComponent {
     this.advanceMonths = null;
 
     this.selectedPreferredPaymentId = Number(item.preferredPayment ?? 1);
+    this.selectedClientName = item.clientName ?? '';
+    this.selectedPaymentIdentifier = Number(item.paymentIdentifier ?? 0);
+    this.selectedBalance = Number(item.balance ?? 0);
+    this.selectedCurrentRent = Number(item.currentRent ?? 0);
+
+    // --- NUEVA LÓGICA: Sugerencia inteligente de monto ---
+    const suggestedAmount = this.selectedBalance < 0 
+        ? Math.abs(this.selectedBalance) 
+        : this.selectedCurrentRent;
 
     this.paymentDto = {
       clientId: item.clientId ?? 0,
       movementType: 'CREDITO',
       concept: ` `,
-      amount: 0,
-      paymentMethodId: 1,
+      amount: suggestedAmount, // <-- Precargamos el monto calculado
+      paymentMethodId: this.selectedPreferredPaymentId,
       date: new Date(),
       isAdvancePayment: false,
       advanceMonths: null
     };
 
     this.updateConceptFromDate(now);
-
     this.dateString = now.toISOString().split('T')[0];
-
-    this.selectedClientName = item.clientName ?? '';
-    this.selectedPaymentIdentifier = item.paymentIdentifier ?? '';
-    this.selectedBalance = item.balance ?? '';
-    this.selectedCurrentRent = item.currentRent ?? '';
     this.showPaymentModal = true;
+
+    // Forzamos el recálculo de comisiones con el nuevo monto precargado
+    this.onAmountChange(this.paymentDto.amount);
   }
 
   closePaymentModal() { 

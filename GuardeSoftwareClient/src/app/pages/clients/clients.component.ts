@@ -55,8 +55,8 @@ export class ClientsComponent implements OnInit {
   public filterEstadoClientes = 'Todos';
   public showInactivos = false;
   public currentPageClientes = 1;
-  public itemsPerPageClientes = 10;
-  public itemsPerPageOptions = [10, 20, 50];
+  public itemsPerPageClientes = 400;
+  // public itemsPerPageOptions = [100];
   public sortFieldClientes = 'PaymentIdentifier';
   public sortDirectionClientes: 'asc' | 'desc' = 'asc';
   public readonly Math = Math;

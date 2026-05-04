@@ -404,13 +404,23 @@ export class FinancesComponent implements OnInit {
     this.selectedClientId = client.id;
     this.selectedClientIdentifier = client.paymentIdentifier;
     this.paymentDto.clientId = client.id;
-    this.selectedClientBalance = client.balance;
-    this.selectedClientRentAmount = client.currentRent;
+    this.selectedClientBalance = Number(client.balance ?? 0);
+    this.selectedClientRentAmount = Number(client.currentRent ?? 0);
     this.selectedPreferredPaymentId = Number(client.preferredPaymentMethodId ?? 1); 
     this.paymentDto.paymentMethodId = this.selectedPreferredPaymentId;
+
+    // --- NUEVA LÓGICA: Sugerencia inteligente de monto ---
+    // Si el saldo es negativo (tiene deuda), sugerimos cancelar la deuda total.
+    // Si está al día o tiene saldo a favor, sugerimos pagar el alquiler actual.
+    const suggestedAmount = this.selectedClientBalance < 0 
+        ? Math.abs(this.selectedClientBalance) 
+        : this.selectedClientRentAmount;
+
+    this.paymentDto.amount = suggestedAmount;
+
+    // Forzamos el recálculo de comisiones con el nuevo monto precargado
     this.onAmountChange(this.paymentDto.amount);
   }
-
   toggleManualDate() {
     this.manualDateEnabled = !this.manualDateEnabled;
     if (!this.manualDateEnabled) {
