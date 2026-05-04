@@ -166,14 +166,14 @@ builder.Services.AddQuartz(q =>
         .WithCronSchedule("0 0 4 10 * ?") // 4:00 AM del día 10 de cada mes
     );
 
-    var applyIncreasesJobKey = new JobKey("ApplyMonthlyIncreasesJob");
-                q.AddJob<ApplyMonthlyIncreasesJob>(opts => opts.WithIdentity(applyIncreasesJobKey));
-                q.AddTrigger(opts => opts
-                    .ForJob(applyIncreasesJobKey)
-                    .WithIdentity("ApplyMonthlyIncreasesJob-Trigger")
-                    // Cron: 0 0 1 1 * ? -> (3:00 AM del día 1 de cada mes)
-                    .WithCronSchedule("0 0 3 1 * ?") 
-                );
+    // var applyIncreasesJobKey = new JobKey("ApplyMonthlyIncreasesJob");
+    //             q.AddJob<ApplyMonthlyIncreasesJob>(opts => opts.WithIdentity(applyIncreasesJobKey));
+    //             q.AddTrigger(opts => opts
+    //                 .ForJob(applyIncreasesJobKey)
+    //                 .WithIdentity("ApplyMonthlyIncreasesJob-Trigger")
+    //                 // Cron: 0 0 1 1 * ? -> (3:00 AM del día 1 de cada mes)
+    //                 .WithCronSchedule("0 0 3 1 * ?") 
+    //             );
 
     // --- Job 4: SendCommunicationJob (durable, no trigger) ---
     var sendCommJobKey = new JobKey(nameof(SendCommunicationJob));

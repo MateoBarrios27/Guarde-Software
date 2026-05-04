@@ -267,9 +267,9 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<decimal> GetTotalAdvancePaymentsAsync(int month, int year)
         {
-            string query = @"
-                -- 1. BALANCE GLOBAL POSITIVO (Filtro de seguridad)
-                -- Solo consideramos clientes que 'hoy' tienen plata a favor.
+            string query = @"-- 1. BALANCE GLOBAL AL FINAL DEL MES CONSULTADO (Filtro de seguridad)
+                -- Consideramos el saldo a favor que tenía el cliente exactamente al terminar ese mes.
+                -- Si no ponemos límite de fecha, un débito de un mes futuro achica este saldo y arruina la estadística.
                 WITH PositiveBalances AS (
                     SELECT
                         r.client_id,
@@ -282,20 +282,20 @@ namespace GuardeSoftwareAPI.Dao
                     FROM account_movements am
                     INNER JOIN rentals r ON am.rental_id = r.rental_id
                     WHERE r.active = 1
+                    -- EL CAMBIO CLAVE: Cortamos los movimientos al último día del mes y año que estamos consultando
+                    AND am.movement_date <= EOMONTH(DATEFROMPARTS(@Year, @Month, 1))
                     GROUP BY r.client_id
                     HAVING SUM(CASE WHEN am.movement_type = 'DEBITO' THEN -am.amount ELSE am.amount END) > 0
                 ),
 
                 -- 2. CRÉDITOS REALES DEL MES (Dinero a favor generado este mes)
-                -- Aquí sumamos Pagos, Notas de Crédito, Ajustes, etc.
-                -- Todo lo que NO sea 'DEBITO'.
                 MonthlyCredits AS (
                     SELECT 
                         r.client_id,
                         ISNULL(SUM(am.amount), 0) as TotalCreditedInMonth
                     FROM account_movements am
                     INNER JOIN rentals r ON am.rental_id = r.rental_id
-                    WHERE am.movement_type <> 'DEBITO' -- <--- EL CAMBIO CLAVE
+                    WHERE am.movement_type <> 'DEBITO'
                     AND MONTH(am.movement_date) = @Month
                     AND YEAR(am.movement_date) = @Year
                     GROUP BY r.client_id
@@ -315,17 +315,10 @@ namespace GuardeSoftwareAPI.Dao
                 )
 
                 -- CÁLCULO FINAL:
-                -- (Créditos del Mes - Débitos del Mes) = Excedente generado este mes.
-                -- Ajustado por el tope de su saldo global real actual.
                 SELECT ISNULL(SUM(
                     CASE 
-                        -- Si el excedente del mes es mayor que su saldo global actual, 
-                        -- significa que parte de ese crédito se usó para cubrir deuda vieja que ya no existe,
-                        -- o que el saldo se consumió después. Solo tomamos el 'saldo vivo'.
                         WHEN (mc.TotalCreditedInMonth - ISNULL(md.TotalDebitedInMonth, 0)) > pb.CurrentGlobalBalance 
                         THEN pb.CurrentGlobalBalance
-                        
-                        -- Caso normal: El adelanto es la diferencia pura generada en este mes
                         ELSE (mc.TotalCreditedInMonth - ISNULL(md.TotalDebitedInMonth, 0))
                     END
                 ), 0)
@@ -333,7 +326,6 @@ namespace GuardeSoftwareAPI.Dao
                 INNER JOIN PositiveBalances pb ON mc.client_id = pb.client_id
                 LEFT JOIN MonthlyDebits md ON mc.client_id = md.client_id
                 WHERE 
-                    -- Solo sumamos si los Créditos superaron a los Débitos este mes
                     mc.TotalCreditedInMonth > ISNULL(md.TotalDebitedInMonth, 0);
             ";
 
