@@ -417,7 +417,9 @@
             </div>
             
           <div>
-            <h4 class="text-base font-semibold text-gray-700 mb-2">Lockers Asignados ({{ client.lockersList?.length || 0 }})</h4>
+            <!-- <h4 class="text-base font-semibold text-gray-700 mb-2">Lockers Asignados ({{ client.lockersList?.length || 0 }})</h4> -->
+            <h4 class="text-base font-semibold text-gray-700 mb-2">Lockers Asignados</h4>
+
             <div class="border rounded-lg bg-white shadow-sm">
               <div *ngIf="!client.lockersList || client.lockersList.length === 0" class="p-4 text-center text-gray-500">
                 No tiene lockers asignados.
@@ -442,8 +444,11 @@
           </div>
           <div *ngIf="client.spaceRequests && client.spaceRequests.length > 0">
                <h4 class="text-base font-semibold text-gray-700 mb-2">
-                   Espacios Solicitados ({{ client.spaceRequests.length }})
+                   Espacios Solicitados
                </h4>
+               <!-- <h4 class="text-base font-semibold text-gray-700 mb-2">
+                   Espacios Solicitados ({{ client.spaceRequests.length }})
+               </h4> -->
                <div class="border rounded-lg bg-indigo-50 border-indigo-100">
                  <ul class="divide-y divide-indigo-200">
                    <li *ngFor="let req of client.spaceRequests" class="p-3 flex justify-between items-center">

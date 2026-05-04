@@ -187,12 +187,12 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
       legacyInitialAmount: [{ value: null, disabled: true }],
       legacyNextIncreaseDate: [{ value: null, disabled: true }],
       isLegacy6MonthPromo: [{ value: false, disabled: true }],
-      prepaidMonths: [{ value: 0, disabled: true }],
+      prepaidMonths: [{ value: null, disabled: true }],
 
       observaciones: [''],
-      montoManual: [0, [Validators.required, Validators.min(0)]],
+      montoManual: [null,[Validators.required, Validators.min(0)]],
       contractedM3: [0],
-      occupiedSpaces: [0],
+      occupiedSpaces: [null],
 
       // --- SIEMPRE INICIALIZAMOS LOS CONTROLES DE LOCKERS Y ESPACIOS ---
       spaceRequests: this.fb.array([]), // Para el modo 'request'

@@ -266,8 +266,26 @@
                 </div>
               </td>
 
-              <td class="p-4 font-mono text-gray-700">
-                {{ cliente.lockers?.join(", ") }}
+              <td class="p-4 align-middle">
+  
+                <div *ngIf="cliente.lockers && cliente.lockers.length > 0 && cliente.lockers[0] !== ''; else noLockers" class="flex flex-col">
+                  <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
+                    <ng-container *ngFor="let wl of cliente.warehouseLockers; let last = last">
+                      <span [title]="wl.warehouse">
+                        {{ wl.warehouse | slice:0:1 }}
+                      </span>
+                      {{ !last ? ' - ' : '' }}
+                    </ng-container>
+                  </div>
+                  
+                  <div class="font-mono text-gray-700 text-sm">
+                    {{ cliente.lockers.join(", ") }}
+                  </div>
+                </div>
+
+                <ng-template #noLockers>
+                  <span class="text-gray-400 italic font-sans text-sm"> </span>
+                </ng-template>
               </td>
 
               <td class="p-4 font-semibold text-right" 
@@ -276,11 +294,13 @@
               </td>
 
               <td class="p-4 font-medium text-right"
-                  [ngClass]="(cliente.interestAmount || 0) > 0 ? 'text-orange-600' : 'text-gray-400'">
+                  [ngClass]="(cliente.interestAmount || 0) > 0 ? 'text-red-600' : 'text-gray-400'">
                 $ {{ cliente.interestAmount || 0 | number:'1.2-2' }}
               </td>
 
-              <td class="p-4 font-semibold text-right text-gray-800">
+              <td class="p-4 font-semibold text-right"
+                  [ngClass]="(cliente.currentRent || 0) > 0 ? 'text-blue-700' : 'text-gray-400'"
+              >
                 $ {{ cliente.currentRent || 0 | number:'1.2-2' }}
               </td>
 

@@ -10,15 +10,16 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public decimal InterestAmount { get; set; }    
         public decimal CurrentRent { get; set; }
         public string Status { get; set; } = string.Empty; // 'Al Día', 'Pendiente', 'Moroso', 'Baja'
-
-        // public int? PreferredPaymentMethodId { get; set; }
-        // public string? Document { get; set; } = string.Empty;
         public List<string>? Lockers { get; set; } = null;
-        // public string? Email { get; set; } = string.Empty;
-        // public string? Phone { get; set; } = string.Empty;
-        // public string City { get; set; } = string.Empty;
+        public List<WarehouseLockerItem>? WarehouseLockers { get; set; } = null;
 
         public bool Active { get; set; }
 
+    }
+
+    public class WarehouseLockerItem
+    {
+        public string Warehouse { get; set; } = string.Empty;
+        public string Lockers { get; set; } = string.Empty;
     }
 }

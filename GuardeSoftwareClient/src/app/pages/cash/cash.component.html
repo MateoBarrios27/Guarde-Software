@@ -64,17 +64,47 @@
           </div>
         </div>
 
-        <div class="flex justify-between items-center">
+        <div class="flex justify-between items-center border-t border-dashed pt-2 space-y-2 ">
           <span class="text-gray-600 flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-purple-500"></div> IVA Factura A
+            <div class="w-2 h-2 rounded-full bg-purple-500"></div> Ingresos Brutos
           </span>
           <div class="flex flex-col items-end">
-            <span class="font-bold text-purple-700 leading-tight">$ {{ (summary.ivaFacturaA || 0) | number:'1.2-2' }}</span>
-            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.ivaFacturaA || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+            <span class="font-bold text-purple-700 leading-tight">$ {{ 0 || 0 | number:'1.2-2' }}</span>
+            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ 0 || 0 / (usdExchangeRate || 1) | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center v">
+          <span class="text-gray-600 flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-purple-500"></div> IVA Ventas
+          </span>
+          <div class="flex flex-col items-end">
+            <span class="font-bold text-purple-700 leading-tight">$ {{ (summary.ivaFacturaA + summary.ivaFacturaB || 0) | number:'1.2-2' }}</span>
+            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.ivaFacturaA + summary.ivaFacturaB || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
           </div>
         </div>
 
         <div class="flex justify-between items-center">
+          <span class="text-gray-600 flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-purple-500"></div> IVA Compras
+          </span>
+          <div class="flex flex-col items-end">
+            <span class="font-bold text-purple-700 leading-tight">$ {{  0 | number:'1.2-2' }}</span>
+            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{  0 / (usdExchangeRate || 1) | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-purple-500"></div> Diferencia de IVA (Ventas - Compras) 
+          </span>
+          <div class="flex flex-col items-end">
+            <span class="font-bold text-purple-700 leading-tight">$ {{  (summary.ivaFacturaA + summary.ivaFacturaB)  || 0 | number:'1.2-2' }}</span>
+            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{  (summary.ivaFacturaA + summary.ivaFacturaB) / (usdExchangeRate || 1) | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <!-- <div class="flex justify-between items-center">
           <span class="text-gray-600 flex items-center gap-2">
             <div class="w-2 h-2 rounded-full bg-purple-500"></div> IVA Factura B
           </span>
@@ -82,7 +112,7 @@
             <span class="font-bold text-purple-700 leading-tight">$ {{ (summary.ivaFacturaB || 0) | number:'1.2-2' }}</span>
             <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.ivaFacturaB || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
           </div>
-        </div>
+        </div>  -->
         
         <div class="border-t border-dashed pt-2 space-y-2">
           <div class="flex justify-between items-center">

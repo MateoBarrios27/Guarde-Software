@@ -9,9 +9,14 @@ export interface TableClient {
   interestAmount: number;   
   currentRent: number;    
   status: string; 
-  // preferredPaymentMethodId: number | null;
   lockers: string[] | null;
-  // email: string | null;
-  // phone: string | null;
+  warehouseLockers?: WarehouseLockerItem[];
   active: boolean;
 }
+
+export interface WarehouseLockerItem {
+  warehouse: string;
+  lockers: string;
+}
+
+

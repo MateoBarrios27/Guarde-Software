@@ -18,6 +18,7 @@ import { ClientDetailModalComponent } from "../../shared/components/client-detai
 import Swal from 'sweetalert2';
 import { ClientStatisticsDto } from '../../core/dtos/statistics/ClientStatisticsDto';
 import { StatisticsService } from '../../core/services/statics-service/statics-service.service';
+import { ɵɵDir } from "@angular/cdk/scrolling";
 
 @Component({
   selector: 'app-clients',
@@ -30,7 +31,8 @@ import { StatisticsService } from '../../core/services/statics-service/statics-s
     NgxPaginationModule,
     PhonePipe,
     CreateClientModalComponent,
-    ClientDetailModalComponent
+    ClientDetailModalComponent,
+    ɵɵDir
 ],
   templateUrl: './clients.component.html',
 })

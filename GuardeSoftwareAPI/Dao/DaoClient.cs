@@ -5,6 +5,7 @@ using GuardeSoftwareAPI.Entities;
 using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.Client;
 using System.Text;
+using System.Text.Json;
 
 
 namespace GuardeSoftwareAPI.Dao
@@ -412,6 +413,7 @@ namespace GuardeSoftwareAPI.Dao
                         c.preferred_payment_method_id AS PreferredPaymentMethodId,
                         c.dni AS Document, 
                         locker_sub.lockers as Lockers,
+                        locker_sub.lockers_json as WarehouseLockersJson,
                         c.active AS Active,
                         CASE
                             WHEN c.active = 0 THEN 'Baja'
@@ -429,7 +431,25 @@ namespace GuardeSoftwareAPI.Dao
                     LEFT JOIN CurrentRentCTE cr ON ar.rental_id = cr.rental_id
                     LEFT JOIN AccountSummaryCTE acc ON c.client_id = acc.client_id
                     
-                    LEFT JOIN ( SELECT r.client_id, STRING_AGG(l.identifier, ', ') as lockers FROM rentals r JOIN lockers l ON r.rental_id = l.rental_id GROUP BY r.client_id ) locker_sub ON c.client_id = locker_sub.client_id
+                    LEFT JOIN ( 
+                        SELECT 
+                            r.client_id, 
+                            STRING_AGG(l.identifier, ', ') as lockers,
+                            (
+                                SELECT 
+                                    ISNULL(w.name, 'Sin ubicación') AS Warehouse, 
+                                    STRING_AGG(l2.identifier, ', ') AS Lockers
+                                FROM rentals r2
+                                JOIN lockers l2 ON r2.rental_id = l2.rental_id
+                                LEFT JOIN warehouses w ON l2.warehouse_id = w.warehouse_id
+                                WHERE r2.client_id = r.client_id
+                                GROUP BY w.name
+                                FOR JSON PATH
+                            ) as lockers_json
+                        FROM rentals r 
+                        JOIN lockers l ON r.rental_id = l.rental_id
+                        GROUP BY r.client_id 
+                    ) locker_sub ON c.client_id = locker_sub.client_id
                     LEFT JOIN ( SELECT r.client_id, SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid FROM rentals r WHERE r.active = 1 GROUP BY r.client_id ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
                 ),
                 FilteredData AS (
@@ -485,33 +505,31 @@ namespace GuardeSoftwareAPI.Dao
         }
 
         private List<GetTableClientsDto> MapDataTableToDto(DataTable table)
-        {
-            var clients = new List<GetTableClientsDto>();
-            if (table == null) return clients;
+    {
+        var clients = new List<GetTableClientsDto>();
+        if (table == null) return clients;
 
-            foreach (DataRow row in table.Rows)
+        foreach (DataRow row in table.Rows)
+        {
+            clients.Add(new GetTableClientsDto
             {
-                clients.Add(new GetTableClientsDto
-                {
-                    Id = Convert.ToInt32(row["Id"]),
-                    PaymentIdentifier = row["PaymentIdentifier"] != DBNull.Value ? Convert.ToDecimal(row["PaymentIdentifier"]) : null,
-                    FullName = row["FullName"]?.ToString() ?? string.Empty,
-                    Balance = Convert.ToDecimal(row["Balance"]),
-                    Status = row["Status"]?.ToString() ?? "Pendiente",
-                    PreviousBalance = Convert.ToDecimal(row["PreviousBalance"]),
-                    InterestAmount = Convert.ToDecimal(row["InterestAmount"]),
-                    CurrentRent = Convert.ToDecimal(row["CurrentRent"]),
-                    // Email = row["Email"]?.ToString(),
-                    // Phone = row["Phone"]?.ToString(),
-                    // City = row["City"]?.ToString() ?? string.Empty,
-                    // PreferredPaymentMethodId = row["PreferredPaymentMethodId"] != DBNull.Value ? Convert.ToInt32(row["PreferredPaymentMethodId"]) : null,
-                    // Document = row["Document"]?.ToString(),
-                    Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,
-                    Active = Convert.ToBoolean(row["Active"])
-                });
-            }
-            return clients;
+                Id = Convert.ToInt32(row["Id"]),
+                PaymentIdentifier = row["PaymentIdentifier"] != DBNull.Value ? Convert.ToDecimal(row["PaymentIdentifier"]) : null,
+                FullName = row["FullName"]?.ToString() ?? string.Empty,
+                Balance = Convert.ToDecimal(row["Balance"]),
+                Status = row["Status"]?.ToString() ?? "Pendiente",
+                PreviousBalance = Convert.ToDecimal(row["PreviousBalance"]),
+                InterestAmount = Convert.ToDecimal(row["InterestAmount"]),
+                CurrentRent = Convert.ToDecimal(row["CurrentRent"]),
+                Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,
+                Active = Convert.ToBoolean(row["Active"]),
+                WarehouseLockers = row["WarehouseLockersJson"] != DBNull.Value 
+                    ? JsonSerializer.Deserialize<List<WarehouseLockerItem>>(row["WarehouseLockersJson"].ToString()) 
+                    : new List<WarehouseLockerItem>()
+            });
         }
+        return clients;
+    }
 
         public async Task<List<string>> GetActiveClientNamesAsync()
         {
