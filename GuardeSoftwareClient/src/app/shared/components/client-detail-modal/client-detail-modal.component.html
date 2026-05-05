@@ -60,7 +60,7 @@
             </div>
             <hr />
             <div class="flex justify-between">
-              <span class="text-sm text-gray-600">Monto Alquiler:</span>
+              <span class="text-sm text-gray-600">Abono:</span>
               <span class="text-sm font-semibold text-gray-800">$ {{ client.rentAmount | number:'1.2-2' }}</span>
             </div>
             <div class="flex justify-between">
@@ -127,7 +127,7 @@
                 <div>
                   <label class="text-sm font-medium text-gray-500">Ubicación</label>
                   <p class="text-sm text-gray-800">
-                    {{ client.address || 'N/A' }}, {{ client.city }}
+                    {{ client.address || 'N/A' }} {{ client.city }}
                   </p>
                 </div>
               </div>

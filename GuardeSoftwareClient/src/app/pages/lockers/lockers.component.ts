@@ -51,7 +51,7 @@ export class LockersComponent implements OnInit {
   selectedStatus = '';
 
   page: number = 1;
-  itemsPerPage: number = 10;
+  itemsPerPage: number = 40;
 
   constructor(
     private lockerService: LockerService, 
@@ -171,11 +171,15 @@ export class LockersComponent implements OnInit {
       const weightB = this.getStatusSortWeight(b.status);
 
       if (weightA !== weightB) {
-        return weightA - weightB; // Ordenar por estado
+        return weightA - weightB; // Ordenar por estado (DISPONIBLE = 1 va primero)
       }
 
-      // Si el estado es el mismo, ordenar por identificador
-      return (a.identifier || '').localeCompare(b.identifier || '');
+      // Si el estado es el mismo, ordenar por identificador de forma "Natural" (Alfanumérica)
+      // Esto soluciona que "A-2" aparezca correctamente antes que "A-10"
+      return (a.identifier || '').localeCompare(b.identifier || '', undefined, { 
+        numeric: true, 
+        sensitivity: 'base' 
+      });
     });
   }
 

@@ -147,15 +147,17 @@ export class FinancesComponent implements OnInit {
 
   filterPayments(): void {
     const term = this.searchPayment.toLowerCase().trim();
+    const termForId = term.replace(',', '.');
+    
     const method = this.selectedMethodFilter.toLowerCase();
     const month = this.selectedMonth;
 
     let filtered = this.payments.filter(p => {
       const clientName = p.clientName?.toLowerCase() || '';
-      const paymentIdentifier = p.paymentIdentifier?.toLowerCase() || '';
+      const paymentIdentifier = (p.paymentIdentifier?.toString() || '').toLowerCase().replace(',', '.');
       const paymentMethodName = p.paymentMethodName?.toLowerCase() || '';
 
-      const matchesSearch = clientName.includes(term) || paymentIdentifier.includes(term);
+      const matchesSearch = clientName.includes(term) || paymentIdentifier.includes(termForId);
       const matchesMethod = !method || paymentMethodName === method;
       const matchesMonth = !month || new Date(p.paymentDate).toISOString().startsWith(month);
 
@@ -165,7 +167,7 @@ export class FinancesComponent implements OnInit {
     filtered.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
     
     this.filteredPayments = filtered;
-    this.processGroups(); // <-- Aplicamos UX de grupos
+    this.processGroups();
   }
 
   // --- LÓGICA DE UX PARA AGRUPAR PAGOS ---
@@ -461,11 +463,13 @@ export class FinancesComponent implements OnInit {
   get filteredClients(): Client[] {
     const term = this.searchClient?.toLowerCase().trim();
     if (!term) return this.clients;
+    const termForId = term.replace(',', '.');
 
     return this.clients.filter(c => {
       const fullName = c.fullName.toLowerCase();
-      const identifier = (c.paymentIdentifier ?? '').toString().toLowerCase();
-      return fullName.includes(term) || identifier.includes(term);
+      const identifier = (c.paymentIdentifier ?? '').toString().toLowerCase().replace(',', '.');
+      
+      return fullName.includes(term) || identifier.includes(termForId);
     });
   }
 

@@ -229,7 +229,7 @@
 
               <!-- FORMULARIO DE FECHAS Y MONTOS -->
               <!-- Se muestra si estamos en Edición (siempre) o si en Creación marcaron que es antiguo -->
-              <div *ngIf="isEditMode || newClientForm.value.isLegacyClient; else newClientBlock" class="pt-4 border-t border-dashed space-y-4 animate-fade-in">
+              <div *ngIf="isEditMode || newClientForm.value.isLegacyClient; else newClientBlock" class="pt-4 space-y-4 animate-fade-in">
                   <div class="grid grid-cols-2 gap-4">
                     <div><label class="text-sm font-medium text-purple-700">Fecha de Ingreso *</label><input type="date" formControlName="legacyStartDate" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/></div>
                     <div><label class="text-sm font-medium text-purple-700">Monto Inicial *</label><input type="text" appCurrencyFormat formControlName="legacyInitialAmount" placeholder="0.00" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/></div>
@@ -247,7 +247,7 @@
               <!-- SOLO EN CREACIÓN: Cartel si no marcan que es antiguo -->
               <ng-template #newClientBlock>
                 <div class="pt-4 border-t border-dashed">
-                  <div class="text-center py-4 text-gray-500 bg-gray-50 rounded-lg">
+                  <div class="text-center py-4 text-gray-500 rounded-lg">
                     <p class="font-medium text-gray-600">Es un cliente nuevo</p>
                     <p class="text-sm">Se usará la fecha de hoy como inicio y se aplicará el 1er débito.</p>
                   </div>
@@ -448,7 +448,7 @@
         
         <div class="pt-3">
                 <div class="flex justify-between items-center mb-2">
-                  <label for="montoManual" class="font-semibold text-indigo-900">Subtotal Mensual:</label>
+                  <label for="montoManual" class="font-semibold text-indigo-900">Abono:</label>
                   <div class="relative">
                      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                      <input appCurrencyFormat id="montoManual" type="text" formControlName="montoManual" class="w-41 text-right pl-6 pr-2 py-1 border rounded-md text-lg font-bold text-green-600" (keydown.enter)="blurInput($event)"/>
