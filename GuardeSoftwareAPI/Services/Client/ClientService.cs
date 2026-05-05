@@ -596,7 +596,7 @@ namespace GuardeSoftwareAPI.Services.client
                             // Campos que NO se editan
                             RegistrationDate = dto.RegistrationDate, 
                             IncreaseFrequencyMonths = existingClient.IncreaseFrequencyMonths, 
-                            InitialAmount = existingClient.InitialAmount,
+                            InitialAmount = dto.LegacyInitialAmount,
                             ReceiveCommunications = dto.ReceiveCommunications
                         };
 
@@ -646,19 +646,33 @@ namespace GuardeSoftwareAPI.Services.client
                         }
 
                         var currentRental = await rentalService.GetRentalByClientIdTransactionAsync(id, connection, transaction);
+
                         if (currentRental != null)
                         {
+                            // 1. Actualización de Monto (Lo que ya tenías)
                             var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(currentRental.Id, connection, transaction);
                             if (lastAmountHistory != null && dto.Amount != lastAmountHistory.Amount)
                             {
                                 await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, currentRental.Id, dto.Amount, DateTime.Now, connection, transaction);
                             }
 
+                            // 2. Actualización de Espacios (Lo que ya tenías)
                             if (dto.OccupiedSpaces != currentRental.OccupiedSpaces)
                             {
                                 await rentalService.UpdateOccupiedSpacesTransactionAsync(currentRental.Id, dto.OccupiedSpaces, connection, transaction);
                             }
 
+                            // --- NUEVO: 3. Actualización de Fecha de Próximo Aumento ---
+                            // Verificamos si mandaron una fecha nueva y si es distinta a la que ya tiene el alquiler
+                            if (dto.LegacyNextIncreaseDate.HasValue) 
+                            {
+                                if (currentRental.IncreaseAnchorDate != dto.LegacyNextIncreaseDate.Value)
+                                {
+                                    await rentalService.UpdateIncreaseAnchorDateTransactionAsync(currentRental.Id, dto.LegacyNextIncreaseDate.Value, connection, transaction);
+                                }
+                            }
+
+                            // 4. Actualización de Lockers (Lo que ya tenías)
                             var currentLockerIds = await lockerService.GetLockerIdsByRentalIdTransactionAsync(currentRental.Id, connection, transaction);
                             var newLockerIds = dto.LockerIds ?? [];
                             var lockersToRemove = currentLockerIds.Except(newLockerIds).ToList();
@@ -911,7 +925,6 @@ namespace GuardeSoftwareAPI.Services.client
 
             return await daoClient.GetClientLockerHistoryAsync(clientId);
         }
-        
     }
 }
 

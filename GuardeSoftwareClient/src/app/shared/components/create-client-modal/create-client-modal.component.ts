@@ -181,8 +181,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
       metodoPago: [null, Validators.required],
       billingTypeId: [null, Validators.required],
 
-      // Legacy
-      isLegacyClient: [{ value: false, disabled: true }],
+      //legacy
+      isLegacyClient: [false], 
       legacyStartDate: [{ value: null, disabled: true }],
       legacyInitialAmount: [{ value: null, disabled: true }],
       legacyNextIncreaseDate: [{ value: null, disabled: true }],
@@ -354,9 +354,9 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
         observaciones: data.notes,
         montoManual: data.rentAmount,
         billingTypeId: data.billingTypeId || null,
-        isLegacyClient: !!data.initialAmount, 
+        isLegacyClient: true, 
         legacyStartDate: this.formatDateToYYYYMMDD(data.registrationDate), 
-        legacyInitialAmount: data.initialAmount, 
+        legacyInitialAmount: data.initialAmount,
         legacyNextIncreaseDate: this.formatDateToYYYYMM(data.nextIncreaseDay),
         isLegacy6MonthPromo: data.increaseFrequencyMonths === 6,
         occupiedSpaces: data.occupiedSpaces || 0,
@@ -368,6 +368,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
           const validInitialIds = initialLockerIds.filter((id: any): id is number => typeof id === 'number' && id > 0);
           this.newClientForm.get('contractedM3')?.setValue(this.calculateTotalM3(validInitialIds));
       }
+      const legacyFields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate', 'isLegacy6MonthPromo', 'prepaidMonths'];
+      legacyFields.forEach(field => this.newClientForm.get(field)?.enable());
   }
 
   get emails(): FormArray { return this.newClientForm.get('emails') as FormArray; }

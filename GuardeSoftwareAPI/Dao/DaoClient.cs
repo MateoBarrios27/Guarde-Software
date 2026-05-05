@@ -679,6 +679,9 @@ namespace GuardeSoftwareAPI.Dao
                     increase_frequency_months = @increase_frequency_months,
                     initial_amount = @initial_amount,
                     receive_communications = @ReceiveCommunications
+                    
+                    -- Si tu tabla tiene la columna del próximo aumento, descomenta esta línea:
+                    -- , next_increase_day = @next_increase_day
                 WHERE client_id = @client_id";
 
             SqlParameter[] parameters =
@@ -695,7 +698,8 @@ namespace GuardeSoftwareAPI.Dao
                 new("@increase_frequency_months", SqlDbType.Int) { Value = client.IncreaseFrequencyMonths },
                 new("@initial_amount", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)client.InitialAmount ?? DBNull.Value },
                 new("@client_id", SqlDbType.Int) { Value = client.Id },
-                new("@ReceiveCommunications", SqlDbType.Bit) { Value = client.ReceiveCommunications }
+                new("@ReceiveCommunications", SqlDbType.Bit) { Value = client.ReceiveCommunications },
+                // new("@next_increase_day", SqlDbType.DateTime) { Value = (object?)client.NextIncreaseDay ?? DBNull.Value }
             ];
 
             using var command = new SqlCommand(query, connection, transaction);

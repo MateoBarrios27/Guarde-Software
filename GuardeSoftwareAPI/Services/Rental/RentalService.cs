@@ -171,5 +171,10 @@ namespace GuardeSoftwareAPI.Services.rental
 		{
 			return await _daoRental.UpdateOccupiedSpacesTransactionAsync(rentalId, spaces, connection, transaction);
 		}
+
+		public async Task<bool> UpdateIncreaseAnchorDateTransactionAsync(int rentalId, DateTime newAnchorDate, SqlConnection connection, SqlTransaction transaction)
+		{
+			return await _daoRental.UpdateIncreaseAnchorDateTransactionAsync(rentalId, newAnchorDate, connection, transaction);
+		}
     }
 }

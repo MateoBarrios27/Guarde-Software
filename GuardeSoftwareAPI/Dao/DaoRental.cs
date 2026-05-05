@@ -576,5 +576,20 @@ namespace GuardeSoftwareAPI.Dao
                     throw new Exception($"No se pudo actualizar price_lock_end_date para rental id = {rentalId}.");
             }
         }
+
+        public async Task<bool> UpdateIncreaseAnchorDateTransactionAsync(int rentalId, DateTime newAnchorDate, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = @"
+                UPDATE rentals 
+                SET increase_anchor_date = @IncreaseAnchorDate 
+                WHERE rental_id = @RentalId";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@IncreaseAnchorDate", SqlDbType.Date) { Value = newAnchorDate });
+            command.Parameters.Add(new SqlParameter("@RentalId", SqlDbType.Int) { Value = rentalId });
+
+            int rowsAffected = await command.ExecuteNonQueryAsync();
+            return rowsAffected > 0;
+        }
     }
 }
