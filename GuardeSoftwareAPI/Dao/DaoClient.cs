@@ -344,6 +344,13 @@ namespace GuardeSoftwareAPI.Dao
                 filterParameters.Add(new SqlParameter("@StatusFilter", request.StatusFilter));
             }
 
+            // CORRECCIÓN 1: Agregar r.active = 1 para asegurar que el cliente tenga un alquiler VIGENTE en ese depósito
+            if (request.WarehouseId.HasValue && request.WarehouseId.Value > 0)
+            {
+                finalWhereClause.Append("AND Id IN (SELECT r.client_id FROM rentals r JOIN lockers l ON r.rental_id = l.rental_id WHERE l.warehouse_id = @WarehouseId AND r.active = 1) ");
+                filterParameters.Add(new SqlParameter("@WarehouseId", request.WarehouseId.Value));
+            }
+
             string fullQuery = $@"
                 -- 1. Define the start of the current month for interest calculations
                 DECLARE @StartOfMonth DATE = DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1);
@@ -431,6 +438,7 @@ namespace GuardeSoftwareAPI.Dao
                     LEFT JOIN CurrentRentCTE cr ON ar.rental_id = cr.rental_id
                     LEFT JOIN AccountSummaryCTE acc ON c.client_id = acc.client_id
                     
+                    -- CORRECCIÓN 2: Asegurar que los lockers extraídos y agrupados en JSON provengan de un alquiler activo
                     LEFT JOIN ( 
                         SELECT 
                             r.client_id, 
@@ -442,14 +450,16 @@ namespace GuardeSoftwareAPI.Dao
                                 FROM rentals r2
                                 JOIN lockers l2 ON r2.rental_id = l2.rental_id
                                 LEFT JOIN warehouses w ON l2.warehouse_id = w.warehouse_id
-                                WHERE r2.client_id = r.client_id
+                                WHERE r2.client_id = r.client_id AND r2.active = 1
                                 GROUP BY w.name
                                 FOR JSON PATH
                             ) as lockers_json
                         FROM rentals r 
                         JOIN lockers l ON r.rental_id = l.rental_id
+                        WHERE r.active = 1
                         GROUP BY r.client_id 
                     ) locker_sub ON c.client_id = locker_sub.client_id
+
                     LEFT JOIN ( SELECT r.client_id, SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid FROM rentals r WHERE r.active = 1 GROUP BY r.client_id ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
                 ),
                 FilteredData AS (

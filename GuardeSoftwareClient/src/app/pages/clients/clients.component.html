@@ -119,6 +119,16 @@
                     <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
             </button>
           </div>
+
+          <select 
+            [(ngModel)]="filterWarehouse" 
+            (ngModelChange)="onFilterChange()"
+            class="px-3 py-2 border rounded-lg bg-white text-sm text-gray-700 min-w-[160px] shadow-sm hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="Todos">Todos los depósitos</option>
+            <option *ngFor="let w of warehouses" [value]="w.id">{{ w.name }}</option>
+          </select>
+          
           <button
             (click)="toggleInactivos()" 
             class="px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2 transition-colors"

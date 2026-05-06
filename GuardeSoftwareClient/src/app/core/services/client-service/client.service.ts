@@ -63,6 +63,9 @@ export class ClientService {
     if (request.searchTerm) {
       params = params.append('searchTerm', request.searchTerm);
     }
+    if (request.warehouseId) {
+      params = params.set('warehouseId', request.warehouseId.toString());
+    }
     if (request.active !== undefined && request.active !== null) {
       params = params.append('active', request.active.toString());
     }

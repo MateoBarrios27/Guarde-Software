@@ -9,5 +9,6 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public string? SearchTerm { get; set; }
         public string? StatusFilter { get; set; }
         public bool? Active { get; set; } = true;
+        public int? WarehouseId { get; set; }
     }
 }

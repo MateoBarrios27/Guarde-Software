@@ -19,6 +19,8 @@ import Swal from 'sweetalert2';
 import { ClientStatisticsDto } from '../../core/dtos/statistics/ClientStatisticsDto';
 import { StatisticsService } from '../../core/services/statics-service/statics-service.service';
 import { ɵɵDir } from "@angular/cdk/scrolling";
+import { Warehouse } from '../../core/models/warehouse';
+import { WarehouseService } from '../../core/services/warehouse-service/warehouse.service';
 
 @Component({
   selector: 'app-clients',
@@ -79,7 +81,10 @@ export class ClientsComponent implements OnInit {
 
   public isReactivationMode = false;
 
-  constructor(private clientService: ClientService, private statisticsService: StatisticsService) 
+  public warehouses: Warehouse[] = [];
+  public filterWarehouse: number | 'Todos' = 'Todos';
+
+  constructor(private clientService: ClientService, private statisticsService: StatisticsService, private warehouseService: WarehouseService) 
   {
     this.searchSubject.pipe(
       debounceTime(400),
@@ -93,6 +98,7 @@ export class ClientsComponent implements OnInit {
   ngOnInit(): void {
     this.loadClients();
     this.loadStatistics();
+    this.warehouseService.getWarehouses().subscribe(data => this.warehouses = data);
   }
 
   loadClients(): void {
@@ -106,6 +112,7 @@ export class ClientsComponent implements OnInit {
       searchTerm: this.searchClientes || undefined,
       statusFilter: this.filterEstadoClientes === 'Todos' ? undefined : this.filterEstadoClientes,
       active: !this.showInactivos,
+      warehouseId: this.filterWarehouse === 'Todos' ? undefined : Number(this.filterWarehouse)
     };
 
     this.clientService.getTableClients(request).subscribe({
@@ -131,11 +138,18 @@ export class ClientsComponent implements OnInit {
 
   handleSort(field: string): void {
     if (this.sortFieldClientes === field) {
-      this.sortDirectionClientes =
-        this.sortDirectionClientes === 'asc' ? 'desc' : 'asc';
+      // If clicking the same column, toggle between 'asc', 'desc', and default
+      if (this.sortDirectionClientes === 'asc') {
+        // Second click: switch to Descendente
+        this.sortDirectionClientes = 'desc';
+      } else {
+        // Third click: reset to default (PaymentIdentifier Ascendente)
+        this.sortFieldClientes = 'PaymentIdentifier';
+        this.sortDirectionClientes = 'asc';
+      }
     } else {
+      // If clicking a different column, sort by that column Ascendente
       this.sortFieldClientes = field;
-
       this.sortDirectionClientes = 'asc';
     }
 
@@ -177,6 +191,7 @@ export class ClientsComponent implements OnInit {
   handleResetFilters(): void {
     this.searchClientes = '';
     this.filterEstadoClientes = 'Todos';
+    this.filterWarehouse = 'Todos';
     this.showInactivos = false;
     this.currentPageClientes = 1;
     this.sortFieldClientes = 'PaymentIdentifier';

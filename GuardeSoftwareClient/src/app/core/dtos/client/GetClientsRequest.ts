@@ -6,4 +6,5 @@ export interface GetClientsRequest {
   searchTerm?: string;
   statusFilter?: string;
   active?: boolean;
+  warehouseId?: number;
 }
