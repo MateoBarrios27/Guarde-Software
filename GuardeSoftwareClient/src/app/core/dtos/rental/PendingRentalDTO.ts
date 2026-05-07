@@ -10,4 +10,5 @@ export interface PendingRentalDTO{
     isPending: boolean;
     lockerIdentifiers: string;
     preferredPayment: number;
+    increaseAnchorDate: number;
 }

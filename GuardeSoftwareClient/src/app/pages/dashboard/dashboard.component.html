@@ -223,7 +223,8 @@
               <p class="block font-medium text-indigo-900 mb-0.5">
                 Saldo
               </p>
-              <p class="text-sm text-gray-800">
+              <p class="text-sm text-gray-800 font-bold"
+                 [ngClass]="{'text-green-600': selectedBalance > 0, 'text-red-600': selectedBalance < 0}">
                 $ {{ selectedBalance | number:'1.2-2' }}
               </p>
             </div>
@@ -335,7 +336,7 @@
               type="checkbox"
               [(ngModel)]="paymentDto.isAdvancePayment"
               (change)="onAdvancePaymentToggle()"
-              class="h-4.5 w-4.5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer transition-all"
+              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer transition-all"
             />
             <span class="text-gray-800 font-medium">Pago adelantado</span>
           </label>
@@ -344,7 +345,7 @@
             *ngIf="paymentDto.isAdvancePayment"
             class="flex items-center border border-gray-300 rounded-md overflow-hidden bg-white/90 w-fit focus-within:ring-2 focus-within:ring-indigo-500/50 shadow-sm animate-fadeIn"
           >
-            <span class="px-3 py-2 text-xs font-medium text-gray-500 select-none bg-gray-50 border-r border-gray-200">Meses adelantados</span>
+            <span class="px-3 py-2 text-xs font-medium text-gray-500 select-none bg-gray-50 border-r border-gray-200">Cantidad de meses a pagar</span>
             <input
               type="number"
               min="1"
@@ -360,6 +361,67 @@
 
     </div>
 
+    <div *ngIf="showIncreaseOverlay" class="absolute inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 rounded-xl">
+      <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-fade-in-up">
+        
+        <div class="bg-blue-600 text-white p-4 flex items-center gap-2">
+          <app-icon name="trending-up" class="h-5 w-5"></app-icon>
+          <h3 class="font-bold text-lg">Actualización de Abono</h3>
+        </div>
+        
+        <div class="p-5 space-y-5">
+          <p class="text-gray-600 text-sm font-medium">{{ increasePromptReason }}</p>
+
+          <div class="grid grid-cols-2 gap-4 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+            <div>
+              <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Abono Actual</p>
+              <p class="text-xl font-bold text-gray-900">${{ selectedCurrentRent | number:'1.2-2' }}</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Nuevo Abono ($)</p>
+              <div class="relative">
+                <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                <input type="number" 
+                       [(ngModel)]="projectedNewRent" 
+                       (blur)="onProjectedRentBlur()"
+                       (keydown.enter)="blurInput($event)"
+                       class="w-full pl-6 pr-2 py-1.5 border-2 border-blue-200 rounded-md text-lg font-bold text-blue-700 focus:ring-0 focus:border-blue-500 transition-colors bg-white">
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Porcentaje de aumento a aplicar:</label>
+            <div class="relative w-1/2">
+              <input type="number" 
+                     [(ngModel)]="increasePercentage" 
+                     (blur)="onIncreasePercentageBlur()"
+                     (keydown.enter)="blurInput($event)"
+                     class="w-full pl-3 pr-8 py-2.5 border-2 border-blue-200 rounded-lg text-lg font-bold text-gray-800 focus:ring-0 focus:border-blue-500 transition-colors" 
+                     placeholder="Ej: 20">
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">%</span>
+            </div>
+          </div>
+
+          <div class="bg-gray-50 p-3 rounded-lg border text-sm text-gray-700 flex items-center gap-3">
+            <app-icon name="calendar" class="h-5 w-5 text-gray-400"></app-icon>
+            <div>
+              <span class="block text-xs text-gray-500">Próxima fecha de aumento pasaría al:</span>
+              <strong class="text-gray-900 capitalize">{{ projectedNextIncreaseDate | date:'MMMM yyyy' }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 border-t bg-gray-50 flex justify-end gap-3">
+          <button (click)="skipIncrease()" class="px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">
+            Omitir por ahora
+          </button>
+          <button (click)="confirmIncrease()" class="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-colors">
+            Confirmar Aumento
+          </button>
+        </div>
+      </div>
+    </div>
     <div class="mt-4 pt-4 border-t border-indigo-200/60 flex justify-end gap-3">
       <button type="button"
               (click)="closePaymentModal()"

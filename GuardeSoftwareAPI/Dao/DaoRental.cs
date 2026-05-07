@@ -363,6 +363,7 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT 
                     r.rental_id,
                     r.client_id,
+                    r.increase_anchor_date AS IncreaseAnchorDate,
                     c.full_name AS client_name,
                     c.payment_identifier, 
                     c.preferred_payment_method_id,
@@ -439,8 +440,6 @@ namespace GuardeSoftwareAPI.Dao
                             Active = reader.GetBoolean(reader.GetOrdinal("active")),
                             PriceLockEndDate = reader.IsDBNull(reader.GetOrdinal("price_lock_end_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("price_lock_end_date")),
                             OccupiedSpaces = reader.IsDBNull(reader.GetOrdinal("occupied_spaces")) ? 0 : reader.GetInt32(reader.GetOrdinal("occupied_spaces")),
-                            
-                            // 👇 NUEVA LÍNEA: Ahora sí leemos la fecha de la base de datos 👇
                             IncreaseAnchorDate = reader.IsDBNull(reader.GetOrdinal("increase_anchor_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("increase_anchor_date"))
                         };
                     }
