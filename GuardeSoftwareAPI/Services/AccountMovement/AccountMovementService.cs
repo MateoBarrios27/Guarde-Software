@@ -342,5 +342,10 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                 throw;
             }
         }
+
+        public async Task<bool> IsDebitAlreadyCreatedAsync(int rentalId, string concept, SqlConnection conn, SqlTransaction trans)
+        {
+            return await _daoAccountMovement.IsDebitAlreadyCreatedAsync(rentalId, concept, conn, trans);
+        }
     }
 }

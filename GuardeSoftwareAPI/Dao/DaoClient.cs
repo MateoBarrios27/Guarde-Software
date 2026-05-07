@@ -37,10 +37,20 @@ namespace GuardeSoftwareAPI.Dao
                 ),
                 CurrentRentalAmount AS (
                     SELECT 
-                        rental_id, 
-                        amount as CurrentRent
-                    FROM rental_amount_history
-                    WHERE GETDATE() BETWEEN start_date AND ISNULL(end_date, '9999-12-31')
+                        h.rental_id,
+                        h.amount AS CurrentRent
+                    FROM (
+                        SELECT 
+                            rental_id, 
+                            amount,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY rental_id 
+                                ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC
+                            ) as rn
+                        FROM rental_amount_history
+                        WHERE start_date <= GETDATE()
+                    ) h
+                    WHERE h.rn = 1
                 )
                 SELECT
                     c.client_id,
@@ -206,11 +216,20 @@ namespace GuardeSoftwareAPI.Dao
             string query = @"
                 WITH CurrentRentalAmount AS (
                     SELECT 
-                        rental_id, 
-                        amount as CurrentRent,
-                        start_date as LastIncreaseDate
-                    FROM rental_amount_history
-                    WHERE GETDATE() BETWEEN start_date AND ISNULL(end_date, '9999-12-31')
+                        h.rental_id,
+                        h.amount AS CurrentRent
+                    FROM (
+                        SELECT 
+                            rental_id, 
+                            amount,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY rental_id 
+                                ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC
+                            ) as rn
+                        FROM rental_amount_history
+                        WHERE start_date <= GETDATE()
+                    ) h
+                    WHERE h.rn = 1
                 ),
                 AccountSummary AS (
                     SELECT

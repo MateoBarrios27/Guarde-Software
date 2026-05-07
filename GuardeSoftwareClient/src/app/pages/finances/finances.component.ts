@@ -400,6 +400,7 @@ export class FinancesComponent implements OnInit {
             next: () => {
               Swal.fire({ title: '¡Eliminado!', text: 'El registro ha sido borrado correctamente.', icon: 'success', confirmButtonColor: '#2563eb' });
               this.loadPayments(); 
+              this.loadClients();
             },
             error: (err) => {
               console.error('Error al eliminar pago:', err);
@@ -713,7 +714,11 @@ export class FinancesComponent implements OnInit {
       next: () => {
         Swal.fire({ title: 'Pago registrado', text: 'El pago se registró correctamente.', icon: 'success', confirmButtonColor: '#2563eb' });
         this.closeClientModal();
-        setTimeout(() => this.loadPayments(), 100); 
+        setTimeout(() => {
+          this.loadClients();
+          this.loadPayments()
+        }
+          , 100); 
       },
       error: (err) => {
         console.error('Error al guardar payment:', err);

@@ -154,6 +154,16 @@ namespace GuardeSoftwareAPI.Dao
             int rowsAffected = await accessDB.ExecuteCommandAsync(query, parameters);
             return rowsAffected > 0;
         }
-        
+
+        public async Task<bool> IsDebitAlreadyCreatedAsync(int rentalId, string concept, SqlConnection conn, SqlTransaction trans)
+        {
+            string query = "SELECT COUNT(1) FROM account_movements WHERE rental_id = @rental_id AND movement_type = 'DEBITO' AND concept = @concept";
+            using var cmd = new SqlCommand(query, conn, trans);
+            cmd.Parameters.AddWithValue("@rental_id", rentalId);
+            cmd.Parameters.AddWithValue("@concept", concept);
+            var count = await cmd.ExecuteScalarAsync();
+            return Convert.ToInt32(count) > 0;
+        }
+
     }         
 }  
