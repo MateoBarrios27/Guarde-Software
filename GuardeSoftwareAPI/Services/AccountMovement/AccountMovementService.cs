@@ -160,6 +160,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             // El DAO buscará con LIKE 'Alquiler Febrero 2025%' para cubrir variantes
             string targetConceptBase = $"Alquiler {titleMonth} {currentYear}"; 
 
+            
             // Procesamos cada rental individualmente
             foreach (var rentalId in activeRentalIds)
             {
@@ -169,6 +170,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                     try
                     {
                         await connection.OpenAsync();
+                        using var transaction = connection.BeginTransaction();
 
                         // 1. Verificar si ya existe un débito con este CONCEPTO (Corrección clave)
                         bool debitExists = await _daoAccountMovement.CheckIfDebitExistsByConceptAsync(rentalId, targetConceptBase, connection);
@@ -182,7 +184,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
 
                         // 2. Obtener balance actual y monto de alquiler (usando la conexión)
                         decimal currentBalance = await _daoRental.GetBalanceByRentalIdAsync(rentalId, connection);
-                        decimal currentAmount = await _daoRental.GetCurrentRentAmountAsync(rentalId, connection);
+                        decimal currentAmount = await _daoRental.GetCurrentRentAmountAsync(rentalId, connection, transaction);
 
                         _logger.LogDebug($"Rental ID {rentalId}: Balance actual={currentBalance:C}, Monto alquiler={currentAmount:C}");
 

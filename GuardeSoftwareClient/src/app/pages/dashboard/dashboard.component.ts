@@ -66,7 +66,7 @@ export class DashboardComponent {
     paymentMethodId: 0,
     date: new Date(),
     isAdvancePayment: false,
-    advanceMonths: null
+    advanceMonths: 0
   };
 
   //for logic of payment date edit
@@ -190,7 +190,7 @@ export class DashboardComponent {
       paymentMethodId: this.selectedPreferredPaymentId,
       date: new Date(),
       isAdvancePayment: false,
-      advanceMonths: null
+      advanceMonths: 0
     };
 
     this.updateConceptFromDate(now);
@@ -207,7 +207,7 @@ export class DashboardComponent {
     this.isAdvancePayment = false;
     this.advanceMonths = null;
     this.paymentDto.isAdvancePayment = false;
-    this.paymentDto.advanceMonths = null;
+    this.paymentDto.advanceMonths = 0;
   }
 
   private getCommissionByMethodId(paymentMethodId: number): number {
@@ -535,7 +535,7 @@ export class DashboardComponent {
 
   onAdvancePaymentToggle() {
     if (!this.paymentDto.isAdvancePayment) {
-      this.paymentDto.advanceMonths = null;
+      this.paymentDto.advanceMonths = 0;
       this.updateConceptFromDate(this.paymentDto.date);
     } else {
       this.updateAdvanceConcept();

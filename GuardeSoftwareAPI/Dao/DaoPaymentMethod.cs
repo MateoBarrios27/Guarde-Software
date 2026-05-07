@@ -34,6 +34,26 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.GetTableAsync("payment_methods", query, parameters);
         }
 
+        public async Task<int> GetPaymentMethodIdByClientId(int clientId)
+        {
+            string query = "SELECT payment_method_id FROM clients WHERE client_id = @client_id";
+
+            SqlParameter[] parameters = [
+                new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId }
+            ];
+
+            object result = await accessDB.ExecuteScalarAsync(query, parameters);
+
+            if (result != null && result != DBNull.Value)
+            {
+                return Convert.ToInt32(result);
+            }
+            else
+            {
+                throw new ArgumentException("No payment method found for the given client ID.");
+            }
+        }
+
         public async Task<PaymentMethod> CreatePaymentMethod(PaymentMethod paymentMethod) {
 
             string query = "INSERT INTO payment_methods (name,commission, active) VALUES (@name, @commission, 1); SELECT SCOPE_IDENTITY()";

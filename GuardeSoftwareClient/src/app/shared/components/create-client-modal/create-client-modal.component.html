@@ -236,11 +236,11 @@
                   </div>
                   <div class="grid grid-cols-2 gap-4">
                     <div><label class="text-sm font-medium text-purple-700">Próx. Aumento *</label><input type="month" formControlName="legacyNextIncreaseDate" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/></div>
-                    <div><label class="text-sm font-medium text-purple-700">Meses Prepagos</label><input type="number" formControlName="prepaidMonths" placeholder="0" min="0" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/></div>
+                    <!-- <div><label class="text-sm font-medium text-purple-700">Meses Prepagos</label><input type="number" formControlName="prepaidMonths" placeholder="0" min="0" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/></div> -->
                   </div>
                   <label for="promo-toggle" class="flex items-center cursor-pointer space-x-3 pt-2">
                     <input type="checkbox" id="promo-toggle" formControlName="isLegacy6MonthPromo" class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
-                    <div class="flex flex-col"><span class="font-medium text-gray-700">Promoción 6 Meses</span><span class="text-sm text-gray-500">Marcar si este cliente tiene aumentos cada 6 meses.</span></div>
+                    <div class="flex flex-col"><span class="font-medium text-gray-700">Promoción 6 Meses</span><span class="text-sm text-gray-500">Marcar si este cliente tiene aumentos cada 6 meses y se cobra la mitad del último.</span></div>
                   </label>
               </div>
               

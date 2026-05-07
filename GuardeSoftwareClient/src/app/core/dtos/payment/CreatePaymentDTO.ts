@@ -7,7 +7,8 @@ export interface CreatePaymentDTO{
     paymentMethodId: number;
     date: Date;
     isAdvancePayment: boolean;
-    advanceMonths?: number | null;
+    advanceMonths?: number;
     commissionAmount?: number;
     commissionConcept?: string;
+    increasePercentage?: number | null;
 }

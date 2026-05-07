@@ -77,7 +77,8 @@ namespace GuardeSoftwareAPI.Services.client
                     Cuit = row["cuit"]?.ToString() ?? string.Empty,
                     PreferredPaymentMethodId = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : 0,
                     Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0m,
-                    CurrentRent = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m
+                    CurrentRent = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m,
+                    IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? Convert.ToDateTime(row["IncreaseAnchorDate"]) : null
                 };
                 clients.Add(client);
             }
@@ -632,7 +633,6 @@ namespace GuardeSoftwareAPI.Services.client
                                 }
                             }
                         }
-
 
                         await addressService.DeleteAddressByClientIdTransactionAsync(id, connection, transaction);
 

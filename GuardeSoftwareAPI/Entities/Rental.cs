@@ -11,6 +11,7 @@ namespace GuardeSoftwareAPI.Entities
         public DateTime? PriceLockEndDate { get; set; }
         public DateTime? IncreaseAnchorDate { get; set; }
         public int OccupiedSpaces { get; set; }
+        public decimal? CurrentAmount { get; set; }
         public bool? Active { get; set; }
     }
 }

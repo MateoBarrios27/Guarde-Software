@@ -55,6 +55,7 @@ namespace GuardeSoftwareAPI.Dao
                     c.billing_type_id,
                     c.increase_frequency_months,
                     c.initial_amount,
+                    r.increase_anchor_date AS IncreaseAnchorDate,
                     ISNULL(SUM(ISNULL(cra.CurrentRent, 0)), 0) AS rent_amount,
                     ISNULL(SUM(ISNULL(acc.Balance, 0)), 0) AS balance
 
@@ -68,8 +69,8 @@ namespace GuardeSoftwareAPI.Dao
                     ON r.rental_id = cra.rental_id 
                 WHERE c.active = 1
                 GROUP BY
-                    c.client_id,
                     c.payment_identifier,
+                    c.client_id,
                     c.full_name,
                     c.registration_date,
                     c.dni,
@@ -79,7 +80,9 @@ namespace GuardeSoftwareAPI.Dao
                     c.notes,
                     c.billing_type_id,
                     c.increase_frequency_months,
-                    c.initial_amount;
+                    c.initial_amount,
+                    r.increase_anchor_date
+                    
             ";
 
             return await accessDB.GetTableAsync("clients", query);

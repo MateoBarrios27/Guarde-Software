@@ -22,6 +22,7 @@ namespace GuardeSoftwareAPI.Dtos.Payment
         //for commission
         public decimal? CommissionAmount { get; set; }
         public string? CommissionConcept { get; set; }
+        public decimal? IncreasePercentage { get; set; }
         
     }
 }

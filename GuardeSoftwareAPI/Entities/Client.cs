@@ -18,5 +18,6 @@
         public bool? Active { get; set; }
         public decimal? Balance {get; set;}
         public decimal? CurrentRent { get; set; }
+        public DateTime? IncreaseAnchorDate { get; set; }
     }
 }

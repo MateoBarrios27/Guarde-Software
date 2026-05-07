@@ -98,7 +98,7 @@ namespace GuardeSoftwareAPI.Dao
             return idsList;
         }
 
-        public async Task<decimal> GetCurrentRentAmountAsync(int rentalId, SqlConnection connection)
+        public async Task<decimal> GetCurrentRentAmountAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
         {
             string query = @"
                 SELECT amount 
@@ -106,8 +106,8 @@ namespace GuardeSoftwareAPI.Dao
                 WHERE rental_id = @rentalId
                   AND GETDATE() BETWEEN start_date AND ISNULL(end_date, '9999-12-31');";
 
-            // NO usamos accessDB.ExecuteScalarAsync
-            using (var command = new SqlCommand(query, connection))
+            // ¡Es vital pasarle el objeto transaction al SqlCommand!
+            using (var command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.Add(new SqlParameter("@rentalId", rentalId));
                 object result = await command.ExecuteScalarAsync();
@@ -414,17 +414,21 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<Rental?> GetRentalByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
         {
-            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active, price_lock_end_date, occupied_spaces FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
+            // CORRECCIÓN: Se agregó 'increase_anchor_date' a la consulta SQL
+            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active, price_lock_end_date, occupied_spaces, increase_anchor_date FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
             SqlParameter[] parameters = [new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId }];
+
+            Rental rental = null;
 
             using (var command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.AddRange(parameters);
-                using (var reader = await command.ExecuteReaderAsync(CommandBehavior.SingleRow)) // SingleRow es más eficiente
+                
+                using (var reader = await command.ExecuteReaderAsync(CommandBehavior.SingleRow))
                 {
                     if (await reader.ReadAsync())
                     {
-                        return new Rental
+                        rental = new Rental
                         {
                             Id = reader.GetInt32(reader.GetOrdinal("rental_id")),
                             ClientId = reader.GetInt32(reader.GetOrdinal("client_id")),
@@ -434,12 +438,21 @@ namespace GuardeSoftwareAPI.Dao
                             MonthsUnpaid = reader.IsDBNull(reader.GetOrdinal("months_unpaid")) ? 0 : reader.GetInt32(reader.GetOrdinal("months_unpaid")),
                             Active = reader.GetBoolean(reader.GetOrdinal("active")),
                             PriceLockEndDate = reader.IsDBNull(reader.GetOrdinal("price_lock_end_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("price_lock_end_date")),
-                            OccupiedSpaces = reader.IsDBNull(reader.GetOrdinal("occupied_spaces")) ? 0 : reader.GetInt32(reader.GetOrdinal("occupied_spaces"))
+                            OccupiedSpaces = reader.IsDBNull(reader.GetOrdinal("occupied_spaces")) ? 0 : reader.GetInt32(reader.GetOrdinal("occupied_spaces")),
+                            
+                            // 👇 NUEVA LÍNEA: Ahora sí leemos la fecha de la base de datos 👇
+                            IncreaseAnchorDate = reader.IsDBNull(reader.GetOrdinal("increase_anchor_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("increase_anchor_date"))
                         };
                     }
-                }
+                } 
             }
-            return null;
+
+            if (rental != null)
+            {
+                rental.CurrentAmount = await GetCurrentRentAmountAsync(rental.Id, connection, transaction);
+            }
+
+            return rental;
         }
 
         public async Task<bool> UpdateContractedM3TransactionAsync(int rentalId, decimal newM3, SqlConnection connection, SqlTransaction transaction)
@@ -553,7 +566,7 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
 
-        public async Task UpdatePriceLockEndDateTransactionAsync( int rentalId,DateTime priceLockEndDate,SqlConnection connection,SqlTransaction transaction)
+        public async Task UpdatePriceLockEndDateTransactionAsync(int rentalId, DateTime priceLockEndDate, SqlConnection connection, SqlTransaction transaction)
         {
             const string query = @"
                 UPDATE rentals

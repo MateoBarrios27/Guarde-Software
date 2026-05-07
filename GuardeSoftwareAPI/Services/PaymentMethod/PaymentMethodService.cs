@@ -58,6 +58,17 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 			};
 		}
 
+		public async Task<int> GetPaymentMethodIdByClientId(int clientId)
+		{
+			if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
+
+			int? paymentMethodId = await _daoPaymentMethod.GetPaymentMethodIdByClientId(clientId);
+
+			if (!paymentMethodId.HasValue) throw new ArgumentException("No payment method found for the given client ID.");
+
+			return paymentMethodId.Value;
+		}
+
 		//don't validate commission, it can be 0 or negative
 		public async Task<PaymentMethod> CreatePaymentMethod(PaymentMethod paymentMethod)
 		{	

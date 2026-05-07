@@ -11,5 +11,6 @@ export interface Client{
     ivaCondition: string;
     balance?: number;
     currentRent?: number;
+    increaseAnchorDate?: string;
 }
 
