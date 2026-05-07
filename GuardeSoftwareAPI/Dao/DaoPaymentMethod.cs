@@ -36,7 +36,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<int> GetPaymentMethodIdByClientId(int clientId)
         {
-            string query = "SELECT payment_method_id FROM clients WHERE client_id = @client_id";
+            string query = "SELECT preferred_payment_method_id FROM clients WHERE client_id = @client_id";
 
             SqlParameter[] parameters = [
                 new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId }
