@@ -109,7 +109,6 @@ export class DashboardComponent implements OnInit {
       next: (data) => {
         this.filteredPendingRentals = data;
         this.pendingRentals = data;
-        console.log('Pending rentals cargados:', data);
       },
       error: (err) => console.error('Error al cargar pendientes:', err)
     });

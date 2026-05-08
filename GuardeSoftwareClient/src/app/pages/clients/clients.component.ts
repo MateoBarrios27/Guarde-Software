@@ -313,7 +313,6 @@ export class ClientsComponent implements OnInit {
       .subscribe((clientDetail) => {
         this.clientToView = clientDetail;
         this.showDetailClientModal = true;
-        console.log('Cliente cargado para detalle:', clientDetail);
       });
   }
 
@@ -380,7 +379,6 @@ export class ClientsComponent implements OnInit {
     this.statisticsService.getClientStatistics().subscribe({
       next: (stats) => {
         this.estadisticas = stats;
-        console.log('Estadísticas cargadas:', stats);
       },
       error: (err) => console.error('Error cargando estadísticas:', err)
     });

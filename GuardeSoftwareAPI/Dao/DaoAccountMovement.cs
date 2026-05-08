@@ -40,10 +40,10 @@ namespace GuardeSoftwareAPI.Dao
         {
             string query = "SELECT movement_id, rental_id,movement_date,movement_type,concept,amount, payment_id FROM account_movements WHERE rental_id = @rental_id";
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
-                new SqlParameter("@rental_id", SqlDbType.Int) {Value = id},
-            };
+            SqlParameter[] parameters =
+            [
+                new("@rental_id", SqlDbType.Int) {Value = id},
+            ];
 
             return await accessDB.GetTableAsync("account_movements", query, parameters);
 
@@ -51,15 +51,15 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<bool> CreateAccountMovement(AccountMovement accountMovement)
         {
-            SqlParameter[] parameters = new SqlParameter[]
-            {
-                new SqlParameter("@rental_id",SqlDbType.Int) { Value = accountMovement.RentalId },
-                new SqlParameter("@movement_date",SqlDbType.DateTime) { Value = accountMovement.MovementDate },
-                new SqlParameter("@movement_type",SqlDbType.NVarChar) { Value = accountMovement.MovementType },
-                new SqlParameter("@concept", SqlDbType.NVarChar) { Value = accountMovement.Concept },
-                new SqlParameter("@amount", SqlDbType.Decimal) { Value = accountMovement.Amount },
-                new SqlParameter("@payment_id",SqlDbType.Int) { Value = accountMovement.PaymentId }
-            };
+            SqlParameter[] parameters =
+            [
+                new("@rental_id",SqlDbType.Int) { Value = accountMovement.RentalId },
+                new("@movement_date",SqlDbType.DateTime) { Value = accountMovement.MovementDate },
+                new("@movement_type",SqlDbType.NVarChar) { Value = accountMovement.MovementType },
+                new("@concept", SqlDbType.NVarChar) { Value = accountMovement.Concept },
+                new("@amount", SqlDbType.Decimal) { Value = accountMovement.Amount },
+                new("@payment_id",SqlDbType.Int) { Value = accountMovement.PaymentId }
+            ];
 
             string query = "INSERT INTO account_movements(rental_id, movement_date, movement_type, concept, amount, payment_id)"
             + "VALUES(@rental_id, @movement_date, @movement_type, @concept, @amount, @payment_id)";
@@ -76,15 +76,15 @@ namespace GuardeSoftwareAPI.Dao
                 INSERT INTO account_movements (rental_id, movement_date, movement_type, concept, amount, payment_id)
                 VALUES (@rental_id, @movement_date, @movement_type, @concept, @amount, @payment_id);";
 
-            SqlParameter[] parameters = new SqlParameter[]
-            {
+            SqlParameter[] parameters =
+            [
                 new("@rental_id", SqlDbType.Int) { Value = accountMovement.RentalId },
                 new("@movement_date", SqlDbType.DateTime) { Value = accountMovement.MovementDate },
                 new("@movement_type", SqlDbType.NVarChar) { Value = accountMovement.MovementType },
                 new("@concept", SqlDbType.NVarChar) { Value = accountMovement.Concept },
                 new("@amount", SqlDbType.Decimal) { Value = accountMovement.Amount },
                 new("@payment_id", SqlDbType.Int) { Value = accountMovement.PaymentId as object ?? DBNull.Value }
-            };
+            ];
 
             using var command = new SqlCommand(query, connection, transaction);
             command.Parameters.AddRange(parameters);
@@ -125,12 +125,12 @@ namespace GuardeSoftwareAPI.Dao
 
             var parameters = new SqlParameter[]
             {
-                new SqlParameter("@rental_id", SqlDbType.Int) { Value = debit.RentalId },
-                new SqlParameter("@movement_date", SqlDbType.DateTime) { Value = debit.MovementDate },
-                new SqlParameter("@movement_type", SqlDbType.VarChar) { Value = debit.MovementType },
-                new SqlParameter("@concept", SqlDbType.VarChar) { Value = (object?)debit.Concept ?? DBNull.Value }, // Manejo de nulos
-                new SqlParameter("@amount", SqlDbType.Decimal) { Value = debit.Amount },
-                new SqlParameter("@payment_id", SqlDbType.Int) { Value = debit.PaymentId as object ?? DBNull.Value }
+                new("@rental_id", SqlDbType.Int) { Value = debit.RentalId },
+                new("@movement_date", SqlDbType.DateTime) { Value = debit.MovementDate },
+                new("@movement_type", SqlDbType.VarChar) { Value = debit.MovementType },
+                new("@concept", SqlDbType.VarChar) { Value = (object?)debit.Concept ?? DBNull.Value }, // Manejo de nulos
+                new("@amount", SqlDbType.Decimal) { Value = debit.Amount },
+                new("@payment_id", SqlDbType.Int) { Value = debit.PaymentId as object ?? DBNull.Value }
             };
 
             // NO usamos accessDB.ExecuteCommandAsync, usamos un SqlCommand con la conexión existente

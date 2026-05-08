@@ -570,8 +570,6 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
       }
     }
 
-  console.log('Enviando DTO:', dto);
-
   let apiCall: Observable<any>;
     
     if (this.isReactivation) {

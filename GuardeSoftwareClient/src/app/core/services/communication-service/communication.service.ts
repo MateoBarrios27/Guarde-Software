@@ -50,7 +50,6 @@ export class CommunicationService {
             formData.append('attachments', file, file.name);
         });
     }
-    console.log('FormData to be sent:', request);
     return this.http.post<ComunicacionDto>(`${this.url}/Communications`, formData);
   }
 

@@ -259,9 +259,7 @@ export class SettingsComponent implements OnInit {
     this.userCreated = { // Resetear
       userName: '', firstName: '', lastName: '', password: '', userTypeId: 2,
     };
-    this.showCreateUserModal = true; 
-    console.log(this.showCreateUserModal);
-    
+    this.showCreateUserModal = true;     
   }
  
   saveCreateUser(dto: CreateUserDTO){
@@ -315,7 +313,6 @@ export class SettingsComponent implements OnInit {
             this.users = this.users.filter(u => u.id !== id);
           },
           error: (err) => {
-            console.log('error al eliminar usuario', err);
             Swal.fire('Error', 'No se pudo eliminar el usuario.', 'error');
           }
         });
