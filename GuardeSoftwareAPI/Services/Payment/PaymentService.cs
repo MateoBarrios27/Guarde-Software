@@ -190,10 +190,10 @@ namespace GuardeSoftwareAPI.Services.payment
 				};
 				await accountMovementService.CreateAccountMovementTransactionAsync(movement, connection, transaction);
 
-				// --- INSERCIÓN DE DÉBITOS (MESES ADELANTADOS) CON PROTECCIÓN DE DUPLICADOS ---
+				// --- INSERCIÓN DE DÉBITOS POR MESES ADELANTADOS ---
 				if (dto.IsAdvancePayment && dto.AdvanceMonths.HasValue && dto.AdvanceMonths.Value > 0)
 				{
-					decimal? currentRentBase = rental.CurrentAmount;
+					decimal currentRentBase = (decimal)rental.CurrentAmount;
 					string[] monthNames = { "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre" };
 
 					for (int i = 0; i < dto.AdvanceMonths.Value; i++)
@@ -202,29 +202,49 @@ namespace GuardeSoftwareAPI.Services.payment
 						string monthName = monthNames[targetMonthDate.Month - 1];
 						string targetConcept = $"Alquiler {monthName} {targetMonthDate.Year}";
 
-						// 👇 CHEQUEO DE SEGURIDAD: ¿Ya existe el débito de este mes?
-						if (await accountMovementService.IsDebitAlreadyCreatedAsync(rental.Id, targetConcept, connection, transaction))
-						{
-							logger.LogInformation("El débito '{Concept}' ya existe. Se omite para evitar duplicación.", targetConcept);
-							continue; // Salta al siguiente mes
-						}
+						// Evitamos duplicados si el débito de ese mes ya existía
+						if (await accountMovementService.IsDebitAlreadyCreatedAsync(rental.Id, targetConcept, connection, transaction)) continue;
 
 						decimal amountToDebit = 0;
 						if (i == 0)
 						{
-							amountToDebit = (decimal)(initialBalance < 0 ? Math.Abs(initialBalance) : currentRentBase);
+							// Mes actual: Saldamos deuda o alquiler base
+							amountToDebit = initialBalance < 0 ? Math.Abs(initialBalance) : currentRentBase;
 						}
 						else
 						{
-							amountToDebit = (decimal)currentRentBase;
+							amountToDebit = currentRentBase;
+
+							// --- LÓGICA DE INTERÉS ADELANTADO ---
+							if (i == 1 && rental.PendingSurcharge > 0)
+							{
+								var surchargeMovement = new AccountMovement
+								{
+									RentalId = rental.Id,
+									PaymentId = paymentId,
+									MovementDate = targetMonthDate, // Fechado en el mes siguiente
+									MovementType = "DEBITO",
+									Concept = "Recargo por pago fuera de término",
+									Amount = (decimal)rental.PendingSurcharge
+								};
+
+								await accountMovementService.CreateAccountMovementTransactionAsync(surchargeMovement, connection, transaction);
+								logger.LogInformation("Se adelantó el cobro del interés pendiente de ${Amount} para el Rental ID {RentalId}.", rental.PendingSurcharge, rental.Id);
+
+								// Vaciamos la bolsa para que no se duplique
+								await daoRental.ResetPendingSurchargeTransactionAsync(rental.Id, connection, transaction);
+							}
+
+							// Aumento programado (si no está congelado)
 							if (!isPriceLocked && rental.IncreaseAnchorDate.HasValue && dto.IncreasePercentage.HasValue && dto.IncreasePercentage.Value > 0)
 							{
 								if (new DateTime(targetMonthDate.Year, targetMonthDate.Month, 1) >= 
 									new DateTime(rental.IncreaseAnchorDate.Value.Year, rental.IncreaseAnchorDate.Value.Month, 1))
 								{
-									amountToDebit += amountToDebit * (dto.IncreasePercentage.Value / 100m);
+									amountToDebit += currentRentBase * (dto.IncreasePercentage.Value / 100m);
 								}
 							}
+
 							if (dto.PaymentMethodId == 1) amountToDebit = RoundToNearest1000(amountToDebit);
 						}
 

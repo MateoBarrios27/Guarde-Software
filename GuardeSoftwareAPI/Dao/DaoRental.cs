@@ -279,26 +279,36 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<DataTable> GetAllActiveRentalsWithStatusAsync()
         {
             string query = @"
-            WITH CurrentRentalAmount AS (
-                SELECT rental_id, amount, 
+            WITH RankedRentalAmount AS (
+                -- 1. Primero generamos el número de fila (rn) para todos los historiales
+                SELECT 
+                    rental_id, 
+                    amount AS CurrentRent, 
                     ROW_NUMBER() OVER(
                         PARTITION BY rental_id 
                         ORDER BY start_date DESC, 
                                     CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, 
                                     rental_amount_history_id DESC
                     ) as rn
+                FROM rental_amount_history
+            ),
+            CurrentRentalAmount AS (
+                -- 2. Ahora sí podemos filtrar quedándonos solo con el más reciente (rn = 1)
+                SELECT rental_id, CurrentRent
+                FROM RankedRentalAmount
                 WHERE rn = 1
             ),
             AccountSummary AS (
+                -- 3. Sumamos la cuenta corriente
                 SELECT rental_id, SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END) AS Balance
                 FROM account_movements
                 GROUP BY rental_id
             )
             SELECT 
                 r.rental_id,
-                r.months_unpaid, -- Usamos tu nueva columna
+                r.months_unpaid,
                 ISNULL(acc.Balance, 0) AS balance,
-                cra.CurrentRent
+                ISNULL(cra.CurrentRent, 0) AS CurrentRent
             FROM rentals r
             LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
             LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
@@ -307,28 +317,51 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.GetTableAsync("all_active_rentals", query);
         }
 
-        public async Task IncrementUnpaidMonthsAndApplyInterestAsync(int rentalId, decimal interestAmount, string concept)
+        public async Task IncrementUnpaidMonthsAndSaveInterestAsync(int rentalId, decimal interestAmount)
         {
+            // El día 10 solo aumentamos el contador de mora y guardamos el recargo en la "bolsa de espera"
             string query = @"
-            BEGIN TRANSACTION;
-            
-            UPDATE rentals 
-            SET months_unpaid = months_unpaid + 1 
-            WHERE rental_id = @rental_id;
-            
-            INSERT INTO account_movements (rental_id, movement_date, movement_type, concept, amount)
-            VALUES (@rental_id, GETDATE(), 'DEBITO', @concept, @amount);
-            
-            COMMIT TRANSACTION;";
+                UPDATE rentals 
+                SET months_unpaid = months_unpaid + 1,
+                    pending_surcharge = pending_surcharge + @amount 
+                WHERE rental_id = @rental_id;";
 
             var parameters = new SqlParameter[]
             {
-            new("@rental_id", rentalId),
-            new("@concept", concept),
-            new("@amount", interestAmount)
+                new("@rental_id", rentalId),
+                new("@amount", interestAmount)
             };
+            
             await accessDB.ExecuteCommandAsync(query, parameters);
         }
+
+        public async Task ApplyPendingSurchargesAsync()
+        {
+            string query = @"
+                BEGIN TRANSACTION;
+                
+                -- 1. Transformamos la bolsa de espera en un débito real
+                INSERT INTO account_movements (rental_id, movement_date, movement_type, concept, amount)
+                SELECT 
+                    rental_id, 
+                    GETDATE(), 
+                    'DEBITO', 
+                    'Interés por mora - ' + FORMAT(GETDATE(), 'MMMM yyyy'),
+                    pending_surcharge
+                FROM rentals
+                WHERE pending_surcharge > 0 AND active = 1;
+
+                -- 2. Vaciamos la bolsa a todos
+                UPDATE rentals
+                SET pending_surcharge = 0
+                WHERE pending_surcharge > 0 AND active = 1;
+
+                COMMIT TRANSACTION;
+            ";
+
+            await accessDB.ExecuteCommandAsync(query, null);
+        }
+
         public async Task ResetUnpaidMonthsAsync(int rentalId)
         {
             string query = "UPDATE rentals SET months_unpaid = 0 WHERE rental_id = @rental_id;";
@@ -368,6 +401,7 @@ namespace GuardeSoftwareAPI.Dao
                     c.payment_identifier, 
                     c.preferred_payment_method_id,
                     r.months_unpaid,
+                    r.pending_surcharge AS PendingSurcharge,
                     ISNULL(acc.Balance, 0) AS balance,
                     cra.CurrentRent,
                     ISNULL(ll.LockerIdentifiers, '') AS locker_identifiers
@@ -378,7 +412,7 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN LockerList ll ON r.rental_id = ll.rental_id
                 WHERE r.active = 1
                 AND (r.months_unpaid > 0 OR ISNULL(acc.Balance, 0) < 0)
-                Group By  c.payment_identifier, c.full_name, r.rental_id, r.client_id, r.increase_anchor_date, c.preferred_payment_method_id, r.months_unpaid, acc.Balance, cra.CurrentRent, ll.LockerIdentifiers;";
+                Group By  c.payment_identifier, c.full_name, r.rental_id, r.client_id, r.increase_anchor_date, c.preferred_payment_method_id, r.months_unpaid, acc.Balance, cra.CurrentRent, ll.LockerIdentifiers, r.pending_surcharge;";
 
             return await accessDB.GetTableAsync("pending_rentals", query);
         }
@@ -417,7 +451,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<Rental?> GetRentalByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
         {
             // CORRECCIÓN: Se agregó 'increase_anchor_date' a la consulta SQL
-            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active, price_lock_end_date, occupied_spaces, increase_anchor_date FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
+            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active, price_lock_end_date, occupied_spaces, increase_anchor_date, pending_surcharge FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
             SqlParameter[] parameters = [new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId }];
 
             Rental rental = null;
@@ -441,7 +475,8 @@ namespace GuardeSoftwareAPI.Dao
                             Active = reader.GetBoolean(reader.GetOrdinal("active")),
                             PriceLockEndDate = reader.IsDBNull(reader.GetOrdinal("price_lock_end_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("price_lock_end_date")),
                             OccupiedSpaces = reader.IsDBNull(reader.GetOrdinal("occupied_spaces")) ? 0 : reader.GetInt32(reader.GetOrdinal("occupied_spaces")),
-                            IncreaseAnchorDate = reader.IsDBNull(reader.GetOrdinal("increase_anchor_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("increase_anchor_date"))
+                            IncreaseAnchorDate = reader.IsDBNull(reader.GetOrdinal("increase_anchor_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("increase_anchor_date")),
+                            PendingSurcharge = reader.IsDBNull(reader.GetOrdinal("pending_surcharge")) ? 0 : reader.GetDecimal(reader.GetOrdinal("pending_surcharge"))
                         };
                     }
                 } 
@@ -453,6 +488,14 @@ namespace GuardeSoftwareAPI.Dao
             }
 
             return rental;
+        }
+
+        public async Task ResetPendingSurchargeTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = "UPDATE rentals SET pending_surcharge = 0 WHERE rental_id = @rental_id;";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.AddWithValue("@rental_id", rentalId);
+            await command.ExecuteNonQueryAsync();
         }
 
         public async Task<bool> UpdateContractedM3TransactionAsync(int rentalId, decimal newM3, SqlConnection connection, SqlTransaction transaction)

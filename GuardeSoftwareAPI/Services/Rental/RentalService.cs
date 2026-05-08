@@ -137,7 +137,8 @@ namespace GuardeSoftwareAPI.Services.rental
 						? row["locker_identifiers"].ToString()!
 						: string.Empty,
 					PreferredPayment = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : null,
-					IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? (DateTime?)row["IncreaseAnchorDate"] : null
+					IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? (DateTime?)row["IncreaseAnchorDate"] : null,
+					PendingSurcharge = row["PendingSurcharge"] != DBNull.Value ? Convert.ToDecimal(row["PendingSurcharge"]) : null
 				};
 				pendingRentals.Add(rental);
 			}

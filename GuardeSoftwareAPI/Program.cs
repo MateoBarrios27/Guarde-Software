@@ -148,6 +148,14 @@ builder.Services.AddQuartz(q =>
         .WithCronSchedule("0 0 4 1 * ?") // 4:00 AM del día 1 de cada mes
     );
 
+    var applyPendingSurchargesJobKey = new JobKey("ApplyPendingSurchargesJob");
+    q.AddJob<ApplyPendingSurchargesJob>(opts => opts.WithIdentity(applyPendingSurchargesJobKey));
+    q.AddTrigger(opts => opts
+        .ForJob(applyPendingSurchargesJobKey)
+        .WithIdentity("ApplyPendingSurcharges-Trigger")
+        .WithCronSchedule("0 0 3 1 * ?") // 3:00 AM del día 1 de cada mes
+    );
+
     // --- Job 2: ApplyRentIncreaseJob (with trigger) ---
     // var applyRentIncreaseJobKey = new JobKey("ApplyRentIncreaseJob");
     // q.AddJob<ApplyRentIncreaseJob>(opts => opts.WithIdentity(applyRentIncreaseJobKey));

@@ -66,6 +66,7 @@ namespace GuardeSoftwareAPI.Dao
                     c.increase_frequency_months,
                     c.initial_amount,
                     r.increase_anchor_date AS IncreaseAnchorDate,
+                    r.pending_surcharge AS PendingSurcharge,
                     ISNULL(SUM(ISNULL(cra.CurrentRent, 0)), 0) AS rent_amount,
                     ISNULL(SUM(ISNULL(acc.Balance, 0)), 0) AS balance
 
@@ -91,9 +92,8 @@ namespace GuardeSoftwareAPI.Dao
                     c.billing_type_id,
                     c.increase_frequency_months,
                     c.initial_amount,
-                    r.increase_anchor_date
-                    
-            ";
+                    r.increase_anchor_date,
+                    r.pending_surcharge;";   
 
             return await accessDB.GetTableAsync("clients", query);
         }

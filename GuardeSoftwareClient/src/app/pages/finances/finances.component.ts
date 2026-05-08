@@ -41,6 +41,7 @@ export class FinancesComponent implements OnInit {
   selectedClientBalance: number | 0 = 0;
   selectedClientRentAmount: number | 0 = 0;
   selectedPreferredPaymentId: number = 1;
+  
 
   pendingRentals: PendingRentalDTO[] = [];
   payments: DetailedPaymentView[] = [];
@@ -70,6 +71,7 @@ export class FinancesComponent implements OnInit {
   public increasePromptReason: string = '';
   public increasePercentage: number = 0;
   public currentIncreaseFlow: 'advance' | 'normal' | 'none' = 'none';
+  public selectedPendingSurcharge: number = 0;
 
   paymentDto: CreatePaymentDTO = {
       clientId: 0,
@@ -284,7 +286,7 @@ export class FinancesComponent implements OnInit {
     this.selectedClientIncreaseAnchorDate = client.increaseAnchorDate;
     this.selectedPreferredPaymentId = Number(client.preferredPaymentMethodId ?? 1); 
     this.paymentDto.paymentMethodId = this.selectedPreferredPaymentId;
-
+    this.selectedPendingSurcharge = Number(client.pendingSurcharge ?? 0);
     this.increaseResolved = false;
     this.increasePercentage = 0;
     this.paymentDto.increasePercentage = 0;
@@ -748,7 +750,6 @@ export class FinancesComponent implements OnInit {
     let baseDate = this.manualDateEnabled && this.dateString ? new Date(this.dateString) : new Date();
     let anchorDate = this.selectedClientIncreaseAnchorDate ? new Date(this.selectedClientIncreaseAnchorDate) : null;
 
-    // Detectamos si el método de pago ACTUAL en el combo es efectivo
     const currentMethodName = this.getNamePaymentMethodById(this.paymentDto.paymentMethodId).toLowerCase();
     const isEfectivo = currentMethodName.includes('efectivo');
 
@@ -757,19 +758,28 @@ export class FinancesComponent implements OnInit {
         totalToPay += suggestedAmount;
       } 
       else {
-        let currentMonthDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 1);
         let rentForThisMonth = currentRent;
 
-        if (anchorDate && currentMonthDate >= new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1)) {
-          if (this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
-            rentForThisMonth = currentRent + (currentRent * (this.paymentDto.increasePercentage / 100));
-            
-            // 👇 NUEVO: Aplicamos redondeo al monto del mes antes de sumarlo al total 👇
-            if (isEfectivo) {
-              rentForThisMonth = this.roundToNearest1000(rentForThisMonth);
+        // --- SUMA DEL INTERÉS GENERADO ---
+        // Si es el segundo mes que está pagando y tiene algo en la bolsa de intereses
+        if (i === 1 && this.selectedPendingSurcharge > 0) {
+          rentForThisMonth += this.selectedPendingSurcharge;
+        }
+
+        // Aumento programado
+        if (anchorDate) {
+          let currentMonthDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 1);
+          if (currentMonthDate >= new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1)) {
+            if (this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
+              rentForThisMonth += currentRent * (this.paymentDto.increasePercentage / 100);
             }
           }
         }
+
+        if (isEfectivo) {
+          rentForThisMonth = this.roundToNearest1000(rentForThisMonth);
+        }
+        
         totalToPay += rentForThisMonth;
       }
     }
@@ -777,5 +787,4 @@ export class FinancesComponent implements OnInit {
     this.paymentDto.amount = totalToPay;
     this.onAmountChange(totalToPay);
   }
-
 }

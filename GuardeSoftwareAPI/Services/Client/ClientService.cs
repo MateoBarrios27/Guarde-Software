@@ -78,7 +78,8 @@ namespace GuardeSoftwareAPI.Services.client
                     PreferredPaymentMethodId = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : 0,
                     Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0m,
                     CurrentRent = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m,
-                    IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? Convert.ToDateTime(row["IncreaseAnchorDate"]) : null
+                    IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? Convert.ToDateTime(row["IncreaseAnchorDate"]) : null,
+                    PendingSurcharge = row["PendingSurcharge"] != DBNull.Value ? Convert.ToDecimal(row["PendingSurcharge"]) : 0m
                 };
                 clients.Add(client);
             }

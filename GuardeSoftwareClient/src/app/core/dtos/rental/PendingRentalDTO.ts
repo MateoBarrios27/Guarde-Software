@@ -11,4 +11,5 @@ export interface PendingRentalDTO{
     lockerIdentifiers: string;
     preferredPayment: number;
     increaseAnchorDate: number;
+    pendingSurcharge: number;
 }

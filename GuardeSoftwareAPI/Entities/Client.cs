@@ -19,5 +19,6 @@
         public decimal? Balance {get; set;}
         public decimal? CurrentRent { get; set; }
         public DateTime? IncreaseAnchorDate { get; set; }
+        public decimal? PendingSurcharge { get; set; }
     }
 }

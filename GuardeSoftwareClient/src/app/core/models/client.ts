@@ -12,5 +12,6 @@ export interface Client{
     balance?: number;
     currentRent?: number;
     increaseAnchorDate?: string;
+    pendingSurcharge?: number;
 }
 

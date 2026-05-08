@@ -43,7 +43,7 @@ public class ApplyInterestsJob : IJob
                     var interestAmount = Math.Round(balance * 0.10m, 2);
                     var roundedInterest = RoundToNearest1000(interestAmount);
 
-                    await _daoRental.IncrementUnpaidMonthsAndApplyInterestAsync(rentalId, roundedInterest, concept);
+                    await _daoRental.IncrementUnpaidMonthsAndSaveInterestAsync(rentalId, roundedInterest);
                     _logger.LogInformation("Interés de ${amount} aplicado al alquiler ID {rentalId}.", roundedInterest, rentalId);
 
                     if (newMonthsUnpaid >= TERMINATION_THRESHOLD)

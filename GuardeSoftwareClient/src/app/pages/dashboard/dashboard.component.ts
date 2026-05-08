@@ -84,6 +84,7 @@ export class DashboardComponent implements OnInit {
   increasePromptReason: string = '';
   increasePercentage: number = 0;
   currentIncreaseFlow: 'advance' | 'normal' | 'none' = 'none';
+  public selectedPendingSurcharge: number = 0;
 
   constructor(
     private rentalService: RentalService,
@@ -155,7 +156,8 @@ export class DashboardComponent implements OnInit {
     this.selectedBalance = Number(item.balance ?? 0);
     this.selectedCurrentRent = Number(item.currentRent ?? 0);
     this.selectedIncreaseAnchorDate = item.increaseAnchorDate ?? null;
-
+    this.selectedPendingSurcharge = Number(item.pendingSurcharge ?? 0);
+    
     this.increaseResolved = false;
     this.increasePercentage = 0;
     this.showIncreaseOverlay = false;
@@ -344,17 +346,28 @@ export class DashboardComponent implements OnInit {
         totalToPay += suggestedAmount;
       } 
       else {
-        let currentMonthDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 1);
         let rentForThisMonth = currentRent;
 
-        if (anchorDate && currentMonthDate >= new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1)) {
-          if (this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
-            rentForThisMonth = currentRent + (currentRent * (this.paymentDto.increasePercentage / 100));
-            if (isEfectivo) {
-              rentForThisMonth = this.roundToNearest1000(rentForThisMonth);
+        // --- SUMA DEL INTERÉS GENERADO ---
+        // Si es el segundo mes que está pagando y tiene algo en la bolsa de intereses
+        if (i === 1 && this.selectedPendingSurcharge > 0) {
+          rentForThisMonth += this.selectedPendingSurcharge;
+        }
+
+        // Aumento programado
+        if (anchorDate) {
+          let currentMonthDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 1);
+          if (currentMonthDate >= new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1)) {
+            if (this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
+              rentForThisMonth += currentRent * (this.paymentDto.increasePercentage / 100);
             }
           }
         }
+
+        if (isEfectivo) {
+          rentForThisMonth = this.roundToNearest1000(rentForThisMonth);
+        }
+        
         totalToPay += rentForThisMonth;
       }
     }

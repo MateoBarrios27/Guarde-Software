@@ -13,5 +13,6 @@ namespace GuardeSoftwareAPI.Entities
         public int OccupiedSpaces { get; set; }
         public decimal? CurrentAmount { get; set; }
         public bool? Active { get; set; }
+        public decimal? PendingSurcharge { get; set; }
     }
 }

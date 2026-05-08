@@ -10,4 +10,5 @@ public class PendingRentalDTO
     public string LockerIdentifiers { get; set; } = string.Empty;
     public int? PreferredPayment{ get; set; }
     public DateTime? IncreaseAnchorDate { get; set; }
+    public decimal? PendingSurcharge { get; set; }
 }
