@@ -48,13 +48,13 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   accounts: FinancialAccount[] = [];
-
   totals = { 
     depo: 0, 
     casa: 0, 
     pagado: 0, 
     retiros: 0, 
     extras: 0,
+    iaia: 0,
     aPagar: 0, 
     faltaPagar: 0 
   };
@@ -87,6 +87,38 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       groupBy(item => item), 
       mergeMap(group => group.pipe(debounceTime(400))) 
     ).subscribe(item => this.saveItem(item));
+  }
+
+  // --- VARIABLES PARA SELECCIÓN MÚLTIPLE DE FILAS (GASTOS) ---
+  selectedItemIds: number[] = [];
+
+  toggleItemSelection(item: CashFlowItem): void {
+    if (!item.id) return; // Si es una fila nueva sin guardar, no la seleccionamos
+    
+    const index = this.selectedItemIds.indexOf(item.id);
+    if (index > -1) {
+      this.selectedItemIds.splice(index, 1);
+    } else {
+      this.selectedItemIds.push(item.id);
+    }
+  }
+
+  clearItemSelection(): void {
+    this.selectedItemIds = [];
+  }
+
+  get selectedItemsSumARS(): number {
+    let sum = 0;
+    this.items.forEach(item => {
+      if (item.id && this.selectedItemIds.includes(item.id)) {
+        const depo = Number(item.depo) || 0;
+        const casa = Number(item.casa) || 0;
+        const iaia = Number(item.iaia) || 0;
+        const retiros = Number(item.retiros) || 0;
+        sum += (depo + casa + iaia + retiros);
+      }
+    });
+    return sum;
   }
 
   private saveUndoStack(): void {
@@ -228,7 +260,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
           depo: itemToRestore.depo || 0,
           casa: itemToRestore.casa || 0,
           retiros: itemToRestore.retiros || 0,
-          extras: itemToRestore.extras || 0
+          extras: itemToRestore.extras || 0,
+          iaia: itemToRestore.iaia || 0
         };
 
         this.cashService.upsertItem(payload, m, y).subscribe({
@@ -255,7 +288,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       depo: item.depo || 0,
       casa: item.casa || 0,
       retiros: item.retiros || 0,
-      extras: item.extras || 0
+      extras: item.extras || 0,
+      iaia : item.iaia || 0
     };
     this.cashService.upsertItem(payloadToSave, month, year).subscribe();
   }
@@ -323,6 +357,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
         item.casa = item.casa === 0 ? null as any : item.casa;
         item.retiros = item.retiros === 0 ? null as any : item.retiros;
         item.extras = item.extras === 0 ? null as any : item.extras;
+        item.iaia = item.iaia === 0 ? null as any : item.iaia;
         return item;
       });
       
@@ -374,7 +409,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       casa: null as any, 
       isPaid: false, 
       retiros: null as any, 
-      extras: null as any, 
+      extras: null as any,
+      iaia: null as any, 
       replicationState: 0
     };
     
@@ -442,7 +478,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       depo: item.depo || 0,
       casa: item.casa || 0,
       retiros: item.retiros || 0,
-      extras: item.extras || 0
+      extras: item.extras || 0,
+      iaia : item.iaia || 0
     };
 
     this.cashService.upsertItem(payloadToSave, this.selectedMonth, this.selectedYear).subscribe(id => {
@@ -486,23 +523,25 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   calculateLocalTotals(): void {
-    this.totals = { depo: 0, casa: 0, retiros: 0, extras: 0, pagado: 0, aPagar: 0, faltaPagar: 0 };
+    this.totals = { depo: 0, casa: 0, retiros: 0, extras: 0, iaia: 0, pagado: 0, aPagar: 0, faltaPagar: 0 };
 
     this.filteredItems.forEach(item => {
       this.totals.depo += Number(item.depo) || 0;
       this.totals.casa += Number(item.casa) || 0;
       this.totals.retiros += Number(item.retiros) || 0;
       this.totals.extras += Number(item.extras) || 0;
+      this.totals.iaia += Number(item.iaia) || 0;
 
       const costoFila = (Number(item.depo) || 0) + 
-                        (Number(item.casa) || 0);
+                        (Number(item.casa) || 0) + 
+                        (Number(item.iaia) || 0);
 
       if (item.isPaid) {
         this.totals.pagado += costoFila;
       }
     });
 
-    this.totals.aPagar = this.totals.depo + this.totals.casa;
+    this.totals.aPagar = this.totals.depo + this.totals.casa ;
     this.totals.faltaPagar = this.totals.aPagar - this.totals.pagado; 
   }
 
@@ -742,14 +781,24 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   @ViewChild('saldosContainer') saldosContainer!: ElementRef;
+  @ViewChild('planillaContainer') planillaContainer!: ElementRef; 
   selectedAccountIds: number[] = [];
 
   @HostListener('document:click', ['$event'])
   onClickOutside(event: Event) {
+    // Para deseleccionar Cuentas
     if (this.selectedAccountIds.length > 0 && this.saldosContainer) {
       const clickedInside = this.saldosContainer.nativeElement.contains(event.target);
       if (!clickedInside) {
         this.selectedAccountIds = [];
+      }
+    }
+
+    // Para deseleccionar Filas de Planilla
+    if (this.selectedItemIds.length > 0 && this.planillaContainer) {
+      const clickedInside = this.planillaContainer.nativeElement.contains(event.target);
+      if (!clickedInside) {
+        this.selectedItemIds = [];
       }
     }
   }

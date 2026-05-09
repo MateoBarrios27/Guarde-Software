@@ -19,7 +19,7 @@ namespace GuardeSoftwareAPI.Dao
         {
             var list = new List<CashFlowItemDto>();
             string query = @"
-                SELECT item_id, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order, replication_state
+                SELECT item_id, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, amount_iaia, display_order, replication_state
                 FROM cash_flow_items
                 WHERE month = @Month AND year = @Year
                 ORDER BY display_order ASC, movement_date ASC";
@@ -44,6 +44,7 @@ namespace GuardeSoftwareAPI.Dao
                     IsPaid = Convert.ToBoolean(row["is_paid"]),
                     Retiros = Convert.ToDecimal(row["amount_retiros"]),
                     Extras = Convert.ToDecimal(row["amount_extras"]),
+                    Iaia = Convert.ToDecimal(row["amount_iaia"]),
                     DisplayOrder = row["display_order"] != DBNull.Value ? Convert.ToInt32(row["display_order"]) : 0,
                     ReplicationState = row["replication_state"] != DBNull.Value ? Convert.ToInt32(row["replication_state"]) : 0
                 });
@@ -63,9 +64,9 @@ namespace GuardeSoftwareAPI.Dao
 
                     SELECT @NewDisplayOrder = ISNULL(MAX(display_order), 0) + 1 FROM cash_flow_items;
 
-                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order, replication_state)
+                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, display_order, replication_state)
                     OUTPUT INSERTED.item_id INTO @InsertedId
-                    VALUES (@Month, @Year, @Date, @Desc, @Comment, @Depo, @Casa, @IsPaid, @Retiros, @Extras, @NewDisplayOrder, @RepState);
+                    VALUES (@Month, @Year, @Date, @Desc, @Comment, @Depo, @Casa, @Iaia, @IsPaid, @Retiros, @Extras, @NewDisplayOrder, @RepState);
 
                     IF @RepState IN (1, 2)
                     BEGIN
@@ -75,12 +76,13 @@ namespace GuardeSoftwareAPI.Dao
                             movement_date = CASE WHEN @RepState = 2 THEN CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END ELSE NULL END,
                             amount_depo = CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END,
                             amount_casa = CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END,
+                            amount_iaia = CASE WHEN @RepState = 2 THEN @Iaia ELSE 0 END,
                             amount_retiros = CASE WHEN @RepState = 2 THEN @Retiros ELSE 0 END,
                             amount_extras = CASE WHEN @RepState = 2 THEN @Extras ELSE 0 END
                         WHERE description = @Desc
                         AND (year > @Year OR (year = @Year AND month > @Month));
 
-                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order, replication_state)
+                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, display_order, replication_state)
                         SELECT DISTINCT 
                             month, 
                             year, 
@@ -89,7 +91,9 @@ namespace GuardeSoftwareAPI.Dao
                             @Comment, 
                             CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END, 
-                            0,
+                            CASE WHEN @RepState = 2 THEN @Iaia ELSE 0 END,
+                            -- 👇 LÍNEA FALTANTE AGREGADA (Para la columna is_paid) 👇
+                            CASE WHEN @RepState = 2 THEN @IsPaid ELSE 0 END,
                             CASE WHEN @RepState = 2 THEN @Retiros ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Extras ELSE 0 END, 
                             @NewDisplayOrder, 
@@ -112,7 +116,7 @@ namespace GuardeSoftwareAPI.Dao
                     WHERE item_id = @Id;
 
                     UPDATE cash_flow_items 
-                    SET movement_date = @Date, description = @Desc, comment = @Comment, amount_depo = @Depo, amount_casa = @Casa, is_paid = @IsPaid, amount_retiros = @Retiros, amount_extras = @Extras, replication_state = @RepState
+                    SET movement_date = @Date, description = @Desc, comment = @Comment, amount_depo = @Depo, amount_casa = @Casa, amount_iaia = @Iaia, is_paid = @IsPaid, amount_retiros = @Retiros, amount_extras = @Extras, replication_state = @RepState
                     WHERE item_id = @Id;
 
                     IF @RepState IN (1, 2)
@@ -124,12 +128,13 @@ namespace GuardeSoftwareAPI.Dao
                             movement_date = CASE WHEN @RepState = 2 THEN CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END ELSE NULL END,
                             amount_depo = CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END,
                             amount_casa = CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END,
+                            amount_iaia = CASE WHEN @RepState = 2 THEN @Iaia ELSE 0 END,
                             amount_retiros = CASE WHEN @RepState = 2 THEN @Retiros ELSE 0 END,
                             amount_extras = CASE WHEN @RepState = 2 THEN @Extras ELSE 0 END
                         WHERE description = @OldDesc
                         AND (year > @Year OR (year = @Year AND month > @Month));
 
-                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, display_order, replication_state)
+                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, display_order, replication_state)
                         SELECT DISTINCT 
                             month, 
                             year, 
@@ -138,7 +143,9 @@ namespace GuardeSoftwareAPI.Dao
                             @Comment, 
                             CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END, 
-                            0,
+                            CASE WHEN @RepState = 2 THEN @Iaia ELSE 0 END,
+                            -- 👇 LÍNEA FALTANTE AGREGADA (Para la columna is_paid) 👇
+                            CASE WHEN @RepState = 2 THEN @IsPaid ELSE 0 END,
                             CASE WHEN @RepState = 2 THEN @Retiros ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Extras ELSE 0 END, 
                             @CurrentDisplayOrder, 
@@ -169,6 +176,7 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@IsPaid", item.IsPaid),
                 new SqlParameter("@Retiros", item.Retiros),
                 new SqlParameter("@Extras", item.Extras),
+                new SqlParameter("@Iaia", item.Iaia),
                 new SqlParameter("@RepState", item.ReplicationState) 
             };
 
@@ -333,10 +341,10 @@ namespace GuardeSoftwareAPI.Dao
                 FROM cash_flow_items
                 WHERE month = @Month AND year = @Year";
 
-            var result = await _accessDB.ExecuteScalarAsync(query, new[] {
+            var result = await _accessDB.ExecuteScalarAsync(query, [
                 new SqlParameter("@Month", month),
                 new SqlParameter("@Year", year)
-            });
+            ]);
             return Convert.ToDecimal(result);
         }
 
@@ -352,11 +360,11 @@ namespace GuardeSoftwareAPI.Dao
             string queryItems = @"
                 INSERT INTO cash_flow_items (
                     month, year, movement_date, description, comment, 
-                    amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, 
+                    amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, 
                     display_order, replication_state
                 )
                 SELECT 
-                    @CurrentMonth, @CurrentYear, 
+                    @CurrentMonth, @CurrentYear, Res
                     
                     CASE 
                         WHEN replication_state = 2 THEN 
@@ -371,8 +379,8 @@ namespace GuardeSoftwareAPI.Dao
                     CASE WHEN replication_state = 2 THEN amount_depo ELSE 0 END, 
                     CASE WHEN replication_state = 2 THEN amount_casa ELSE 0 END, 
                     
-                    0,
-                    
+                    CASE WHEN replication_state = 2 THEN amount_iaia ELSE 0 END,
+                    CASE WHEN replication_state = 2 THEN 1 ELSE 0 END,
                     CASE WHEN replication_state = 2 THEN amount_retiros ELSE 0 END, 
                     CASE WHEN replication_state = 2 THEN amount_extras ELSE 0 END, 
                     

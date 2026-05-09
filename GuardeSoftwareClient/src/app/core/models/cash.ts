@@ -8,6 +8,7 @@ export interface CashFlowItem {
   isPaid: boolean;
   retiros: number;
   extras: number;
+  iaia: number;
   isConfirmed?: boolean;
   displayOrder?: number;
   replicationState: number;

@@ -391,10 +391,10 @@
   </div>
 
 
-  <div class="w-full flex flex-col bg-gray-50 rounded-lg shadow-md border h-auto">
-
-      <div class="p-4 border-b bg-gray-50 rounded-lg flex justify-between items-center flex-wrap gap-4">
-       <h2 class="font-semibold text-gray-700">Planilla de Movimientos</h2>
+  <div #planillaContainer class="w-full flex flex-col bg-gray-50 rounded-lg shadow-md border h-auto p-4 md:p-5 mt-6">
+  
+  <div class="flex justify-between items-center mb-4 border-b pb-2">
+    <h2 class="font-semibold text-gray-700">Planilla de Movimientos</h2>
        
         <div class="flex items-center gap-3 w-full sm:w-auto">
           
@@ -455,14 +455,19 @@
               <th class="px-2 py-3 text-right bg-gray-50 text-blue-800">Depo (Gasto)</th>
               <th class="px-2 py-3 text-right bg-gray-50 text-orange-800">Casa (Gasto)</th>
               <th class="px-2 py-3 text-right bg-gray-50">Retiros</th>
+              <th class="px-2 py-3 text-right bg-gray-50">Iaia</th>
               <th class="px-2 py-3 text-center bg-gray-50 text-green-800">Pagado</th>
               <th class="px-2 py-3 text-center bg-gray-50 text-indigo-800">Replicar</th>
               <th class="px-1 py-3 w-10 bg-gray-50"></th>
             </tr>
           </thead>
           
-          <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropItem($event)">
-            <tr *ngFor="let item of filteredItems" cdkDrag class="hover:bg-blue-50/30 transition-colors group bg-white">
+         <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropItem($event)">
+        <tr *ngFor="let item of filteredItems" 
+            cdkDrag 
+            (click)="toggleItemSelection(item)"
+            class="transition-all cursor-pointer border-l-4"
+            [ngClass]="selectedItemIds.includes(item.id!) ? 'bg-indigo-50/80 border-indigo-500 shadow-inner' : 'bg-white border-transparent hover:bg-blue-50/30'">
               <td class="p-1 w-6 align-middle text-center">
                 <div cdkDragHandle class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 inline-flex items-center justify-center p-1">
                   <app-icon name="grip-vertical" class="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity"></app-icon>
@@ -598,6 +603,27 @@
                 </div>
               </td>
 
+              <td class="p-1 bg-orange-50/20 relative group/amt align-middle">
+                <div class="flex flex-col items-end justify-center w-full h-full relative">
+                  <div class="flex items-center justify-end w-full relative">
+                    <button *ngIf="item.iaia" (click)="clearItemField(item, 'iaia'); $event.stopPropagation()" tabindex="-1"
+                            class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
+                      <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+                    </button>
+                    <input type="text" appCurrencyFormat 
+                          (focus)="captureItem(item)"
+                          [(ngModel)]="item.iaia" 
+                          (blur)="checkItemChange(item)"
+                          (change)="onItemChange(item)" 
+                          (keydown.enter)="blurInput($event)"
+                          class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-orange-700 font-bold p-1.5 focus:ring-1 focus:ring-orange-400 rounded disabled:opacity-50">
+                  </div>
+                  <div *ngIf="item.iaia" class="text-[9px] text-orange-500/80 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
+                    ≈ U$D {{ (item.iaia / (usdExchangeRate || 1)) | number:'1.2-2' }}
+                  </div>
+                </div>
+              </td>
+
               <td class="p-1 bg-green-50/20 text-center align-middle">
                 <button (click)="togglePaid(item)" 
                         title="Marcar como pagado"
@@ -684,18 +710,60 @@
                  <div class="text-base font-bold">$ {{ totals.retiros | number:'1.2-2' }}</div>
                  <div class="text-[10px] text-gray-500 font-medium mt-0.5">≈ U$D {{ (totals.retiros / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
+
+              <td class="px-2 py-3 text-right text-orange-700 whitespace-nowrap align-middle">
+                 <div class="text-base font-bold">$ {{ totals.iaia | number:'1.2-2' }}</div>
+                 <div class="text-[10px] text-orange-500/80 font-medium mt-0.5">≈ U$D {{ (totals.iaia / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
+              </td>
               
               <td class="px-2 py-3 text-center text-green-700 whitespace-nowrap align-middle">
                  <div class="text-base font-bold">$ {{ totals.pagado | number:'1.2-2' }}</div>
                  <div class="text-[10px] text-green-500/80 font-medium mt-0.5">≈ U$D {{ (totals.pagado / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
+
               
               <td colspan="2"></td>
             </tr>
           </tfoot>
         </table>
+        
       </div>
+      <div *ngIf="selectedItemIds.length > 0" 
+       class="bg-white rounded-xl shadow-sm border-2 border-indigo-200 p-5 mt-4 animate-fade-in-down"
+       (click)="$event.stopPropagation()">
+    
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="font-bold flex items-center gap-2 text-indigo-900">
+        <app-icon name="check-square" class="h-5 w-5 text-indigo-500"></app-icon>
+        Suma de Conceptos Seleccionados ({{ selectedItemIds.length }})
+      </h3>
+      <button (click)="clearItemSelection()" class="text-gray-400 hover:text-red-500 transition-colors" title="Limpiar selección">
+        <app-icon name="x" class="h-5 w-5"></app-icon>
+      </button>
+    </div>
+
+    <div class="flex justify-between items-end">
+      <span class="text-sm text-gray-500 font-medium">Total Acumulado (ARS)</span>
+      <div class="flex flex-col items-end">
+        <span class="text-2xl font-black tracking-tight text-indigo-700">
+          $ {{ selectedItemsSumARS | number:'1.2-2' }}
+        </span>
+      </div>
+    </div>
+
+    <div class="flex justify-between items-end mt-2 border-t border-gray-100 pt-2">
+      <span class="text-[11px] text-gray-400 uppercase tracking-wider font-bold">Equivalente en Dólares</span>
+      <span class="text-sm font-bold text-indigo-500/80">
+        ≈ U$D {{ (selectedItemsSumARS / (usdExchangeRate || 1)) | number:'1.2-2' }}
+      </span>
+    </div>
+
+    <p class="text-[10px] text-gray-400 mt-2 italic">
+    </p>
   </div>
+      
+  </div>
+
 
   <div #bottomAnchor class="w-full h-1 opacity-0 pointer-events-none mt-4"></div>
 
