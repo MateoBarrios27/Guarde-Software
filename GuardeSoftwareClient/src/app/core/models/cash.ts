@@ -35,3 +35,12 @@ export interface FinancialAccount {
   color?: string;
 }
 
+export interface IvaCompra {
+  id?: number;
+  month: number;
+  year: number;
+  date: string; 
+  amount: number;
+  comment?: string;
+}
+

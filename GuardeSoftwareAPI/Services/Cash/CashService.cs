@@ -1,3 +1,4 @@
+using System.Data;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Dtos.Cash;
 
@@ -118,5 +119,39 @@ namespace GuardeSoftwareAPI.Services.cash
         {
             return await _dao.UpdateAccountNameAsync(id, name);
         }
+
+        #region IVA Compras
+
+        public async Task<List<CashIVADto>> GetIvaComprasAsync(int month, int year)
+        {
+            var dt = await _dao.GetIvaComprasAsync(month, year);
+            var list = new List<CashIVADto>();
+
+            foreach (DataRow row in dt.Rows)
+            {
+                list.Add(new CashIVADto
+                {
+                    Id = Convert.ToInt32(row["id"]),
+                    Month = Convert.ToInt32(row["month"]),
+                    Year = Convert.ToInt32(row["year"]),
+                    Date = Convert.ToDateTime(row["Date"]),
+                    Amount = Convert.ToDecimal(row["Amount"]),
+                    Comment = row["Comment"] != DBNull.Value ? row["Comment"].ToString() : null
+                });
+            }
+            return list;
+        }
+
+        public async Task<int> AddIvaCompraAsync(CashIVADto dto)
+        {
+            return await _dao.AddIvaCompraAsync(dto.Month, dto.Year, dto.Date, dto.Amount, dto.Comment);
+        }
+
+        public async Task DeleteIvaCompraAsync(int id)
+        {
+            await _dao.DeleteIvaCompraAsync(id);
+        }
+
+        #endregion
     }
 }

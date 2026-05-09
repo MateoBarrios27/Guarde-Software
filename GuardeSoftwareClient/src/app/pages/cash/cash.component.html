@@ -99,10 +99,13 @@
         <div class="flex justify-between items-center">
           <span class="text-gray-600 flex items-center gap-2">
             <div class="w-2 h-2 rounded-full bg-purple-500"></div> IVA Compras
+            <button (click)="openIvaComprasModal()" class="ml-2 p-1.5 bg-purple-50 hover:bg-purple-100 rounded border border-purple-200 text-purple-600 transition-colors shadow-sm" title="Gestionar facturas de IVA Compras">
+              <app-icon name="plus" class="w-3.5 h-3.5"></app-icon>
+            </button>
           </span>
           <div class="flex flex-col items-end">
-            <span class="font-bold text-purple-700 leading-tight">$ {{  0 | number:'1.2-2' }}</span>
-            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{  0 / (usdExchangeRate || 1) | number:'1.2-2' }}</span>
+            <span class="font-bold text-purple-700 leading-tight">$ {{  totalIvaCompras | number:'1.2-2' }}</span>
+            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{  totalIvaCompras / (usdExchangeRate || 1) | number:'1.2-2' }}</span>
           </div>
         </div>
 
@@ -111,8 +114,8 @@
             <div class="w-2 h-2 rounded-full bg-purple-500"></div> Diferencia de IVA (Ventas - Compras) 
           </span>
           <div class="flex flex-col items-end">
-            <span class="font-bold text-purple-700 leading-tight">$ {{  (summary.ivaFacturaA + summary.ivaFacturaB)  || 0 | number:'1.2-2' }}</span>
-            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{  (summary.ivaFacturaA + summary.ivaFacturaB) / (usdExchangeRate || 1) | number:'1.2-2' }}</span>
+            <span class="font-bold text-purple-700 leading-tight">$ {{  (summary.ivaFacturaA + summary.ivaFacturaB) -  totalIvaCompras  || 0 | number:'1.2-2' }}</span>
+            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{  ((summary.ivaFacturaA + summary.ivaFacturaB) -  totalIvaCompras)  / (usdExchangeRate || 1) | number:'1.2-2' }}</span>
           </div>
         </div>
 
@@ -764,6 +767,8 @@
       
   </div>
 
+  
+
 
   <div #bottomAnchor class="w-full h-1 opacity-0 pointer-events-none mt-4"></div>
 
@@ -772,4 +777,77 @@
           [title]="isScrolledDown ? 'Volver al inicio' : 'Ir a los totales'">
     <app-icon [name]="isScrolledDown ? 'arrow-up' : 'arrow-down'" class="h-6 w-6"></app-icon>
   </button>
+  <div *ngIf="showIvaComprasModal"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+     (keydown.escape)="closeIvaComprasModal()"
+     tabindex="-1">
+
+  <div class="w-full max-w-3xl bg-white rounded-xl shadow-2xl p-5 border flex flex-col max-h-[85vh] animate-fade-in-down"
+       (click)="$event.stopPropagation()">
+
+    <div class="flex items-center justify-between mb-4 border-b pb-3">
+      <h4 class="font-bold text-gray-800 flex items-center gap-2 text-lg">
+        <app-icon name="file-text" class="h-5 w-5 text-purple-600"></app-icon>
+        Facturas - IVA Compras ({{ monthName }})
+      </h4>
+      <button type="button" (click)="closeIvaComprasModal()" class="text-gray-400 hover:text-red-500 transition-colors text-2xl leading-none">
+        ×
+      </button>
+    </div>
+
+    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 flex flex-col sm:flex-row gap-3 items-end shadow-sm">
+      <div class="w-full sm:w-1/3">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Fecha</label>
+        <input type="date" [(ngModel)]="newIvaCompra.date" class="w-full p-2 border border-gray-300 rounded focus:ring-purple-500 text-sm">
+      </div>
+      <div class="w-full sm:w-1/3">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Monto de IVA ($)</label>
+        <input type="text" appCurrencyFormat [(ngModel)]="newIvaCompra.amount" (keydown.enter)="blurInput($event)" class="w-full p-2 border border-gray-300 rounded focus:ring-purple-500 text-sm font-bold text-purple-700">
+      </div>
+      <div class="w-full sm:w-1/3">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Detalle (Opcional)</label>
+        <input type="text" [(ngModel)]="newIvaCompra.comment" (keydown.enter)="saveIvaCompra()" placeholder="Ej: Factura Fibertel" class="w-full p-2 border border-gray-300 rounded focus:ring-purple-500 text-sm">
+      </div>
+      <button (click)="saveIvaCompra()" class="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded transition shadow-sm flex items-center justify-center gap-2">
+        <app-icon name="plus" class="w-4 h-4"></app-icon> Agregar
+      </button>
+    </div>
+
+    <div class="overflow-y-auto custom-scrollbar flex-1 border rounded-lg">
+      <table class="w-full text-sm text-left">
+        <thead class="text-xs text-gray-500 bg-gray-100 border-b sticky top-0">
+          <tr>
+            <th class="px-3 py-2">Fecha</th>
+            <th class="px-3 py-2">Detalle</th>
+            <th class="px-3 py-2 text-right">Monto IVA</th>
+            <th class="px-3 py-2 text-center w-10"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr *ngFor="let iva of ivaCompras; let i = index" class="hover:bg-gray-50 transition-colors">
+            <td class="px-3 py-2 font-mono text-gray-600">{{ iva.date | date:'dd/MM/yyyy' }}</td>
+            <td class="px-3 py-2 text-gray-800">{{ iva.comment || 'Sin detalle' }}</td>
+            <td class="px-3 py-2 text-right font-bold text-purple-700">$ {{ iva.amount | number:'1.2-2' }}</td>
+            <td class="px-3 py-2 text-center">
+              <button (click)="deleteIvaCompra(iva.id, i)" class="text-gray-400 hover:text-red-500 transition-colors p-1">
+                <app-icon name="Trash2" class="w-4 h-4"></app-icon>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="ivaCompras.length === 0">
+            <td colspan="4" class="text-center py-6 text-gray-400">No hay IVA cargado este mes.</td>
+          </tr>
+        </tbody>
+        <tfoot class="bg-purple-50 border-t font-bold sticky bottom-0">
+          <tr>
+            <td colspan="2" class="px-3 py-2 text-right text-purple-900">TOTAL:</td>
+            <td class="px-3 py-2 text-right text-purple-700 text-base">$ {{ totalIvaCompras | number:'1.2-2' }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+  </div>
+</div>
 </div>

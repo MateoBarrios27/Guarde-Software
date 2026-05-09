@@ -166,5 +166,54 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, new { message = "Error al actualizar el nombre de la cuenta." });
             }
         }
+
+        #region IVA Compras Endpoints
+
+        [HttpGet("iva-compras")]
+        public async Task<IActionResult> GetIvaCompras([FromQuery] int month, [FromQuery] int year)
+        {
+            try
+            {
+                var result = await _service.GetIvaComprasAsync(month, year);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al obtener IVA Compras", details = ex.Message });
+            }
+        }
+
+        [HttpPost("iva-compras")]
+        public async Task<IActionResult> AddIvaCompra([FromBody] CashIVADto dto)
+        {
+            try
+            {
+                if (dto == null || dto.Amount <= 0)
+                    return BadRequest("Datos de compra inválidos.");
+
+                int id = await _service.AddIvaCompraAsync(dto);
+                return Ok(id);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al guardar IVA Compra", details = ex.Message });
+            }
+        }
+
+        [HttpDelete("iva-compras/{id}")]
+        public async Task<IActionResult> DeleteIvaCompra(int id)
+        {
+            try
+            {
+                await _service.DeleteIvaCompraAsync(id);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al eliminar IVA Compra", details = ex.Message });
+            }
+        }
+
+        #endregion
     }
 }

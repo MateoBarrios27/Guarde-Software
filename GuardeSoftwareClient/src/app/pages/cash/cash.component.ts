@@ -82,6 +82,12 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   private capturedAccountState: string = '';
   private capturedItemState: string = '';
 
+  // --- VARIABLES IVA COMPRAS ---
+  showIvaComprasModal: boolean = false;
+  ivaCompras: any[] = [];
+  totalIvaCompras: number = 0;
+  newIvaCompra = { date: '', amount: null as any, comment: '' };
+
   constructor(private cashService: CashService) {
     this.saveSubject.pipe(
       groupBy(item => item), 
@@ -91,6 +97,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // --- VARIABLES PARA SELECCIÓN MÚLTIPLE DE FILAS (GASTOS) ---
   selectedItemIds: number[] = [];
+
+  
 
   toggleItemSelection(item: CashFlowItem): void {
     if (!item.id) return; // Si es una fila nueva sin guardar, no la seleccionamos
@@ -359,7 +367,21 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
         item.extras = item.extras === 0 ? null as any : item.extras;
         item.iaia = item.iaia === 0 ? null as any : item.iaia;
         return item;
+      }
+    
+    );
+
+    this.cashService.getIvaCompras(this.selectedMonth, this.selectedYear).subscribe(ivaData => {
+        this.ivaCompras = ivaData.map(iva => ({
+          id: iva.id || iva.Id,
+          date: iva.date || iva.Date,
+          amount: iva.amount || iva.Amount,
+          comment: iva.comment || iva.Comment
+        }));
+        this.calculateTotalIvaCompras();
       });
+
+      
       
       this.sortItems();
       this.filterItems();
@@ -827,5 +849,82 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   get monthName(): string {
     const date = new Date(this.selectedYear, this.selectedMonth - 1, 1);
     return date.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+  }
+
+  calculateTotalIvaCompras() {
+    this.totalIvaCompras = this.ivaCompras.reduce((sum, item) => {
+      const val = item.amount ?? item.Amount ?? 0;
+      return sum + (Number(val) || 0);
+    }, 0);
+  }
+
+  openIvaComprasModal() {
+    this.showIvaComprasModal = true;
+    
+    const today = new Date();
+    let initialDate: Date;
+
+    // Si el mes que está mirando es el mes actual real, le sugerimos el día de hoy.
+    // Si está mirando un mes pasado/futuro, le sugerimos el día 1 de ese mes.
+    if (this.selectedYear === today.getFullYear() && this.selectedMonth === (today.getMonth() + 1)) {
+      initialDate = today;
+    } else {
+      initialDate = new Date(this.selectedYear, this.selectedMonth - 1, 1);
+    }
+
+    // Armamos el string YYYY-MM-DD usando la hora local para evitar el bug del UTC
+    const yyyy = initialDate.getFullYear();
+    const mm = String(initialDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(initialDate.getDate()).padStart(2, '0');
+
+    this.newIvaCompra = { 
+      date: `${yyyy}-${mm}-${dd}`, 
+      amount: null as any, 
+      comment: '' 
+    };
+  }
+
+  closeIvaComprasModal() {
+    this.showIvaComprasModal = false;
+  }
+
+  saveIvaCompra() {
+    if (!this.newIvaCompra.amount || this.newIvaCompra.amount <= 0) {
+      Swal.fire('Atención', 'Ingresa un monto válido.', 'warning');
+      return;
+    }
+    if (!this.newIvaCompra.date) {
+      Swal.fire('Atención', 'La fecha es obligatoria.', 'warning');
+      return;
+    }
+
+    const payload = {
+      month: this.selectedMonth,
+      year: this.selectedYear,
+      date: this.newIvaCompra.date,
+      amount: this.newIvaCompra.amount,
+      comment: this.newIvaCompra.comment
+    };
+
+    this.cashService.addIvaCompra(payload).subscribe({
+      next: (newId) => {
+        // Lo agregamos a la lista local para no recargar todo
+        this.ivaCompras.unshift({ ...payload, id: newId });
+        this.calculateTotalIvaCompras();
+        
+        // Limpiamos los inputs
+        this.newIvaCompra.amount = null as any;
+        this.newIvaCompra.comment = '';
+        
+        Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Agregado', showConfirmButton: false, timer: 2000 });
+      }
+    });
+  }
+
+  deleteIvaCompra(id: number, index: number) {
+    this.cashService.deleteIvaCompra(id).subscribe(() => {
+      this.ivaCompras.splice(index, 1);
+      this.calculateTotalIvaCompras();
+    });
   }
 }

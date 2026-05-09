@@ -75,4 +75,16 @@ export class CashService {
   updateAccountName(id: number, name: string): Observable<any> {
     return this.http.put(`${this.apiUrl}/accounts/${id}/name`, { name });
   }
+
+  getIvaCompras(month: number, year: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/iva-compras?month=${month}&year=${year}`);
+  }
+
+  addIvaCompra(ivaCompra: any): Observable<number> {
+    return this.http.post<number>(`${this.apiUrl}/iva-compras`, ivaCompra);
+  }
+
+  deleteIvaCompra(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/iva-compras/${id}`);
+  }
 }

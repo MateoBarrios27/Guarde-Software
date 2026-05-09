@@ -918,5 +918,38 @@ namespace GuardeSoftwareAPI.Dao
 
             return (0m, 0m);
         }
+
+        #region IVA COMPRAS
+
+        public async Task<DataTable> GetIvaComprasAsync(int month, int year)
+        {
+            string query = "SELECT id, month, year, purchase_date as Date, amount as Amount, comment as Comment FROM iva_compras WHERE month = @Month AND year = @Year ORDER BY purchase_date DESC";
+            return await _accessDB.GetTableAsync("IvaCompras", query, new[] {
+                new SqlParameter("@Month", month),
+                new SqlParameter("@Year", year)
+            });
+        }
+
+        public async Task<int> AddIvaCompraAsync(int month, int year, DateTime date, decimal amount, string comment)
+        {
+            string query = "INSERT INTO iva_compras (month, year, purchase_date, amount, comment) OUTPUT INSERTED.id VALUES (@Month, @Year, @Date, @Amount, @Comment)";
+            var parameters = new[] {
+                new SqlParameter("@Month", month),
+                new SqlParameter("@Year", year),
+                new SqlParameter("@Date", date),
+                new SqlParameter("@Amount", amount),
+                new SqlParameter("@Comment", (object?)comment ?? DBNull.Value)
+            };
+            var result = await _accessDB.ExecuteScalarAsync(query, parameters);
+            return Convert.ToInt32(result);
+        }
+
+        public async Task DeleteIvaCompraAsync(int id)
+        {
+            string query = "DELETE FROM iva_compras WHERE id = @Id";
+            await _accessDB.ExecuteCommandAsync(query, new[] { new SqlParameter("@Id", id) });
+        }
+
+        #endregion
     }
 }
