@@ -88,6 +88,7 @@ export class ClientDetailModalComponent implements OnChanges {
         this.movementCurrentPage = 1;
         this.commCurrentPage = 1;
         this.lockerCurrentPage = 1;
+        console.log('Cliente actualizado, cargando historiales para ID:', this.client);
       }
     }
   }

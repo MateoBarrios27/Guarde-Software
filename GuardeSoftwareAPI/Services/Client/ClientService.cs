@@ -492,6 +492,7 @@ namespace GuardeSoftwareAPI.Services.client
 
                 // Other information
                 Notes = row["notes"]?.ToString() ?? string.Empty,
+                NextPaymentDay = row["next_payment_day"] != DBNull.Value ? Convert.ToDateTime(row["next_payment_day"]) : DateTime.MinValue,
                 ReceiveCommunications = Convert.ToBoolean(row["receive_communications"])
             };
 

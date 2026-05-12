@@ -221,10 +221,10 @@ namespace GuardeSoftwareAPI.Services.payment
 								var surchargeMovement = new AccountMovement
 								{
 									RentalId = rental.Id,
-									PaymentId = paymentId,
+									PaymentId = null, // No asociado directamente a este pago
 									MovementDate = targetMonthDate, // Fechado en el mes siguiente
 									MovementType = "DEBITO",
-									Concept = "Recargo por pago fuera de término",
+									Concept = "Interés por mora",
 									Amount = (decimal)rental.PendingSurcharge
 								};
 

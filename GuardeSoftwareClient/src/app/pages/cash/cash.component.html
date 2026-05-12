@@ -543,7 +543,7 @@
                 </div>
               </td>
 
-              <td class="p-1 bg-blue-50/20 relative group/amt align-middle">
+              <td class="p-1 bg-blue-100/30 relative group/amt align-middle">
                 <div class="flex flex-col items-end justify-center w-full h-full relative">
                   <div class="flex items-center justify-end w-full relative">
                     <button *ngIf="item.depo" (click)="clearItemField(item, 'depo'); $event.stopPropagation()" tabindex="-1"
@@ -564,7 +564,7 @@
                 </div>
               </td>
 
-              <td class="p-1 bg-orange-50/20 relative group/amt align-middle">
+              <td class="p-1 bg-orange-100/30 relative group/amt align-middle">
                 <div class="flex flex-col items-end justify-center w-full h-full relative">
                   <div class="flex items-center justify-end w-full relative">
                     <button *ngIf="item.casa" (click)="clearItemField(item, 'casa'); $event.stopPropagation()" tabindex="-1"
@@ -585,7 +585,7 @@
                 </div>
               </td>
 
-              <td class="p-1 relative group/amt align-middle">
+              <td class="p-1 relative group/amt bg-gray-100/40 align-middle">
                 <div class="flex flex-col items-end justify-center w-full h-full relative">
                   <div class="flex items-center justify-end w-full relative">
                     <button *ngIf="item.retiros" (click)="clearItemField(item, 'retiros'); $event.stopPropagation()" tabindex="-1"
@@ -606,7 +606,7 @@
                 </div>
               </td>
 
-              <td class="p-1 bg-orange-50/20 relative group/amt align-middle">
+              <td class="p-1 bg-green-100/30 relative group/amt align-middle">
                 <div class="flex flex-col items-end justify-center w-full h-full relative">
                   <div class="flex items-center justify-end w-full relative">
                     <button *ngIf="item.iaia" (click)="clearItemField(item, 'iaia'); $event.stopPropagation()" tabindex="-1"
@@ -619,9 +619,9 @@
                           (blur)="checkItemChange(item)"
                           (change)="onItemChange(item)" 
                           (keydown.enter)="blurInput($event)"
-                          class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-orange-700 font-bold p-1.5 focus:ring-1 focus:ring-orange-400 rounded disabled:opacity-50">
+                          class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-green-700 font-bold p-1.5 focus:ring-1 focus:ring-green-400 rounded disabled:opacity-50">
                   </div>
-                  <div *ngIf="item.iaia" class="text-[9px] text-orange-500/80 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
+                  <div *ngIf="item.iaia" class="text-[9px] text-green-500/80 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
                     ≈ U$D {{ (item.iaia / (usdExchangeRate || 1)) | number:'1.2-2' }}
                   </div>
                 </div>
@@ -714,9 +714,9 @@
                  <div class="text-[10px] text-gray-500 font-medium mt-0.5">≈ U$D {{ (totals.retiros / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
 
-              <td class="px-2 py-3 text-right text-orange-700 whitespace-nowrap align-middle">
+              <td class="px-2 py-3 text-right text-green-700 whitespace-nowrap align-middle">
                  <div class="text-base font-bold">$ {{ totals.iaia | number:'1.2-2' }}</div>
-                 <div class="text-[10px] text-orange-500/80 font-medium mt-0.5">≈ U$D {{ (totals.iaia / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
+                 <div class="text-[10px] text-green-500/80 font-medium mt-0.5">≈ U$D {{ (totals.iaia / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
               
               <td class="px-2 py-3 text-center text-green-700 whitespace-nowrap align-middle">

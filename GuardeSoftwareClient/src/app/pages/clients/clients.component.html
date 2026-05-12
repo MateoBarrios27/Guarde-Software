@@ -341,6 +341,37 @@
 
             </tr>
           </tbody>
+          <tfoot class="font-bold text-gray-700 border-t border-gray-200 bg-gray-50/80">
+            <tr>
+              <td colspan="2" class="p-4 text-right align-middle">
+                <span class="text-xs uppercase tracking-wider text-gray-500 font-bold">
+                  Totales Columna:
+                </span>
+              </td>
+              
+              <td class="p-4 text-right whitespace-nowrap align-middle" 
+                  [ngClass]="totals.previousBalance >= 0 ? 'text-green-600' : 'text-red-600'">
+                 <div class="text-base font-bold">$ {{ totals.previousBalance | number:'1.2-2' }}</div>
+              </td>
+
+              <td class="p-4 text-right whitespace-nowrap align-middle" 
+                  [ngClass]="totals.interestAmount > 0 ? 'text-red-600' : 'text-gray-500'">
+                 <div class="text-base font-bold">$ {{ totals.interestAmount | number:'1.2-2' }}</div>
+              </td>
+              
+              <td class="p-4 text-right text-blue-700 whitespace-nowrap align-middle">
+                 <div class="text-base font-bold">$ {{ totals.currentRent | number:'1.2-2' }}</div>
+              </td>
+              
+              <td class="p-4 text-right whitespace-nowrap align-middle" 
+                  [ngClass]="totals.balance >= 0 ? 'text-green-600' : 'text-red-600'">
+                 <div class="text-base font-bold">$ {{ totals.balance | number:'1.2-2' }}</div>
+              </td>
+              
+              <td></td>
+            </tr>
+          </tfoot>
+
         </table>
       </div> 
 

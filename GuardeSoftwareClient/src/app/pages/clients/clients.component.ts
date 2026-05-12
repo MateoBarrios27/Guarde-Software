@@ -84,6 +84,13 @@ export class ClientsComponent implements OnInit {
   public warehouses: Warehouse[] = [];
   public filterWarehouse: number | 'Todos' = 'Todos';
 
+  totals = {
+    previousBalance: 0,
+    interestAmount: 0,
+    currentRent: 0,
+    balance: 0
+  };
+
   constructor(private clientService: ClientService, private statisticsService: StatisticsService, private warehouseService: WarehouseService) 
   {
     this.searchSubject.pipe(
@@ -120,7 +127,7 @@ export class ClientsComponent implements OnInit {
         this.clientes = result.items;
 
         this.totalClientes = result.totalCount;
-
+        this.calculateTotals();
         this.isLoading = false;
       },
 
@@ -134,6 +141,23 @@ export class ClientsComponent implements OnInit {
 
   get totalPages(): number {
     return Math.ceil(this.totalClientes / this.itemsPerPageClientes);
+  }
+
+  calculateTotals(): void {
+    this.totals = {
+      previousBalance: 0,
+      interestAmount: 0,
+      currentRent: 0,
+      balance: 0
+    };
+
+    // Recorremos el array 'clientes' que es el que se muestra en la tabla
+    this.clientes.forEach(cliente => {
+      this.totals.previousBalance += Number(cliente.previousBalance) || 0;
+      this.totals.interestAmount += Number(cliente.interestAmount) || 0;
+      this.totals.currentRent += Number(cliente.currentRent) || 0;
+      this.totals.balance += Number(cliente.balance) || 0;
+    });
   }
 
   handleSort(field: string): void {
@@ -158,11 +182,13 @@ export class ClientsComponent implements OnInit {
 
   onSearchChange(): void {
     this.searchSubject.next(this.searchClientes);
+    this.calculateTotals();
   }
 
   onFilterChange(): void {
     this.currentPageClientes = 1; // Volver a pág 1
     this.loadClients();
+    this.calculateTotals();
   }
 
   toggleInactivos(): void {

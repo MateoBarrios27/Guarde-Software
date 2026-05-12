@@ -234,7 +234,7 @@ export class SettingsComponent implements OnInit {
     { id: 'facturacion', title: 'Facturación', icon: '📄' },
     { id: 'locker-types', title: 'Tipos de Bauleras', icon: '🗄️' },
     { id: 'depositos', title: 'Depósitos', icon: '🏢' },
-    { id: 'aumentos', title: 'Aumentos Mensuales', icon: '📈' },
+    // { id: 'aumentos', title: 'Aumentos Mensuales', icon: '📈' },
     { id: 'smtp', title: 'Configuración SMTP', icon: '✉️' },
     
     // { id: 'datos', title: 'Datos', icon: '🗄️' }

@@ -214,6 +214,8 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<DataTable> GetClientDetailByIdAsync(int id)
         {
             string query = @"
+                DECLARE @StartOfMonth DATETIME = DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1);
+
                 WITH CurrentRentalAmount AS (
                     SELECT 
                         h.rental_id,
@@ -231,17 +233,18 @@ namespace GuardeSoftwareAPI.Dao
                     ) h
                     WHERE h.rn = 1
                 ),
-                AccountSummary AS (
-                    SELECT
-                        rental_id,
-                        -- DEBITO = -1 (Resta, genera saldo negativo/deuda)
-                        -- CREDITO = 1 (Suma, genera saldo a favor)
-                        SUM(CASE WHEN movement_type = 'DEBITO' THEN -amount ELSE amount END) AS Balance,
-                        MAX(CASE WHEN movement_type = 'DEBITO' THEN movement_date END) AS LastDebitDate,
-                        SUM(CASE WHEN movement_type = 'CREDITO' THEN amount ELSE 0 END) AS TotalPaid
-                        
-                    FROM account_movements
-                    GROUP BY rental_id
+                AccountBucketsCTE AS (
+                    SELECT 
+                        r.client_id,
+                        SUM(CASE WHEN am.movement_type = 'CREDITO' THEN am.amount ELSE 0 END) AS TotalCredits,
+                        SUM(CASE WHEN am.movement_type = 'DEBITO' AND am.movement_date < @StartOfMonth AND am.concept NOT LIKE 'Interés%' THEN am.amount ELSE 0 END) AS OldNonIntDebits,
+                        SUM(CASE WHEN am.movement_type = 'DEBITO' AND am.concept LIKE 'Interés%' THEN am.amount ELSE 0 END) AS TotalIntDebits,
+                        SUM(CASE WHEN am.movement_type = 'DEBITO' AND am.movement_date >= @StartOfMonth AND am.concept NOT LIKE 'Interés%' THEN am.amount ELSE 0 END) AS MonthDebits,
+                        SUM(CASE WHEN am.movement_type = 'CREDITO' AND MONTH(am.movement_date) = MONTH(GETDATE()) AND YEAR(am.movement_date) = YEAR(GETDATE()) THEN 1 ELSE 0 END) AS PaymentsThisMonth,
+                        MAX(CASE WHEN am.movement_type = 'DEBITO' THEN am.movement_date END) AS LastDebitDate
+                    FROM rentals r
+                    LEFT JOIN account_movements am ON r.rental_id = am.rental_id
+                    GROUP BY r.client_id
                 )
                 SELECT 
                     c.client_id, c.payment_identifier, c.full_name, c.registration_date,
@@ -260,20 +263,19 @@ namespace GuardeSoftwareAPI.Dao
                     r.months_unpaid,
                     r.occupied_spaces,
                     
-                    cra.CurrentRent AS rent_amount,
-                    ISNULL(acc.Balance, 0) AS balance,
+                    vars.CurrentRentAmount AS rent_amount,
+                    calc.FinalBalance AS balance,
+                    ISNULL(b.TotalCredits, 0) AS total_paid,
                     
-                    ISNULL(acc.TotalPaid, 0) AS total_paid,
-                    
-                    CASE
-                        WHEN ISNULL(acc.Balance, 0) <= 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
-                        ELSE DATEADD(month, 1, ISNULL(acc.LastDebitDate, GETDATE()))
+                    CASE 
+                        WHEN b.LastDebitDate IS NOT NULL THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(b.LastDebitDate), MONTH(b.LastDebitDate), 10))
+                        ELSE DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
                     END AS next_payment_day,
 
                     CASE 
                         WHEN c.active = 0 THEN 'Baja'
                         WHEN ISNULL(r.months_unpaid, 0) >= 1 THEN 'Moroso Nivel ' + CAST(ISNULL(r.months_unpaid, 0) AS VARCHAR(10))
-                        WHEN ISNULL(acc.Balance, 0) >= 0 THEN 'Al día'
+                        WHEN (ISNULL(b.TotalCredits, 0) - (ISNULL(b.OldNonIntDebits, 0) + ISNULL(b.TotalIntDebits, 0) + ISNULL(b.MonthDebits, 0))) >= 0 THEN 'Al día'
                         ELSE 'Pendiente'
                     END AS payment_status
                     
@@ -283,8 +285,45 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
                 LEFT JOIN billing_types bt ON c.billing_type_id = bt.billing_type_id
                 LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1 
-                LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
-                LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id 
+                LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id 
+                LEFT JOIN AccountBucketsCTE b ON c.client_id = b.client_id
+
+                OUTER APPLY (
+                    SELECT 
+                        CASE WHEN ISNULL(b.TotalCredits, 0) < ISNULL(b.OldNonIntDebits, 0) 
+                             THEN ISNULL(b.OldNonIntDebits, 0) - ISNULL(b.TotalCredits, 0) ELSE 0 END AS UnpaidOldNonInt,
+                        CASE WHEN ISNULL(b.TotalCredits, 0) > ISNULL(b.OldNonIntDebits, 0) 
+                             THEN ISNULL(b.TotalCredits, 0) - ISNULL(b.OldNonIntDebits, 0) ELSE 0 END AS CreditsAfterOld
+                ) wf1
+                
+                OUTER APPLY (
+                    SELECT
+                        CASE WHEN wf1.CreditsAfterOld < ISNULL(b.TotalIntDebits, 0)
+                             THEN ISNULL(b.TotalIntDebits, 0) - wf1.CreditsAfterOld ELSE 0 END AS UnpaidInt,
+                        CASE WHEN wf1.CreditsAfterOld > ISNULL(b.TotalIntDebits, 0)
+                             THEN wf1.CreditsAfterOld - ISNULL(b.TotalIntDebits, 0) ELSE 0 END AS CreditsAfterInt
+                ) wf2
+
+                OUTER APPLY (
+                    SELECT 
+                        CASE WHEN ISNULL(b.PaymentsThisMonth, 0) > 0 
+                             THEN ISNULL(b.TotalCredits, 0) - (ISNULL(b.OldNonIntDebits, 0) + ISNULL(b.TotalIntDebits, 0) + ISNULL(b.MonthDebits, 0))
+                             ELSE wf2.CreditsAfterInt - wf1.UnpaidOldNonInt
+                        END AS PreviousBalanceRaw,
+                        
+                        CASE WHEN ISNULL(b.PaymentsThisMonth, 0) > 0 
+                             THEN ISNULL(r.pending_surcharge, 0)
+                             ELSE wf2.UnpaidInt + ISNULL(r.pending_surcharge, 0)
+                        END AS InterestAmount,
+                        
+                        ISNULL(cr.CurrentRent, 0) AS CurrentRentAmount
+                ) vars
+
+                OUTER APPLY (
+                    SELECT 
+                        vars.PreviousBalanceRaw - vars.InterestAmount - vars.CurrentRentAmount AS FinalBalance
+                ) calc
+
                 WHERE c.client_id = @client_id;";
 
             SqlParameter[] parameters = [
@@ -366,7 +405,6 @@ namespace GuardeSoftwareAPI.Dao
                 filterParameters.Add(new SqlParameter("@StatusFilter", request.StatusFilter));
             }
 
-            // CORRECCIÓN 1: Agregar r.active = 1 para asegurar que el cliente tenga un alquiler VIGENTE en ese depósito
             if (request.WarehouseId.HasValue && request.WarehouseId.Value > 0)
             {
                 finalWhereClause.Append("AND Id IN (SELECT r.client_id FROM rentals r JOIN lockers l ON r.rental_id = l.rental_id WHERE l.warehouse_id = @WarehouseId AND r.active = 1) ");
@@ -374,15 +412,9 @@ namespace GuardeSoftwareAPI.Dao
             }
 
             string fullQuery = $@"
-                -- 1. Define the start of the current month for interest calculations
-                DECLARE @StartOfMonth DATE = DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1);
+                DECLARE @StartOfMonth DATETIME = DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1);
 
-                WITH ActiveRentals AS (
-                    SELECT rental_id, client_id 
-                    FROM rentals 
-                    WHERE active = 1
-                ),
-                CurrentRentCTE AS (
+                WITH CurrentRentalAmount AS (
                     SELECT 
                         h.rental_id,
                         h.amount AS CurrentRent
@@ -399,30 +431,16 @@ namespace GuardeSoftwareAPI.Dao
                     ) h
                     WHERE h.rn = 1
                 ),
-                AccountSummaryCTE AS (
+                AccountBucketsCTE AS (
                     SELECT 
                         r.client_id,
-                        -- Balance
-                        SUM(am.amount * CASE WHEN am.movement_type = 'DEBITO' THEN -1 ELSE 1 END) AS Balance,
-                        
-                        -- Previous Balance
-                        SUM(CASE 
-                            WHEN am.movement_date < @StartOfMonth THEN 
-                                am.amount * CASE WHEN am.movement_type = 'DEBITO' THEN -1 ELSE 1 END
-                            ELSE 0 
-                        END) AS PreviousBalance,
-                        
-                        -- Interests for overdue payments in the current month
-                        SUM(CASE 
-                            WHEN am.movement_type = 'DEBITO' 
-                            AND am.concept LIKE 'Interés por mora%' 
-                            AND am.movement_date >= @StartOfMonth 
-                            THEN am.amount 
-                            ELSE 0 
-                        END) AS InterestAmount
-
+                        SUM(CASE WHEN am.movement_type = 'CREDITO' THEN am.amount ELSE 0 END) AS TotalCredits,
+                        SUM(CASE WHEN am.movement_type = 'DEBITO' AND am.movement_date < @StartOfMonth AND am.concept NOT LIKE 'Interés%' THEN am.amount ELSE 0 END) AS OldNonIntDebits,
+                        SUM(CASE WHEN am.movement_type = 'DEBITO' AND am.concept LIKE 'Interés%' THEN am.amount ELSE 0 END) AS TotalIntDebits,
+                        SUM(CASE WHEN am.movement_type = 'DEBITO' AND am.movement_date >= @StartOfMonth AND am.concept NOT LIKE 'Interés%' THEN am.amount ELSE 0 END) AS MonthDebits,
+                        SUM(CASE WHEN am.movement_type = 'CREDITO' AND MONTH(am.movement_date) = MONTH(GETDATE()) AND YEAR(am.movement_date) = YEAR(GETDATE()) THEN 1 ELSE 0 END) AS PaymentsThisMonth
                     FROM rentals r
-                    JOIN account_movements am ON r.rental_id = am.rental_id
+                    LEFT JOIN account_movements am ON r.rental_id = am.rental_id
                     GROUP BY r.client_id
                 ),
                 ClientData AS (
@@ -434,10 +452,11 @@ namespace GuardeSoftwareAPI.Dao
                         first_phone.number AS Phone,
                         a.city AS City,
                         
-                        ISNULL(acc.PreviousBalance, 0) AS PreviousBalance,
-                        ISNULL(acc.InterestAmount, 0) AS InterestAmount,
-                        ISNULL(cr.CurrentRent, 0) AS CurrentRent,
-                        ISNULL(acc.Balance, 0) AS Balance,
+                        -- RESULTADOS DE LA CASCADA: Abono e Interés ahora son siempre POSITIVOS
+                        vars.PreviousBalanceRaw AS PreviousBalance,
+                        vars.InterestAmount,
+                        vars.CurrentRentAmount AS CurrentRent,
+                        calc.FinalBalance AS Balance,
                         
                         c.preferred_payment_method_id AS PreferredPaymentMethodId,
                         c.dni AS Document, 
@@ -447,7 +466,7 @@ namespace GuardeSoftwareAPI.Dao
                         CASE
                             WHEN c.active = 0 THEN 'Baja'
                             WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso N' + CAST(ISNULL(months_unpaid_sub.total_months_unpaid, 0) AS VARCHAR(10))
-                            WHEN ISNULL(acc.Balance, 0) >= 0 THEN 'Al día'
+                            WHEN (ISNULL(b.TotalCredits, 0) - (ISNULL(b.OldNonIntDebits, 0) + ISNULL(b.TotalIntDebits, 0) + ISNULL(b.MonthDebits, 0))) >= 0 THEN 'Al día'
                             ELSE 'Pendiente'
                         END AS Status
                     FROM 
@@ -456,11 +475,48 @@ namespace GuardeSoftwareAPI.Dao
                     OUTER APPLY ( SELECT TOP 1 p.number FROM phones p WHERE p.client_id = c.client_id AND p.active = 1 ORDER BY p.phone_id ) AS first_phone
                     LEFT JOIN addresses a ON c.client_id = a.client_id
                     
-                    LEFT JOIN ActiveRentals ar ON c.client_id = ar.client_id
-                    LEFT JOIN CurrentRentCTE cr ON ar.rental_id = cr.rental_id
-                    LEFT JOIN AccountSummaryCTE acc ON c.client_id = acc.client_id
+                    LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1
+                    LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
+                    LEFT JOIN AccountBucketsCTE b ON c.client_id = b.client_id
                     
-                    -- CORRECCIÓN 2: Asegurar que los lockers extraídos y agrupados en JSON provengan de un alquiler activo
+                    OUTER APPLY (
+                        SELECT 
+                            CASE WHEN ISNULL(b.TotalCredits, 0) < ISNULL(b.OldNonIntDebits, 0) 
+                                 THEN ISNULL(b.OldNonIntDebits, 0) - ISNULL(b.TotalCredits, 0) ELSE 0 END AS UnpaidOldNonInt,
+                            CASE WHEN ISNULL(b.TotalCredits, 0) > ISNULL(b.OldNonIntDebits, 0) 
+                                 THEN ISNULL(b.TotalCredits, 0) - ISNULL(b.OldNonIntDebits, 0) ELSE 0 END AS CreditsAfterOld
+                    ) wf1
+                    
+                    OUTER APPLY (
+                        SELECT
+                            CASE WHEN wf1.CreditsAfterOld < ISNULL(b.TotalIntDebits, 0)
+                                 THEN ISNULL(b.TotalIntDebits, 0) - wf1.CreditsAfterOld ELSE 0 END AS UnpaidInt,
+                            CASE WHEN wf1.CreditsAfterOld > ISNULL(b.TotalIntDebits, 0)
+                                 THEN wf1.CreditsAfterOld - ISNULL(b.TotalIntDebits, 0) ELSE 0 END AS CreditsAfterInt
+                    ) wf2
+
+                    OUTER APPLY (
+                        SELECT 
+                            CASE WHEN ISNULL(b.PaymentsThisMonth, 0) > 0 
+                                 THEN ISNULL(b.TotalCredits, 0) - (ISNULL(b.OldNonIntDebits, 0) + ISNULL(b.TotalIntDebits, 0) + ISNULL(b.MonthDebits, 0))
+                                 ELSE wf2.CreditsAfterInt - wf1.UnpaidOldNonInt
+                            END AS PreviousBalanceRaw,
+                            
+                            -- Valores SIEMPRE POSITIVOS
+                            CASE WHEN ISNULL(b.PaymentsThisMonth, 0) > 0 
+                                 THEN ISNULL(r.pending_surcharge, 0)
+                                 ELSE (wf2.UnpaidInt + ISNULL(r.pending_surcharge, 0))
+                            END AS InterestAmount,
+                            
+                            ISNULL(cr.CurrentRent, 0) AS CurrentRentAmount
+                    ) vars
+
+                    -- Como Interés y Abono ahora son positivos, se RESTAN para dar el Saldo Final (si el saldo final es deuda, será negativo)
+                    OUTER APPLY (
+                        SELECT 
+                            vars.PreviousBalanceRaw - vars.InterestAmount - vars.CurrentRentAmount AS FinalBalance
+                    ) calc
+
                     LEFT JOIN ( 
                         SELECT 
                             r.client_id, 

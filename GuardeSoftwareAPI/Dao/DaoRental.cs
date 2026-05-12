@@ -412,7 +412,7 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN LockerList ll ON r.rental_id = ll.rental_id
                 WHERE r.active = 1
                 AND (r.months_unpaid > 0 OR ISNULL(acc.Balance, 0) < 0)
-                Group By  c.payment_identifier, c.full_name, r.rental_id, r.client_id, r.increase_anchor_date, c.preferred_payment_method_id, r.months_unpaid, acc.Balance, cra.CurrentRent, ll.LockerIdentifiers, r.pending_surcharge;";
+                Group By c.payment_identifier, c.full_name, r.rental_id, r.client_id, r.increase_anchor_date, c.preferred_payment_method_id, r.months_unpaid, acc.Balance, cra.CurrentRent, ll.LockerIdentifiers, r.pending_surcharge;";
 
             return await accessDB.GetTableAsync("pending_rentals", query);
         }
