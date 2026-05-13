@@ -555,8 +555,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       this.totals.iaia += Number(item.iaia) || 0;
 
       const costoFila = (Number(item.depo) || 0) + 
-                        (Number(item.casa) || 0) + 
-                        (Number(item.iaia) || 0);
+                        (Number(item.casa) || 0);
 
       if (item.isPaid) {
         this.totals.pagado += costoFila;

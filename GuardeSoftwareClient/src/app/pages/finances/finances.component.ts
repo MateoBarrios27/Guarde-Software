@@ -465,16 +465,36 @@ export class FinancesComponent implements OnInit {
 
     if (!this.selectedClientIncreaseAnchorDate) return;
 
-    let baseDate = this.manualDateEnabled && this.dateString ? new Date(this.dateString) : new Date();
-    let anchorDate = new Date(this.selectedClientIncreaseAnchorDate);
+    // 1. EXTRACCIÓN SEGURA DE FECHA ANCLA (Evita bug de UTC-3)
+    const anchorString = this.selectedClientIncreaseAnchorDate.split('T')[0];
+    const [aYear, aMonth] = anchorString.split('-').map(Number);
+    
+    // 2. EXTRACCIÓN SEGURA DE FECHA BASE PAGA
+    let bYear: number, bMonth: number;
+    if (this.manualDateEnabled && this.dateString) {
+      const parts = this.dateString.split('-').map(Number);
+      bYear = parts[0];
+      bMonth = parts[1]; // 1-indexed (ej: Abril es 4)
+    } else {
+      const now = new Date();
+      bYear = now.getFullYear();
+      bMonth = now.getMonth() + 1; 
+    }
 
-    // Definimos cuántos meses está pagando
     let monthsToPay = (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) ? this.paymentDto.advanceMonths : 1;
 
     // 1. Verificamos si el aumento cae DENTRO de los meses que está pagando
     for (let i = 0; i < monthsToPay; i++) {
-      let mDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 1);
-      if (mDate.getFullYear() === anchorDate.getFullYear() && mDate.getMonth() === anchorDate.getMonth()) {
+      let currentMonth = bMonth + i;
+      let currentYear = bYear;
+      
+      // Ajuste por si cambiamos de año (ej: de Diciembre a Enero)
+      while (currentMonth > 12) {
+        currentMonth -= 12;
+        currentYear += 1;
+      }
+
+      if (currentYear === aYear && currentMonth === aMonth) {
         this.hasIncreaseInPeriod = true;
         break;
       }
@@ -482,10 +502,15 @@ export class FinancesComponent implements OnInit {
 
     // 2. Si NO cayó adentro, verificamos si el aumento cae EXACTAMENTE en el mes DESPUÉS del pago
     if (!this.hasIncreaseInPeriod) {
-      // Le sumamos a la fecha base la cantidad de meses que pagó para llegar al mes siguiente
-      let monthAfterPayment = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthsToPay, 1);
+      let nextMonth = bMonth + monthsToPay;
+      let nextYear = bYear;
       
-      if (anchorDate.getFullYear() === monthAfterPayment.getFullYear() && anchorDate.getMonth() === monthAfterPayment.getMonth()) {
+      while (nextMonth > 12) {
+        nextMonth -= 12;
+        nextYear += 1;
+      }
+
+      if (nextYear === aYear && nextMonth === aMonth) {
         this.isIncreaseNextMonth = true;
       }
     }
@@ -747,8 +772,26 @@ export class FinancesComponent implements OnInit {
 
     let currentRent = this.selectedClientRentAmount;
     let totalToPay = 0;
-    let baseDate = this.manualDateEnabled && this.dateString ? new Date(this.dateString) : new Date();
-    let anchorDate = this.selectedClientIncreaseAnchorDate ? new Date(this.selectedClientIncreaseAnchorDate) : null;
+    
+    // EXTRACCIÓN SEGURA DE FECHA BASE PAGA
+    let bYear: number, bMonth: number;
+    if (this.manualDateEnabled && this.dateString) {
+      const parts = this.dateString.split('-').map(Number);
+      bYear = parts[0];
+      bMonth = parts[1]; 
+    } else {
+      const now = new Date();
+      bYear = now.getFullYear();
+      bMonth = now.getMonth() + 1;
+    }
+
+    // EXTRACCIÓN SEGURA DE FECHA ANCLA
+    let aYear: number | null = null, aMonth: number | null = null;
+    if (this.selectedClientIncreaseAnchorDate) {
+      const parts = this.selectedClientIncreaseAnchorDate.split('T')[0].split('-').map(Number);
+      aYear = parts[0];
+      aMonth = parts[1];
+    }
 
     const currentMethodName = this.getNamePaymentMethodById(this.paymentDto.paymentMethodId).toLowerCase();
     const isEfectivo = currentMethodName.includes('efectivo');
@@ -761,15 +804,25 @@ export class FinancesComponent implements OnInit {
         let rentForThisMonth = currentRent;
 
         // --- SUMA DEL INTERÉS GENERADO ---
-        // Si es el segundo mes que está pagando y tiene algo en la bolsa de intereses
         if (i === 1 && this.selectedPendingSurcharge > 0) {
           rentForThisMonth += this.selectedPendingSurcharge;
         }
 
-        // Aumento programado
-        if (anchorDate) {
-          let currentMonthDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 1);
-          if (currentMonthDate >= new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1)) {
+        // --- AUMENTO PROGRAMADO ---
+        if (aYear !== null && aMonth !== null) {
+          let currentLoopMonth = bMonth + i;
+          let currentLoopYear = bYear;
+          
+          while (currentLoopMonth > 12) {
+            currentLoopMonth -= 12;
+            currentLoopYear += 1;
+          }
+
+          // Matemática para comparar fechas fácilmente (ej: 202607 >= 202607)
+          let loopDateNum = currentLoopYear * 100 + currentLoopMonth;
+          let anchorDateNum = aYear * 100 + aMonth;
+
+          if (loopDateNum >= anchorDateNum) {
             if (this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
               rentForThisMonth += currentRent * (this.paymentDto.increasePercentage / 100);
             }

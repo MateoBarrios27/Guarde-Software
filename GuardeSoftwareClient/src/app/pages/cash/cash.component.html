@@ -448,8 +448,8 @@
 
       </div>
 
-      <div class="relative">
-        <table class="w-full text-sm text-left border-collapse">
+      <div class="relative w-full overflow-x-auto pb-2 custom-scrollbar">
+        <table class="w-full min-w-[1100px] text-sm text-left border-collapse">
           <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b">
             <tr>
               <th class="w-6 bg-gray-50"></th> 
@@ -693,37 +693,41 @@
                   </div>
 
                   <span class="text-xs uppercase tracking-wider text-gray-500 text-right">
-                    Totales Columna:
+                    Totales:
                   </span>
                   
                 </div>
               </td>
               
-              <td class="px-2 py-3 text-right text-blue-700 whitespace-nowrap align-middle">
+              <td class="px-2 py-3 text-center text-blue-700 whitespace-nowrap align-middle">
+                 <div class="text-[10px] uppercase tracking-wider text-blue-500/80 font-bold mb-0.5">Depo</div>
                  <div class="text-base font-bold">$ {{ totals.depo | number:'1.2-2' }}</div>
                  <div class="text-[10px] text-blue-500/80 font-medium mt-0.5">≈ U$D {{ (totals.depo / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
               
-              <td class="px-2 py-3 text-right text-orange-700 whitespace-nowrap align-middle">
+              <td class="px-2 py-3 text-center text-orange-700 whitespace-nowrap align-middle">
+                 <div class="text-[10px] uppercase tracking-wider text-orange-500/80 font-bold mb-0.5">Casa</div>
                  <div class="text-base font-bold">$ {{ totals.casa | number:'1.2-2' }}</div>
                  <div class="text-[10px] text-orange-500/80 font-medium mt-0.5">≈ U$D {{ (totals.casa / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
               
-              <td class="px-2 py-3 text-right text-gray-700 whitespace-nowrap align-middle">
+              <td class="px-2 py-3 text-center text-gray-700 whitespace-nowrap align-middle">
+                 <div class="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-0.5">Retiros</div>
                  <div class="text-base font-bold">$ {{ totals.retiros | number:'1.2-2' }}</div>
                  <div class="text-[10px] text-gray-500 font-medium mt-0.5">≈ U$D {{ (totals.retiros / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
 
-              <td class="px-2 py-3 text-right text-green-700 whitespace-nowrap align-middle">
+              <td class="px-2 py-3 text-center text-green-700 whitespace-nowrap align-middle">
+                 <div class="text-[10px] uppercase tracking-wider text-green-600/80 font-bold mb-0.5">Iaia</div>
                  <div class="text-base font-bold">$ {{ totals.iaia | number:'1.2-2' }}</div>
                  <div class="text-[10px] text-green-500/80 font-medium mt-0.5">≈ U$D {{ (totals.iaia / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
               
               <td class="px-2 py-3 text-center text-green-700 whitespace-nowrap align-middle">
+                 <div class="text-[10px] uppercase tracking-wider text-green-600/80 font-bold mb-0.5">Pagado</div>
                  <div class="text-base font-bold">$ {{ totals.pagado | number:'1.2-2' }}</div>
                  <div class="text-[10px] text-green-500/80 font-medium mt-0.5">≈ U$D {{ (totals.pagado / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </td>
-
               
               <td colspan="2"></td>
             </tr>
