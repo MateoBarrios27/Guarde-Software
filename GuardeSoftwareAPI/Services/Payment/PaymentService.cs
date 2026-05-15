@@ -9,6 +9,7 @@ using GuardeSoftwareAPI.Services.rental;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
 using GuardeSoftwareAPI.Services.paymentMethod;
 using Microsoft.Data.SqlClient;
+using System.Globalization;
 
 namespace GuardeSoftwareAPI.Services.payment
 {
@@ -22,6 +23,7 @@ namespace GuardeSoftwareAPI.Services.payment
 		private readonly DaoRental daoRental;
 		private readonly IRentalAmountHistoryService rentalAmountHistoryService;
 		private readonly IPaymentMethodService paymentMethodService;
+        private readonly DaoClientMonthBalance _daoMonthBalance;
 		private readonly AccessDB accessDB;
 
 		public PaymentService(AccessDB _accessDB, IAccountMovementService _accountMovementService, ILogger<PaymentService> logger, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, IPaymentMethodService _paymentMethodService)
@@ -34,6 +36,7 @@ namespace GuardeSoftwareAPI.Services.payment
 			this.paymentMethodService = _paymentMethodService;
 			this.rentalService = _rentalService;
 			this.rentalAmountHistoryService = _rentalAmountHistoryService;
+			this._daoMonthBalance = new DaoClientMonthBalance(_accessDB);
 		}
 
 		public async Task<List<Payment>> GetPaymentsList()
@@ -110,180 +113,196 @@ namespace GuardeSoftwareAPI.Services.payment
 
 
 		public async Task<bool> CreatePaymentWithMovementAsync(CreatePaymentTransaction dto)
+{
+    if (dto == null) throw new ArgumentNullException(nameof(dto), "DTO cannot be null.");
+    if (dto.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
+    if (dto.Amount < 0) throw new ArgumentException("Amount must be greater than 0.");
+
+    using var connection = accessDB.GetConnectionClose();
+    await connection.OpenAsync();
+    using var transaction = connection.BeginTransaction();
+
+    try
+    {
+        // 1. OBTENEMOS DATOS BASE Y CREAMOS EL PAGO GENERAL
+        int paymentId = await _daoPayment.CreatePaymentTransactionAsync(new Payment
         {
-            if (dto == null) throw new ArgumentNullException(nameof(dto), "DTO cannot be null.");
-            if (dto.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
-            if (dto.PaymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
-            if (dto.Amount < 0) throw new ArgumentException("Amount must be greater than 0.");
-            if (dto.Date == DateTime.MinValue) throw new ArgumentException("Invalid date.");
-            if (dto.IsAdvancePayment)
+            ClientId = dto.ClientId, PaymentMethodId = dto.PaymentMethodId, Amount = dto.Amount, PaymentDate = dto.Date
+        }, connection, transaction);
+
+        var rental = await rentalService.GetRentalByClientIdTransactionAsync(dto.ClientId, connection, transaction);
+        if (rental == null) throw new Exception("El cliente no tiene alquiler activo");
+
+        int monthsToCover = (dto.IsAdvancePayment && dto.AdvanceMonths.HasValue && dto.AdvanceMonths.Value > 0) ? dto.AdvanceMonths.Value : 1;
+        decimal currentRent = (decimal)rental.CurrentAmount;
+
+        // --- LÓGICA DE AUMENTO Y CONGELAMIENTO ---
+        bool isPriceLocked = dto.IsAdvancePayment && monthsToCover >= 6;
+        if (isPriceLocked)
+        {
+            DateTime lockEndDate = dto.Date.Date.AddMonths(monthsToCover);
+            if (!rental.PriceLockEndDate.HasValue || lockEndDate > rental.PriceLockEndDate.Value.Date)
+                await daoRental.UpdatePriceLockEndDateTransactionAsync(rental.Id, lockEndDate, connection, transaction);
+        }
+        else if (dto.IncreasePercentage.HasValue && dto.IncreasePercentage.Value > 0)
+        {
+            currentRent = currentRent + (currentRent * (dto.IncreasePercentage.Value / 100m));
+            int clientPaymentMethodId = await paymentMethodService.GetPaymentMethodIdByClientId(rental.ClientId);
+            if (clientPaymentMethodId == 1) currentRent = RoundToNearest1000(currentRent); 
+
+            var lastHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(rental.Id, connection, transaction);
+            if (lastHistory != null)
+                await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastHistory.Id, rental.Id, currentRent, dto.Date, connection, transaction);
+        }
+
+        // --- 2. INSERCIÓN DE CRÉDITO Y COMISIONES EN MOVIMIENTOS ---
+        await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement { RentalId = rental.Id, PaymentId = paymentId, MovementDate = dto.Date, MovementType = "CREDITO", Concept = dto.Concept ?? "Pago de alquiler", Amount = dto.Amount }, connection, transaction);
+
+        if (dto.CommissionAmount.HasValue && dto.CommissionAmount.Value != 0)
+        {
+            await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement { RentalId = rental.Id, PaymentId = paymentId, MovementDate = dto.Date, MovementType = dto.CommissionAmount.Value > 0 ? "DEBITO" : "CREDITO", Concept = dto.CommissionConcept ?? "Ajuste de pago", Amount = Math.Abs(dto.CommissionAmount.Value) }, connection, transaction);
+        }
+
+        // ==============================================================================
+        // --- 3. LA CASCADA: DISTRIBUCIÓN DEL DINERO Y RECALCULO DE SALDOS ANTERIORES
+        // ==============================================================================
+        decimal moneyInHand = dto.Amount;
+        DateTime currentRealMonth = new DateTime(dto.Date.Year, dto.Date.Month, 1);
+
+        var existingMonths = new List<ClientMonthBalance>();
+        string selectQuery = "SELECT id, month_year, previous_balance, interests, monthly_debits, balance, paid, advanced_payment FROM client_month_balances WHERE rental_id = @rental_id ORDER BY id ASC";
+        using (var cmdSelect = new SqlCommand(selectQuery, connection, transaction))
+        {
+            cmdSelect.Parameters.AddWithValue("@rental_id", rental.Id);
+            using (var reader = await cmdSelect.ExecuteReaderAsync())
             {
-                if (!dto.AdvanceMonths.HasValue || dto.AdvanceMonths.Value < 1)
-                    throw new ArgumentException("AdvanceMonths must be >= 1 when IsAdvancePayment is true.");
-            }
-
-            using var connection = accessDB.GetConnectionClose();
-            await connection.OpenAsync();
-            using var transaction = connection.BeginTransaction();
-
-            try
-            {
-                decimal initialBalance = await daoRental.GetBalanceByRentalIdTransactionAsync(dto.ClientId, connection, transaction);
-
-                var payment = new Payment
+                while (await reader.ReadAsync())
                 {
-                    ClientId = dto.ClientId,
-                    PaymentMethodId = dto.PaymentMethodId,
-                    Amount = dto.Amount,
-                    PaymentDate = dto.Date 
-                };
-
-                int paymentId = await _daoPayment.CreatePaymentTransactionAsync(payment, connection, transaction);
-
-                var rental = await rentalService.GetRentalByClientIdTransactionAsync(dto.ClientId, connection, transaction);
-                if (rental == null) throw new Exception("El cliente no tiene alquiler activo");
-
-                bool isPriceLocked = dto.IsAdvancePayment && dto.AdvanceMonths.HasValue && dto.AdvanceMonths.Value >= 6;
-
-                // --- REGLA DE CONGELAMIENTO (6 meses o más) ---
-                if (isPriceLocked)
-                {
-                    DateTime lockEndDate = dto.Date.Date.AddMonths(dto.AdvanceMonths.Value);
-                    if (!rental.PriceLockEndDate.HasValue || lockEndDate > rental.PriceLockEndDate.Value.Date)
-                    {
-                        await daoRental.UpdatePriceLockEndDateTransactionAsync(rental.Id, lockEndDate, connection, transaction);
-                        rental.PriceLockEndDate = lockEndDate;
-                    }
+                    existingMonths.Add(new ClientMonthBalance {
+                        Id = reader.GetInt32(0), MonthYear = reader.GetString(1), PreviousBalance = reader.GetDecimal(2),
+                        Interests = reader.GetDecimal(3), MonthlyDebits = reader.GetDecimal(4), Balance = reader.GetDecimal(5),
+                        Paid = reader.GetDecimal(6), AdvancedPayment = reader.GetDecimal(7)
+                    });
                 }
-                // --- REGLA DEL MES SIGUIENTE (Aumento) ---
-                else if (dto.IncreasePercentage.HasValue && dto.IncreasePercentage.Value > 0)
-                {
-                    decimal nuevoAbono = (decimal)(rental.CurrentAmount + (rental.CurrentAmount * (dto.IncreasePercentage.Value / 100m)));
-                    int clientPaymentMethodId = await paymentMethodService.GetPaymentMethodIdByClientId(rental.ClientId);
-                    
-                    if (clientPaymentMethodId == 1) nuevoAbono = RoundToNearest1000(nuevoAbono);
-
-                    var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(rental.Id, connection, transaction);
-                    if (lastAmountHistory != null)
-                    {
-                        await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(
-                            lastAmountHistory.Id, rental.Id, nuevoAbono, DateTime.Now, connection, transaction);
-                    }
-
-                    if (rental.IncreaseAnchorDate.HasValue)
-                    {
-                        DateTime proximoAumento = rental.IncreaseAnchorDate.Value.AddMonths(3); 
-                        await rentalService.UpdateIncreaseAnchorDateTransactionAsync(rental.Id, proximoAumento, connection, transaction);
-                    }
-                }
-
-                // --- INSERCIÓN DEL PAGO (CRÉDITO) ---
-                var movement = new AccountMovement
-                {
-                    RentalId = rental.Id,
-                    PaymentId = paymentId, 
-                    MovementDate = dto.Date,
-                    MovementType = "CREDITO",
-                    Concept = string.IsNullOrWhiteSpace(dto.Concept) ? "Pago de alquiler" : dto.Concept,
-                    Amount = dto.Amount 
-                };
-                await accountMovementService.CreateAccountMovementTransactionAsync(movement, connection, transaction);
-
-                // Dentro de CreatePaymentWithMovementAsync, después del crédito del pago:
-				if (rental.PendingSurcharge > 0)
-				{
-					var surchargeMovement = new AccountMovement
-					{
-						RentalId = rental.Id,
-						PaymentId = paymentId,
-						MovementDate = dto.Date,
-						MovementType = "DEBITO",
-						Concept = "Interés por mora",
-						Amount = (decimal)rental.PendingSurcharge
-					};
-					await accountMovementService.CreateAccountMovementTransactionAsync(surchargeMovement, connection, transaction);
-					await daoRental.ResetPendingSurchargeTransactionAsync(rental.Id, connection, transaction);
-				}
-
-                // --- INSERCIÓN DE DÉBITOS POR MESES ADELANTADOS ---
-                if (dto.IsAdvancePayment && dto.AdvanceMonths.HasValue && dto.AdvanceMonths.Value > 0)
-                {
-                    decimal currentRentBase = (decimal)rental.CurrentAmount;
-                    string[] monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-
-                    for (int i = 0; i < dto.AdvanceMonths.Value; i++)
-                    {
-                        DateTime targetMonthDate = dto.Date.AddMonths(i);
-                        string monthName = monthNames[targetMonthDate.Month - 1];
-                        string targetConcept = $"Alquiler {monthName} {targetMonthDate.Year}";
-
-                        if (await accountMovementService.IsDebitAlreadyCreatedAsync(rental.Id, targetConcept, connection, transaction)) continue;
-
-                        decimal amountToDebit = 0;
-                        if (i == 0)
-                        {
-                            amountToDebit = initialBalance < 0 ? Math.Abs(initialBalance) : currentRentBase;
-                        }
-                        else
-                        {
-                            amountToDebit = currentRentBase;
-                            
-                            // Aumento programado
-                            if (!isPriceLocked && rental.IncreaseAnchorDate.HasValue && dto.IncreasePercentage.HasValue && dto.IncreasePercentage.Value > 0)
-                            {
-                                if (new DateTime(targetMonthDate.Year, targetMonthDate.Month, 1) >= 
-                                    new DateTime(rental.IncreaseAnchorDate.Value.Year, rental.IncreaseAnchorDate.Value.Month, 1))
-                                {
-                                    amountToDebit += currentRentBase * (dto.IncreasePercentage.Value / 100m);
-                                }
-                            }
-                            if (dto.PaymentMethodId == 1) amountToDebit = RoundToNearest1000(amountToDebit);
-                        }
-
-                        var debitMovement = new AccountMovement
-                        {
-                            RentalId = rental.Id,
-                            PaymentId = paymentId,
-                            MovementDate = new DateTime(targetMonthDate.Year, targetMonthDate.Month, 1),
-                            MovementType = "DEBITO",
-                            Concept = targetConcept,
-                            Amount = amountToDebit
-                        };
-
-                        await accountMovementService.CreateAccountMovementTransactionAsync(debitMovement, connection, transaction);
-                    }
-                }
-
-                // --- COMISIONES / RECARGOS ---
-                if (dto.CommissionAmount.HasValue && dto.CommissionAmount.Value != 0)
-                {
-                    var commMovement = new AccountMovement
-                    {
-                        RentalId = rental.Id,
-                        PaymentId = paymentId, 
-                        MovementDate = dto.Date,
-                        MovementType = dto.CommissionAmount.Value > 0 ? "DEBITO" : "CREDITO",
-                        Concept = dto.CommissionConcept ?? "Ajuste por método de pago",
-                        Amount = Math.Abs(dto.CommissionAmount.Value) 
-                    };
-                    await accountMovementService.CreateAccountMovementTransactionAsync(commMovement, connection, transaction);
-                }
-
-                decimal finalBalance = await daoRental.GetBalanceByRentalIdTransactionAsync(rental.Id, connection, transaction);
-                if (finalBalance >= 0)
-                {
-                    await daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
-                }
-
-                await transaction.CommitAsync();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                throw;
             }
         }
+
+        decimal rolledOverDebt = 0;
+
+        for (int i = 0; i < existingMonths.Count; i++)
+        {
+            var month = existingMonths[i];
+
+            // A. Recalculamos el Saldo Anterior: Si el mes pasado se saldó, la deuda se vuelve 0 en cascada.
+            if (i > 0) 
+            {
+                month.PreviousBalance = rolledOverDebt;
+                month.Balance = month.PreviousBalance + month.Interests + month.MonthlyDebits;
+
+                string updBal = "UPDATE client_month_balances SET previous_balance = @pb, balance = @b WHERE id = @id";
+                using var cmdBal = new SqlCommand(updBal, connection, transaction);
+                cmdBal.Parameters.AddWithValue("@pb", month.PreviousBalance);
+                cmdBal.Parameters.AddWithValue("@b", month.Balance);
+                cmdBal.Parameters.AddWithValue("@id", month.Id);
+                await cmdBal.ExecuteNonQueryAsync();
+            }
+
+            // B. ¿Cuánto debe realmente este mes?
+            decimal owes = month.Balance - (month.Paid + month.AdvancedPayment);
+
+            // C. Pagamos si tenemos plata
+            if (owes > 0 && moneyInHand > 0)
+            {
+                decimal applied = Math.Min(moneyInHand, owes);
+                DateTime rowMonth = DateTime.ParseExact(month.MonthYear, "MM/yyyy", null);
+                
+                // Si el pago se hace en un mes igual o posterior al de la tabla, es Paid. Sino, Advanced.
+                string colToUpdate = (rowMonth > currentRealMonth) ? "advanced_payment" : "paid";
+                
+                string updPaid = $"UPDATE client_month_balances SET {colToUpdate} = {colToUpdate} + @app WHERE id = @id";
+                using var cmdPaid = new SqlCommand(updPaid, connection, transaction);
+                cmdPaid.Parameters.AddWithValue("@app", applied);
+                cmdPaid.Parameters.AddWithValue("@id", month.Id);
+                await cmdPaid.ExecuteNonQueryAsync();
+
+                if (colToUpdate == "paid") month.Paid += applied; else month.AdvancedPayment += applied;
+                moneyInHand -= applied;
+            }
+
+            // D. La deuda que sobra pasa al mes siguiente
+            rolledOverDebt = month.Balance - (month.Paid + month.AdvancedPayment);
+        }
+
+        // ==============================================================================
+        // --- 4. GENERAMOS EL FUTURO (Adelantos o Proyección de Próximo Pago)
+        // ==============================================================================
+        string lastMonthStr = existingMonths.Last().MonthYear;
+        DateTime lastGeneratedDate = DateTime.ParseExact(lastMonthStr, "MM/yyyy", null);
+        decimal lastMonthDebt = rolledOverDebt;
+        
+        // Solo entramos al bucle si sobra plata O si el último mes quedó en $0 (y necesitamos proyectar 1 mes)
+        while (moneyInHand > 0 || lastMonthDebt <= 0)
+        {
+            lastGeneratedDate = lastGeneratedDate.AddMonths(1);
+            string newMonthStr = lastGeneratedDate.ToString("MM/yyyy");
+
+            // 1. Creamos el ticket físico en account_movements
+            var culture = new CultureInfo("es-AR");
+            string monthName = culture.DateTimeFormat.GetMonthName(lastGeneratedDate.Month);
+            string conceptDebit = $"Alquiler {CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName)} {lastGeneratedDate.Year}";
+
+            if (!await accountMovementService.IsDebitAlreadyCreatedAsync(rental.Id, conceptDebit, connection, transaction))
+            {
+                await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement {
+                    RentalId = rental.Id, PaymentId = paymentId, MovementDate = dto.Date,
+                    MovementType = "DEBITO", Concept = conceptDebit, Amount = currentRent
+                }, connection, transaction);
+            }
+
+            // 2. Calculamos los saldos de este nuevo mes
+            decimal prevBalForThisNewMonth = lastMonthDebt > 0 ? lastMonthDebt : 0m;
+            decimal intsForThisNewMonth = 0m; // La mora se limpia al pagar
+            decimal totalOwedThisNewMonth = prevBalForThisNewMonth + intsForThisNewMonth + currentRent;
+
+            // 3. Aplicamos la plata
+            decimal bucketSize = Math.Max(currentRent, totalOwedThisNewMonth);
+            decimal applied = Math.Min(moneyInHand, bucketSize);
+
+            // 4. Insertamos la fila en el Excel
+            await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance {
+                RentalId = rental.Id,
+                MonthYear = newMonthStr,
+                PreviousBalance = prevBalForThisNewMonth,
+                Interests = intsForThisNewMonth,
+                MonthlyDebits = currentRent,
+                Paid = 0m,
+                AdvancedPayment = applied
+            }, connection, transaction);
+
+            moneyInHand -= applied;
+            lastMonthDebt = totalOwedThisNewMonth - applied;
+
+            // FRENO DE MANO: Si nos quedamos sin plata, Y el mes que acabamos de crear quedó con deuda, CORTAMOS.
+            // Esto evita que se cree "Agosto" cuando "Julio" todavía debe 70.000.
+            if (moneyInHand <= 0 && lastMonthDebt > 0) break;
+            
+            // Si nos quedamos sin plata, pero lastMonthDebt es 0, cortamos también (ya proyectamos el mes vacío)
+            if (moneyInHand <= 0 && lastMonthDebt <= 0) break;
+        }
+
+        // --- 5. LIMPIEZA DE MORA ---
+        await daoRental.ResetPendingSurchargeTransactionAsync(rental.Id, connection, transaction);
+        await daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
+
+        await transaction.CommitAsync();
+        return true;
+    }
+    catch (Exception ex)
+    {
+        await transaction.RollbackAsync();
+        throw;
+    }
+}
 
         private async Task<bool> IsDebitAlreadyCreatedAsync(int id, string targetConcept, SqlConnection connection, SqlTransaction transaction)
         {

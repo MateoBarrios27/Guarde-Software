@@ -39,6 +39,7 @@ namespace GuardeSoftwareAPI.Services.client
         private readonly ILogger<ClientService> _logger;
         private readonly IAccountMovementService accountMovementService;
         private readonly DaoRentalSpaceRequest _daoRentalSpaceRequest;
+        private readonly DaoClientMonthBalance _daoMonthBalance;
         private readonly AccessDB accessDB;
 
         public ClientService(AccessDB _accessDB, ILogger<ClientService> logger, IAccountMovementService _accountMovementService, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, ILockerService _lockerService, IActivityLogService _activityLogService, IEmailService _emailService, IPhoneService _phoneService, IAddressService _addressService)
@@ -55,6 +56,7 @@ namespace GuardeSoftwareAPI.Services.client
             accountMovementService = _accountMovementService;
             _logger = logger;
             _daoRentalSpaceRequest = new DaoRentalSpaceRequest(_accessDB);
+            _daoMonthBalance = new DaoClientMonthBalance(_accessDB);
         }
 
         public async Task<List<Client>> GetClientsList()
@@ -261,24 +263,20 @@ namespace GuardeSoftwareAPI.Services.client
                             }
                             
                             await lockerService.AssignLockersToRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
-                            
                             await daoClient.OpenLockerHistoryTransactionAsync(newClientId, dto.LockerIds, connection, transaction);
                         }
 
                         // 5. Crear Historial de Monto(s)
-                        // 5. Crear Historial de Monto(s)
                         if (dto.IsLegacyClient)
                         {
-                            // Arranca en su fecha histórica con el monto inicial o actual. SIEMPRE ABIERTO.
                             await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
                             {
                                 RentalId = rentalId,
                                 Amount = dto.LegacyInitialAmount ?? dto.Amount,
                                 StartDate = startDate, 
-                                EndDate = null // NUNCA se pre-cierra
+                                EndDate = null 
                             }, connection, transaction);
                             
-                            // Si el monto de hoy es distinto al inicial histórico, aplicamos el cambio a la hora actual
                             if (dto.Amount != (dto.LegacyInitialAmount ?? dto.Amount))
                             {
                                 var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(rentalId, connection, transaction);
@@ -299,45 +297,88 @@ namespace GuardeSoftwareAPI.Services.client
                             }, connection, transaction);
                         }
 
+                        // ====================================================================================
+                        // 6. MOVIMIENTOS INICIALES Y CREACIÓN DEL ESTADO DE CUENTA MENSUAL
+                        // ====================================================================================
+                        
+                        var culture = new CultureInfo("es-AR");
+                        string currentMonthStr = startDate.ToString("MM/yyyy");
 
-                        // Initial Account Movement
                         if (dto.IsLegacyClient)
                         {
+                            string monthName = culture.DateTimeFormat.GetMonthName(startDate.Month);
+                            string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName);
+
+                            await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
+                            {
+                                RentalId = rentalId,
+                                MovementDate = startDate,
+                                MovementType = "DEBITO",
+                                Concept = $"Alquiler {monthTitle} {startDate.Year}",
+                                Amount = dto.Amount,
+                                PaymentId = null
+                            }, connection, transaction);
+
+                            decimal legacyPrevBalance = dto.LegacyInitialAmount ?? 0m; 
+                            decimal paidAmount = 0m;
+
                             if (dto.PrepaidMonths > 0 && dto.Amount > 0)
                             {
-                                decimal totalCreditAmount = dto.PrepaidMonths * dto.Amount;
+                                paidAmount = dto.PrepaidMonths * dto.Amount;
                                 await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
                                 {
                                     RentalId = rentalId,
                                     MovementDate = startDate,
                                     MovementType = "CREDITO",
                                     Concept = $"Crédito inicial por {dto.PrepaidMonths} {(dto.PrepaidMonths == 1 ? "mes" : "meses")} pagados",
-                                    Amount = totalCreditAmount
+                                    Amount = paidAmount
                                 }, connection, transaction);
                             }
+
+                            // A. Crear la fila mensual Legacy (1 SOLA FILA)
+                            await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance
+                            {
+                                RentalId = rentalId,
+                                MonthYear = currentMonthStr,
+                                PreviousBalance = legacyPrevBalance,
+                                Interests = 0m,
+                                MonthlyDebits = dto.Amount,
+                                Paid = paidAmount,
+                                AdvancedPayment = 0m
+                            }, connection, transaction);
                         }
                         else
                         {
-                            var culture = new CultureInfo("es-AR");
-                            
                             if (startDate.Day < 10)
                             {
                                 string monthName = culture.DateTimeFormat.GetMonthName(startDate.Month);
                                 string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName);
-                                string concept = $"Alquiler {monthTitle} {startDate.Year}";
 
                                 await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
                                 {
                                     RentalId = rentalId,
                                     MovementDate = startDate,
                                     MovementType = "DEBITO",
-                                    Concept = concept,
+                                    Concept = $"Alquiler {monthTitle} {startDate.Year}",
                                     Amount = dto.Amount,
                                     PaymentId = null
+                                }, connection, transaction);
+
+                                // B1. Fila de mes actual Puro (1 SOLA FILA)
+                                await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance
+                                {
+                                    RentalId = rentalId,
+                                    MonthYear = currentMonthStr,
+                                    PreviousBalance = 0m,
+                                    Interests = 0m,
+                                    MonthlyDebits = dto.Amount,
+                                    Paid = 0m,
+                                    AdvancedPayment = 0m
                                 }, connection, transaction);
                             }
                             else
                             {
+                                // --- EL CASO QUE FALLÓ ANTES: DESPUÉS DEL DÍA 10 ---
                                 int daysInMonth = DateTime.DaysInMonth(startDate.Year, startDate.Month);
                                 int daysToCharge = daysInMonth - startDate.Day; 
                                 decimal dailyRate = dto.Amount / daysInMonth;
@@ -346,38 +387,53 @@ namespace GuardeSoftwareAPI.Services.client
 
                                 string currentMonthName = culture.DateTimeFormat.GetMonthName(startDate.Month);
                                 string currentMonthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(currentMonthName);
-                                string conceptProportional = $"Alquiler {currentMonthTitle} {startDate.Year} (Proporcional {daysToCharge} días)";
 
+                                // Movimiento Diario: Proporcional (Mayo)
                                 await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
                                 {
                                     RentalId = rentalId,
                                     MovementDate = startDate,
                                     MovementType = "DEBITO",
-                                    Concept = conceptProportional,
+                                    Concept = $"Alquiler {currentMonthTitle} {startDate.Year} (Proporcional {daysToCharge} días)",
                                     Amount = debitAmountProportional,
                                     PaymentId = null
                                 }, connection, transaction);
 
+                                // Movimiento Diario: Mes Completo (Junio)
                                 DateTime nextMonthDate = startDate.AddMonths(1);
                                 string nextMonthName = culture.DateTimeFormat.GetMonthName(nextMonthDate.Month);
                                 string nextMonthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(nextMonthName);
-                                string conceptNextFull = $"Alquiler {nextMonthTitle} {nextMonthDate.Year}";
 
                                 await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
                                 {
                                     RentalId = rentalId,
-                                    MovementDate = startDate,
+                                    MovementDate = startDate, 
                                     MovementType = "DEBITO",
-                                    Concept = conceptNextFull,
+                                    Concept = $"Alquiler {nextMonthTitle} {nextMonthDate.Year}",
                                     Amount = dto.Amount,
                                     PaymentId = null
+                                }, connection, transaction);
+
+                                // B2. EL EXCEL (LA TABLA QUE VOS VES): 
+                                // ¡UNA SOLA PUTA FILA! Creada para JUNIO. 
+                                // Saldo Anterior = Proporcional. Abono = Cuota.
+                                await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance
+                                {
+                                    RentalId = rentalId,
+                                    MonthYear = nextMonthDate.ToString("MM/yyyy"), // ESTO AHORA ES JUNIO
+                                    PreviousBalance = debitAmountProportional,     // ACÁ VA EL PROPORCIONAL
+                                    Interests = 0m,
+                                    MonthlyDebits = dto.Amount,                    // LA CUOTA INTACTA (100.000)
+                                    Paid = 0m,
+                                    AdvancedPayment = 0m
                                 }, connection, transaction);
                             }
                         }
 
+                        // (Emails, Phones, etc...)
                         foreach (string email in dto.Emails)
                         {
-                            if (!email.IsNullOrWhiteSpace())
+                            if (!string.IsNullOrWhiteSpace(email))
                             {
                                 Email emailEntity = new()
                                 {
@@ -402,12 +458,10 @@ namespace GuardeSoftwareAPI.Services.client
                                         Type = "",
                                         Whatsapp = phone.Whatsapp
                                     };
-
                                     await phoneService.CreatePhoneTransaction(phoneEntity, connection, transaction);
                                 }
                             }
                         }
-
 
                         Address address = new()
                         {

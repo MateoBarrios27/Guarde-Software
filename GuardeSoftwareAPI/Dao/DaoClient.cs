@@ -220,18 +220,6 @@ namespace GuardeSoftwareAPI.Dao
                         SELECT rental_id, amount, ROW_NUMBER() OVER (PARTITION BY rental_id ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC) as rn
                         FROM rental_amount_history WHERE start_date <= GETDATE()
                     ) h WHERE h.rn = 1
-                ),
-                AccountMovementsAgg AS (
-                    SELECT 
-                        r.client_id,
-                        SUM(CASE WHEN am.movement_type = 'CREDITO' THEN am.amount ELSE 0 END) AS TotalCredits,
-                        SUM(CASE WHEN am.movement_type = 'DEBITO' AND am.concept NOT LIKE '%Interés%' THEN am.amount ELSE 0 END) AS TotalRentDebits,
-                        SUM(CASE WHEN am.movement_type = 'DEBITO' AND am.concept LIKE '%Interés%' THEN am.amount ELSE 0 END) AS TotalIntDebits,
-                        SUM(CASE WHEN am.movement_type = 'CREDITO' AND MONTH(am.movement_date) = MONTH(GETDATE()) AND YEAR(am.movement_date) = YEAR(GETDATE()) THEN 1 ELSE 0 END) AS PaymentsThisMonth,
-                        MAX(CASE WHEN am.movement_type = 'DEBITO' AND am.concept NOT LIKE '%Interés%' THEN am.movement_date END) AS LastRentalDebitDate
-                    FROM rentals r
-                    LEFT JOIN account_movements am ON r.rental_id = am.rental_id
-                    GROUP BY r.client_id
                 )
                 SELECT 
                     c.client_id, c.payment_identifier, c.full_name, c.registration_date,
@@ -242,19 +230,19 @@ namespace GuardeSoftwareAPI.Dao
                     bt.billing_type_id, bt.name AS billing_type,
                     r.contracted_m3, r.increase_anchor_date, r.months_unpaid, r.occupied_spaces,
                     
-                    vars.CurrentRentAmount AS rent_amount,
-                    finalCalc.FinalBalance AS balance,
-                    ISNULL(am_agg.TotalCredits, 0) AS total_paid,
+                    step1.UI_CurrentRent AS rent_amount,
+                    step1.UI_Balance AS balance,
+                    db.PaidDB AS total_paid,
                     
                     CASE 
-                        WHEN am_agg.LastRentalDebitDate IS NOT NULL THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(am_agg.LastRentalDebitDate), MONTH(am_agg.LastRentalDebitDate), 10))
-                        ELSE DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
+                        WHEN (db.BalDB - db.PaidDB) <= 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
+                        ELSE DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10)
                     END AS next_payment_day,
 
                     CASE 
                         WHEN c.active = 0 THEN 'Baja'
                         WHEN ISNULL(r.months_unpaid, 0) >= 1 THEN 'Moroso Nivel ' + CAST(ISNULL(r.months_unpaid, 0) AS VARCHAR(10))
-                        WHEN step3.LedgerBalance >= 0 THEN 'Al día'
+                        WHEN (db.BalDB - db.PaidDB) <= 0 THEN 'Al día'
                         ELSE 'Pendiente'
                     END AS payment_status
                     
@@ -264,38 +252,33 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN billing_types bt ON c.billing_type_id = bt.billing_type_id
                 LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1 
                 LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id 
-                LEFT JOIN AccountMovementsAgg am_agg ON c.client_id = am_agg.client_id
+
+                OUTER APPLY (
+                    SELECT TOP 1
+                        PrevBalDB = ISNULL(cmb.previous_balance, 0),
+                        IntsDB = ISNULL(cmb.interests, 0),
+                        RentDB = ISNULL(cr.CurrentRent, 0), 
+                        BalDB = ISNULL(cmb.balance, ISNULL(cr.CurrentRent, 0)),
+                        PaidDB = ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0)
+                    FROM client_month_balances cmb
+                    WHERE cmb.rental_id = r.rental_id
+                    ORDER BY cmb.id DESC
+                ) db
 
                 OUTER APPLY (
                     SELECT 
-                        ISNULL(am_agg.TotalCredits, 0) + CASE WHEN ISNULL(c.initial_amount, 0) > 0 THEN c.initial_amount ELSE 0 END AS AdjCredits,
-                        ISNULL(am_agg.TotalRentDebits, 0) + CASE WHEN ISNULL(c.initial_amount, 0) < 0 THEN ABS(c.initial_amount) ELSE 0 END AS AdjRentDebits,
-                        ISNULL(am_agg.TotalIntDebits, 0) AS AdjIntDebits
-                ) adj
-
-                OUTER APPLY ( SELECT adj.AdjCredits - adj.AdjRentDebits AS CreditsAfterRent ) step1
-                
-                OUTER APPLY (
-                    SELECT CASE WHEN step1.CreditsAfterRent <= 0 THEN adj.AdjIntDebits 
-                                WHEN step1.CreditsAfterRent < adj.AdjIntDebits THEN adj.AdjIntDebits - step1.CreditsAfterRent
-                                ELSE 0 END AS UnpaidInt
-                ) step2
-
-                OUTER APPLY ( SELECT adj.AdjCredits - adj.AdjRentDebits - adj.AdjIntDebits AS LedgerBalance ) step3
+                        Internal_Balance = CASE 
+                            WHEN (db.BalDB - db.PaidDB) <= 0 
+                            THEN (db.BalDB - db.PaidDB) + db.RentDB + ISNULL(r.pending_surcharge, 0)
+                            ELSE (db.BalDB - db.PaidDB) + ISNULL(r.pending_surcharge, 0)
+                        END
+                ) step_internal
 
                 OUTER APPLY (
                     SELECT 
-                        ISNULL(cr.CurrentRent, 0) AS CurrentRentAmount,
-                        step2.UnpaidInt AS InterestAmountDisplay,
-                        CASE WHEN step3.LedgerBalance >= 0 OR ISNULL(am_agg.PaymentsThisMonth, 0) > 0 
-                             THEN step3.LedgerBalance - ISNULL(cr.CurrentRent, 0)
-                             ELSE step3.LedgerBalance
-                        END AS FinalBalance
-                ) vars
-
-                OUTER APPLY (
-                    SELECT vars.FinalBalance + vars.InterestAmountDisplay + vars.CurrentRentAmount AS FinalBalance
-                ) finalCalc
+                        UI_CurrentRent = db.RentDB, 
+                        UI_Balance = -step_internal.Internal_Balance
+                ) step1
 
                 WHERE c.client_id = @client_id;";
 
@@ -345,412 +328,154 @@ namespace GuardeSoftwareAPI.Dao
         //below this (MapDataTableToDto)
         
         //Sure this method needs a improvement to calculate the balance and payment status
-         public async Task<(List<GetTableClientsDto> clients, int totalCount)> GetTableClientsAsync(GetClientsRequestDto request)
-{
-    var filterParameters = new List<SqlParameter>();
-    var finalWhereClause = new StringBuilder("WHERE 1=1 ");
+        public async Task<(List<GetTableClientsDto> clients, int totalCount)> GetTableClientsAsync(GetClientsRequestDto request)
+        {
+            var filterParameters = new List<SqlParameter>();
+            var finalWhereClause = new StringBuilder("WHERE 1=1 ");
 
-    if (request.Active.HasValue)
-    {
-        finalWhereClause.Append("AND Active = @Active ");
-        filterParameters.Add(new SqlParameter("@Active", request.Active.Value));
-    }
+            if (request.Active.HasValue)
+            {
+                finalWhereClause.Append("AND Active = @Active ");
+                filterParameters.Add(new SqlParameter("@Active", request.Active.Value));
+            }
 
-    if (!string.IsNullOrEmpty(request.SearchTerm))
-    {
-        finalWhereClause.Append(@"
-            AND (
-                ISNULL(FullName, '') LIKE @SearchTerm OR
-                ISNULL(Email, '') LIKE @SearchTerm OR
-                ISNULL(Document, '') LIKE @SearchTerm OR
-                CAST(PaymentIdentifier AS NVARCHAR(50)) LIKE @SearchTerm
-            ) ");
+            if (!string.IsNullOrEmpty(request.SearchTerm))
+            {
+                finalWhereClause.Append(@"
+                    AND (
+                        ISNULL(FullName, '') LIKE @SearchTerm OR
+                        ISNULL(Email, '') LIKE @SearchTerm OR
+                        ISNULL(Document, '') LIKE @SearchTerm OR
+                        CAST(PaymentIdentifier AS NVARCHAR(50)) LIKE @SearchTerm
+                    ) ");
+                filterParameters.Add(new SqlParameter("@SearchTerm", $"%{request.SearchTerm}%"));
+            }
 
-        filterParameters.Add(new SqlParameter("@SearchTerm", $"%{request.SearchTerm}%"));
-    }
+            if (!string.IsNullOrEmpty(request.StatusFilter) && request.StatusFilter != "Todos")
+            {
+                finalWhereClause.Append("AND Status = @StatusFilter ");
+                filterParameters.Add(new SqlParameter("@StatusFilter", request.StatusFilter));
+            }
 
-    if (!string.IsNullOrEmpty(request.StatusFilter) && request.StatusFilter != "Todos")
-    {
-        finalWhereClause.Append("AND Status = @StatusFilter ");
-        filterParameters.Add(new SqlParameter("@StatusFilter", request.StatusFilter));
-    }
+            if (request.WarehouseId.HasValue && request.WarehouseId.Value > 0)
+            {
+                finalWhereClause.Append(@"
+                    AND Id IN (
+                        SELECT r.client_id
+                        FROM rentals r
+                        JOIN lockers l ON r.rental_id = l.rental_id
+                        WHERE l.warehouse_id = @WarehouseId
+                        AND r.active = 1
+                    ) ");
+                filterParameters.Add(new SqlParameter("@WarehouseId", request.WarehouseId.Value));
+            }
 
-    if (request.WarehouseId.HasValue && request.WarehouseId.Value > 0)
-    {
-        finalWhereClause.Append(@"
-            AND Id IN (
-                SELECT r.client_id
-                FROM rentals r
-                JOIN lockers l ON r.rental_id = l.rental_id
-                WHERE l.warehouse_id = @WarehouseId
-                  AND r.active = 1
-            ) ");
+            string fullQuery = $@"
+                WITH CurrentRentalAmount AS (
+                    SELECT h.rental_id, h.amount AS CurrentRent
+                    FROM (
+                        SELECT rental_id, amount,
+                               ROW_NUMBER() OVER (PARTITION BY rental_id ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC) as rn
+                        FROM rental_amount_history WHERE start_date <= GETDATE()
+                    ) h WHERE h.rn = 1
+                ),
+                ClientData AS (
+                    SELECT
+                        c.client_id AS Id,
+                        c.payment_identifier AS PaymentIdentifier,
+                        c.full_name AS FullName,
+                        first_email.address AS Email,
+                        first_phone.number AS Phone,
+                        a.city AS City,
 
-        filterParameters.Add(new SqlParameter("@WarehouseId", request.WarehouseId.Value));
-    }
+                        -- MATEMÁTICA DE LA UI (Ahora todo sale de step1)
+                        step1.UI_PreviousBalance AS PreviousBalance,
+                        step1.UI_InterestAmount AS InterestAmount,
+                        step1.UI_CurrentRent AS CurrentRent,
+                        step1.UI_Balance AS Balance,
 
-    string fullQuery = $@"
+                        c.preferred_payment_method_id AS PreferredPaymentMethodId,
+                        c.dni AS Document,
+                        locker_sub.lockers as Lockers,
+                        locker_sub.lockers_json as WarehouseLockersJson,
+                        c.active AS Active,
+                        
+                        CASE
+                            WHEN c.active = 0 THEN 'Baja'
+                            WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso'
+                            WHEN (db.BalDB - db.PaidDB - db.AdvPayDB) <= 0 THEN 'Al día'
+                            ELSE 'Pendiente'
+                        END AS Status
+                        
+                    FROM clients c
+                    OUTER APPLY ( SELECT TOP 1 e.address FROM emails e WHERE e.client_id = c.client_id AND e.active = 1 ORDER BY e.email_id ) AS first_email
+                    OUTER APPLY ( SELECT TOP 1 p.number FROM phones p WHERE p.client_id = c.client_id AND p.active = 1 ORDER BY p.phone_id ) AS first_phone
+                    LEFT JOIN addresses a ON c.client_id = a.client_id
+                    LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1
+                    LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
 
-WITH CurrentRentalAmount AS
-(
-    SELECT
-        h.rental_id,
-        h.amount AS CurrentRent
-    FROM
-    (
-        SELECT
-            rental_id,
-            amount,
-            ROW_NUMBER() OVER
-            (
-                PARTITION BY rental_id
-                ORDER BY
-                    start_date DESC,
-                    CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC,
-                    rental_amount_history_id DESC
-            ) AS rn
-        FROM rental_amount_history
-        WHERE start_date <= GETDATE()
-    ) h
-    WHERE h.rn = 1
-),
+                    -- 1. BUSCAMOS EL MES ACTIVO INTELIGENTEMENTE
+                    OUTER APPLY (
+                        SELECT TOP 1
+                            PrevBalDB = ISNULL(cmb.previous_balance, 0),
+                            IntsDB = ISNULL(cmb.interests, 0),
+                            RentDB = ISNULL(cmb.monthly_debits, ISNULL(cr.CurrentRent, 0)), 
+                            BalDB = ISNULL(cmb.balance, ISNULL(cr.CurrentRent, 0)),
+                            PaidDB = ISNULL(cmb.paid, 0),
+                            AdvPayDB = ISNULL(cmb.advanced_payment, 0)
+                        FROM client_month_balances cmb
+                        WHERE cmb.rental_id = r.rental_id
+                        ORDER BY 
+                            -- Prioridad 0: Meses que deben plata (Buscamos el más viejo a pagar).
+                            -- Prioridad 1: Si todo está pago, agarra el último mes proyectado.
+                            CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN 0 ELSE 1 END ASC,
+                            CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN cmb.id ELSE -cmb.id END ASC
+                    ) db
 
-ClientData AS
-(
-    SELECT
+                    -- 2. ASIGNAMOS A LA UI
+                    OUTER APPLY (
+                        SELECT 
+                            UI_CurrentRent = db.RentDB, 
+                            
+                            -- Interés: Solo suma la mora en curso si el mes actual tiene deuda
+                            UI_InterestAmount = db.IntsDB + CASE WHEN (db.BalDB - db.PaidDB - db.AdvPayDB) > 0 THEN ISNULL(r.pending_surcharge, 0) ELSE 0 END,
+                            
+                            -- Saldo Final a Pagar (Negativo para Angular)
+                            UI_Balance = -((db.BalDB - db.PaidDB - db.AdvPayDB) + CASE WHEN (db.BalDB - db.PaidDB - db.AdvPayDB) > 0 THEN ISNULL(r.pending_surcharge, 0) ELSE 0 END),
 
-        c.client_id AS Id,
+                            -- MAGIA DE SALDO ANTERIOR: 
+                            -- Si tiene Advanced Payment (plata de sobra), es POSITIVO (A favor).
+                            -- Si tiene Previous Balance (deuda arrastrada), es NEGATIVO.
+                            UI_PreviousBalance = db.AdvPayDB - db.PrevBalDB
+                    ) step1
 
-        c.payment_identifier AS PaymentIdentifier,
-
-        c.full_name AS FullName,
-
-        first_email.address AS Email,
-
-        first_phone.number AS Phone,
-
-        a.city AS City,
-
-        ---------------------------------------------------
-        -- COLUMNAS CONTABLES
-        ---------------------------------------------------
-
-        calc.PreviousBalance,
-
-        calc.InterestAmount,
-
-        currentRent.CurrentRent,
-
-        calc.FinalBalance AS Balance,
-
-        ---------------------------------------------------
-
-        c.preferred_payment_method_id AS PreferredPaymentMethodId,
-
-        c.dni AS Document,
-
-        locker_sub.lockers AS Lockers,
-
-        locker_sub.lockers_json AS WarehouseLockersJson,
-
-        c.active AS Active,
-
-        CASE
-            WHEN c.active = 0
-                THEN 'Baja'
-
-            WHEN calc.FinalBalance > currentRent.CurrentRent
-                THEN 'Moroso'
-
-            ELSE 'Al día'
-        END AS Status
-
-    FROM clients c
-
-    ---------------------------------------------------
-    -- EMAIL
-    ---------------------------------------------------
-
-    OUTER APPLY
-    (
-        SELECT TOP 1 e.address
-        FROM emails e
-        WHERE e.client_id = c.client_id
-          AND e.active = 1
-        ORDER BY e.email_id
-    ) first_email
-
-    ---------------------------------------------------
-    -- PHONE
-    ---------------------------------------------------
-
-    OUTER APPLY
-    (
-        SELECT TOP 1 p.number
-        FROM phones p
-        WHERE p.client_id = c.client_id
-          AND p.active = 1
-        ORDER BY p.phone_id
-    ) first_phone
-
-    ---------------------------------------------------
-    -- ADDRESS
-    ---------------------------------------------------
-
-    LEFT JOIN addresses a
-        ON c.client_id = a.client_id
-
-    ---------------------------------------------------
-    -- RENTAL
-    ---------------------------------------------------
-
-    LEFT JOIN rentals r
-        ON c.client_id = r.client_id
-       AND r.active = 1
-
-    ---------------------------------------------------
-    -- CURRENT RENT
-    ---------------------------------------------------
-
-    LEFT JOIN CurrentRentalAmount cr
-        ON r.rental_id = cr.rental_id
-
-    OUTER APPLY
-    (
-        SELECT
-            CurrentRent = ISNULL(cr.CurrentRent, 0)
-    ) currentRent
-
-    ---------------------------------------------------
-    -- FECHA INICIO MES ACTUAL
-    ---------------------------------------------------
-
-    OUTER APPLY
-    (
-        SELECT
-            CurrentMonthStart = DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
-    ) dates
-
-    ---------------------------------------------------
-    -- DÉBITOS DE INTERÉS
-    ---------------------------------------------------
-
-    OUTER APPLY
-    (
-        SELECT
-
-            TotalInterestDebits =
-                ISNULL
-                (
-                    (
-                        SELECT SUM(am.amount)
-                        FROM account_movements am
-                        WHERE am.rental_id = r.rental_id
-                          AND am.movement_type = 'DEBITO'
-                          AND am.concept LIKE 'Interés por mora%'
-                    ),
-                    0
+                    LEFT JOIN ( SELECT r.client_id, STRING_AGG(l.identifier, ', ') as lockers, ( SELECT ISNULL(w.name, 'Sin ubicación') AS Warehouse, STRING_AGG(l2.identifier, ', ') AS Lockers FROM rentals r2 JOIN lockers l2 ON r2.rental_id = l2.rental_id LEFT JOIN warehouses w ON l2.warehouse_id = w.warehouse_id WHERE r2.client_id = r.client_id AND r2.active = 1 GROUP BY w.name FOR JSON PATH ) as lockers_json FROM rentals r JOIN lockers l ON r.rental_id = l.rental_id WHERE r.active = 1 GROUP BY r.client_id ) locker_sub ON c.client_id = locker_sub.client_id
+                    LEFT JOIN ( SELECT r.client_id, SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid FROM rentals r WHERE r.active = 1 GROUP BY r.client_id ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
+                ),
+                FilteredData AS (
+                    SELECT * FROM ClientData
+                    {finalWhereClause}
+                ),
+                TotalCount AS (
+                    SELECT COUNT(*) AS TotalRows FROM FilteredData
                 )
+                SELECT * FROM FilteredData, TotalCount
+                ORDER BY {GetSortColumn(request.SortField)} {GetSortDirection(request.SortDirection)}
+                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+            ";
 
-    ) interests
+            var dataParameters = new List<SqlParameter>();
+            dataParameters.AddRange(filterParameters);
+            dataParameters.Add(new SqlParameter("@Offset", (request.PageNumber - 1) * request.PageSize));
+            dataParameters.Add(new SqlParameter("@PageSize", request.PageSize));
 
-    ---------------------------------------------------
-    -- BALANCE HASTA ANTES DEL MES ACTUAL
-    ---------------------------------------------------
+            DataTable dataTable = await accessDB.GetTableAsync("Clients", fullQuery, dataParameters.ToArray());
+            
+            int totalCount = dataTable.Rows.Count > 0 ? Convert.ToInt32(dataTable.Rows[0]["TotalRows"]) : 0;
 
-    OUTER APPLY
-    (
-        SELECT
+            return (MapDataTableToDto(dataTable), totalCount);
+        }
 
-            PreviousRawBalance =
-
-                ISNULL
-                (
-                    (
-                        SELECT
-                            SUM
-                            (
-                                CASE
-                                    WHEN am.movement_type = 'CREDITO'
-                                        THEN am.amount
-
-                                    ELSE -am.amount
-                                END
-                            )
-                        FROM account_movements am
-                        WHERE am.rental_id = r.rental_id
-                          AND am.movement_date < dates.CurrentMonthStart
-                    ),
-                    0
-                )
-
-    ) previousLedger
-
-    ---------------------------------------------------
-    -- BALANCE MES ACTUAL
-    ---------------------------------------------------
-
-    OUTER APPLY
-    (
-        SELECT
-
-            CurrentMonthBalance =
-
-                ISNULL
-                (
-                    (
-                        SELECT
-                            SUM
-                            (
-                                CASE
-                                    WHEN am.movement_type = 'CREDITO'
-                                        THEN am.amount
-
-                                    ELSE -am.amount
-                                END
-                            )
-                        FROM account_movements am
-                        WHERE am.rental_id = r.rental_id
-                          AND am.movement_date >= dates.CurrentMonthStart
-                    ),
-                    0
-                )
-
-    ) currentLedger
-
-    ---------------------------------------------------
-    -- CÁLCULO FINAL
-    ---------------------------------------------------
-
-    OUTER APPLY
-    (
-        SELECT
-
-            ---------------------------------------------------
-            -- SALDO ANTERIOR
-            --
-            -- SOLO LO QUE VIENE DE MESES PASADOS
-            -- NO USA currentRent
-            ---------------------------------------------------
-
-            PreviousBalance =
-
-                CASE
-                    WHEN previousLedger.PreviousRawBalance > 0
-                        THEN previousLedger.PreviousRawBalance
-
-                    WHEN previousLedger.PreviousRawBalance < 0
-                        THEN previousLedger.PreviousRawBalance
-
-                    ELSE 0
-                END,
-
-            ---------------------------------------------------
-            -- INTERESES
-            ---------------------------------------------------
-
-            InterestAmount =
-                interests.TotalInterestDebits,
-
-            ---------------------------------------------------
-            -- SALDO
-            --
-            -- LO QUE DEBERÍA PAGAR EL PRÓXIMO MES
-            ---------------------------------------------------
-
-            FinalBalance =
-
-                currentRent.CurrentRent
-                + interests.TotalInterestDebits
-                - (
-                    previousLedger.PreviousRawBalance
-                    + currentLedger.CurrentMonthBalance
-                )
-
-    ) calc
-
-    ---------------------------------------------------
-    -- LOCKERS
-    ---------------------------------------------------
-
-    LEFT JOIN
-    (
-        SELECT
-            r.client_id,
-
-            STRING_AGG(l.identifier, ', ') AS lockers,
-
-            (
-                SELECT
-                    ISNULL(w.name, 'Sin ubicación') AS Warehouse,
-                    STRING_AGG(l2.identifier, ', ') AS Lockers
-                FROM rentals r2
-                JOIN lockers l2
-                    ON r2.rental_id = l2.rental_id
-                LEFT JOIN warehouses w
-                    ON l2.warehouse_id = w.warehouse_id
-                WHERE r2.client_id = r.client_id
-                  AND r2.active = 1
-                GROUP BY w.name
-                FOR JSON PATH
-            ) AS lockers_json
-
-        FROM rentals r
-        JOIN lockers l
-            ON r.rental_id = l.rental_id
-        WHERE r.active = 1
-        GROUP BY r.client_id
-
-    ) locker_sub
-        ON c.client_id = locker_sub.client_id
-),
-
-FilteredData AS
-(
-    SELECT *
-    FROM ClientData
-    {finalWhereClause}
-),
-
-TotalCount AS
-(
-    SELECT COUNT(*) AS TotalRows
-    FROM FilteredData
-)
-
-SELECT *
-FROM FilteredData, TotalCount
-
-ORDER BY {GetSortColumn(request.SortField)} {GetSortDirection(request.SortDirection)}
-
-OFFSET @Offset ROWS
-FETCH NEXT @PageSize ROWS ONLY;
-";
-
-    var dataParameters = new List<SqlParameter>();
-
-    dataParameters.AddRange(filterParameters);
-
-    dataParameters.Add(
-        new SqlParameter("@Offset", (request.PageNumber - 1) * request.PageSize)
-    );
-
-    dataParameters.Add(
-        new SqlParameter("@PageSize", request.PageSize)
-    );
-
-    DataTable dataTable = await accessDB.GetTableAsync(
-        "Clients",
-        fullQuery,
-        dataParameters.ToArray()
-    );
-
-    int totalCount = dataTable.Rows.Count > 0
-        ? Convert.ToInt32(dataTable.Rows[0]["TotalRows"])
-        : 0;
-
-    return (MapDataTableToDto(dataTable), totalCount);
-}
         private string GetSortColumn(string sortField)
         {
             var validSortFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) 
@@ -785,11 +510,11 @@ FETCH NEXT @PageSize ROWS ONLY;
                 Id = Convert.ToInt32(row["Id"]),
                 PaymentIdentifier = row["PaymentIdentifier"] != DBNull.Value ? Convert.ToDecimal(row["PaymentIdentifier"]) : null,
                 FullName = row["FullName"]?.ToString() ?? string.Empty,
-                Balance = Convert.ToDecimal(row["Balance"]),
                 Status = row["Status"]?.ToString() ?? "Pendiente",
-                PreviousBalance = Convert.ToDecimal(row["PreviousBalance"]),
-                InterestAmount = Convert.ToDecimal(row["InterestAmount"]),
-                CurrentRent = Convert.ToDecimal(row["CurrentRent"]),
+                PreviousBalance = row["PreviousBalance"] != DBNull.Value ? Convert.ToDecimal(row["PreviousBalance"]) : 0m,
+                InterestAmount = row["InterestAmount"] != DBNull.Value ? Convert.ToDecimal(row["InterestAmount"]) : 0m,
+                CurrentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0m,
+                Balance = row["Balance"] != DBNull.Value ? Convert.ToDecimal(row["Balance"]) : 0m,
                 Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,
                 Active = Convert.ToBoolean(row["Active"]),
                 WarehouseLockers = row["WarehouseLockersJson"] != DBNull.Value 
