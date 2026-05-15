@@ -114,389 +114,390 @@ namespace GuardeSoftwareAPI.Services.client
         }
 
         public async Task<int> CreateClientAsync(CreateClientDTO dto)
+{
+    ArgumentNullException.ThrowIfNull(dto);
+    if (string.IsNullOrWhiteSpace(dto.FullName)) throw new ArgumentException("El nombre completo es requerido.");
+    if (dto.Amount < 0) throw new ArgumentException("El monto debe ser mayor que 0.");
+    if (dto.LockerIds.Any(id => id <= 0)) throw new ArgumentException("Los IDs de los casilleros deben ser números positivos.");
+    if (dto.LockerIds.Distinct().Count() != dto.LockerIds.Count) throw new ArgumentException("No se permiten IDs de casilleros duplicados.");
+    if (dto.UserID <= 0) throw new ArgumentException("El ID del usuario es inválido.");
+
+    if (!string.IsNullOrEmpty(dto.Dni) && string.IsNullOrWhiteSpace(dto.Dni))
+        throw new ArgumentException("El DNI no puede estar vacío o contener solo espacios en blanco.", nameof(dto.Dni));
+
+    if (dto.IsLegacyClient)
+    {
+        if (dto.StartDate == default) throw new ArgumentException("La fecha de inicio de cliente heredado es requerida.");
+        if (!dto.LegacyInitialAmount.HasValue || dto.LegacyInitialAmount < 0) throw new ArgumentException("El monto inicial de cliente heredado es requerido.");
+        if (!dto.LegacyNextIncreaseDate.HasValue) throw new ArgumentException("La fecha de próxima incremento de cliente heredado es requerida.");
+    }
+    
+    // Asign dates if not legacy
+    DateTime startDate = dto.IsLegacyClient ? dto.StartDate : DateTime.UtcNow.Date;
+    DateTime registrationDate = dto.IsLegacyClient ? dto.RegistrationDate : DateTime.UtcNow.Date;
+    var today = DateTime.UtcNow.Date;
+    decimal calculatedTotalM3 = 0;
+    
+    if (dto.SpaceRequests != null && dto.SpaceRequests.Count != 0)
+    {
+        calculatedTotalM3 = dto.SpaceRequests.Sum(r => r.M3 * r.Quantity);
+    }
+    else 
+    {
+        calculatedTotalM3 = dto.ContractedM3 ?? 0m;
+    }
+
+    using (var connection = accessDB.GetConnectionClose())
+    {
+        await connection.OpenAsync();
+        using (var transaction = connection.BeginTransaction())
         {
-            ArgumentNullException.ThrowIfNull(dto);
-            if (string.IsNullOrWhiteSpace(dto.FullName)) throw new ArgumentException("El nombre completo es requerido.");
-            if (dto.Amount < 0) throw new ArgumentException("El monto debe ser mayor que 0.");
-            if (dto.LockerIds.Any(id => id <= 0)) throw new ArgumentException("Los IDs de los casilleros deben ser números positivos.");
-            if (dto.LockerIds.Distinct().Count() != dto.LockerIds.Count) throw new ArgumentException("No se permiten IDs de casilleros duplicados.");
-            if (dto.UserID <= 0) throw new ArgumentException("El ID del usuario es inválido.");
-
-            if (!string.IsNullOrEmpty(dto.Dni) && string.IsNullOrWhiteSpace(dto.Dni))
-                throw new ArgumentException("El DNI no puede estar vacío o contener solo espacios en blanco.", nameof(dto.Dni));
-
-            if (dto.IsLegacyClient)
+            try
             {
-                if (dto.StartDate == default) throw new ArgumentException("La fecha de inicio de cliente heredado es requerida.");
-                if (!dto.LegacyInitialAmount.HasValue || dto.LegacyInitialAmount < 0) throw new ArgumentException("El monto inicial de cliente heredado es requerido.");
-                if (!dto.LegacyNextIncreaseDate.HasValue) throw new ArgumentException("La fecha de próxima incremento de cliente heredado es requerida.");
-            }
-            
-            // Asign dates if not legacy
-            DateTime startDate = dto.IsLegacyClient ? dto.StartDate : DateTime.UtcNow.Date;
-            DateTime registrationDate = dto.IsLegacyClient ? dto.RegistrationDate : DateTime.UtcNow.Date;
-            var today = DateTime.UtcNow.Date;
-            decimal calculatedTotalM3 = 0;
-            
-            if (dto.SpaceRequests != null && dto.SpaceRequests.Count != 0)
-            {
-                calculatedTotalM3 = dto.SpaceRequests.Sum(r => r.M3 * r.Quantity);
-            }
-            else 
-            {
-                calculatedTotalM3 = dto.ContractedM3 ?? 0m;
-            }
-
-            using (var connection = accessDB.GetConnectionClose())
-            {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
+                if (dto.PaymentIdentifier == null || dto.PaymentIdentifier.Value <= 0)
                 {
-                    try
+                    decimal maxIdentifier = await daoClient.GetMaxPaymentIdentifierAsync(connection, transaction);
+                    dto.PaymentIdentifier = maxIdentifier + 0.01m; 
+                }
+
+                if (dto.Dni != null && await daoClient.ExistsByDniAsync(dto.Dni, connection, transaction))
+                {
+                    throw new InvalidOperationException("Ya existe un cliente con este DNI.");
+                }
+
+                if (dto.Cuit != null && !dto.Cuit.IsNullOrEmpty() && await daoClient.ExistsByCuitAsync(dto.Cuit, connection, transaction))
+                {
+                    throw new InvalidOperationException("Ya existe un cliente con este CUIT.");
+                }
+
+                if (dto.PaymentIdentifier != null && await daoClient.ExistsByPaymentIdentifierAsync(dto.PaymentIdentifier.Value, connection, transaction))
+                {
+                    throw new InvalidOperationException("Ya existe un cliente con este Identificador de Pago.");
+                }
+
+                if (dto.FullName != null && await daoClient.ExistsByFullNameAsync(dto.FullName, connection, transaction))
+                {
+                    throw new InvalidOperationException("Ya existe un cliente con este nombre completo.");
+                }
+
+                Client client = new()
+                {
+                    PaymentIdentifier = dto.PaymentIdentifier,
+                    FullName = dto.FullName.Trim(),
+                    RegistrationDate = registrationDate,
+                    Dni = string.IsNullOrWhiteSpace(dto.Dni) ? null : dto.Dni.Trim(),
+                    Cuit = string.IsNullOrWhiteSpace(dto.Cuit) ? null : dto.Cuit.Trim(),
+                    PreferredPaymentMethodId = dto.PreferredPaymentMethodId,
+                    IvaCondition = string.IsNullOrWhiteSpace(dto.IvaCondition) ? null : dto.IvaCondition.Trim(),
+                    Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
+                    BillingTypeId = dto.BillingTypeId,
+                    IncreaseFrequencyMonths = dto.IsLegacy6MonthPromo ? 6 : 4,
+                    InitialAmount = dto.IsLegacyClient ? dto.LegacyInitialAmount : dto.Amount,
+                    ReceiveCommunications = dto.ReceiveCommunications
+                };
+                int newClientId = await daoClient.CreateClientTransactionAsync(client, connection, transaction);
+
+                DateTime? priceLockDate = null;
+
+                if (dto.PrepaidMonths > 0)
+                {
+                    priceLockDate = startDate.AddMonths(dto.PrepaidMonths);
+                }
+
+                DateTime nextIncreaseAnchorDate;
+                int frequency = dto.IsLegacy6MonthPromo ? 6 : 4;
+
+                if (dto.IsLegacyClient && dto.LegacyNextIncreaseDate.HasValue)
+                {
+                    nextIncreaseAnchorDate = dto.LegacyNextIncreaseDate.Value.Date;
+                }
+                else 
+                {
+                    DateTime calculationBaseDate = startDate;
+
+                    if (startDate.Day > 20)
                     {
-                        if (dto.PaymentIdentifier == null || dto.PaymentIdentifier.Value <= 0)
-                        {
-                            decimal maxIdentifier = await daoClient.GetMaxPaymentIdentifierAsync(connection, transaction);
-                            dto.PaymentIdentifier = maxIdentifier + 0.01m; 
-                        }
-
-                        if (dto.Dni != null && await daoClient.ExistsByDniAsync(dto.Dni, connection, transaction))
-                        {
-                            throw new InvalidOperationException("Ya existe un cliente con este DNI.");
-                        }
-
-                        if (dto.Cuit != null && !dto.Cuit.IsNullOrEmpty() && await daoClient.ExistsByCuitAsync(dto.Cuit, connection, transaction))
-                        {
-                            throw new InvalidOperationException("Ya existe un cliente con este CUIT.");
-                        }
-
-                        if (dto.PaymentIdentifier != null && await daoClient.ExistsByPaymentIdentifierAsync(dto.PaymentIdentifier.Value, connection, transaction))
-                        {
-                            throw new InvalidOperationException("Ya existe un cliente con este Identificador de Pago.");
-                        }
-
-                        if (dto.FullName != null && await daoClient.ExistsByFullNameAsync(dto.FullName, connection, transaction))
-                        {
-                            throw new InvalidOperationException("Ya existe un cliente con este nombre completo.");
-                        }
-
-                        Client client = new()
-                        {
-                            PaymentIdentifier = dto.PaymentIdentifier,
-                            FullName = dto.FullName.Trim(),
-                            RegistrationDate = registrationDate,
-                            Dni = string.IsNullOrWhiteSpace(dto.Dni) ? null : dto.Dni.Trim(),
-                            Cuit = string.IsNullOrWhiteSpace(dto.Cuit) ? null : dto.Cuit.Trim(),
-                            PreferredPaymentMethodId = dto.PreferredPaymentMethodId,
-                            IvaCondition = string.IsNullOrWhiteSpace(dto.IvaCondition) ? null : dto.IvaCondition.Trim(),
-                            Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
-                            BillingTypeId = dto.BillingTypeId,
-                            IncreaseFrequencyMonths = dto.IsLegacy6MonthPromo ? 6 : 4,
-                            InitialAmount = dto.IsLegacyClient ? dto.LegacyInitialAmount : dto.Amount,
-                            ReceiveCommunications = dto.ReceiveCommunications
-                        };
-                        int newClientId = await daoClient.CreateClientTransactionAsync(client, connection, transaction);
-
-                        DateTime? priceLockDate = null;
-
-                        if (dto.PrepaidMonths > 0)
-                        {
-                            priceLockDate = startDate.AddMonths(dto.PrepaidMonths);
-                        }
-
-                        DateTime nextIncreaseAnchorDate;
-                        int frequency = dto.IsLegacy6MonthPromo ? 6 : 4;
-
-                        if (dto.IsLegacyClient && dto.LegacyNextIncreaseDate.HasValue)
-                        {
-                            nextIncreaseAnchorDate = dto.LegacyNextIncreaseDate.Value.Date;
-                        }
-                        else 
-                        {
-                            DateTime calculationBaseDate = startDate;
-
-                            if (startDate.Day > 20)
-                            {
-                                calculationBaseDate = startDate.AddMonths(1);
-                            }
-
-                            var firstAnniversary = calculationBaseDate.AddMonths(frequency - 1); 
-                            nextIncreaseAnchorDate = new DateTime(firstAnniversary.Year, firstAnniversary.Month, 1);
-                        }
-
-                        Rental rental = new()
-                        {
-                            ClientId = newClientId,
-                            StartDate = startDate,
-                            ContractedM3 = calculatedTotalM3,
-                            MonthsUnpaid = 0,
-                            PriceLockEndDate = priceLockDate,
-                            IncreaseAnchorDate = nextIncreaseAnchorDate,
-                            OccupiedSpaces = dto.OccupiedSpaces,
-                        };
-                        int rentalId = await rentalService.CreateRentalTransactionAsync(rental, connection, transaction);
-
-                        if (dto.SpaceRequests != null && dto.SpaceRequests.Count != 0)
-                        {
-                            foreach (var req in dto.SpaceRequests)
-                            {
-                                var spaceRequest = new RentalSpaceRequest
-                                {
-                                    RentalId = rentalId,
-                                    WarehouseId = req.WarehouseId,
-                                    Quantity = req.Quantity,
-                                    M3 = req.M3,
-                                    Comment = req.Comment
-                                };
-                                await _daoRentalSpaceRequest.CreateRequestTransactionAsync(spaceRequest, connection, transaction);
-                            }
-                        }
-                        
-                        if (dto.LockerIds != null && dto.LockerIds.Count != 0)
-                        {
-                            foreach (var lockerIdToAdd in dto.LockerIds)
-                            {
-                                if (!await lockerService.IsLockerAvailableAsync(lockerIdToAdd, connection, transaction))
-                                {
-                                    throw new InvalidOperationException($"El locker con ID {lockerIdToAdd} no está disponible.");
-                                }
-                            }
-                            
-                            await lockerService.AssignLockersToRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
-                            await daoClient.OpenLockerHistoryTransactionAsync(newClientId, dto.LockerIds, connection, transaction);
-                        }
-
-                        // 5. Crear Historial de Monto(s)
-                        if (dto.IsLegacyClient)
-                        {
-                            await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
-                            {
-                                RentalId = rentalId,
-                                Amount = dto.LegacyInitialAmount ?? dto.Amount,
-                                StartDate = startDate, 
-                                EndDate = null 
-                            }, connection, transaction);
-                            
-                            if (dto.Amount != (dto.LegacyInitialAmount ?? dto.Amount))
-                            {
-                                var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(rentalId, connection, transaction);
-                                if (lastAmountHistory != null)
-                                {
-                                    await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, rentalId, dto.Amount, DateTime.Now, connection, transaction);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
-                            {
-                                RentalId = rentalId,
-                                Amount = dto.Amount,
-                                StartDate = DateTime.Now,
-                                EndDate = null
-                            }, connection, transaction);
-                        }
-
-                        // ====================================================================================
-                        // 6. MOVIMIENTOS INICIALES Y CREACIÓN DEL ESTADO DE CUENTA MENSUAL
-                        // ====================================================================================
-                        
-                        var culture = new CultureInfo("es-AR");
-                        string currentMonthStr = startDate.ToString("MM/yyyy");
-
-                        if (dto.IsLegacyClient)
-                        {
-                            string monthName = culture.DateTimeFormat.GetMonthName(startDate.Month);
-                            string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName);
-
-                            await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
-                            {
-                                RentalId = rentalId,
-                                MovementDate = startDate,
-                                MovementType = "DEBITO",
-                                Concept = $"Alquiler {monthTitle} {startDate.Year}",
-                                Amount = dto.Amount,
-                                PaymentId = null
-                            }, connection, transaction);
-
-                            decimal legacyPrevBalance = dto.LegacyInitialAmount ?? 0m; 
-                            decimal paidAmount = 0m;
-
-                            if (dto.PrepaidMonths > 0 && dto.Amount > 0)
-                            {
-                                paidAmount = dto.PrepaidMonths * dto.Amount;
-                                await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
-                                {
-                                    RentalId = rentalId,
-                                    MovementDate = startDate,
-                                    MovementType = "CREDITO",
-                                    Concept = $"Crédito inicial por {dto.PrepaidMonths} {(dto.PrepaidMonths == 1 ? "mes" : "meses")} pagados",
-                                    Amount = paidAmount
-                                }, connection, transaction);
-                            }
-
-                            // A. Crear la fila mensual Legacy (1 SOLA FILA)
-                            await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance
-                            {
-                                RentalId = rentalId,
-                                MonthYear = currentMonthStr,
-                                PreviousBalance = legacyPrevBalance,
-                                Interests = 0m,
-                                MonthlyDebits = dto.Amount,
-                                Paid = paidAmount,
-                                AdvancedPayment = 0m
-                            }, connection, transaction);
-                        }
-                        else
-                        {
-                            if (startDate.Day < 10)
-                            {
-                                string monthName = culture.DateTimeFormat.GetMonthName(startDate.Month);
-                                string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName);
-
-                                await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
-                                {
-                                    RentalId = rentalId,
-                                    MovementDate = startDate,
-                                    MovementType = "DEBITO",
-                                    Concept = $"Alquiler {monthTitle} {startDate.Year}",
-                                    Amount = dto.Amount,
-                                    PaymentId = null
-                                }, connection, transaction);
-
-                                // B1. Fila de mes actual Puro (1 SOLA FILA)
-                                await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance
-                                {
-                                    RentalId = rentalId,
-                                    MonthYear = currentMonthStr,
-                                    PreviousBalance = 0m,
-                                    Interests = 0m,
-                                    MonthlyDebits = dto.Amount,
-                                    Paid = 0m,
-                                    AdvancedPayment = 0m
-                                }, connection, transaction);
-                            }
-                            else
-                            {
-                                // --- EL CASO QUE FALLÓ ANTES: DESPUÉS DEL DÍA 10 ---
-                                int daysInMonth = DateTime.DaysInMonth(startDate.Year, startDate.Month);
-                                int daysToCharge = daysInMonth - startDate.Day; 
-                                decimal dailyRate = dto.Amount / daysInMonth;
-                                decimal proportionalRaw = dailyRate * daysToCharge;
-                                decimal debitAmountProportional = RoundToNearest1000(proportionalRaw);
-
-                                string currentMonthName = culture.DateTimeFormat.GetMonthName(startDate.Month);
-                                string currentMonthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(currentMonthName);
-
-                                // Movimiento Diario: Proporcional (Mayo)
-                                await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
-                                {
-                                    RentalId = rentalId,
-                                    MovementDate = startDate,
-                                    MovementType = "DEBITO",
-                                    Concept = $"Alquiler {currentMonthTitle} {startDate.Year} (Proporcional {daysToCharge} días)",
-                                    Amount = debitAmountProportional,
-                                    PaymentId = null
-                                }, connection, transaction);
-
-                                // Movimiento Diario: Mes Completo (Junio)
-                                DateTime nextMonthDate = startDate.AddMonths(1);
-                                string nextMonthName = culture.DateTimeFormat.GetMonthName(nextMonthDate.Month);
-                                string nextMonthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(nextMonthName);
-
-                                await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
-                                {
-                                    RentalId = rentalId,
-                                    MovementDate = startDate, 
-                                    MovementType = "DEBITO",
-                                    Concept = $"Alquiler {nextMonthTitle} {nextMonthDate.Year}",
-                                    Amount = dto.Amount,
-                                    PaymentId = null
-                                }, connection, transaction);
-
-                                // B2. EL EXCEL (LA TABLA QUE VOS VES): 
-                                // ¡UNA SOLA PUTA FILA! Creada para JUNIO. 
-                                // Saldo Anterior = Proporcional. Abono = Cuota.
-                                await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance
-                                {
-                                    RentalId = rentalId,
-                                    MonthYear = nextMonthDate.ToString("MM/yyyy"), // ESTO AHORA ES JUNIO
-                                    PreviousBalance = debitAmountProportional,     // ACÁ VA EL PROPORCIONAL
-                                    Interests = 0m,
-                                    MonthlyDebits = dto.Amount,                    // LA CUOTA INTACTA (100.000)
-                                    Paid = 0m,
-                                    AdvancedPayment = 0m
-                                }, connection, transaction);
-                            }
-                        }
-
-                        // (Emails, Phones, etc...)
-                        foreach (string email in dto.Emails)
-                        {
-                            if (!string.IsNullOrWhiteSpace(email))
-                            {
-                                Email emailEntity = new()
-                                {
-                                    ClientId = newClientId,
-                                    Address = email.Trim(),
-                                    Type = ""
-                                };
-                                await emailService.CreateEmailTransaction(emailEntity, connection, transaction);
-                            }
-                        }
-
-                        if (dto.Phones != null)
-                        {
-                            foreach (var phone in dto.Phones)
-                            {
-                                if (!string.IsNullOrWhiteSpace(phone.Number))
-                                {
-                                    Phone phoneEntity = new()
-                                    {
-                                        ClientId = newClientId,
-                                        Number = phone.Number.Trim(),
-                                        Type = "",
-                                        Whatsapp = phone.Whatsapp
-                                    };
-                                    await phoneService.CreatePhoneTransaction(phoneEntity, connection, transaction);
-                                }
-                            }
-                        }
-
-                        Address address = new()
-                        {
-                            ClientId = newClientId,
-                            Street = dto.AddressDto.Street?.Trim() ?? string.Empty,
-                            City = "",   
-                            Province = "" 
-                        };
-                        
-                        await addressService.CreateAddressTransaction(address, connection, transaction);
-
-                        ActivityLog activityLog = new()
-                        {
-                            UserId = dto.UserID,
-                            LogDate = dto.StartDate,
-                            Action = "CREATE",
-                            TableName = "clients",
-                            RecordId = newClientId,
-                        };
-
-                        await activityLogService.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
-
-                        await transaction.CommitAsync();
-
-                        return newClientId;
+                        calculationBaseDate = startDate.AddMonths(1);
                     }
-                    catch(Exception ex)
+
+                    var firstAnniversary = calculationBaseDate.AddMonths(frequency - 1); 
+                    nextIncreaseAnchorDate = new DateTime(firstAnniversary.Year, firstAnniversary.Month, 1);
+                }
+
+                Rental rental = new()
+                {
+                    ClientId = newClientId,
+                    StartDate = startDate,
+                    ContractedM3 = calculatedTotalM3,
+                    MonthsUnpaid = 0,
+                    PriceLockEndDate = priceLockDate,
+                    IncreaseAnchorDate = nextIncreaseAnchorDate,
+                    OccupiedSpaces = dto.OccupiedSpaces,
+                };
+                int rentalId = await rentalService.CreateRentalTransactionAsync(rental, connection, transaction);
+
+                if (dto.SpaceRequests != null && dto.SpaceRequests.Count != 0)
+                {
+                    foreach (var req in dto.SpaceRequests)
                     {
-                        _logger.LogError(ex, "Error en CreateClientAsync. Transacción revertida.");
-                        await transaction.RollbackAsync();
-                        throw;
+                        var spaceRequest = new RentalSpaceRequest
+                        {
+                            RentalId = rentalId,
+                            WarehouseId = req.WarehouseId,
+                            Quantity = req.Quantity,
+                            M3 = req.M3,
+                            Comment = req.Comment
+                        };
+                        await _daoRentalSpaceRequest.CreateRequestTransactionAsync(spaceRequest, connection, transaction);
                     }
                 }
+                
+                if (dto.LockerIds != null && dto.LockerIds.Count != 0)
+                {
+                    foreach (var lockerIdToAdd in dto.LockerIds)
+                    {
+                        if (!await lockerService.IsLockerAvailableAsync(lockerIdToAdd, connection, transaction))
+                        {
+                            throw new InvalidOperationException($"El locker con ID {lockerIdToAdd} no está disponible.");
+                        }
+                    }
+                    
+                    await lockerService.AssignLockersToRentalTransactionAsync(rentalId, dto.LockerIds, connection, transaction);
+                    await daoClient.OpenLockerHistoryTransactionAsync(newClientId, dto.LockerIds, connection, transaction);
+                }
+
+                // 5. Crear Historial de Monto(s)
+                if (dto.IsLegacyClient)
+                {
+                    await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
+                    {
+                        RentalId = rentalId,
+                        Amount = dto.LegacyInitialAmount ?? dto.Amount,
+                        StartDate = startDate, 
+                        EndDate = null 
+                    }, connection, transaction);
+                    
+                    if (dto.Amount != (dto.LegacyInitialAmount ?? dto.Amount))
+                    {
+                        var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(rentalId, connection, transaction);
+                        if (lastAmountHistory != null)
+                        {
+                            await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, rentalId, dto.Amount, DateTime.Now, connection, transaction);
+                        }
+                    }
+                }
+                else
+                {
+                    await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
+                    {
+                        RentalId = rentalId,
+                        Amount = dto.Amount,
+                        StartDate = DateTime.Now,
+                        EndDate = null
+                    }, connection, transaction);
+                }
+
+                // ====================================================================================
+                // 6. MOVIMIENTOS INICIALES Y CREACIÓN DEL ESTADO DE CUENTA MENSUAL
+                // ====================================================================================
+                
+                var culture = new CultureInfo("es-AR");
+                
+                // MAGIA ACÁ: Si es legacy, el mes actual contable es HOY. Si es nuevo, es la startDate.
+                string currentMonthStr = dto.IsLegacyClient ? today.ToString("MM/yyyy") : startDate.ToString("MM/yyyy");
+
+                if (dto.IsLegacyClient)
+                {
+                    string monthName = culture.DateTimeFormat.GetMonthName(today.Month);
+                    string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName);
+
+                    await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
+                    {
+                        RentalId = rentalId,
+                        MovementDate = today, // Débito con fecha de hoy
+                        MovementType = "DEBITO",
+                        Concept = $"Alquiler {monthTitle} {today.Year}", // Concepto del mes actual
+                        Amount = dto.Amount,
+                        PaymentId = null
+                    }, connection, transaction);
+
+                    decimal paidAmount = 0m;
+
+                    if (dto.PrepaidMonths > 0 && dto.Amount > 0)
+                    {
+                        paidAmount = dto.PrepaidMonths * dto.Amount;
+                        await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
+                        {
+                            RentalId = rentalId,
+                            MovementDate = today, // Crédito con fecha de hoy
+                            MovementType = "CREDITO",
+                            Concept = $"Crédito inicial por {dto.PrepaidMonths} {(dto.PrepaidMonths == 1 ? "mes" : "meses")} pagados",
+                            Amount = paidAmount
+                        }, connection, transaction);
+                    }
+
+                    // A. Crear la fila mensual Legacy (1 SOLA FILA DEL MES ACTUAL)
+                    await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance
+                    {
+                        RentalId = rentalId,
+                        MonthYear = currentMonthStr,
+                        PreviousBalance = 0m,        // Nace sin saldo anterior
+                        Interests = 0m,
+                        MonthlyDebits = dto.Amount,  // Abono actual
+                        Paid = paidAmount,
+                        AdvancedPayment = 0m
+                    }, connection, transaction);
+                }
+                else
+                {
+                    if (startDate.Day < 10)
+                    {
+                        string monthName = culture.DateTimeFormat.GetMonthName(startDate.Month);
+                        string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName);
+
+                        await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
+                        {
+                            RentalId = rentalId,
+                            MovementDate = startDate,
+                            MovementType = "DEBITO",
+                            Concept = $"Alquiler {monthTitle} {startDate.Year}",
+                            Amount = dto.Amount,
+                            PaymentId = null
+                        }, connection, transaction);
+
+                        // B1. Fila de mes actual Puro (1 SOLA FILA)
+                        await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance
+                        {
+                            RentalId = rentalId,
+                            MonthYear = currentMonthStr,
+                            PreviousBalance = 0m,
+                            Interests = 0m,
+                            MonthlyDebits = dto.Amount,
+                            Paid = 0m,
+                            AdvancedPayment = 0m
+                        }, connection, transaction);
+                    }
+                    else
+                    {
+                        // --- CASO DESPUÉS DEL DÍA 10 ---
+                        int daysInMonth = DateTime.DaysInMonth(startDate.Year, startDate.Month);
+                        int daysToCharge = daysInMonth - startDate.Day; 
+                        decimal dailyRate = dto.Amount / daysInMonth;
+                        decimal proportionalRaw = dailyRate * daysToCharge;
+                        decimal debitAmountProportional = RoundToNearest1000(proportionalRaw);
+
+                        string currentMonthName = culture.DateTimeFormat.GetMonthName(startDate.Month);
+                        string currentMonthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(currentMonthName);
+
+                        // Movimiento Diario: Proporcional (Mes actual)
+                        await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
+                        {
+                            RentalId = rentalId,
+                            MovementDate = startDate,
+                            MovementType = "DEBITO",
+                            Concept = $"Alquiler {currentMonthTitle} {startDate.Year} (Proporcional {daysToCharge} días)",
+                            Amount = debitAmountProportional,
+                            PaymentId = null
+                        }, connection, transaction);
+
+                        // Movimiento Diario: Mes Completo (Mes siguiente)
+                        DateTime nextMonthDate = startDate.AddMonths(1);
+                        string nextMonthName = culture.DateTimeFormat.GetMonthName(nextMonthDate.Month);
+                        string nextMonthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(nextMonthName);
+
+                        await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
+                        {
+                            RentalId = rentalId,
+                            MovementDate = startDate, 
+                            MovementType = "DEBITO",
+                            Concept = $"Alquiler {nextMonthTitle} {nextMonthDate.Year}",
+                            Amount = dto.Amount,
+                            PaymentId = null
+                        }, connection, transaction);
+
+                        // B2. EL EXCEL (LA TABLA QUE VOS VES): 
+                        // ¡UNA SOLA PUTA FILA! Creada para el mes siguiente. 
+                        // Saldo Anterior = Proporcional. Abono = Cuota.
+                        await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance
+                        {
+                            RentalId = rentalId,
+                            MonthYear = nextMonthDate.ToString("MM/yyyy"), 
+                            PreviousBalance = debitAmountProportional,     
+                            Interests = 0m,
+                            MonthlyDebits = dto.Amount,                    
+                            Paid = 0m,
+                            AdvancedPayment = 0m
+                        }, connection, transaction);
+                    }
+                }
+
+                // (Emails, Phones, etc...)
+                foreach (string email in dto.Emails)
+                {
+                    if (!string.IsNullOrWhiteSpace(email))
+                    {
+                        Email emailEntity = new()
+                        {
+                            ClientId = newClientId,
+                            Address = email.Trim(),
+                            Type = ""
+                        };
+                        await emailService.CreateEmailTransaction(emailEntity, connection, transaction);
+                    }
+                }
+
+                if (dto.Phones != null)
+                {
+                    foreach (var phone in dto.Phones)
+                    {
+                        if (!string.IsNullOrWhiteSpace(phone.Number))
+                        {
+                            Phone phoneEntity = new()
+                            {
+                                ClientId = newClientId,
+                                Number = phone.Number.Trim(),
+                                Type = "",
+                                Whatsapp = phone.Whatsapp
+                            };
+                            await phoneService.CreatePhoneTransaction(phoneEntity, connection, transaction);
+                        }
+                    }
+                }
+
+                Address address = new()
+                {
+                    ClientId = newClientId,
+                    Street = dto.AddressDto.Street?.Trim() ?? string.Empty,
+                    City = "",   
+                    Province = "" 
+                };
+                
+                await addressService.CreateAddressTransaction(address, connection, transaction);
+
+                ActivityLog activityLog = new()
+                {
+                    UserId = dto.UserID,
+                    LogDate = dto.StartDate,
+                    Action = "CREATE",
+                    TableName = "clients",
+                    RecordId = newClientId,
+                };
+
+                await activityLogService.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
+
+                await transaction.CommitAsync();
+
+                return newClientId;
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "Error en CreateClientAsync. Transacción revertida.");
+                await transaction.RollbackAsync();
+                throw;
             }
         }
+    }
+}
         
         public async Task<GetClientDetailDTO> GetClientDetailByIdAsync(int id)
         {

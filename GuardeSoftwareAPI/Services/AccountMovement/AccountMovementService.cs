@@ -298,47 +298,188 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             {
                 // 1. Buscar el rentalId activo del cliente
                 var rental = await _daoRental.GetActiveRentalByClientIdTransactionAsync(dto.ClientId, connection, transaction);
-                if (rental == null)
-                {
-                    throw new InvalidOperationException("No se encontró un alquiler activo para este cliente.");
-                }
+                if (rental == null) throw new InvalidOperationException("No se encontró un alquiler activo para este cliente.");
 
-                // 2. Crear la entidad AccountMovement
+                DateTime movDate = dto.Date ?? DateTime.Now;
+
+                // 2. Crear la entidad AccountMovement (Libro Diario)
                 var movement = new AccountMovement
                 {
                     RentalId = rental.Id,
-                    MovementDate = dto.Date ?? DateTime.Now,
+                    MovementDate = movDate,
                     MovementType = dto.MovementType.ToUpper(), // "DEBITO" o "CREDITO"
                     Concept = dto.Concept,
                     Amount = dto.Amount,
                     PaymentId = null
                 };
 
-                // 3. Guardar el movimiento en la BD
                 await _daoAccountMovement.CreateAccountMovementTransactionAsync(movement, connection, transaction);
 
-                // 4. REVISAR BALANCE Y MORA (Lógica clave)
-                // Si fue un CRÉDITO, chequear si saldó la deuda
+                // ==============================================================================
+                // 3. IMPACTO EN EL ESTADO DE CUENTA MENSUAL (EXCEL)
+                // ==============================================================================
+                
+                DateTime currentRealMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+                string currentMonthStr = currentRealMonth.ToString("MM/yyyy");
+
                 if (movement.MovementType == "CREDITO")
                 {
-                    decimal newBalance = await _daoRental.GetBalanceByRentalIdTransactionAsync(rental.Id, connection, transaction);
-                    _logger.LogInformation($"Movimiento manual de {dto.Amount:C} registrado para Rental ID {rental.Id}. Nuevo balance: {newBalance:C}");
-
-                    // Si el balance es 0 o negativo (a favor), reseteamos la mora
-                    if (newBalance <= 0)
+                    // --- LÓGICA DE CASCADA PARA CRÉDITOS ---
+                    decimal moneyInHand = dto.Amount;
+                    
+                    var existingMonths = new List<ClientMonthBalance>();
+                    string selectQuery = "SELECT id, month_year, previous_balance, interests, monthly_debits, balance, paid, advanced_payment FROM client_month_balances WHERE rental_id = @rental_id ORDER BY id ASC";
+                    using (var cmdSelect = new SqlCommand(selectQuery, connection, transaction))
                     {
-                        await _daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
-                        _logger.LogInformation($"Balance saldado para Rental ID {rental.Id}. Contador de meses impagos reseteado a 0.");
+                        cmdSelect.Parameters.AddWithValue("@rental_id", rental.Id);
+                        using (var reader = await cmdSelect.ExecuteReaderAsync())
+                        {
+                            while (await reader.ReadAsync())
+                            {
+                                existingMonths.Add(new ClientMonthBalance {
+                                    Id = reader.GetInt32(0), MonthYear = reader.GetString(1), PreviousBalance = reader.GetDecimal(2),
+                                    Interests = reader.GetDecimal(3), MonthlyDebits = reader.GetDecimal(4), Balance = reader.GetDecimal(5),
+                                    Paid = reader.GetDecimal(6), AdvancedPayment = reader.GetDecimal(7)
+                                });
+                            }
+                        }
+                    }
+
+                    if (existingMonths.Count > 0)
+                    {
+                        decimal rolledOverDebt = 0;
+
+                        // A. Llenamos deudas existentes
+                        for (int i = 0; i < existingMonths.Count; i++)
+                        {
+                            var month = existingMonths[i];
+                            if (i > 0) 
+                            {
+                                month.PreviousBalance = rolledOverDebt;
+                                month.Balance = month.PreviousBalance + month.Interests + month.MonthlyDebits;
+                                string updBal = "UPDATE client_month_balances SET previous_balance = @pb, balance = @b WHERE id = @id";
+                                using var cmdBal = new SqlCommand(updBal, connection, transaction);
+                                cmdBal.Parameters.AddWithValue("@pb", month.PreviousBalance);
+                                cmdBal.Parameters.AddWithValue("@b", month.Balance);
+                                cmdBal.Parameters.AddWithValue("@id", month.Id);
+                                await cmdBal.ExecuteNonQueryAsync();
+                            }
+
+                            decimal owes = month.Balance - (month.Paid + month.AdvancedPayment);
+                            if (owes > 0 && moneyInHand > 0)
+                            {
+                                decimal applied = Math.Min(moneyInHand, owes);
+                                DateTime rowMonth = DateTime.ParseExact(month.MonthYear, "MM/yyyy", null);
+                                string colToUpdate = (rowMonth > currentRealMonth) ? "advanced_payment" : "paid";
+                                
+                                string updPaid = $"UPDATE client_month_balances SET {colToUpdate} = {colToUpdate} + @app WHERE id = @id";
+                                using var cmdPaid = new SqlCommand(updPaid, connection, transaction);
+                                cmdPaid.Parameters.AddWithValue("@app", applied);
+                                cmdPaid.Parameters.AddWithValue("@id", month.Id);
+                                await cmdPaid.ExecuteNonQueryAsync();
+
+                                if (colToUpdate == "paid") month.Paid += applied; else month.AdvancedPayment += applied;
+                                moneyInHand -= applied;
+                            }
+                            rolledOverDebt = month.Balance - (month.Paid + month.AdvancedPayment);
+                        }
+
+                        // B. Generamos futuro si sobra plata (Crédito a favor)
+                        string lastMonthStr = existingMonths.Last().MonthYear;
+                        DateTime lastGeneratedDate = DateTime.ParseExact(lastMonthStr, "MM/yyyy", null);
+                        decimal lastMonthDebt = rolledOverDebt;
+                        
+                        // A diferencia del pago normal, un crédito manual solo genera filas futuras si REALMENTE sobra plata
+                        while (moneyInHand > 0) 
+                        {
+                            lastGeneratedDate = lastGeneratedDate.AddMonths(1);
+                            string newMonthStr = lastGeneratedDate.ToString("MM/yyyy");
+
+                            decimal prevBal = lastMonthDebt > 0 ? lastMonthDebt : 0m;
+                            decimal rentAmount = (decimal)rental.CurrentAmount;
+                            decimal bucketSize = Math.Max(rentAmount, prevBal + rentAmount);
+                            decimal applied = Math.Min(moneyInHand, bucketSize);
+
+                            string insQuery = @"INSERT INTO client_month_balances (rental_id, month_year, previous_balance, interests, monthly_debits, balance, paid, advanced_payment)
+                                        VALUES (@rid, @my, @pb, 0, @md, @pb + @md, 0, @adv)";
+                            using (var cmdIns = new SqlCommand(insQuery, connection, transaction))
+                            {
+                                cmdIns.Parameters.AddWithValue("@rid", rental.Id);
+                                cmdIns.Parameters.AddWithValue("@my", newMonthStr);
+                                cmdIns.Parameters.AddWithValue("@pb", prevBal);
+                                cmdIns.Parameters.AddWithValue("@md", rentAmount);
+                                cmdIns.Parameters.AddWithValue("@adv", applied);
+                                await cmdIns.ExecuteNonQueryAsync();
+                            }
+                            moneyInHand -= applied;
+                            lastMonthDebt = (prevBal + rentAmount) - applied;
+                        }
+                    }
+                }
+                else if (movement.MovementType == "DEBITO")
+                {
+                    // --- LÓGICA INTELIGENTE PARA DÉBITOS ---
+                    DateTime movMonth = new DateTime(movDate.Year, movDate.Month, 1);
+                    
+                    // 1. Buscamos si existe la tabla del mes actual (HOY)
+                    string checkQuery = "SELECT id FROM client_month_balances WHERE rental_id = @rid AND month_year = @my";
+                    int? currentMonthId = null;
+                    using (var cmdCheck = new SqlCommand(checkQuery, connection, transaction))
+                    {
+                        cmdCheck.Parameters.AddWithValue("@rid", rental.Id);
+                        cmdCheck.Parameters.AddWithValue("@my", currentMonthStr);
+                        var result = await cmdCheck.ExecuteScalarAsync();
+                        if (result != null) currentMonthId = Convert.ToInt32(result);
+                    }
+
+                    // 2. Si no existe, la creamos de urgencia para alojar la deuda
+                    if (currentMonthId == null)
+                    {
+                        string insMonth = @"INSERT INTO client_month_balances (rental_id, month_year, previous_balance, interests, monthly_debits, balance, paid, advanced_payment)
+                                    OUTPUT INSERTED.id
+                                    VALUES (@rid, @my, 0, 0, 0, 0, 0, 0)";
+                        using (var cmdInsMonth = new SqlCommand(insMonth, connection, transaction))
+                        {
+                            cmdInsMonth.Parameters.AddWithValue("@rid", rental.Id);
+                            cmdInsMonth.Parameters.AddWithValue("@my", currentMonthStr);
+                            currentMonthId = (int)await cmdInsMonth.ExecuteScalarAsync();
+                        }
+                    }
+
+                    // 3. Aplicamos el Débito donde corresponde
+                    if (movMonth >= currentRealMonth)
+                    {
+                        // El débito es de ESTE mes o futuro -> Suma a Monthly Debits (Abono)
+                        string updDebit = "UPDATE client_month_balances SET monthly_debits = monthly_debits + @amt, balance = balance + @amt WHERE id = @id";
+                        using var cmdUpdDebit = new SqlCommand(updDebit, connection, transaction);
+                        cmdUpdDebit.Parameters.AddWithValue("@amt", dto.Amount);
+                        cmdUpdDebit.Parameters.AddWithValue("@id", currentMonthId.Value);
+                        await cmdUpdDebit.ExecuteNonQueryAsync();
+                    }
+                    else
+                    {
+                        // El débito es de un mes VIEJO -> Suma a Previous Balance (Saldo Anterior) del mes actual
+                        string updOld = "UPDATE client_month_balances SET previous_balance = previous_balance + @amt, balance = balance + @amt WHERE id = @id";
+                        using var cmdUpdOld = new SqlCommand(updOld, connection, transaction);
+                        cmdUpdOld.Parameters.AddWithValue("@amt", dto.Amount);
+                        cmdUpdOld.Parameters.AddWithValue("@id", currentMonthId.Value);
+                        await cmdUpdOld.ExecuteNonQueryAsync();
                     }
                 }
 
+                // 4. LIMPIEZA DE MORA SI EL SALDO GLOBAL ES 0
+                decimal newGlobalBalance = await _daoRental.GetBalanceByRentalIdTransactionAsync(rental.Id, connection, transaction);
+                if (newGlobalBalance <= 0)
+                {
+                    await _daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
+                }
+
                 await transaction.CommitAsync();
-                return movement; // Devuelve la entidad creada
+                return movement;
             }
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error en CreateManualMovementAsync. Transacción revertida.");
                 throw;
             }
         }
