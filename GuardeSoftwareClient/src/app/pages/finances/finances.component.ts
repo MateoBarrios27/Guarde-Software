@@ -465,53 +465,74 @@ export class FinancesComponent implements OnInit {
 
     if (!this.selectedClientIncreaseAnchorDate) return;
 
-    // 1. EXTRACCIÓN SEGURA DE FECHA ANCLA (Evita bug de UTC-3)
+    // 1. Extraemos la Fecha Ancla en formato numérico (ej: 202607) para comparar fácil
     const anchorString = this.selectedClientIncreaseAnchorDate.split('T')[0];
     const [aYear, aMonth] = anchorString.split('-').map(Number);
-    
-    // 2. EXTRACCIÓN SEGURA DE FECHA BASE PAGA
+    const anchorValue = aYear * 100 + aMonth;
+
+    // 2. Extraemos el Mes Actual del Pago
     let bYear: number, bMonth: number;
     if (this.manualDateEnabled && this.dateString) {
       const parts = this.dateString.split('-').map(Number);
       bYear = parts[0];
-      bMonth = parts[1]; // 1-indexed (ej: Abril es 4)
+      bMonth = parts[1];
     } else {
       const now = new Date();
       bYear = now.getFullYear();
-      bMonth = now.getMonth() + 1; 
+      bMonth = now.getMonth() + 1;
     }
+    const currentMonthValue = bYear * 100 + bMonth;
 
-    let monthsToPay = (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) ? this.paymentDto.advanceMonths : 1;
+    // 3. ¿HASTA DÓNDE LLEGA LA PLATA?
+    // Deuda actual (si el balance es negativo, lo pasamos a positivo para la matemática)
+    const currentDebt = this.selectedClientBalance < 0 ? Math.abs(this.selectedClientBalance) : 0;
+    let moneyInHand = this.paymentDto.amount || 0;
+    
+    let farthestYear = bYear;
+    let farthestMonth = bMonth;
 
-    // 1. Verificamos si el aumento cae DENTRO de los meses que está pagando
-    for (let i = 0; i < monthsToPay; i++) {
-      let currentMonth = bMonth + i;
-      let currentYear = bYear;
+    // Si entregó más plata que la deuda, calculamos cuántos meses a futuro cubre
+    if (moneyInHand > currentDebt) {
+      let extraMoney = moneyInHand - currentDebt;
+      let rent = this.selectedClientRentAmount || 1; // Evita dividir por 0
       
-      // Ajuste por si cambiamos de año (ej: de Diciembre a Enero)
-      while (currentMonth > 12) {
-        currentMonth -= 12;
-        currentYear += 1;
+      let futureMonthsCovered = Math.ceil(extraMoney / rent);
+      
+      // Si el usuario usó explícitamente el selector de meses, tomamos el mayor
+      if (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) {
+          futureMonthsCovered = Math.max(futureMonthsCovered, this.paymentDto.advanceMonths);
       }
 
-      if (currentYear === aYear && currentMonth === aMonth) {
-        this.hasIncreaseInPeriod = true;
-        break;
+      farthestMonth += futureMonthsCovered;
+      while (farthestMonth > 12) {
+          farthestMonth -= 12;
+          farthestYear += 1;
+      }
+    } else if (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) {
+       // Caso donde no cubre la deuda pero forzó el selector manual
+       farthestMonth += this.paymentDto.advanceMonths;
+       while (farthestMonth > 12) {
+          farthestMonth -= 12;
+          farthestYear += 1;
       }
     }
 
-    // 2. Si NO cayó adentro, verificamos si el aumento cae EXACTAMENTE en el mes DESPUÉS del pago
+    const farthestMonthValue = farthestYear * 100 + farthestMonth;
+
+    // VERIFICACIÓN A: El aumento cae DENTRO del dinero que puso
+    if (anchorValue >= currentMonthValue && anchorValue <= farthestMonthValue) {
+      this.hasIncreaseInPeriod = true;
+    }
+
+    // VERIFICACIÓN B: Si no cae dentro, ¿cae exactamente el mes que viene después de la plata ingresada?
     if (!this.hasIncreaseInPeriod) {
-      let nextMonth = bMonth + monthsToPay;
-      let nextYear = bYear;
-      
-      while (nextMonth > 12) {
-        nextMonth -= 12;
-        nextYear += 1;
-      }
+      let nextMonth = farthestMonth + 1;
+      let nextYear = farthestYear;
+      if (nextMonth > 12) { nextMonth = 1; nextYear += 1; }
+      const nextMonthValue = nextYear * 100 + nextMonth;
 
-      if (nextYear === aYear && nextMonth === aMonth) {
-        this.isIncreaseNextMonth = true;
+      if (anchorValue === nextMonthValue) {
+          this.isIncreaseNextMonth = true;
       }
     }
   }
@@ -642,10 +663,13 @@ export class FinancesComponent implements OnInit {
     this.showIncreaseOverlay = false;
     
     if (this.currentIncreaseFlow === 'advance') {
-      this.calculateAdvancePayment(); 
-      this.showSummarySwal(); // Luego del modal, muestra el resumen con los totales nuevos
+      // SOLO recalculamos si el usuario usó explícitamente el switch de meses
+      if (this.paymentDto.isAdvancePayment) {
+          this.calculateAdvancePayment(); 
+      }
+      this.showSummarySwal(); 
     } else if (this.currentIncreaseFlow === 'normal') {
-      this.executeBackendCall(); // Como es normal, ya pasaron por el resumen, directo a BD
+      this.executeBackendCall(); 
     }
   }
 
@@ -656,7 +680,10 @@ export class FinancesComponent implements OnInit {
     this.showIncreaseOverlay = false;
     
     if (this.currentIncreaseFlow === 'advance') {
-      this.calculateAdvancePayment();
+      // SOLO recalculamos si el usuario usó explícitamente el switch de meses
+      if (this.paymentDto.isAdvancePayment) {
+          this.calculateAdvancePayment();
+      }
       this.showSummarySwal();
     } else if (this.currentIncreaseFlow === 'normal') {
       this.executeBackendCall();
@@ -770,8 +797,14 @@ export class FinancesComponent implements OnInit {
       return;
     }
 
-    let currentRent = this.selectedClientRentAmount;
+    let baseRent = this.selectedClientRentAmount;
     let totalToPay = 0;
+
+    let anchorValue = 0;
+    if (this.selectedClientIncreaseAnchorDate) {
+      const parts = this.selectedClientIncreaseAnchorDate.split('T')[0].split('-').map(Number);
+      anchorValue = parts[0] * 100 + parts[1];
+    }
     
     // EXTRACCIÓN SEGURA DE FECHA BASE PAGA
     let bYear: number, bMonth: number;
@@ -798,41 +831,25 @@ export class FinancesComponent implements OnInit {
 
     for (let i = 0; i < this.paymentDto.advanceMonths; i++) {
       if (i === 0) {
-        totalToPay += suggestedAmount;
+        totalToPay += suggestedAmount; // Mes actual + Deuda
       } 
       else {
-        let rentForThisMonth = currentRent;
+        // Calculamos qué mes estamos procesando en el bucle
+        let loopMonth = bMonth + i;
+        let loopYear = bYear;
+        while (loopMonth > 12) { loopMonth -= 12; loopYear += 1; }
+        let currentLoopValue = loopYear * 100 + loopMonth;
 
-        // --- SUMA DEL INTERÉS GENERADO ---
-        if (i === 1 && this.selectedPendingSurcharge > 0) {
-          rentForThisMonth += this.selectedPendingSurcharge;
-        }
+        let rentForThisMonth = baseRent;
 
-        // --- AUMENTO PROGRAMADO ---
-        if (aYear !== null && aMonth !== null) {
-          let currentLoopMonth = bMonth + i;
-          let currentLoopYear = bYear;
-          
-          while (currentLoopMonth > 12) {
-            currentLoopMonth -= 12;
-            currentLoopYear += 1;
-          }
-
-          // Matemática para comparar fechas fácilmente (ej: 202607 >= 202607)
-          let loopDateNum = currentLoopYear * 100 + currentLoopMonth;
-          let anchorDateNum = aYear * 100 + aMonth;
-
-          if (loopDateNum >= anchorDateNum) {
-            if (this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
-              rentForThisMonth += currentRent * (this.paymentDto.increasePercentage / 100);
-            }
+        // ¿Corresponde aumento para este mes específico del bucle?
+        if (anchorValue > 0 && currentLoopValue >= anchorValue) {
+          if (this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
+            rentForThisMonth += baseRent * (this.paymentDto.increasePercentage / 100);
           }
         }
 
-        if (isEfectivo) {
-          rentForThisMonth = this.roundToNearest1000(rentForThisMonth);
-        }
-        
+        if (isEfectivo) rentForThisMonth = this.roundToNearest1000(rentForThisMonth);
         totalToPay += rentForThisMonth;
       }
     }

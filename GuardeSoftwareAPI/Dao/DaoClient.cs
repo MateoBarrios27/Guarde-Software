@@ -230,19 +230,20 @@ namespace GuardeSoftwareAPI.Dao
                     bt.billing_type_id, bt.name AS billing_type,
                     r.contracted_m3, r.increase_anchor_date, r.months_unpaid, r.occupied_spaces,
                     
-                    step1.UI_CurrentRent AS rent_amount,
-                    step1.UI_Balance AS balance,
-                    db.PaidDB AS total_paid,
+                    -- BLINDAJE CONTRA NULOS (Si no hay tabla, escupe 0 o la cuota actual)
+                    ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS rent_amount,
+                    ISNULL(step1.UI_Balance, 0) AS balance,
+                    ISNULL(db.PaidDB, 0) AS total_paid,
                     
                     CASE 
-                        WHEN (db.BalDB - db.PaidDB) <= 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
+                        WHEN (ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) <= 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
                         ELSE DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10)
                     END AS next_payment_day,
 
                     CASE 
                         WHEN c.active = 0 THEN 'Baja'
                         WHEN ISNULL(r.months_unpaid, 0) >= 1 THEN 'Moroso Nivel ' + CAST(ISNULL(r.months_unpaid, 0) AS VARCHAR(10))
-                        WHEN (db.BalDB - db.PaidDB) <= 0 THEN 'Al día'
+                        WHEN (ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) <= 0 THEN 'Al día'
                         ELSE 'Pendiente'
                     END AS payment_status
                     
@@ -253,31 +254,27 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1 
                 LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id 
 
+                -- MISMA MAGIA DE BÚSQUEDA QUE LA TABLA PRINCIPAL
                 OUTER APPLY (
                     SELECT TOP 1
                         PrevBalDB = ISNULL(cmb.previous_balance, 0),
                         IntsDB = ISNULL(cmb.interests, 0),
-                        RentDB = ISNULL(cr.CurrentRent, 0), 
+                        RentDB = ISNULL(cmb.monthly_debits, ISNULL(cr.CurrentRent, 0)), 
                         BalDB = ISNULL(cmb.balance, ISNULL(cr.CurrentRent, 0)),
-                        PaidDB = ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0)
+                        PaidDB = ISNULL(cmb.paid, 0),
+                        AdvPayDB = ISNULL(cmb.advanced_payment, 0)
                     FROM client_month_balances cmb
                     WHERE cmb.rental_id = r.rental_id
-                    ORDER BY cmb.id DESC
+                    ORDER BY 
+                        CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN 0 ELSE 1 END ASC,
+                        CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN cmb.id ELSE -cmb.id END ASC
                 ) db
 
-                OUTER APPLY (
-                    SELECT 
-                        Internal_Balance = CASE 
-                            WHEN (db.BalDB - db.PaidDB) <= 0 
-                            THEN (db.BalDB - db.PaidDB) + db.RentDB + ISNULL(r.pending_surcharge, 0)
-                            ELSE (db.BalDB - db.PaidDB) + ISNULL(r.pending_surcharge, 0)
-                        END
-                ) step_internal
-
+                -- CÁLCULO SEGURO DEL BALANCE
                 OUTER APPLY (
                     SELECT 
                         UI_CurrentRent = db.RentDB, 
-                        UI_Balance = -step_internal.Internal_Balance
+                        UI_Balance = -((ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) + CASE WHEN (ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) > 0 THEN ISNULL(r.pending_surcharge, 0) ELSE 0 END)
                 ) step1
 
                 WHERE c.client_id = @client_id;";

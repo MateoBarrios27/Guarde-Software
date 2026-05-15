@@ -134,7 +134,10 @@ namespace GuardeSoftwareAPI.Services.payment
         if (rental == null) throw new Exception("El cliente no tiene alquiler activo");
 
         int monthsToCover = (dto.IsAdvancePayment && dto.AdvanceMonths.HasValue && dto.AdvanceMonths.Value > 0) ? dto.AdvanceMonths.Value : 1;
-        decimal currentRent = (decimal)rental.CurrentAmount;
+        
+        // Guardamos la renta BASE y preparamos la NUEVA renta (por si hay aumento)
+        decimal baseRent = (decimal)rental.CurrentAmount;
+        decimal newRent = baseRent;
 
         // --- LÓGICA DE AUMENTO Y CONGELAMIENTO ---
         bool isPriceLocked = dto.IsAdvancePayment && monthsToCover >= 6;
@@ -146,13 +149,17 @@ namespace GuardeSoftwareAPI.Services.payment
         }
         else if (dto.IncreasePercentage.HasValue && dto.IncreasePercentage.Value > 0)
         {
-            currentRent = currentRent + (currentRent * (dto.IncreasePercentage.Value / 100m));
+            newRent = baseRent + (baseRent * (dto.IncreasePercentage.Value / 100m));
             int clientPaymentMethodId = await paymentMethodService.GetPaymentMethodIdByClientId(rental.ClientId);
-            if (clientPaymentMethodId == 1) currentRent = RoundToNearest1000(currentRent); 
+            if (clientPaymentMethodId == 1) newRent = RoundToNearest1000(newRent); 
 
+            // Dejamos constancia en el historial de que a partir del ancla, el precio es el nuevo
             var lastHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(rental.Id, connection, transaction);
             if (lastHistory != null)
-                await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastHistory.Id, rental.Id, currentRent, dto.Date, connection, transaction);
+            {
+                DateTime effectiveDate = rental.IncreaseAnchorDate ?? dto.Date;
+                await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastHistory.Id, rental.Id, newRent, effectiveDate, connection, transaction);
+            }
         }
 
         // --- 2. INSERCIÓN DE CRÉDITO Y COMISIONES EN MOVIMIENTOS ---
@@ -193,7 +200,7 @@ namespace GuardeSoftwareAPI.Services.payment
         {
             var month = existingMonths[i];
 
-            // A. Recalculamos el Saldo Anterior: Si el mes pasado se saldó, la deuda se vuelve 0 en cascada.
+            // A. Actualizamos el Saldo Anterior para absorber deudas pagadas en cascada
             if (i > 0) 
             {
                 month.PreviousBalance = rolledOverDebt;
@@ -207,7 +214,7 @@ namespace GuardeSoftwareAPI.Services.payment
                 await cmdBal.ExecuteNonQueryAsync();
             }
 
-            // B. ¿Cuánto debe realmente este mes?
+            // B. Calculamos la deuda real
             decimal owes = month.Balance - (month.Paid + month.AdvancedPayment);
 
             // C. Pagamos si tenemos plata
@@ -216,7 +223,6 @@ namespace GuardeSoftwareAPI.Services.payment
                 decimal applied = Math.Min(moneyInHand, owes);
                 DateTime rowMonth = DateTime.ParseExact(month.MonthYear, "MM/yyyy", null);
                 
-                // Si el pago se hace en un mes igual o posterior al de la tabla, es Paid. Sino, Advanced.
                 string colToUpdate = (rowMonth > currentRealMonth) ? "advanced_payment" : "paid";
                 
                 string updPaid = $"UPDATE client_month_balances SET {colToUpdate} = {colToUpdate} + @app WHERE id = @id";
@@ -229,7 +235,7 @@ namespace GuardeSoftwareAPI.Services.payment
                 moneyInHand -= applied;
             }
 
-            // D. La deuda que sobra pasa al mes siguiente
+            // D. Lo que sobra de deuda pasa a la siguiente iteración
             rolledOverDebt = month.Balance - (month.Paid + month.AdvancedPayment);
         }
 
@@ -239,55 +245,71 @@ namespace GuardeSoftwareAPI.Services.payment
         string lastMonthStr = existingMonths.Last().MonthYear;
         DateTime lastGeneratedDate = DateTime.ParseExact(lastMonthStr, "MM/yyyy", null);
         decimal lastMonthDebt = rolledOverDebt;
-        
-        // Solo entramos al bucle si sobra plata O si el último mes quedó en $0 (y necesitamos proyectar 1 mes)
-        while (moneyInHand > 0 || lastMonthDebt <= 0)
+
+        var lastExistingMonth = existingMonths.Last();
+        bool lastMonthWasTouched = (lastExistingMonth.Paid + lastExistingMonth.AdvancedPayment) > 0;
+
+        // Entramos si nos sobra plata O si el último mes fue tocado (necesitamos proyectar uno vacío)
+        if (moneyInHand > 0 || lastMonthWasTouched)
         {
-            lastGeneratedDate = lastGeneratedDate.AddMonths(1);
-            string newMonthStr = lastGeneratedDate.ToString("MM/yyyy");
-
-            // 1. Creamos el ticket físico en account_movements
-            var culture = new CultureInfo("es-AR");
-            string monthName = culture.DateTimeFormat.GetMonthName(lastGeneratedDate.Month);
-            string conceptDebit = $"Alquiler {CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName)} {lastGeneratedDate.Year}";
-
-            if (!await accountMovementService.IsDebitAlreadyCreatedAsync(rental.Id, conceptDebit, connection, transaction))
+            while (true)
             {
-                await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement {
-                    RentalId = rental.Id, PaymentId = paymentId, MovementDate = dto.Date,
-                    MovementType = "DEBITO", Concept = conceptDebit, Amount = currentRent
+                lastGeneratedDate = lastGeneratedDate.AddMonths(1);
+                string newMonthStr = lastGeneratedDate.ToString("MM/yyyy");
+                DateTime currentIterMonth = new DateTime(lastGeneratedDate.Year, lastGeneratedDate.Month, 1);
+
+                // 1. REGLA GRANULAR: Verificamos si este mes nuevo ya superó la fecha del aumento
+                decimal rentForThisMonth = baseRent;
+                if (rental.IncreaseAnchorDate.HasValue)
+                {
+                    DateTime anchor = new DateTime(rental.IncreaseAnchorDate.Value.Year, rental.IncreaseAnchorDate.Value.Month, 1);
+                    if (currentIterMonth >= anchor)
+                    {
+                        rentForThisMonth = newRent; // Aplicamos el aumento solo al mes correspondiente
+                    }
+                }
+
+                // 2. Creamos el ticket físico en account_movements
+                var culture = new CultureInfo("es-AR");
+                string monthName = culture.DateTimeFormat.GetMonthName(lastGeneratedDate.Month);
+                string conceptDebit = $"Alquiler {CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName)} {lastGeneratedDate.Year}";
+
+                if (!await accountMovementService.IsDebitAlreadyCreatedAsync(rental.Id, conceptDebit, connection, transaction))
+                {
+                    await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement {
+                        RentalId = rental.Id, PaymentId = paymentId, MovementDate = dto.Date,
+                        MovementType = "DEBITO", Concept = conceptDebit, Amount = rentForThisMonth
+                    }, connection, transaction);
+                }
+
+                // 3. Calculamos los saldos de este nuevo mes
+                decimal prevBalForThisNewMonth = lastMonthDebt > 0 ? lastMonthDebt : 0m;
+                decimal intsForThisNewMonth = 0m; // La mora se limpia al pagar
+                decimal totalOwedThisNewMonth = prevBalForThisNewMonth + intsForThisNewMonth + rentForThisMonth;
+
+                // 4. Aplicamos la plata
+                decimal bucketSize = Math.Max(rentForThisMonth, totalOwedThisNewMonth);
+                decimal applied = Math.Min(moneyInHand, bucketSize);
+
+                // 5. Insertamos la fila en el Excel
+                await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance {
+                    RentalId = rental.Id,
+                    MonthYear = newMonthStr,
+                    PreviousBalance = prevBalForThisNewMonth,
+                    Interests = intsForThisNewMonth,
+                    MonthlyDebits = rentForThisMonth,
+                    Paid = 0m,
+                    AdvancedPayment = applied
                 }, connection, transaction);
+
+                moneyInHand -= applied;
+                lastMonthDebt = totalOwedThisNewMonth - applied;
+
+                // EL FRENO DE MANO:
+                // Cortamos SOLO si se nos acabó la plata Y generamos un mes vacío (sin aplicar plata).
+                // Esto garantiza que siempre terminamos con un mes limpio para el próximo cobro.
+                if (moneyInHand <= 0 && applied == 0) break;
             }
-
-            // 2. Calculamos los saldos de este nuevo mes
-            decimal prevBalForThisNewMonth = lastMonthDebt > 0 ? lastMonthDebt : 0m;
-            decimal intsForThisNewMonth = 0m; // La mora se limpia al pagar
-            decimal totalOwedThisNewMonth = prevBalForThisNewMonth + intsForThisNewMonth + currentRent;
-
-            // 3. Aplicamos la plata
-            decimal bucketSize = Math.Max(currentRent, totalOwedThisNewMonth);
-            decimal applied = Math.Min(moneyInHand, bucketSize);
-
-            // 4. Insertamos la fila en el Excel
-            await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance {
-                RentalId = rental.Id,
-                MonthYear = newMonthStr,
-                PreviousBalance = prevBalForThisNewMonth,
-                Interests = intsForThisNewMonth,
-                MonthlyDebits = currentRent,
-                Paid = 0m,
-                AdvancedPayment = applied
-            }, connection, transaction);
-
-            moneyInHand -= applied;
-            lastMonthDebt = totalOwedThisNewMonth - applied;
-
-            // FRENO DE MANO: Si nos quedamos sin plata, Y el mes que acabamos de crear quedó con deuda, CORTAMOS.
-            // Esto evita que se cree "Agosto" cuando "Julio" todavía debe 70.000.
-            if (moneyInHand <= 0 && lastMonthDebt > 0) break;
-            
-            // Si nos quedamos sin plata, pero lastMonthDebt es 0, cortamos también (ya proyectamos el mes vacío)
-            if (moneyInHand <= 0 && lastMonthDebt <= 0) break;
         }
 
         // --- 5. LIMPIEZA DE MORA ---
