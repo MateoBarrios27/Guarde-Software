@@ -336,9 +336,12 @@ export class FinancesComponent implements OnInit {
 
     if (this.paymentDto.isAdvancePayment) {
       this.updateAdvanceConcept();
+      this.calculateAdvancePayment();
     } else {
       this.updateConceptFromDate(dateWithTime);
     }
+
+    this.checkIncreaseLogic();
   }
 
   get filteredClients(): Client[] {
@@ -459,6 +462,50 @@ export class FinancesComponent implements OnInit {
   // --- LÓGICA DEL CEREBRO DE AUMENTOS ---
   // =========================================================
   
+  private getSelectedPaymentMonth(): { year: number; month: number } {
+    if (this.manualDateEnabled && this.dateString) {
+      const [year, month] = this.dateString.split('-').map(Number);
+      return { year, month };
+    }
+
+    const baseDate = this.paymentDto.date ? new Date(this.paymentDto.date) : new Date();
+    return { year: baseDate.getFullYear(), month: baseDate.getMonth() + 1 };
+  }
+
+  private getCoverageStartMonth(): { year: number; month: number } {
+    const selectedMonth = this.getSelectedPaymentMonth();
+    const today = new Date();
+    const currentMonth = { year: today.getFullYear(), month: today.getMonth() + 1 };
+
+    if (this.selectedClientBalance < 0) {
+      const selectedValue = selectedMonth.year * 100 + selectedMonth.month;
+      const currentValue = currentMonth.year * 100 + currentMonth.month;
+
+      if (selectedValue < currentValue) {
+        return currentMonth;
+      }
+    }
+
+    return selectedMonth;
+  }
+
+  private addMonths(year: number, month: number, delta: number): { year: number; month: number } {
+    let resultYear = year;
+    let resultMonth = month + delta;
+
+    while (resultMonth > 12) {
+      resultMonth -= 12;
+      resultYear += 1;
+    }
+
+    while (resultMonth <= 0) {
+      resultMonth += 12;
+      resultYear -= 1;
+    }
+
+    return { year: resultYear, month: resultMonth };
+  }
+
   checkIncreaseLogic() {
     this.hasIncreaseInPeriod = false;
     this.isIncreaseNextMonth = false;
@@ -471,25 +518,16 @@ export class FinancesComponent implements OnInit {
     const anchorValue = aYear * 100 + aMonth;
 
     // 2. Extraemos el Mes Actual del Pago
-    let bYear: number, bMonth: number;
-    if (this.manualDateEnabled && this.dateString) {
-      const parts = this.dateString.split('-').map(Number);
-      bYear = parts[0];
-      bMonth = parts[1];
-    } else {
-      const now = new Date();
-      bYear = now.getFullYear();
-      bMonth = now.getMonth() + 1;
-    }
-    const currentMonthValue = bYear * 100 + bMonth;
+    const coverageStart = this.getCoverageStartMonth();
+    const currentMonthValue = coverageStart.year * 100 + coverageStart.month;
 
     // 3. ¿HASTA DÓNDE LLEGA LA PLATA?
     // Deuda actual (si el balance es negativo, lo pasamos a positivo para la matemática)
     const currentDebt = this.selectedClientBalance < 0 ? Math.abs(this.selectedClientBalance) : 0;
     let moneyInHand = this.paymentDto.amount || 0;
     
-    let farthestYear = bYear;
-    let farthestMonth = bMonth;
+    let farthestYear = coverageStart.year;
+    let farthestMonth = coverageStart.month;
 
     // Si entregó más plata que la deuda, calculamos cuántos meses a futuro cubre
     if (moneyInHand > currentDebt) {
@@ -503,18 +541,14 @@ export class FinancesComponent implements OnInit {
           futureMonthsCovered = Math.max(futureMonthsCovered, this.paymentDto.advanceMonths);
       }
 
-      farthestMonth += futureMonthsCovered;
-      while (farthestMonth > 12) {
-          farthestMonth -= 12;
-          farthestYear += 1;
-      }
+      const farthest = this.addMonths(coverageStart.year, coverageStart.month, futureMonthsCovered - 1);
+      farthestYear = farthest.year;
+      farthestMonth = farthest.month;
     } else if (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) {
        // Caso donde no cubre la deuda pero forzó el selector manual
-       farthestMonth += this.paymentDto.advanceMonths;
-       while (farthestMonth > 12) {
-          farthestMonth -= 12;
-          farthestYear += 1;
-      }
+       const farthest = this.addMonths(coverageStart.year, coverageStart.month, this.paymentDto.advanceMonths - 1);
+       farthestYear = farthest.year;
+       farthestMonth = farthest.month;
     }
 
     const farthestMonthValue = farthestYear * 100 + farthestMonth;
@@ -526,9 +560,9 @@ export class FinancesComponent implements OnInit {
 
     // VERIFICACIÓN B: Si no cae dentro, ¿cae exactamente el mes que viene después de la plata ingresada?
     if (!this.hasIncreaseInPeriod) {
-      let nextMonth = farthestMonth + 1;
-      let nextYear = farthestYear;
-      if (nextMonth > 12) { nextMonth = 1; nextYear += 1; }
+      const nextCoverageMonth = this.addMonths(farthestYear, farthestMonth, 1);
+      const nextMonth = nextCoverageMonth.month;
+      const nextYear = nextCoverageMonth.year;
       const nextMonthValue = nextYear * 100 + nextMonth;
 
       if (anchorValue === nextMonthValue) {
@@ -807,16 +841,7 @@ export class FinancesComponent implements OnInit {
     }
     
     // EXTRACCIÓN SEGURA DE FECHA BASE PAGA
-    let bYear: number, bMonth: number;
-    if (this.manualDateEnabled && this.dateString) {
-      const parts = this.dateString.split('-').map(Number);
-      bYear = parts[0];
-      bMonth = parts[1]; 
-    } else {
-      const now = new Date();
-      bYear = now.getFullYear();
-      bMonth = now.getMonth() + 1;
-    }
+    const coverageStart = this.getCoverageStartMonth();
 
     // EXTRACCIÓN SEGURA DE FECHA ANCLA
     let aYear: number | null = null, aMonth: number | null = null;
@@ -835,9 +860,9 @@ export class FinancesComponent implements OnInit {
       } 
       else {
         // Calculamos qué mes estamos procesando en el bucle
-        let loopMonth = bMonth + i;
-        let loopYear = bYear;
-        while (loopMonth > 12) { loopMonth -= 12; loopYear += 1; }
+        const coverageMonth = this.addMonths(coverageStart.year, coverageStart.month, i);
+        const loopMonth = coverageMonth.month;
+        const loopYear = coverageMonth.year;
         let currentLoopValue = loopYear * 100 + loopMonth;
 
         let rentForThisMonth = baseRent;

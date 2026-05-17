@@ -379,12 +379,6 @@ namespace GuardeSoftwareAPI.Dao
                     FROM rental_amount_history
                     WHERE GETDATE() BETWEEN start_date AND ISNULL(end_date, '9999-12-31')
                 ),
-                AccountSummary AS (
-                    SELECT rental_id,
-                        SUM(CASE WHEN movement_type = 'CREDITO' THEN amount ELSE -amount END) AS Balance
-                    FROM account_movements
-                    GROUP BY rental_id
-                ),
                 LockerList AS (
                     SELECT 
                         l.rental_id,
@@ -402,17 +396,39 @@ namespace GuardeSoftwareAPI.Dao
                     c.preferred_payment_method_id,
                     r.months_unpaid,
                     r.pending_surcharge AS PendingSurcharge,
-                    ISNULL(acc.Balance, 0) AS balance,
-                    cra.CurrentRent,
+                    ISNULL(step1.UI_Balance, 0) AS balance,
+                    ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS CurrentRent,
                     ISNULL(ll.LockerIdentifiers, '') AS locker_identifiers
                 FROM rentals r
                 INNER JOIN clients c ON r.client_id = c.client_id
-                LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
-                LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
+                LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
                 LEFT JOIN LockerList ll ON r.rental_id = ll.rental_id
+                OUTER APPLY (
+                    SELECT TOP 1
+                        RentDB = ISNULL(cmb.monthly_debits, ISNULL(cr.CurrentRent, 0)),
+                        BalDB = ISNULL(cmb.balance, ISNULL(cr.CurrentRent, 0)),
+                        PaidDB = ISNULL(cmb.paid, 0),
+                        AdvPayDB = ISNULL(cmb.advanced_payment, 0)
+                    FROM client_month_balances cmb
+                    WHERE cmb.rental_id = r.rental_id
+                    ORDER BY
+                        CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN 0 ELSE 1 END ASC,
+                        CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN cmb.id ELSE -cmb.id END ASC
+                ) db
+                OUTER APPLY (
+                    SELECT
+                        UI_CurrentRent = ISNULL(db.RentDB, ISNULL(cr.CurrentRent, 0)),
+                        UI_Balance = -(
+                            (ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0))
+                            + CASE
+                                WHEN (ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) > 0
+                                    THEN ISNULL(r.pending_surcharge, 0)
+                                ELSE 0
+                              END
+                        )
+                ) step1
                 WHERE r.active = 1
-                AND (r.months_unpaid > 0 OR ISNULL(acc.Balance, 0) < 0)
-                Group By c.payment_identifier, c.full_name, r.rental_id, r.client_id, r.increase_anchor_date, c.preferred_payment_method_id, r.months_unpaid, acc.Balance, cra.CurrentRent, ll.LockerIdentifiers, r.pending_surcharge;";
+                AND (r.months_unpaid > 0 OR ISNULL(step1.UI_Balance, 0) < 0);";
 
             return await accessDB.GetTableAsync("pending_rentals", query);
         }

@@ -22,6 +22,7 @@ using System.Globalization;
 using Quartz;
 using GuardeSoftwareAPI.Dtos.RentalSpaceRequest;
 using GuardeSoftwareAPI.Dtos.Phone;
+using GuardeSoftwareAPI.Services.clientMonthBalance;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -41,8 +42,9 @@ namespace GuardeSoftwareAPI.Services.client
         private readonly DaoRentalSpaceRequest _daoRentalSpaceRequest;
         private readonly DaoClientMonthBalance _daoMonthBalance;
         private readonly AccessDB accessDB;
+        private readonly IClientMonthBalanceService _clientMonthBalanceService;
 
-        public ClientService(AccessDB _accessDB, ILogger<ClientService> logger, IAccountMovementService _accountMovementService, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, ILockerService _lockerService, IActivityLogService _activityLogService, IEmailService _emailService, IPhoneService _phoneService, IAddressService _addressService)
+        public ClientService(AccessDB _accessDB, ILogger<ClientService> logger, IAccountMovementService _accountMovementService, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, ILockerService _lockerService, IActivityLogService _activityLogService, IEmailService _emailService, IPhoneService _phoneService, IAddressService _addressService, IClientMonthBalanceService clientMonthBalanceService)
         {
             daoClient = new DaoClient(_accessDB);
             addressService = _addressService;
@@ -57,6 +59,7 @@ namespace GuardeSoftwareAPI.Services.client
             _logger = logger;
             _daoRentalSpaceRequest = new DaoRentalSpaceRequest(_accessDB);
             _daoMonthBalance = new DaoClientMonthBalance(_accessDB);
+            _clientMonthBalanceService = clientMonthBalanceService;
         }
 
         public async Task<List<Client>> GetClientsList()
@@ -431,6 +434,8 @@ namespace GuardeSoftwareAPI.Services.client
                     }
                 }
 
+                await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rentalId, connection, transaction);
+
                 // (Emails, Phones, etc...)
                 foreach (string email in dto.Emails)
                 {
@@ -754,6 +759,8 @@ namespace GuardeSoftwareAPI.Services.client
                                 decimal newContractedM3 = await lockerService.CalculateTotalM3ForLockersAsync(newLockerIds, connection, transaction);
                                 await rentalService.UpdateContractedM3TransactionAsync(currentRental.Id, newContractedM3, connection, transaction);
                             }
+
+                            await _clientMonthBalanceService.RebuildForRentalTransactionAsync(currentRental.Id, connection, transaction);
                         } else if (dto.LockerIds != null && dto.LockerIds.Count != 0) {
                             Console.WriteLine($"Advertencia: Se asignaron lockers al cliente {id} pero no tiene un rental activo.");
                         }
@@ -945,6 +952,16 @@ namespace GuardeSoftwareAPI.Services.client
                         {
                             string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(culture.DateTimeFormat.GetMonthName(startDate.Month));
                             await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement { RentalId = rentalId, MovementDate = startDate, MovementType = "DEBITO", Concept = $"Alquiler {monthTitle} {startDate.Year} (Reactivación)", Amount = dto.Amount, PaymentId = null }, connection, transaction);
+                            await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance
+                            {
+                                RentalId = rentalId,
+                                MonthYear = startDate.ToString("MM/yyyy"),
+                                PreviousBalance = 0m,
+                                Interests = 0m,
+                                MonthlyDebits = dto.Amount,
+                                Paid = 0m,
+                                AdvancedPayment = 0m
+                            }, connection, transaction);
                         }
                         else
                         {
@@ -959,7 +976,19 @@ namespace GuardeSoftwareAPI.Services.client
                             DateTime nextMonthDate = startDate.AddMonths(1);
                             string nextMonthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(culture.DateTimeFormat.GetMonthName(nextMonthDate.Month));
                             await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement { RentalId = rentalId, MovementDate = startDate, MovementType = "DEBITO", Concept = $"Alquiler {nextMonthTitle} {nextMonthDate.Year}", Amount = dto.Amount, PaymentId = null }, connection, transaction);
+                            await _daoMonthBalance.CreateMonthBalanceTransactionAsync(new ClientMonthBalance
+                            {
+                                RentalId = rentalId,
+                                MonthYear = nextMonthDate.ToString("MM/yyyy"),
+                                PreviousBalance = debitAmountProportional,
+                                Interests = 0m,
+                                MonthlyDebits = dto.Amount,
+                                Paid = 0m,
+                                AdvancedPayment = 0m
+                            }, connection, transaction);
                         }
+
+                        await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rentalId, connection, transaction);
 
                         // 7. Log
                         ActivityLog activityLog = new() { UserId = dto.UserID, LogDate = DateTime.UtcNow, Action = "REACTIVATE", TableName = "clients", RecordId = clientId };

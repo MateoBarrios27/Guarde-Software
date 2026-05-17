@@ -8,6 +8,7 @@ using GuardeSoftwareAPI.Services.accountMovement;
 using GuardeSoftwareAPI.Services.rental;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
 using GuardeSoftwareAPI.Services.paymentMethod;
+using GuardeSoftwareAPI.Services.clientMonthBalance;
 using Microsoft.Data.SqlClient;
 using System.Globalization;
 
@@ -23,10 +24,11 @@ namespace GuardeSoftwareAPI.Services.payment
 		private readonly DaoRental daoRental;
 		private readonly IRentalAmountHistoryService rentalAmountHistoryService;
 		private readonly IPaymentMethodService paymentMethodService;
-        private readonly DaoClientMonthBalance _daoMonthBalance;
+		private readonly DaoClientMonthBalance _daoMonthBalance;
 		private readonly AccessDB accessDB;
+        private readonly IClientMonthBalanceService _clientMonthBalanceService;
 
-		public PaymentService(AccessDB _accessDB, IAccountMovementService _accountMovementService, ILogger<PaymentService> logger, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, IPaymentMethodService _paymentMethodService)
+		public PaymentService(AccessDB _accessDB, IAccountMovementService _accountMovementService, ILogger<PaymentService> logger, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, IPaymentMethodService _paymentMethodService, IClientMonthBalanceService clientMonthBalanceService)
 		{
 			this._daoPayment = new DaoPayment(_accessDB);
 			this.accountMovementService = _accountMovementService;
@@ -37,12 +39,13 @@ namespace GuardeSoftwareAPI.Services.payment
 			this.rentalService = _rentalService;
 			this.rentalAmountHistoryService = _rentalAmountHistoryService;
 			this._daoMonthBalance = new DaoClientMonthBalance(_accessDB);
+            _clientMonthBalanceService = clientMonthBalanceService;
 		}
 
 		public async Task<List<Payment>> GetPaymentsList()
 		{
 			DataTable paymentTable = await _daoPayment.GetPayments();
-			List<Payment> payments = new List<Payment>();
+			List<Payment> payments = [];
 
 			if (paymentTable.Rows.Count == 0) throw new ArgumentException("No payments found.");
 
@@ -50,8 +53,8 @@ namespace GuardeSoftwareAPI.Services.payment
 			{
 				int paymentId = (int)row["payment_id"];
 
-				Payment payment = new Payment
-				{
+				Payment payment = new()
+                {
 					Id = paymentId,
 					Amount = row["amount"] != DBNull.Value ? Convert.ToDecimal(row["amount"]) : 0m,
 					PaymentDate = row["payment_date"] != DBNull.Value ? (DateTime)row["payment_date"] : DateTime.MinValue,
@@ -116,7 +119,7 @@ namespace GuardeSoftwareAPI.Services.payment
 {
     if (dto == null) throw new ArgumentNullException(nameof(dto), "DTO cannot be null.");
     if (dto.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
-    if (dto.Amount < 0) throw new ArgumentException("Amount must be greater than 0.");
+    if (dto.Amount <= 0) throw new ArgumentException("Amount must be greater than 0.");
 
     using var connection = accessDB.GetConnectionClose();
     await connection.OpenAsync();
@@ -313,6 +316,7 @@ namespace GuardeSoftwareAPI.Services.payment
         }
 
         // --- 5. LIMPIEZA DE MORA ---
+        await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rental.Id, connection, transaction);
         await daoRental.ResetPendingSurchargeTransactionAsync(rental.Id, connection, transaction);
         await daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
 
@@ -358,7 +362,23 @@ namespace GuardeSoftwareAPI.Services.payment
 
 		public async Task<bool> DeletePaymentAsync(int movementId)
 		{
-			return await _daoPayment.DeletePaymentTransactionAsync(movementId);
+            int? rentalId = null;
+            using (var connection = accessDB.GetConnectionClose())
+            {
+                await connection.OpenAsync();
+                const string lookupQuery = "SELECT rental_id FROM account_movements WHERE movement_id = @movement_id";
+                using var lookupCommand = new SqlCommand(lookupQuery, connection);
+                lookupCommand.Parameters.AddWithValue("@movement_id", movementId);
+                var result = await lookupCommand.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                    rentalId = Convert.ToInt32(result);
+            }
+
+            bool deleted = await _daoPayment.DeletePaymentTransactionAsync(movementId);
+            if (deleted && rentalId.HasValue)
+                await _clientMonthBalanceService.RebuildForRentalAsync(rentalId.Value);
+
+			return deleted;
 		}
 
 		private decimal RoundToNearest1000(decimal amount)

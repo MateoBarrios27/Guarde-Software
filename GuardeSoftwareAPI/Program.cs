@@ -34,6 +34,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Globalization;
 using GuardeSoftwareAPI.Services.cash;
+using GuardeSoftwareAPI.Services.clientMonthBalance;
 
 
 
@@ -133,6 +134,7 @@ builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<DaoStatistics>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICashService, CashService>();
+builder.Services.AddScoped<IClientMonthBalanceService, ClientMonthBalanceService>();
 
 // --- Configuration Quartz.NET ---
 builder.Services.AddQuartz(q =>
@@ -171,7 +173,7 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(applyInterestsJobKey)
         .WithIdentity("ApplyInterestsJob-trigger")
-        .WithCronSchedule("0 0 4 10 * ?") // 4:00 AM del día 10 de cada mes
+        .WithCronSchedule("0 57 19 16 * ?") // 4:00 AM del día 10 de cada mes
     );
 
     // var applyIncreasesJobKey = new JobKey("ApplyMonthlyIncreasesJob");

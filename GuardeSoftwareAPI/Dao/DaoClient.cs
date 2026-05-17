@@ -23,19 +23,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<DataTable> GetClients()
         {
             string query = @"
-                WITH AccountSummary AS (
-                    SELECT
-                        rental_id,
-                        SUM(
-                            CASE 
-                                WHEN movement_type = 'DEBITO' THEN -amount 
-                                ELSE amount 
-                            END
-                        ) AS Balance
-                    FROM account_movements
-                    GROUP BY rental_id
-                ),
-                CurrentRentalAmount AS (
+                WITH CurrentRentalAmount AS (
                     SELECT 
                         h.rental_id,
                         h.amount AS CurrentRent
@@ -67,33 +55,40 @@ namespace GuardeSoftwareAPI.Dao
                     c.initial_amount,
                     r.increase_anchor_date AS IncreaseAnchorDate,
                     r.pending_surcharge AS PendingSurcharge,
-                    ISNULL(SUM(ISNULL(cra.CurrentRent, 0)), 0) AS rent_amount,
-                    ISNULL(SUM(ISNULL(acc.Balance, 0)), 0) AS balance
+                    ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS rent_amount,
+                    ISNULL(step1.UI_Balance, 0) AS balance
 
                 FROM clients c
                 LEFT JOIN rentals r
                     ON c.client_id = r.client_id
                     AND r.active = 1
-                LEFT JOIN AccountSummary acc
-                    ON r.rental_id = acc.rental_id
-                LEFT JOIN CurrentRentalAmount cra 
-                    ON r.rental_id = cra.rental_id 
-                WHERE c.active = 1
-                GROUP BY
-                    c.payment_identifier,
-                    c.client_id,
-                    c.full_name,
-                    c.registration_date,
-                    c.dni,
-                    c.cuit,
-                    c.preferred_payment_method_id,
-                    c.iva_condition,
-                    c.notes,
-                    c.billing_type_id,
-                    c.increase_frequency_months,
-                    c.initial_amount,
-                    r.increase_anchor_date,
-                    r.pending_surcharge;";   
+                LEFT JOIN CurrentRentalAmount cr
+                    ON r.rental_id = cr.rental_id
+                
+                -- BÚSQUEDA INTELIGENTE DEL MES ACTIVO (La misma lógica del resto del sistema)
+                OUTER APPLY (
+                    SELECT TOP 1
+                        PrevBalDB = ISNULL(cmb.previous_balance, 0),
+                        IntsDB = ISNULL(cmb.interests, 0),
+                        RentDB = ISNULL(cmb.monthly_debits, ISNULL(cr.CurrentRent, 0)),
+                        BalDB = ISNULL(cmb.balance, ISNULL(cr.CurrentRent, 0)),
+                        PaidDB = ISNULL(cmb.paid, 0),
+                        AdvPayDB = ISNULL(cmb.advanced_payment, 0)
+                    FROM client_month_balances cmb
+                    WHERE cmb.rental_id = r.rental_id
+                    ORDER BY
+                        CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN 0 ELSE 1 END ASC,
+                        CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN cmb.id ELSE -cmb.id END ASC
+                ) db
+                
+                -- CÁLCULO SEGURO DEL BALANCE CON BLINDAJE CONTRA NULOS
+                OUTER APPLY (
+                    SELECT
+                        UI_CurrentRent = db.RentDB,
+                        UI_Balance = -((ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) + CASE WHEN (ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) > 0 THEN ISNULL(r.pending_surcharge, 0) ELSE 0 END)
+                ) step1
+                
+                WHERE c.active = 1;";   
 
             return await accessDB.GetTableAsync("clients", query);
         }

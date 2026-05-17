@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Dtos.AccountMovement;
+using GuardeSoftwareAPI.Services.clientMonthBalance;
 
 namespace GuardeSoftwareAPI.Services.accountMovement {
 
@@ -16,13 +17,15 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
         private readonly DaoRental _daoRental;
         private readonly ILogger<IAccountMovementService> _logger;
         private readonly AccessDB accessDB;
+        private readonly IClientMonthBalanceService _clientMonthBalanceService;
 
-        public AccountMovementService(AccessDB _accessDB, ILogger<AccountMovementService> logger)
+        public AccountMovementService(AccessDB _accessDB, ILogger<AccountMovementService> logger, IClientMonthBalanceService clientMonthBalanceService)
         {
             _daoAccountMovement = new DaoAccountMovement(_accessDB);
             _daoRental = new DaoRental(_accessDB);
             _logger = logger;
             accessDB = _accessDB;
+            _clientMonthBalanceService = clientMonthBalanceService;
         }
 
         public async Task<List<AccountMovement>> GetAccountMovementList()
@@ -173,12 +176,13 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                         using var transaction = connection.BeginTransaction();
 
                         // 1. Verificar si ya existe un débito con este CONCEPTO (Corrección clave)
-                        bool debitExists = await _daoAccountMovement.CheckIfDebitExistsByConceptAsync(rentalId, targetConceptBase, connection);
+                        bool debitExists = await _daoAccountMovement.IsDebitAlreadyCreatedAsync(rentalId, targetConceptBase, connection, transaction);
                         
                         if (debitExists)
                         {
                             _logger.LogDebug($"Débito omitido para Rental ID {rentalId}: Ya existe un movimiento con concepto '{targetConceptBase}'.");
                             duplicateCount++;
+                            await transaction.CommitAsync();
                             continue;
                         }
 
@@ -191,6 +195,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                         if (currentAmount <= 0)
                         {
                             _logger.LogWarning($"El monto de alquiler para Rental ID {rentalId} es cero o negativo ({currentAmount:C}). Omitiendo débito.");
+                            await transaction.CommitAsync();
                             continue;
                         }
 
@@ -221,7 +226,9 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                         };
 
                         // 5. Crear débito en BD
-                        await _daoAccountMovement.CreateDebitAsync(debitMovement, connection);
+                        await _daoAccountMovement.CreateAccountMovementTransactionAsync(debitMovement, connection, transaction);
+                        await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rentalId, connection, transaction);
+                        await transaction.CommitAsync();
                         
                         _logger.LogInformation($"Débito de {currentAmount:C} creado para Rental ID {rentalId}. Concepto: {targetConceptBase}");
                         processedCount++;
@@ -474,6 +481,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                     await _daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
                 }
 
+                await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rental.Id, connection, transaction);
                 await transaction.CommitAsync();
                 return movement;
             }
