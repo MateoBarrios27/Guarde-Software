@@ -225,20 +225,20 @@ namespace GuardeSoftwareAPI.Dao
                     bt.billing_type_id, bt.name AS billing_type,
                     r.contracted_m3, r.increase_anchor_date, r.months_unpaid, r.occupied_spaces,
                     
-                    -- BLINDAJE CONTRA NULOS (Si no hay tabla, escupe 0 o la cuota actual)
+                    -- BLINDAJE CONTRA NULOS Y PROYECCIÓN
                     ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS rent_amount,
                     ISNULL(step1.UI_Balance, 0) AS balance,
                     ISNULL(db.PaidDB, 0) AS total_paid,
                     
                     CASE 
-                        WHEN (ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) <= 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
+                        WHEN ISNULL(step1.UI_Balance, 0) >= 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
                         ELSE DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10)
                     END AS next_payment_day,
 
                     CASE 
                         WHEN c.active = 0 THEN 'Baja'
                         WHEN ISNULL(r.months_unpaid, 0) >= 1 THEN 'Moroso Nivel ' + CAST(ISNULL(r.months_unpaid, 0) AS VARCHAR(10))
-                        WHEN (ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) <= 0 THEN 'Al día'
+                        WHEN ISNULL(step1.UI_Balance, 0) >= 0 THEN 'Al día'
                         ELSE 'Pendiente'
                     END AS payment_status
                     
@@ -249,13 +249,11 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1 
                 LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id 
 
-                -- MISMA MAGIA DE BÚSQUEDA QUE LA TABLA PRINCIPAL
                 OUTER APPLY (
                     SELECT TOP 1
                         PrevBalDB = ISNULL(cmb.previous_balance, 0),
                         IntsDB = ISNULL(cmb.interests, 0),
-                        RentDB = ISNULL(cmb.monthly_debits, ISNULL(cr.CurrentRent, 0)), 
-                        BalDB = ISNULL(cmb.balance, ISNULL(cr.CurrentRent, 0)),
+                        RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
                         PaidDB = ISNULL(cmb.paid, 0),
                         AdvPayDB = ISNULL(cmb.advanced_payment, 0)
                     FROM client_month_balances cmb
@@ -265,11 +263,11 @@ namespace GuardeSoftwareAPI.Dao
                         CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN cmb.id ELSE -cmb.id END ASC
                 ) db
 
-                -- CÁLCULO SEGURO DEL BALANCE
+                -- CÁLCULO SEGURO DEL BALANCE MATEMÁTICO
                 OUTER APPLY (
                     SELECT 
                         UI_CurrentRent = db.RentDB, 
-                        UI_Balance = -((ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) + CASE WHEN (ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) > 0 THEN ISNULL(r.pending_surcharge, 0) ELSE 0 END)
+                        UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB)
                 ) step1
 
                 WHERE c.client_id = @client_id;";
@@ -380,7 +378,7 @@ namespace GuardeSoftwareAPI.Dao
                         first_phone.number AS Phone,
                         a.city AS City,
 
-                        -- MATEMÁTICA DE LA UI (Ahora todo sale de step1)
+                        -- MATEMÁTICA DE LA UI 
                         step1.UI_PreviousBalance AS PreviousBalance,
                         step1.UI_InterestAmount AS InterestAmount,
                         step1.UI_CurrentRent AS CurrentRent,
@@ -395,7 +393,8 @@ namespace GuardeSoftwareAPI.Dao
                         CASE
                             WHEN c.active = 0 THEN 'Baja'
                             WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso'
-                            WHEN (db.BalDB - db.PaidDB - db.AdvPayDB) <= 0 THEN 'Al día'
+                            -- Como el saldo a pagar es negativo (ej: -110.000), si es >= 0 significa que no debe nada
+                            WHEN ISNULL(step1.UI_Balance, 0) >= 0 THEN 'Al día' 
                             ELSE 'Pendiente'
                         END AS Status
                         
@@ -411,33 +410,26 @@ namespace GuardeSoftwareAPI.Dao
                         SELECT TOP 1
                             PrevBalDB = ISNULL(cmb.previous_balance, 0),
                             IntsDB = ISNULL(cmb.interests, 0),
-                            RentDB = ISNULL(cmb.monthly_debits, ISNULL(cr.CurrentRent, 0)), 
-                            BalDB = ISNULL(cmb.balance, ISNULL(cr.CurrentRent, 0)),
+                            -- MAGIA: Si el mes no tiene abono cargado aún, proyectamos la cuota vigente
+                            RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
                             PaidDB = ISNULL(cmb.paid, 0),
                             AdvPayDB = ISNULL(cmb.advanced_payment, 0)
                         FROM client_month_balances cmb
                         WHERE cmb.rental_id = r.rental_id
                         ORDER BY 
-                            -- Prioridad 0: Meses que deben plata (Buscamos el más viejo a pagar).
-                            -- Prioridad 1: Si todo está pago, agarra el último mes proyectado.
                             CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN 0 ELSE 1 END ASC,
                             CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN cmb.id ELSE -cmb.id END ASC
                     ) db
 
-                    -- 2. ASIGNAMOS A LA UI
+                    -- 2. ASIGNAMOS A LA UI (Limpio y proyectado matemáticamente)
                     OUTER APPLY (
                         SELECT 
                             UI_CurrentRent = db.RentDB, 
+                            UI_InterestAmount = db.IntsDB,
                             
-                            -- Interés: Solo suma la mora en curso si el mes actual tiene deuda
-                            UI_InterestAmount = db.IntsDB + CASE WHEN (db.BalDB - db.PaidDB - db.AdvPayDB) > 0 THEN ISNULL(r.pending_surcharge, 0) ELSE 0 END,
+                            -- Proyección absoluta: (Arrastre + Interés + Cuota) - (Lo pagado + Lo adelantado)
+                            UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                             
-                            -- Saldo Final a Pagar (Negativo para Angular)
-                            UI_Balance = -((db.BalDB - db.PaidDB - db.AdvPayDB) + CASE WHEN (db.BalDB - db.PaidDB - db.AdvPayDB) > 0 THEN ISNULL(r.pending_surcharge, 0) ELSE 0 END),
-
-                            -- MAGIA DE SALDO ANTERIOR: 
-                            -- Si tiene Advanced Payment (plata de sobra), es POSITIVO (A favor).
-                            -- Si tiene Previous Balance (deuda arrastrada), es NEGATIVO.
                             UI_PreviousBalance = db.AdvPayDB - db.PrevBalDB
                     ) step1
 

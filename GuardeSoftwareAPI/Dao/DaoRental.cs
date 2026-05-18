@@ -276,46 +276,50 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
         
-        public async Task<DataTable> GetAllActiveRentalsWithStatusAsync()
-        {
-            string query = @"
-            WITH RankedRentalAmount AS (
-                -- 1. Primero generamos el número de fila (rn) para todos los historiales
-                SELECT 
-                    rental_id, 
-                    amount AS CurrentRent, 
-                    ROW_NUMBER() OVER(
-                        PARTITION BY rental_id 
-                        ORDER BY start_date DESC, 
-                                    CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, 
-                                    rental_amount_history_id DESC
-                    ) as rn
-                FROM rental_amount_history
-            ),
-            CurrentRentalAmount AS (
-                -- 2. Ahora sí podemos filtrar quedándonos solo con el más reciente (rn = 1)
-                SELECT rental_id, CurrentRent
-                FROM RankedRentalAmount
-                WHERE rn = 1
-            ),
-            AccountSummary AS (
-                -- 3. Sumamos la cuenta corriente
-                SELECT rental_id, SUM(CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END) AS Balance
-                FROM account_movements
-                GROUP BY rental_id
-            )
+public async Task<DataTable> GetAllActiveRentalsWithStatusAsync()
+{
+    string query = @"
+        WITH RankedRentalAmount AS (
+            -- 1. Buscamos el historial de precios para saber la cuota actual
             SELECT 
-                r.rental_id,
-                r.months_unpaid,
-                ISNULL(acc.Balance, 0) AS balance,
-                ISNULL(cra.CurrentRent, 0) AS CurrentRent
-            FROM rentals r
-            LEFT JOIN AccountSummary acc ON r.rental_id = acc.rental_id
-            LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
-            WHERE r.active = 1;";
+                rental_id, 
+                amount AS CurrentRent, 
+                ROW_NUMBER() OVER(
+                    PARTITION BY rental_id 
+                    ORDER BY start_date DESC, 
+                                CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, 
+                                rental_amount_history_id DESC
+                ) as rn
+            FROM rental_amount_history
+        ),
+        CurrentRentalAmount AS (
+            -- Nos quedamos solo con el precio vigente
+            SELECT rental_id, CurrentRent
+            FROM RankedRentalAmount
+            WHERE rn = 1
+        ),
+        LastMonthBalance AS (
+            -- 2. Buscamos la última fila generada en el Excel para cada alquiler
+            SELECT 
+                rental_id, 
+                (balance - paid - advanced_payment) AS Debt,
+                ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY id DESC) as rn
+            FROM client_month_balances
+            -- Nos aseguramos de no leer meses proyectados a futuro si los hubiera
+            WHERE month_year <= FORMAT(GETDATE(), 'MM/yyyy')
+        )
+        SELECT 
+            r.rental_id,
+            r.months_unpaid,
+            ISNULL(cmb.Debt, 0) AS balance,
+            ISNULL(cra.CurrentRent, 0) AS CurrentRent
+        FROM rentals r
+        LEFT JOIN LastMonthBalance cmb ON r.rental_id = cmb.rental_id AND cmb.rn = 1
+        LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
+        WHERE r.active = 1;";
 
-            return await accessDB.GetTableAsync("all_active_rentals", query);
-        }
+    return await accessDB.GetTableAsync("all_active_rentals", query);
+}
 
         public async Task IncrementUnpaidMonthsAndSaveInterestAsync(int rentalId, decimal interestAmount)
         {
