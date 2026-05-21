@@ -99,7 +99,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedItemIds: number[] = [];
 
   toggleItemSelection(item: CashFlowItem): void {
-    if (!item.id || this.isHistoricalView) return; 
+    if (!item.id || item.id === 0) return; 
     
     const index = this.selectedItemIds.indexOf(item.id);
     if (index > -1) {
@@ -126,7 +126,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     return sum;
   }
-
   private saveUndoStack(): void {
     sessionStorage.setItem('cash_undo_stack', JSON.stringify(this.undoStack));
   }
@@ -537,17 +536,19 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  // --- LÓGICA DE FILTRADO (MUTACIÓN DE LA TABLA) ---
   filterItems(): void {
     const term = this.searchTerm.toLowerCase().trim();
     
-    // Si hay un RANGO completo seleccionado -> Modo Histórico (Cálculo del Servidor)
     if (this.searchDateFrom && this.searchDateTo) {
+      if (!this.isHistoricalView) this.clearItemSelection();
+      
       this.isHistoricalView = true;
       this.isLoading = true;
       
       this.cashService.getHistoricalReport(this.searchDateFrom, this.searchDateTo).subscribe({
         next: (data) => {
+          data.forEach((item, index) => item.id = -(index + 1));
+          
           this.filteredItems = data.filter(item => !term || (item.description || '').toLowerCase().includes(term));
           this.calculateTableTotals();
           this.isLoading = false;
@@ -558,12 +559,12 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       });
     } 
-    // Si NO hay rango -> Modo Local (Mes Actual)
     else {
+      if (this.isHistoricalView) this.clearItemSelection();
+      
       this.isHistoricalView = false;
       this.filteredItems = this.items.filter(item => {
         const matchesText = !term || (item.description || '').toLowerCase().includes(term);
-        // Fallback: Si el usuario seleccionó solo "Desde", filtra por ese día específico
         const matchesDate = !this.searchDateFrom || item.date === this.searchDateFrom;
         return matchesText && matchesDate;
       });
@@ -627,6 +628,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     this.searchDateTo = '';
     this.searchTerm = '';
     this.isHistoricalView = false;
+    this.clearItemSelection();
     
     let m = this.selectedMonth + delta;
     let y = this.selectedYear;
