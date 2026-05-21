@@ -60,8 +60,6 @@ export class CreateMovementModalComponent implements OnInit {
     this.isLoading = true;
     const formValue = this.newMovementForm.value;
 
-    // --- LÓGICA DE LA FECHA ---
-    // Calculamos la fecha manteniendo la hora actual para evitar problemas de zona horaria
     let finalDate = new Date();
     if (this.manualDateEnabled && this.dateString) {
       const [year, month, day] = this.dateString.split('-').map(Number);
@@ -69,12 +67,14 @@ export class CreateMovementModalComponent implements OnInit {
       finalDate = new Date(year, month - 1, day, currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds());
     }
 
+    const adjustedDate = new Date(finalDate.getTime() - (finalDate.getTimezoneOffset() * 60000));
+
     const dto: CreateAccountMovementDTO = {
       clientId: this.clientId,
       movementType: formValue.movementType,
       amount: formValue.amount,
       concept: formValue.concept,
-      date: finalDate // <-- Enviamos la fecha configurada
+      date: adjustedDate 
     };
 
     this.accountMovementService.createMovement(dto).subscribe({

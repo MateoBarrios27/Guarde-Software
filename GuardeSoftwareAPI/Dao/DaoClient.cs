@@ -249,6 +249,7 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1 
                 LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id 
 
+                -- BUSCAMOS EL MES ACTIVO (Siempre la última tabla generada)
                 OUTER APPLY (
                     SELECT TOP 1
                         PrevBalDB = ISNULL(cmb.previous_balance, 0),
@@ -258,9 +259,7 @@ namespace GuardeSoftwareAPI.Dao
                         AdvPayDB = ISNULL(cmb.advanced_payment, 0)
                     FROM client_month_balances cmb
                     WHERE cmb.rental_id = r.rental_id
-                    ORDER BY 
-                        CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN 0 ELSE 1 END ASC,
-                        CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN cmb.id ELSE -cmb.id END ASC
+                    ORDER BY cmb.id DESC -- LA SOLUCIÓN: Trae siempre la última tabla
                 ) db
 
                 -- CÁLCULO SEGURO DEL BALANCE MATEMÁTICO
@@ -405,23 +404,20 @@ namespace GuardeSoftwareAPI.Dao
                     LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1
                     LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
 
-                    -- 1. BUSCAMOS EL MES ACTIVO INTELIGENTEMENTE
+                    -- 1. BUSCAMOS EL MES ACTIVO (Siempre la última tabla generada)
                     OUTER APPLY (
                         SELECT TOP 1
                             PrevBalDB = ISNULL(cmb.previous_balance, 0),
                             IntsDB = ISNULL(cmb.interests, 0),
-                            -- MAGIA: Si el mes no tiene abono cargado aún, proyectamos la cuota vigente
                             RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
                             PaidDB = ISNULL(cmb.paid, 0),
                             AdvPayDB = ISNULL(cmb.advanced_payment, 0)
                         FROM client_month_balances cmb
                         WHERE cmb.rental_id = r.rental_id
-                        ORDER BY 
-                            CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN 0 ELSE 1 END ASC,
-                            CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN cmb.id ELSE -cmb.id END ASC
+                        ORDER BY cmb.id DESC -- LA SOLUCIÓN: Trae siempre la última tabla
                     ) db
 
-                    -- 2. ASIGNAMOS A LA UI (Limpio y proyectado matemáticamente)
+                    -- 2. ASIGNAMOS A LA UI
                     OUTER APPLY (
                         SELECT 
                             UI_CurrentRent = db.RentDB, 

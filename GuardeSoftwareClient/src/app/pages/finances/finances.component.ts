@@ -329,6 +329,7 @@ export class FinancesComponent implements OnInit {
     if (!value) return;
     const [year, month, day] = value.split('-').map(Number);
     const currentTime = new Date();
+
     const dateWithTime = new Date(year, month - 1, day, currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds());
 
     this.paymentDto.date = dateWithTime;
@@ -336,12 +337,9 @@ export class FinancesComponent implements OnInit {
 
     if (this.paymentDto.isAdvancePayment) {
       this.updateAdvanceConcept();
-      this.calculateAdvancePayment();
     } else {
       this.updateConceptFromDate(dateWithTime);
     }
-
-    this.checkIncreaseLogic();
   }
 
   get filteredClients(): Client[] {
@@ -788,9 +786,12 @@ export class FinancesComponent implements OnInit {
 
   executeBackendCall() {
     const calc = this.getCalculatedAmounts(this.paymentDto.amount, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
-    
+        const localDate = this.paymentDto.date;
+    const adjustedDate = new Date(localDate.getTime() - (localDate.getTimezoneOffset() * 60000));
+
     const payloadToSave: CreatePaymentDTO = {
       ...this.paymentDto,
+      date: adjustedDate, 
       amount: calc.amountEntered, 
       commissionAmount: calc.isSurcharge ? calc.difference : (calc.isDiscount ? -calc.difference : 0),
       commissionConcept: calc.isSurcharge 
