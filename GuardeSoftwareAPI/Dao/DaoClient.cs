@@ -65,27 +65,26 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN CurrentRentalAmount cr
                     ON r.rental_id = cr.rental_id
                 
-                -- BÚSQUEDA INTELIGENTE DEL MES ACTIVO (La misma lógica del resto del sistema)
+                -- BÚSQUEDA INTELIGENTE DEL MES ACTIVO (Siempre la última tabla generada)
                 OUTER APPLY (
                     SELECT TOP 1
                         PrevBalDB = ISNULL(cmb.previous_balance, 0),
                         IntsDB = ISNULL(cmb.interests, 0),
-                        RentDB = ISNULL(cmb.monthly_debits, ISNULL(cr.CurrentRent, 0)),
-                        BalDB = ISNULL(cmb.balance, ISNULL(cr.CurrentRent, 0)),
+                        -- MAGIA: Si el mes no tiene abono cargado aún, proyectamos la cuota vigente
+                        RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
                         PaidDB = ISNULL(cmb.paid, 0),
                         AdvPayDB = ISNULL(cmb.advanced_payment, 0)
                     FROM client_month_balances cmb
                     WHERE cmb.rental_id = r.rental_id
-                    ORDER BY
-                        CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN 0 ELSE 1 END ASC,
-                        CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN cmb.id ELSE -cmb.id END ASC
+                    ORDER BY cmb.id DESC
                 ) db
                 
-                -- CÁLCULO SEGURO DEL BALANCE CON BLINDAJE CONTRA NULOS
+                -- CÁLCULO SEGURO DEL BALANCE MATEMÁTICO
                 OUTER APPLY (
                     SELECT
                         UI_CurrentRent = db.RentDB,
-                        UI_Balance = -((ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) + CASE WHEN (ISNULL(db.BalDB, ISNULL(cr.CurrentRent, 0)) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)) > 0 THEN ISNULL(r.pending_surcharge, 0) ELSE 0 END)
+                        -- Proyección absoluta: (Arrastre + Interés + Cuota) - (Lo pagado + Lo adelantado)
+                        UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB)
                 ) step1
                 
                 WHERE c.active = 1;";   
