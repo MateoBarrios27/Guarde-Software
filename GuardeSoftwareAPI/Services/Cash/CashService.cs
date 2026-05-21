@@ -152,6 +152,17 @@ namespace GuardeSoftwareAPI.Services.cash
             await _dao.DeleteIvaCompraAsync(id);
         }
 
+        public async Task<List<CashFlowItemDto>> GetHistoricalGroupedItemsAsync(DateTime fromDate, DateTime toDate)
+        {
+            // Validamos que el rango tenga sentido
+            if (fromDate > toDate)
+            {
+                throw new ArgumentException("La fecha de inicio no puede ser mayor a la fecha de fin.");
+            }
+
+            return await _dao.GetHistoricalGroupedItemsAsync(fromDate, toDate);
+        }
+
         #endregion
     }
 }

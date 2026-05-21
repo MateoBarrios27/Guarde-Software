@@ -950,6 +950,55 @@ namespace GuardeSoftwareAPI.Dao
             await _accessDB.ExecuteCommandAsync(query, new[] { new SqlParameter("@Id", id) });
         }
 
+        public async Task<List<CashFlowItemDto>> GetHistoricalGroupedItemsAsync(DateTime fromDate, DateTime toDate)
+        {
+            var list = new List<CashFlowItemDto>();
+            
+            string query = @"
+                SELECT 
+                    description, 
+                    SUM(ISNULL(amount_depo, 0)) AS total_depo, 
+                    SUM(ISNULL(amount_casa, 0)) AS total_casa, 
+                    SUM(ISNULL(amount_retiros, 0)) AS total_retiros, 
+                    SUM(ISNULL(amount_extras, 0)) AS total_extras, 
+                    SUM(ISNULL(amount_iaia, 0)) AS total_iaia
+                FROM cash_flow_items
+                -- LA MAGIA: Si no tiene fecha, lo ubicamos en el día 1 de su mes y año
+                WHERE ISNULL(movement_date, DATEFROMPARTS(year, month, 1)) >= @FromDate 
+                  AND ISNULL(movement_date, DATEFROMPARTS(year, month, 1)) <= @ToDate
+                GROUP BY description
+                ORDER BY description ASC";
+
+            var parameters = new[] {
+                new SqlParameter("@FromDate", fromDate.Date),
+                // Llevamos el ToDate al último segundo del día para asegurarnos de incluir todo
+                new SqlParameter("@ToDate", toDate.Date.AddDays(1).AddSeconds(-1)) 
+            };
+
+            var dt = await _accessDB.GetTableAsync("HistoricalGroupedItems", query, parameters);
+
+            foreach (DataRow row in dt.Rows)
+            {
+                list.Add(new CashFlowItemDto
+                {
+                    Id = 0, 
+                    Date = null, 
+                    Description = row["description"].ToString(),
+                    Comment = $"Acumulado del {fromDate:dd/MM/yy} al {toDate:dd/MM/yy}",
+                    Depo = Convert.ToDecimal(row["total_depo"]),
+                    Casa = Convert.ToDecimal(row["total_casa"]),
+                    IsPaid = true, 
+                    Retiros = Convert.ToDecimal(row["total_retiros"]),
+                    Extras = Convert.ToDecimal(row["total_extras"]),
+                    Iaia = Convert.ToDecimal(row["total_iaia"]),
+                    DisplayOrder = 0,
+                    ReplicationState = 0
+                });
+            }
+            
+            return list;
+        }
+
         #endregion
     }
 }

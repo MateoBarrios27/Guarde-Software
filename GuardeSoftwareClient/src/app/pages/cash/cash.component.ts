@@ -38,26 +38,22 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
   summary: MonthlySummary = {
     totalSystemIncome: 0,
-     totalAdvancePayments: 0,
-      totalManualExpenses: 0,
-      netBalance: 0,
-      pendingCollection: 0,
-      abono: 0,
-      ivaFacturaA: 0,
-      ivaFacturaB: 0
+    totalAdvancePayments: 0,
+    totalManualExpenses: 0,
+    netBalance: 0,
+    pendingCollection: 0,
+    abono: 0,
+    ivaFacturaA: 0,
+    ivaFacturaB: 0
   };
 
   accounts: FinancialAccount[] = [];
-  totals = { 
-    depo: 0, 
-    casa: 0, 
-    pagado: 0, 
-    retiros: 0, 
-    extras: 0,
-    iaia: 0,
-    aPagar: 0, 
-    faltaPagar: 0 
-  };
+  
+  // Totales estáticos para el Panel Izquierdo (Siempre es el mes seleccionado)
+  totals = { depo: 0, casa: 0, pagado: 0, retiros: 0, extras: 0, iaia: 0, aPagar: 0, faltaPagar: 0 };
+  
+  // Totales dinámicos para el Footer de la Tabla (Cambian con la búsqueda)
+  tableTotals = { depo: 0, casa: 0, retiros: 0, extras: 0, iaia: 0, pagado: 0 };
 
   accountTotals = { 
     ars: { total: 0, banks: 0, cash: 0, others: 0 },
@@ -67,8 +63,12 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   usdExchangeRate: number = 1;
   private saveSubject = new Subject<CashFlowItem>();
   isLoading = false;
+  
+  // --- VARIABLES DE BÚSQUEDA Y RANGO ---
   searchTerm: string = '';
-  searchDate: string = '';
+  searchDateFrom: string = '';
+  searchDateTo: string = '';
+  isHistoricalView: boolean = false; 
   filteredItems: any[] = [];
 
   @ViewChild('topAnchor') topAnchor!: ElementRef;
@@ -98,10 +98,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   // --- VARIABLES PARA SELECCIÓN MÚLTIPLE DE FILAS (GASTOS) ---
   selectedItemIds: number[] = [];
 
-  
-
   toggleItemSelection(item: CashFlowItem): void {
-    if (!item.id) return; // Si es una fila nueva sin guardar, no la seleccionamos
+    if (!item.id || this.isHistoricalView) return; 
     
     const index = this.selectedItemIds.indexOf(item.id);
     if (index > -1) {
@@ -117,7 +115,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get selectedItemsSumARS(): number {
     let sum = 0;
-    this.items.forEach(item => {
+    this.filteredItems.forEach(item => {
       if (item.id && this.selectedItemIds.includes(item.id)) {
         const depo = Number(item.depo) || 0;
         const casa = Number(item.casa) || 0;
@@ -142,9 +140,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:keydown', ['$event'])
   handleKeyDown(event: KeyboardEvent) {
+    if (this.isHistoricalView) return; // Desactivar Ctrl+Z si está en modo reporte
+
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
       const activeElement = document.activeElement as HTMLElement;
-      // Si está escribiendo dentro de un input, dejamos que el navegador haga su "deshacer" nativo de texto
       if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
         return;
       }
@@ -194,11 +193,11 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     this.capturedItemState = '';
   }
 
-  // --- EJECUCIÓN DEL DESHACER (CON STORAGE Y ANCLAS) ---
+  // --- EJECUCIÓN DEL DESHACER ---
   undoLastAction() {
     if (this.undoStack.length === 0) return;
     const action = this.undoStack.pop()!;
-    this.saveUndoStack(); // Actualizamos el storage al sacar un elemento
+    this.saveUndoStack();
 
     const m = action.anchorMonth;
     const y = action.anchorYear;
@@ -215,7 +214,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
           if (acc) Object.assign(acc, action.oldState);
           this.calculateAccountTotals();
         }
-        this.showUndoToast(`Cuenta revertida al estado de ${this.getMonthNameByNum(m)}, `);
+        this.showUndoToast(`Cuenta revertida al estado de ${this.getMonthNameByNum(m)}`);
         break;
 
       case 'ACCOUNT_CREATE':
@@ -238,13 +237,12 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
               this.accounts.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
               this.calculateAccountTotals();
             }
-            this.showUndoToast(`Cuenta restaurada en ${this.getMonthNameByNum(m)}, refrescar si no aparece`);
+            this.showUndoToast(`Cuenta restaurada en ${this.getMonthNameByNum(m)}`);
           }
         });
         break;
 
       case 'ITEM_EDIT':
-        // Reconstruimos el item para enviarlo a la BD
         const restoredItem = { ...action.oldState, id: action.targetId };
         this.saveItemGlobal(restoredItem, m, y); 
         
@@ -252,9 +250,9 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
           const itemMem = this.items.find(i => i.id === action.targetId);
           if (itemMem) {
              Object.assign(itemMem, action.oldState);
-             this.items = [...this.items]; // Forzamos el repintado
+             this.items = [...this.items]; 
              this.filterItems();
-             this.calculateLocalTotals();
+             this.calculateMonthlyTotals();
           }
         }
         this.showUndoToast(`Gasto revertido en ${this.getMonthNameByNum(m)}`);
@@ -277,19 +275,18 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
             action.oldState.id = newId; 
             if (isCurrentMonth) {
               this.items.push(action.oldState);
-              this.items = [...this.items]; // Forzamos el repintado
+              this.items = [...this.items];
               this.sortItems();
               this.filterItems();
-              this.calculateLocalTotals();
+              this.calculateMonthlyTotals();
             }
-            this.showUndoToast(`Gasto restaurado en ${this.getMonthNameByNum(m)}, refrescar si no aparece`);
+            this.showUndoToast(`Gasto restaurado en ${this.getMonthNameByNum(m)}`);
           }
         });
         break;
     }
   }
 
-  // --- HELPER PARA GUARDAR EN UN MES ESPECÍFICO ---
   private saveItemGlobal(item: CashFlowItem, month: number, year: number): void {
     const payloadToSave: CashFlowItem = {
       ...item,
@@ -367,11 +364,9 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
         item.extras = item.extras === 0 ? null as any : item.extras;
         item.iaia = item.iaia === 0 ? null as any : item.iaia;
         return item;
-      }
-    
-    );
+      });
 
-    this.cashService.getIvaCompras(this.selectedMonth, this.selectedYear).subscribe(ivaData => {
+      this.cashService.getIvaCompras(this.selectedMonth, this.selectedYear).subscribe(ivaData => {
         this.ivaCompras = ivaData.map(iva => ({
           id: iva.id || iva.Id,
           date: iva.date || iva.Date,
@@ -381,12 +376,12 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
         this.calculateTotalIvaCompras();
       });
 
-      
-      
       this.sortItems();
-      this.filterItems();
+      this.filterItems(); 
       if (this.items.length === 0) this.addNewRow(); 
-      this.calculateLocalTotals();
+      
+      // Calculamos los totales fijos de la izquierda
+      this.calculateMonthlyTotals();
       
       this.cashService.getUsdRate(this.selectedMonth, this.selectedYear).subscribe(rate => {
         this.usdExchangeRate = rate;
@@ -411,13 +406,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       const orderA = a.displayOrder || 0;
       const orderB = b.displayOrder || 0;
 
-      if (orderA !== orderB) {
-        return orderA - orderB;
-      }
+      if (orderA !== orderB) return orderA - orderB;
       
       const dateA = (a.date && a.date !== '') ? new Date(a.date).getTime() : 0;
       const dateB = (b.date && b.date !== '') ? new Date(b.date).getTime() : 0;
-      
       return dateA - dateB; 
     });
   }
@@ -437,13 +429,12 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     };
     
     this.items.push(newItem);
-
     this.searchTerm = ''; 
-    this.searchDate = '';
+    this.searchDateFrom = '';
+    this.searchDateTo = '';
     this.filterItems();
   }
 
-  // --- MÉTODOS DE TOGGLE Y LIMPIEZA CON CAPTURA (CTRL+Z) ---
   toggleReplication(item: CashFlowItem): void {
     this.captureItem(item);
     item.replicationState = (item.replicationState + 1) % 3;
@@ -487,10 +478,12 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onItemChange(item: CashFlowItem): void {
-    if (item.date === '') {
-      item.date = null as any;
-    }
-    this.calculateLocalTotals(); 
+    if (item.date === '') item.date = null as any;
+    
+    // Al modificar, actualizamos ambos paneles
+    this.calculateMonthlyTotals(); 
+    this.calculateTableTotals();
+    
     this.saveSubject.next(item); 
   }
 
@@ -518,7 +511,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       confirmButtonText: 'Sí, eliminar'
     }).then((result) => {
       if (result.isConfirmed) {
-        const oldState = JSON.parse(JSON.stringify(item)); // Capturamos clon exacto
+        const oldState = JSON.parse(JSON.stringify(item)); 
         const realIndex = this.items.indexOf(item);
         
         if (!item.id) {
@@ -526,7 +519,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
               this.undoStack.push({ type: 'ITEM_DELETE', oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear }); 
               this.items.splice(realIndex, 1);
               this.filterItems(); 
-              this.calculateLocalTotals(); 
+              this.calculateMonthlyTotals(); 
             }
             return;
         }
@@ -537,33 +530,89 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
             this.saveUndoStack(); 
             this.items.splice(realIndex, 1);
             this.filterItems(); 
-            this.calculateLocalTotals(); 
+            this.calculateMonthlyTotals(); 
           }
         });
       }
     });
   }
 
-  calculateLocalTotals(): void {
+  // --- LÓGICA DE FILTRADO (MUTACIÓN DE LA TABLA) ---
+  filterItems(): void {
+    const term = this.searchTerm.toLowerCase().trim();
+    
+    // Si hay un RANGO completo seleccionado -> Modo Histórico (Cálculo del Servidor)
+    if (this.searchDateFrom && this.searchDateTo) {
+      this.isHistoricalView = true;
+      this.isLoading = true;
+      
+      this.cashService.getHistoricalReport(this.searchDateFrom, this.searchDateTo).subscribe({
+        next: (data) => {
+          this.filteredItems = data.filter(item => !term || (item.description || '').toLowerCase().includes(term));
+          this.calculateTableTotals();
+          this.isLoading = false;
+        },
+        error: () => {
+          this.isLoading = false;
+          Swal.fire('Error', 'No se pudo generar el reporte histórico', 'error');
+        }
+      });
+    } 
+    // Si NO hay rango -> Modo Local (Mes Actual)
+    else {
+      this.isHistoricalView = false;
+      this.filteredItems = this.items.filter(item => {
+        const matchesText = !term || (item.description || '').toLowerCase().includes(term);
+        // Fallback: Si el usuario seleccionó solo "Desde", filtra por ese día específico
+        const matchesDate = !this.searchDateFrom || item.date === this.searchDateFrom;
+        return matchesText && matchesDate;
+      });
+      this.calculateTableTotals();
+    }
+  }
+
+  clearDateFilter(): void {
+    this.searchDateFrom = '';
+    this.searchDateTo = '';
+    this.searchTerm = '';
+    this.filterItems();
+  }
+
+  // --- MATEMÁTICAS SEPARADAS ---
+  
+  // 1. Calcula siempre sobre 'this.items' (Panel Izquierdo - Datos Reales del Mes)
+  calculateMonthlyTotals(): void {
     this.totals = { depo: 0, casa: 0, retiros: 0, extras: 0, iaia: 0, pagado: 0, aPagar: 0, faltaPagar: 0 };
 
-    this.filteredItems.forEach(item => {
+    this.items.forEach(item => {
       this.totals.depo += Number(item.depo) || 0;
       this.totals.casa += Number(item.casa) || 0;
       this.totals.retiros += Number(item.retiros) || 0;
       this.totals.extras += Number(item.extras) || 0;
       this.totals.iaia += Number(item.iaia) || 0;
 
-      const costoFila = (Number(item.depo) || 0) + 
-                        (Number(item.casa) || 0);
-
-      if (item.isPaid) {
-        this.totals.pagado += costoFila;
-      }
+      const costoFila = (Number(item.depo) || 0) + (Number(item.casa) || 0);
+      if (item.isPaid) this.totals.pagado += costoFila;
     });
 
-    this.totals.aPagar = this.totals.depo + this.totals.casa ;
+    this.totals.aPagar = this.totals.depo + this.totals.casa;
     this.totals.faltaPagar = this.totals.aPagar - this.totals.pagado; 
+  }
+
+  // 2. Calcula siempre sobre 'this.filteredItems' (Pie de la Tabla - Cambia con búsquedas)
+  calculateTableTotals(): void {
+    this.tableTotals = { depo: 0, casa: 0, retiros: 0, extras: 0, iaia: 0, pagado: 0 };
+
+    this.filteredItems.forEach(item => {
+      this.tableTotals.depo += Number(item.depo) || 0;
+      this.tableTotals.casa += Number(item.casa) || 0;
+      this.tableTotals.retiros += Number(item.retiros) || 0;
+      this.tableTotals.extras += Number(item.extras) || 0;
+      this.tableTotals.iaia += Number(item.iaia) || 0;
+
+      const costoFila = (Number(item.depo) || 0) + (Number(item.casa) || 0);
+      if (item.isPaid) this.tableTotals.pagado += costoFila;
+    });
   }
 
   calculateNetBalance(): void {
@@ -574,6 +623,11 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   changeMonth(delta: number): void {
+    this.searchDateFrom = '';
+    this.searchDateTo = '';
+    this.searchTerm = '';
+    this.isHistoricalView = false;
+    
     let m = this.selectedMonth + delta;
     let y = this.selectedYear;
     
@@ -607,10 +661,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       if (result.isConfirmed) {
         this.selectedMonth = m;
         this.selectedYear = y;
-
         localStorage.setItem('cash_selected_month', this.selectedMonth.toString());
         localStorage.setItem('cash_selected_year', this.selectedYear.toString());
-
         this.loadData();
       }
     });
@@ -714,24 +766,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   } 
 
-  filterItems(): void {
-    const term = this.searchTerm.toLowerCase().trim();
-    const dateFilter = this.searchDate;
-    
-    this.filteredItems = this.items.filter(item => {
-      const matchesText = !term || (item.description || '').toLowerCase().includes(term);
-      const matchesDate = !dateFilter || item.date === dateFilter;
-      return matchesText && matchesDate;
-    });
-
-    this.calculateLocalTotals();
-  }
-
-  clearDateFilter(): void {
-    this.searchDate = '';
-    this.filterItems();
-  }
-
   toggleComment(item: CashFlowItem): void {
     if (this.activeCommentItem === item) {
       this.activeCommentItem = null;
@@ -770,6 +804,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   dropItem(event: CdkDragDrop<CashFlowItem[]>) {
+    if (this.isHistoricalView) return; // Deshabilitar drag en histórico
     moveItemInArray(this.filteredItems, event.previousIndex, event.currentIndex);
     const reorderedItems = this.filteredItems.map((item, index) => ({ id: item.id, displayOrder: index }));
     this.cashService.updateItemsOrder(reorderedItems).subscribe();
@@ -807,20 +842,14 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:click', ['$event'])
   onClickOutside(event: Event) {
-    // Para deseleccionar Cuentas
     if (this.selectedAccountIds.length > 0 && this.saldosContainer) {
       const clickedInside = this.saldosContainer.nativeElement.contains(event.target);
-      if (!clickedInside) {
-        this.selectedAccountIds = [];
-      }
+      if (!clickedInside) this.selectedAccountIds = [];
     }
 
-    // Para deseleccionar Filas de Planilla
     if (this.selectedItemIds.length > 0 && this.planillaContainer) {
       const clickedInside = this.planillaContainer.nativeElement.contains(event.target);
-      if (!clickedInside) {
-        this.selectedItemIds = [];
-      }
+      if (!clickedInside) this.selectedItemIds = [];
     }
   }
 
@@ -859,28 +888,20 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
   openIvaComprasModal() {
     this.showIvaComprasModal = true;
-    
     const today = new Date();
     let initialDate: Date;
 
-    // Si el mes que está mirando es el mes actual real, le sugerimos el día de hoy.
-    // Si está mirando un mes pasado/futuro, le sugerimos el día 1 de ese mes.
     if (this.selectedYear === today.getFullYear() && this.selectedMonth === (today.getMonth() + 1)) {
       initialDate = today;
     } else {
       initialDate = new Date(this.selectedYear, this.selectedMonth - 1, 1);
     }
 
-    // Armamos el string YYYY-MM-DD usando la hora local para evitar el bug del UTC
     const yyyy = initialDate.getFullYear();
     const mm = String(initialDate.getMonth() + 1).padStart(2, '0');
     const dd = String(initialDate.getDate()).padStart(2, '0');
 
-    this.newIvaCompra = { 
-      date: `${yyyy}-${mm}-${dd}`, 
-      amount: null as any, 
-      comment: '' 
-    };
+    this.newIvaCompra = { date: `${yyyy}-${mm}-${dd}`, amount: null as any, comment: '' };
   }
 
   closeIvaComprasModal() {
@@ -907,14 +928,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.cashService.addIvaCompra(payload).subscribe({
       next: (newId) => {
-        // Lo agregamos a la lista local para no recargar todo
         this.ivaCompras.unshift({ ...payload, id: newId });
         this.calculateTotalIvaCompras();
-        
-        // Limpiamos los inputs
         this.newIvaCompra.amount = null as any;
         this.newIvaCompra.comment = '';
-        
         Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Agregado', showConfirmButton: false, timer: 2000 });
       }
     });

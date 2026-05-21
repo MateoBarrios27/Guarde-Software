@@ -214,6 +214,34 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        #region Reporte Histórico (BI)
+
+        [HttpGet("historical")]
+        public async Task<IActionResult> GetHistoricalReport([FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
+        {
+            try
+            {
+                // Validación básica de fechas
+                if (fromDate > toDate)
+                {
+                    return BadRequest("La fecha 'Desde' no puede ser mayor a la fecha 'Hasta'.");
+                }
+
+                var items = await _service.GetHistoricalGroupedItemsAsync(fromDate, toDate);
+                return Ok(items);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al generar el reporte histórico.", details = ex.Message });
+            }
+        }
+
+        #endregion
+
         #endregion
     }
 }

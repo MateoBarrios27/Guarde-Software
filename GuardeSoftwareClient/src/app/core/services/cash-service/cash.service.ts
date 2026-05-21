@@ -87,4 +87,10 @@ export class CashService {
   deleteIvaCompra(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/iva-compras/${id}`);
   }
+
+  getHistoricalReport(fromDate: string, toDate: string): Observable<CashFlowItem[]> {
+    return this.http.get<CashFlowItem[]>(`${this.apiUrl}/historical`, {
+      params: { fromDate, toDate }
+    });
+  }
 }
