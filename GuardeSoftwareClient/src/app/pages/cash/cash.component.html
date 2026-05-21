@@ -401,39 +401,40 @@
         
     <div class="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
         
-        <div class="flex items-center gap-2 bg-white p-1 rounded-lg shadow-sm border border-gray-200">
-            <button (click)="changeMonth(-1)" 
-                    [disabled]="selectedYear === 2026 && selectedMonth === 1"
-                    [ngClass]="{'opacity-50 cursor-not-allowed': selectedYear === 2026 && selectedMonth === 1}"
-                    class="p-1 hover:bg-gray-100 rounded-md transition text-gray-600">
-                <app-icon name="chevron-left" class="h-4 w-4"></app-icon>
-            </button>
-            <span class="font-semibold text-gray-700 min-w-[120px] text-center select-none capitalize text-sm">
-                {{ monthName }}
-            </span>
-            <button (click)="changeMonth(1)" 
-                    class="p-1 hover:bg-gray-100 rounded-md transition text-gray-600">
-                <app-icon name="chevron-right" class="h-4 w-4"></app-icon>
-            </button>
-        </div>
+    <div class="flex items-center gap-2 bg-white p-1 rounded-lg shadow-sm border border-gray-200">
+        <button (click)="changeMonth(-1)" 
+                [disabled]="selectedYear === 2026 && selectedMonth === 1"
+                [ngClass]="{'opacity-50 cursor-not-allowed': selectedYear === 2026 && selectedMonth === 1}"
+                class="p-1 hover:bg-gray-100 rounded-md transition text-gray-600">
+            <app-icon name="chevron-left" class="h-4 w-4"></app-icon>
+        </button>
+        <span class="font-semibold text-gray-700 min-w-[120px] text-center select-none capitalize text-sm">
+            {{ monthName }}
+        </span>
+        <button (click)="changeMonth(1)" 
+                class="p-1 hover:bg-gray-100 rounded-md transition text-gray-600">
+            <app-icon name="chevron-right" class="h-4 w-4"></app-icon>
+        </button>
+    </div>
 
-        <div class="relative w-full sm:w-48 md:w-56">
-            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <app-icon name="search" class="w-4 h-4 text-gray-400"></app-icon>
-            </div>
-            <input type="text" 
-                   [(ngModel)]="searchTerm" 
-                   (input)="filterItems()"
-                   placeholder="Buscar concepto..." 
-                   class="bg-white border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2 transition-colors shadow-sm">
+    <div class="relative w-full sm:w-48 md:w-56">
+        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <app-icon name="search" class="w-4 h-4 text-gray-400"></app-icon>
         </div>
+        <input type="text" 
+               [(ngModel)]="searchTerm" 
+               (input)="filterItems()"
+               placeholder="Buscar concepto..." 
+               class="bg-white border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2 transition-colors shadow-sm">
+    </div>
 
-        <div class="flex items-center gap-1 bg-white rounded-lg border border-gray-200 shadow-sm p-1 transition-all">
+    <div class="flex items-center gap-1 bg-white rounded-lg border border-gray-200 shadow-sm p-1 transition-all">
             
             <div class="relative" [title]="searchDateFrom ? 'Desde' : 'Día específico'">
                 <input type="date" 
                        [(ngModel)]="searchDateFrom" 
                        (change)="filterItems()" 
+                       [max]="filterMaxDate"
                        class="border-none text-gray-600 text-sm focus:ring-0 cursor-pointer bg-transparent py-1 pl-2 pr-1"
                        [ngClass]="searchDateFrom ? 'w-32' : 'w-36'">
             </div>
@@ -444,6 +445,7 @@
                     <input type="date" 
                            [(ngModel)]="searchDateTo" 
                            (change)="filterItems()" 
+                           [min]="searchDateFrom"
                            class="border-none text-gray-600 text-sm focus:ring-0 cursor-pointer bg-transparent py-1 pl-1 pr-2 w-32">
                 </div>
             </ng-container>
@@ -456,7 +458,7 @@
             </button>
         </div>
 
-    </div>
+</div>
 </div>
 
       <div class="relative w-full overflow-x-auto pb-2 custom-scrollbar">
@@ -490,14 +492,20 @@
 
               <td class="p-1 text-center align-middle w-16">
                 <div class="relative flex items-center justify-center w-8 h-8 mx-auto rounded-md hover:bg-blue-50 transition-colors group/cal">
+                  
                   <span *ngIf="item.date" class="text-sm font-bold text-gray-700 group-hover/cal:text-blue-600 transition-colors pointer-events-none">
                     {{ item.date | slice:-2 }}
                   </span>
+                  
                   <app-icon *ngIf="!item.date" name="calendar" class="w-4 h-4 text-gray-400 group-hover/cal:text-blue-600 transition-colors pointer-events-none"></app-icon>
+                  
                   <input type="date" 
                     (focus)="captureItem(item)"
                     [(ngModel)]="item.date" 
                     (change)="checkItemChange(item); onItemChange(item)" 
+                    [min]="filterMinDate" 
+                    [max]="filterMaxDate" 
+                    [disabled]="isHistoricalView"
                     [title]="'Fecha seleccionada: ' + item.date"
                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed">
                 </div>
@@ -546,7 +554,7 @@
                               placeholder="Escribe una observación..."></textarea>
                   </div>
 
-                  <div class="flex justify-start px-2 pb-2">
+                  <div *ngIf="!isHistoricalView"class="flex justify-start px-2 pb-2">
                     <button *ngIf="item.comment && item.comment.trim() !== ''" 
                             (click)="deleteComment(item)" 
                             class="text-[10px] text-red-500 hover:text-red-700 uppercase font-bold tracking-wider transition-colors focus:outline-none">
@@ -672,7 +680,7 @@
                 </button>
               </td>
 
-              <td class="p-1 text-center align-middle">
+              <td *ngIf="!isHistoricalView" class="p-1 text-center align-middle">
                 <button (click)="deleteItem(item)" [disabled]="isHistoricalView" class="text-gray-400 opacity-60 hover:text-red-500 inline-flex items-center justify-center p-1 transition-colors">
                   <app-icon name="Trash2" class="h-4 w-4"></app-icon>
                 </button>

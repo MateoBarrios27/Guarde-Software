@@ -364,7 +364,7 @@ namespace GuardeSoftwareAPI.Dao
                     display_order, replication_state
                 )
                 SELECT 
-                    @CurrentMonth, @CurrentYear, Res
+                    @CurrentMonth, @CurrentYear, 
                     
                     CASE 
                         WHEN replication_state = 2 THEN 
@@ -443,7 +443,6 @@ namespace GuardeSoftwareAPI.Dao
             await _accessDB.ExecuteCommandAsync(queryItems, parametersItems);
             await _accessDB.ExecuteCommandAsync(queryAccounts, parametersAccounts);
             await _accessDB.ExecuteCommandAsync(querySettings, parametersSettings);
-        
         }
 
         public async Task<int> CreateAccountAsync(FinancialAccountDto account, int month, int year)
@@ -961,17 +960,17 @@ namespace GuardeSoftwareAPI.Dao
                     SUM(ISNULL(amount_casa, 0)) AS total_casa, 
                     SUM(ISNULL(amount_retiros, 0)) AS total_retiros, 
                     SUM(ISNULL(amount_extras, 0)) AS total_extras, 
-                    SUM(ISNULL(amount_iaia, 0)) AS total_iaia
+                    SUM(ISNULL(amount_iaia, 0)) AS total_iaia,
+                    MAX(ISNULL(display_order, 0)) AS sort_order
                 FROM cash_flow_items
-                -- LA MAGIA: Si no tiene fecha, lo ubicamos en el día 1 de su mes y año
                 WHERE ISNULL(movement_date, DATEFROMPARTS(year, month, 1)) >= @FromDate 
                   AND ISNULL(movement_date, DATEFROMPARTS(year, month, 1)) <= @ToDate
                 GROUP BY description
-                ORDER BY description ASC";
+                -- Mantenemos el orden visual que el usuario configuró en la planilla
+                ORDER BY sort_order ASC, description ASC";
 
             var parameters = new[] {
                 new SqlParameter("@FromDate", fromDate.Date),
-                // Llevamos el ToDate al último segundo del día para asegurarnos de incluir todo
                 new SqlParameter("@ToDate", toDate.Date.AddDays(1).AddSeconds(-1)) 
             };
 
@@ -991,7 +990,7 @@ namespace GuardeSoftwareAPI.Dao
                     Retiros = Convert.ToDecimal(row["total_retiros"]),
                     Extras = Convert.ToDecimal(row["total_extras"]),
                     Iaia = Convert.ToDecimal(row["total_iaia"]),
-                    DisplayOrder = 0,
+                    DisplayOrder = Convert.ToInt32(row["sort_order"]),
                     ReplicationState = 0
                 });
             }
