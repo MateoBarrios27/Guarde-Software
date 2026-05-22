@@ -147,10 +147,10 @@ export class DashboardComponent implements OnInit {
     return method ? method.name : 'Desconocido';
   }
 
-  openPaymentModalWith(item: any) { // Idealmente es PendingRentalDTO, asegurate que traiga increaseAnchorDate
+  openPaymentModalWith(item: any) { 
     const now = new Date();
 
-    this.selectedPreferredPaymentId = Number(item.preferredPayment ?? item.preferredPaymentMethodId ?? 1); // Cuidado: En el HTML decía preferredPayment, lo ajusto al nombre estándar
+    this.selectedPreferredPaymentId = Number(item.preferredPayment ?? item.preferredPaymentMethodId ?? 1); 
     this.selectedClientName = item.clientName ?? '';
     this.selectedPaymentIdentifier = Number(item.paymentIdentifier ?? 0);
     this.selectedBalance = Number(item.balance ?? 0);
@@ -241,13 +241,82 @@ export class DashboardComponent implements OnInit {
       }
   }
 
+  filterPendingRentals(): void {
+    const term = this.searchPending.toLowerCase().trim();
+    this.filteredPendingRentals = this.pendingRentals.filter(item => {
+      const clientName = (item.clientName ?? '').toString().toLowerCase();
+      const paymentIdentifier = (item.paymentIdentifier ?? '').toString().toLowerCase();
+      const lockerIdentifiers = (item.lockerIdentifiers ?? '').toString().toLowerCase();
+      return (clientName.includes(term) || paymentIdentifier.includes(term) || lockerIdentifiers.includes(term));
+    });
+  }
+
+  filterPayments(): void {
+    const term = this.searchPayment.toLowerCase().trim();
+    this.filteredPayments = this.payments.filter(item => {
+      const clientName = (item.clientName ?? '').toString().toLowerCase();
+      const paymentIdentifier = (item.paymentIdentifier ?? '').toString().toLowerCase();
+      const paymentMethodId = (item.paymentMethodId ?? '').toString().toLowerCase();
+      return (clientName.includes(term) || paymentIdentifier.includes(term) || paymentMethodId.includes(term));
+    });
+    this.filteredPayments.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+  }
+  
+  toggleManualDate() {
+    this.manualDateEnabled = !this.manualDateEnabled;
+    if (!this.manualDateEnabled) {
+      const now = new Date();
+      this.paymentDto.date = now;
+      this.dateString = now.toISOString().split('T')[0];
+      if (this.paymentDto.isAdvancePayment) {
+        this.updateAdvanceConcept();
+      } else {
+        this.updateConceptFromDate(now);
+      }
+    }
+  }  
+
+  private updateConceptFromDate(date: Date) {
+    const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    const monthName = monthNames[date.getMonth()];
+    this.paymentDto.concept = `Pago alquiler ${monthName}`;
+  }
+
+  onManualDateChange(value: string) {
+    if (!value) return;
+    const [year, month, day] = value.split('-').map(Number);
+    const currentTime = new Date();
+    const dateWithTime = new Date(year, month - 1, day, currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds());
+
+    this.paymentDto.date = dateWithTime;
+    this.dateString = value;
+      if (this.paymentDto.isAdvancePayment) {
+        this.updateAdvanceConcept();
+      } else {
+        this.updateConceptFromDate(dateWithTime);
+      }
+  }
+
+  private updateAdvanceConcept() {
+    const months = this.paymentDto.advanceMonths;
+    if (months === null || months === undefined || months === 0) {
+      this.paymentDto.concept = 'Pago adelantado';
+      return;
+    }
+    this.paymentDto.concept = `Pago adelantado de ${months} mes${months === 1 ? '' : 'es'}`;
+  }
+
   // =========================================================
-  // --- LÓGICA DE AUMENTOS Y PAGOS ADELANTADOS ---
+  // --- LÓGICA DE AUMENTOS Y PAGOS ADELANTADOS (ACTUALIZADA) ---
   // =========================================================
 
-  private roundToNearest1000(amount: number): number {
+  private roundRentAmount(amount: number, methodName: string): number {
     if (amount === 0) return 0;
-    return Math.round(amount / 1000) * 1000;
+    if (methodName.includes('efectivo')) {
+      return Math.round(amount / 1000) * 1000;
+    } else {
+      return Math.round(amount / 100) * 100;
+    }
   }
 
   private updateProjectedDate() {
@@ -257,17 +326,85 @@ export class DashboardComponent implements OnInit {
     }
   }
 
+  private getSelectedPaymentMonth(): { year: number; month: number } {
+    if (this.manualDateEnabled && this.dateString) {
+      const [year, month] = this.dateString.split('-').map(Number);
+      return { year, month };
+    }
+    const baseDate = this.paymentDto.date ? new Date(this.paymentDto.date) : new Date();
+    return { year: baseDate.getFullYear(), month: baseDate.getMonth() + 1 };
+  }
+
+  private getCoverageStartMonth(): { year: number; month: number } {
+    const selectedMonth = this.getSelectedPaymentMonth();
+    const today = new Date();
+    const currentMonth = { year: today.getFullYear(), month: today.getMonth() + 1 };
+
+    if (this.selectedBalance < 0) {
+      const selectedValue = selectedMonth.year * 100 + selectedMonth.month;
+      const currentValue = currentMonth.year * 100 + currentMonth.month;
+      if (selectedValue < currentValue) {
+        return currentMonth;
+      }
+    }
+    return selectedMonth;
+  }
+
+  private addMonths(year: number, month: number, delta: number): { year: number; month: number } {
+    let resultYear = year;
+    let resultMonth = month + delta;
+    while (resultMonth > 12) {
+      resultMonth -= 12;
+      resultYear += 1;
+    }
+    while (resultMonth <= 0) {
+      resultMonth += 12;
+      resultYear -= 1;
+    }
+    return { year: resultYear, month: resultMonth };
+  }
+
+  calculateProjectedRent() {
+    const rent = this.selectedCurrentRent || 0;
+    const perc = this.increasePercentage || 0;
+    let newRent = rent + (rent * (perc / 100));
+
+    const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
+    newRent = this.roundRentAmount(newRent, methodName);
+
+    if (rent > 0) {
+      const exactPerc = ((newRent - rent) / rent) * 100;
+      this.increasePercentage = parseFloat(exactPerc.toFixed(4)); 
+    }
+
+    this.projectedNewRent = newRent;
+    this.updateProjectedDate();
+  }
+
+  calculatePercentageFromRent() {
+    const rent = this.selectedCurrentRent || 0;
+    
+    if (rent === 0) {
+      this.increasePercentage = 0;
+    } else {
+      let newRent = this.projectedNewRent || 0;
+      let perc = ((newRent - rent) / rent) * 100;
+      this.increasePercentage = parseFloat(perc.toFixed(4));
+    }
+    
+    this.updateProjectedDate();
+  }
+
   onIncreasePercentageBlur() {
     const rent = this.selectedCurrentRent || 0;
     const perc = this.increasePercentage || 0;
     let newRent = rent + (rent * (perc / 100));
 
     const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
-    if (methodName.includes('efectivo')) {
-      newRent = this.roundToNearest1000(newRent);
-      if (rent > 0) {
-        this.increasePercentage = parseFloat((((newRent - rent) / rent) * 100).toFixed(2));
-      }
+    newRent = this.roundRentAmount(newRent, methodName);
+      
+    if (rent > 0) {
+      this.increasePercentage = parseFloat((((newRent - rent) / rent) * 100).toFixed(4));
     }
 
     this.projectedNewRent = newRent;
@@ -279,16 +416,14 @@ export class DashboardComponent implements OnInit {
     let targetRent = this.projectedNewRent || 0;
 
     const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
-    if (methodName.includes('efectivo')) {
-      targetRent = this.roundToNearest1000(targetRent);
-      this.projectedNewRent = targetRent; 
-    }
+    targetRent = this.roundRentAmount(targetRent, methodName);
+    this.projectedNewRent = targetRent; 
     
     if (rent === 0) {
       this.increasePercentage = 0;
     } else {
       const perc = ((targetRent - rent) / rent) * 100;
-      this.increasePercentage = parseFloat(perc.toFixed(2));
+      this.increasePercentage = parseFloat(perc.toFixed(4));
     }
     
     this.updateProjectedDate();
@@ -300,24 +435,52 @@ export class DashboardComponent implements OnInit {
 
     if (!this.selectedIncreaseAnchorDate) return;
 
-    let baseDate = this.manualDateEnabled && this.dateString ? new Date(this.dateString) : new Date();
-    let anchorDate = new Date(this.selectedIncreaseAnchorDate);
-    let nextMonth = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 1);
+    const anchorString = this.selectedIncreaseAnchorDate.split('T')[0];
+    const [aYear, aMonth] = anchorString.split('-').map(Number);
+    const anchorValue = aYear * 100 + aMonth;
 
-    let monthsToPay = (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) ? this.paymentDto.advanceMonths : 1;
+    const coverageStart = this.getCoverageStartMonth();
+    const currentMonthValue = coverageStart.year * 100 + coverageStart.month;
 
-    for (let i = 0; i < monthsToPay; i++) {
-      let mDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 1);
-      if (mDate.getFullYear() === anchorDate.getFullYear() && mDate.getMonth() === anchorDate.getMonth()) {
-        this.hasIncreaseInPeriod = true;
-        break;
+    const currentDebt = this.selectedBalance < 0 ? Math.abs(this.selectedBalance) : 0;
+    let moneyInHand = this.paymentDto.amount || 0;
+    
+    let farthestYear = coverageStart.year;
+    let farthestMonth = coverageStart.month;
+
+    if (moneyInHand > currentDebt) {
+      let extraMoney = moneyInHand - currentDebt;
+      let rent = this.selectedCurrentRent || 1; 
+      
+      let futureMonthsCovered = Math.ceil(extraMoney / rent);
+      
+      if (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) {
+          futureMonthsCovered = Math.max(futureMonthsCovered, this.paymentDto.advanceMonths);
       }
+
+      const farthest = this.addMonths(coverageStart.year, coverageStart.month, futureMonthsCovered - 1);
+      farthestYear = farthest.year;
+      farthestMonth = farthest.month;
+    } else if (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) {
+       const farthest = this.addMonths(coverageStart.year, coverageStart.month, this.paymentDto.advanceMonths - 1);
+       farthestYear = farthest.year;
+       farthestMonth = farthest.month;
+    }
+
+    const farthestMonthValue = farthestYear * 100 + farthestMonth;
+
+    if (anchorValue >= currentMonthValue && anchorValue <= farthestMonthValue) {
+      this.hasIncreaseInPeriod = true;
     }
 
     if (!this.hasIncreaseInPeriod) {
-      let monthAfterPayment = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthsToPay, 1);
-      if (anchorDate.getFullYear() === monthAfterPayment.getFullYear() && anchorDate.getMonth() === monthAfterPayment.getMonth()) {
-        this.isIncreaseNextMonth = true;
+      const nextCoverageMonth = this.addMonths(farthestYear, farthestMonth, 1);
+      const nextMonth = nextCoverageMonth.month;
+      const nextYear = nextCoverageMonth.year;
+      const nextMonthValue = nextYear * 100 + nextMonth;
+
+      if (anchorValue === nextMonthValue) {
+          this.isIncreaseNextMonth = true;
       }
     }
   }
@@ -335,39 +498,39 @@ export class DashboardComponent implements OnInit {
 
     let currentRent = this.selectedCurrentRent;
     let totalToPay = 0;
-    let baseDate = this.manualDateEnabled && this.dateString ? new Date(this.dateString) : new Date();
-    let anchorDate = this.selectedIncreaseAnchorDate ? new Date(this.selectedIncreaseAnchorDate) : null;
 
+    let anchorValue = 0;
+    if (this.selectedIncreaseAnchorDate) {
+      const parts = this.selectedIncreaseAnchorDate.split('T')[0].split('-').map(Number);
+      anchorValue = parts[0] * 100 + parts[1];
+    }
+    
+    const coverageStart = this.getCoverageStartMonth();
     const currentMethodName = this.getNamePaymentMethodById(this.paymentDto.paymentMethodId).toLowerCase();
-    const isEfectivo = currentMethodName.includes('efectivo');
 
     for (let i = 0; i < this.paymentDto.advanceMonths; i++) {
       if (i === 0) {
-        totalToPay += suggestedAmount;
+        totalToPay += suggestedAmount; 
       } 
       else {
+        const coverageMonth = this.addMonths(coverageStart.year, coverageStart.month, i);
+        const loopMonth = coverageMonth.month;
+        const loopYear = coverageMonth.year;
+        let currentLoopValue = loopYear * 100 + loopMonth;
+
         let rentForThisMonth = currentRent;
 
-        // --- SUMA DEL INTERÉS GENERADO ---
-        // Si es el segundo mes que está pagando y tiene algo en la bolsa de intereses
         if (i === 1 && this.selectedPendingSurcharge > 0) {
           rentForThisMonth += this.selectedPendingSurcharge;
         }
 
-        // Aumento programado
-        if (anchorDate) {
-          let currentMonthDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 1);
-          if (currentMonthDate >= new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1)) {
-            if (this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
-              rentForThisMonth += currentRent * (this.paymentDto.increasePercentage / 100);
-            }
+        if (anchorValue > 0 && currentLoopValue >= anchorValue) {
+          if (this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
+            rentForThisMonth += currentRent * (this.paymentDto.increasePercentage / 100);
           }
         }
 
-        if (isEfectivo) {
-          rentForThisMonth = this.roundToNearest1000(rentForThisMonth);
-        }
-        
+        rentForThisMonth = this.roundRentAmount(rentForThisMonth, currentMethodName);
         totalToPay += rentForThisMonth;
       }
     }
@@ -416,13 +579,11 @@ export class DashboardComponent implements OnInit {
     const affectsCurrentTotal = this.hasIncreaseInPeriod;
 
     if (affectsCurrentTotal && !isPriceLocked && !this.increaseResolved) {
-      // FLUJO A
       this.currentIncreaseFlow = 'advance';
       this.increasePromptReason = 'Dentro de los meses que está pagando, el cliente tiene programado un aumento.';
       this.calculateProjectedRent();
       this.showIncreaseOverlay = true;
     } else {
-      // FLUJO B
       this.currentIncreaseFlow = (this.isIncreaseNextMonth && !isPriceLocked) ? 'normal' : 'none';
       this.showSummarySwal();
     }
@@ -430,6 +591,7 @@ export class DashboardComponent implements OnInit {
 
   confirmIncrease() {
     this.paymentDto.increasePercentage = this.increasePercentage;
+    this.paymentDto.newRentAmount = this.projectedNewRent; 
     this.increaseResolved = true;
     this.showIncreaseOverlay = false;
     
@@ -443,6 +605,7 @@ export class DashboardComponent implements OnInit {
 
   skipIncrease() {
     this.paymentDto.increasePercentage = 0;
+    this.paymentDto.newRentAmount = 0; 
     this.increasePercentage = 0;
     this.increaseResolved = true;
     this.showIncreaseOverlay = false;
@@ -513,36 +676,21 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  calculateProjectedRent() {
-    const rent = this.selectedCurrentRent || 0;
-    const perc = this.increasePercentage || 0;
-    let newRent = rent + (rent * (perc / 100));
-
-    const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
-    if (methodName.includes('efectivo')) {
-      // 1. Redondeamos el monto proyectado
-      newRent = this.roundToNearest1000(newRent);
-      
-      // 2. RE-CALCULAMOS el porcentaje basado en el monto ya redondeado
-      // Esto es vital para que el backend reciba el % exacto que da el número redondo
-      if (rent > 0) {
-        const exactPerc = ((newRent - rent) / rent) * 100;
-        this.increasePercentage = parseFloat(exactPerc.toFixed(4)); // Usamos más decimales para precisión
-      }
-    }
-
-    this.projectedNewRent = newRent;
-    this.updateProjectedDate();
-  }
-
   executeBackendCall() {
     const calc = this.getCalculatedAmounts(this.paymentDto.amount, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
     
+    // Blindaje de TimeZone igual que en Finances
+    const localDate = this.paymentDto.date;
+    const adjustedDate = new Date(localDate.getTime() - (localDate.getTimezoneOffset() * 60000));
+
     const payloadToSave: CreatePaymentDTO = {
       ...this.paymentDto,
+      date: adjustedDate,
       amount: calc.amountEntered,
       commissionAmount: calc.isSurcharge ? calc.difference : (calc.isDiscount ? -calc.difference : 0),
-      commissionConcept: calc.isSurcharge ? `Recargo por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)` : (calc.isDiscount ? `Bonificación por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)` : '')
+      commissionConcept: calc.isSurcharge 
+          ? `Recargo por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)` 
+          : (calc.isDiscount ? `Bonificación por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)` : '')
     };
 
     this.paymentService.CreatePayment(payloadToSave).subscribe({
@@ -561,71 +709,6 @@ export class DashboardComponent implements OnInit {
 
   blurInput(event: Event): void {
     (event.target as HTMLElement).blur();
-  }
-
-  filterPendingRentals(): void {
-    const term = this.searchPending.toLowerCase().trim();
-    this.filteredPendingRentals = this.pendingRentals.filter(item => {
-      const clientName = (item.clientName ?? '').toString().toLowerCase();
-      const paymentIdentifier = (item.paymentIdentifier ?? '').toString().toLowerCase();
-      const lockerIdentifiers = (item.lockerIdentifiers ?? '').toString().toLowerCase();
-      return (clientName.includes(term) || paymentIdentifier.includes(term) || lockerIdentifiers.includes(term));
-    });
-  }
-
-  filterPayments(): void {
-    const term = this.searchPayment.toLowerCase().trim();
-    this.filteredPayments = this.payments.filter(item => {
-      const clientName = (item.clientName ?? '').toString().toLowerCase();
-      const paymentIdentifier = (item.paymentIdentifier ?? '').toString().toLowerCase();
-      const paymentMethodId = (item.paymentMethodId ?? '').toString().toLowerCase();
-      return (clientName.includes(term) || paymentIdentifier.includes(term) || paymentMethodId.includes(term));
-    });
-    this.filteredPayments.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
-  }
-  
-  toggleManualDate() {
-    this.manualDateEnabled = !this.manualDateEnabled;
-    if (!this.manualDateEnabled) {
-      const now = new Date();
-      this.paymentDto.date = now;
-      this.dateString = now.toISOString().split('T')[0];
-      if (this.paymentDto.isAdvancePayment) {
-        this.updateAdvanceConcept();
-      } else {
-        this.updateConceptFromDate(now);
-      }
-    }
-  }  
-
-  private updateConceptFromDate(date: Date) {
-    const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-    const monthName = monthNames[date.getMonth()];
-    this.paymentDto.concept = `Pago alquiler ${monthName}`;
-  }
-
-  onManualDateChange(value: string) {
-    if (!value) return;
-    const [year, month, day] = value.split('-').map(Number);
-    const currentTime = new Date();
-    const dateWithTime = new Date(year, month - 1, day, currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds());
-
-    this.paymentDto.date = dateWithTime;
-    this.dateString = value;
-      if (this.paymentDto.isAdvancePayment) {
-        this.updateAdvanceConcept();
-      } else {
-        this.updateConceptFromDate(dateWithTime);
-      }
-  }
-
-  private updateAdvanceConcept() {
-    const months = this.paymentDto.advanceMonths;
-    if (months === null || months === undefined || months === 0) {
-      this.paymentDto.concept = 'Pago adelantado';
-      return;
-    }
-    this.paymentDto.concept = `Pago adelantado de ${months} mes${months === 1 ? '' : 'es'}`;
   }
 
   openReceiptModal(item: Payment) {

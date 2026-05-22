@@ -11,4 +11,5 @@ export interface CreatePaymentDTO{
     commissionAmount?: number;
     commissionConcept?: string;
     increasePercentage?: number | null;
+    newRentAmount?: number;
 }

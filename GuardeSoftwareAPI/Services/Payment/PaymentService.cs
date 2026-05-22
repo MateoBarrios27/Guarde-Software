@@ -150,11 +150,10 @@ namespace GuardeSoftwareAPI.Services.payment
                     if (!rental.PriceLockEndDate.HasValue || lockEndDate > rental.PriceLockEndDate.Value.Date)
                         await daoRental.UpdatePriceLockEndDateTransactionAsync(rental.Id, lockEndDate, connection, transaction);
                 }
-                else if (dto.IncreasePercentage.HasValue && dto.IncreasePercentage.Value > 0)
+                else if (dto.NewRentAmount.HasValue && dto.NewRentAmount.Value > baseRent)
         {
-            newRent = baseRent + (baseRent * (dto.IncreasePercentage.Value / 100m));
-            int clientPaymentMethodId = await paymentMethodService.GetPaymentMethodIdByClientId(rental.ClientId);
-            if (clientPaymentMethodId == 1) newRent = RoundToNearest1000(newRent); 
+            // ¡MAGIA!: Tomamos el número exacto, sin calcular porcentajes
+            newRent = dto.NewRentAmount.Value; 
 
             // Dejamos constancia en el historial de precios
             var lastHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(rental.Id, connection, transaction);
@@ -164,8 +163,6 @@ namespace GuardeSoftwareAPI.Services.payment
                 await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastHistory.Id, rental.Id, newRent, effectiveDate, connection, transaction);
             }
 
-            // ¡ACÁ ESTÁ EL ARREGLO!: Agregamos el "- 1" a la frecuencia para que el salto sea idéntico 
-            // al de la creación del cliente (ej: si la frecuencia es 4, suma 3 meses. Junio -> Septiembre).
             string updateAnchorQuery = @"
                 UPDATE rentals 
                 SET increase_anchor_date = DATEADD(month, (SELECT increase_frequency_months - 1 FROM clients WHERE client_id = @clientId), increase_anchor_date)

@@ -510,31 +510,25 @@ export class FinancesComponent implements OnInit {
 
     if (!this.selectedClientIncreaseAnchorDate) return;
 
-    // 1. Extraemos la Fecha Ancla en formato numérico (ej: 202607) para comparar fácil
     const anchorString = this.selectedClientIncreaseAnchorDate.split('T')[0];
     const [aYear, aMonth] = anchorString.split('-').map(Number);
     const anchorValue = aYear * 100 + aMonth;
 
-    // 2. Extraemos el Mes Actual del Pago
     const coverageStart = this.getCoverageStartMonth();
     const currentMonthValue = coverageStart.year * 100 + coverageStart.month;
 
-    // 3. ¿HASTA DÓNDE LLEGA LA PLATA?
-    // Deuda actual (si el balance es negativo, lo pasamos a positivo para la matemática)
     const currentDebt = this.selectedClientBalance < 0 ? Math.abs(this.selectedClientBalance) : 0;
     let moneyInHand = this.paymentDto.amount || 0;
     
     let farthestYear = coverageStart.year;
     let farthestMonth = coverageStart.month;
 
-    // Si entregó más plata que la deuda, calculamos cuántos meses a futuro cubre
     if (moneyInHand > currentDebt) {
       let extraMoney = moneyInHand - currentDebt;
-      let rent = this.selectedClientRentAmount || 1; // Evita dividir por 0
+      let rent = this.selectedClientRentAmount || 1; 
       
       let futureMonthsCovered = Math.ceil(extraMoney / rent);
       
-      // Si el usuario usó explícitamente el selector de meses, tomamos el mayor
       if (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) {
           futureMonthsCovered = Math.max(futureMonthsCovered, this.paymentDto.advanceMonths);
       }
@@ -543,7 +537,6 @@ export class FinancesComponent implements OnInit {
       farthestYear = farthest.year;
       farthestMonth = farthest.month;
     } else if (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) {
-       // Caso donde no cubre la deuda pero forzó el selector manual
        const farthest = this.addMonths(coverageStart.year, coverageStart.month, this.paymentDto.advanceMonths - 1);
        farthestYear = farthest.year;
        farthestMonth = farthest.month;
@@ -551,12 +544,10 @@ export class FinancesComponent implements OnInit {
 
     const farthestMonthValue = farthestYear * 100 + farthestMonth;
 
-    // VERIFICACIÓN A: El aumento cae DENTRO del dinero que puso
     if (anchorValue >= currentMonthValue && anchorValue <= farthestMonthValue) {
       this.hasIncreaseInPeriod = true;
     }
 
-    // VERIFICACIÓN B: Si no cae dentro, ¿cae exactamente el mes que viene después de la plata ingresada?
     if (!this.hasIncreaseInPeriod) {
       const nextCoverageMonth = this.addMonths(farthestYear, farthestMonth, 1);
       const nextMonth = nextCoverageMonth.month;
@@ -569,7 +560,6 @@ export class FinancesComponent implements OnInit {
     }
   }
 
-  // Se ejecuta al hacer clic en GUARDAR PAGO
   savePaymentModal(dto: CreatePaymentDTO) {
     if (!this.paymentMethods?.length) { Swal.fire({ icon: 'warning', title: 'Cargando métodos', text: 'Esperá a que carguen.' }); return; }
     if (!this.paymentDto.clientId || this.paymentDto.clientId <= 0) { Swal.fire({ icon: 'warning', title: 'Cliente requerido', text: 'Seleccioná un cliente.' }); return; }
@@ -585,21 +575,31 @@ export class FinancesComponent implements OnInit {
 
     this.checkIncreaseLogic();
 
-    // Verificamos si el precio se congela por regla de 6 meses
     const isPriceLocked = this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths && this.paymentDto.advanceMonths >= 6;
-    // Evalúa si el aumento recae directamente sobre la plata que están pagando hoy
     const affectsCurrentTotal = this.hasIncreaseInPeriod;
 
     if (affectsCurrentTotal && !isPriceLocked && !this.increaseResolved) {
-      // FLUJO A: Aumento en el medio del pago (ANTES del resumen)
       this.currentIncreaseFlow = 'advance';
       this.increasePromptReason = 'Dentro de los meses que está pagando, el cliente tiene programado un aumento.';
       this.calculateProjectedRent();
       this.showIncreaseOverlay = true;
     } else {
-      // FLUJO B: Pago normal. Si hay aumento mes que viene, salta el modal DESPUÉS del resumen.
       this.currentIncreaseFlow = (this.isIncreaseNextMonth && !isPriceLocked) ? 'normal' : 'none';
       this.showSummarySwal();
+    }
+  }
+
+  // --- NUEVA LÓGICA DE REDONDEO INTELIGENTE ---
+  private roundRentAmount(amount: number, methodName: string): number {
+    if (amount === 0) return 0;
+    
+    // Si es Efectivo, redondeo fuerte a los miles (ej: 201.098 -> 201.000)
+    if (methodName.includes('efectivo')) {
+      return Math.round(amount / 1000) * 1000;
+    } 
+    // Si es Transferencia/Otros, redondeo suave a las centenas (ej: 201.098 -> 201.100)
+    else {
+      return Math.round(amount / 100) * 100;
     }
   }
 
@@ -609,16 +609,14 @@ export class FinancesComponent implements OnInit {
     let newRent = rent + (rent * (perc / 100));
 
     const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
-    if (methodName.includes('efectivo')) {
-      // 1. Redondeamos el monto proyectado
-      newRent = this.roundToNearest1000(newRent);
-      
-      // 2. RE-CALCULAMOS el porcentaje basado en el monto ya redondeado
-      // Esto es vital para que el backend reciba el % exacto que da el número redondo
-      if (rent > 0) {
-        const exactPerc = ((newRent - rent) / rent) * 100;
-        this.increasePercentage = parseFloat(exactPerc.toFixed(4)); // Usamos más decimales para precisión
-      }
+    
+    // Aplicamos redondeo según el método
+    newRent = this.roundRentAmount(newRent, methodName);
+
+    // RE-CALCULAMOS el porcentaje exacto tras el redondeo usando 4 decimales
+    if (rent > 0) {
+      const exactPerc = ((newRent - rent) / rent) * 100;
+      this.increasePercentage = parseFloat(exactPerc.toFixed(4)); 
     }
 
     this.projectedNewRent = newRent;
@@ -632,11 +630,8 @@ export class FinancesComponent implements OnInit {
       this.increasePercentage = 0;
     } else {
       let newRent = this.projectedNewRent || 0;
-      // Calculamos la diferencia porcentual
       let perc = ((newRent - rent) / rent) * 100;
-      
-      // Lo redondeamos a 2 decimales para que el input del % no quede con números infinitos (ej: 33.33)
-      this.increasePercentage = parseFloat(perc.toFixed(2));
+      this.increasePercentage = parseFloat(perc.toFixed(4));
     }
     
     this.updateProjectedDate();
@@ -647,18 +642,16 @@ export class FinancesComponent implements OnInit {
     const rent = this.selectedClientRentAmount || 0;
     const perc = this.increasePercentage || 0;
     
-    // Calculamos el monto bruto
     let newRent = rent + (rent * (perc / 100));
 
-    // Aplicamos redondeo si el método es Efectivo
     const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
-    if (methodName.includes('efectivo')) {
-      newRent = this.roundToNearest1000(newRent);
+    
+    // Aplicamos redondeo según el método
+    newRent = this.roundRentAmount(newRent, methodName);
       
-      // Re-ajustamos el porcentaje para que sea exacto al monto redondeado
-      if (rent > 0) {
-        this.increasePercentage = parseFloat((((newRent - rent) / rent) * 100).toFixed(2));
-      }
+    // Re-ajustamos el porcentaje exacto (con 4 decimales)
+    if (rent > 0) {
+      this.increasePercentage = parseFloat((((newRent - rent) / rent) * 100).toFixed(4));
     }
 
     this.projectedNewRent = newRent;
@@ -672,18 +665,15 @@ export class FinancesComponent implements OnInit {
 
     const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
     
-    // Si es efectivo, redondeamos lo que escribió el usuario antes de calcular el %
-    if (methodName.includes('efectivo')) {
-      targetRent = this.roundToNearest1000(targetRent);
-      this.projectedNewRent = targetRent; 
-    }
+    // Aplicamos redondeo a lo que escribió el usuario según el método
+    targetRent = this.roundRentAmount(targetRent, methodName);
+    this.projectedNewRent = targetRent; 
     
     if (rent === 0) {
       this.increasePercentage = 0;
     } else {
-      // Calculamos el porcentaje que representa ese nuevo monto
       const perc = ((targetRent - rent) / rent) * 100;
-      this.increasePercentage = parseFloat(perc.toFixed(2));
+      this.increasePercentage = parseFloat(perc.toFixed(4));
     }
     
     this.updateProjectedDate();
@@ -691,15 +681,16 @@ export class FinancesComponent implements OnInit {
 
   confirmIncrease() {
     this.paymentDto.increasePercentage = this.increasePercentage;
+    this.paymentDto.newRentAmount = this.projectedNewRent; 
+    
     this.increaseResolved = true;
     this.showIncreaseOverlay = false;
     
     if (this.currentIncreaseFlow === 'advance') {
-      // SOLO recalculamos si el usuario usó explícitamente el switch de meses
       if (this.paymentDto.isAdvancePayment) {
           this.calculateAdvancePayment(); 
       }
-      this.showSummarySwal(); 
+      this.showSummarySwal();
     } else if (this.currentIncreaseFlow === 'normal') {
       this.executeBackendCall(); 
     }
@@ -707,12 +698,12 @@ export class FinancesComponent implements OnInit {
 
   skipIncrease() {
     this.paymentDto.increasePercentage = 0;
+    this.paymentDto.newRentAmount = 0; 
     this.increasePercentage = 0;
     this.increaseResolved = true;
     this.showIncreaseOverlay = false;
     
     if (this.currentIncreaseFlow === 'advance') {
-      // SOLO recalculamos si el usuario usó explícitamente el switch de meses
       if (this.paymentDto.isAdvancePayment) {
           this.calculateAdvancePayment();
       }
@@ -771,13 +762,11 @@ export class FinancesComponent implements OnInit {
       customClass: { confirmButton: 'bg-blue-600 text-white px-4 py-2 rounded-md mx-2', cancelButton: 'bg-gray-200 text-gray-800 px-4 py-2 rounded-md', actions: 'mt-4' }
     }).then((result) => {
       if (result.isConfirmed) {
-        // FLUJO B (NORMAL): Mostramos el modal de aumento DESPUÉS del resumen
         if (this.currentIncreaseFlow === 'normal' && !this.increaseResolved) {
           this.increasePromptReason = 'El próximo mes le corresponde una actualización de abono.';
           this.calculateProjectedRent();
           this.showIncreaseOverlay = true;
         } else {
-          // Si no hay modal o ya se resolvió, directo a BD
           this.executeBackendCall();
         }
       }
@@ -816,11 +805,6 @@ export class FinancesComponent implements OnInit {
     });
   }
 
-  private roundToNearest1000(amount: number): number {
-    if (amount === 0) return 0;
-    return Math.round(amount / 1000) * 1000;
-  }
-
   calculateAdvancePayment(): void {
     const suggestedAmount = this.selectedClientBalance < 0 
       ? Math.abs(this.selectedClientBalance) 
@@ -841,10 +825,8 @@ export class FinancesComponent implements OnInit {
       anchorValue = parts[0] * 100 + parts[1];
     }
     
-    // EXTRACCIÓN SEGURA DE FECHA BASE PAGA
     const coverageStart = this.getCoverageStartMonth();
 
-    // EXTRACCIÓN SEGURA DE FECHA ANCLA
     let aYear: number | null = null, aMonth: number | null = null;
     if (this.selectedClientIncreaseAnchorDate) {
       const parts = this.selectedClientIncreaseAnchorDate.split('T')[0].split('-').map(Number);
@@ -853,14 +835,12 @@ export class FinancesComponent implements OnInit {
     }
 
     const currentMethodName = this.getNamePaymentMethodById(this.paymentDto.paymentMethodId).toLowerCase();
-    const isEfectivo = currentMethodName.includes('efectivo');
 
     for (let i = 0; i < this.paymentDto.advanceMonths; i++) {
       if (i === 0) {
         totalToPay += suggestedAmount; // Mes actual + Deuda
       } 
       else {
-        // Calculamos qué mes estamos procesando en el bucle
         const coverageMonth = this.addMonths(coverageStart.year, coverageStart.month, i);
         const loopMonth = coverageMonth.month;
         const loopYear = coverageMonth.year;
@@ -868,14 +848,14 @@ export class FinancesComponent implements OnInit {
 
         let rentForThisMonth = baseRent;
 
-        // ¿Corresponde aumento para este mes específico del bucle?
         if (anchorValue > 0 && currentLoopValue >= anchorValue) {
           if (this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
             rentForThisMonth += baseRent * (this.paymentDto.increasePercentage / 100);
           }
         }
 
-        if (isEfectivo) rentForThisMonth = this.roundToNearest1000(rentForThisMonth);
+        // Pasamos por nuestro nuevo filtro de redondeo inteligente
+        rentForThisMonth = this.roundRentAmount(rentForThisMonth, currentMethodName);
         totalToPay += rentForThisMonth;
       }
     }
