@@ -320,23 +320,48 @@ namespace GuardeSoftwareAPI.Services.payment
                     // Fecha contable: El mes siguiente (para que caiga en la tabla del mes que viene)
                     DateTime nextMonthInterestDate = new DateTime(dto.Date.Year, dto.Date.Month, 1).AddMonths(1);
                     
-                    // ¡NUEVO!: Concepto usando el mes actual del pago (ej: Mayo)
                     var culture = new CultureInfo("es-AR");
                     string monthOfDebt = culture.DateTimeFormat.GetMonthName(dto.Date.Month);
                     string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthOfDebt);
 
+                    // --- CORRECCIÓN CLAVE ---
+                    // Calculamos el 10% limpio sobre el abono base del mes que pagó tarde (baseRent), no sobre el nuevo
+                    decimal rawPenalty = baseRent * 0.10m;
+                    decimal finalPenalty = rawPenalty;
+
+                    // Buscamos el método de pago preferido del cliente para aplicar el redondeo
+                    string paymentMethodName = "";
+                    string pmQuery = "SELECT name FROM payment_methods WHERE payment_method_id = (SELECT preferred_payment_method_id FROM clients WHERE client_id = @cid)";
+                    using (var cmdPm = new SqlCommand(pmQuery, connection, transaction))
+                    {
+                        cmdPm.Parameters.AddWithValue("@cid", rental.ClientId);
+                        var result = await cmdPm.ExecuteScalarAsync();
+                        if (result != null) paymentMethodName = result.ToString().ToLower();
+                    }
+
+                    // Aplicamos el redondeo inteligente
+                    if (paymentMethodName.Contains("efectivo")) 
+                    {
+                        finalPenalty = Math.Round(rawPenalty / 1000m, MidpointRounding.AwayFromZero) * 1000m;
+                    } 
+                    else 
+                    {
+                        finalPenalty = Math.Round(rawPenalty / 100m, MidpointRounding.AwayFromZero) * 100m;
+                    }
+
                     await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement {
                         RentalId = rental.Id, 
                         PaymentId = paymentId, 
-                        MovementDate = nextMonthInterestDate, // <-- Esto lo empuja a la fila de Junio
+                        MovementDate = nextMonthInterestDate, 
                         MovementType = "DEBITO", 
-                        Concept = $"Interés por mora de {monthTitle} {dto.Date.Year}", // <-- Esto imprime "Mayo 2026"
-                        Amount = (decimal)rental.PendingSurcharge
+                        Concept = $"Interés por mora de {monthTitle} {dto.Date.Year}", 
+                        Amount = finalPenalty // <-- Usamos el interés 100% limpio y redondeado
                     }, connection, transaction);
                 }
 
                 await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rental.Id, connection, transaction);
                 
+                // Limpiamos los flags de mora. Esto asegura que el Job del día 1 ignore a este cliente
                 await daoRental.ResetPendingSurchargeTransactionAsync(rental.Id, connection, transaction);
                 await daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
 

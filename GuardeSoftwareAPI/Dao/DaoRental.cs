@@ -276,50 +276,54 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
         
-public async Task<DataTable> GetAllActiveRentalsWithStatusAsync()
-{
-    string query = @"
-        WITH RankedRentalAmount AS (
-            -- 1. Buscamos el historial de precios para saber la cuota actual
-            SELECT 
-                rental_id, 
-                amount AS CurrentRent, 
-                ROW_NUMBER() OVER(
-                    PARTITION BY rental_id 
-                    ORDER BY start_date DESC, 
-                                CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, 
-                                rental_amount_history_id DESC
-                ) as rn
-            FROM rental_amount_history
-        ),
-        CurrentRentalAmount AS (
-            -- Nos quedamos solo con el precio vigente
-            SELECT rental_id, CurrentRent
-            FROM RankedRentalAmount
-            WHERE rn = 1
-        ),
-        LastMonthBalance AS (
-            -- 2. Buscamos la última fila generada en el Excel para cada alquiler
-            SELECT 
-                rental_id, 
-                (balance - paid - advanced_payment) AS Debt,
-                ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY id DESC) as rn
-            FROM client_month_balances
-            -- Nos aseguramos de no leer meses proyectados a futuro si los hubiera
-            WHERE month_year <= FORMAT(GETDATE(), 'MM/yyyy')
-        )
-        SELECT 
-            r.rental_id,
-            r.months_unpaid,
-            ISNULL(cmb.Debt, 0) AS balance,
-            ISNULL(cra.CurrentRent, 0) AS CurrentRent
-        FROM rentals r
-        LEFT JOIN LastMonthBalance cmb ON r.rental_id = cmb.rental_id AND cmb.rn = 1
-        LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
-        WHERE r.active = 1;";
+        public async Task<DataTable> GetAllActiveRentalsWithStatusAsync()
+        {
+            string query = @"
+                WITH RankedRentalAmount AS (
+                    SELECT 
+                        rental_id, 
+                        amount AS CurrentRent, 
+                        ROW_NUMBER() OVER(
+                            PARTITION BY rental_id 
+                            ORDER BY start_date DESC, 
+                                     CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, 
+                                     rental_amount_history_id DESC
+                        ) as rn
+                    FROM rental_amount_history
+                ),
+                CurrentRentalAmount AS (
+                    SELECT rental_id, CurrentRent
+                    FROM RankedRentalAmount
+                    WHERE rn = 1
+                ),
+                LastMonthBalance AS (
+                    SELECT 
+                        rental_id, 
+                        (balance - paid - advanced_payment) AS Debt,
+                        ISNULL(interests, 0) AS interests,          
+                        ISNULL(monthly_debits, 0) AS monthly_debits, 
+                        ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY id DESC) as rn
+                    FROM client_month_balances
+                    WHERE month_year <= FORMAT(GETDATE(), 'MM/yyyy')
+                )
+                SELECT 
+                    r.rental_id,
+                    r.months_unpaid,
+                    ISNULL(cmb.Debt, 0) AS balance,
+                    ISNULL(cra.CurrentRent, 0) AS CurrentRent,
+                    ISNULL(cmb.interests, 0) AS CurrentInterests,   
+                    ISNULL(cmb.monthly_debits, 0) AS MonthlyDebits,
+                    -- NUEVO: Traemos el nombre del método de pago preferido
+                    ISNULL(pm.name, '') AS PreferredPaymentMethod
+                FROM rentals r
+                LEFT JOIN clients c ON r.client_id = c.client_id
+                LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
+                LEFT JOIN LastMonthBalance cmb ON r.rental_id = cmb.rental_id AND cmb.rn = 1
+                LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
+                WHERE r.active = 1;";
 
-    return await accessDB.GetTableAsync("all_active_rentals", query);
-}
+            return await accessDB.GetTableAsync("all_active_rentals", query);
+        }
 
         public async Task IncrementUnpaidMonthsAndSaveInterestAsync(int rentalId, decimal interestAmount)
         {
