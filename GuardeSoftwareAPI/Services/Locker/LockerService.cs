@@ -22,12 +22,12 @@ namespace GuardeSoftwareAPI.Services.locker
 		public async Task<List<Locker>> GetLockersList() {
 
 			DataTable LockerTable = await daoLocker.GetLockers();
-			List<Locker> lockersList = new List<Locker>();
+			List<Locker> lockersList = [];
 
 			foreach (DataRow row in LockerTable.Rows) {
 
-				Locker locker = new Locker
-				{
+				Locker locker = new()
+                {
 					Id = row.Field<int>("locker_id"),
                     WarehouseId = row.Field<int>("warehouse_id"),
                     LockerTypeId = row.Field<int>("locker_type_id"),
@@ -35,6 +35,7 @@ namespace GuardeSoftwareAPI.Services.locker
 					Identifier = row["identifier"]?.ToString() ?? string.Empty,
                     Features =row["features"]?.ToString() ?? string.Empty,
                     Status = row["status"]?.ToString() ?? string.Empty,
+                    ClientName = row["client_name"]?.ToString() ?? string.Empty
                 };	
 				lockersList.Add(locker);
 			}
@@ -45,12 +46,12 @@ namespace GuardeSoftwareAPI.Services.locker
         {
 
             DataTable LockerTable = await daoLocker.GetLockerById(id);
-            List<Locker> lockersList = new List<Locker>();
+            List<Locker> lockersList = [];
 
             foreach (DataRow row in LockerTable.Rows)
             {
 
-                Locker locker = new Locker
+                Locker locker = new()
                 {
                     Id = row.Field<int>("locker_id"),
                     WarehouseId = row.Field<int>("warehouse_id"),

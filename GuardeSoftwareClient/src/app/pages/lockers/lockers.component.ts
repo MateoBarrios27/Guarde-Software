@@ -51,7 +51,7 @@ export class LockersComponent implements OnInit {
   selectedStatus = '';
 
   page: number = 1;
-  itemsPerPage: number = 40;
+  itemsPerPage: number = 50;
 
   constructor(
     private lockerService: LockerService, 

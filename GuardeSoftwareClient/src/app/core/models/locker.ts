@@ -6,6 +6,7 @@ export interface Locker{
     identifier: string;
     features: string;
     status: string;
+    clientName?: string;
 }
 
   

@@ -87,7 +87,7 @@
     <div class="flex items-center gap-3 justify-end flex-shrink-0">
       <select [(ngModel)]="itemsPerPage" (change)="page = 1"
               class="p-2 border border-gray-300 rounded-lg bg-white text-gray-800">
-        <option *ngFor="let size of [10, 20, 50]" [value]="size">{{ size }} por pág.</option>
+        <option *ngFor="let size of [20, 50, 100]" [value]="size">{{ size }} por pág.</option>
       </select>
       
       <!-- === BOTÓN NUEVO AÑADIDO === -->
@@ -105,25 +105,27 @@
       <thead class="bg-gray-50">
         <tr class="border-b">
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Código</th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Depósito</th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Tipo</th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Características</th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Estado</th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Acciones</th>
+          <th class="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase">Depósito</th>
+          <th class="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase">Tipo</th>
+          <th class="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase">Características</th>
+          <th class="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase">Estado</th>
+          <th class="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase w-24">Cliente</th>
+          <th class="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase">Acciones</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-200"> 
         <tr *ngFor="let locker of filteredLockers | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'lockers' }" class="hover:bg-gray-50">
           <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{{ locker.identifier }}</td>
-          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{ getWarehouseName(locker.warehouseId) }}</td>
-          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{ getLockerTypeName(locker.lockerTypeId) }}</td> <!-- TIPO AÑADIDO -->
-          <td class="px-4 py-3 text-sm text-gray-600 truncate max-w-xs">{{ locker.features || '-' }}</td>
-          <td class="px-4 py-3 whitespace-nowrap text-sm">
+          <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-600">{{ getWarehouseName(locker.warehouseId) }}</td>
+          <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-600">{{ getLockerTypeName(locker.lockerTypeId) }}</td> <!-- TIPO AÑADIDO -->
+          <td class="px-2 py-3 text-sm text-gray-600 truncate max-w-64">{{ locker.features || '-' }}</td>
+          <td class="px-2 py-3 whitespace-nowrap text-sm">
             <span class="px-2.5 py-0.5 rounded-full text-xs font-medium" [ngClass]="getStatusColor(locker.status)">
               {{ locker.status }}
             </span>
           </td>
-          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium"> 
+          <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-600">{{ locker.clientName || '-' }}</td>
+          <td class="px-2 py-3 whitespace-nowrap text-sm font-medium"> 
             <button (click)="openUpdateLockerModal(locker)" 
                     class="p-1 text-black hover:text-blue-800" title="Editar"> 
               <app-icon name="edit" class="h-4 w-4"></app-icon>
