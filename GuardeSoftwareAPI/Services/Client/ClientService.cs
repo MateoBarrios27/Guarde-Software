@@ -23,6 +23,7 @@ using Quartz;
 using GuardeSoftwareAPI.Dtos.RentalSpaceRequest;
 using GuardeSoftwareAPI.Dtos.Phone;
 using GuardeSoftwareAPI.Services.clientMonthBalance;
+using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -41,6 +42,7 @@ namespace GuardeSoftwareAPI.Services.client
         private readonly IAccountMovementService accountMovementService;
         private readonly DaoRentalSpaceRequest _daoRentalSpaceRequest;
         private readonly DaoClientMonthBalance _daoMonthBalance;
+        private readonly DaoRentalAmountHistory _daoRentalAmountHistory;
         private readonly AccessDB accessDB;
         private readonly IClientMonthBalanceService _clientMonthBalanceService;
 
@@ -55,6 +57,7 @@ namespace GuardeSoftwareAPI.Services.client
             emailService = _emailService;
             phoneService = _phoneService;
             accessDB = _accessDB;
+            _daoRentalAmountHistory = new DaoRentalAmountHistory(_accessDB);
             accountMovementService = _accountMovementService;
             _logger = logger;
             _daoRentalSpaceRequest = new DaoRentalSpaceRequest(_accessDB);
@@ -711,12 +714,52 @@ namespace GuardeSoftwareAPI.Services.client
 
                         if (currentRental != null)
                         {
-                            // 1. Actualización de Monto (Lo que ya tenías)
+                            // 1. Actualización de Monto (Historial de precios)
                             var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(currentRental.Id, connection, transaction);
+                            
                             if (lastAmountHistory != null && dto.Amount != lastAmountHistory.Amount)
                             {
-                                await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, currentRental.Id, dto.Amount, DateTime.Now, connection, transaction);
+                                DateTime effectiveDate = DateTime.Now;
+
+                                // 1.1 Cerramos el precio viejo (Le ponemos end_date)
+                                // NOTA: Asegurate de tener inyectado el daoRentalAmountHistory o usar el método correspondiente en tu service
+                                await _daoRentalAmountHistory.EndRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, effectiveDate, connection, transaction);
+
+                                // 1.2 Creamos el precio nuevo con start_date = HOY y end_date = NULL
+                                await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory 
+                                {
+                                    RentalId = currentRental.Id,
+                                    Amount = dto.Amount,
+                                    StartDate = effectiveDate,
+                                    EndDate = null
+                                }, connection, transaction);
+
+                                // 1.3 ALINEAR EL FUTURO PROYECTADO SÓLO SI NO ESTÁ PAGO
+                                string updateFutureDebitsQuery = @"
+                                    UPDATE am
+                                    SET am.amount = @newAmount
+                                    FROM account_movements am
+                                    LEFT JOIN client_month_balances cmb ON am.rental_id = cmb.rental_id 
+                                        AND FORMAT(am.movement_date, 'MM/yyyy') = cmb.month_year
+                                    WHERE am.rental_id = @rentalId 
+                                      AND am.movement_type = 'DEBITO'
+                                      AND am.concept LIKE 'Alquiler %'
+                                      AND am.movement_date >= @effectiveMonthDate
+                                      -- Condición vital: Que el mes no esté pagado totalmente
+                                      AND (cmb.id IS NULL OR (cmb.balance - (cmb.paid + cmb.advanced_payment)) > 0)";
+
+                                // Tomamos como punto de partida el día 1 del mes actual
+                                DateTime effectiveMonthDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+
+                                using var cmdUpdateDebits = new SqlCommand(updateFutureDebitsQuery, connection, transaction);
+                                cmdUpdateDebits.Parameters.AddWithValue("@newAmount", dto.Amount);
+                                cmdUpdateDebits.Parameters.AddWithValue("@rentalId", currentRental.Id);
+                                cmdUpdateDebits.Parameters.AddWithValue("@effectiveMonthDate", effectiveMonthDate);
+                                
+                                await cmdUpdateDebits.ExecuteNonQueryAsync();
                             }
+
+                            // 2. Actualización de Espacios... (El resto de tu código sigue igual para abajo)
 
                             // 2. Actualización de Espacios (Lo que ya tenías)
                             if (dto.OccupiedSpaces != currentRental.OccupiedSpaces)
@@ -724,8 +767,7 @@ namespace GuardeSoftwareAPI.Services.client
                                 await rentalService.UpdateOccupiedSpacesTransactionAsync(currentRental.Id, dto.OccupiedSpaces, connection, transaction);
                             }
 
-                            // --- NUEVO: 3. Actualización de Fecha de Próximo Aumento ---
-                            // Verificamos si mandaron una fecha nueva y si es distinta a la que ya tiene el alquiler
+                            // 3. Actualización de Fecha de Próximo Aumento (Lo que ya tenías)
                             if (dto.LegacyNextIncreaseDate.HasValue) 
                             {
                                 if (currentRental.IncreaseAnchorDate != dto.LegacyNextIncreaseDate.Value)
@@ -754,13 +796,15 @@ namespace GuardeSoftwareAPI.Services.client
                                 await daoClient.OpenLockerHistoryTransactionAsync(id, lockersToAdd, connection, transaction);
                             }
 
-                            // Recalcular M3 si hubo cambios en lockers
                             if (lockersToAdd.Count != 0 || lockersToRemove.Count != 0) {
                                 decimal newContractedM3 = await lockerService.CalculateTotalM3ForLockersAsync(newLockerIds, connection, transaction);
                                 await rentalService.UpdateContractedM3TransactionAsync(currentRental.Id, newContractedM3, connection, transaction);
                             }
 
+                            // 5. RECONSTRUCCIÓN DE LA CUENTA
+                            // El Rebuild procesará todo el historial respetando las modificaciones de los meses no pagos
                             await _clientMonthBalanceService.RebuildForRentalTransactionAsync(currentRental.Id, connection, transaction);
+                            
                         } else if (dto.LockerIds != null && dto.LockerIds.Count != 0) {
                             Console.WriteLine($"Advertencia: Se asignaron lockers al cliente {id} pero no tiene un rental activo.");
                         }

@@ -18,6 +18,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
         private readonly ILogger<IAccountMovementService> _logger;
         private readonly AccessDB accessDB;
         private readonly IClientMonthBalanceService _clientMonthBalanceService;
+        
 
         public AccountMovementService(AccessDB _accessDB, ILogger<AccountMovementService> logger, IClientMonthBalanceService clientMonthBalanceService)
         {
@@ -268,27 +269,42 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
 
         public async Task<bool> DeleteAccountMovementAsync(int movementId)
         {
-            // 1. Obtains the movement to check if it's associated with a payment
+            // 1. Buscamos el movimiento antes de borrarlo para extraer sus metadatos
             DataTable movTable = await _daoAccountMovement.GetAccountMovById(movementId);
             if (movTable.Rows.Count == 0)
             {
                 _logger.LogWarning($"No se encontró el movimiento ID {movementId} para eliminar.");
-                return false; // No encontrado
+                return false; 
             }
 
             DataRow row = movTable.Rows[0];
             int? paymentId = row["payment_id"] != DBNull.Value ? (int)row["payment_id"] : null;
+            string movementType = row["movement_type"].ToString();
+            
+            // ¡NUEVO! Rescatamos a qué alquiler pertenece para recalcular después
+            int rentalId = Convert.ToInt32(row["rental_id"]);
 
-            // 2. Rule: Isn't allowed to delete a movement if it's associated with a payment
-            if (paymentId.HasValue && paymentId > 0)
+            // 2. Regla de negocio: Protegemos los ingresos físicos de dinero
+            if (paymentId.HasValue && paymentId > 0 && movementType == "CREDITO")
             {
                 _logger.LogError($"Intento de eliminar el movimiento ID {movementId}, pero está asociado al pago ID {paymentId}.");
-                throw new InvalidOperationException("No se puede eliminar un movimiento que está asociado a un pago registrado. Vé al componente de finanzas para eliminar el pago.");
+                throw new InvalidOperationException("No se puede eliminar un ingreso de dinero (crédito) asociado a un pago registrado. Ve al componente de finanzas para eliminar el pago completo.");
             }
 
-            // 3. If it's not associated with a payment, proceed to delete
-            _logger.LogInformation($"Eliminando movimiento ID {movementId} (no asociado a pago).");
-            return await _daoAccountMovement.DeleteAccountMovementByIdAsync(movementId);
+            // 3. Borramos el movimiento
+            _logger.LogInformation($"Eliminando movimiento ID {movementId}.");
+            bool deleted = await _daoAccountMovement.DeleteAccountMovementByIdAsync(movementId);
+
+            // 4. ¡LA CASCADA CONTABLE!
+            if (deleted)
+            {
+                _logger.LogInformation($"Reconstruyendo la cuenta corriente del alquiler ID {rentalId} tras la eliminación del movimiento.");
+                
+                // Al ejecutarse esto, la fila de ClientMonthBalance se recalculará sin el movimiento que acabamos de borrar
+                await _clientMonthBalanceService.RebuildForRentalAsync(rentalId);
+            }
+
+            return deleted;
         }
 
 
