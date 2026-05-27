@@ -20,7 +20,20 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<DataTable> GetLockers()
         {
-            string query = "SELECT l.locker_id, l.warehouse_id, l.locker_type_id, l.identifier, l.features, l.status, l.rental_id, c.full_name AS client_name FROM lockers l JOIN rentals r ON l.rental_id = r.rental_id JOIN clients c ON r.client_id = c.client_id WHERE l.active = 1";
+            string query = @"
+                SELECT 
+                    l.locker_id, 
+                    l.warehouse_id, 
+                    l.locker_type_id, 
+                    l.identifier, 
+                    l.features, 
+                    l.status, 
+                    l.rental_id, 
+                    c.full_name AS client_name 
+                FROM lockers l 
+                LEFT JOIN rentals r ON l.rental_id = r.rental_id 
+                LEFT JOIN clients c ON r.client_id = c.client_id 
+                WHERE l.active = 1";
 
             return await accessDB.GetTableAsync("lockers", query);
         }
