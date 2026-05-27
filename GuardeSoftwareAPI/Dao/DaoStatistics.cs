@@ -17,20 +17,33 @@ namespace GuardeSoftwareAPI.Dao
         {
             DateTime startDate = new(year, month, 1);
             DateTime endDate = startDate.AddMonths(1).AddDays(-1).AddHours(23).AddMinutes(59).AddSeconds(59);
+            string monthYear = $"{month:D2}/{year}"; // Formato "MM/yyyy"
 
             SqlParameter[] parameters = [
                 new SqlParameter("@StartDate", SqlDbType.DateTime) { Value = startDate },
-                new SqlParameter("@EndDate", SqlDbType.DateTime) { Value = endDate }
+                new SqlParameter("@EndDate", SqlDbType.DateTime) { Value = endDate },
+                new SqlParameter("@MonthYear", SqlDbType.VarChar, 7) { Value = monthYear }
             ];
 
             string queryMain = @"
-                DECLARE @Pagado DECIMAL(18, 2) = (
-                    SELECT ISNULL(SUM(amount), 0) 
-                    FROM account_movements 
-                    WHERE movement_type = 'CREDITO' 
-                        AND movement_date BETWEEN @StartDate AND @EndDate
-                );
+                -- 1. OBTENEMOS TODOS LOS DATOS DESDE LA SABANA DE SALDOS EN UNA SOLA CONSULTA
+                DECLARE @Pagado DECIMAL(18, 2);
+                DECLARE @AdvancePayments DECIMAL(18, 2);
+                DECLARE @DeudaPeriodo DECIMAL(18, 2);
+                DECLARE @BalanceGlobal DECIMAL(18, 2);
+                DECLARE @Intereses DECIMAL(18, 2);
 
+                SELECT 
+                    @Pagado = ISNULL(SUM(cmb.paid), 0),
+                    @AdvancePayments = ISNULL(SUM(cmb.advanced_payment), 0),
+                    @DeudaPeriodo = ISNULL(SUM(cmb.previous_balance), 0),
+                    @BalanceGlobal = ISNULL(SUM(cmb.balance), 0),
+                    @Intereses = ISNULL(SUM(cmb.interests), 0)
+                FROM client_month_balances cmb
+                INNER JOIN rentals r ON cmb.rental_id = r.rental_id
+                WHERE r.active = 1 AND cmb.month_year = @MonthYear;
+
+                -- 2. ALQUILERES HISTÓRICOS (Se mantiene igual porque depende del historial de montos)
                 DECLARE @Alquileres DECIMAL(18, 2) = (
                     SELECT ISNULL(SUM(filtered.amount), 0)
                     FROM (
@@ -53,46 +66,22 @@ namespace GuardeSoftwareAPI.Dao
                     WHERE filtered.rn = 1
                 );
 
-                DECLARE @Intereses DECIMAL(18, 2) = (
-                    SELECT ISNULL(SUM(amount), 0) 
-                    FROM account_movements 
-                    WHERE movement_type = 'DEBITO' 
-                        AND concept LIKE 'Interés por mora%'
-                        AND movement_date BETWEEN @StartDate AND @EndDate
-                );
-
-                DECLARE @SaldoHistorico DECIMAL(18, 2) = (
-                    SELECT ISNULL(SUM(
-                        CASE WHEN movement_type = 'DEBITO' THEN -amount ELSE amount END
-                    ), 0)
-                    FROM account_movements
-                    WHERE movement_date < @StartDate
-                );
-
-                DECLARE @DeudaPeriodo DECIMAL(18, 2) = @SaldoHistorico;
-
-                DECLARE @BalanceGlobal DECIMAL(18, 2) = (
-                    SELECT ISNULL(SUM(
-                        CASE WHEN movement_type = 'DEBITO' THEN -amount ELSE amount END
-                    ), 0)
-                    FROM account_movements am
-                    INNER JOIN rentals r ON am.rental_id = r.rental_id
-                    WHERE r.active = 1
-                );
-
+                -- 3. ESPACIOS OCUPADOS
                 DECLARE @EspaciosOcupados INT = (
                     SELECT ISNULL(SUM(occupied_spaces), 0)
                     FROM rentals
                     WHERE active = 1
                 );
 
+                -- RESULTADO FINAL DE ESTADÍSTICAS DEL MES
                 SELECT 
                     @Pagado AS TotalPagado,
                     @Alquileres AS TotalAlquileres,
                     @Intereses AS TotalIntereses,
                     @DeudaPeriodo AS DeudaTotalDelMes,
                     @BalanceGlobal AS BalanceGlobalActual,
-                    @EspaciosOcupados AS TotalEspaciosOcupados;
+                    @EspaciosOcupados AS TotalEspaciosOcupados,
+                    @AdvancePayments AS TotalAdvancePayments;
             ";
 
             MonthlyStatisticsDTO resultDto = new() 
@@ -111,10 +100,10 @@ namespace GuardeSoftwareAPI.Dao
                 resultDto.TotalPagado = row["TotalPagado"] != DBNull.Value ? Convert.ToDecimal(row["TotalPagado"]) : 0;
                 resultDto.TotalAlquileres = row["TotalAlquileres"] != DBNull.Value ? Convert.ToDecimal(row["TotalAlquileres"]) : 0;
                 resultDto.TotalIntereses = row["TotalIntereses"] != DBNull.Value ? Convert.ToDecimal(row["TotalIntereses"]) : 0;
-                resultDto.DeudaTotalDelMes = await GetPreviousPeriodDebtAsync(month, year);
+                resultDto.DeudaTotalDelMes = row["DeudaTotalDelMes"] != DBNull.Value ? Convert.ToDecimal(row["DeudaTotalDelMes"]) : 0;
                 resultDto.BalanceGlobalActual = row["BalanceGlobalActual"] != DBNull.Value ? Convert.ToDecimal(row["BalanceGlobalActual"]) : 0;
                 resultDto.TotalEspaciosOcupados = row["TotalEspaciosOcupados"] != DBNull.Value ? Convert.ToInt32(row["TotalEspaciosOcupados"]) : 0;
-                resultDto.TotalAdvancePayments = await GetTotalAdvancePaymentsAsync(month, year);
+                resultDto.TotalAdvancePayments = row["TotalAdvancePayments"] != DBNull.Value ? Convert.ToDecimal(row["TotalAdvancePayments"]) : 0;
                 resultDto.TotalIvaFacturaA = ivaFacturaA;
                 resultDto.TotalIvaFacturaB = ivaFacturaB;
             }
@@ -251,7 +240,6 @@ namespace GuardeSoftwareAPI.Dao
                 if (result.Rows.Count > 0)
                 {
                     var row = result.Rows[0];
-                    // Agregamos chequeos de DBNull por seguridad (SUM devuelve NULL si no hay filas)
                     return new ClientStatisticsDto
                     {
                         Total = row["Total"] != DBNull.Value ? Convert.ToInt32(row["Total"]) : 0,
@@ -267,71 +255,17 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<decimal> GetTotalAdvancePaymentsAsync(int month, int year)
         {
-            string query = @"-- 1. BALANCE GLOBAL AL FINAL DEL MES CONSULTADO (Filtro de seguridad)
-                -- Consideramos el saldo a favor que tenía el cliente exactamente al terminar ese mes.
-                -- Si no ponemos límite de fecha, un débito de un mes futuro achica este saldo y arruina la estadística.
-                WITH PositiveBalances AS (
-                    SELECT
-                        r.client_id,
-                        SUM(
-                            CASE 
-                                WHEN am.movement_type = 'DEBITO' THEN -am.amount 
-                                ELSE am.amount 
-                            END
-                        ) AS CurrentGlobalBalance
-                    FROM account_movements am
-                    INNER JOIN rentals r ON am.rental_id = r.rental_id
-                    WHERE r.active = 1
-                    -- EL CAMBIO CLAVE: Cortamos los movimientos al último día del mes y año que estamos consultando
-                    AND am.movement_date <= EOMONTH(DATEFROMPARTS(@Year, @Month, 1))
-                    GROUP BY r.client_id
-                    HAVING SUM(CASE WHEN am.movement_type = 'DEBITO' THEN -am.amount ELSE am.amount END) > 0
-                ),
-
-                -- 2. CRÉDITOS REALES DEL MES (Dinero a favor generado este mes)
-                MonthlyCredits AS (
-                    SELECT 
-                        r.client_id,
-                        ISNULL(SUM(am.amount), 0) as TotalCreditedInMonth
-                    FROM account_movements am
-                    INNER JOIN rentals r ON am.rental_id = r.rental_id
-                    WHERE am.movement_type <> 'DEBITO'
-                    AND MONTH(am.movement_date) = @Month
-                    AND YEAR(am.movement_date) = @Year
-                    GROUP BY r.client_id
-                ),
-
-                -- 3. DÉBITOS REALES DEL MES (Lo que se cobró: Alquiler, Proporcionales, etc)
-                MonthlyDebits AS (
-                    SELECT 
-                        r.client_id,
-                        ISNULL(SUM(am.amount), 0) as TotalDebitedInMonth
-                    FROM account_movements am
-                    INNER JOIN rentals r ON am.rental_id = r.rental_id
-                    WHERE am.movement_type = 'DEBITO' 
-                    AND MONTH(am.movement_date) = @Month
-                    AND YEAR(am.movement_date) = @Year
-                    GROUP BY r.client_id
-                )
-
-                -- CÁLCULO FINAL:
-                SELECT ISNULL(SUM(
-                    CASE 
-                        WHEN (mc.TotalCreditedInMonth - ISNULL(md.TotalDebitedInMonth, 0)) > pb.CurrentGlobalBalance 
-                        THEN pb.CurrentGlobalBalance
-                        ELSE (mc.TotalCreditedInMonth - ISNULL(md.TotalDebitedInMonth, 0))
-                    END
-                ), 0)
-                FROM MonthlyCredits mc
-                INNER JOIN PositiveBalances pb ON mc.client_id = pb.client_id
-                LEFT JOIN MonthlyDebits md ON mc.client_id = md.client_id
-                WHERE 
-                    mc.TotalCreditedInMonth > ISNULL(md.TotalDebitedInMonth, 0);
+            string monthYear = $"{month:D2}/{year}"; 
+            
+            string query = @"
+                SELECT ISNULL(SUM(cmb.advanced_payment), 0)
+                FROM client_month_balances cmb
+                INNER JOIN rentals r ON cmb.rental_id = r.rental_id
+                WHERE r.active = 1 AND cmb.month_year = @MonthYear;
             ";
 
             var parameters = new[] {
-                new SqlParameter("@Month", month),
-                new SqlParameter("@Year", year)
+                new SqlParameter("@MonthYear", SqlDbType.VarChar, 7) { Value = monthYear }
             };
 
             var result = await accessDB.ExecuteScalarAsync(query, parameters);
@@ -340,38 +274,17 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<decimal> GetPreviousPeriodDebtAsync(int month, int year)
         {
-            // Lógic:
-            // 1. We calculate the global balance for each client up to the end of the previous month (month-1, year).
-            // 2. We filter only those clients whose balance was negative (debt) at that point in time, ignoring those with zero or positive balance (credit).
-            // 3. We sum the absolute value of those negative balances to get the total debt from previous periods that was still pending at the start of the given month/year.
+            string monthYear = $"{month:D2}/{year}"; 
 
             string query = @"
-                DECLARE @StartOfMonth DATE = DATEFROMPARTS(@Year, @Month, 1);
-
-                WITH HistoricalBalances AS (
-                    SELECT
-                        r.client_id,
-                        SUM(
-                            CASE 
-                                WHEN am.movement_type = 'DEBITO' THEN -am.amount 
-                                ELSE am.amount 
-                            END
-                        ) AS BalanceAlCierreAnterior
-                    FROM account_movements am
-                    INNER JOIN rentals r ON am.rental_id = r.rental_id
-                    WHERE r.active = 1
-                    AND am.movement_date < @StartOfMonth 
-                    GROUP BY r.client_id
-                )
-                
-                SELECT ISNULL(ABS(SUM(BalanceAlCierreAnterior)), 0)
-                FROM HistoricalBalances
-                WHERE BalanceAlCierreAnterior < 0;
+                SELECT ISNULL(SUM(cmb.previous_balance), 0)
+                FROM client_month_balances cmb
+                INNER JOIN rentals r ON cmb.rental_id = r.rental_id
+                WHERE r.active = 1 AND cmb.month_year = @MonthYear;
             ";
 
             var parameters = new[] {
-                new SqlParameter("@Month", month),
-                new SqlParameter("@Year", year)
+                new SqlParameter("@MonthYear", SqlDbType.VarChar, 7) { Value = monthYear }
             };
 
             var result = await accessDB.ExecuteScalarAsync(query, parameters);
