@@ -19,7 +19,7 @@ namespace GuardeSoftwareAPI.Dao
         {
             var list = new List<CashFlowItemDto>();
             string query = @"
-                SELECT item_id, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, amount_iaia, display_order, replication_state
+                SELECT item_id, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, amount_iaia, display_order, replication_state, color
                 FROM cash_flow_items
                 WHERE month = @Month AND year = @Year
                 ORDER BY display_order ASC, movement_date ASC";
@@ -46,7 +46,8 @@ namespace GuardeSoftwareAPI.Dao
                     Extras = Convert.ToDecimal(row["amount_extras"]),
                     Iaia = Convert.ToDecimal(row["amount_iaia"]),
                     DisplayOrder = row["display_order"] != DBNull.Value ? Convert.ToInt32(row["display_order"]) : 0,
-                    ReplicationState = row["replication_state"] != DBNull.Value ? Convert.ToInt32(row["replication_state"]) : 0
+                    ReplicationState = row["replication_state"] != DBNull.Value ? Convert.ToInt32(row["replication_state"]) : 0,
+                    Color = row["color"] != DBNull.Value ? row["color"].ToString() : null
                 });
             }
             return list;
@@ -64,15 +65,16 @@ namespace GuardeSoftwareAPI.Dao
 
                     SELECT @NewDisplayOrder = ISNULL(MAX(display_order), 0) + 1 FROM cash_flow_items;
 
-                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, display_order, replication_state)
+                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, display_order, replication_state, color)
                     OUTPUT INSERTED.item_id INTO @InsertedId
-                    VALUES (@Month, @Year, @Date, @Desc, @Comment, @Depo, @Casa, @Iaia, @IsPaid, @Retiros, @Extras, @NewDisplayOrder, @RepState);
+                    VALUES (@Month, @Year, @Date, @Desc, @Comment, @Depo, @Casa, @Iaia, @IsPaid, @Retiros, @Extras, @NewDisplayOrder, @RepState, @color);
 
                     IF @RepState IN (1, 2)
                     BEGIN
                         UPDATE cash_flow_items
                         SET comment = @Comment,
                             replication_state = @RepState,
+                            color = @color, -- Mantenemos el color sincronizado
                             movement_date = CASE WHEN @RepState = 2 THEN CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END ELSE NULL END,
                             amount_depo = CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END,
                             amount_casa = CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END,
@@ -82,7 +84,7 @@ namespace GuardeSoftwareAPI.Dao
                         WHERE description = @Desc
                         AND (year > @Year OR (year = @Year AND month > @Month));
 
-                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, display_order, replication_state)
+                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, display_order, replication_state, color)
                         SELECT DISTINCT 
                             month, 
                             year, 
@@ -92,12 +94,12 @@ namespace GuardeSoftwareAPI.Dao
                             CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Iaia ELSE 0 END,
-                            -- 👇 LÍNEA FALTANTE AGREGADA (Para la columna is_paid) 👇
                             CASE WHEN @RepState = 2 THEN @IsPaid ELSE 0 END,
                             CASE WHEN @RepState = 2 THEN @Retiros ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Extras ELSE 0 END, 
                             @NewDisplayOrder, 
-                            @RepState
+                            @RepState,
+                            @color -- ¡ACA ESTABA EL ERROR! Faltaba inyectar el color en el SELECT
                         FROM cash_flow_items
                         WHERE (year > @Year OR (year = @Year AND month > @Month))
                         AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year);
@@ -116,7 +118,7 @@ namespace GuardeSoftwareAPI.Dao
                     WHERE item_id = @Id;
 
                     UPDATE cash_flow_items 
-                    SET movement_date = @Date, description = @Desc, comment = @Comment, amount_depo = @Depo, amount_casa = @Casa, amount_iaia = @Iaia, is_paid = @IsPaid, amount_retiros = @Retiros, amount_extras = @Extras, replication_state = @RepState
+                    SET movement_date = @Date, description = @Desc, comment = @Comment, amount_depo = @Depo, amount_casa = @Casa, amount_iaia = @Iaia, is_paid = @IsPaid, amount_retiros = @Retiros, amount_extras = @Extras, replication_state = @RepState, color = @color
                     WHERE item_id = @Id;
 
                     IF @RepState IN (1, 2)
@@ -125,6 +127,7 @@ namespace GuardeSoftwareAPI.Dao
                         SET description = @Desc,
                             comment = @Comment,
                             replication_state = @RepState,
+                            color = @color, -- Mantenemos el color sincronizado
                             movement_date = CASE WHEN @RepState = 2 THEN CASE WHEN @Date IS NULL THEN NULL ELSE DATEFROMPARTS(year, month, CASE WHEN DAY(@Date) > DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) THEN DAY(EOMONTH(DATEFROMPARTS(year, month, 1))) ELSE DAY(@Date) END) END ELSE NULL END,
                             amount_depo = CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END,
                             amount_casa = CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END,
@@ -134,7 +137,7 @@ namespace GuardeSoftwareAPI.Dao
                         WHERE description = @OldDesc
                         AND (year > @Year OR (year = @Year AND month > @Month));
 
-                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, display_order, replication_state)
+                        INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, display_order, replication_state, color)
                         SELECT DISTINCT 
                             month, 
                             year, 
@@ -144,12 +147,12 @@ namespace GuardeSoftwareAPI.Dao
                             CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Iaia ELSE 0 END,
-                            -- 👇 LÍNEA FALTANTE AGREGADA (Para la columna is_paid) 👇
                             CASE WHEN @RepState = 2 THEN @IsPaid ELSE 0 END,
                             CASE WHEN @RepState = 2 THEN @Retiros ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Extras ELSE 0 END, 
                             @CurrentDisplayOrder, 
-                            @RepState
+                            @RepState,
+                            @color -- Faltaba inyectar el color también en la actualización
                         FROM cash_flow_items
                         WHERE (year > @Year OR (year = @Year AND month > @Month))
                         AND NOT EXISTS (SELECT 1 FROM cash_flow_items c2 WHERE c2.description = @Desc AND c2.month = cash_flow_items.month AND c2.year = cash_flow_items.year);
@@ -177,7 +180,8 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@Retiros", item.Retiros),
                 new SqlParameter("@Extras", item.Extras),
                 new SqlParameter("@Iaia", item.Iaia),
-                new SqlParameter("@RepState", item.ReplicationState) 
+                new SqlParameter("@RepState", item.ReplicationState) ,
+                new SqlParameter("@color", SqlDbType.VarChar, 10) { Value = (object?)item.Color ?? DBNull.Value }
             };
 
             var result = await _accessDB.ExecuteScalarAsync(query, parameters);
@@ -361,7 +365,7 @@ namespace GuardeSoftwareAPI.Dao
                 INSERT INTO cash_flow_items (
                     month, year, movement_date, description, comment, 
                     amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, 
-                    display_order, replication_state
+                    display_order, replication_state, color
                 )
                 SELECT 
                     @CurrentMonth, @CurrentYear, 
@@ -385,7 +389,8 @@ namespace GuardeSoftwareAPI.Dao
                     CASE WHEN replication_state = 2 THEN amount_extras ELSE 0 END, 
                     
                     display_order,
-                    replication_state
+                    replication_state,
+                    color -- Hereda el color del mes pasado
                 FROM cash_flow_items
                 WHERE month = @PrevMonth AND year = @PrevYear
                 AND replication_state IN (1, 2)

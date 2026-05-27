@@ -72,6 +72,10 @@ export class CashService {
     return this.http.put<void>(`${this.apiUrl}/${id}/color`, { color });
   }
 
+  updateItemColor(id: number, color: string): Observable<void> {
+    return this.http.put<void>(`${this.apiUrl}/items/${id}/color`, { color });
+  }
+
   updateAccountName(id: number, name: string): Observable<any> {
     return this.http.put(`${this.apiUrl}/accounts/${id}/name`, { name });
   }

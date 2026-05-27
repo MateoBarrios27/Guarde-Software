@@ -11,4 +11,5 @@ public class CashFlowItemDto {
     public decimal Iaia { get; set; }
     public int DisplayOrder { get; set; }
     public int ReplicationState { get; set; }
+    public string? Color { get; set; }
 }

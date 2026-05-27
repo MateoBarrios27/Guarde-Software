@@ -424,7 +424,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       retiros: null as any, 
       extras: null as any,
       iaia: null as any, 
-      replicationState: 0
+      replicationState: 0,
+      color: null as any // Para el color
     };
     
     this.items.push(newItem);
