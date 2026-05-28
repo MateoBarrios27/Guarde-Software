@@ -22,19 +22,26 @@ namespace GuardeSoftwareAPI.Dao
             SqlParameter[] parameters = [
                 new SqlParameter("@StartDate", SqlDbType.DateTime) { Value = startDate },
                 new SqlParameter("@EndDate", SqlDbType.DateTime) { Value = endDate },
-                new SqlParameter("@MonthYear", SqlDbType.VarChar, 7) { Value = monthYear }
+                new SqlParameter("@MonthYear", SqlDbType.VarChar, 7) { Value = monthYear },
+                new SqlParameter("@Month", SqlDbType.Int) { Value = month },
+                new SqlParameter("@Year", SqlDbType.Int) { Value = year }
             ];
 
             string queryMain = @"
-                -- 1. OBTENEMOS TODOS LOS DATOS DESDE LA SABANA DE SALDOS EN UNA SOLA CONSULTA
-                DECLARE @Pagado DECIMAL(18, 2);
+                -- 1. INGRESOS REALES (Suma de la tabla de pagos físicos del mes)
+                DECLARE @Pagado DECIMAL(18, 2) = (
+                    SELECT ISNULL(SUM(amount), 0)
+                    FROM payments
+                    WHERE MONTH(payment_date) = @Month AND YEAR(payment_date) = @Year
+                );
+
+                -- 2. OBTENEMOS EL RESTO DE DATOS DESDE LA SÁBANA DE SALDOS
                 DECLARE @AdvancePayments DECIMAL(18, 2);
                 DECLARE @DeudaPeriodo DECIMAL(18, 2);
                 DECLARE @BalanceGlobal DECIMAL(18, 2);
                 DECLARE @Intereses DECIMAL(18, 2);
 
                 SELECT 
-                    @Pagado = ISNULL(SUM(cmb.paid), 0),
                     @AdvancePayments = ISNULL(SUM(cmb.advanced_payment), 0),
                     @DeudaPeriodo = ISNULL(SUM(cmb.previous_balance), 0),
                     @BalanceGlobal = ISNULL(SUM(cmb.balance), 0),
@@ -43,7 +50,7 @@ namespace GuardeSoftwareAPI.Dao
                 INNER JOIN rentals r ON cmb.rental_id = r.rental_id
                 WHERE r.active = 1 AND cmb.month_year = @MonthYear;
 
-                -- 2. ALQUILERES HISTÓRICOS (Se mantiene igual porque depende del historial de montos)
+                -- 3. ALQUILERES HISTÓRICOS (Se mantiene igual porque depende del historial de montos)
                 DECLARE @Alquileres DECIMAL(18, 2) = (
                     SELECT ISNULL(SUM(filtered.amount), 0)
                     FROM (
@@ -66,7 +73,7 @@ namespace GuardeSoftwareAPI.Dao
                     WHERE filtered.rn = 1
                 );
 
-                -- 3. ESPACIOS OCUPADOS
+                -- 4. ESPACIOS OCUPADOS
                 DECLARE @EspaciosOcupados INT = (
                     SELECT ISNULL(SUM(occupied_spaces), 0)
                     FROM rentals
