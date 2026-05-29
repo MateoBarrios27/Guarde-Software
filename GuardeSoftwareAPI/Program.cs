@@ -173,7 +173,7 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(applyInterestsJobKey)
         .WithIdentity("ApplyInterestsJob-trigger")
-        .WithCronSchedule("0 0 4 10 * ?") // 4:00 AM del día 10 de cada mes
+        .WithCronSchedule("0 0 4 11 * ?") // 4:00 AM del día 10 de cada mes
     );
 
     // var applyIncreasesJobKey = new JobKey("ApplyMonthlyIncreasesJob");

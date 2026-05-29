@@ -229,9 +229,11 @@ namespace GuardeSoftwareAPI.Dao
                     ISNULL(step1.UI_Balance, 0) AS balance,
                     ISNULL(db.PaidDB, 0) AS total_paid,
                     
+                    -- LÓGICA DE PRÓXIMO PAGO BASADA EN MONTH_BALANCES
                     CASE 
-                        WHEN ISNULL(step1.UI_Balance, 0) >= 0 THEN DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10))
-                        ELSE DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10)
+                        WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(GETDATE() AS DATE)
+                        THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10)
+                        ELSE step1.LastBalanceDate
                     END AS next_payment_day,
 
                     CASE 
@@ -255,17 +257,23 @@ namespace GuardeSoftwareAPI.Dao
                         IntsDB = ISNULL(cmb.interests, 0),
                         RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
                         PaidDB = ISNULL(cmb.paid, 0),
-                        AdvPayDB = ISNULL(cmb.advanced_payment, 0)
+                        AdvPayDB = ISNULL(cmb.advanced_payment, 0),
+                        MonthYearDB = cmb.month_year -- Traemos el MM/yyyy del último balance
                     FROM client_month_balances cmb
                     WHERE cmb.rental_id = r.rental_id
                     ORDER BY cmb.id DESC -- LA SOLUCIÓN: Trae siempre la última tabla
                 ) db
 
-                -- CÁLCULO SEGURO DEL BALANCE MATEMÁTICO
+                -- CÁLCULO SEGURO DEL BALANCE MATEMÁTICO Y CONVERSIÓN DE FECHA
                 OUTER APPLY (
                     SELECT 
                         UI_CurrentRent = db.RentDB, 
-                        UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB)
+                        UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
+                        LastBalanceDate = CASE 
+                            WHEN db.MonthYearDB IS NOT NULL AND LEN(db.MonthYearDB) = 7
+                            THEN DATEFROMPARTS(CAST(RIGHT(db.MonthYearDB, 4) AS INT), CAST(LEFT(db.MonthYearDB, 2) AS INT), 10)
+                            ELSE NULL 
+                        END
                 ) step1
 
                 WHERE c.client_id = @client_id;";
