@@ -56,8 +56,8 @@ namespace GuardeSoftwareAPI.Dao
                     r.increase_anchor_date AS IncreaseAnchorDate,
                     r.pending_surcharge AS PendingSurcharge,
                     ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS rent_amount,
-                    ISNULL(step1.UI_Balance, 0) AS balance
-
+                    ISNULL(step1.UI_Balance, 0) AS balance,
+                    ISNULL(db.MonthYearDB, '') AS last_generated_month_year
                 FROM clients c
                 LEFT JOIN rentals r
                     ON c.client_id = r.client_id
@@ -70,10 +70,10 @@ namespace GuardeSoftwareAPI.Dao
                     SELECT TOP 1
                         PrevBalDB = ISNULL(cmb.previous_balance, 0),
                         IntsDB = ISNULL(cmb.interests, 0),
-                        -- MAGIA: Si el mes no tiene abono cargado aún, proyectamos la cuota vigente
                         RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
                         PaidDB = ISNULL(cmb.paid, 0),
-                        AdvPayDB = ISNULL(cmb.advanced_payment, 0)
+                        AdvPayDB = ISNULL(cmb.advanced_payment, 0),
+                        MonthYearDB = cmb.month_year -- <-- 2. LO EXTRAEMOS DE LA DB
                     FROM client_month_balances cmb
                     WHERE cmb.rental_id = r.rental_id
                     ORDER BY cmb.id DESC

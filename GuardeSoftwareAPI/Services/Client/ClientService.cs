@@ -87,7 +87,8 @@ namespace GuardeSoftwareAPI.Services.client
                     Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0m,
                     CurrentRent = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m,
                     IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? Convert.ToDateTime(row["IncreaseAnchorDate"]) : null,
-                    PendingSurcharge = row["PendingSurcharge"] != DBNull.Value ? Convert.ToDecimal(row["PendingSurcharge"]) : 0m
+                    PendingSurcharge = row["PendingSurcharge"] != DBNull.Value ? Convert.ToDecimal(row["PendingSurcharge"]) : 0m,
+                    LastGeneratedMonthYear = row["last_generated_month_year"]?.ToString() ?? string.Empty
                 };
                 clients.Add(client);
             }

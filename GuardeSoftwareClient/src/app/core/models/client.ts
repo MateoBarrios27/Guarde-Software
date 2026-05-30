@@ -13,5 +13,6 @@ export interface Client{
     currentRent?: number;
     increaseAnchorDate?: string;
     pendingSurcharge?: number;
+    lastGeneratedMonthYear?: string;
 }
 

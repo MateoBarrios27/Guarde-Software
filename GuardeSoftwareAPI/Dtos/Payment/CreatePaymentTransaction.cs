@@ -24,6 +24,7 @@ namespace GuardeSoftwareAPI.Dtos.Payment
         public string? CommissionConcept { get; set; }
         public decimal? IncreasePercentage { get; set; }
         public decimal? NewRentAmount { get; set; }
+        public bool SkipFutureProjection { get; set; } = false;
         
     }
 }

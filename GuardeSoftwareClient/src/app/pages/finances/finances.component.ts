@@ -72,6 +72,7 @@ export class FinancesComponent implements OnInit {
   public increasePercentage: number = 0;
   public currentIncreaseFlow: 'advance' | 'normal' | 'none' = 'none';
   public selectedPendingSurcharge: number = 0;
+  public selectedClientLastMonth: string = '';
 
   paymentDto: CreatePaymentDTO = {
       clientId: 0,
@@ -227,7 +228,8 @@ export class FinancesComponent implements OnInit {
     this.dateString = now.toISOString().split('T')[0];
 
     this.paymentDto = {
-      clientId: 0, movementType: 'CREDITO', concept: ` `, amount: 0, paymentMethodId: 1, date: now, isAdvancePayment: false, advanceMonths: 0
+      clientId: 0, movementType: 'CREDITO', concept: ` `, amount: 0, paymentMethodId: 1, date: now, isAdvancePayment: false, advanceMonths: 0,
+      skipFutureProjection: false 
     };
     this.updateConceptFromDate(now);
   }
@@ -250,7 +252,8 @@ export class FinancesComponent implements OnInit {
     this.manualDateEnabled = false;
     this.dateString = now.toISOString().split('T')[0];
     this.paymentDto = {
-      clientId: 0, movementType: 'CREDITO', concept: ` `, amount: 0, paymentMethodId: 1, date: now, isAdvancePayment: false, advanceMonths: 0
+      clientId: 0, movementType: 'CREDITO', concept: ` `, amount: 0, paymentMethodId: 1, date: now, isAdvancePayment: false, advanceMonths: 0,
+      skipFutureProjection: false 
     };
     this.updateConceptFromDate(now);
   }
@@ -292,6 +295,7 @@ export class FinancesComponent implements OnInit {
     this.paymentDto.increasePercentage = 0;
     this.showIncreaseOverlay = false;
     this.currentIncreaseFlow = 'none';
+    this.selectedClientLastMonth = client.lastGeneratedMonthYear || '';
     
     // Sugerencia de saldo a cobrar
     const suggestedAmount = this.selectedClientBalance < 0 
@@ -471,20 +475,25 @@ export class FinancesComponent implements OnInit {
   }
 
   private getCoverageStartMonth(): { year: number; month: number } {
-    const selectedMonth = this.getSelectedPaymentMonth();
-    const today = new Date();
-    const currentMonth = { year: today.getFullYear(), month: today.getMonth() + 1 };
-
-    if (this.selectedClientBalance < 0) {
-      const selectedValue = selectedMonth.year * 100 + selectedMonth.month;
-      const currentValue = currentMonth.year * 100 + currentMonth.month;
-
-      if (selectedValue < currentValue) {
-        return currentMonth;
-      }
+    // 1. Si no hay historial (cliente ultra nuevo), usamos la fecha base.
+    if (!this.selectedClientLastMonth) {
+      return this.getSelectedPaymentMonth();
     }
 
-    return selectedMonth;
+    // 2. Desarmamos el último mes generado por el backend (Ej: "05/2026")
+    const [mStr, yStr] = this.selectedClientLastMonth.split('/');
+    let lastMonth = parseInt(mStr, 10);
+    let lastYear = parseInt(yStr, 10);
+
+    // 3. LA MAGIA: Si el balance es >= 0, el último mes que figura en la base de datos 
+    // YA ESTÁ PAGO. Por ende, la plata que traen hoy va a cubrir el MES SIGUIENTE.
+    if (this.selectedClientBalance >= 0) {
+        return this.addMonths(lastYear, lastMonth, 1);
+    } else {
+        // Si DEBE PLATA (balance < 0), la plata que traiga ahora se va a aplicar 
+        // a ese mismo último mes para tapar el agujero de deuda.
+        return { year: lastYear, month: lastMonth };
+    }
   }
 
   private addMonths(year: number, month: number, delta: number): { year: number; month: number } {
@@ -533,13 +542,13 @@ export class FinancesComponent implements OnInit {
           futureMonthsCovered = Math.max(futureMonthsCovered, this.paymentDto.advanceMonths);
       }
 
-      const farthest = this.addMonths(coverageStart.year, coverageStart.month, futureMonthsCovered - 1);
+      // AJUSTE: Si no debía plata, coverageStart ya es el primer mes nuevo (le sumamos futureMonths - 1).
+      // Si SÍ debía plata, coverageStart es el mes adeudado, los meses nuevos van DESPUÉS (le sumamos futureMonths).
+      let shift = currentDebt > 0 ? futureMonthsCovered : futureMonthsCovered - 1;
+      
+      const farthest = this.addMonths(coverageStart.year, coverageStart.month, shift);
       farthestYear = farthest.year;
       farthestMonth = farthest.month;
-    } else if (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) {
-       const farthest = this.addMonths(coverageStart.year, coverageStart.month, this.paymentDto.advanceMonths - 1);
-       farthestYear = farthest.year;
-       farthestMonth = farthest.month;
     }
 
     const farthestMonthValue = farthestYear * 100 + farthestMonth;
@@ -699,6 +708,8 @@ export class FinancesComponent implements OnInit {
   skipIncrease() {
     this.paymentDto.increasePercentage = 0;
     this.paymentDto.newRentAmount = 0; 
+    this.paymentDto.skipFutureProjection = true; 
+    
     this.increasePercentage = 0;
     this.increaseResolved = true;
     this.showIncreaseOverlay = false;
@@ -862,5 +873,11 @@ export class FinancesComponent implements OnInit {
 
     this.paymentDto.amount = totalToPay;
     this.onAmountChange(totalToPay);
+  }
+
+  goBackFromIncrease() {
+    this.showIncreaseOverlay = false;
+    this.currentIncreaseFlow = 'none';
+    this.increaseResolved = false;
   }
 }

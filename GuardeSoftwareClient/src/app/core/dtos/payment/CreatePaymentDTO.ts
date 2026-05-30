@@ -12,4 +12,5 @@ export interface CreatePaymentDTO{
     commissionConcept?: string;
     increasePercentage?: number | null;
     newRentAmount?: number;
+    skipFutureProjection?: boolean;
 }

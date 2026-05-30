@@ -275,15 +275,20 @@ namespace GuardeSoftwareAPI.Services.payment
                 var lastExistingMonth = existingMonths.Last();
                 bool lastMonthWasTouched = (lastExistingMonth.Paid + lastExistingMonth.AdvancedPayment) > 0;
 
-                if (moneyInHand > 0 || lastMonthWasTouched)
+                // LÓGICA CLAVE: Si omitió el aumento (SkipFutureProjection = true), 
+                // solo entra al bucle si hay plata sobrante (moneyInHand > 0). 
+                // Si la plata es 0, no proyecta nada.
+                bool shouldProjectFuture = lastMonthWasTouched && !dto.SkipFutureProjection;
+
+                if (moneyInHand > 0 || shouldProjectFuture)
                 {
                     while (true)
                     {
                         lastGeneratedDate = lastGeneratedDate.AddMonths(1);
                         string newMonthStr = lastGeneratedDate.ToString("MM/yyyy");
-                        DateTime currentIterMonth = new(lastGeneratedDate.Year, lastGeneratedDate.Month, 1);
+                        DateTime currentIterMonth = new DateTime(lastGeneratedDate.Year, lastGeneratedDate.Month, 1);
 
-                        // AQUÍ ESTÁ LA MAGIA: Buscamos el precio exacto en el historial para ESTE mes iterado
+                        // Buscamos el precio exacto en el historial
                         var historyForMonth = histories
                             .Where(h => h.StartDate.Date <= currentIterMonth && (!h.EndDate.HasValue || h.EndDate.Value.Date >= currentIterMonth))
                             .OrderByDescending(h => h.StartDate)
@@ -299,7 +304,7 @@ namespace GuardeSoftwareAPI.Services.payment
                         {
                             await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement {
                                 RentalId = rental.Id, PaymentId = paymentId, 
-                                MovementDate = currentIterMonth, // Usamos la fecha exacta del primer día del mes generado
+                                MovementDate = currentIterMonth, 
                                 MovementType = "DEBITO", Concept = conceptDebit, Amount = rentForThisMonth
                             }, connection, transaction);
                         }
@@ -324,9 +329,21 @@ namespace GuardeSoftwareAPI.Services.payment
                         moneyInHand -= applied;
                         lastMonthDebt = totalOwedThisNewMonth - applied;
 
-                        if (moneyInHand <= 0 && applied == 0) break;
+                        // CONDICIONES DE CORTE DEL BUCLE:
+                        if (moneyInHand <= 0)
+                        {
+                            // 1. Corte normal si el mes que acabamos de generar es pura proyección (no se le aplicó plata)
+                            if (applied == 0) break;
+                            
+                            // 2. CORTE POR OMISIÓN DE AUMENTO: 
+                            // Si se quedó sin plata (moneyInHand = 0) porque pagó exacto el alquiler,
+                            // y el usuario pidió NO proyectar el futuro, cortamos acá.
+                            if (dto.SkipFutureProjection) break;
+                        }
                     }
                 }
+                
+                // (Continúa con la Sección 5 normal...)
 
         // ==============================================================================
         // --- 5. EFECTIVIZACIÓN Y LIMPIEZA DE MORA ---
