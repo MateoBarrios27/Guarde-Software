@@ -112,9 +112,12 @@
   </div>
 
   <!-- === TABLA DE PAGOS === -->
-  <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+  <!-- 1. CONTENEDOR LIBRE: Quitamos el overflow-x-auto y agregamos relative w-full -->
+  <div class="relative w-full bg-white rounded-xl border border-gray-200 shadow-sm">
     <table class="w-full text-sm border-collapse">
-      <thead class="bg-gray-50 text-gray-700 uppercase text-xs">
+      
+      <!-- 2. THEAD STICKY: Agregamos sticky, top-0, z-20 y shadow-sm -->
+      <thead class="bg-gray-50 text-gray-700 uppercase text-xs sticky top-0 z-20 shadow-sm">
         <tr class="border-b">
           <th class="py-3 px-4 text-left font-medium">Cliente</th>
           <th class="py-3 px-4 text-left font-medium">Identificador</th>

@@ -1,4 +1,4 @@
-<div class="flex flex-col mb-3 min-h-screen bg-gray-100 font-inter relative">
+<div class="flex flex-col mb-3 min-h-screen bg-gray-100 font-inter relative pt-6">
 
   <div #topAnchor class="absolute top-0 w-full h-[600px] -z-10 opacity-0 pointer-events-none"></div>
 
@@ -123,6 +123,16 @@
 
           <div class="flex justify-between items-center">
             <span class="text-gray-600 flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full bg-blue-400"></div> Total Depo
+            </span>
+            <div class="flex flex-col items-end">
+              <span class="font-semibold text-blue-600 leading-tight">$ {{ totals.depo | number:'1.2-2' }}</span>
+              <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ (totals.depo / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center">
+            <span class="text-gray-600 flex items-center gap-2">
               <div class="w-2 h-2 rounded-full bg-orange-300"></div> Casa + Retiros
             </span>
             <div class="flex flex-col items-end">
@@ -225,9 +235,9 @@
           </div>
       </h3>
       
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto overflow-y-hidden">
           <table class="w-full text-sm text-left border-collapse bg-gray-50 rounded-lg">
-            <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropAccount($event)">
+            <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropAccount($event)" cdkDropListScrollContainer="#main-scroll">
               
               <tr *ngFor="let account of accounts; let i = index" 
                   cdkDrag 
@@ -462,9 +472,10 @@
 </div>
 </div>
 
-      <div class="relative w-full overflow-x-auto pb-2 custom-scrollbar">
+      <div class="relative w-full pb-2">
         <table class="w-full min-w-[1100px] text-sm text-left border-collapse">
-          <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b">
+          
+          <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b sticky top-0 z-20 shadow-sm">
             <tr>
               <th class="w-6 bg-gray-50"></th> 
               <th class="px-2 py-3 w-16 text-center bg-gray-50">Fecha</th>
@@ -479,7 +490,7 @@
             </tr>
           </thead>
           
-         <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropItem($event)">
+          <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropItem($event)" cdkDropListScrollContainer="#main-scroll">
         <tr *ngFor="let item of filteredItems" 
             cdkDrag 
             (click)="toggleItemSelection(item)"
@@ -708,9 +719,8 @@
             </tr>
           </tbody>
 
-          <tfoot class="font-bold text-gray-700 border-t bg-gray-50/50">
+          <tfoot class="font-bold text-gray-700 border-t border-gray-200 bg-gray-50 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             <tr>
-              
               <td colspan="3" class="px-4 py-3 align-middle">
                 <div class="flex items-center justify-between w-full h-full">
                   

@@ -13,6 +13,7 @@ import { Client } from '../../core/models/client';
 import { CreatePaymentDTO } from '../../core/dtos/payment/CreatePaymentDTO';
 import Swal from 'sweetalert2';
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
+import { ActivatedRoute, Router } from '@angular/router';
 
 export interface DetailedPaymentView extends DetailedPaymentDTO {
   groupPos?: 'start' | 'middle' | 'end' | 'none';
@@ -30,7 +31,9 @@ export class FinancesComponent implements OnInit {
   constructor(
     private paymentService: PaymentService,
     private paymentMethodService: PaymentMethodService,
-    private clientService: ClientService
+    private clientService: ClientService,
+    private route: ActivatedRoute, // NUEVO
+    private router: Router         // NUEVO
   ){}
 
   clients: Client[] = [];
@@ -74,6 +77,8 @@ export class FinancesComponent implements OnInit {
   public selectedPendingSurcharge: number = 0;
   public selectedClientLastMonth: string = '';
 
+  autoOpenClientId: number | null = null;
+
   paymentDto: CreatePaymentDTO = {
       clientId: 0,
       movementType: 'CREDITO',
@@ -86,6 +91,13 @@ export class FinancesComponent implements OnInit {
     };
 
   ngOnInit(): void {
+    // 1. Escuchamos si venimos desde la tabla de clientes
+    this.route.queryParams.subscribe(params => {
+      if (params['autoOpenPayment']) {
+        this.autoOpenClientId = Number(params['autoOpenPayment']);
+      }
+    });
+
     this.loadPayments();
     this.loadPaymentMethods();
     this.loadClients();
@@ -115,7 +127,27 @@ export class FinancesComponent implements OnInit {
 
   loadClients(): void {
     this.clientService.getClients().subscribe({
-      next: (data) => this.clients = data,
+      next: (data) => {
+        this.clients = data;
+        
+        // MAGIA: Si tenemos una orden de auto-apertura pendiente
+        if (this.autoOpenClientId) {
+          const clientToPay = this.clients.find(c => c.id === this.autoOpenClientId);
+          
+          if (clientToPay) {
+            // 1. Abrimos el modal
+            this.OpenPaymentModal();
+            // 2. Llenamos el buscador visualmente (opcional pero queda bien)
+            this.searchClient = clientToPay.fullName;
+            // 3. Ejecutamos tu función exacta que carga toda la deuda y comisiones
+            this.selectClient(clientToPay);
+          }
+
+          // Limpiamos la URL para que si el usuario aprieta F5, no se vuelva a abrir solo
+          this.router.navigate([], { queryParams: { autoOpenPayment: null }, queryParamsHandling: 'merge' });
+          this.autoOpenClientId = null;
+        }
+      },
       error: (err) => console.log('error cargando clientes: ',err)
     });
   }

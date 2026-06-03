@@ -174,9 +174,10 @@
         </div>
       </div>
 
-      <div class="relative w-full overflow-x-auto">
+      <div class="relative w-full">
         <table class="w-full text-sm">
-          <thead class="text-xs text-gray-700 bg-gray-50">
+          
+          <thead class="text-xs text-gray-700 bg-gray-50 sticky top-0 z-20 shadow-sm">
             <tr class="border-b">
               
               <th class="p-4 text-left font-medium cursor-pointer" (click)="handleSort('FullName')">
@@ -321,6 +322,11 @@
 
               <td class="p-4">
                 <div class="flex items-center justify-center gap-2">
+
+                  <button *ngIf="cliente.status !== 'Baja'" (click)="goToPayment(cliente.id)" class="p-1 hover:text-green-600 flex items-center justify-center" title="Registrar Pago">
+                      <app-icon name="dollar-circle" class="h-4 w-4 inline-block text-black hover:text-green-600"></app-icon>
+                  </button>
+
                   <button (click)="openDetailClientModal(cliente.id)" class="p-1 hover:text-blue-600 flex items-center justify-center" title="Ver Detalles">
                     <app-icon name="eye" class="h-4 w-4 inline-block text-black hover:text-blue-600"></app-icon>
                   </button>

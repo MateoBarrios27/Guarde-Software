@@ -21,6 +21,7 @@ import { StatisticsService } from '../../core/services/statics-service/statics-s
 import { ɵɵDir } from "@angular/cdk/scrolling";
 import { Warehouse } from '../../core/models/warehouse';
 import { WarehouseService } from '../../core/services/warehouse-service/warehouse.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-clients',
@@ -91,7 +92,7 @@ export class ClientsComponent implements OnInit {
     balance: 0
   };
 
-  constructor(private clientService: ClientService, private statisticsService: StatisticsService, private warehouseService: WarehouseService) 
+  constructor(private clientService: ClientService, private statisticsService: StatisticsService, private warehouseService: WarehouseService, private router: Router) 
   {
     this.searchSubject.pipe(
       debounceTime(400),
@@ -100,6 +101,11 @@ export class ClientsComponent implements OnInit {
       this.currentPageClientes = 1; 
       this.loadClients();
     });
+  }
+
+  goToPayment(clientId: number) {
+    // Navegamos a finanzas y le pasamos el ID por la URL
+    this.router.navigate(['/finances'], { queryParams: { autoOpenPayment: clientId } });
   }
 
   ngOnInit(): void {
