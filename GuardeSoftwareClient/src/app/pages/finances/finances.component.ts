@@ -77,6 +77,8 @@ export class FinancesComponent implements OnInit {
   public selectedPendingSurcharge: number = 0;
   public selectedClientLastMonth: string = '';
 
+  returnToUrl: string | null = null;
+
   autoOpenClientId: number | null = null;
 
   paymentDto: CreatePaymentDTO = {
@@ -91,10 +93,12 @@ export class FinancesComponent implements OnInit {
     };
 
   ngOnInit(): void {
-    // 1. Escuchamos si venimos desde la tabla de clientes
     this.route.queryParams.subscribe(params => {
       if (params['autoOpenPayment']) {
         this.autoOpenClientId = Number(params['autoOpenPayment']);
+      }
+      if (params['returnTo']) {
+        this.returnToUrl = params['returnTo']; // <-- Lo guardamos
       }
     });
 
@@ -264,6 +268,12 @@ export class FinancesComponent implements OnInit {
       skipFutureProjection: false 
     };
     this.updateConceptFromDate(now);
+
+    if (this.returnToUrl) {
+      const url = this.returnToUrl;
+      this.returnToUrl = null;
+      this.router.navigate(['/' + url]);
+    }
   }
 
   private updateProjectedDate() {

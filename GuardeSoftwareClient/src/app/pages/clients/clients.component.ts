@@ -85,6 +85,7 @@ export class ClientsComponent implements OnInit {
   public warehouses: Warehouse[] = [];
   public filterWarehouse: number | 'Todos' = 'Todos';
 
+
   totals = {
     previousBalance: 0,
     interestAmount: 0,
@@ -104,8 +105,12 @@ export class ClientsComponent implements OnInit {
   }
 
   goToPayment(clientId: number) {
-    // Navegamos a finanzas y le pasamos el ID por la URL
-    this.router.navigate(['/finances'], { queryParams: { autoOpenPayment: clientId } });
+    this.router.navigate(['/finances'], { 
+      queryParams: { 
+        autoOpenPayment: clientId, 
+        returnTo: 'clients' 
+      } 
+    });
   }
 
   ngOnInit(): void {
