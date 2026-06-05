@@ -57,6 +57,7 @@ namespace GuardeSoftwareAPI.Dao
                     r.pending_surcharge AS PendingSurcharge,
                     ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS rent_amount,
                     ISNULL(step1.UI_Balance, 0) AS balance,
+                    ISNULL(step1.UI_InterestAmount, 0) AS interest_amount,
                     ISNULL(db.MonthYearDB, '') AS last_generated_month_year
                 FROM clients c
                 LEFT JOIN rentals r
@@ -76,6 +77,7 @@ namespace GuardeSoftwareAPI.Dao
                         MonthYearDB = cmb.month_year -- <-- 2. LO EXTRAEMOS DE LA DB
                     FROM client_month_balances cmb
                     WHERE cmb.rental_id = r.rental_id
+                      AND (cmb.balance - cmb.paid - cmb.advanced_payment) > 0
                     ORDER BY cmb.id DESC
                 ) db
                 
@@ -83,6 +85,12 @@ namespace GuardeSoftwareAPI.Dao
                 OUTER APPLY (
                     SELECT
                         UI_CurrentRent = db.RentDB,
+                        UI_InterestAmount = ISNULL((
+                            SELECT SUM(ISNULL(cmb2.interests, 0))
+                            FROM client_month_balances cmb2
+                            WHERE cmb2.rental_id = r.rental_id
+                              AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
+                        ), 0),
                         -- Proyección absoluta: (Arrastre + Interés + Cuota) - (Lo pagado + Lo adelantado)
                         UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB)
                 ) step1
@@ -226,6 +234,7 @@ namespace GuardeSoftwareAPI.Dao
                     
                     -- BLINDAJE CONTRA NULOS Y PROYECCIÓN
                     ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS rent_amount,
+                    ISNULL(step1.UI_InterestAmount, 0) AS interest_amount,
                     ISNULL(step1.UI_Balance, 0) AS balance,
                     ISNULL(db.PaidDB, 0) AS total_paid,
                     
@@ -261,6 +270,7 @@ namespace GuardeSoftwareAPI.Dao
                         MonthYearDB = cmb.month_year -- Traemos el MM/yyyy del último balance
                     FROM client_month_balances cmb
                     WHERE cmb.rental_id = r.rental_id
+                      AND (cmb.balance - cmb.paid - cmb.advanced_payment) > 0
                     ORDER BY cmb.id DESC -- LA SOLUCIÓN: Trae siempre la última tabla
                 ) db
 
@@ -268,6 +278,12 @@ namespace GuardeSoftwareAPI.Dao
                 OUTER APPLY (
                     SELECT 
                         UI_CurrentRent = db.RentDB, 
+                        UI_InterestAmount = ISNULL((
+                            SELECT SUM(ISNULL(cmb2.interests, 0))
+                            FROM client_month_balances cmb2
+                            WHERE cmb2.rental_id = r.rental_id
+                              AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
+                        ), 0),
                         UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                         LastBalanceDate = CASE 
                             WHEN db.MonthYearDB IS NOT NULL AND LEN(db.MonthYearDB) = 7
@@ -387,7 +403,7 @@ namespace GuardeSoftwareAPI.Dao
                         -- MATEMÁTICA DE LA UI 
                         step1.UI_PreviousBalance AS PreviousBalance,
                         step1.UI_InterestAmount AS InterestAmount,
-                        step1.UI_CurrentRent AS CurrentRent,
+                        ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS CurrentRent,
                         step1.UI_Balance AS Balance,
 
                         c.preferred_payment_method_id AS PreferredPaymentMethodId,
@@ -414,6 +430,7 @@ namespace GuardeSoftwareAPI.Dao
                     -- 1. BUSCAMOS EL MES ACTIVO (Siempre la última tabla generada)
                     OUTER APPLY (
                         SELECT TOP 1
+                            Id = cmb.id,
                             PrevBalDB = ISNULL(cmb.previous_balance, 0),
                             IntsDB = ISNULL(cmb.interests, 0),
                             RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
@@ -421,6 +438,7 @@ namespace GuardeSoftwareAPI.Dao
                             AdvPayDB = ISNULL(cmb.advanced_payment, 0)
                         FROM client_month_balances cmb
                         WHERE cmb.rental_id = r.rental_id
+                          AND (cmb.balance - cmb.paid - cmb.advanced_payment) > 0
                         ORDER BY cmb.id DESC -- LA SOLUCIÓN: Trae siempre la última tabla
                     ) db
 
@@ -428,12 +446,28 @@ namespace GuardeSoftwareAPI.Dao
                     OUTER APPLY (
                         SELECT 
                             UI_CurrentRent = db.RentDB, 
-                            UI_InterestAmount = db.IntsDB,
+                            UI_InterestAmount = ISNULL((
+                                SELECT SUM(ISNULL(cmb2.interests, 0))
+                                FROM client_month_balances cmb2
+                                WHERE cmb2.rental_id = r.rental_id
+                                  AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
+                            ), 0),
                             
                             -- Proyección absoluta: (Arrastre + Interés + Cuota) - (Lo pagado + Lo adelantado)
                             UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                             
-                            UI_PreviousBalance = db.AdvPayDB - db.PrevBalDB
+                            UI_PreviousBalance = -ISNULL((
+                                SELECT SUM(
+                                    CASE
+                                        WHEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0) > 0
+                                        THEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0)
+                                        ELSE 0
+                                    END
+                                )
+                                FROM client_month_balances cmb2
+                                WHERE cmb2.rental_id = r.rental_id
+                                  AND cmb2.id < db.id
+                            ), 0)
                     ) step1
 
                     LEFT JOIN ( SELECT r.client_id, STRING_AGG(l.identifier, ', ') as lockers, ( SELECT ISNULL(w.name, 'Sin ubicación') AS Warehouse, STRING_AGG(l2.identifier, ', ') AS Lockers FROM rentals r2 JOIN lockers l2 ON r2.rental_id = l2.rental_id LEFT JOIN warehouses w ON l2.warehouse_id = w.warehouse_id WHERE r2.client_id = r.client_id AND r2.active = 1 GROUP BY w.name FOR JSON PATH ) as lockers_json FROM rentals r JOIN lockers l ON r.rental_id = l.rental_id WHERE r.active = 1 GROUP BY r.client_id ) locker_sub ON c.client_id = locker_sub.client_id

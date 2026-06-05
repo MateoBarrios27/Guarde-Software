@@ -31,6 +31,7 @@ export interface ClientDetailDTO{
     nextIncreaseDay: Date;
     nextPaymentDay: Date;
     balance: number;
+    interestAmount?: number;
     paymentStatus: string;
     rentAmount: number;
     totalPaid?: number;

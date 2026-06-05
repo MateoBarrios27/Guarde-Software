@@ -551,6 +551,7 @@ namespace GuardeSoftwareAPI.Services.client
                 ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
                 OccupiedSpaces = row["occupied_spaces"] != DBNull.Value ? Convert.ToInt32(row["occupied_spaces"]) : 0,
                 Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0,
+                InterestAmount = row["interest_amount"] != DBNull.Value ? Convert.ToDecimal(row["interest_amount"]) : 0m,
                 PaymentStatus = row["payment_status"]?.ToString() ?? "Desconocido",
                 RentAmount = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m,
 

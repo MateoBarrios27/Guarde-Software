@@ -560,7 +560,15 @@ namespace GuardeSoftwareAPI.Dao
                 FROM (
                     SELECT 
                         (ISNULL(SUM(CASE WHEN am.movement_type = 'DEBITO' THEN am.amount ELSE -am.amount END), 0) + ISNULL((SELECT payment_identifier FROM clients WHERE client_id = @ClientId), 0)) as RawCurrentBalance,
-                        ISNULL(SUM(CASE WHEN am.movement_date < @StartOfMonth AND am.movement_type = 'DEBITO' THEN am.amount WHEN am.movement_date < @StartOfMonth AND am.movement_type != 'DEBITO' THEN -am.amount ELSE 0 END), 0) as RawPreviousBalance,
+                        ISNULL(SUM(CASE 
+                            WHEN am.movement_date < @StartOfMonth 
+                                 AND am.movement_type = 'DEBITO'
+                                 AND LOWER(REPLACE(REPLACE(ISNULL(am.concept, ''), 'é', 'e'), 'É', 'e')) NOT LIKE '%interes por mora%'
+                                 AND LOWER(ISNULL(am.concept, '')) NOT LIKE '%recargo%'
+                            THEN am.amount
+                            WHEN am.movement_date < @StartOfMonth AND am.movement_type != 'DEBITO' THEN -am.amount
+                            ELSE 0
+                        END), 0) as RawPreviousBalance,
                         ISNULL(SUM(CASE WHEN am.movement_date >= @StartOfMonth AND (am.concept LIKE '%Recargo%' OR am.concept LIKE '%Interés por mora%') THEN am.amount ELSE 0 END), 0) as Surcharge
                     FROM account_movements am
                     JOIN rentals r ON am.rental_id = r.rental_id

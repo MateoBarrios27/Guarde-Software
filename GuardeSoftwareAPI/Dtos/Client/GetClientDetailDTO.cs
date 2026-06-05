@@ -29,6 +29,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public int IncreaseFrequency { get; set; }
         public DateTime NextPaymentDay { get; set; }
         public decimal Balance { get; set; }
+        public decimal InterestAmount { get; set; }
         public string PaymentStatus { get; set; } = string.Empty;
         public decimal RentAmount { get; set; }
         public int? BillingTypeId { get; set; } 
