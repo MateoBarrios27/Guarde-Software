@@ -204,6 +204,18 @@
                 </div>
               </th>
 
+              <th class="p-4 text-left font-medium cursor-pointer" (click)="handleSort('NextPaymentDay')">
+                <div class="flex items-center gap-1 group">
+                  Próx. Pago
+                  <app-icon 
+                    [name]="getSortIcon('NextPaymentDay')" 
+                    class="w-4 h-4 transition-colors duration-200"
+                    [class.text-blue-600]="sortFieldClientes === 'NextPaymentDay'"
+                    [class.text-gray-400]="sortFieldClientes !== 'NextPaymentDay'">
+                  </app-icon>
+                </div>
+              </th>
+
               <th class="p-4 text-right font-medium cursor-pointer" (click)="handleSort('PreviousBalance')">
                 <div class="flex items-center justify-end gap-1 group">
                   Saldo Anterior
@@ -299,6 +311,13 @@
                 </ng-template>
               </td>
 
+              <td class="p-4 align-middle font-medium text-gray-700">
+                <span *ngIf="cliente.nextPaymentDay" class="text-sm font-semibold text-gray-800">
+                  {{ cliente.nextPaymentDay | date : "MM/yyyy" }}
+                </span>
+                <span *ngIf="!cliente.nextPaymentDay" class="text-gray-400">-</span>
+              </td>
+
               <td class="p-4 font-semibold text-right" 
                   [ngClass]="(cliente.previousBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
                 $ {{ cliente.previousBalance || 0 | number:'1.2-2' }}
@@ -347,9 +366,9 @@
 
             </tr>
           </tbody>
-          <tfoot class="font-bold text-gray-700 border-t border-gray-200 bg-gray-50/80">
+          <tfoot class="font-bold text-gray-700 border-t border-gray-200 bg-gray-50 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             <tr>
-              <td colspan="2" class="p-4 text-right align-middle">
+              <td colspan="3" class="p-4 text-right align-middle">
                 <span class="text-xs uppercase tracking-wider text-gray-500 font-bold">
                   Totales Columna:
                 </span>

@@ -12,9 +12,8 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public string Status { get; set; } = string.Empty; // 'Al Día', 'Pendiente', 'Moroso', 'Baja'
         public List<string>? Lockers { get; set; } = null;
         public List<WarehouseLockerItem>? WarehouseLockers { get; set; } = null;
-
+        public DateTime? NextPaymentDay { get; set; }
         public bool Active { get; set; }
-
     }
 
     public class WarehouseLockerItem

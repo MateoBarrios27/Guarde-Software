@@ -411,6 +411,12 @@ namespace GuardeSoftwareAPI.Dao
                         locker_sub.lockers as Lockers,
                         locker_sub.lockers_json as WarehouseLockersJson,
                         c.active AS Active,
+
+                        CASE 
+                            WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(GETDATE() AS DATE)
+                            THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10)
+                            ELSE step1.LastBalanceDate
+                        END AS NextPaymentDay,
                         
                         CASE
                             WHEN c.active = 0 THEN 'Baja'
@@ -435,14 +441,15 @@ namespace GuardeSoftwareAPI.Dao
                             IntsDB = ISNULL(cmb.interests, 0),
                             RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
                             PaidDB = ISNULL(cmb.paid, 0),
-                            AdvPayDB = ISNULL(cmb.advanced_payment, 0)
+                            AdvPayDB = ISNULL(cmb.advanced_payment, 0),
+                            MonthYearDB = cmb.month_year -- <--- NUEVO
                         FROM client_month_balances cmb
                         WHERE cmb.rental_id = r.rental_id
                           AND (cmb.balance - cmb.paid - cmb.advanced_payment) > 0
-                        ORDER BY cmb.id DESC -- LA SOLUCIÓN: Trae siempre la última tabla
+                        ORDER BY cmb.id DESC
                     ) db
 
-                    -- 2. ASIGNAMOS A LA UI
+                    -- 2. ASIGNAMOS A LA UI (Agregamos LastBalanceDate)
                     OUTER APPLY (
                         SELECT 
                             UI_CurrentRent = db.RentDB, 
@@ -452,10 +459,7 @@ namespace GuardeSoftwareAPI.Dao
                                 WHERE cmb2.rental_id = r.rental_id
                                   AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
                             ), 0),
-                            
-                            -- Proyección absoluta: (Arrastre + Interés + Cuota) - (Lo pagado + Lo adelantado)
                             UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
-                            
                             UI_PreviousBalance = -ISNULL((
                                 SELECT SUM(
                                     CASE
@@ -467,7 +471,14 @@ namespace GuardeSoftwareAPI.Dao
                                 FROM client_month_balances cmb2
                                 WHERE cmb2.rental_id = r.rental_id
                                   AND cmb2.id < db.id
-                            ), 0)
+                            ), 0),
+                            
+                            -- <--- NUEVO BLOQUE DE FECHA --->
+                            LastBalanceDate = CASE 
+                                WHEN db.MonthYearDB IS NOT NULL AND LEN(db.MonthYearDB) = 7
+                                THEN DATEFROMPARTS(CAST(RIGHT(db.MonthYearDB, 4) AS INT), CAST(LEFT(db.MonthYearDB, 2) AS INT), 10)
+                                ELSE NULL 
+                            END
                     ) step1
 
                     LEFT JOIN ( SELECT r.client_id, STRING_AGG(l.identifier, ', ') as lockers, ( SELECT ISNULL(w.name, 'Sin ubicación') AS Warehouse, STRING_AGG(l2.identifier, ', ') AS Lockers FROM rentals r2 JOIN lockers l2 ON r2.rental_id = l2.rental_id LEFT JOIN warehouses w ON l2.warehouse_id = w.warehouse_id WHERE r2.client_id = r.client_id AND r2.active = 1 GROUP BY w.name FOR JSON PATH ) as lockers_json FROM rentals r JOIN lockers l ON r.rental_id = l.rental_id WHERE r.active = 1 GROUP BY r.client_id ) locker_sub ON c.client_id = locker_sub.client_id
@@ -508,7 +519,8 @@ namespace GuardeSoftwareAPI.Dao
                 { "CurrentRent", "CurrentRent" },
                 { "Estado", "Status" },
                 { "Balance", "Balance" },
-                { "PaymentIdentifier", "PaymentIdentifier" }
+                { "PaymentIdentifier", "PaymentIdentifier" },
+                { "NextPaymentDay", "NextPaymentDay" }
             };
             
             return validSortFields.TryGetValue(sortField, out var dbColumn) ? dbColumn : "Id";
@@ -536,6 +548,7 @@ namespace GuardeSoftwareAPI.Dao
                 InterestAmount = row["InterestAmount"] != DBNull.Value ? Convert.ToDecimal(row["InterestAmount"]) : 0m,
                 CurrentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0m,
                 Balance = row["Balance"] != DBNull.Value ? Convert.ToDecimal(row["Balance"]) : 0m,
+                NextPaymentDay = row["NextPaymentDay"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDay"]) : null,
                 Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,
                 Active = Convert.ToBoolean(row["Active"]),
                 WarehouseLockers = row["WarehouseLockersJson"] != DBNull.Value 
