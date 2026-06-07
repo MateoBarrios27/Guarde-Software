@@ -54,7 +54,7 @@ export class PdfGeneratorService {
 
     // 3. Agregamos una fila vacía súper alta para empujar el total hacia abajo (como tenías antes)
     tableBody.push([
-      { text: '', colSpan: 3, margin: [0, 0, 0, 450], border: [true, false, false, false] }, 
+      { text: '', colSpan: 3, margin: [0, 0, 0, 600], border: [true, false, false, false] }, 
       {}, {}, 
       { text: '', border: [true, false, true, false] }
     ]);
@@ -83,7 +83,7 @@ export class PdfGeneratorService {
                     { text: 'No válido como Factura', fontSize: 7, margin: [3, 3, 0, 0] },
                     { text: `CLIENTE: ${data.clientName}`, alignment: 'left', bold: true, margin: [3, 10, 0, 4] }
                   ],
-                  { text: 'X', alignment: 'center', width: 'auto', bold: true, fontSize: 15 },
+                  { text: 'Recibo X', alignment: 'center', width: 'auto', bold: true, fontSize: 15, margin: [3, 3, 0, 4] },
                   [
                     { text: 'FECHA', bold: true, alignment: 'right', margin: [0, 0, 3, 3]},
                     { text: data.date, alignment: 'right', fontSize: 9, margin: [0, 0, 3, 3] }
