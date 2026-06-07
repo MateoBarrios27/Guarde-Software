@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Locker } from '../../core/models/locker';
 import { LockerService } from '../../core/services/locker-service/locker.service';
 import { CommonModule } from '@angular/common';
@@ -22,7 +22,7 @@ import { CreateLockerDTO } from '../../core/dtos/locker/CreateLockerDTO';
   templateUrl: './lockers.component.html',
   styleUrls: ['./lockers.component.css']
 })
-export class LockersComponent implements OnInit {
+export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   lockers: Locker[] = [];
   selectedLocker: Locker | null = null;
   
@@ -51,7 +51,12 @@ export class LockersComponent implements OnInit {
   selectedStatus = '';
 
   page: number = 1;
-  itemsPerPage: number = 50;
+  itemsPerPage: number = 500; 
+
+  // --- VARIABLES PARA EL BOTÓN FLOTANTE ---
+  @ViewChild('bottomAnchor') bottomAnchor!: ElementRef;
+  pointingUp: boolean = false;
+  private scrollObserver!: IntersectionObserver;
 
   constructor(
     private lockerService: LockerService, 
@@ -63,6 +68,41 @@ export class LockersComponent implements OnInit {
     this.loadLockers();
     this.loadWarehouses();
     this.loadLockerTypes();
+  }
+
+  ngAfterViewInit() {
+    // Vigilante que mira el piso
+    this.scrollObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.target === this.bottomAnchor.nativeElement) {
+          this.pointingUp = entry.isIntersecting; // Si ve el piso, apunta arriba
+        }
+      });
+    }, { threshold: 0 });
+
+    if (this.bottomAnchor) {
+      this.scrollObserver.observe(this.bottomAnchor.nativeElement);
+    }
+  }
+
+  ngOnDestroy() {
+    if (this.scrollObserver) {
+      this.scrollObserver.disconnect();
+    }
+  }
+
+  toggleScroll() {
+    const scrollContainer = document.getElementById('main-scroll');
+    if (!scrollContainer) return;
+
+    if (this.pointingUp) {
+      // 1. Si apunta arriba: Subimos al tope de un saque
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // 2. Si apunta abajo: Bajamos en bloques (ej: 70 bauleras = ~3850px)
+      const scrollAmount = 3850;
+      scrollContainer.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+    }
   }
 
   loadLockers(): void {
@@ -171,11 +211,10 @@ export class LockersComponent implements OnInit {
       const weightB = this.getStatusSortWeight(b.status);
 
       if (weightA !== weightB) {
-        return weightA - weightB; // Ordenar por estado (DISPONIBLE = 1 va primero)
+        return weightA - weightB; 
       }
 
-      // Si el estado es el mismo, ordenar por identificador de forma "Natural" (Alfanumérica)
-      // Esto soluciona que "A-2" aparezca correctamente antes que "A-10"
+
       return (a.identifier || '').localeCompare(b.identifier || '', undefined, { 
         numeric: true, 
         sensitivity: 'base' 
@@ -289,10 +328,8 @@ export class LockersComponent implements OnInit {
      });
   }
 
-  // --- Métodos Modal Crear (Corregidos) ---
   
   private getDefaultNewLocker(): CreateLockerDTO {
-    // CAMBIO: Usamos 0 como valor por defecto, ya que null no es un 'number'
     return {
       identifier: '',
       warehouseId: 0,

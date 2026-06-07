@@ -86,7 +86,7 @@
     <div class="flex items-center gap-3 justify-end flex-shrink-0">
       <select [(ngModel)]="itemsPerPage" (change)="page = 1"
               class="p-2 border border-gray-300 rounded-lg bg-white text-gray-800">
-        <option *ngFor="let size of [20, 50, 100]" [value]="size">{{ size }} por pág.</option>
+        <option *ngFor="let size of [500, 1000, 2000]" [value]="size">{{ size }} por pág.</option>
       </select>
       
       <!-- === BOTÓN NUEVO AÑADIDO === -->
@@ -150,8 +150,13 @@
   <pagination-controls [id]="'lockers'" (pageChange)="page = $event" previousLabel="Anterior" nextLabel="Siguiente" class="flex justify-center items-center mt-4 text-sm">
   </pagination-controls>
 
-</div>
+</div> <div #bottomAnchor class="w-full h-1 opacity-0 pointer-events-none mt-4"></div>
 
+<button (click)="toggleScroll()"
+        class="fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-110 hover:shadow-blue-500/30 transition-all duration-300 focus:outline-none"
+        [title]="pointingUp ? 'Subir' : 'Bajar'">
+  <app-icon [name]="pointingUp ? 'arrow-up' : 'arrow-down'" class="h-6 w-6"></app-icon>
+</button>
 
 <!-- ============================== -->
 <!-- === MODAL EDITAR (Existente) === -->
