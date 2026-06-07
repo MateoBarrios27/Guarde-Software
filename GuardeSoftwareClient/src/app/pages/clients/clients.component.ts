@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgxPaginationModule } from 'ngx-pagination';
@@ -39,7 +39,7 @@ import { Router } from '@angular/router';
 ],
   templateUrl: './clients.component.html',
 })
-export class ClientsComponent implements OnInit {
+export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // --- Table properties ---
   public activeTab: 'clientes' | 'pagos' = 'clientes';
@@ -93,6 +93,12 @@ export class ClientsComponent implements OnInit {
     balance: 0
   };
 
+  @ViewChild('topAnchor') topAnchor!: ElementRef;
+  @ViewChild('bottomAnchor') bottomAnchor!: ElementRef;
+  
+  pointingUp: boolean = false; 
+  private scrollObserver!: IntersectionObserver;
+
   constructor(private clientService: ClientService, private statisticsService: StatisticsService, private warehouseService: WarehouseService, private router: Router) 
   {
     this.searchSubject.pipe(
@@ -119,7 +125,39 @@ export class ClientsComponent implements OnInit {
     this.warehouseService.getWarehouses().subscribe(data => this.warehouses = data);
   }
 
-  loadClients(): void {
+  ngAfterViewInit() {
+    this.scrollObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.target === this.bottomAnchor.nativeElement) {
+          this.pointingUp = entry.isIntersecting;
+        }
+      });
+    }, { threshold: 0 });
+
+    if (this.bottomAnchor) {
+      this.scrollObserver.observe(this.bottomAnchor.nativeElement);
+    }
+  }
+
+  ngOnDestroy() {
+    if (this.scrollObserver) {
+      this.scrollObserver.disconnect();
+    }
+  }
+
+  toggleScroll() {
+    const scrollContainer = document.getElementById('main-scroll');
+    if (!scrollContainer) return;
+
+    if (this.pointingUp) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      const scrollAmount = 3150;
+      scrollContainer.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+    }
+  }
+
+   loadClients(): void {
     this.isLoading = true;
 
     const request: GetClientsRequest = {
@@ -173,17 +211,13 @@ export class ClientsComponent implements OnInit {
 
   handleSort(field: string): void {
     if (this.sortFieldClientes === field) {
-      // If clicking the same column, toggle between 'asc', 'desc', and default
       if (this.sortDirectionClientes === 'asc') {
-        // Second click: switch to Descendente
         this.sortDirectionClientes = 'desc';
       } else {
-        // Third click: reset to default (PaymentIdentifier Ascendente)
         this.sortFieldClientes = 'PaymentIdentifier';
         this.sortDirectionClientes = 'asc';
       }
     } else {
-      // If clicking a different column, sort by that column Ascendente
       this.sortFieldClientes = field;
       this.sortDirectionClientes = 'asc';
     }
