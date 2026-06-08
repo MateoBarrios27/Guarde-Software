@@ -641,18 +641,24 @@ export class FinancesComponent implements OnInit {
   }
 
   // --- NUEVA LÓGICA DE REDONDEO INTELIGENTE ---
-  private roundRentAmount(amount: number, methodName: string): number {
-    if (amount === 0) return 0;
-    
-    // Si es Efectivo, redondeo fuerte a los miles (ej: 201.098 -> 201.000)
-    if (methodName.includes('efectivo')) {
-      return Math.round(amount / 1000) * 1000;
-    } 
-    // Si es Transferencia/Otros, redondeo suave a las centenas (ej: 201.098 -> 201.100)
-    else {
-      return Math.round(amount / 100) * 100;
-    }
+  private roundRentAmount(targetAmount: number, methodName: string, originalRent: number, targetPercentage: number): number {
+  if (targetAmount === 0) return 0;
+  
+  const methodLower = methodName.toLowerCase();
+  const isEfectivo = methodLower.includes('efectivo');
+  const step = isEfectivo ? 1000 : 100; // 1000 para efectivo, 100 para banco
+
+  let rounded = Math.ceil(targetAmount / step) * step;
+
+  let currentPercentage = ((rounded - originalRent) / originalRent) * 100;
+
+  while (currentPercentage < targetPercentage) {
+    rounded += step;
+    currentPercentage = ((rounded - originalRent) / originalRent) * 100;
   }
+
+  return rounded;
+}
 
   calculateProjectedRent() {
     const rent = this.selectedClientRentAmount || 0;
@@ -662,7 +668,7 @@ export class FinancesComponent implements OnInit {
     const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
     
     // Aplicamos redondeo según el método
-    newRent = this.roundRentAmount(newRent, methodName);
+    newRent = this.roundRentAmount(newRent, methodName, rent, perc);
 
     // RE-CALCULAMOS el porcentaje exacto tras el redondeo usando 4 decimales
     if (rent > 0) {
@@ -690,24 +696,20 @@ export class FinancesComponent implements OnInit {
 
   // --- ESCENARIO A: Al terminar de editar el PORCENTAJE ---
   onIncreasePercentageBlur() {
-    const rent = this.selectedClientRentAmount || 0;
-    const perc = this.increasePercentage || 0;
+  const rent = this.selectedClientRentAmount || 0;
+  const perc = this.increasePercentage || 0; // El % que escribió el usuario
+  
+  let targetRent = rent + (rent * (perc / 100));
+  const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
+  
+  // Aquí pasamos el 'perc' para que la función sepa qué cumplir
+  this.projectedNewRent = this.roundRentAmount(targetRent, methodName, rent, perc);
     
-    let newRent = rent + (rent * (perc / 100));
-
-    const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
-    
-    // Aplicamos redondeo según el método
-    newRent = this.roundRentAmount(newRent, methodName);
-      
-    // Re-ajustamos el porcentaje exacto (con 4 decimales)
-    if (rent > 0) {
-      this.increasePercentage = parseFloat((((newRent - rent) / rent) * 100).toFixed(4));
-    }
-
-    this.projectedNewRent = newRent;
-    this.updateProjectedDate();
+  // Recalculamos el % real final tras el redondeo forzado
+  if (rent > 0) {
+    this.increasePercentage = parseFloat((((this.projectedNewRent - rent) / rent) * 100).toFixed(4));
   }
+}
 
   // --- ESCENARIO B: Al terminar de editar el MONTO ($) ---
   onProjectedRentBlur() {
@@ -717,7 +719,7 @@ export class FinancesComponent implements OnInit {
     const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
     
     // Aplicamos redondeo a lo que escribió el usuario según el método
-    targetRent = this.roundRentAmount(targetRent, methodName);
+    targetRent = this.roundRentAmount(targetRent, methodName, rent, this.increasePercentage);
     this.projectedNewRent = targetRent; 
     
     if (rent === 0) {
@@ -908,7 +910,7 @@ export class FinancesComponent implements OnInit {
         }
 
         // Pasamos por nuestro nuevo filtro de redondeo inteligente
-        rentForThisMonth = this.roundRentAmount(rentForThisMonth, currentMethodName);
+        rentForThisMonth = this.roundRentAmount(rentForThisMonth, currentMethodName, baseRent, this.paymentDto.increasePercentage || 0);
         totalToPay += rentForThisMonth;
       }
     }
