@@ -31,6 +31,7 @@ import { LockerTypeService } from '../../core/services/lockerType-service/locker
 import { LockerType } from '../../core/models/locker-type';
 import { CreateLockerTypeDto } from '../../core/dtos/lockerType/CreateLockerTypeDto';
 import { ɵɵDir } from "@angular/cdk/scrolling";
+import { AuthService } from '../../core/services/auth-service/auth.service';
 
 
 @Component({
@@ -50,7 +51,8 @@ export class SettingsComponent implements OnInit {
     private billingTypeService: BillingTypeService,
     private monthlyIncreaseService: MonthlyIncreaseService,
     private communicationService: CommunicationService,
-    private lockerTypeService: LockerTypeService
+    private lockerTypeService: LockerTypeService,
+    public authService: AuthService
   ) {}
 
   activeSection: string = 'usuarios';
@@ -148,6 +150,14 @@ export class SettingsComponent implements OnInit {
   editingWarehouse: Warehouse = { id: 0, name: '', address: ''};
 
   ngOnInit(): void {
+    const isAdmin = this.authService.isAdmin ? this.authService.isAdmin() : false; 
+    
+    this.configSections = this.configSections.filter(section => !section.adminOnly || isAdmin);
+
+    if (!this.configSections.some(s => s.id === this.activeSection)) {
+      this.activeSection = this.configSections[0].id;
+    }
+
     this.loadUsers();
     this.loadPaymentMethods();
     this.loadUserTypes();
@@ -229,7 +239,7 @@ export class SettingsComponent implements OnInit {
 
   // --- Navegación ---
   configSections = [
-    { id: 'usuarios', title: 'Usuarios', icon: '👤' },
+    { id: 'usuarios', title: 'Usuarios', icon: '👤', adminOnly: true },
     { id: 'medios-pago', title: 'Medios de Pago', icon: '💳' },
     { id: 'facturacion', title: 'Facturación', icon: '📄' },
     { id: 'locker-types', title: 'Tipos de Bauleras', icon: '🗄️' },
