@@ -54,7 +54,7 @@ export class FinancesComponent implements OnInit {
   searchPayment: string = '';
 
   page: number = 1;
-  itemsPerPage: number = 10;
+  itemsPerPage: number = 100;
 
   manualDateEnabled = false;
   dateString: string = '';

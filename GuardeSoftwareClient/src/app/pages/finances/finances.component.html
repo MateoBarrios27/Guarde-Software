@@ -90,7 +90,7 @@
       <div class="flex justify-end">
         <select [(ngModel)]="itemsPerPage" (change)="page = 1"
                 class="p-2 border border-gray-300 rounded bg-white text-gray-800">
-          <option *ngFor="let size of [5, 10, 20, 50]" [value]="size">{{ size }}</option>
+          <option *ngFor="let size of [100, 200, 500]" [value]="size">{{ size }}</option>
         </select>
       </div>
 
