@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { PaymentService } from '../../core/services/payment-service/payment.service';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
 import { PendingRentalDTO } from '../../core/dtos/rental/PendingRentalDTO';
@@ -62,7 +62,7 @@ export class FinancesComponent implements OnInit {
   amountOriginal = 0;
   selectedClientIncreaseAnchorDate: string | null = null;
   
-  // Banderas de lógica
+  // Banderas de lÃ³gica
   hasIncreaseInPeriod: boolean = false;
   public isIncreaseNextMonth: boolean = false;
 
@@ -143,7 +143,7 @@ export class FinancesComponent implements OnInit {
             this.OpenPaymentModal();
             // 2. Llenamos el buscador visualmente (opcional pero queda bien)
             this.searchClient = clientToPay.fullName;
-            // 3. Ejecutamos tu función exacta que carga toda la deuda y comisiones
+            // 3. Ejecutamos tu funciÃ³n exacta que carga toda la deuda y comisiones
             this.selectClient(clientToPay);
           }
 
@@ -433,21 +433,21 @@ export class FinancesComponent implements OnInit {
   deletePayment(p: DetailedPaymentView): void {
       const isGroup = p.isGrouped;
       Swal.fire({
-        title: isGroup ? '¿Eliminar transacción completa?' : '¿Eliminar movimiento?',
+        title: isGroup ? 'Â¿Eliminar transacciÃ³n completa?' : 'Â¿Eliminar movimiento?',
         text: isGroup 
-           ? 'Se borrará el pago principal y su bonificación/recargo asociado. Esta acción no se puede deshacer.'
-           : 'Esta acción borrará este registro contable. No se puede deshacer.',
+           ? 'Se borrarÃ¡ el pago principal y su bonificaciÃ³n/recargo asociado. Esta acciÃ³n no se puede deshacer.'
+           : 'Esta acciÃ³n borrarÃ¡ este registro contable. No se puede deshacer.',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33', 
         cancelButtonColor: '#9ca3af', 
-        confirmButtonText: 'Sí, eliminar',
+        confirmButtonText: 'SÃ­, eliminar',
         cancelButtonText: 'Cancelar'
       }).then((result) => {
         if (result.isConfirmed) {
           this.paymentService.deletePayment(p.movementId).subscribe({
             next: () => {
-              Swal.fire({ title: '¡Eliminado!', text: 'El registro ha sido borrado correctamente.', icon: 'success', confirmButtonColor: '#2563eb' });
+              Swal.fire({ title: 'Â¡Eliminado!', text: 'El registro ha sido borrado correctamente.', icon: 'success', confirmButtonColor: '#2563eb' });
               this.loadPayments(); 
               this.loadClients();
             },
@@ -503,7 +503,7 @@ export class FinancesComponent implements OnInit {
   }
 
   // =========================================================
-  // --- LÓGICA DEL CEREBRO DE AUMENTOS ---
+  // --- LÃ“GICA DEL CEREBRO DE AUMENTOS ---
   // =========================================================
   
   private getSelectedPaymentMonth(): { year: number; month: number } {
@@ -522,18 +522,18 @@ export class FinancesComponent implements OnInit {
       return this.getSelectedPaymentMonth();
     }
 
-    // 2. Desarmamos el último mes generado por el backend (Ej: "05/2026")
+    // 2. Desarmamos el Ãºltimo mes generado por el backend (Ej: "05/2026")
     const [mStr, yStr] = this.selectedClientLastMonth.split('/');
     let lastMonth = parseInt(mStr, 10);
     let lastYear = parseInt(yStr, 10);
 
-    // 3. LA MAGIA: Si el balance es >= 0, el último mes que figura en la base de datos 
-    // YA ESTÁ PAGO. Por ende, la plata que traen hoy va a cubrir el MES SIGUIENTE.
+    // 3. Si el balance es >= 0, el Ãºltimo mes que figura en la base de datos ya no tiene deuda.
+    // En ese caso, tomamos como base el mes del pago seleccionado para no correr un mes de mÃ¡s.
     if (this.selectedClientBalance >= 0) {
-        return this.addMonths(lastYear, lastMonth, 1);
+        return this.getSelectedPaymentMonth();
     } else {
         // Si DEBE PLATA (balance < 0), la plata que traiga ahora se va a aplicar 
-        // a ese mismo último mes para tapar el agujero de deuda.
+        // a ese mismo Ãºltimo mes para tapar el agujero de deuda.
         return { year: lastYear, month: lastMonth };
     }
   }
@@ -564,59 +564,32 @@ export class FinancesComponent implements OnInit {
     const anchorString = this.selectedClientIncreaseAnchorDate.split('T')[0];
     const [aYear, aMonth] = anchorString.split('-').map(Number);
     const anchorValue = aYear * 100 + aMonth;
-
     const coverageStart = this.getCoverageStartMonth();
-    const currentMonthValue = coverageStart.year * 100 + coverageStart.month;
+    const monthsToCover = this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths
+      ? Math.max(1, this.paymentDto.advanceMonths)
+      : 1;
 
-    const currentDebt = this.selectedClientBalance < 0 ? Math.abs(this.selectedClientBalance) : 0;
-    let moneyInHand = this.paymentDto.amount || 0;
-    
-    let farthestYear = coverageStart.year;
-    let farthestMonth = coverageStart.month;
+    const coveredMonths = Array.from({ length: monthsToCover }, (_, index) => {
+      const month = this.addMonths(coverageStart.year, coverageStart.month, index);
+      return month.year * 100 + month.month;
+    });
 
-    if (moneyInHand > currentDebt) {
-      let extraMoney = moneyInHand - currentDebt;
-      let rent = this.selectedClientRentAmount || 1; 
-      
-      let futureMonthsCovered = Math.ceil(extraMoney / rent);
-      
-      if (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) {
-          futureMonthsCovered = Math.max(futureMonthsCovered, this.paymentDto.advanceMonths);
-      }
-
-      // AJUSTE: Si no debía plata, coverageStart ya es el primer mes nuevo (le sumamos futureMonths - 1).
-      // Si SÍ debía plata, coverageStart es el mes adeudado, los meses nuevos van DESPUÉS (le sumamos futureMonths).
-      let shift = currentDebt > 0 ? futureMonthsCovered : futureMonthsCovered - 1;
-      
-      const farthest = this.addMonths(coverageStart.year, coverageStart.month, shift);
-      farthestYear = farthest.year;
-      farthestMonth = farthest.month;
-    }
-
-    const farthestMonthValue = farthestYear * 100 + farthestMonth;
-
-    if (anchorValue >= currentMonthValue && anchorValue <= farthestMonthValue) {
-      this.hasIncreaseInPeriod = true;
-    }
+    this.hasIncreaseInPeriod = coveredMonths.some(monthValue => monthValue >= anchorValue);
 
     if (!this.hasIncreaseInPeriod) {
-      const nextCoverageMonth = this.addMonths(farthestYear, farthestMonth, 1);
-      const nextMonth = nextCoverageMonth.month;
-      const nextYear = nextCoverageMonth.year;
-      const nextMonthValue = nextYear * 100 + nextMonth;
-
+      const nextCoverageMonth = this.addMonths(coverageStart.year, coverageStart.month, monthsToCover);
+      const nextMonthValue = nextCoverageMonth.year * 100 + nextCoverageMonth.month;
       if (anchorValue === nextMonthValue) {
-          this.isIncreaseNextMonth = true;
+        this.isIncreaseNextMonth = true;
       }
     }
   }
-
   savePaymentModal(dto: CreatePaymentDTO) {
-    if (!this.paymentMethods?.length) { Swal.fire({ icon: 'warning', title: 'Cargando métodos', text: 'Esperá a que carguen.' }); return; }
-    if (!this.paymentDto.clientId || this.paymentDto.clientId <= 0) { Swal.fire({ icon: 'warning', title: 'Cliente requerido', text: 'Seleccioná un cliente.' }); return; }
-    if (!dto.amount || dto.amount <= 0) { Swal.fire({ icon: 'warning', title: 'Monto inválido', text: 'Ingresá un monto válido.' }); return; }
-    if (!dto.paymentMethodId) { Swal.fire({ icon: 'warning', title: 'Método requerido', text: 'Seleccioná método.' }); return; }
-    if (dto.isAdvancePayment && (!dto.advanceMonths || dto.advanceMonths < 1)) { Swal.fire({ icon: 'warning', title: 'Meses inválidos', text: 'Mínimo 1 mes.' }); return; }
+    if (!this.paymentMethods?.length) { Swal.fire({ icon: 'warning', title: 'Cargando mÃ©todos', text: 'EsperÃ¡ a que carguen.' }); return; }
+    if (!this.paymentDto.clientId || this.paymentDto.clientId <= 0) { Swal.fire({ icon: 'warning', title: 'Cliente requerido', text: 'SeleccionÃ¡ un cliente.' }); return; }
+    if (!dto.amount || dto.amount <= 0) { Swal.fire({ icon: 'warning', title: 'Monto invÃ¡lido', text: 'IngresÃ¡ un monto vÃ¡lido.' }); return; }
+    if (!dto.paymentMethodId) { Swal.fire({ icon: 'warning', title: 'MÃ©todo requerido', text: 'SeleccionÃ¡ mÃ©todo.' }); return; }
+    if (dto.isAdvancePayment && (!dto.advanceMonths || dto.advanceMonths < 1)) { Swal.fire({ icon: 'warning', title: 'Meses invÃ¡lidos', text: 'MÃ­nimo 1 mes.' }); return; }
 
     if (this.manualDateEnabled && this.dateString) {
       const [year, month, day] = this.dateString.split('-').map(Number);
@@ -631,7 +604,7 @@ export class FinancesComponent implements OnInit {
 
     if (affectsCurrentTotal && !isPriceLocked && !this.increaseResolved) {
       this.currentIncreaseFlow = 'advance';
-      this.increasePromptReason = 'Dentro de los meses que está pagando, el cliente tiene programado un aumento.';
+      this.increasePromptReason = 'Dentro de los meses que estÃ¡ pagando, el cliente tiene programado un aumento.';
       this.calculateProjectedRent();
       this.showIncreaseOverlay = true;
     } else {
@@ -640,7 +613,7 @@ export class FinancesComponent implements OnInit {
     }
   }
 
-  // --- NUEVA LÓGICA DE REDONDEO INTELIGENTE ---
+  // --- NUEVA LÃ“GICA DE REDONDEO INTELIGENTE ---
   private roundRentAmount(targetAmount: number, methodName: string, originalRent: number, targetPercentage: number): number {
   if (targetAmount === 0) return 0;
   
@@ -667,7 +640,7 @@ export class FinancesComponent implements OnInit {
 
     const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
     
-    // Aplicamos redondeo según el método
+    // Aplicamos redondeo segÃºn el mÃ©todo
     newRent = this.roundRentAmount(newRent, methodName, rent, perc);
 
     // RE-CALCULAMOS el porcentaje exacto tras el redondeo usando 4 decimales
@@ -697,12 +670,12 @@ export class FinancesComponent implements OnInit {
   // --- ESCENARIO A: Al terminar de editar el PORCENTAJE ---
   onIncreasePercentageBlur() {
   const rent = this.selectedClientRentAmount || 0;
-  const perc = this.increasePercentage || 0; // El % que escribió el usuario
+  const perc = this.increasePercentage || 0; // El % que escribiÃ³ el usuario
   
   let targetRent = rent + (rent * (perc / 100));
   const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
   
-  // Aquí pasamos el 'perc' para que la función sepa qué cumplir
+  // AquÃ­ pasamos el 'perc' para que la funciÃ³n sepa quÃ© cumplir
   this.projectedNewRent = this.roundRentAmount(targetRent, methodName, rent, perc);
     
   // Recalculamos el % real final tras el redondeo forzado
@@ -718,7 +691,7 @@ export class FinancesComponent implements OnInit {
 
     const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
     
-    // Aplicamos redondeo a lo que escribió el usuario según el método
+    // Aplicamos redondeo a lo que escribiÃ³ el usuario segÃºn el mÃ©todo
     targetRent = this.roundRentAmount(targetRent, methodName, rent, this.increasePercentage);
     this.projectedNewRent = targetRent; 
     
@@ -777,17 +750,17 @@ export class FinancesComponent implements OnInit {
 
     let commissionHtml = '';
     if (calc.isSurcharge) {
-        commissionHtml = `<div class="flex justify-between text-sm text-orange-600 mt-1 pt-2 border-t border-gray-200"><span>Porción retenida por comisión</span><span class="font-bold">- ${formatARS(calc.difference)}</span></div>`;
+        commissionHtml = `<div class="flex justify-between text-sm text-orange-600 mt-1 pt-2 border-t border-gray-200"><span>PorciÃ³n retenida por comisiÃ³n</span><span class="font-bold">- ${formatARS(calc.difference)}</span></div>`;
     } else if (calc.isDiscount) {
-        commissionHtml = `<div class="flex justify-between text-sm text-green-600 mt-1 pt-2 border-t border-gray-200"><span>Bonificación a favor</span><span class="font-bold">+ ${formatARS(calc.difference)}</span></div>`;
+        commissionHtml = `<div class="flex justify-between text-sm text-green-600 mt-1 pt-2 border-t border-gray-200"><span>BonificaciÃ³n a favor</span><span class="font-bold">+ ${formatARS(calc.difference)}</span></div>`;
     }
 
     Swal.fire({
-      title: 'Resumen de Transacción',
+      title: 'Resumen de TransacciÃ³n',
       html: `
         <div class="text-left space-y-3">
           <div class="pb-3 border-b border-gray-200">
-            <div class="text-sm text-gray-500">Método de pago utilizado</div>
+            <div class="text-sm text-gray-500">MÃ©todo de pago utilizado</div>
             <div class="text-base font-semibold text-gray-800">${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)}</div>
           </div>
           <div class="grid grid-cols-2 gap-3">
@@ -803,7 +776,7 @@ export class FinancesComponent implements OnInit {
           <div class="p-4 rounded-lg border border-gray-200 bg-white">
             <div class="text-base font-semibold text-gray-800 mb-2">Desglose de cuenta corriente</div>
             <div class="flex justify-between text-sm text-gray-700">
-              <span>Acreditación base</span><span class="font-semibold">${formatARS(calc.amountEntered)}</span>
+              <span>AcreditaciÃ³n base</span><span class="font-semibold">${formatARS(calc.amountEntered)}</span>
             </div>
             ${commissionHtml}
           </div>
@@ -818,7 +791,7 @@ export class FinancesComponent implements OnInit {
     }).then((result) => {
       if (result.isConfirmed) {
         if (this.currentIncreaseFlow === 'normal' && !this.increaseResolved) {
-          this.increasePromptReason = 'El próximo mes le corresponde una actualización de abono.';
+          this.increasePromptReason = 'El prÃ³ximo mes le corresponde una actualizaciÃ³n de abono.';
           this.calculateProjectedRent();
           this.showIncreaseOverlay = true;
         } else {
@@ -840,12 +813,12 @@ export class FinancesComponent implements OnInit {
       commissionAmount: calc.isSurcharge ? calc.difference : (calc.isDiscount ? -calc.difference : 0),
       commissionConcept: calc.isSurcharge 
           ? `Recargo por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)`
-          : (calc.isDiscount ? `Bonificación por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)` : '')
+          : (calc.isDiscount ? `BonificaciÃ³n por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)` : '')
     };
 
     this.paymentService.CreatePayment(payloadToSave).subscribe({
       next: () => {
-        Swal.fire({ title: 'Pago registrado', text: 'El pago se registró correctamente.', icon: 'success', confirmButtonColor: '#2563eb' });
+        Swal.fire({ title: 'Pago registrado', text: 'El pago se registrÃ³ correctamente.', icon: 'success', confirmButtonColor: '#2563eb' });
         this.closeClientModal();
         setTimeout(() => {
           this.loadClients();
@@ -855,14 +828,14 @@ export class FinancesComponent implements OnInit {
       },
       error: (err) => {
         console.error('Error al guardar payment:', err);
-        Swal.fire({ title: 'Error', text: 'Hubo un problema al registrar la transacción en la base de datos.', icon: 'error', confirmButtonColor: '#2563eb' });
+        Swal.fire({ title: 'Error', text: 'Hubo un problema al registrar la transacciÃ³n en la base de datos.', icon: 'error', confirmButtonColor: '#2563eb' });
       }
     });
   }
 
   calculateAdvancePayment(): void {
-    const suggestedAmount = this.selectedClientBalance < 0 
-      ? Math.abs(this.selectedClientBalance) 
+    const suggestedAmount = this.selectedClientBalance < 0
+      ? Math.abs(this.selectedClientBalance)
       : this.selectedClientRentAmount;
 
     if (!this.paymentDto.isAdvancePayment || !this.paymentDto.advanceMonths) {
@@ -871,57 +844,39 @@ export class FinancesComponent implements OnInit {
       return;
     }
 
-    let baseRent = this.selectedClientRentAmount;
-    let totalToPay = 0;
-
-    let anchorValue = 0;
-    if (this.selectedClientIncreaseAnchorDate) {
-      const parts = this.selectedClientIncreaseAnchorDate.split('T')[0].split('-').map(Number);
-      anchorValue = parts[0] * 100 + parts[1];
-    }
-    
+    const baseRent = this.selectedClientRentAmount || 0;
+    const currentDebt = this.selectedClientBalance < 0 ? Math.abs(this.selectedClientBalance) : 0;
     const coverageStart = this.getCoverageStartMonth();
-
-    let aYear: number | null = null, aMonth: number | null = null;
-    if (this.selectedClientIncreaseAnchorDate) {
-      const parts = this.selectedClientIncreaseAnchorDate.split('T')[0].split('-').map(Number);
-      aYear = parts[0];
-      aMonth = parts[1];
-    }
-
+    const monthsToCover = Math.max(1, this.paymentDto.advanceMonths || 1);
+    const anchorValue = this.selectedClientIncreaseAnchorDate
+      ? Number(this.selectedClientIncreaseAnchorDate.split('T')[0].split('-').join(''))
+      : 0;
     const currentMethodName = this.getNamePaymentMethodById(this.paymentDto.paymentMethodId).toLowerCase();
 
-    for (let i = 0; i < this.paymentDto.advanceMonths; i++) {
-      if (i === 0) {
-        totalToPay += suggestedAmount; // Mes actual + Deuda
-      } 
-      else {
-        const coverageMonth = this.addMonths(coverageStart.year, coverageStart.month, i);
-        const loopMonth = coverageMonth.month;
-        const loopYear = coverageMonth.year;
-        let currentLoopValue = loopYear * 100 + loopMonth;
+    const totalToPay = Array.from({ length: monthsToCover }, (_, i) => {
+      const coverageMonth = this.addMonths(coverageStart.year, coverageStart.month, i);
+      const coverageValue = coverageMonth.year * 100 + coverageMonth.month;
+      const monthBaseAmount = i === 0 && currentDebt > 0 ? currentDebt : baseRent;
 
-        let rentForThisMonth = baseRent;
-
-        if (anchorValue > 0 && currentLoopValue >= anchorValue) {
-          if (this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
-            rentForThisMonth += baseRent * (this.paymentDto.increasePercentage / 100);
-          }
-        }
-
-        // Pasamos por nuestro nuevo filtro de redondeo inteligente
-        rentForThisMonth = this.roundRentAmount(rentForThisMonth, currentMethodName, baseRent, this.paymentDto.increasePercentage || 0);
-        totalToPay += rentForThisMonth;
+      if (i === 0 && currentDebt > 0) {
+        return monthBaseAmount;
       }
-    }
+
+      let rentForThisMonth = monthBaseAmount;
+      if (anchorValue > 0 && coverageValue >= anchorValue && this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
+        rentForThisMonth += monthBaseAmount * (this.paymentDto.increasePercentage / 100);
+      }
+
+      return this.roundRentAmount(rentForThisMonth, currentMethodName, monthBaseAmount, this.paymentDto.increasePercentage || 0);
+    }).reduce((sum, value) => sum + value, 0);
 
     this.paymentDto.amount = totalToPay;
     this.onAmountChange(totalToPay);
   }
-
   goBackFromIncrease() {
     this.showIncreaseOverlay = false;
     this.currentIncreaseFlow = 'none';
     this.increaseResolved = false;
   }
 }
+

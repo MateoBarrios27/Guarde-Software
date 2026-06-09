@@ -278,7 +278,9 @@ namespace GuardeSoftwareAPI.Services.payment
                 // LÓGICA CLAVE: Si omitió el aumento (SkipFutureProjection = true), 
                 // solo entra al bucle si hay plata sobrante (moneyInHand > 0). 
                 // Si la plata es 0, no proyecta nada.
-                bool shouldProjectFuture = lastMonthWasTouched && !dto.SkipFutureProjection;
+                // En pagos adelantados ya proyectamos los meses que se pagaron,
+                // por lo que no conviene forzar un mes extra cuando el dinero llegó justo.
+                bool shouldProjectFuture = lastMonthWasTouched && !dto.SkipFutureProjection && !dto.IsAdvancePayment;
 
                 if (moneyInHand > 0 || shouldProjectFuture)
                 {
@@ -452,24 +454,130 @@ namespace GuardeSoftwareAPI.Services.payment
 
 		public async Task<bool> DeletePaymentAsync(int movementId)
 		{
-            int? rentalId = null;
-            using (var connection = accessDB.GetConnectionClose())
+            using var connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
             {
-                await connection.OpenAsync();
-                const string lookupQuery = "SELECT rental_id FROM account_movements WHERE movement_id = @movement_id";
-                using var lookupCommand = new SqlCommand(lookupQuery, connection);
-                lookupCommand.Parameters.AddWithValue("@movement_id", movementId);
-                var result = await lookupCommand.ExecuteScalarAsync();
-                if (result != null && result != DBNull.Value)
-                    rentalId = Convert.ToInt32(result);
+                int? rentalId = null;
+                DateTime? paymentDate = null;
+
+                const string lookupQuery = @"
+                    SELECT am.rental_id, p.payment_date
+                    FROM account_movements am
+                    LEFT JOIN payments p ON am.payment_id = p.payment_id
+                    WHERE am.movement_id = @movement_id";
+
+                using (var lookupCommand = new SqlCommand(lookupQuery, connection, transaction))
+                {
+                    lookupCommand.Parameters.AddWithValue("@movement_id", movementId);
+                    using var reader = await lookupCommand.ExecuteReaderAsync();
+                    if (await reader.ReadAsync())
+                    {
+                        rentalId = reader["rental_id"] != DBNull.Value ? Convert.ToInt32(reader["rental_id"]) : null;
+                        paymentDate = reader["payment_date"] != DBNull.Value ? Convert.ToDateTime(reader["payment_date"]) : null;
+                    }
+                }
+
+                bool deleted = await _daoPayment.DeletePaymentTransactionAsync(movementId, connection, transaction);
+                if (!deleted)
+                {
+                    await transaction.RollbackAsync();
+                    return false;
+                }
+
+                if (rentalId.HasValue)
+                {
+                    if (paymentDate.HasValue)
+                        await RestoreLatestRentChangeIfNeededAsync(rentalId.Value, paymentDate.Value, connection, transaction);
+
+                    await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rentalId.Value, connection, transaction);
+                }
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+		}
+
+        private async Task RestoreLatestRentChangeIfNeededAsync(int rentalId, DateTime paymentDate, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string historiesQuery = @"
+                SELECT TOP 2 rental_amount_history_id, rental_id, amount, start_date, end_date
+                FROM rental_amount_history
+                WHERE rental_id = @rental_id
+                ORDER BY start_date DESC, rental_amount_history_id DESC;";
+
+            var histories = new List<RentalAmountHistory>();
+            using (var command = new SqlCommand(historiesQuery, connection, transaction))
+            {
+                command.Parameters.AddWithValue("@rental_id", rentalId);
+                using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    histories.Add(new RentalAmountHistory
+                    {
+                        Id = reader.GetInt32(0),
+                        RentalId = reader.GetInt32(1),
+                        Amount = reader.GetDecimal(2),
+                        StartDate = reader.GetDateTime(3),
+                        EndDate = reader.IsDBNull(4) ? null : reader.GetDateTime(4)
+                    });
+                }
             }
 
-            bool deleted = await _daoPayment.DeletePaymentTransactionAsync(movementId);
-            if (deleted && rentalId.HasValue)
-                await _clientMonthBalanceService.RebuildForRentalAsync(rentalId.Value);
+            if (histories.Count < 2) return;
 
-			return deleted;
-		}
+            var latest = histories[0];
+            var previous = histories[1];
+
+            if (latest.StartDate.Date < paymentDate.Date)
+                return;
+
+            const string deleteLatestQuery = "DELETE FROM rental_amount_history WHERE rental_amount_history_id = @history_id";
+            using (var deleteCommand = new SqlCommand(deleteLatestQuery, connection, transaction))
+            {
+                deleteCommand.Parameters.AddWithValue("@history_id", latest.Id);
+                await deleteCommand.ExecuteNonQueryAsync();
+            }
+
+            const string reopenPreviousQuery = "UPDATE rental_amount_history SET end_date = NULL WHERE rental_amount_history_id = @history_id";
+            using (var reopenCommand = new SqlCommand(reopenPreviousQuery, connection, transaction))
+            {
+                reopenCommand.Parameters.AddWithValue("@history_id", previous.Id);
+                await reopenCommand.ExecuteNonQueryAsync();
+            }
+
+            int frequencyMonths = 0;
+            const string frequencyQuery = @"
+                SELECT c.increase_frequency_months
+                FROM rentals r
+                INNER JOIN clients c ON c.client_id = r.client_id
+                WHERE r.rental_id = @rental_id";
+
+            using (var frequencyCommand = new SqlCommand(frequencyQuery, connection, transaction))
+            {
+                frequencyCommand.Parameters.AddWithValue("@rental_id", rentalId);
+                var result = await frequencyCommand.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                    frequencyMonths = Convert.ToInt32(result);
+            }
+
+            if (frequencyMonths > 0)
+            {
+                var restoredAnchorDate = previous.StartDate.Date.AddMonths(frequencyMonths);
+                const string updateAnchorQuery = "UPDATE rentals SET increase_anchor_date = @anchor_date WHERE rental_id = @rental_id";
+                using var updateCommand = new SqlCommand(updateAnchorQuery, connection, transaction);
+                updateCommand.Parameters.AddWithValue("@anchor_date", restoredAnchorDate);
+                updateCommand.Parameters.AddWithValue("@rental_id", rentalId);
+                await updateCommand.ExecuteNonQueryAsync();
+            }
+        }
 
 		private decimal RoundToNearest1000(decimal amount)
 		{

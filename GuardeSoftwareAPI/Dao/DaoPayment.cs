@@ -207,6 +207,53 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
 
+        public async Task<bool> DeletePaymentTransactionAsync(int movementId, SqlConnection connection, SqlTransaction transaction)
+        {
+            // 1. Buscamos si el movimiento tiene un pago (padre) asociado
+            int? paymentIdToDelete = null;
+            string getPaymentIdQuery = "SELECT payment_id FROM account_movements WHERE movement_id = @MovementId";
+
+            using (var cmdCheck = new SqlCommand(getPaymentIdQuery, connection, transaction))
+            {
+                cmdCheck.Parameters.Add(new SqlParameter("@MovementId", SqlDbType.Int) { Value = movementId });
+                var result = await cmdCheck.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                {
+                    paymentIdToDelete = Convert.ToInt32(result);
+                }
+            }
+
+            int rowsAffected = 0;
+
+            if (paymentIdToDelete.HasValue && paymentIdToDelete.Value > 0)
+            {
+                string deleteMovementsQuery = "DELETE FROM account_movements WHERE payment_id = @PaymentId";
+                using (var cmdMovements = new SqlCommand(deleteMovementsQuery, connection, transaction))
+                {
+                    cmdMovements.Parameters.Add(new SqlParameter("@PaymentId", SqlDbType.Int) { Value = paymentIdToDelete.Value });
+                    await cmdMovements.ExecuteNonQueryAsync();
+                }
+
+                string deletePaymentQuery = "DELETE FROM payments WHERE payment_id = @PaymentId";
+                using (var cmdPayment = new SqlCommand(deletePaymentQuery, connection, transaction))
+                {
+                    cmdPayment.Parameters.Add(new SqlParameter("@PaymentId", SqlDbType.Int) { Value = paymentIdToDelete.Value });
+                    rowsAffected = await cmdPayment.ExecuteNonQueryAsync();
+                }
+            }
+            else
+            {
+                string deleteSingleMovementQuery = "DELETE FROM account_movements WHERE movement_id = @MovementId";
+                using (var cmdSingle = new SqlCommand(deleteSingleMovementQuery, connection, transaction))
+                {
+                    cmdSingle.Parameters.Add(new SqlParameter("@MovementId", SqlDbType.Int) { Value = movementId });
+                    rowsAffected = await cmdSingle.ExecuteNonQueryAsync();
+                }
+            }
+
+            return rowsAffected > 0;
+        }
+
 
         
     }

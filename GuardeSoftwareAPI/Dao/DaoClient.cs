@@ -492,7 +492,7 @@ namespace GuardeSoftwareAPI.Dao
                     SELECT COUNT(*) AS TotalRows FROM FilteredData
                 )
                 SELECT * FROM FilteredData, TotalCount
-                ORDER BY {GetSortColumn(request.SortField)} {GetSortDirection(request.SortDirection)}
+                ORDER BY {GetSortColumn(request.SortField).Replace(", PaymentIdentifier", "")} {GetSortDirection(request.SortDirection)}
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
             ";
 
@@ -523,7 +523,11 @@ namespace GuardeSoftwareAPI.Dao
                 { "NextPaymentDay", "NextPaymentDay" }
             };
             
-            return validSortFields.TryGetValue(sortField, out var dbColumn) ? dbColumn : "Id";
+            string primarySort = validSortFields.TryGetValue(sortField, out var dbColumn) ? dbColumn : "Id";
+            
+            if (primarySort == "PaymentIdentifier") return "PaymentIdentifier";
+            
+            return $"{primarySort}, PaymentIdentifier";
         }
 
         private string GetSortDirection(string sortDirection)
