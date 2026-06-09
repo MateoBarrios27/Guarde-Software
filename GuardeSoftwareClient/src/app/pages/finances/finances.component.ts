@@ -20,6 +20,13 @@ export interface DetailedPaymentView extends DetailedPaymentDTO {
   isGrouped?: boolean;
 }
 
+interface PaymentMonthBreakdown {
+  year: number;
+  month: number;
+  label: string;
+  amount: number;
+}
+
 @Component({
   selector: 'app-finances',
   imports: [FormsModule, CommonModule, IconComponent, NgxPaginationModule, CurrencyFormatDirective],
@@ -76,6 +83,9 @@ export class FinancesComponent implements OnInit {
   public currentIncreaseFlow: 'advance' | 'normal' | 'none' = 'none';
   public selectedPendingSurcharge: number = 0;
   public selectedClientLastMonth: string = '';
+  public paymentMonthBreakdown: PaymentMonthBreakdown[] = [];
+  public selectedClientNextPaymentDay: Date | string | null = null;
+  public selectedClientNextIncreaseDay: Date | string | null = null;
 
   returnToUrl: string | null = null;
 
@@ -256,6 +266,11 @@ export class FinancesComponent implements OnInit {
     this.selectedClientName = '';
     this.selectedClientBalance = 0;
     this.selectedClientRentAmount = 0;
+    this.selectedClientIncreaseAnchorDate = null;
+    this.selectedClientLastMonth = '';
+    this.selectedClientNextPaymentDay = null;
+    this.selectedClientNextIncreaseDay = null;
+    this.paymentMonthBreakdown = [];
     this.manualDateEnabled = false;
     this.showIncreaseOverlay = false;
     this.currentIncreaseFlow = 'none';
@@ -310,6 +325,178 @@ export class FinancesComponent implements OnInit {
     return method?.commission ?? 0;
   }
 
+  private getMonthName(month: number): string {
+    const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    return monthNames[Math.max(0, Math.min(11, month - 1))];
+  }
+
+  private formatMonthLabel(year: number, month: number): string {
+    return `${this.getMonthName(month)} ${year}`;
+  }
+
+  private formatMonthYearLabel(year: number, month: number): string {
+    return `${String(month).padStart(2, '0')}/${year}`;
+  }
+
+  private parseMonthYear(value: string | null | undefined): { year: number; month: number } | null {
+    if (!value) return null;
+
+    const normalized = value.includes('T') ? value.split('T')[0] : value;
+    const separator = normalized.includes('/') ? '/' : '-';
+    const parts = normalized.split(separator);
+    if (parts.length < 2) return null;
+
+    const first = Number(parts[0]);
+    const second = Number(parts[1]);
+    if (!Number.isFinite(first) || !Number.isFinite(second)) return null;
+
+    if (parts[0].length === 4) {
+      return { year: first, month: second };
+    }
+
+    return { year: second, month: first };
+  }
+
+  private toMonthComparable(year: number, month: number): number {
+    return year * 100 + month;
+  }
+
+  private buildPaymentMonthBreakdown(): PaymentMonthBreakdown[] {
+    if (!this.selectedClientId) return [];
+
+    const monthsToCover = this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths
+      ? Math.max(1, this.paymentDto.advanceMonths)
+      : 1;
+    const coverageStart = this.getCoverageStartMonth();
+    const baseRent = Number(this.selectedClientRentAmount || 0);
+    const currentDebt = this.selectedClientBalance < 0 ? Math.abs(Number(this.selectedClientBalance)) : 0;
+    
+    // FIX: Parseo correcto del AnchorValue a YYYYMM (Ej: 202608)
+    let anchorValue = 0;
+    if (this.selectedClientIncreaseAnchorDate) {
+      const parts = this.selectedClientIncreaseAnchorDate.split('T')[0].split('-').map(Number);
+      anchorValue = parts[0] * 100 + parts[1];
+    }
+    
+    const methodName = this.getNamePaymentMethodById(this.paymentDto.paymentMethodId).toLowerCase();
+
+    return Array.from({ length: monthsToCover }, (_, index) => {
+      const month = this.addMonths(coverageStart.year, coverageStart.month, index);
+      const monthComparable = this.toMonthComparable(month.year, month.month);
+      const monthBaseAmount = index === 0 && currentDebt > 0 ? currentDebt : baseRent;
+
+      let amount = monthBaseAmount;
+      let appliedPercentage = 0; // Porcentaje que le toca SÓLO a este mes
+
+      // Si no es el mes de deuda, y pasamos el ancla, aplicamos el aumento
+      if (!(index === 0 && currentDebt > 0) && anchorValue > 0 && monthComparable >= anchorValue && this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
+        appliedPercentage = this.paymentDto.increasePercentage;
+        amount += monthBaseAmount * (appliedPercentage / 100);
+      }
+
+      // Le pasamos el appliedPercentage (si es 0, no hace nada)
+      amount = this.roundRentAmount(amount, methodName, monthBaseAmount, appliedPercentage);
+
+      return {
+        year: month.year,
+        month: month.month,
+        label: this.formatMonthLabel(month.year, month.month),
+        amount
+      };
+    });
+  }
+
+  private syncPaymentPreview(): void {
+    this.paymentMonthBreakdown = this.buildPaymentMonthBreakdown();
+
+    if (this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths) {
+      const months = this.paymentDto.advanceMonths;
+      if (this.paymentMonthBreakdown.length > 0) {
+        const monthLabels = this.paymentMonthBreakdown.map(item => item.label);
+        const joinedLabels = monthLabels.length === 1
+          ? monthLabels[0]
+          : `${monthLabels.slice(0, -1).join(', ')} y ${monthLabels[monthLabels.length - 1]}`;
+        this.paymentDto.concept = `Pago de ${months} mes${months === 1 ? '' : 'es'}: ${joinedLabels}`;
+        return;
+      }
+
+      this.paymentDto.concept = `Pago adelantado de ${months} mes${months === 1 ? '' : 'es'}`;
+      return;
+    }
+
+    const firstMonth = this.paymentMonthBreakdown[0];
+    if (firstMonth) {
+      this.paymentDto.concept = `Pago alquiler ${firstMonth.label}`;
+      return;
+    }
+
+    const selectedMonth = this.getSelectedPaymentMonth();
+    this.paymentDto.concept = `Pago alquiler ${this.formatMonthLabel(selectedMonth.year, selectedMonth.month)}`;
+  }
+
+  getSummaryBreakdown(): PaymentMonthBreakdown[] {
+    const breakdown = this.buildPaymentMonthBreakdown();
+    if (breakdown.length > 0) {
+      this.paymentMonthBreakdown = breakdown;
+      return breakdown;
+    }
+
+    return this.paymentMonthBreakdown;
+  }
+
+  getNextPaymentLabel(): string {
+    if (this.selectedClientNextPaymentDay) {
+      const date = new Date(this.selectedClientNextPaymentDay);
+      if (!Number.isNaN(date.getTime())) {
+        return this.formatMonthYearLabel(date.getFullYear(), date.getMonth() + 1);
+      }
+    }
+
+    const coverageStart = this.getCoverageStartMonth();
+    return this.formatMonthYearLabel(coverageStart.year, coverageStart.month);
+  }
+
+  getNextIncreaseLabel(): string {
+    if (this.selectedClientNextIncreaseDay) {
+      const date = new Date(this.selectedClientNextIncreaseDay);
+      if (!Number.isNaN(date.getTime())) {
+        return this.formatMonthYearLabel(date.getFullYear(), date.getMonth() + 1);
+      }
+    }
+
+    if (!this.selectedClientIncreaseAnchorDate) {
+      return 'N/D';
+    }
+
+    const date = new Date(this.selectedClientIncreaseAnchorDate);
+    if (Number.isNaN(date.getTime())) {
+      return 'N/D';
+    }
+
+    return this.formatMonthYearLabel(date.getFullYear(), date.getMonth() + 1);
+  }
+
+  getPaidStatusLabel(): string {
+    if (!this.selectedClientId) {
+      return '';
+    }
+
+    const currentMonth = this.getSelectedPaymentMonth();
+    const currentMonthLabel = this.formatMonthLabel(currentMonth.year, currentMonth.month);
+    const lastPaidMonth = this.parseMonthYear(this.selectedClientLastMonth);
+
+    if (this.selectedClientBalance < 0) {
+      const coverageStart = this.getCoverageStartMonth();
+      return `Pendiente de ${this.formatMonthLabel(coverageStart.year, coverageStart.month)}`;
+    }
+
+    if (lastPaidMonth && this.toMonthComparable(lastPaidMonth.year, lastPaidMonth.month) > this.toMonthComparable(currentMonth.year, currentMonth.month)) {
+      return `Pagado hasta ${this.formatMonthLabel(lastPaidMonth.year, lastPaidMonth.month)}`;
+    }
+
+    return `El mes de ${currentMonthLabel} ya está pago`;
+  }
+
   AmountWithComission(amount: number, selectedMethodId: number, preferredPaymentId: number): number {
     const selectedCommission = this.getCommissionByMethodId(selectedMethodId);
     const includedCommission = this.getCommissionByMethodId(preferredPaymentId);
@@ -329,6 +516,8 @@ export class FinancesComponent implements OnInit {
     this.selectedClientBalance = Number(client.balance ?? 0);
     this.selectedClientRentAmount = Number(client.currentRent ?? 0);
     this.selectedClientIncreaseAnchorDate = client.increaseAnchorDate;
+    this.selectedClientNextPaymentDay = client.nextPaymentDay ?? null;
+    this.selectedClientNextIncreaseDay = client.nextIncreaseDay ?? client.increaseAnchorDate ?? null;
     this.selectedPreferredPaymentId = Number(client.preferredPaymentMethodId ?? 1); 
     this.paymentDto.paymentMethodId = this.selectedPreferredPaymentId;
     this.selectedPendingSurcharge = Number(client.pendingSurcharge ?? 0);
@@ -347,6 +536,7 @@ export class FinancesComponent implements OnInit {
     this.paymentDto.amount = suggestedAmount;
 
     this.checkIncreaseLogic();
+    this.syncPaymentPreview();
     this.onAmountChange(this.paymentDto.amount);
   }
 
@@ -366,9 +556,7 @@ export class FinancesComponent implements OnInit {
   }
 
   private updateConceptFromDate(date: Date) {
-    const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-    const monthName = monthNames[date.getMonth()];
-    this.paymentDto.concept = `Pago alquiler ${monthName}`;
+    this.syncPaymentPreview();
   }
 
   onManualDateChange(value: string) {
@@ -402,12 +590,7 @@ export class FinancesComponent implements OnInit {
   }
 
   private updateAdvanceConcept() {
-    const months = this.paymentDto.advanceMonths;
-    if (months === null || months === undefined || months === 0) {
-      this.paymentDto.concept = 'Pago adelantado';
-      return;
-    }
-    this.paymentDto.concept = `Pago de ${months} mes${months === 1 ? '' : 'es'}`;
+    this.syncPaymentPreview();
   }
 
   onAdvancePaymentToggle() {
@@ -614,24 +797,28 @@ export class FinancesComponent implements OnInit {
   }
 
   // --- NUEVA LÃ“GICA DE REDONDEO INTELIGENTE ---
+  // --- NUEVA LÓGICA DE REDONDEO INTELIGENTE ---
   private roundRentAmount(targetAmount: number, methodName: string, originalRent: number, targetPercentage: number): number {
-  if (targetAmount === 0) return 0;
-  
-  const methodLower = methodName.toLowerCase();
-  const isEfectivo = methodLower.includes('efectivo');
-  const step = isEfectivo ? 1000 : 100; // 1000 para efectivo, 100 para banco
+    if (targetAmount === 0) return 0;
+    
+    // FIX CRÍTICO: Si este mes no lleva aumento, NO aplicamos redondeos.
+    if (targetPercentage <= 0) return targetAmount;
+    
+    const methodLower = methodName.toLowerCase();
+    const isEfectivo = methodLower.includes('efectivo');
+    const step = isEfectivo ? 1000 : 100; // 1000 para efectivo, 100 para banco
 
-  let rounded = Math.ceil(targetAmount / step) * step;
+    let rounded = Math.ceil(targetAmount / step) * step;
 
-  let currentPercentage = ((rounded - originalRent) / originalRent) * 100;
+    let currentPercentage = ((rounded - originalRent) / originalRent) * 100;
 
-  while (currentPercentage < targetPercentage) {
-    rounded += step;
-    currentPercentage = ((rounded - originalRent) / originalRent) * 100;
+    while (currentPercentage < targetPercentage) {
+      rounded += step;
+      currentPercentage = ((rounded - originalRent) / originalRent) * 100;
+    }
+
+    return rounded;
   }
-
-  return rounded;
-}
 
   calculateProjectedRent() {
     const rent = this.selectedClientRentAmount || 0;
@@ -715,6 +902,11 @@ export class FinancesComponent implements OnInit {
     if (this.currentIncreaseFlow === 'advance') {
       if (this.paymentDto.isAdvancePayment) {
           this.calculateAdvancePayment(); 
+      } else {
+          // FIX: Si paga 1 solo mes pero le toca aumento, actualizamos el monto general a cobrar
+          this.paymentDto.amount = this.projectedNewRent;
+          this.onAmountChange(this.paymentDto.amount);
+          this.syncPaymentPreview();
       }
       this.showSummarySwal();
     } else if (this.currentIncreaseFlow === 'normal') {
@@ -734,6 +926,12 @@ export class FinancesComponent implements OnInit {
     if (this.currentIncreaseFlow === 'advance') {
       if (this.paymentDto.isAdvancePayment) {
           this.calculateAdvancePayment();
+      } else {
+          // FIX: Volvemos al precio viejo si omitió el aumento
+          const baseAmount = this.selectedClientBalance < 0 ? Math.abs(this.selectedClientBalance) : this.selectedClientRentAmount;
+          this.paymentDto.amount = baseAmount;
+          this.onAmountChange(this.paymentDto.amount);
+          this.syncPaymentPreview();
       }
       this.showSummarySwal();
     } else if (this.currentIncreaseFlow === 'normal') {
@@ -743,6 +941,7 @@ export class FinancesComponent implements OnInit {
 
   showSummarySwal() {
     const calc = this.getCalculatedAmounts(this.paymentDto.amount, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
+    const breakdown = this.getSummaryBreakdown();
     
     const formatARS = (value: number) => {
       return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
@@ -777,6 +976,14 @@ export class FinancesComponent implements OnInit {
             <div class="text-base font-semibold text-gray-800 mb-2">Desglose de cuenta corriente</div>
             <div class="flex justify-between text-sm text-gray-700">
               <span>AcreditaciÃ³n base</span><span class="font-semibold">${formatARS(calc.amountEntered)}</span>
+            </div>
+            <div class="mt-3 space-y-2">
+              ${breakdown.map(item => `
+                <div class="flex justify-between text-sm text-gray-700">
+                  <span>${item.label}</span>
+                  <span class="font-semibold">${formatARS(item.amount)}</span>
+                </div>
+              `).join('')}
             </div>
             ${commissionHtml}
           </div>
@@ -844,34 +1051,13 @@ export class FinancesComponent implements OnInit {
       return;
     }
 
-    const baseRent = this.selectedClientRentAmount || 0;
-    const currentDebt = this.selectedClientBalance < 0 ? Math.abs(this.selectedClientBalance) : 0;
-    const coverageStart = this.getCoverageStartMonth();
-    const monthsToCover = Math.max(1, this.paymentDto.advanceMonths || 1);
-    const anchorValue = this.selectedClientIncreaseAnchorDate
-      ? Number(this.selectedClientIncreaseAnchorDate.split('T')[0].split('-').join(''))
-      : 0;
-    const currentMethodName = this.getNamePaymentMethodById(this.paymentDto.paymentMethodId).toLowerCase();
-
-    const totalToPay = Array.from({ length: monthsToCover }, (_, i) => {
-      const coverageMonth = this.addMonths(coverageStart.year, coverageStart.month, i);
-      const coverageValue = coverageMonth.year * 100 + coverageMonth.month;
-      const monthBaseAmount = i === 0 && currentDebt > 0 ? currentDebt : baseRent;
-
-      if (i === 0 && currentDebt > 0) {
-        return monthBaseAmount;
-      }
-
-      let rentForThisMonth = monthBaseAmount;
-      if (anchorValue > 0 && coverageValue >= anchorValue && this.paymentDto.increasePercentage && this.paymentDto.increasePercentage > 0) {
-        rentForThisMonth += monthBaseAmount * (this.paymentDto.increasePercentage / 100);
-      }
-
-      return this.roundRentAmount(rentForThisMonth, currentMethodName, monthBaseAmount, this.paymentDto.increasePercentage || 0);
-    }).reduce((sum, value) => sum + value, 0);
+    const breakdown = this.buildPaymentMonthBreakdown();
+    const totalToPay = breakdown.reduce((sum, item) => sum + item.amount, 0);
+    this.paymentMonthBreakdown = breakdown;
 
     this.paymentDto.amount = totalToPay;
     this.onAmountChange(totalToPay);
+    this.syncPaymentPreview();
   }
   goBackFromIncrease() {
     this.showIncreaseOverlay = false;

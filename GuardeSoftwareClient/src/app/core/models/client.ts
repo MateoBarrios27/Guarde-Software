@@ -14,5 +14,7 @@ export interface Client{
     increaseAnchorDate?: string;
     pendingSurcharge?: number;
     lastGeneratedMonthYear?: string;
+    nextPaymentDay?: Date | string | null;
+    nextIncreaseDay?: Date | string | null;
 }
 

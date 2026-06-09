@@ -202,8 +202,13 @@ namespace GuardeSoftwareAPI.Services.payment
                     await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement { RentalId = rental.Id, PaymentId = paymentId, MovementDate = dto.Date, MovementType = dto.CommissionAmount.Value > 0 ? "DEBITO" : "CREDITO", Concept = dto.CommissionConcept ?? "Ajuste de pago", Amount = Math.Abs(dto.CommissionAmount.Value) }, connection, transaction);
                 }
 
-                // --- 3. LA CASCADA: DISTRIBUCIÓN DEL DINERO Y RECALCULO DE SALDOS ANTERIORES
                 decimal moneyInHand = dto.Amount;
+                
+                if (dto.CommissionAmount.HasValue && dto.CommissionAmount.Value != 0)
+                {
+                    moneyInHand -= dto.CommissionAmount.Value;
+                }
+
                 DateTime currentRealMonth = new DateTime(dto.Date.Year, dto.Date.Month, 1);
 
                 var existingMonths = new List<ClientMonthBalance>();
@@ -224,6 +229,47 @@ namespace GuardeSoftwareAPI.Services.payment
                     }
                 }
 
+                // ==============================================================================
+                // FIX: CORRECCIÓN RETROACTIVA DE MESES YA EMITIDOS (Comparando solo Año y Mes)
+                // ==============================================================================
+                if (dto.NewRentAmount.HasValue && dto.NewRentAmount.Value > baseRent)
+                {
+                    DateTime effectiveDate = rental.IncreaseAnchorDate ?? dto.Date;
+                    int effectiveMonthValue = effectiveDate.Year * 100 + effectiveDate.Month;
+                    
+                    foreach (var month in existingMonths)
+                    {
+                        DateTime monthDate = DateTime.ParseExact(month.MonthYear, "MM/yyyy", null);
+                        int iterMonthValue = monthDate.Year * 100 + monthDate.Month;
+                        
+                        // FIX: Comparamos YYYYMM >= YYYYMM, ignorando el día exacto del mes
+                        if (iterMonthValue >= effectiveMonthValue)
+                        {
+                            if (month.MonthlyDebits < dto.NewRentAmount.Value)
+                            {
+                                month.MonthlyDebits = dto.NewRentAmount.Value;
+                                
+                                var culture = new CultureInfo("es-AR");
+                                string monthName = culture.DateTimeFormat.GetMonthName(monthDate.Month);
+                                string conceptDebit = $"Alquiler {CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName)} {monthDate.Year}";
+
+                                string updateMov = "UPDATE account_movements SET amount = @newAmount WHERE rental_id = @rid AND concept = @concept AND movement_type = 'DEBITO'";
+                                using var cmdMov = new SqlCommand(updateMov, connection, transaction);
+                                cmdMov.Parameters.AddWithValue("@newAmount", dto.NewRentAmount.Value);
+                                cmdMov.Parameters.AddWithValue("@rid", rental.Id);
+                                cmdMov.Parameters.AddWithValue("@concept", conceptDebit);
+                                await cmdMov.ExecuteNonQueryAsync();
+                                
+                                string updCmb = "UPDATE client_month_balances SET monthly_debits = @nd WHERE id = @id";
+                                using var cmdCmb = new SqlCommand(updCmb, connection, transaction);
+                                cmdCmb.Parameters.AddWithValue("@nd", dto.NewRentAmount.Value);
+                                cmdCmb.Parameters.AddWithValue("@id", month.Id);
+                                await cmdCmb.ExecuteNonQueryAsync();
+                            }
+                        }
+                    }
+                }
+
                 decimal rolledOverDebt = 0;
 
                 for (int i = 0; i < existingMonths.Count; i++)
@@ -233,15 +279,18 @@ namespace GuardeSoftwareAPI.Services.payment
                     if (i > 0) 
                     {
                         month.PreviousBalance = rolledOverDebt;
-                        month.Balance = month.PreviousBalance + month.Interests + month.MonthlyDebits;
-
-                        string updBal = "UPDATE client_month_balances SET previous_balance = @pb, balance = @b WHERE id = @id";
-                        using var cmdBal = new SqlCommand(updBal, connection, transaction);
-                        cmdBal.Parameters.AddWithValue("@pb", month.PreviousBalance);
-                        cmdBal.Parameters.AddWithValue("@b", month.Balance);
-                        cmdBal.Parameters.AddWithValue("@id", month.Id);
-                        await cmdBal.ExecuteNonQueryAsync();
                     }
+
+                    // FIX: Siempre recalculamos el balance, incluso para el primer mes, 
+                    // por si acaba de ser actualizado en la corrección retroactiva de arriba.
+                    month.Balance = month.PreviousBalance + month.Interests + month.MonthlyDebits;
+
+                    string updBal = "UPDATE client_month_balances SET previous_balance = @pb, balance = @b WHERE id = @id";
+                    using var cmdBal = new SqlCommand(updBal, connection, transaction);
+                    cmdBal.Parameters.AddWithValue("@pb", month.PreviousBalance);
+                    cmdBal.Parameters.AddWithValue("@b", month.Balance);
+                    cmdBal.Parameters.AddWithValue("@id", month.Id);
+                    await cmdBal.ExecuteNonQueryAsync();
 
                     decimal owes = month.Balance - (month.Paid + month.AdvancedPayment);
 
@@ -275,12 +324,9 @@ namespace GuardeSoftwareAPI.Services.payment
                 var lastExistingMonth = existingMonths.Last();
                 bool lastMonthWasTouched = (lastExistingMonth.Paid + lastExistingMonth.AdvancedPayment) > 0;
 
-                // LÓGICA CLAVE: Si omitió el aumento (SkipFutureProjection = true), 
-                // solo entra al bucle si hay plata sobrante (moneyInHand > 0). 
-                // Si la plata es 0, no proyecta nada.
-                // En pagos adelantados ya proyectamos los meses que se pagaron,
-                // por lo que no conviene forzar un mes extra cuando el dinero llegó justo.
-                bool shouldProjectFuture = lastMonthWasTouched && !dto.SkipFutureProjection && !dto.IsAdvancePayment;
+                // FIX: El futuro se deja de proyectar ÚNICAMENTE si el precio está congelado (6 meses o más)
+                // Usamos la variable isPriceLocked que ya tenés definida arriba.
+                bool shouldProjectFuture = lastMonthWasTouched && !dto.SkipFutureProjection && !isPriceLocked;
 
                 if (moneyInHand > 0 || shouldProjectFuture)
                 {
@@ -289,10 +335,12 @@ namespace GuardeSoftwareAPI.Services.payment
                         lastGeneratedDate = lastGeneratedDate.AddMonths(1);
                         string newMonthStr = lastGeneratedDate.ToString("MM/yyyy");
                         DateTime currentIterMonth = new DateTime(lastGeneratedDate.Year, lastGeneratedDate.Month, 1);
+                        int currentIterValue = lastGeneratedDate.Year * 100 + lastGeneratedDate.Month;
 
-                        // Buscamos el precio exacto en el historial
+                        // Filtramos el historial usando Año y Mes (YYYYMM <= YYYYMM)
                         var historyForMonth = histories
-                            .Where(h => h.StartDate.Date <= currentIterMonth && (!h.EndDate.HasValue || h.EndDate.Value.Date >= currentIterMonth))
+                            .Where(h => (h.StartDate.Year * 100 + h.StartDate.Month) <= currentIterValue && 
+                                        (!h.EndDate.HasValue || (h.EndDate.Value.Year * 100 + h.EndDate.Value.Month) >= currentIterValue))
                             .OrderByDescending(h => h.StartDate)
                             .FirstOrDefault();
 
@@ -334,19 +382,17 @@ namespace GuardeSoftwareAPI.Services.payment
                         // CONDICIONES DE CORTE DEL BUCLE:
                         if (moneyInHand <= 0)
                         {
-                            // 1. Corte normal si el mes que acabamos de generar es pura proyección (no se le aplicó plata)
+                            // 1. Si acaba de generar un mes extra donde metió $0, significa que ya proyectó el mes impago. Cortamos.
                             if (applied == 0) break;
                             
-                            // 2. CORTE POR OMISIÓN DE AUMENTO: 
-                            // Si se quedó sin plata (moneyInHand = 0) porque pagó exacto el alquiler,
-                            // y el usuario pidió NO proyectar el futuro, cortamos acá.
+                            // 2. Si el usuario pidió omitir.
                             if (dto.SkipFutureProjection) break;
+                            
+                            // 3. FIX CRÍTICO: Solo cortamos "en seco" (sin generar el mes vacío) SI pagó 6 o más meses (isPriceLocked).
+                            if (isPriceLocked) break; 
                         }
                     }
                 }
-                
-                // (Continúa con la Sección 5 normal...)
-
         // ==============================================================================
         // --- 5. EFECTIVIZACIÓN Y LIMPIEZA DE MORA ---
         // ==============================================================================
