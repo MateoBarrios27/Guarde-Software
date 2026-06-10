@@ -606,11 +606,10 @@ namespace GuardeSoftwareAPI.Services.payment
                     currentAnchor = Convert.ToDateTime(result);
             }
 
-            if (!currentAnchor.HasValue) return;
-
+            // Normalizamos la fecha base del pago (ej: 01/03/2026)
             DateTime normalizedMinDate = new DateTime(minCoverageDate.Year, minCoverageDate.Month, 1);
 
-            // 3. BUCLE DE DESENROLLADO
+            // 3. BUCLE DE DESENROLLADO (Sin matemáticas frágiles)
             bool keepRollingBack = true;
             while (keepRollingBack)
             {
@@ -634,20 +633,8 @@ namespace GuardeSoftwareAPI.Services.payment
                     }
                 }
 
-                if (historyId == 0) break;
-
-                // Transformamos a YYYYMM para ignorar los días 
-                int anchorMonthValue = currentAnchor.Value.Year * 100 + currentAnchor.Value.Month;
-                int startMonthValue = startDate.Year * 100 + startDate.Month;
-
-                // FIX CRÍTICO DE SEGURIDAD: 
-                // 1. El mes/año del historial debe coincidir con el ancla.
-                // 2. La fecha del historial no debe ser más vieja que el primer mes que cubrió este pago.
-                if (anchorMonthValue != startMonthValue || startDate.Date < normalizedMinDate)
-                {
-                    keepRollingBack = false;
-                    break;
-                }
+                // FIX CRÍTICO: Si no hay historial, o el historial es MÁS VIEJO que la base de nuestro pago, frenamos.
+                if (historyId == 0 || startDate.Date < normalizedMinDate) break;
 
                 // Extrema seguridad: nunca borramos el primer historial del contrato (la base)
                 int historyCount = 0;
@@ -659,7 +646,7 @@ namespace GuardeSoftwareAPI.Services.payment
                 }
                 if (historyCount <= 1) break; 
 
-                // Borramos este eslabón del historial
+                // A. Borramos el historial del tope
                 const string deleteQuery = "DELETE FROM rental_amount_history WHERE rental_amount_history_id = @id";
                 using (var cmdDel = new SqlCommand(deleteQuery, connection, transaction))
                 {
@@ -667,18 +654,21 @@ namespace GuardeSoftwareAPI.Services.payment
                     await cmdDel.ExecuteNonQueryAsync();
                 }
 
-                // Retrocedemos el ancla matemáticamente al paso anterior
-                currentAnchor = currentAnchor.Value.AddMonths(-stepMonths);
-                const string updateAnchorQuery = "UPDATE rentals SET increase_anchor_date = @newAnchor WHERE rental_id = @rental_id";
-                using (var cmdUpdAnchor = new SqlCommand(updateAnchorQuery, connection, transaction))
+                // B. Retrocedemos el ancla exactamente 1 escalón por historial borrado
+                if (currentAnchor.HasValue)
                 {
-                    cmdUpdAnchor.Parameters.AddWithValue("@newAnchor", currentAnchor.Value);
-                    cmdUpdAnchor.Parameters.AddWithValue("@rental_id", rentalId);
-                    await cmdUpdAnchor.ExecuteNonQueryAsync();
+                    currentAnchor = currentAnchor.Value.AddMonths(-stepMonths);
+                    const string updateAnchorQuery = "UPDATE rentals SET increase_anchor_date = @newAnchor WHERE rental_id = @rental_id";
+                    using (var cmdUpdAnchor = new SqlCommand(updateAnchorQuery, connection, transaction))
+                    {
+                        cmdUpdAnchor.Parameters.AddWithValue("@newAnchor", currentAnchor.Value);
+                        cmdUpdAnchor.Parameters.AddWithValue("@rental_id", rentalId);
+                        await cmdUpdAnchor.ExecuteNonQueryAsync();
+                    }
                 }
             }
 
-            // 4. Reabrir el historial que quedó en el tope (dejándolo sin end_date)
+            // 4. Reabrir el historial que quedó en el tope
             const string getFinalTopQuery = @"
                 SELECT TOP 1 rental_amount_history_id 
                 FROM rental_amount_history 
@@ -690,8 +680,7 @@ namespace GuardeSoftwareAPI.Services.payment
             {
                 cmdFinalTop.Parameters.AddWithValue("@rental_id", rentalId);
                 var res = await cmdFinalTop.ExecuteScalarAsync();
-                if (res != null && res != DBNull.Value)
-                    finalTopId = Convert.ToInt32(res);
+                if (res != null && res != DBNull.Value) finalTopId = Convert.ToInt32(res);
             }
 
             if (finalTopId > 0)

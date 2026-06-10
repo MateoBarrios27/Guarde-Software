@@ -73,6 +73,12 @@ export class FinancesComponent implements OnInit {
   hasIncreaseInPeriod: boolean = false;
   public isIncreaseNextMonth: boolean = false;
 
+  // Bandera para saber en toda la clase si el cliente ya pagó su mes
+  public isCurrentMonthPaidFlag: boolean = false;
+  
+  // Índice para saber en qué etapa del modal múltiple estamos
+  public currentIncreaseStep: number = 0;
+
   // --- VARIABLES PARA EL MODAL DE AUMENTO ---
   public showIncreaseOverlay: boolean = false;
   public increaseResolved: boolean = false;
@@ -390,33 +396,32 @@ export class FinancesComponent implements OnInit {
       ? Math.max(1, this.paymentDto.advanceMonths)
       : 1;
     const coverageStart = this.getCoverageStartMonth();
-    const baseRent = Number(this.selectedClientRentAmount || 0);
+    
+    // La base siempre debe ser el alquiler original intocable
+    const baseRent = Number(this.originalBaseRentCopy || this.selectedClientRentAmount || 0);
     const currentDebt = this.selectedClientBalance < 0 ? Math.abs(Number(this.selectedClientBalance)) : 0;
-    
-    // FIX: Parseo correcto del AnchorValue a YYYYMM (Ej: 202608)
-    let anchorValue = 0;
-    if (this.selectedClientIncreaseAnchorDate) {
-      const parts = this.selectedClientIncreaseAnchorDate.split('T')[0].split('-').map(Number);
-      anchorValue = parts[0] * 100 + parts[1];
-    }
-    
-    const methodName = this.getNamePaymentMethodById(this.paymentDto.paymentMethodId).toLowerCase();
 
     return Array.from({ length: monthsToCover }, (_, index) => {
       const month = this.addMonths(coverageStart.year, coverageStart.month, index);
-      const monthComparable = this.toMonthComparable(month.year, month.month);
-      const monthBaseAmount = index === 0 && currentDebt > 0 ? currentDebt : baseRent;
+      const monthComparable = month.year * 100 + month.month;
+      
+      let amount = (index === 0 && currentDebt > 0) ? currentDebt : baseRent;
 
-      let amount = monthBaseAmount;
-
+      // FIX CRÍTICO: Buscamos si para este mes ya se confirmó algún escalón de aumento
       if (!(index === 0 && currentDebt > 0)) {
-         // Buscamos si para este mes (o anteriores) existe un aumento ya confirmado en el array
-         let activeIncrease = this.confirmedIncreases
-             .filter(inc => (inc.year * 100 + inc.month) <= monthComparable)
-             .sort((a,b) => (b.year*100+b.month) - (a.year*100+a.month))[0];
+         // Leemos los aumentos aplicados finales, o la cola si estamos en medio del proceso
+         const sourceArray = this.paymentDto.appliedIncreases && this.paymentDto.appliedIncreases.length > 0 
+             ? this.paymentDto.appliedIncreases 
+             : this.increaseQueue;
 
-         if (activeIncrease) {
-             amount = activeIncrease.newRentAmount; // Usamos el precio escalonado final
+         if (sourceArray) {
+             let activeIncrease = sourceArray
+                 .filter(inc => inc.newRentAmount !== undefined && (inc.year * 100 + inc.month) <= monthComparable)
+                 .sort((a,b) => (b.year * 100 + b.month) - (a.year * 100 + a.month))[0];
+
+             if (activeIncrease && activeIncrease.newRentAmount) {
+                 amount = activeIncrease.newRentAmount;
+             }
          }
       }
 
@@ -544,24 +549,61 @@ export class FinancesComponent implements OnInit {
     this.selectedPreferredPaymentId = Number(client.preferredPaymentMethodId ?? 1); 
     this.paymentDto.paymentMethodId = this.selectedPreferredPaymentId;
     this.selectedPendingSurcharge = Number(client.pendingSurcharge ?? 0);
+    
+    this.selectedClientFrequency = client.increaseFrequencyMonths || 4; 
+    
     this.increaseResolved = false;
     this.increasePercentage = 0;
     this.paymentDto.increasePercentage = 0;
     this.showIncreaseOverlay = false;
     this.currentIncreaseFlow = 'none';
     this.selectedClientLastMonth = client.lastGeneratedMonthYear || '';
-    this.selectedClientFrequency = client.increaseFrequencyMonths || 4;
     
-    // Sugerencia de saldo a cobrar
-    const suggestedAmount = this.selectedClientBalance < 0 
-        ? Math.abs(this.selectedClientBalance) 
-        : this.selectedClientRentAmount;
+    // --- LÓGICA INFALIBLE DE $0 ---
+    this.isCurrentMonthPaidFlag = false;
+    if (client.nextPaymentDay) {
+      // Extraemos solo el YYYY-MM seguro, sin importar la hora
+      const dateString = client.nextPaymentDay.toString().split('T')[0]; 
+      const parts = dateString.split('-');
+      const nextMonthValue = parseInt(parts[0]) * 100 + parseInt(parts[1]);
+      
+      const today = new Date();
+      const currentMonthValue = today.getFullYear() * 100 + (today.getMonth() + 1);
+      
+      // Si su próximo pago es mayor a este mes, significa que ya pagó.
+      this.isCurrentMonthPaidFlag = nextMonthValue > currentMonthValue;
+    }
+
+    const suggestedAmount = this.isCurrentMonthPaidFlag 
+        ? 0 
+        : (this.selectedClientBalance < 0 ? Math.abs(this.selectedClientBalance) : this.selectedClientRentAmount);
 
     this.paymentDto.amount = suggestedAmount;
 
     this.checkIncreaseLogic();
     this.syncPaymentPreview();
     this.onAmountChange(this.paymentDto.amount);
+  }
+
+  calculateAdvancePayment(): void {
+    const suggestedAmount = this.isCurrentMonthPaidFlag 
+      ? 0 
+      : (this.selectedClientBalance < 0 ? Math.abs(this.selectedClientBalance) : this.selectedClientRentAmount);
+
+    // Si destildaron pago adelantado, volvemos al monto sugerido inteligente ($0 o deuda)
+    if (!this.paymentDto.isAdvancePayment || !this.paymentDto.advanceMonths) {
+      this.paymentDto.amount = suggestedAmount;
+      this.onAmountChange(this.paymentDto.amount);
+      return;
+    }
+
+    const breakdown = this.buildPaymentMonthBreakdown();
+    const totalToPay = breakdown.reduce((sum, item) => sum + item.amount, 0);
+    this.paymentMonthBreakdown = breakdown;
+
+    this.paymentDto.amount = totalToPay;
+    this.onAmountChange(totalToPay);
+    this.syncPaymentPreview();
   }
 
   toggleManualDate() {
@@ -779,21 +821,20 @@ export class FinancesComponent implements OnInit {
     let tempBaseRent = this.selectedClientRentAmount;
     this.originalBaseRentCopy = this.selectedClientRentAmount;
 
-    // 1. RECORREMOS LOS MESES QUE SE VAN A PAGAR
+    // 1. RECORREMOS LOS MESES
     for (let i = 0; i < monthsToCover; i++) {
       const month = this.addMonths(coverageStart.year, coverageStart.month, i);
       const monthValue = month.year * 100 + month.month;
 
       if (monthValue >= currentAnchorValue) {
         this.hasIncreaseInPeriod = true;
-        
         this.increaseQueue.push({
           year: month.year,
           month: month.month,
           dateValue: monthValue,
           label: this.formatMonthLabel(month.year, month.month),
           baseRent: tempBaseRent,
-          isOnlyDebit: false // Este mes SÍ se está pagando ahora
+          isOnlyDebit: false 
         });
 
         const frequencyStep = (this.selectedClientFrequency || 4) - 1; 
@@ -802,24 +843,26 @@ export class FinancesComponent implements OnInit {
       }
     }
 
-    // 2. FIX CRÍTICO: REVISAMOS EL MES INMEDIATAMENTE SIGUIENTE (El que quedará debiendo)
+    // 2. REVISAMOS EL MES SIGUIENTE (DEUDA FUTURA)
     const isPriceLocked = this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths && this.paymentDto.advanceMonths >= 6;
     if (!isPriceLocked) {
       const nextMonth = this.addMonths(coverageStart.year, coverageStart.month, monthsToCover);
       const nextMonthValue = nextMonth.year * 100 + nextMonth.month;
 
       if (nextMonthValue >= currentAnchorValue) {
-        this.hasIncreaseInPeriod = true; // Activamos los modales secuenciales
+        this.hasIncreaseInPeriod = true; 
         this.increaseQueue.push({
           year: nextMonth.year,
           month: nextMonth.month,
           dateValue: nextMonthValue,
           label: this.formatMonthLabel(nextMonth.year, nextMonth.month),
           baseRent: tempBaseRent,
-          isOnlyDebit: true // Flag clave: NO afecta el efectivo que pone hoy
+          isOnlyDebit: true 
         });
       }
     }
+    
+    this.currentIncreaseStep = 0;
   }
 
   savePaymentModal(dto: CreatePaymentDTO) {
@@ -848,10 +891,10 @@ export class FinancesComponent implements OnInit {
   }
 
   processNextIncrease() {
-    if (this.increaseQueue.length > 0) {
-      this.currentPendingIncrease = this.increaseQueue.shift();
+    // Verificamos si todavía hay etapas en la cola según nuestro índice
+    if (this.currentIncreaseStep < this.increaseQueue.length) {
+      this.currentPendingIncrease = this.increaseQueue[this.currentIncreaseStep];
       
-      // Ajustamos el texto dinámicamente según si se paga o solo se debita en cuenta corriente
       if (this.currentPendingIncrease.isOnlyDebit) {
         this.increasePromptReason = `Al registrar este pago, el sistema debitará el mes de ${this.currentPendingIncrease.label} como deuda pendiente, al cual le corresponde una actualización de abono.`;
       } else {
@@ -859,34 +902,47 @@ export class FinancesComponent implements OnInit {
       }
       
       this.selectedClientRentAmount = this.currentPendingIncrease.baseRent;
-      this.increasePercentage = 0;
-      this.projectedNewRent = this.selectedClientRentAmount;
-      this.calculateProjectedRent(); 
+
+      // Si el usuario navegó hacia atrás y ya había puesto datos, los recuperamos.
+      if (this.currentPendingIncrease.percentage !== undefined) {
+        this.increasePercentage = this.currentPendingIncrease.percentage;
+        this.projectedNewRent = this.currentPendingIncrease.newRentAmount;
+      } else {
+        this.increasePercentage = 0;
+        this.projectedNewRent = this.selectedClientRentAmount;
+        this.calculateProjectedRent(); 
+      }
+      
       this.showIncreaseOverlay = true;
     } else {
+      // SI TERMINARON TODAS LAS ETAPAS
       this.increaseResolved = true;
       this.showIncreaseOverlay = false;
-      this.paymentDto.appliedIncreases = this.confirmedIncreases; 
+      
+      // Mapeamos el resultado final para enviárselo a C#
+      this.paymentDto.appliedIncreases = this.increaseQueue.map(item => ({
+        year: item.year,
+        month: item.month,
+        percentage: item.percentage,
+        newRentAmount: item.newRentAmount
+      }));
 
       const coverageStart = this.getCoverageStartMonth();
       if (this.paymentDto.isAdvancePayment) {
         this.calculateAdvancePayment();
       } else {
-        // Si es pago normal de 1 mes, solo modificamos el monto a cobrar si el aumento afectaba a este mes específico
-        const hasCurrentMonthIncrease = this.confirmedIncreases.some(inc => inc.year === coverageStart.year && inc.month === coverageStart.month);
-        if (hasCurrentMonthIncrease) {
-          const currentInc = this.confirmedIncreases.find(inc => inc.year === coverageStart.year && inc.month === coverageStart.month);
+        const currentInc = this.paymentDto.appliedIncreases.find(inc => inc.year === coverageStart.year && inc.month === coverageStart.month);
+        if (currentInc) {
           this.paymentDto.amount = currentInc.newRentAmount;
           this.onAmountChange(this.paymentDto.amount);
           this.syncPaymentPreview();
         }
       }
       this.showSummarySwal();
-      this.selectedClientRentAmount = this.originalBaseRentCopy; // Restauramos valor base
+      this.selectedClientRentAmount = this.originalBaseRentCopy; 
     }
-  }     
+  }
 
-  // --- NUEVA LÃ“GICA DE REDONDEO INTELIGENTE ---
   // --- NUEVA LÓGICA DE REDONDEO INTELIGENTE ---
   private roundRentAmount(targetAmount: number, methodName: string, originalRent: number, targetPercentage: number): number {
     if (targetAmount === 0) return 0;
@@ -984,22 +1040,18 @@ export class FinancesComponent implements OnInit {
 
   confirmIncrease() {
     if (this.currentPendingIncrease) {
-      // 1. Guardamos la confirmación del bloque actual (sea mes a pagar o débito futuro)
-      this.confirmedIncreases.push({
-        year: this.currentPendingIncrease.year,
-        month: this.currentPendingIncrease.month,
-        percentage: this.increasePercentage,
-        newRentAmount: this.projectedNewRent
-      });
+      // Guardamos la decisión PROVISORIAMENTE en este paso de la cola
+      this.currentPendingIncrease.percentage = this.increasePercentage;
+      this.currentPendingIncrease.newRentAmount = this.projectedNewRent;
 
-      // 2. Si hay más aumentos en la fila esperando, actualizamos su base con este nuevo precio escalonado
-      this.increaseQueue.forEach(item => {
-        item.baseRent = this.projectedNewRent;
-      });
+      // Si hay un paso siguiente, le dejamos preparado el precio base para que no empiece de cero
+      if (this.currentIncreaseStep + 1 < this.increaseQueue.length) {
+        this.increaseQueue[this.currentIncreaseStep + 1].baseRent = this.projectedNewRent;
+      }
     }
 
-    // 3. Avanzamos de forma recursiva al siguiente elemento de la cola.
-    // Si la cola se vacía, processNextIncrease() cerrará el overlay y abrirá el resumen automáticamente.
+    // Avanzamos al siguiente paso
+    this.currentIncreaseStep++;
     this.processNextIncrease();
   }
 
@@ -1022,64 +1074,160 @@ export class FinancesComponent implements OnInit {
   }
 
   showSummarySwal() {
-    const calc = this.getCalculatedAmounts(this.paymentDto.amount, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
     const breakdown = this.getSummaryBreakdown();
     
+    if (this.paymentDto.isAdvancePayment) {
+        // Precargamos la sumatoria perfecta
+        this.paymentDto.amount = breakdown.reduce((sum, item) => sum + item.amount, 0);
+    }
+
     const formatARS = (value: number) => {
       return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
     };
 
+    let breakdownHtml = breakdown.map((item, i) => `
+      <div class="flex justify-between items-center border-b border-gray-100 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
+        <div class="flex flex-col">
+            <span class="font-bold text-gray-800">${item.label}</span>
+            <span class="text-[10px] text-gray-500 uppercase tracking-wide font-bold">
+                Abono del Mes: ${formatARS(item.amount)}
+            </span>
+        </div>
+        <div class="text-right">
+            <span class="text-[9px] text-indigo-400 font-bold uppercase tracking-wider block leading-tight">Total Saldado</span>
+            <span id="swal-saldado-${i}" class="font-bold text-lg transition-colors duration-200">$0.00</span>
+        </div>
+      </div>
+    `).join('');
+
+    const calcObj = this.getCalculatedAmounts(this.paymentDto.amount, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
     let commissionHtml = '';
-    if (calc.isSurcharge) {
-        commissionHtml = `<div class="flex justify-between text-sm text-orange-600 mt-1 pt-2 border-t border-gray-200"><span>PorciÃ³n retenida por comisiÃ³n</span><span class="font-bold">- ${formatARS(calc.difference)}</span></div>`;
-    } else if (calc.isDiscount) {
-        commissionHtml = `<div class="flex justify-between text-sm text-green-600 mt-1 pt-2 border-t border-gray-200"><span>BonificaciÃ³n a favor</span><span class="font-bold">+ ${formatARS(calc.difference)}</span></div>`;
+    if (calcObj.isSurcharge) {
+        commissionHtml = `<div class="flex justify-between text-sm text-orange-600 mt-2 pt-2 border-t border-gray-200"><span>Recargo (Comisión)</span><span class="font-bold">- ${formatARS(calcObj.difference)}</span></div>`;
+    }
+
+    const isPotentiallyDuplicate = this.selectedClientBalance >= 0 && !this.paymentDto.isAdvancePayment;
+    let warningBannerHtml = isPotentiallyDuplicate ? `
+        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-3 mb-4 rounded-r-md text-left">
+            <h3 class="text-sm font-bold text-yellow-800">⚠️ Posible pago duplicado</h3>
+            <p class="text-xs text-yellow-700 mt-1">El cliente está al día. Verificá no estar ingresando un pago repetido.</p>
+        </div>` : '';
+
+    let moneyBoxesHtml = '';
+    if (this.paymentDto.isAdvancePayment) {
+        moneyBoxesHtml = `
+          <div class="bg-indigo-50 border border-indigo-200 p-3 rounded-lg mb-3">
+            <label class="block text-[11px] font-bold text-indigo-800 uppercase tracking-wider mb-2">Dinero entregado por el cliente</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-bold">$</span>
+              <input id="swal-custom-amount" type="number" step="0.01" value="${this.paymentDto.amount}" 
+                     class="w-full pl-7 pr-3 py-2 rounded border border-indigo-300 font-bold text-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <p class="text-[10px] text-indigo-600 mt-1">Modificá este valor si el cliente entregó menos dinero. La cascada se recalculará sola.</p>
+          </div>
+        `;
     }
 
     Swal.fire({
-      title: 'Resumen de TransacciÃ³n',
+      title: isPotentiallyDuplicate ? 'Revisar Transacción' : 'Resumen Final',
+      icon: isPotentiallyDuplicate ? 'warning' : 'info',
       html: `
         <div class="text-left space-y-3">
-          <div class="pb-3 border-b border-gray-200">
-            <div class="text-sm text-gray-500">MÃ©todo de pago utilizado</div>
-            <div class="text-base font-semibold text-gray-800">${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)}</div>
+          ${warningBannerHtml}
+          
+          ${moneyBoxesHtml}
+          
+          <div class="flex justify-between items-center p-3 rounded-lg bg-gray-50 border border-gray-200">
+              <span class="text-sm text-gray-600 font-medium">Deuda Neta Cancelada:</span>
+              <span id="swal-debt-display" class="text-xl font-bold text-blue-700">$0.00</span>
           </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
-              <div class="text-sm text-gray-500">Dinero ingresado</div>
-              <div class="text-lg font-semibold text-gray-900">${formatARS(calc.amountEntered)}</div>
-            </div>
-            <div class="p-3 rounded-lg ${calc.isDiscount ? 'bg-green-50 border-green-200' : (calc.isSurcharge ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200')}">
-              <div class="text-sm ${calc.isDiscount ? 'text-green-800' : (calc.isSurcharge ? 'text-orange-800' : 'text-blue-800')}">Deuda cancelada</div>
-              <div class="text-lg font-bold ${calc.isDiscount ? 'text-green-900' : (calc.isSurcharge ? 'text-orange-900' : 'text-blue-900')}">${formatARS(calc.equivalentDebtPaid)}</div>
-            </div>
-          </div>
-          <div class="p-4 rounded-lg border border-gray-200 bg-white">
-            <div class="text-base font-semibold text-gray-800 mb-2">Desglose de cuenta corriente</div>
-            <div class="flex justify-between text-sm text-gray-700">
-              <span>AcreditaciÃ³n base</span><span class="font-semibold">${formatARS(calc.amountEntered)}</span>
-            </div>
-            <div class="mt-3 space-y-2">
-              ${breakdown.map(item => `
-                <div class="flex justify-between text-sm text-gray-700">
-                  <span>${item.label}</span>
-                  <span class="font-semibold">${formatARS(item.amount)}</span>
-                </div>
-              `).join('')}
+
+          <div class="p-4 rounded-lg border border-gray-200 bg-white shadow-sm mt-3">
+            <div class="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider border-b pb-2">Cascada de Pagos</div>
+            <div class="space-y-1">
+              ${breakdownHtml}
             </div>
             ${commissionHtml}
           </div>
         </div>
       `,
-      icon: 'info',
       showCancelButton: true,
-      confirmButtonText: 'Registrar pago',
+      confirmButtonText: 'Confirmar Transacción',
       cancelButtonText: 'Cancelar',
       buttonsStyling: false,
-      customClass: { confirmButton: 'bg-blue-600 text-white px-4 py-2 rounded-md mx-2', cancelButton: 'bg-gray-200 text-gray-800 px-4 py-2 rounded-md', actions: 'mt-4' }
+      customClass: { 
+          confirmButton: 'bg-blue-600 text-white px-5 py-2.5 rounded-md mx-2 hover:bg-blue-700 font-bold shadow-md', 
+          cancelButton: 'bg-gray-100 text-gray-600 px-5 py-2.5 rounded-md hover:bg-gray-200 font-bold', 
+      },
+      didOpen: () => {
+          // --- FUNCIÓN DE CASCADA EN TIEMPO REAL ---
+          const updateCascada = (rawInputValue: number) => {
+              const calc = this.getCalculatedAmounts(rawInputValue, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
+              let moneyRemaining = calc.equivalentDebtPaid;
+
+              // Actualizamos cada mes
+              breakdown.forEach((item, i) => {
+                  let applied = Math.min(moneyRemaining, item.amount);
+                  moneyRemaining -= applied;
+                  moneyRemaining = Math.max(0, moneyRemaining);
+
+                  const el = document.getElementById(`swal-saldado-${i}`);
+                  if (el) {
+                      el.innerText = formatARS(applied);
+                      
+                      // Cambio de color visual si queda debiendo o salda completo
+                      if (applied < item.amount) {
+                          el.classList.add('text-orange-500');
+                          el.classList.remove('text-green-600', 'text-gray-400');
+                      } else if (applied === 0) {
+                          el.classList.add('text-gray-400');
+                          el.classList.remove('text-green-600', 'text-orange-500');
+                      } else {
+                          el.classList.add('text-green-600');
+                          el.classList.remove('text-orange-500', 'text-gray-400');
+                      }
+                  }
+              });
+
+              // Actualizamos el total general
+              const debtDisplay = document.getElementById('swal-debt-display');
+              if (debtDisplay) debtDisplay.innerText = formatARS(calc.equivalentDebtPaid);
+          };
+
+          // Inicializamos la vista
+          updateCascada(this.paymentDto.amount);
+
+          // Escuchamos los cambios del usuario si existe el input
+          const input = document.getElementById('swal-custom-amount') as HTMLInputElement;
+          if (input) {
+              input.addEventListener('input', () => {
+                  updateCascada(parseFloat(input.value) || 0);
+              });
+          }
+      },
+      preConfirm: () => {
+          if (this.paymentDto.isAdvancePayment) {
+              const input = document.getElementById('swal-custom-amount') as HTMLInputElement;
+              if (input && input.value) return parseFloat(input.value);
+          }
+          return this.paymentDto.amount;
+      }
     }).then((result) => {
       if (result.isConfirmed) {
-        this.executeBackendCall(); // Directo al backend, el array de aumentos ya está cargado
+        this.paymentDto.amount = result.value;
+        this.onAmountChange(this.paymentDto.amount);
+        this.executeBackendCall();
+      } else {
+        // FIX: Si el usuario presiona Cancelar, borramos el estado temporal de Angular
+        // para que si reabre el modal, arranque completamente limpio.
+        this.paymentDto.appliedIncreases = [];
+        this.increaseQueue = [];
+        this.confirmedIncreases = [];
+        this.paymentDto.skipFutureProjection = false;
+        this.selectedClientRentAmount = this.originalBaseRentCopy;
+        
+        // Opcional: recalcular base para limpiar UI subyacente
+        if(this.paymentDto.isAdvancePayment) this.calculateAdvancePayment();
       }
     });
   }
@@ -1116,29 +1264,18 @@ export class FinancesComponent implements OnInit {
     });
   }
 
-  calculateAdvancePayment(): void {
-    const suggestedAmount = this.selectedClientBalance < 0
-      ? Math.abs(this.selectedClientBalance)
-      : this.selectedClientRentAmount;
-
-    if (!this.paymentDto.isAdvancePayment || !this.paymentDto.advanceMonths) {
-      this.paymentDto.amount = suggestedAmount;
-      this.onAmountChange(this.paymentDto.amount);
-      return;
-    }
-
-    const breakdown = this.buildPaymentMonthBreakdown();
-    const totalToPay = breakdown.reduce((sum, item) => sum + item.amount, 0);
-    this.paymentMonthBreakdown = breakdown;
-
-    this.paymentDto.amount = totalToPay;
-    this.onAmountChange(totalToPay);
-    this.syncPaymentPreview();
-  }
   goBackFromIncrease() {
-    this.showIncreaseOverlay = false;
-    this.currentIncreaseFlow = 'none';
-    this.increaseResolved = false;
+    if (this.currentIncreaseStep > 0) {
+      // Si estamos en la Etapa 2 o superior, retrocedemos una etapa
+      this.currentIncreaseStep--;
+      this.processNextIncrease();
+    } else {
+      // Si estamos en la Etapa 1, cerramos el modal cancelando el flujo
+      this.showIncreaseOverlay = false;
+      this.currentIncreaseFlow = 'none';
+      this.increaseResolved = false;
+      this.selectedClientRentAmount = this.originalBaseRentCopy;
+    }
   }
 }
 
