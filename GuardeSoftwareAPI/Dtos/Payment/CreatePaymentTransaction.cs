@@ -2,6 +2,13 @@ using System;
 
 namespace GuardeSoftwareAPI.Dtos.Payment
 {
+    public class PaymentIncreaseDto
+    {
+        public int Year { get; set; }
+        public int Month { get; set; }
+        public decimal Percentage { get; set; }
+        public decimal NewRentAmount { get; set; }
+    }
     public class CreatePaymentTransaction{
 
         //payment
@@ -25,6 +32,7 @@ namespace GuardeSoftwareAPI.Dtos.Payment
         public decimal? IncreasePercentage { get; set; }
         public decimal? NewRentAmount { get; set; }
         public bool SkipFutureProjection { get; set; } = false;
+        public List<PaymentIncreaseDto> AppliedIncreases { get; set; } = new List<PaymentIncreaseDto>();
         
     }
 }

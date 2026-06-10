@@ -414,7 +414,7 @@ namespace GuardeSoftwareAPI.Dao
 
                         CASE 
                             WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(GETDATE() AS DATE)
-                            THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10)
+                            THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) -- Día forzado a 1
                             ELSE step1.LastBalanceDate
                         END AS NextPaymentDay,
                         
@@ -473,10 +473,9 @@ namespace GuardeSoftwareAPI.Dao
                                   AND cmb2.id < db.id
                             ), 0),
                             
-                            -- <--- NUEVO BLOQUE DE FECHA --->
                             LastBalanceDate = CASE 
                                 WHEN db.MonthYearDB IS NOT NULL AND LEN(db.MonthYearDB) = 7
-                                THEN DATEFROMPARTS(CAST(RIGHT(db.MonthYearDB, 4) AS INT), CAST(LEFT(db.MonthYearDB, 2) AS INT), 10)
+                                THEN DATEFROMPARTS(CAST(RIGHT(db.MonthYearDB, 4) AS INT), CAST(LEFT(db.MonthYearDB, 2) AS INT), 1) -- Día forzado a 1
                                 ELSE NULL 
                             END
                     ) step1

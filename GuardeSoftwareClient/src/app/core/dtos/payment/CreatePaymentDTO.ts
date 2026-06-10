@@ -13,4 +13,5 @@ export interface CreatePaymentDTO{
     increasePercentage?: number | null;
     newRentAmount?: number;
     skipFutureProjection?: boolean;
+    appliedIncreases?: { year: number, month: number, percentage: number, newRentAmount: number }[];
 }

@@ -149,27 +149,32 @@ namespace GuardeSoftwareAPI.Services.payment
                     if (!rental.PriceLockEndDate.HasValue || lockEndDate > rental.PriceLockEndDate.Value.Date)
                         await daoRental.UpdatePriceLockEndDateTransactionAsync(rental.Id, lockEndDate, connection, transaction);
                 }
-                else if (dto.NewRentAmount.HasValue && dto.NewRentAmount.Value > baseRent)
+                else if (dto.AppliedIncreases != null && dto.AppliedIncreases.Any())
                 {
-                    // Se crea el historial nuevo
-                    newRent = dto.NewRentAmount.Value; 
-
-                    var lastHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(rental.Id, connection, transaction);
-                    if (lastHistory != null)
+                    // Procesamos la cola de aumentos en orden cronológico
+                    foreach(var inc in dto.AppliedIncreases.OrderBy(x => x.Year).ThenBy(x => x.Month))
                     {
-                        DateTime effectiveDate = rental.IncreaseAnchorDate ?? dto.Date;
-                        await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastHistory.Id, rental.Id, newRent, effectiveDate, connection, transaction);
-                    }
+                        DateTime effectiveDate = new DateTime(inc.Year, inc.Month, 1);
+                        decimal rentEscalonada = inc.NewRentAmount;
 
-                    string updateAnchorQuery = @"
-                        UPDATE rentals 
-                        SET increase_anchor_date = DATEADD(month, (SELECT increase_frequency_months - 1 FROM clients WHERE client_id = @clientId), increase_anchor_date)
-                        WHERE rental_id = @rentalId AND increase_anchor_date IS NOT NULL";
-                    
-                    using var cmdAnchor = new SqlCommand(updateAnchorQuery, connection, transaction);
-                    cmdAnchor.Parameters.AddWithValue("@clientId", rental.ClientId);
-                    cmdAnchor.Parameters.AddWithValue("@rentalId", rental.Id);
-                    await cmdAnchor.ExecuteNonQueryAsync();
+                        var lastHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(rental.Id, connection, transaction);
+                        if (lastHistory != null)
+                        {
+                            await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastHistory.Id, rental.Id, rentEscalonada, effectiveDate, connection, transaction);
+                        }
+
+                        // Avanzamos el ancla un escalón por cada aumento detectado
+                        // (Mantenemos la lógica de 'increase_frequency_months - 1' para respetar los ciclos)
+                        string updateAnchorQuery = @"
+                            UPDATE rentals 
+                            SET increase_anchor_date = DATEADD(month, (SELECT increase_frequency_months - 1 FROM clients WHERE client_id = @clientId), increase_anchor_date)
+                            WHERE rental_id = @rentalId AND increase_anchor_date IS NOT NULL";
+                        
+                        using var cmdAnchor = new SqlCommand(updateAnchorQuery, connection, transaction);
+                        cmdAnchor.Parameters.AddWithValue("@clientId", rental.ClientId);
+                        cmdAnchor.Parameters.AddWithValue("@rentalId", rental.Id);
+                        await cmdAnchor.ExecuteNonQueryAsync();
+                    }
                 }
 
                 // ==============================================================================
@@ -499,7 +504,7 @@ namespace GuardeSoftwareAPI.Services.payment
 		}
 
 		public async Task<bool> DeletePaymentAsync(int movementId)
-		{
+        {
             using var connection = accessDB.GetConnectionClose();
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
@@ -508,9 +513,10 @@ namespace GuardeSoftwareAPI.Services.payment
             {
                 int? rentalId = null;
                 DateTime? paymentDate = null;
+                int? paymentId = null;
 
                 const string lookupQuery = @"
-                    SELECT am.rental_id, p.payment_date
+                    SELECT am.rental_id, p.payment_date, am.payment_id
                     FROM account_movements am
                     LEFT JOIN payments p ON am.payment_id = p.payment_id
                     WHERE am.movement_id = @movement_id";
@@ -523,8 +529,25 @@ namespace GuardeSoftwareAPI.Services.payment
                     {
                         rentalId = reader["rental_id"] != DBNull.Value ? Convert.ToInt32(reader["rental_id"]) : null;
                         paymentDate = reader["payment_date"] != DBNull.Value ? Convert.ToDateTime(reader["payment_date"]) : null;
+                        paymentId = reader["payment_id"] != DBNull.Value ? Convert.ToInt32(reader["payment_id"]) : null;
                     }
                 }
+
+                // FIX CRÍTICO: Buscamos cuál fue el primer mes que este pago empezó a cubrir realmente.
+                DateTime? minCoverageDate = null;
+                if (paymentId.HasValue && paymentId.Value > 0)
+                {
+                    const string minDateQuery = "SELECT MIN(movement_date) FROM account_movements WHERE payment_id = @pid AND movement_type = 'DEBITO'";
+                    using (var minCmd = new SqlCommand(minDateQuery, connection, transaction))
+                    {
+                        minCmd.Parameters.AddWithValue("@pid", paymentId.Value);
+                        var res = await minCmd.ExecuteScalarAsync();
+                        if (res != null && res != DBNull.Value) minCoverageDate = Convert.ToDateTime(res);
+                    }
+                }
+
+                // Si por algún motivo no encontramos débitos, caemos en la fecha de pago
+                DateTime safeDateToRollback = minCoverageDate ?? paymentDate ?? DateTime.MinValue;
 
                 bool deleted = await _daoPayment.DeletePaymentTransactionAsync(movementId, connection, transaction);
                 if (!deleted)
@@ -535,8 +558,8 @@ namespace GuardeSoftwareAPI.Services.payment
 
                 if (rentalId.HasValue)
                 {
-                    if (paymentDate.HasValue)
-                        await RestoreLatestRentChangeIfNeededAsync(rentalId.Value, paymentDate.Value, connection, transaction);
+                    // Le pasamos la fecha segura de cobertura, no la fecha en la que apretó el botón de pagar
+                    await RestoreLatestRentChangeIfNeededAsync(rentalId.Value, safeDateToRollback, connection, transaction);
 
                     await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rentalId.Value, connection, transaction);
                 }
@@ -549,56 +572,11 @@ namespace GuardeSoftwareAPI.Services.payment
                 await transaction.RollbackAsync();
                 throw;
             }
-		}
+        }
 
-        private async Task RestoreLatestRentChangeIfNeededAsync(int rentalId, DateTime paymentDate, SqlConnection connection, SqlTransaction transaction)
+        private async Task RestoreLatestRentChangeIfNeededAsync(int rentalId, DateTime minCoverageDate, SqlConnection connection, SqlTransaction transaction)
         {
-            const string historiesQuery = @"
-                SELECT TOP 2 rental_amount_history_id, rental_id, amount, start_date, end_date
-                FROM rental_amount_history
-                WHERE rental_id = @rental_id
-                ORDER BY start_date DESC, rental_amount_history_id DESC;";
-
-            var histories = new List<RentalAmountHistory>();
-            using (var command = new SqlCommand(historiesQuery, connection, transaction))
-            {
-                command.Parameters.AddWithValue("@rental_id", rentalId);
-                using var reader = await command.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
-                {
-                    histories.Add(new RentalAmountHistory
-                    {
-                        Id = reader.GetInt32(0),
-                        RentalId = reader.GetInt32(1),
-                        Amount = reader.GetDecimal(2),
-                        StartDate = reader.GetDateTime(3),
-                        EndDate = reader.IsDBNull(4) ? null : reader.GetDateTime(4)
-                    });
-                }
-            }
-
-            if (histories.Count < 2) return;
-
-            var latest = histories[0];
-            var previous = histories[1];
-
-            if (latest.StartDate.Date < paymentDate.Date)
-                return;
-
-            const string deleteLatestQuery = "DELETE FROM rental_amount_history WHERE rental_amount_history_id = @history_id";
-            using (var deleteCommand = new SqlCommand(deleteLatestQuery, connection, transaction))
-            {
-                deleteCommand.Parameters.AddWithValue("@history_id", latest.Id);
-                await deleteCommand.ExecuteNonQueryAsync();
-            }
-
-            const string reopenPreviousQuery = "UPDATE rental_amount_history SET end_date = NULL WHERE rental_amount_history_id = @history_id";
-            using (var reopenCommand = new SqlCommand(reopenPreviousQuery, connection, transaction))
-            {
-                reopenCommand.Parameters.AddWithValue("@history_id", previous.Id);
-                await reopenCommand.ExecuteNonQueryAsync();
-            }
-
+            // 1. Obtener la frecuencia de aumento
             int frequencyMonths = 0;
             const string frequencyQuery = @"
                 SELECT c.increase_frequency_months
@@ -614,14 +592,116 @@ namespace GuardeSoftwareAPI.Services.payment
                     frequencyMonths = Convert.ToInt32(result);
             }
 
-            if (frequencyMonths > 0)
+            if (frequencyMonths <= 1) return; 
+            int stepMonths = frequencyMonths - 1;
+
+            // 2. Obtener el ancla actual
+            DateTime? currentAnchor = null;
+            const string anchorQuery = "SELECT increase_anchor_date FROM rentals WHERE rental_id = @rental_id";
+            using (var cmdAnchor = new SqlCommand(anchorQuery, connection, transaction))
             {
-                var restoredAnchorDate = previous.StartDate.Date.AddMonths(frequencyMonths);
-                const string updateAnchorQuery = "UPDATE rentals SET increase_anchor_date = @anchor_date WHERE rental_id = @rental_id";
-                using var updateCommand = new SqlCommand(updateAnchorQuery, connection, transaction);
-                updateCommand.Parameters.AddWithValue("@anchor_date", restoredAnchorDate);
-                updateCommand.Parameters.AddWithValue("@rental_id", rentalId);
-                await updateCommand.ExecuteNonQueryAsync();
+                cmdAnchor.Parameters.AddWithValue("@rental_id", rentalId);
+                var result = await cmdAnchor.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                    currentAnchor = Convert.ToDateTime(result);
+            }
+
+            if (!currentAnchor.HasValue) return;
+
+            DateTime normalizedMinDate = new DateTime(minCoverageDate.Year, minCoverageDate.Month, 1);
+
+            // 3. BUCLE DE DESENROLLADO
+            bool keepRollingBack = true;
+            while (keepRollingBack)
+            {
+                const string topHistoryQuery = @"
+                    SELECT TOP 1 rental_amount_history_id, start_date 
+                    FROM rental_amount_history 
+                    WHERE rental_id = @rental_id 
+                    ORDER BY start_date DESC, rental_amount_history_id DESC";
+
+                int historyId = 0;
+                DateTime startDate = DateTime.MinValue;
+
+                using (var cmdTop = new SqlCommand(topHistoryQuery, connection, transaction))
+                {
+                    cmdTop.Parameters.AddWithValue("@rental_id", rentalId);
+                    using var reader = await cmdTop.ExecuteReaderAsync();
+                    if (await reader.ReadAsync())
+                    {
+                        historyId = reader.GetInt32(0);
+                        startDate = reader.GetDateTime(1);
+                    }
+                }
+
+                if (historyId == 0) break;
+
+                // Transformamos a YYYYMM para ignorar los días 
+                int anchorMonthValue = currentAnchor.Value.Year * 100 + currentAnchor.Value.Month;
+                int startMonthValue = startDate.Year * 100 + startDate.Month;
+
+                // FIX CRÍTICO DE SEGURIDAD: 
+                // 1. El mes/año del historial debe coincidir con el ancla.
+                // 2. La fecha del historial no debe ser más vieja que el primer mes que cubrió este pago.
+                if (anchorMonthValue != startMonthValue || startDate.Date < normalizedMinDate)
+                {
+                    keepRollingBack = false;
+                    break;
+                }
+
+                // Extrema seguridad: nunca borramos el primer historial del contrato (la base)
+                int historyCount = 0;
+                const string countQuery = "SELECT COUNT(1) FROM rental_amount_history WHERE rental_id = @rental_id";
+                using (var cmdCount = new SqlCommand(countQuery, connection, transaction))
+                {
+                    cmdCount.Parameters.AddWithValue("@rental_id", rentalId);
+                    historyCount = Convert.ToInt32(await cmdCount.ExecuteScalarAsync());
+                }
+                if (historyCount <= 1) break; 
+
+                // Borramos este eslabón del historial
+                const string deleteQuery = "DELETE FROM rental_amount_history WHERE rental_amount_history_id = @id";
+                using (var cmdDel = new SqlCommand(deleteQuery, connection, transaction))
+                {
+                    cmdDel.Parameters.AddWithValue("@id", historyId);
+                    await cmdDel.ExecuteNonQueryAsync();
+                }
+
+                // Retrocedemos el ancla matemáticamente al paso anterior
+                currentAnchor = currentAnchor.Value.AddMonths(-stepMonths);
+                const string updateAnchorQuery = "UPDATE rentals SET increase_anchor_date = @newAnchor WHERE rental_id = @rental_id";
+                using (var cmdUpdAnchor = new SqlCommand(updateAnchorQuery, connection, transaction))
+                {
+                    cmdUpdAnchor.Parameters.AddWithValue("@newAnchor", currentAnchor.Value);
+                    cmdUpdAnchor.Parameters.AddWithValue("@rental_id", rentalId);
+                    await cmdUpdAnchor.ExecuteNonQueryAsync();
+                }
+            }
+
+            // 4. Reabrir el historial que quedó en el tope (dejándolo sin end_date)
+            const string getFinalTopQuery = @"
+                SELECT TOP 1 rental_amount_history_id 
+                FROM rental_amount_history 
+                WHERE rental_id = @rental_id 
+                ORDER BY start_date DESC, rental_amount_history_id DESC";
+
+            int finalTopId = 0;
+            using (var cmdFinalTop = new SqlCommand(getFinalTopQuery, connection, transaction))
+            {
+                cmdFinalTop.Parameters.AddWithValue("@rental_id", rentalId);
+                var res = await cmdFinalTop.ExecuteScalarAsync();
+                if (res != null && res != DBNull.Value)
+                    finalTopId = Convert.ToInt32(res);
+            }
+
+            if (finalTopId > 0)
+            {
+                const string reopenQuery = "UPDATE rental_amount_history SET end_date = NULL WHERE rental_amount_history_id = @id";
+                using (var cmdReopen = new SqlCommand(reopenQuery, connection, transaction))
+                {
+                    cmdReopen.Parameters.AddWithValue("@id", finalTopId);
+                    await cmdReopen.ExecuteNonQueryAsync();
+                }
             }
         }
 
