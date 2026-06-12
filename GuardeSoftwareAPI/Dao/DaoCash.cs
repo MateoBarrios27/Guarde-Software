@@ -327,13 +327,62 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<decimal> GetPendingCollectionAsync(int month, int year)
         {
-            DateTime startDate = new(year, month, 1);
-            SqlParameter[] parameters = [
-                new SqlParameter("@StartDate", SqlDbType.DateTime) { Value = startDate }
-            ];
+            string query = @"
+                WITH CurrentRentalAmount AS (
+                    SELECT h.rental_id, h.amount AS CurrentRent
+                    FROM (
+                        SELECT rental_id, amount,
+                               ROW_NUMBER() OVER (PARTITION BY rental_id ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC) as rn
+                        FROM rental_amount_history WHERE start_date <= GETDATE()
+                    ) h WHERE h.rn = 1
+                ),
+                ClientData AS (
+                    SELECT 
+                        c.client_id,
+                        -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB) AS Balance,
+                        CASE 
+                            WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(GETDATE() AS DATE)
+                            THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                            ELSE step1.LastBalanceDate
+                        END AS NextPaymentDay
+                    FROM clients c
+                    LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1
+                    LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
+                    OUTER APPLY (
+                        SELECT TOP 1
+                            Id = cmb.id,
+                            PrevBalDB = ISNULL(cmb.previous_balance, 0),
+                            IntsDB = ISNULL(cmb.interests, 0),
+                            RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
+                            PaidDB = ISNULL(cmb.paid, 0),
+                            AdvPayDB = ISNULL(cmb.advanced_payment, 0),
+                            MonthYearDB = cmb.month_year
+                        FROM client_month_balances cmb
+                        WHERE cmb.rental_id = r.rental_id 
+                          AND (cmb.balance - cmb.paid - cmb.advanced_payment) > 0
+                        ORDER BY cmb.id DESC
+                    ) db
+                    OUTER APPLY (
+                        SELECT 
+                            LastBalanceDate = CASE 
+                                WHEN db.MonthYearDB IS NOT NULL AND LEN(db.MonthYearDB) = 7
+                                THEN DATEFROMPARTS(CAST(RIGHT(db.MonthYearDB, 4) AS INT), CAST(LEFT(db.MonthYearDB, 2) AS INT), 1)
+                                ELSE NULL 
+                            END
+                    ) step1
+                    WHERE c.active = 1
+                )
+                SELECT ISNULL(SUM(ABS(Balance)), 0) 
+                FROM ClientData 
+                WHERE MONTH(NextPaymentDay) = @Month 
+                  AND YEAR(NextPaymentDay) = @Year 
+                  AND Balance < 0;";
 
-            string query = "SELECT ISNULL(SUM( CASE WHEN movement_type = 'DEBITO' THEN amount ELSE -amount END ), 0) FROM account_movements WHERE movement_date < @StartDate";
-            
+            var parameters = new[] {
+                new SqlParameter("@Month", month),
+                new SqlParameter("@Year", year)
+            };
+
             var result = await _accessDB.ExecuteScalarAsync(query, parameters);
             return Convert.ToDecimal(result);
         }

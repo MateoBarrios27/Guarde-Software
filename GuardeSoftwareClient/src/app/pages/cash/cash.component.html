@@ -159,6 +159,16 @@
                 <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ (totals.pagado / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
               </div>
             </div>
+            <div class="flex justify-between items-center bg-blue-50 p-2 rounded border border-blue-100 mt-1">
+              <span class="text-blue-800 font-bold text-xs uppercase tracking-wider flex items-center gap-1">
+                Falta Cobrar
+              </span>
+              <div class="flex flex-col items-end">
+                <span class="font-bold text-blue-700 leading-tight">$ {{ summary.pendingCollection | number:'1.2-2' }}</span>
+                <span class="text-[10px] text-blue-500 font-medium">≈ U$D {{ (summary.pendingCollection / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+              </div>
+            </div>
+
             <div class="flex justify-between items-center bg-red-50 p-2 rounded border border-red-100 mt-1">
               <span class="text-red-800 font-bold text-xs uppercase tracking-wider">Falta Pagar</span>
               <div class="flex flex-col items-end">
