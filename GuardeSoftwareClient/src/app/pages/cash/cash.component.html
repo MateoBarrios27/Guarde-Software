@@ -483,6 +483,7 @@
 </div>
 
       <div class="relative w-full pb-2">
+        
         <table class="w-full min-w-[1100px] text-sm text-left border-collapse">
           
           <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b sticky top-0 z-20 shadow-sm">
@@ -500,12 +501,18 @@
             </tr>
           </thead>
           
-          <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropItem($event)" cdkDropListScrollContainer="#main-scroll">
-        <tr *ngFor="let item of filteredItems" 
-            cdkDrag 
-            (click)="toggleItemSelection(item)"
-            class="transition-all cursor-pointer border-l-4"
-            [ngClass]="selectedItemIds.includes(item.id!) ? 'bg-indigo-50/80 border-indigo-500 shadow-inner' : 'bg-white border-transparent hover:bg-blue-50/30'">
+          <tbody class="divide-y divide-gray-100" 
+                 cdkDropList 
+                 (cdkDropListDropped)="dropItem($event)" 
+                 cdkDropListScrollContainer="#main-scroll"
+                 [cdkDropListAutoScrollStep]="7">
+                 
+            <tr *ngFor="let item of filteredItems" 
+                cdkDrag 
+                (click)="toggleItemSelection(item)"
+                class="transition-all cursor-pointer border-l-4"
+                [ngClass]="selectedItemIds.includes(item.id!) ? 'bg-indigo-50/80 border-indigo-500 shadow-inner' : 'bg-white border-transparent hover:bg-blue-50/30'">
+                
               <td class="p-1 w-6 align-middle text-center">
                 <div cdkDragHandle class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 inline-flex items-center justify-center p-1">
                   <app-icon name="grip-vertical" class="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity"></app-icon>

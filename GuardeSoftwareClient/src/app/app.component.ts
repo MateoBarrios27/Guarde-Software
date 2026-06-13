@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd, ActivatedRoute, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs/operators';
 import { SidebarComponent } from './shared/components/sidebar/sidebar.component';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, SidebarComponent],
+  imports: [CommonModule, RouterOutlet, SidebarComponent, ScrollingModule],
   templateUrl: './app.component.html',
 })
 export class AppComponent implements OnInit {

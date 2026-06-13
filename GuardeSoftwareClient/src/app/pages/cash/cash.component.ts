@@ -9,6 +9,7 @@ import { FormsModule } from '@angular/forms';
 import { CashFlowItem, FinancialAccount, MonthlySummary } from '../../core/models/cash';
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 
 // --- Structure Historial (CTRL+Z) ---
 export type ActionType = 'ACCOUNT_EDIT' | 'ACCOUNT_CREATE' | 'ACCOUNT_DELETE' | 'ITEM_EDIT' | 'ITEM_CREATE' | 'ITEM_DELETE';
@@ -25,7 +26,7 @@ export interface UndoAction {
   selector: 'app-cash',
   templateUrl: './cash.component.html',
   styleUrls: ['./cash.component.css'],
-  imports: [IconComponent, CommonModule, FormsModule, CurrencyFormatDirective, DragDropModule]
+  imports: [IconComponent, CommonModule, FormsModule, CurrencyFormatDirective, DragDropModule, ScrollingModule]
 })
 export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   
