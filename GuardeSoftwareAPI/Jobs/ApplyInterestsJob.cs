@@ -35,7 +35,6 @@ public class ApplyInterestsJob : IJob
                 var currentInterests = row["CurrentInterests"] != DBNull.Value ? Convert.ToDecimal(row["CurrentInterests"]) : 0;
                 var monthlyDebits = row["MonthlyDebits"] != DBNull.Value ? Convert.ToDecimal(row["MonthlyDebits"]) : 0;
                 
-                // NUEVO: Leemos el método de pago preferido
                 var preferredMethod = row["PreferredPaymentMethod"].ToString();
 
                 if (balance > 0)
@@ -46,14 +45,12 @@ public class ApplyInterestsJob : IJob
                     decimal cuotaBase = monthlyDebits > 0 ? monthlyDebits : currentRent;
                     decimal baseImponible = cuotaBase + currentInterests;
 
-                    // Calculamos el 10% puro sobre la suma
                     var interestAmount = baseImponible * 0.10m;
                     
-                    // NUEVO: Pasamos el monto y el método al redondeador inteligente
-                    var roundedInterest = RoundInterestIntelligently(interestAmount, preferredMethod);
+                    var roundedInterest = RoundInterestToNearestHundredDown(interestAmount);
 
                     await _daoRental.IncrementUnpaidMonthsAndSaveInterestAsync(rentalId, roundedInterest);
-                    _logger.LogInformation("Interés de ${amount} aplicado al alquiler ID {rentalId}. (Base Imponible: ${baseImponible}, Método: {method})", roundedInterest, rentalId, baseImponible, preferredMethod);
+                    _logger.LogInformation("Interés de ${amount} aplicado al alquiler ID {rentalId}. (Base Imponible: ${baseImponible}, Método Preferido: {method})", roundedInterest, rentalId, baseImponible, preferredMethod);
 
                     if (newMonthsUnpaid >= TERMINATION_THRESHOLD)
                     {
@@ -69,20 +66,10 @@ public class ApplyInterestsJob : IJob
         }
     }
 
-    // --- NUEVA LÓGICA DE REDONDEO INTELIGENTE ---
-    private decimal RoundInterestIntelligently(decimal amount, string methodName)
+    private decimal RoundInterestToNearestHundredDown(decimal amount)
     {
-        if (amount == 0) return 0;
+        if (amount <= 0) return 0;
 
-        // Si el método contiene la palabra "Efectivo", redondeo fuerte a los MILES (ej: 12.350 -> 12.000)
-        if (!string.IsNullOrWhiteSpace(methodName) && methodName.Contains("efectivo", StringComparison.OrdinalIgnoreCase))
-        {
-            return Math.Round(amount / 1000m, MidpointRounding.AwayFromZero) * 1000m;
-        }
-        // Si es Transferencia, MercadoPago, etc., redondeo suave a las CENTENAS dejando en 00 (ej: 12.358 -> 12.400)
-        else
-        {
-            return Math.Round(amount / 100m, MidpointRounding.AwayFromZero) * 100m;
-        }
+        return Math.Floor(amount / 100m) * 100m;
     }
 }
