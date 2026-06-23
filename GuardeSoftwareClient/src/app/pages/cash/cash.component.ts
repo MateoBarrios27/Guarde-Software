@@ -415,21 +415,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   addNewRow(): void {
-  const today = new Date();
-  let defaultDate = '';
-  
-  // Si el mes seleccionado es el actual, ponemos la fecha de hoy. Si no, ponemos el día 1 del mes seleccionado.
-  if (this.selectedYear === today.getFullYear() && this.selectedMonth === (today.getMonth() + 1)) {
-    const dd = String(today.getDate()).padStart(2, '0');
-    const mm = String(this.selectedMonth).padStart(2, '0');
-    defaultDate = `${this.selectedYear}-${mm}-${dd}`;
-  } else {
-    const mm = String(this.selectedMonth).padStart(2, '0');
-    defaultDate = `${this.selectedYear}-${mm}-01`;
-  }
-
   const newItem: CashFlowItem = {
-    date: defaultDate,
+    date: null as any,
     description: '',
     comment: '',
     depo: null as any, 
