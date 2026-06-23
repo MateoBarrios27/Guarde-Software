@@ -13,6 +13,7 @@ export interface CashFlowItem {
   displayOrder?: number;
   replicationState: number;
   color?: string;
+  rowNum?: number;
 }
 
 export interface MonthlySummary {

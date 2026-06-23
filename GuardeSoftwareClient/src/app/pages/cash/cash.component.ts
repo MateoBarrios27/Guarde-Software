@@ -415,26 +415,39 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   addNewRow(): void {
-    const newItem: CashFlowItem = {
-      date: null as any,
-      description: '',
-      comment: '',
-      depo: null as any, 
-      casa: null as any, 
-      isPaid: false, 
-      retiros: null as any, 
-      extras: null as any,
-      iaia: null as any, 
-      replicationState: 0,
-      color: null as any // Para el color
-    };
-    
-    this.items.push(newItem);
-    this.searchTerm = ''; 
-    this.searchDateFrom = '';
-    this.searchDateTo = '';
-    this.filterItems();
+  const today = new Date();
+  let defaultDate = '';
+  
+  // Si el mes seleccionado es el actual, ponemos la fecha de hoy. Si no, ponemos el día 1 del mes seleccionado.
+  if (this.selectedYear === today.getFullYear() && this.selectedMonth === (today.getMonth() + 1)) {
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(this.selectedMonth).padStart(2, '0');
+    defaultDate = `${this.selectedYear}-${mm}-${dd}`;
+  } else {
+    const mm = String(this.selectedMonth).padStart(2, '0');
+    defaultDate = `${this.selectedYear}-${mm}-01`;
   }
+
+  const newItem: CashFlowItem = {
+    date: defaultDate,
+    description: '',
+    comment: '',
+    depo: null as any, 
+    casa: null as any, 
+    isPaid: false, 
+    retiros: null as any, 
+    extras: null as any,
+    iaia: null as any, 
+    replicationState: 0,
+    color: null as any
+  };
+  
+  this.items.push(newItem);
+  this.searchTerm = ''; 
+  this.searchDateFrom = '';
+  this.searchDateTo = '';
+  this.filterItems();
+}
 
   toggleReplication(item: CashFlowItem): void {
     this.captureItem(item);
@@ -538,41 +551,66 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  filterItems(): void {
-    const term = this.searchTerm.toLowerCase().trim();
-    
-    if (this.searchDateFrom && this.searchDateTo) {
-      if (!this.isHistoricalView) this.clearItemSelection();
-      
-      this.isHistoricalView = true;
-      this.isLoading = true;
-      
-      this.cashService.getHistoricalReport(this.searchDateFrom, this.searchDateTo).subscribe({
-        next: (data) => {
-          data.forEach((item, index) => item.id = -(index + 1));
-          
-          this.filteredItems = data.filter(item => !term || (item.description || '').toLowerCase().includes(term));
-          this.calculateTableTotals();
-          this.isLoading = false;
-        },
-        error: () => {
-          this.isLoading = false;
-          Swal.fire('Error', 'No se pudo generar el reporte histórico', 'error');
-        }
-      });
-    } 
-    else {
-      if (this.isHistoricalView) this.clearItemSelection();
-      
-      this.isHistoricalView = false;
-      this.filteredItems = this.items.filter(item => {
-        const matchesText = !term || (item.description || '').toLowerCase().includes(term);
-        const matchesDate = !this.searchDateFrom || item.date === this.searchDateFrom;
-        return matchesText && matchesDate;
-      });
-      this.calculateTableTotals();
-    }
+  // 1. Agregá este método para forzar la fecha del calendario al hacer clic
+setDefaultDate(item: any): void {
+  if (!item.date) {
+    const mm = String(this.selectedMonth).padStart(2, '0');
+    item.date = `${this.selectedYear}-${mm}-01`;
+    // Disparamos el guardado automático
+    if (this.checkItemChange) this.checkItemChange(item);
+    if (this.onItemChange) this.onItemChange(item);
   }
+}
+
+// 2. Reemplazá tu método filterItems() por esta versión "omnipotente"
+filterItems(): void {
+  const term = this.searchTerm.toLowerCase().trim();
+  
+  if (this.searchDateFrom && this.searchDateTo) {
+    if (!this.isHistoricalView) this.clearItemSelection();
+    this.isHistoricalView = true;
+    this.isLoading = true;
+    
+    this.cashService.getHistoricalReport(this.searchDateFrom, this.searchDateTo).subscribe({
+      next: (data) => {
+        data.forEach((item, index) => {
+          item.id = -(index + 1);
+          item.rowNum = index + 1; 
+        });
+        
+        this.filteredItems = data.filter(item => {
+          if (!term) return true;
+          // Buscador global (Busca por monto, nro de fila, concepto, nota, etc)
+          const searchStr = `${item.rowNum} ${item.description || ''} ${item.comment || ''} ${item.depo || ''} ${item.casa || ''} ${item.retiros || ''} ${item.iaia || ''}`.toLowerCase();
+          return searchStr.includes(term);
+        });
+        
+        this.calculateTableTotals();
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        Swal.fire('Error', 'No se pudo generar el reporte histórico', 'error');
+      }
+    });
+  } 
+  else {
+    if (this.isHistoricalView) this.clearItemSelection();
+    this.isHistoricalView = false;
+
+    this.items.forEach((item, index) => {
+      item.rowNum = index + 1;
+    });
+
+    this.filteredItems = this.items.filter(item => {
+      const searchStr = `${item.rowNum} ${item.description || ''} ${item.comment || ''} ${item.depo || ''} ${item.casa || ''} ${item.retiros || ''} ${item.iaia || ''}`.toLowerCase();
+      const matchesText = !term || searchStr.includes(term);
+      const matchesDate = !this.searchDateFrom || item.date === this.searchDateFrom;
+      return matchesText && matchesDate;
+    });
+    this.calculateTableTotals();
+  }
+}
 
   clearDateFilter(): void {
     this.searchDateFrom = '';
@@ -808,17 +846,92 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   dropItem(event: CdkDragDrop<CashFlowItem[]>) {
-    if (this.isHistoricalView) return; // Deshabilitar drag en histórico
-    moveItemInArray(this.filteredItems, event.previousIndex, event.currentIndex);
-    const reorderedItems = this.filteredItems.map((item, index) => ({ id: item.id, displayOrder: index }));
+    if (this.isHistoricalView) return; 
+
+    const draggedItem = this.filteredItems[event.previousIndex];
+    const isMultiDrag = this.selectedItemIds.length > 1 && this.selectedItemIds.includes(draggedItem.id!);
+
+    if (isMultiDrag) {
+      const itemsToMove = this.filteredItems.filter(item => this.selectedItemIds.includes(item.id!));
+      const remainingItems = this.filteredItems.filter(item => !this.selectedItemIds.includes(item.id!));
+      
+      // Simulamos el movimiento del ítem que el usuario agarró
+      const simulated = [...this.filteredItems];
+      moveItemInArray(simulated, event.previousIndex, event.currentIndex);
+      
+      // Contamos cuántos ítems "NO seleccionados" quedaron por encima de la posición de destino
+      let unselectedBeforeTarget = 0;
+      for (let i = 0; i < event.currentIndex; i++) {
+          if (!this.selectedItemIds.includes(simulated[i].id!)) {
+              unselectedBeforeTarget++;
+          }
+      }
+
+      // Insertamos el bloque completo justo después de esos elementos
+      remainingItems.splice(unselectedBeforeTarget, 0, ...itemsToMove);
+      this.filteredItems = remainingItems;
+    } else {
+      moveItemInArray(this.filteredItems, event.previousIndex, event.currentIndex);
+    }
+
+    // Reasignamos el orden y estampamos el nuevo N° de fila para que se actualice visualmente
+    const reorderedItems = this.filteredItems.map((item, index) => {
+      item.displayOrder = index;
+      (item as any).rowNum = index + 1; 
+
+      const originalItem = this.items.find(i => i.id === item.id);
+      if (originalItem) {
+          originalItem.displayOrder = index;
+          (originalItem as any).rowNum = index + 1; 
+      }
+
+      return { id: item.id!, displayOrder: index };
+    });
+    
+    this.sortItems(); 
     this.cashService.updateItemsOrder(reorderedItems).subscribe();
   }
 
-  dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
+  getSelectedAccountsList(): FinancialAccount[] {
+  return this.accounts.filter(acc => this.selectedAccountIds.includes(acc.id!));
+}
+
+// 2. Método dropAccount con soporte de multi-drag y cálculo milimétrico de inserción
+dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
+  const draggedAccount = this.accounts[event.previousIndex];
+  const isMultiDrag = this.selectedAccountIds.length > 1 && this.selectedAccountIds.includes(draggedAccount.id!);
+
+  if (isMultiDrag) {
+    const accountsToMove = this.accounts.filter(acc => this.selectedAccountIds.includes(acc.id!));
+    const remainingAccounts = this.accounts.filter(acc => !this.selectedAccountIds.includes(acc.id!));
+    
+    // Simulamos el movimiento del ítem que el usuario agarró
+    const simulated = [...this.accounts];
+    moveItemInArray(simulated, event.previousIndex, event.currentIndex);
+    
+    // Contamos cuántas cuentas "NO seleccionadas" quedaron por encima de la posición de destino
+    let unselectedBeforeTarget = 0;
+    for (let i = 0; i < event.currentIndex; i++) {
+        if (!this.selectedAccountIds.includes(simulated[i].id!)) {
+            unselectedBeforeTarget++;
+        }
+    }
+
+    // Insertamos el bloque completo justo después de esos elementos
+    remainingAccounts.splice(unselectedBeforeTarget, 0, ...accountsToMove);
+    this.accounts = remainingAccounts;
+  } else {
     moveItemInArray(this.accounts, event.previousIndex, event.currentIndex);
-    const reorderedAccounts = this.accounts.map((acc, index) => ({ id: acc.id!, displayOrder: index }));
-    this.cashService.updateAccountsOrder(reorderedAccounts).subscribe();
   }
+
+  // Reasignamos el orden de display
+  const reorderedAccounts = this.accounts.map((acc, index) => {
+    acc.displayOrder = index;
+    return { id: acc.id!, displayOrder: index };
+  });
+  
+  this.cashService.updateAccountsOrder(reorderedAccounts).subscribe();
+}
 
   onExchangeRateChange(): void {
     this.cashService.updateUsdRate(this.usdExchangeRate, this.selectedMonth, this.selectedYear).subscribe();
@@ -946,5 +1059,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       this.ivaCompras.splice(index, 1);
       this.calculateTotalIvaCompras();
     });
+  }
+
+// --- GRAB MULTIPLE ITEMS
+  getSelectedItemsList(): CashFlowItem[] {
+    return this.filteredItems.filter(item => this.selectedItemIds.includes(item.id!));
   }
 }

@@ -1,923 +1,758 @@
-<div class="flex flex-col mb-3 min-h-screen bg-gray-100 font-inter relative pt-6">
+<div class="flex flex-col mb-3 min-h-screen bg-[#f4f7f9] font-inter relative pt-6 px-2 md:px-6">
 
   <div #topAnchor class="absolute top-0 w-full h-[600px] -z-10 opacity-0 pointer-events-none"></div>
 
-  <div class="flex flex-col mb-6 md:flex-row md:items-center justify-between gap-4 md:gap-4 bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
-    
-  <div class="flex-1 text-center md:text-left">
-    <h1 class="text-xl font-semibold text-gray-900">Gestión de Saldos y Gastos</h1>
-    <p class="text-gray-500 text-sm mt-1">Caja del mes de {{ monthName }}.</p>
-  </div>
+  <div class="flex flex-col mb-6 md:flex-row md:items-center justify-between gap-4 bg-white p-4 md:p-5 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60">
+    <div class="flex-1 text-center md:text-left">
+      <h1 class="text-xl font-bold text-gray-900 tracking-tight">Gestión de Saldos y Gastos</h1>
+      <p class="text-gray-400 text-sm mt-0.5 font-medium">Control financiero • {{ monthName }}</p>
+    </div>
 
-  <div class="flex-1 flex justify-center py-2 md:py-0">
-    <h2 class="text-2xl md:text-3xl font-bold text-black-900 capitalize tracking-wide">
-      {{ monthName }}
-    </h2>
-  </div>
-
-  <div class="flex-1 flex justify-center md:justify-end w-full md:w-auto">
-    <div class="flex items-center justify-between md:justify-center w-full sm:w-auto gap-2 sm:gap-4 bg-gray-50 p-1 rounded-lg">
-      <button (click)="changeMonth(-1)" 
-              [disabled]="selectedYear === 2026 && selectedMonth === 1"
-              [ngClass]="{'opacity-50 cursor-not-allowed': selectedYear === 2026 && selectedMonth === 1}"
-              class="p-2 hover:bg-white rounded-md transition shadow-sm flex-shrink-0">
-        <app-icon name="chevron-left" class="h-4 w-4"></app-icon>
-      </button>
-      
-      <span class="px-2 sm:px-4 py-1 flex-1 md:flex-none md:min-w-[160px] text-center text-sm font-medium text-gray-700 capitalize truncate">
-        {{ monthName }}
-      </span>
-      
-      <button (click)="changeMonth(1)" 
-              class="p-2 hover:bg-white rounded-md transition shadow-sm flex-shrink-0">
-        <app-icon name="chevron-right" class="h-4 w-4"></app-icon>
-      </button>
+    <div class="flex-1 flex justify-center md:justify-end w-full md:w-auto">
+      <div class="flex items-center bg-gray-50/80 p-1 rounded-xl border border-gray-100 shadow-inner w-full sm:w-auto justify-between sm:justify-start">
+        <button (click)="changeMonth(-1)" [disabled]="selectedYear === 2026 && selectedMonth === 1" [ngClass]="{'opacity-30 cursor-not-allowed': selectedYear === 2026 && selectedMonth === 1}" class="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all flex-shrink-0 text-gray-500 hover:text-gray-800">
+          <app-icon name="chevron-left" class="h-4 w-4 stroke-[2.5]"></app-icon>
+        </button>
+        <span class="px-3 md:px-6 py-1 min-w-[120px] text-center text-sm font-semibold text-gray-800 capitalize select-none">{{ monthName }}</span>
+        <button (click)="changeMonth(1)" class="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all flex-shrink-0 text-gray-500 hover:text-gray-800">
+          <app-icon name="chevron-right" class="h-4 w-4 stroke-[2.5]"></app-icon>
+        </button>
+      </div>
     </div>
   </div>
-  
-</div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start pb-6 bg-gray-100">
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start pb-6">
     
-    <div class="lg:col-span-2 flex flex-col gap-4">
+    <div class="lg:col-span-2 flex flex-col gap-5">
       
-      <div class="bg-gray-50 rounded-xl shadow-md border p-5 space-y-4">
-      <h3 class="font-bold text-gray-800 border-b pb-2">Resumen Financiero</h3>
-      
-      <div class="space-y-3 text-sm">
-        
-        <div class="flex justify-between items-center">
-          <span class="text-gray-600 flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-gray-400"></div> Ingresos Sistema (Alquileres)
-          </span>
-          <div class="flex flex-col items-end">
-            <span class="font-bold text-gray-400 leading-tight">$ {{ (summary.totalSystemIncome || 0) | number:'1.2-2' }}</span>
-            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.totalSystemIncome || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
-          </div>
-        </div>
-
-        <div class="flex justify-between items-center">
-          <span class="text-gray-600 flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-gray-400"></div> Pagos Adelantados
-          </span>
-          <div class="flex flex-col items-end">
-            <span class="font-bold text-gray-400 leading-tight">$ {{ (summary.totalAdvancePayments || 0) | number:'1.2-2' }}</span>
-            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.totalAdvancePayments || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
-          </div>
-        </div>
-
-        <div class="flex justify-between items-center">
-          <span class="text-gray-600 flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-gray-400"></div> Abonos
-          </span>
-          <div class="flex flex-col items-end">
-            <span class="font-bold text-gray-400 leading-tight">$ {{ (summary.abono || 0) | number:'1.2-2' }}</span>
-            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.abono || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
-          </div>
-        </div>
-
-        <div class="flex justify-between items-center border-t border-dashed pt-2 space-y-2 ">
-          <span class="text-gray-600 flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-gray-400"></div> Ingresos Brutos
-          </span>
-          <div class="flex flex-col items-end">
-            <span class="font-bold text-gray-400 leading-tight">$ {{ 0 || 0 | number:'1.2-2' }}</span>
-            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ 0 || 0 / (usdExchangeRate || 1) | number:'1.2-2' }}</span>
-          </div>
-        </div>
-
-        <div class="flex justify-between items-center v">
-          <span class="text-gray-600 flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-purple-500"></div> IVA Ventas
-          </span>
-          <div class="flex flex-col items-end">
-            <span class="font-bold text-purple-700 leading-tight">$ {{ (summary.ivaFacturaA + summary.ivaFacturaB || 0) | number:'1.2-2' }}</span>
-            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((summary.ivaFacturaA + summary.ivaFacturaB || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
-          </div>
-        </div>
-
-        <div class="flex justify-between items-center">
-          <span class="text-gray-600 flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-purple-500"></div> IVA Compras
-            <button (click)="openIvaComprasModal()" class="ml-2 p-1.5 bg-purple-50 hover:bg-purple-100 rounded border border-purple-200 text-purple-600 transition-colors shadow-sm" title="Gestionar facturas de IVA Compras">
-              <app-icon name="plus" class="w-3.5 h-3.5"></app-icon>
-            </button>
-          </span>
-          <div class="flex flex-col items-end">
-            <span class="font-bold text-purple-700 leading-tight">$ {{  totalIvaCompras | number:'1.2-2' }}</span>
-            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{  totalIvaCompras / (usdExchangeRate || 1) | number:'1.2-2' }}</span>
-          </div>
-        </div>
-
-        <div class="flex justify-between items-center">
-          <span class="text-gray-600 flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-purple-500"></div> Diferencia de IVA (Ventas - Compras) 
-          </span>
-          <div class="flex flex-col items-end">
-            <span class="font-bold text-purple-700 leading-tight">$ {{  (summary.ivaFacturaA + summary.ivaFacturaB) -  totalIvaCompras  || 0 | number:'1.2-2' }}</span>
-            <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{  ((summary.ivaFacturaA + summary.ivaFacturaB) -  totalIvaCompras)  / (usdExchangeRate || 1) | number:'1.2-2' }}</span>
-          </div>
+      <div class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 p-5 md:p-6 flex flex-col">
+        <div class="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
+          <h3 class="font-semibold text-gray-800 text-base">Resumen Financiero</h3>
+          <span class="text-xs font-medium text-gray-400 bg-gray-50 px-2 py-1 rounded-md">{{ monthName | slice:0:3 }}</span>
         </div>
         
-        <div class="border-t border-dashed pt-2 space-y-2">
-
-          <div class="flex justify-between items-center">
-            <span class="text-gray-600 flex items-center gap-2">
-              <div class="w-2 h-2 rounded-full bg-blue-400"></div> Total Depo
-            </span>
+        <div class="flex flex-col text-sm divide-y divide-gray-50/80">
+          <div class="flex justify-between items-center py-2.5">
+            <span class="text-gray-500 font-medium">Ingresos Sistema (Alq.)</span>
             <div class="flex flex-col items-end">
-              <span class="font-semibold text-blue-600 leading-tight">$ {{ totals.depo | number:'1.2-2' }}</span>
-              <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ (totals.depo / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+              <span class="font-semibold text-gray-800">$ {{ (summary.totalSystemIncome || 0) | number:'1.2-2' }}</span>
+              <span class="text-[10px] text-gray-400">≈ U$D {{ ((summary.totalSystemIncome || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
             </div>
           </div>
-
-          <div class="flex justify-between items-center">
-            <span class="text-gray-600 flex items-center gap-2">
-              <div class="w-2 h-2 rounded-full bg-orange-300"></div> Casa + Retiros
-            </span>
+          <div class="flex justify-between items-center py-2.5">
+            <span class="text-gray-500 font-medium">Pagos Adelantados</span>
             <div class="flex flex-col items-end">
-              <span class="font-semibold text-orange-500 leading-tight">$ {{ (totals.casa + totals.retiros) | number:'1.2-2' }}</span>
-              <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ ((totals.casa + totals.retiros) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+              <span class="font-semibold text-gray-800">$ {{ (summary.totalAdvancePayments || 0) | number:'1.2-2' }}</span>
+              <span class="text-[10px] text-gray-400">≈ U$D {{ ((summary.totalAdvancePayments || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
             </div>
           </div>
-
-          <div class="flex justify-between items-center">
-            <span class="text-gray-600 flex items-center gap-2">
-              <div class="w-2 h-2 rounded-full bg-orange-400"></div> Total A Pagar (Depo + Casa)
+          <div class="flex justify-between items-center py-2.5">
+            <span class="text-gray-500 font-medium">Abonos</span>
+            <div class="flex flex-col items-end">
+              <span class="font-semibold text-gray-800">$ {{ (summary.abono || 0) | number:'1.2-2' }}</span>
+              <span class="text-[10px] text-gray-400">≈ U$D {{ ((summary.abono || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+            </div>
+          </div>
+          <div class="flex justify-between items-center py-2.5 bg-gray-50/50 -mx-5 md:-mx-6 px-5 md:px-6 border-y border-gray-100 my-1">
+            <span class="text-gray-700 font-semibold">Ingresos Brutos</span>
+            <div class="flex flex-col items-end"><span class="font-bold text-gray-900">$ {{ 0 || 0 | number:'1.2-2' }}</span></div>
+          </div>
+          <div class="flex justify-between items-center py-2.5">
+            <span class="text-gray-500 font-medium flex items-center gap-2"><div class="w-1.5 h-4 rounded-full bg-purple-400"></div> IVA Ventas</span>
+            <div class="flex flex-col items-end"><span class="font-semibold text-purple-700">$ {{ (summary.ivaFacturaA + summary.ivaFacturaB || 0) | number:'1.2-2' }}</span></div>
+          </div>
+          <div class="flex justify-between items-center py-2.5">
+            <span class="text-gray-500 font-medium flex items-center gap-2"><div class="w-1.5 h-4 rounded-full bg-purple-400"></div> IVA Compras
+              <button (click)="openIvaComprasModal()" class="ml-1 p-1 bg-white border border-gray-200 hover:border-purple-300 rounded-md text-gray-400 hover:text-purple-600 transition-colors shadow-sm" title="Gestionar facturas"><app-icon name="plus" class="w-3 h-3 stroke-[3]"></app-icon></button>
             </span>
-              <div class="flex flex-col items-end">
-                <span class="font-semibold text-orange-600 leading-tight">$ {{ totals.aPagar | number:'1.2-2' }}</span>
-                <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ (totals.aPagar / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
-              </div>
-            </div>
-            <div class="flex justify-between items-center">
-              <span class="text-gray-600 flex items-center gap-2">
-                <div class="w-2 h-2 rounded-full bg-green-500"></div> Total Pagado
-              </span>
-              <div class="flex flex-col items-end">
-                <span class="font-semibold text-green-600 leading-tight">- $ {{ totals.pagado | number:'1.2-2' }}</span>
-                <span class="text-[10px] text-gray-400 font-medium">≈ U$D {{ (totals.pagado / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
-              </div>
-            </div>
-            <div class="flex justify-between items-center bg-blue-50 p-2 rounded border border-blue-100 mt-1">
-              <span class="text-blue-800 font-bold text-xs uppercase tracking-wider flex items-center gap-1">
-                Falta Cobrar
-              </span>
-              <div class="flex flex-col items-end">
-                <span class="font-bold text-blue-700 leading-tight">$ {{ summary.pendingCollection | number:'1.2-2' }}</span>
-                <span class="text-[10px] text-blue-500 font-medium">≈ U$D {{ (summary.pendingCollection / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
-              </div>
-            </div>
-
-            <div class="flex justify-between items-center bg-red-50 p-2 rounded border border-red-100 mt-1">
-              <span class="text-red-800 font-bold text-xs uppercase tracking-wider">Falta Pagar</span>
-              <div class="flex flex-col items-end">
-                <span class="font-bold text-red-700 leading-tight">$ {{ totals.faltaPagar | number:'1.2-2' }}</span>
-                <span class="text-[10px] text-red-500 font-medium">≈ U$D {{ (totals.faltaPagar / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
-              </div>
-            </div>
+            <div class="flex flex-col items-end"><span class="font-semibold text-purple-700">$ {{ totalIvaCompras | number:'1.2-2' }}</span></div>
           </div>
-
-          <div class="flex justify-between items-center pt-1 border-t border-dashed">
-             <span class="text-gray-500 text-xs">Otras Salidas (Retiros + Extras)</span>
-             <div class="flex flex-col items-end">
-               <span class="text-gray-500 text-xs font-semibold leading-tight">- $ {{ (totals.retiros + totals.extras) | number:'1.2-2' }}</span>
-               <span class="text-[9px] text-gray-400 font-medium">≈ U$D {{ ((totals.retiros + totals.extras) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
-             </div>
+          <div class="flex justify-between items-center py-2.5">
+            <span class="text-gray-600 font-medium">Dif. IVA (Ventas - Compras)</span>
+            <div class="flex flex-col items-end"><span class="font-semibold text-purple-700">$ {{ (summary.ivaFacturaA + summary.ivaFacturaB) - totalIvaCompras || 0 | number:'1.2-2' }}</span></div>
           </div>
           
-          <div class="mt-4 pt-3 border-t-2 border-gray-100 flex justify-between items-center">
-            <span class="text-lg font-bold text-gray-800">Caja Real (Ganancia)</span>
+          <div class="py-2 mt-2"></div>
+
+          <div class="flex justify-between items-center py-2.5 border-t border-gray-100">
+            <span class="text-gray-500 font-medium flex items-center gap-2"><div class="w-1.5 h-4 rounded-full bg-blue-400"></div> Total Depo</span>
+            <div class="flex flex-col items-end"><span class="font-semibold text-blue-700">$ {{ totals.depo | number:'1.2-2' }}</span></div>
+          </div>
+          <div class="flex justify-between items-center py-2.5">
+            <span class="text-gray-500 font-medium flex items-center gap-2"><div class="w-1.5 h-4 rounded-full bg-orange-400"></div> Casa + Retiros</span>
+            <div class="flex flex-col items-end"><span class="font-semibold text-orange-600">$ {{ (totals.casa + totals.retiros) | number:'1.2-2' }}</span></div>
+          </div>
+          <div class="flex justify-between items-center py-2.5">
+            <span class="text-gray-700 font-semibold">Total A Pagar <span class="text-xs text-gray-400 font-normal">(Depo + Casa)</span></span>
+            <div class="flex flex-col items-end"><span class="font-bold text-gray-900">$ {{ totals.aPagar | number:'1.2-2' }}</span></div>
+          </div>
+          <div class="flex justify-between items-center py-2.5">
+            <span class="text-green-600 font-medium flex items-center gap-2">Total Pagado</span>
+            <div class="flex flex-col items-end"><span class="font-semibold text-green-600">- $ {{ totals.pagado | number:'1.2-2' }}</span></div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 py-3">
+            <div class="bg-blue-50/50 border border-blue-100/60 rounded-xl p-3 flex flex-col justify-center overflow-hidden">
+              <span class="text-[10px] uppercase tracking-wider font-bold text-blue-600/80 mb-1 truncate">Falta Cobrar</span>
+              <span class="font-bold text-blue-700 text-sm truncate">$ {{ summary.pendingCollection | number:'1.2-2' }}</span>
+            </div>
+            <div class="bg-red-50/50 border border-red-100/60 rounded-xl p-3 flex flex-col justify-center overflow-hidden">
+              <span class="text-[10px] uppercase tracking-wider font-bold text-red-600/80 mb-1 truncate">Falta Pagar</span>
+              <span class="font-bold text-red-700 text-sm truncate">$ {{ totals.faltaPagar | number:'1.2-2' }}</span>
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center py-2.5 text-gray-400">
+             <span class="text-xs font-medium">Otras Salidas (Retiros + Extras)</span>
+             <span class="text-xs font-semibold">- $ {{ (totals.retiros + totals.extras) | number:'1.2-2' }}</span>
+          </div>
+          
+          <div class="mt-2 pt-4 border-t border-gray-200 flex justify-between items-center">
+            <div>
+              <span class="block text-sm font-semibold text-gray-500 uppercase tracking-wide">Caja Real</span>
+              <span class="block text-[10px] text-gray-400">Ganancia neta</span>
+            </div>
             <div class="flex flex-col items-end">
-              <span class="text-xl font-bold leading-tight" [ngClass]="summary.netBalance >= 0 ? 'text-gray-600' : 'text-gray-600'">
-                $ {{ summary.netBalance | number:'1.2-2' }}
-              </span>
-              <span class="text-xs text-gray-500 font-medium mt-0.5">
-                ≈ U$D {{ (summary.netBalance / (usdExchangeRate || 1)) | number:'1.2-2' }}
-              </span>
+              <span class="text-xl md:text-2xl font-bold tracking-tight text-gray-900">$ {{ summary.netBalance | number:'1.2-2' }}</span>
+              <span class="text-xs text-gray-400 font-medium mt-0.5">≈ U$D {{ (summary.netBalance / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div *ngIf="selectedAccountIds.length > 0" 
-           class="bg-white rounded-xl shadow-sm border-2 border-indigo-200 p-5 mt-4 animate-fade-in-down"
-           (click)="$event.stopPropagation()">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="font-bold flex items-center gap-2 text-indigo-900">
-            <app-icon name="check-square" class="h-5 w-5 text-indigo-500"></app-icon>
-            Suma Seleccionada ({{ selectedAccountIds.length }})
+      <div *ngIf="selectedAccountIds.length > 0" class="bg-indigo-50/50 rounded-2xl shadow-sm border border-indigo-200/60 p-5 animate-fade-in-down" (click)="$event.stopPropagation()">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold flex items-center gap-2 text-indigo-900 text-sm">
+            <app-icon name="check-square" class="h-4 w-4 text-indigo-600"></app-icon> Cuentas Sel. ({{ selectedAccountIds.length }})
           </h3>
-          <button (click)="selectedAccountIds = []" class="text-gray-400 hover:text-red-500 transition-colors" title="Limpiar selección">
-            <app-icon name="x" class="h-5 w-5"></app-icon>
-          </button>
+          <button (click)="selectedAccountIds = []" class="text-gray-400 hover:text-red-500 transition-colors"><app-icon name="x" class="h-4 w-4"></app-icon></button>
         </div>
         <div class="flex justify-between items-end">
-          <span class="text-sm text-gray-500 font-medium">Total en ARS</span>
-          <span class="text-2xl font-black tracking-tight text-indigo-700">$ {{ selectedAccountsSumARS | number:'1.2-2' }}</span>
+          <span class="text-xs text-gray-500 font-medium">Total en ARS</span>
+          <span class="text-xl font-black tracking-tight text-indigo-700">$ {{ selectedAccountsSumARS | number:'1.2-2' }}</span>
         </div>
-        <div class="flex justify-between items-end mt-2 border-t border-gray-100 pt-2">
-          <span class="text-[11px] text-gray-400 uppercase tracking-wider font-bold">Equivalente USD</span>
-          <span class="text-sm font-bold text-indigo-500/80">≈ U$D {{ (selectedAccountsSumARS / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+        <div class="flex justify-between items-end mt-1.5 pt-1.5 border-t border-indigo-100/60">
+          <span class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Equivalente USD</span>
+          <span class="text-xs font-bold text-indigo-600/80">≈ U$D {{ (selectedAccountsSumARS / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
         </div>
+      </div>
+
+      <div *ngIf="selectedItemIds.length > 0" class="bg-blue-50/50 rounded-2xl shadow-sm border border-blue-200/60 p-5 animate-fade-in-down" (click)="$event.stopPropagation()">
+         <div class="flex items-center justify-between mb-3">
+           <h3 class="font-bold flex items-center gap-2 text-blue-900 text-sm">
+             <app-icon name="check-square" class="h-4 w-4 text-blue-600"></app-icon> Conceptos Sel. ({{ selectedItemIds.length }})
+           </h3>
+           <button (click)="clearItemSelection()" class="text-gray-400 hover:text-red-500 transition-colors"><app-icon name="x" class="h-4 w-4"></app-icon></button>
+         </div>
+         <div class="flex justify-between items-end">
+           <span class="text-xs text-gray-500 font-medium">Total en ARS</span>
+           <span class="text-xl font-black tracking-tight text-blue-700">$ {{ selectedItemsSumARS | number:'1.2-2' }}</span>
+         </div>
+         <div class="flex justify-between items-end mt-1.5 pt-1.5 border-t border-blue-100/60">
+           <span class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Equivalente USD</span>
+           <span class="text-xs font-bold text-blue-600/80">≈ U$D {{ (selectedItemsSumARS / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+         </div>
       </div>
 
     </div>
 
-    <div #saldosContainer class="lg:col-span-3 bg-gray-50 rounded-xl shadow-md border p-5 flex flex-col h-full">
+    <div #saldosContainer class="lg:col-span-3 bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 p-0 flex flex-col">
       
-      <h3 class="font-bold text-gray-800 border-b pb-2 mb-4 flex justify-between items-center flex-wrap gap-2">
-          <div class="flex items-center gap-3">
-            Saldos Disponibles
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 p-5 md:p-6 gap-3">
+        <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Saldos Disponibles</h3>
+        <div class="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 w-full sm:w-auto justify-between sm:justify-start">
+          <span class="text-[10px] uppercase tracking-wider font-semibold text-gray-500">Cotización U$D:</span>
+          <div class="relative flex items-center">
+            <span class="text-green-600 font-bold mr-1 text-sm">$</span>
+            <input type="text" [(ngModel)]="usdExchangeRate" appCurrencyFormat (keydown.enter)="blurInput($event)" (input)="onExchangeRateChange()" class="w-16 p-0 text-sm font-bold text-gray-800 bg-transparent border-none focus:ring-0 text-right hide-arrows transition-colors focus:text-green-700">
           </div>
-          
-          <div class="flex items-center gap-2 bg-green-50 px-2 py-1 rounded border border-green-200 shadow-sm">
-            <span class="text-[11px] uppercase tracking-wider font-bold text-green-700">Cotización U$D:</span>
-            <div class="relative flex items-center">
-              <span class="text-green-700 font-bold mr-1">$</span>
-              <input type="text" 
-                     [(ngModel)]="usdExchangeRate"
-                     appCurrencyFormat 
-                     (keydown.enter)="blurInput($event)"
-                     (input)="onExchangeRateChange()" 
-                     class="w-20 p-0 text-sm font-bold text-green-800 bg-transparent border-none focus:ring-0 text-right hide-arrows">
-            </div>
-          </div>
-      </h3>
+        </div>
+      </div>
       
-      <div class="overflow-x-auto overflow-y-hidden">
-          <table class="w-full text-sm text-left border-collapse bg-gray-50 rounded-lg">
+      <div class="overflow-x-auto overflow-y-hidden flex-1 w-full border-b border-gray-100 custom-scrollbar">
+          <table class="w-full min-w-[500px] text-sm text-left border-collapse bg-white">
             <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropAccount($event)" cdkDropListScrollContainer="#main-scroll">
               
               <tr *ngFor="let account of accounts; let i = index" 
                   cdkDrag 
                   (click)="toggleAccountSelection(account)"
-                  class="group transition-all cursor-pointer border-l-4"
-                  [ngClass]="selectedAccountIds.includes(account.id!) ? 'bg-indigo-50/80 border-indigo-500 shadow-inner' : 'bg-white border-transparent hover:bg-blue-50/30'">
+                  class="group transition-colors cursor-pointer"
+                  [ngClass]="selectedAccountIds.includes(account.id!) ? 'bg-indigo-50/40' : 'hover:bg-gray-50/60'">
                 
-                <td class="p-2 w-16 align-middle">
-                  <div class="flex items-center gap-2 justify-start h-full">
-                    <button (click)="deleteAccount(account, i); $event.stopPropagation()" 
-                            class="text-gray-400 hover:text-red-600 p-1 opacity-60 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center" 
-                            title="Eliminar cuenta">
-                      <app-icon name="Trash2" class="h-4 w-4"></app-icon>
-                    </button>
-                    <div cdkDragHandle 
-                         (click)="$event.stopPropagation()"
-                         class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 p-1 opacity-60 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center">
-                      <app-icon name="grip-vertical" class="h-4 w-4"></app-icon>
-                    </div>
+                <div *cdkDragPreview class="bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] rounded-xl border border-gray-200 overflow-hidden ring-1 ring-black/5" style="min-width: 450px; box-sizing: border-box; display: table;">
+                  <table class="w-full text-sm text-left border-collapse"><tbody class="divide-y divide-gray-100/60">
+                      <ng-container *ngIf="selectedAccountIds.includes(account.id!) && selectedAccountIds.length > 1; else singleAccountPreview">
+                        <tr *ngFor="let sAcc of getSelectedAccountsList()" class="bg-indigo-50/40 border-l-[3px] border-indigo-500">
+                          <ng-container *ngTemplateOutlet="previewAccountTemplate; context: { $implicit: sAcc }"></ng-container>
+                        </tr>
+                      </ng-container>
+                      <ng-template #singleAccountPreview>
+                        <tr class="bg-white border-l-[3px] border-transparent shadow-sm">
+                          <ng-container *ngTemplateOutlet="previewAccountTemplate; context: { $implicit: account }"></ng-container>
+                        </tr>
+                      </ng-template>
+                  </tbody></table>
+                </div>
+
+                <td class="p-3 w-10 md:w-12 align-middle text-center border-l-[3px] transition-colors" [ngClass]="selectedAccountIds.includes(account.id!) ? 'border-indigo-500' : 'border-transparent'">
+                  <div class="flex items-center justify-center h-full">
+                    <div cdkDragHandle (click)="$event.stopPropagation()" class="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><app-icon name="grip-vertical" class="h-4 w-4"></app-icon></div>
                   </div>
                 </td>
 
-                <td class="p-2 align-middle">
-                  <div class="flex items-center gap-2">
-                    <input type="color" 
-                           (click)="$event.stopPropagation()"
-                           (focus)="captureAccount(account)"
-                           [(ngModel)]="account.color" 
-                           (change)="checkAccountChange(account); onAccountColorChange(account)"
-                           title="Cambiar color de esta cuenta"
-                           class="w-2 h-11 cursor-pointer bg-transparent">
-                        <div class="w-full">
-                          <input type="text" 
-                                (click)="$event.stopPropagation()"
-                                (focus)="captureAccount(account)"
-                                [(ngModel)]="account.name" 
-                                (change)="checkAccountChange(account); onAccountNameChange(account)"
-                                (keydown.enter)="blurInput($event)"
-                                [style.color]="account.color || '#1f2937'"
-                                class="font-semibold text-base transition-colors bg-transparent border-none p-0 focus:ring-1 focus:ring-blue-300 rounded w-full overflow-hidden text-ellipsis m-0 shadow-none focus:bg-white/50"
-                                placeholder="Nombre de la cuenta...">
-                                
-                          <div class="text-xs font-bold tracking-wide" 
-                              [ngClass]="account.currency === 'USD' ? 'text-green-600' : 'text-gray-500'">
-                            {{ account.type }} • {{ account.currency || 'ARS' }}
-                          </div>
-                        </div>
+                <td class="p-3 align-middle relative group/desc">
+                  <div class="flex items-center gap-3">
+                    <div class="relative w-3 h-8 flex-shrink-0">
+                      <input type="color" (click)="$event.stopPropagation()" (focus)="captureAccount(account)" [(ngModel)]="account.color" (change)="checkAccountChange(account); onAccountColorChange(account)" title="Cambiar color" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                      <div class="w-full h-full rounded-md shadow-sm border border-black/10" [style.backgroundColor]="account.color || '#1f2937'"></div>
+                    </div>
+                    <div class="w-full min-w-[150px] pr-12 md:pr-16 flex-1">
+                      <input type="text" (click)="$event.stopPropagation()" (focus)="captureAccount(account)" [(ngModel)]="account.name" (change)="checkAccountChange(account); onAccountNameChange(account)" (keydown.enter)="blurInput($event)" class="font-semibold text-sm transition-colors bg-transparent border-none p-0 focus:ring-1 focus:ring-blue-300 rounded w-full overflow-hidden text-ellipsis m-0 shadow-none text-gray-800" placeholder="Nombre de la cuenta...">
+                      <div class="text-[10px] font-semibold tracking-wider uppercase mt-0.5" [ngClass]="account.currency === 'USD' ? 'text-green-600' : 'text-gray-400'">{{ account.type }} • {{ account.currency || 'ARS' }}</div>
+                    </div>
+                    <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center p-1 bg-white/80 backdrop-blur-md shadow-sm border border-gray-200/80 rounded-lg transition-all duration-200 z-10" [ngClass]="selectedAccountIds.includes(account.id!) ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2 pointer-events-none group-hover/desc:opacity-100 group-hover/desc:translate-x-0 group-hover/desc:pointer-events-auto'">
+                      <button (click)="$event.stopPropagation()" title="Sin comentarios" class="w-7 h-7 flex items-center justify-center rounded-md transition-colors text-gray-300 cursor-not-allowed"><app-icon name="message-square" class="w-[15px] h-[15px] block"></app-icon></button>
+                      <div class="w-px h-4 bg-gray-200 mx-0.5"></div>
+                      <button (click)="toggleAccountSelection(account); $event.stopPropagation()" title="Seleccionar cuenta" class="w-7 h-7 flex items-center justify-center rounded-md transition-colors group/chk hover:bg-gray-50">
+                         <div class="w-4 h-4 rounded border flex items-center justify-center transition-all duration-200" [ngClass]="selectedAccountIds.includes(account.id!) ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'border-gray-300 bg-white group-hover/chk:border-indigo-400'">
+                              <app-icon name="check" class="w-3 h-3 stroke-[3] transition-transform duration-200" [ngClass]="selectedAccountIds.includes(account.id!) ? 'scale-100 opacity-100' : 'scale-0 opacity-0'"></app-icon>
+                         </div>
+                      </button>
+                    </div>
                   </div>
                 </td>
                 
-                <td class="p-2 align-middle text-right group/amt">
-                  <div class="flex flex-col items-end justify-center w-full">
-                    <div class="flex items-center justify-end">
-                      <span class="font-bold mr-2 text-right transition-colors">
-                        {{ account.currency === 'USD' ? 'U$D' : '$' }}
-                      </span>
-                      <div class="relative w-48">
-                        <button *ngIf="account.balance != 0" 
-                                (click)="clearAccountBalance(account); $event.stopPropagation()" tabindex="-1"
-                                class="absolute left-2 top-0 bottom-0 flex items-center opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar saldo a 0">
-                          <app-icon name="Trash2" class="h-4 w-4 block"></app-icon>
-                        </button>
-                        <input type="text" 
-                               (click)="$event.stopPropagation()"
-                               (focus)="captureAccount(account)"
-                               [(ngModel)]="account.balance" 
-                               (blur)="checkAccountChange(account); onAccountChange(account)"
-                               (keydown.enter)="blurInput($event)"
-                               appCurrencyFormat 
-                               class="w-full pl-8 pr-2 py-1 text-base font-bold text-right bg-transparent border-none focus:ring-1 focus:ring-blue-300 rounded transition-colors">
+                <td class="p-3 align-middle text-right group/amt w-32 md:w-48">
+                  <div class="relative w-full px-1 flex items-center justify-end h-full min-h-[38px]">
+                    <button *ngIf="account.balance != 0" (click)="clearAccountBalance(account); $event.stopPropagation()" tabindex="-1" class="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-red-500 opacity-0 group-hover/amt:opacity-100 transition-opacity z-10 p-1 bg-white rounded shadow-sm border border-gray-100"><app-icon name="Trash2" class="h-3.5 w-3.5 block"></app-icon></button>
+                    <div class="flex flex-col w-full items-end">
+                      <div class="relative flex items-center justify-end w-full">
+                        <span class="absolute left-7 text-xs font-bold text-gray-400 pointer-events-none">{{ account.currency === 'USD' ? 'U$D' : '$' }}</span>
+                        <input type="text" (click)="$event.stopPropagation()" (focus)="captureAccount(account)" [(ngModel)]="account.balance" (blur)="checkAccountChange(account); onAccountChange(account)" (keydown.enter)="blurInput($event)" appCurrencyFormat class="w-full pl-12 pr-2 py-1.5 text-sm font-bold text-right bg-transparent border-none hover:bg-white focus:bg-white focus:ring-1 focus:ring-blue-300 rounded-lg transition-colors text-gray-900">
                       </div>
+                      <div *ngIf="account.currency === 'USD'" class="text-[9px] text-gray-400 font-medium text-right pr-2 -mt-0.5">≈ $ {{ (account.balance * usdExchangeRate) | number:'1.2-2' }}</div>
+                      <div *ngIf="account.currency !== 'USD'" class="text-[9px] text-gray-400 font-medium text-right pr-2 -mt-0.5">≈ U$D {{ (account.balance / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
                     </div>
-
-                    <div *ngIf="account.currency === 'USD'" class="text-[10px] text-gray-400 font-medium mt-0.5 pr-2">
-                      ≈ $ {{ (account.balance * usdExchangeRate) | number:'1.2-2' }}
-                    </div>
-                    <div *ngIf="account.currency !== 'USD'" class="text-[10px] text-gray-400 font-medium mt-0.5 pr-2">
-                      ≈ U$D {{ (account.balance / (usdExchangeRate || 1)) | number:'1.2-2' }}
-                    </div>
-
                   </div>
+                </td>
+
+                <td class="p-3 w-8 text-center align-middle">
+                  <button (click)="deleteAccount(account, i); $event.stopPropagation()" class="text-gray-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center" title="Eliminar cuenta"><app-icon name="Trash2" class="h-4 w-4"></app-icon></button>
                 </td>
               </tr>
             </tbody>
           </table>
       </div>  
       
-      <button (click)="addAccount()" class="mt-6 mb-4 w-full py-2.5 border-2 border-dashed border-gray-300 text-gray-500 font-semibold rounded-lg hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all text-sm flex items-center justify-center gap-2">
-        <app-icon name="plus-circle" class="h-5 w-5"></app-icon> Nueva Cuenta / Caja
-      </button>
+      <div class="px-5 md:px-6 pt-2">
+        <button (click)="addAccount()" class="mt-2 w-full py-2.5 border border-dashed border-gray-300 text-gray-500 font-medium rounded-xl hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50 transition-all text-sm flex items-center justify-center gap-2">
+          <app-icon name="plus" class="h-4 w-4 stroke-[2.5]"></app-icon> Agregar nueva cuenta
+        </button>
+      </div>
 
-      <div class="pt-4 border-t border-gray-100 space-y-4 mt-2">
-        
-        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <div class="bg-indigo-50 px-3 py-2 border-b border-gray-200 flex items-center gap-2">
-                <span class="text-xs font-bold text-gray-700 uppercase tracking-wider">Saldos en Pesos (ARS)</span>
-            </div>
-            <div class="grid grid-cols-4 divide-x divide-gray-100">
-                <div class="p-3 text-center hover:bg-gray-50 transition-colors flex flex-col justify-center">
-                    <p class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Bancos</p>
-                    <p class="text-sm font-bold text-gray-800">$ {{ accountTotals.ars.banks | number:'1.2-2' }}</p>
-                    <p class="text-[9px] text-gray-400 font-medium mt-0.5">≈ U$D {{ (accountTotals.ars.banks / (usdExchangeRate || 1)) | number:'1.2-2' }}</p>
-                </div>
-                <div class="p-3 text-center hover:bg-gray-50 transition-colors flex flex-col justify-center">
-                    <p class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Cajas</p>
-                    <p class="text-sm font-bold text-gray-800">$ {{ accountTotals.ars.cash | number:'1.2-2' }}</p>
-                    <p class="text-[9px] text-gray-400 font-medium mt-0.5">≈ U$D {{ (accountTotals.ars.cash / (usdExchangeRate || 1)) | number:'1.2-2' }}</p>
-                </div>
-                
-                <div class="p-3 text-center hover:bg-gray-50 transition-colors flex flex-col justify-center">
-                    <p class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Otros</p>
-                    <p class="text-sm font-bold text-gray-800">$ {{ accountTotals.ars.others | number:'1.2-2' }}</p>
-                    <p class="text-[9px] text-gray-400 font-medium mt-0.5">≈ U$D {{ (accountTotals.ars.others / (usdExchangeRate || 1)) | number:'1.2-2' }}</p>
-                </div>
-
-                <div class="p-3 text-center bg-blue-50/20 flex flex-col justify-center">
-                    <p class="text-[10px] uppercase tracking-wider font-bold text-blue-600 mb-1">Total ARS</p>
-                    <p class="text-base font-extrabold text-blue-700 leading-tight">$ {{ accountTotals.ars.total | number:'1.2-2' }}</p>
-                    <p class="text-[10px] text-blue-500/80 font-bold mt-0.5">≈ U$D {{ (accountTotals.ars.total / (usdExchangeRate || 1)) | number:'1.2-2' }}</p>
-                </div>
+      <div class="mt-auto pt-6 px-5 md:px-6 pb-5 md:pb-6 space-y-4 bg-gray-50/30 border-t border-gray-100">
+        <div class="bg-[#f8fafc] rounded-xl border border-slate-200/60 overflow-hidden">
+            <div class="px-3 md:px-4 py-2 border-b border-slate-200/60"><span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Resumen ARS</span></div>
+            <div class="grid grid-cols-4 divide-x divide-slate-200/60">
+                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-0.5">Bancos</p><p class="text-xs md:text-sm font-bold text-slate-800 break-all">$ {{ accountTotals.ars.banks | number:'1.0-0' }}</p></div>
+                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-0.5">Cajas</p><p class="text-xs md:text-sm font-bold text-slate-800 break-all">$ {{ accountTotals.ars.cash | number:'1.0-0' }}</p></div>
+                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-0.5">Otros</p><p class="text-xs md:text-sm font-bold text-slate-800 break-all">$ {{ accountTotals.ars.others | number:'1.0-0' }}</p></div>
+                <div class="p-2 md:p-3 text-center bg-white flex flex-col justify-center shadow-[inset_1px_0_0_rgba(0,0,0,0.02)]"><p class="text-[9px] md:text-[10px] uppercase tracking-widest font-bold text-blue-500 mb-0.5">Total ARS</p><p class="text-xs md:text-sm font-extrabold text-blue-700 break-all">$ {{ accountTotals.ars.total | number:'1.0-0' }}</p></div>
             </div>
         </div>
 
-        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <div class="bg-green-50/50 px-3 py-2 border-b border-green-100 flex items-center gap-2">
-                <span class="text-xs font-bold text-green-800 uppercase tracking-wider">Saldos en Dólares (USD)</span>
-            </div>
-            <div class="grid grid-cols-4 divide-x divide-gray-100">
-                <div class="p-3 text-center hover:bg-gray-50 transition-colors flex flex-col justify-center">
-                    <p class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Bancos</p>
-                    <p class="text-sm font-bold text-gray-800">U$D {{ accountTotals.usd.banks | number:'1.2-2' }}</p>
-                    <p class="text-[9px] text-gray-400 font-medium mt-0.5">≈ $ {{ (accountTotals.usd.banks * usdExchangeRate) | number:'1.2-2' }}</p>
-                </div>
-                <div class="p-3 text-center hover:bg-gray-50 transition-colors flex flex-col justify-center">
-                    <p class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Cajas</p>
-                    <p class="text-sm font-bold text-gray-800">U$D {{ accountTotals.usd.cash | number:'1.2-2' }}</p>
-                    <p class="text-[9px] text-gray-400 font-medium mt-0.5">≈ $ {{ (accountTotals.usd.cash * usdExchangeRate) | number:'1.2-2' }}</p>
-                </div>
-                
-                <div class="p-3 text-center hover:bg-gray-50 transition-colors flex flex-col justify-center">
-                    <p class="text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Otros</p>
-                    <p class="text-sm font-bold text-gray-800">U$D {{ accountTotals.usd.others | number:'1.2-2' }}</p>
-                    <p class="text-[9px] text-gray-400 font-medium mt-0.5">≈ $ {{ (accountTotals.usd.others * usdExchangeRate) | number:'1.2-2' }}</p>
-                </div>
-
-                <div class="p-3 text-center bg-green-50/30 flex flex-col justify-center">
-                    <p class="text-[10px] uppercase tracking-wider font-bold text-green-600 mb-1">Total USD</p>
-                    <p class="text-base font-extrabold text-green-700 leading-tight">U$D {{ accountTotals.usd.total | number:'1.2-2' }}</p>
-                    <p class="text-[10px] text-green-600/70 font-bold mt-0.5">≈ $ {{ (accountTotals.usd.total * usdExchangeRate) | number:'1.2-2' }}</p>
-                </div>
+        <div class="bg-[#f0fdf4] rounded-xl border border-green-200/60 overflow-hidden">
+            <div class="px-3 md:px-4 py-2 border-b border-green-200/60"><span class="text-[10px] font-bold text-green-700 uppercase tracking-widest">Resumen USD</span></div>
+            <div class="grid grid-cols-4 divide-x divide-green-200/60">
+                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-green-600/60 mb-0.5">Bancos</p><p class="text-xs md:text-sm font-bold text-green-900 break-all">U$D {{ accountTotals.usd.banks | number:'1.0-0' }}</p></div>
+                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-green-600/60 mb-0.5">Cajas</p><p class="text-xs md:text-sm font-bold text-green-900 break-all">U$D {{ accountTotals.usd.cash | number:'1.0-0' }}</p></div>
+                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-green-600/60 mb-0.5">Otros</p><p class="text-xs md:text-sm font-bold text-green-900 break-all">U$D {{ accountTotals.usd.others | number:'1.0-0' }}</p></div>
+                <div class="p-2 md:p-3 text-center bg-white flex flex-col justify-center shadow-[inset_1px_0_0_rgba(0,0,0,0.02)]"><p class="text-[9px] md:text-[10px] uppercase tracking-widest font-bold text-green-600 mb-0.5">Total USD</p><p class="text-xs md:text-sm font-extrabold text-green-700 break-all">U$D {{ accountTotals.usd.total | number:'1.0-0' }}</p></div>
             </div>
         </div>
         
-        <div class="flex justify-between items-center py-4 px-6 bg-gray-900 rounded-xl text-white shadow-md border border-gray-800">
-            <span class="text-[15px] uppercase tracking-wider font-semibold text-gray-300">Patrimonio Total</span>
-            <div class="flex flex-col items-end">
-              <span class="text-lg font-black tracking-tight leading-none">$ {{ (accountTotals.ars.total + (accountTotals.usd.total * usdExchangeRate)) | number:'1.2-2' }}</span>
-              <span class="text-[10px] text-gray-400 font-medium mt-1">≈ U$D {{ ((accountTotals.ars.total / (usdExchangeRate || 1)) + accountTotals.usd.total) | number:'1.2-2' }}</span>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 md:py-5 px-4 md:px-6 bg-[#0f172a] rounded-2xl text-white shadow-lg gap-2">
+            <span class="text-xs md:text-sm uppercase tracking-widest font-medium text-slate-300">Patrimonio Total</span>
+            <div class="flex flex-col items-start sm:items-end">
+              <span class="text-lg md:text-xl font-bold tracking-tight text-white break-all">$ {{ (accountTotals.ars.total + (accountTotals.usd.total * usdExchangeRate)) | number:'1.2-2' }}</span>
+              <span class="text-[10px] md:text-[11px] text-slate-400 font-medium mt-0.5 md:mt-1">≈ U$D {{ ((accountTotals.ars.total / (usdExchangeRate || 1)) + accountTotals.usd.total) | number:'1.2-2' }}</span>
             </div>
         </div>
-
       </div>
 
     </div>
   </div>
 
-
-  <div #planillaContainer class="w-full flex flex-col bg-gray-50 rounded-lg shadow-md border h-auto p-4 md:p-5 mt-6">
+  <div #planillaContainer class="w-full flex flex-col bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 p-4 md:p-6 mt-2">
   
-  <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-4 border-b pb-3 gap-4">
-    <h2 class="font-semibold text-gray-700 text-lg whitespace-nowrap">Planilla de Movimientos</h2>
-        
-    <div class="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
-        
-    <div class="flex items-center gap-2 bg-white p-1 rounded-lg shadow-sm border border-gray-200">
-        <button (click)="changeMonth(-1)" 
-                [disabled]="selectedYear === 2026 && selectedMonth === 1"
-                [ngClass]="{'opacity-50 cursor-not-allowed': selectedYear === 2026 && selectedMonth === 1}"
-                class="p-1 hover:bg-gray-100 rounded-md transition text-gray-600">
-            <app-icon name="chevron-left" class="h-4 w-4"></app-icon>
-        </button>
-        <span class="font-semibold text-gray-700 min-w-[120px] text-center select-none capitalize text-sm">
-            {{ monthName }}
-        </span>
-        <button (click)="changeMonth(1)" 
-                class="p-1 hover:bg-gray-100 rounded-md transition text-gray-600">
-            <app-icon name="chevron-right" class="h-4 w-4"></app-icon>
-        </button>
+  <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-gray-100 pb-5 bg-white z-40">
+    <div class="flex items-center gap-4">
+      <h2 class="font-semibold text-gray-900 text-xl tracking-tight">Movimientos</h2>
     </div>
-
-    <div class="relative w-full sm:w-48 md:w-56">
-        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <app-icon name="search" class="w-4 h-4 text-gray-400"></app-icon>
-        </div>
-        <input type="text" 
-               [(ngModel)]="searchTerm" 
-               (input)="filterItems()"
-               placeholder="Buscar concepto..." 
-               class="bg-white border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2 transition-colors shadow-sm">
-    </div>
-
-    <div class="flex items-center gap-1 bg-white rounded-lg border border-gray-200 shadow-sm p-1 transition-all">
-            
-            <div class="relative" [title]="searchDateFrom ? 'Desde' : 'Día específico'">
-                <input type="date" 
-                       [(ngModel)]="searchDateFrom" 
-                       (change)="filterItems()" 
-                       [max]="filterMaxDate"
-                       class="border-none text-gray-600 text-sm focus:ring-0 cursor-pointer bg-transparent py-1 pl-2 pr-1"
-                       [ngClass]="searchDateFrom ? 'w-32' : 'w-36'">
-            </div>
-
-            <ng-container *ngIf="searchDateFrom">
-                <span class="text-gray-300 font-bold">-</span>
-                <div class="relative animate-fade-in-down" title="Hasta (Opcional para crear rango)">
-                    <input type="date" 
-                           [(ngModel)]="searchDateTo" 
-                           (change)="filterItems()" 
-                           [min]="searchDateFrom"
-                           class="border-none text-gray-600 text-sm focus:ring-0 cursor-pointer bg-transparent py-1 pl-1 pr-2 w-32">
-                </div>
-            </ng-container>
-            
-            <button *ngIf="searchDateFrom || searchDateTo" 
-                    (click)="clearDateFilter()" 
-                    class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" 
-                    title="Limpiar fechas">
-                <app-icon name="x" class="w-4 h-4"></app-icon>
-            </button>
-        </div>
-
-</div>
-</div>
-
-      <div class="relative w-full pb-2">
         
-        <table class="w-full min-w-[1100px] text-sm text-left border-collapse">
-          
-          <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b sticky top-0 z-20 shadow-sm">
-            <tr>
-              <th class="w-6 bg-gray-50"></th> 
-              <th class="px-2 py-3 w-16 text-center bg-gray-50">Fecha</th>
-              <th class="px-2 py-3 min-w-[300px] bg-gray-50">Concepto / Detalle</th>
-              <th class="px-2 py-3 text-right bg-gray-50 text-blue-800">Depo</th>
-              <th class="px-2 py-3 text-right bg-gray-50 text-orange-800">Casa</th>
-              <th class="px-2 py-3 text-right bg-gray-50">Retiros</th>
-              <th class="px-2 py-3 text-right bg-gray-50">Iaia</th>
-              <th class="px-2 py-3 text-center bg-gray-50 text-green-800">Pagado</th>
-              <th class="px-2 py-3 text-center bg-gray-50 text-indigo-800">Replicar</th>
-              <th class="px-1 py-3 w-10 bg-gray-50"></th>
-            </tr>
-          </thead>
-          
-          <tbody class="divide-y divide-gray-100" 
-                 cdkDropList 
-                 (cdkDropListDropped)="dropItem($event)" 
-                 cdkDropListScrollContainer="#main-scroll"
-                 [cdkDropListAutoScrollStep]="7">
-                 
-            <tr *ngFor="let item of filteredItems" 
-                cdkDrag 
-                (click)="toggleItemSelection(item)"
-                class="transition-all cursor-pointer border-l-4"
-                [ngClass]="selectedItemIds.includes(item.id!) ? 'bg-indigo-50/80 border-indigo-500 shadow-inner' : 'bg-white border-transparent hover:bg-blue-50/30'">
-                
-              <td class="p-1 w-6 align-middle text-center">
-                <div cdkDragHandle class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 inline-flex items-center justify-center p-1">
-                  <app-icon name="grip-vertical" class="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity"></app-icon>
-                </div>
-              </td>
-
-              <td class="p-1 text-center align-middle w-16">
-                <div class="relative flex items-center justify-center w-8 h-8 mx-auto rounded-md hover:bg-blue-50 transition-colors group/cal">
-                  
-                  <span *ngIf="item.date" class="text-sm font-bold text-gray-700 group-hover/cal:text-blue-600 transition-colors pointer-events-none">
-                    {{ item.date | slice:-2 }}
-                  </span>
-                  
-                  <app-icon *ngIf="!item.date" name="calendar" class="w-4 h-4 text-gray-400 group-hover/cal:text-blue-600 transition-colors pointer-events-none"></app-icon>
-                  
-                  <input type="date" 
-                    (focus)="captureItem(item)"
-                    [(ngModel)]="item.date" 
-                    (change)="checkItemChange(item); onItemChange(item)" 
-                    [min]="filterMinDate" 
-                    [max]="filterMaxDate" 
-                    [disabled]="isHistoricalView"
-                    [title]="'Fecha seleccionada: ' + item.date"
-                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed">
-                </div>
-              </td>
-
-              <td class="p-1 relative min-w-[300px] align-middle">
-                <div class="flex items-center group/desc relative w-full">
-                  
-                  <input type="color" 
-                         (click)="$event.stopPropagation()"
-                         (focus)="captureItem(item)"
-                         [(ngModel)]="item.color" 
-                         (change)="checkItemChange(item); onItemChange(item)"
-                         title="Cambiar color del texto"
-                         class="w-2 h-8 mr-1 cursor-pointer bg-transparent border-none p-0 shrink-0">
-
-                  <input type="text" 
-                        (focus)="captureItem(item)"
-                        [(ngModel)]="item.description" 
-                        [disabled]="isHistoricalView"
-                        (blur)="checkItemChange(item); onItemChange(item)" 
-                        (keydown.enter)="blurInput($event)" 
-                        [style.color]="item.color || '#1f2937'"
-                        class="w-full bg-transparent border-none text-sm font-medium p-1 pr-8 disabled:font-bold disabled:text-purple-800 text-ellipsis overflow-hidden">
-                  
-                  <button *ngIf="item.description !== 'IVA (21% Transferencias)'" 
-                          (click)="toggleComment(item)" 
-                          title="Abrir comentario"
-                          class="absolute right-1 p-1 text-gray-400 hover:text-black opacity-60 group-hover/desc:opacity-100 transition-opacity">
-                    <app-icon name="message-square" class="h-4 w-4"></app-icon>
-                  </button>
-
-                  <div *ngIf="item.comment && item.comment.trim() !== '' && activeCommentItem !== item" 
-                       class="absolute top-0 right-0 w-0 h-0 border-t-[8px] border-t-yellow-400 border-l-[8px] border-l-transparent drop-shadow-sm">
-                  </div>
-                </div>
-
-                <div *ngIf="activeCommentItem === item" 
-                     class="absolute top-8 left-4 z-50 w-72 bg-[#ffffff] border border-gray-400 shadow-xl p-0 origin-top-left animate-fade-in-down rounded-sm">
-                  
-                  <div class="flex justify-between items-center border-b border-gray-300 px-2 py-1 bg-gray-50">
-                    <span class="text-[10px] uppercase font-bold text-gray-600 tracking-wider">Comentario de gasto</span>
-                    <button (click)="closeComment(item)" class="text-gray-400 hover:text-red-600 transition-colors p-0.5">
-                      <app-icon name="x" class="w-3 h-3"></app-icon>
-                    </button>
-                  </div>
-                  
-                  <div class="p-2">
-                    <textarea [id]="'excel-comment-' + item.id"
-                              (focus)="captureItem(item)"
-                              [(ngModel)]="item.comment" 
-                              [disabled]="isHistoricalView"
-                              (input)="autoResizeTextarea($event)"
-                              (keydown.enter)="onCommentEnter($event, item)"
-                              class="w-full bg-transparent border-none focus:ring-0 text-sm text-gray-800 p-0 resize-none overflow-hidden min-h-[60px]"
-                              placeholder="Escribe una observación..."></textarea>
-                  </div>
-
-                  <div *ngIf="!isHistoricalView"class="flex justify-start px-2 pb-2">
-                    <button *ngIf="item.comment && item.comment.trim() !== ''" 
-                            (click)="deleteComment(item)" 
-                            class="text-[10px] text-red-500 hover:text-red-700 uppercase font-bold tracking-wider transition-colors focus:outline-none">
-                      Borrar
-                    </button>
-                  </div>
-                </div>
-              </td>
-
-              <td class="p-1 bg-blue-100/30 relative group/amt align-middle">
-                <div class="flex flex-col items-end justify-center w-full h-full relative">
-                  <div class="flex items-center justify-end w-full relative">
-                    <button *ngIf="item.depo" (click)="clearItemField(item, 'depo'); $event.stopPropagation()" tabindex="-1"
-                            class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
-                      <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
-                    </button> 
-                    <input type="text" appCurrencyFormat 
-                          (focus)="captureItem(item)"
-                          [(ngModel)]="item.depo" 
-                          [disabled]="isHistoricalView"
-                          (blur)="checkItemChange(item)"
-                          (change)="onItemChange(item)" 
-                          (keydown.enter)="blurInput($event)" 
-                          class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-blue-700 font-bold p-1.5 focus:ring-1 focus:ring-blue-400 rounded disabled:opacity-80">
-                  </div>
-                  <div *ngIf="item.depo" class="text-[9px] text-blue-500/80 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
-                    ≈ U$D {{ (item.depo / (usdExchangeRate || 1)) | number:'1.2-2' }}
-                  </div>
-                </div>
-              </td>
-
-              <td class="p-1 bg-orange-100/30 relative group/amt align-middle">
-                <div class="flex flex-col items-end justify-center w-full h-full relative">
-                  <div class="flex items-center justify-end w-full relative">
-                    <button *ngIf="item.casa" (click)="clearItemField(item, 'casa'); $event.stopPropagation()" tabindex="-1"
-                            class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
-                      <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
-                    </button>
-                    <input type="text" appCurrencyFormat 
-                          (focus)="captureItem(item)"
-                          [(ngModel)]="item.casa" 
-                          [disabled]="isHistoricalView"
-                          (blur)="checkItemChange(item)"
-                          (change)="onItemChange(item)" 
-                          (keydown.enter)="blurInput($event)"
-                          class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-orange-700 font-bold p-1.5 focus:ring-1 focus:ring-orange-400 rounded disabled:opacity-50">
-                  </div>
-                  <div *ngIf="item.casa" class="text-[9px] text-orange-500/80 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
-                    ≈ U$D {{ (item.casa / (usdExchangeRate || 1)) | number:'1.2-2' }}
-                  </div>
-                </div>
-              </td>
-
-              <td class="p-1 relative group/amt bg-gray-100/40 align-middle">
-                <div class="flex flex-col items-end justify-center w-full h-full relative">
-                  <div class="flex items-center justify-end w-full relative">
-                    <button *ngIf="item.retiros" (click)="clearItemField(item, 'retiros'); $event.stopPropagation()" tabindex="-1"
-                            class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
-                      <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
-                    </button>
-                    <input type="text" appCurrencyFormat 
-                          (focus)="captureItem(item)"
-                          [(ngModel)]="item.retiros" 
-                          [disabled]="isHistoricalView"
-                          (blur)="checkItemChange(item)"
-                          (change)="onItemChange(item)"  
-                          (keydown.enter)="blurInput($event)"
-                          class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-gray-700 font-semibold p-1.5 focus:ring-1 focus:ring-gray-300 rounded">
-                  </div>
-                  <div *ngIf="item.retiros" class="text-[9px] text-gray-400 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
-                    ≈ U$D {{ (item.retiros / (usdExchangeRate || 1)) | number:'1.2-2' }}
-                  </div>
-                </div>
-              </td>
-
-              <td class="p-1 bg-green-100/30 relative group/amt align-middle">
-                <div class="flex flex-col items-end justify-center w-full h-full relative">
-                  <div class="flex items-center justify-end w-full relative">
-                    <button *ngIf="item.iaia" (click)="clearItemField(item, 'iaia'); $event.stopPropagation()" tabindex="-1"
-                            class="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
-                      <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
-                    </button>
-                    <input type="text" appCurrencyFormat 
-                          (focus)="captureItem(item)"
-                          [(ngModel)]="item.iaia" 
-                          [disabled]="isHistoricalView"
-                          (blur)="checkItemChange(item)"
-                          (change)="onItemChange(item)" 
-                          (keydown.enter)="blurInput($event)"
-                          class="table-input w-full min-w-[110px] bg-transparent border-none text-right text-base text-green-700 font-bold p-1.5 focus:ring-1 focus:ring-green-400 rounded disabled:opacity-50">
-                  </div>
-                  <div *ngIf="item.iaia" class="text-[9px] text-green-500/80 font-semibold pr-2 -mt-1 pb-1 w-full text-right">
-                    ≈ U$D {{ (item.iaia / (usdExchangeRate || 1)) | number:'1.2-2' }}
-                  </div>
-                </div>
-              </td>
-
-              <td class="p-1 bg-green-50/20 text-center align-middle">
-                <button (click)="togglePaid(item)" 
-                        title="Marcar como pagado"
-                        class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border"
-                        [disabled]="isHistoricalView"
-                        [ngClass]="{
-                            'border-gray-300 bg-white text-transparent': !item.isPaid,
-                            'border-green-500 bg-green-500 text-white': item.isPaid
-                        }">
-                  <app-icon *ngIf="item.isPaid" name="check" class="w-3.5 h-3.5 stroke-[3]"></app-icon>
-                </button>
-              </td>
-
-              <td class="p-1 bg-indigo-50/20 text-center align-middle">
-                <button (click)="toggleReplication(item)" 
-                        [disabled]="isHistoricalView"
-                        title="Clic para cambiar: No replicar -> Replicar vacío -> Replicar con montos"
-                        class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border"
-                        [ngClass]="{
-                            'border-gray-300 bg-white text-transparent': item.replicationState === 0,
-                            'border-blue-500 bg-blue-500 text-white': item.replicationState === 1,
-                            'border-green-500 bg-green-500 text-white': item.replicationState === 2
-                        }">
-                  <app-icon *ngIf="item.replicationState === 1" name="minus" class="w-3.5 h-3.5 stroke-[3] text-white"></app-icon>
-                  <app-icon *ngIf="item.replicationState === 2" name="check" class="w-3.5 h-3.5 stroke-[3] text-white"></app-icon>
-                </button>
-              </td>
-
-              <td *ngIf="!isHistoricalView" class="p-1 text-center align-middle">
-                <button (click)="deleteItem(item)" [disabled]="isHistoricalView" class="text-gray-400 opacity-60 hover:text-red-500 inline-flex items-center justify-center p-1 transition-colors">
-                  <app-icon name="Trash2" class="h-4 w-4"></app-icon>
-                </button>
-              </td>
-            </tr>
-            
-            <tr *ngIf="!isHistoricalView" class="group cursor-pointer hover:bg-gray-50 transition-colors" (click)="addNewRow()">
-              <td colspan="9" class="p-0">
-                <div class="py-2.5 px-3 flex items-center gap-2 text-gray-400 group-hover:text-gray-700 transition-colors">
-                  <app-icon name="plus" class="h-4 w-4"></app-icon>
-                  <span class="text-sm font-medium">Nuevo concepto</span>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-
-          <tfoot class="font-bold text-gray-700 border-t border-gray-200 bg-gray-50 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            <tr>
-              <td colspan="3" class="px-4 py-3 align-middle">
-                <div class="flex items-center justify-between w-full h-full">
-                  
-                  <div class="flex items-center gap-2 bg-white p-1 rounded-lg shadow-sm border border-gray-200">
-                    <button (click)="changeMonth(-1)" 
-                            [disabled]="selectedYear === 2026 && selectedMonth === 1"
-                            [ngClass]="{'opacity-50 cursor-not-allowed': selectedYear === 2026 && selectedMonth === 1}"
-                            class="p-1 hover:bg-gray-100 rounded-md transition text-gray-600">
-                      <app-icon name="chevron-left" class="h-4 w-4"></app-icon>
-                    </button>
-                    <span class="font-semibold text-gray-700 min-w-[120px] text-center select-none capitalize text-sm">
-                      {{ monthName }}
-                    </span>
-                    <button (click)="changeMonth(1)" 
-                            class="p-1 hover:bg-gray-100 rounded-md transition text-gray-600">
-                      <app-icon name="chevron-right" class="h-4 w-4"></app-icon>
-                    </button>
-                  </div>
-
-                  <span class="text-xs uppercase tracking-wider text-gray-500 text-right">
-                    Totales:
-                  </span>
-                  
-                </div>
-              </td>
-              
-              <td class="px-2 py-3 text-center text-blue-700 whitespace-nowrap align-middle">
-                 <div class="text-[10px] uppercase tracking-wider text-blue-500/80 font-bold mb-0.5">Depo</div>
-                 <div class="text-base font-bold">$ {{ tableTotals.depo | number:'1.2-2' }}</div>
-                 <div class="text-[10px] text-blue-500/80 font-medium mt-0.5">≈ U$D {{ (tableTotals.depo / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
-              </td>
-              
-              <td class="px-2 py-3 text-center text-orange-700 whitespace-nowrap align-middle">
-                 <div class="text-[10px] uppercase tracking-wider text-orange-500/80 font-bold mb-0.5">Casa</div>
-                 <div class="text-base font-bold">$ {{ tableTotals.casa | number:'1.2-2' }}</div>
-                 <div class="text-[10px] text-orange-500/80 font-medium mt-0.5">≈ U$D {{ (tableTotals.casa / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
-              </td>
-              
-              <td class="px-2 py-3 text-center text-gray-700 whitespace-nowrap align-middle">
-                 <div class="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-0.5">Retiros</div>
-                 <div class="text-base font-bold">$ {{ tableTotals.retiros | number:'1.2-2' }}</div>
-                 <div class="text-[10px] text-gray-500 font-medium mt-0.5">≈ U$D {{ (tableTotals.retiros / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
-              </td>
-
-              <td class="px-2 py-3 text-center text-green-700 whitespace-nowrap align-middle">
-                 <div class="text-[10px] uppercase tracking-wider text-green-600/80 font-bold mb-0.5">Iaia</div>
-                 <div class="text-base font-bold">$ {{ tableTotals.iaia | number:'1.2-2' }}</div>
-                 <div class="text-[10px] text-green-500/80 font-medium mt-0.5">≈ U$D {{ (tableTotals.iaia / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
-              </td>
-              
-              <td class="px-2 py-3 text-center text-green-700 whitespace-nowrap align-middle">
-                 <div class="text-[10px] uppercase tracking-wider text-green-600/80 font-bold mb-0.5">Pagado</div>
-                 <div class="text-base font-bold">$ {{ tableTotals.pagado | number:'1.2-2' }}</div>
-                 <div class="text-[10px] text-green-500/80 font-medium mt-0.5">≈ U$D {{ (tableTotals.pagado / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
-              </td>
-              
-              <td colspan="2"></td>
-            </tr>
-          </tfoot>
-        </table>
-        
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto justify-end">
+      <div class="relative w-full sm:w-64">
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><app-icon name="search" class="w-4 h-4 text-gray-400"></app-icon></div>
+          <input type="text" [(ngModel)]="searchTerm" (input)="filterItems()" placeholder="Buscar conceptos, montos..." class="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 block w-full pl-9 p-2 transition-all shadow-sm">
       </div>
-      <div *ngIf="selectedItemIds.length > 0" 
-       class="bg-white rounded-xl shadow-sm border-2 border-indigo-200 p-5 mt-4 animate-fade-in-down"
-       (click)="$event.stopPropagation()">
+      <div class="flex items-center gap-1 bg-gray-50 rounded-xl border border-gray-200 p-1 w-full sm:w-auto justify-between sm:justify-start">
+          <div class="relative flex-1 sm:flex-none" [title]="searchDateFrom ? 'Desde' : 'Día específico'">
+              <input type="date" [(ngModel)]="searchDateFrom" (change)="filterItems()" [max]="filterMaxDate" class="border-none text-gray-600 text-sm focus:ring-0 cursor-pointer bg-transparent py-1 px-2 hover:bg-white rounded-lg transition-colors w-full" [ngClass]="searchDateFrom ? 'sm:w-32' : 'sm:w-36'">
+          </div>
+          <ng-container *ngIf="searchDateFrom">
+              <span class="text-gray-300 font-bold mx-1">-</span>
+              <div class="relative animate-fade-in-down flex-1 sm:flex-none" title="Hasta">
+                  <input type="date" [(ngModel)]="searchDateTo" (change)="filterItems()" [min]="searchDateFrom" class="border-none text-gray-600 text-sm focus:ring-0 cursor-pointer bg-transparent py-1 px-2 hover:bg-white rounded-lg transition-colors w-full sm:w-32">
+              </div>
+          </ng-container>
+          <button *ngIf="searchDateFrom || searchDateTo" (click)="clearDateFilter()" class="p-1.5 ml-1 flex-shrink-0 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-all" title="Limpiar fechas"><app-icon name="x" class="w-4 h-4 stroke-[2.5]"></app-icon></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="relative w-full pb-2 mt-2">
     
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="font-bold flex items-center gap-2 text-indigo-900">
-        <app-icon name="check-square" class="h-5 w-5 text-indigo-500"></app-icon>
-        Suma de Conceptos Seleccionados ({{ selectedItemIds.length }})
-      </h3>
-      <button (click)="clearItemSelection()" class="text-gray-400 hover:text-red-500 transition-colors" title="Limpiar selección">
-        <app-icon name="x" class="h-5 w-5"></app-icon>
-      </button>
-    </div>
-
-    <div class="flex justify-between items-end">
-      <span class="text-sm text-gray-500 font-medium">Total Acumulado (ARS)</span>
-      <div class="flex flex-col items-end">
-        <span class="text-2xl font-black tracking-tight text-indigo-700">
-          $ {{ selectedItemsSumARS | number:'1.2-2' }}
-        </span>
-      </div>
-    </div>
-
-    <div class="flex justify-between items-end mt-2 border-t border-gray-100 pt-2">
-      <span class="text-[11px] text-gray-400 uppercase tracking-wider font-bold">Equivalente en Dólares</span>
-      <span class="text-sm font-bold text-indigo-500/80">
-        ≈ U$D {{ (selectedItemsSumARS / (usdExchangeRate || 1)) | number:'1.2-2' }}
-      </span>
-    </div>
-
-    <p class="text-[10px] text-gray-400 mt-2 italic">
-    </p>
-  </div>
+    <table class="w-full min-w-[1100px] text-sm text-left border-collapse">
       
+      <thead class="text-[10px] text-gray-400 uppercase tracking-widest bg-[#f8f9fa] sticky top-0 z-30 shadow-sm ring-1 ring-gray-200/60">
+        <tr>
+          <th class="w-8 border-b border-gray-200/60 bg-[#f8f9fa]"></th> 
+          <th class="px-2 py-3 w-10 text-center font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">N°</th> 
+          <th class="px-2 py-3 w-16 text-center font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Fecha</th>
+          <th class="px-2 py-3 min-w-[300px] font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Concepto / Detalle</th>
+          <th class="px-2 py-3 text-right font-semibold text-blue-600 border-b border-gray-200/60 bg-[#f8f9fa]">Depo</th>
+          <th class="px-2 py-3 text-right font-semibold text-orange-600 border-b border-gray-200/60 bg-[#f8f9fa]">Casa</th>
+          <th class="px-2 py-3 text-right font-semibold text-slate-500 border-b border-gray-200/60 bg-[#f8f9fa]">Retiros</th>
+          <th class="px-2 py-3 text-right font-semibold text-green-600 border-b border-gray-200/60 bg-[#f8f9fa]">Iaia</th>
+          <th class="px-2 py-3 text-center font-semibold text-emerald-600 border-b border-gray-200/60 bg-[#f8f9fa]">Pagado</th>
+          <th class="px-2 py-3 text-center font-semibold text-indigo-500 border-b border-gray-200/60 bg-[#f8f9fa]">Replicar</th>
+          <th class="px-1 py-3 w-10 border-b border-gray-200/60 bg-[#f8f9fa]"></th>
+        </tr>
+      </thead>
+      
+      <tbody class="divide-y divide-gray-100/60 bg-white" 
+             cdkDropList 
+             (cdkDropListDropped)="dropItem($event)" 
+             cdkDropListScrollContainer="#main-scroll"
+             [cdkDropListAutoScrollStep]="7"
+             [cdkDropListDisabled]="isHistoricalView">
+             
+        <tr *ngFor="let item of filteredItems; let i = index" 
+            cdkDrag 
+            [cdkDragDisabled]="isHistoricalView"
+            (click)="toggleItemSelection(item)"
+            class="transition-colors cursor-pointer group"
+            [ngClass]="selectedItemIds.includes(item.id!) ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'">
+            
+          <div *cdkDragPreview class="bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] rounded-xl border border-gray-200 overflow-hidden ring-1 ring-black/5" style="min-width: 1100px; box-sizing: border-box; display: table;">
+            <table class="w-full text-sm text-left border-collapse">
+              <tbody class="divide-y divide-gray-100/60">
+                <ng-container *ngIf="selectedItemIds.includes(item.id!) && selectedItemIds.length > 1; else singleItemPreview">
+                  <tr *ngFor="let sItem of getSelectedItemsList()" class="bg-blue-50/40 border-l-[3px] border-blue-500">
+                    <ng-container *ngTemplateOutlet="previewRowTemplate; context: { $implicit: sItem }"></ng-container>
+                  </tr>
+                </ng-container>
+                <ng-template #singleItemPreview>
+                  <tr class="bg-white border-l-[3px] border-transparent shadow-sm">
+                    <ng-container *ngTemplateOutlet="previewRowTemplate; context: { $implicit: item }"></ng-container>
+                  </tr>
+                </ng-template>
+              </tbody>
+            </table>
+          </div>
+
+          <td class="p-1 w-8 align-middle text-center border-l-[3px] transition-colors"
+              [ngClass]="selectedItemIds.includes(item.id!) ? 'border-blue-500' : 'border-transparent'">
+            <div class="relative inline-flex items-center justify-center">
+              <div cdkDragHandle 
+                   [class.cursor-not-allowed]="isHistoricalView"
+                   [class.opacity-0]="isHistoricalView"
+                   class="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 inline-flex items-center justify-center p-1.5 group-hover:opacity-100 transition-opacity">
+                <app-icon name="grip-vertical" class="h-4 w-4"></app-icon>
+              </div>
+            </div>
+          </td>
+
+          <td class="p-1 w-10 align-middle text-center font-mono text-[11px] text-gray-400 select-none">
+            {{ item.rowNum }}
+          </td>
+
+          <td class="p-1 text-center align-middle w-16">
+            <div class="relative flex items-center justify-center w-8 h-8 mx-auto rounded-lg hover:bg-gray-100 transition-colors group/cal">
+              <span *ngIf="item.date" class="text-sm font-semibold text-gray-700 group-hover/cal:text-blue-600 transition-colors pointer-events-none">
+                {{ item.date | slice:-2 }}
+              </span>
+              <app-icon *ngIf="!item.date" name="calendar" class="w-4 h-4 text-gray-300 group-hover/cal:text-blue-600 transition-colors pointer-events-none"></app-icon>
+              <input type="date" 
+                     (click)="setDefaultDate(item)"
+                     (focus)="captureItem(item)"
+                     [(ngModel)]="item.date" 
+                     (change)="checkItemChange(item); onItemChange(item)" 
+                     [min]="filterMinDate" 
+                     [max]="filterMaxDate" 
+                     [disabled]="isHistoricalView"
+                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed">
+            </div>
+          </td>
+
+          <td class="p-1 relative min-w-[300px] align-middle group/desc">
+            <div class="flex items-center relative w-full h-full min-h-[40px]">      
+              
+              <div class="relative w-1.5 h-6 flex-shrink-0 mr-3 rounded-full overflow-hidden">
+                <input type="color" 
+                       (click)="$event.stopPropagation()"
+                       (focus)="captureItem(item)"
+                       [(ngModel)]="item.color" 
+                       (change)="checkItemChange(item); onItemChange(item)"
+                       title="Cambiar color"
+                       class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                <div class="w-full h-full" [style.backgroundColor]="item.color || '#1f2937'"></div>
+              </div>
+
+              <input type="text" 
+                     (focus)="captureItem(item)"
+                     [(ngModel)]="item.description" 
+                     [disabled]="isHistoricalView"
+                     (blur)="checkItemChange(item); onItemChange(item)" 
+                     (keydown.enter)="blurInput($event)" 
+                     [style.color]="item.color || '#1f2937'"
+                     class="w-full bg-transparent border-none text-sm font-medium p-1 pr-24 disabled:font-bold disabled:text-gray-500 text-ellipsis overflow-hidden focus:ring-0">
+              
+              <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center p-1 bg-white/80 backdrop-blur-md shadow-sm border border-gray-200/80 rounded-lg transition-all duration-200 z-10"
+                   [ngClass]="selectedItemIds.includes(item.id!) ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2 pointer-events-none group-hover/desc:opacity-100 group-hover/desc:translate-x-0 group-hover/desc:pointer-events-auto'">
+                   
+                <button *ngIf="item.description !== 'IVA (21% Transferencias)'" 
+                        (click)="toggleComment(item); $event.stopPropagation()" 
+                        title="Comentario"
+                        class="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
+                        [ngClass]="item.comment && item.comment.trim() !== '' ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-50'">
+                  <app-icon name="message-square" class="w-[15px] h-[15px] block"></app-icon>
+                </button>
+
+                <div *ngIf="item.description !== 'IVA (21% Transferencias)'" class="w-px h-4 bg-gray-200 mx-0.5"></div>
+
+                <button (click)="toggleItemSelection(item); $event.stopPropagation()"
+                        title="Seleccionar concepto"
+                        class="w-7 h-7 flex items-center justify-center rounded-md transition-colors group/chk hover:bg-gray-50">
+                   <div class="w-4 h-4 rounded border flex items-center justify-center transition-all duration-200"
+                        [ngClass]="selectedItemIds.includes(item.id!) ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'border-gray-300 bg-white group-hover/chk:border-blue-400'">
+                        <app-icon name="check" class="w-3 h-3 stroke-[3] transition-transform duration-200" 
+                                  [ngClass]="selectedItemIds.includes(item.id!) ? 'scale-100 opacity-100' : 'scale-0 opacity-0'"></app-icon>
+                   </div>
+                </button>
+              </div>
+
+              <div *ngIf="item.comment && item.comment.trim() !== '' && activeCommentItem !== item" 
+                   class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-sm pointer-events-none">
+              </div>
+            </div>
+            
+            <div *ngIf="activeCommentItem === item" 
+                 class="absolute top-10 left-4 z-50 w-80 bg-white border border-gray-200 shadow-2xl p-0 origin-top-left animate-fade-in-down rounded-xl overflow-hidden">
+              
+              <div class="flex justify-between items-center border-b border-gray-100 px-3 py-2 bg-gray-50/50">
+                <span class="text-[10px] uppercase font-bold text-gray-500 tracking-wider flex items-center gap-1.5">
+                  <app-icon name="align-left" class="w-3 h-3"></app-icon> Notas
+                </span>
+                <button (click)="closeComment(item)" class="text-gray-400 hover:text-gray-700 hover:bg-gray-200 p-1 rounded-md transition-colors">
+                  <app-icon name="x" class="w-3.5 h-3.5"></app-icon>
+                </button>
+              </div>
+              
+              <div class="p-3">
+                <textarea [id]="'excel-comment-' + item.id"
+                          (focus)="captureItem(item)"
+                          [(ngModel)]="item.comment" 
+                          [disabled]="isHistoricalView"
+                          (input)="autoResizeTextarea($event)"
+                          (keydown.enter)="onCommentEnter($event, item)"
+                          class="w-full bg-transparent border-none focus:ring-0 text-sm text-gray-700 p-0 resize-none overflow-hidden min-h-[60px]"
+                          placeholder="Escribe una observación detallada..."></textarea>
+              </div>
+
+              <div *ngIf="!isHistoricalView" class="flex justify-end px-3 pb-3 border-t border-gray-50 pt-2">
+                <button *ngIf="item.comment && item.comment.trim() !== ''" 
+                        (click)="deleteComment(item)" 
+                        class="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-md font-medium transition-colors focus:outline-none">
+                  Borrar nota
+                </button>
+              </div>
+            </div>
+          </td>
+
+          <td class="p-1 relative group/amt align-middle bg-[#f8fafc]/30">
+            <div class="relative w-full px-1 flex items-center justify-end h-full min-h-[38px]">
+              <button *ngIf="item.depo" (click)="clearItemField(item, 'depo'); $event.stopPropagation()" tabindex="-1"
+                      class="absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1.5 text-gray-300 hover:text-red-500 transition-opacity z-10 bg-white/80 rounded-md backdrop-blur-sm">
+                <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+              </button> 
+              <div class="flex flex-col items-end w-full">
+                <input type="text" appCurrencyFormat 
+                      (focus)="captureItem(item)" [(ngModel)]="item.depo" [disabled]="isHistoricalView"
+                      (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)" 
+                      class="w-full min-w-[95px] pl-8 pr-2 py-1.5 bg-transparent border-none text-right text-sm text-blue-600 font-semibold focus:bg-white focus:ring-1 focus:ring-blue-300 rounded-lg transition-colors">
+                <div *ngIf="item.depo" class="text-[9px] text-gray-400 font-medium text-right pr-2 -mt-0.5">≈ U$D {{ (item.depo / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
+              </div>
+            </div>
+          </td>
+
+          <td class="p-1 relative group/amt align-middle bg-[#fff7ed]/30">
+            <div class="relative w-full px-1 flex items-center justify-end h-full min-h-[38px]">
+              <button *ngIf="item.casa" (click)="clearItemField(item, 'casa'); $event.stopPropagation()" tabindex="-1"
+                      class="absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1.5 text-gray-300 hover:text-red-500 transition-opacity z-10 bg-white/80 rounded-md backdrop-blur-sm">
+                <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+              </button>
+              <div class="flex flex-col items-end w-full">
+                <input type="text" appCurrencyFormat 
+                      (focus)="captureItem(item)" [(ngModel)]="item.casa" [disabled]="isHistoricalView"
+                      (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
+                      class="w-full min-w-[95px] pl-8 pr-2 py-1.5 bg-transparent border-none text-right text-sm text-orange-600 font-semibold focus:bg-white focus:ring-1 focus:ring-orange-300 rounded-lg transition-colors">
+                <div *ngIf="item.casa" class="text-[9px] text-gray-400 font-medium text-right pr-2 -mt-0.5">≈ U$D {{ (item.casa / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
+              </div>
+            </div>
+          </td>
+
+          <td class="p-1 relative group/amt align-middle">
+            <div class="relative w-full px-1 flex items-center justify-end h-full min-h-[38px]">
+              <button *ngIf="item.retiros" (click)="clearItemField(item, 'retiros'); $event.stopPropagation()" tabindex="-1"
+                      class="absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1.5 text-gray-300 hover:text-red-500 transition-opacity z-10 bg-gray-50/80 rounded-md backdrop-blur-sm">
+                <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+              </button>
+              <div class="flex flex-col items-end w-full">
+                <input type="text" appCurrencyFormat 
+                      (focus)="captureItem(item)" [(ngModel)]="item.retiros" [disabled]="isHistoricalView"
+                      (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
+                      class="w-full min-w-[95px] pl-8 pr-2 py-1.5 bg-transparent border-none text-right text-sm text-slate-600 font-medium hover:bg-gray-50 focus:bg-white focus:ring-1 focus:ring-slate-300 rounded-lg transition-colors">
+                <div *ngIf="item.retiros" class="text-[9px] text-gray-400 font-medium text-right pr-2 -mt-0.5">≈ U$D {{ (item.retiros / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
+              </div>
+            </div>
+          </td>
+
+          <td class="p-1 relative group/amt align-middle bg-[#f0fdf4]/30">
+            <div class="relative w-full px-1 flex items-center justify-end h-full min-h-[38px]">
+              <button *ngIf="item.iaia" (click)="clearItemField(item, 'iaia'); $event.stopPropagation()" tabindex="-1"
+                      class="absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1.5 text-gray-300 hover:text-red-500 transition-opacity z-10 bg-white/80 rounded-md backdrop-blur-sm">
+                <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+              </button>
+              <div class="flex flex-col items-end w-full">
+                <input type="text" appCurrencyFormat 
+                      (focus)="captureItem(item)" [(ngModel)]="item.iaia" [disabled]="isHistoricalView"
+                      (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
+                      class="w-full min-w-[95px] pl-8 pr-2 py-1.5 bg-transparent border-none text-right text-sm text-green-600 font-semibold focus:bg-white focus:ring-1 focus:ring-green-300 rounded-lg transition-colors">
+                <div *ngIf="item.iaia" class="text-[9px] text-gray-400 font-medium text-right pr-2 -mt-0.5">≈ U$D {{ (item.iaia / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
+              </div>
+            </div>
+          </td>
+
+          <td class="p-1 text-center align-middle">
+            <button (click)="togglePaid(item)" 
+                    class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                    [disabled]="isHistoricalView"
+                    [ngClass]="item.isPaid ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-gray-300 bg-white text-transparent hover:border-emerald-300'">
+              <app-icon *ngIf="item.isPaid" name="check" class="w-3.5 h-3.5 stroke-[3]"></app-icon>
+            </button>
+          </td>
+
+          <td class="p-1 text-center align-middle">
+            <button (click)="toggleReplication(item)" 
+                    [disabled]="isHistoricalView"
+                    class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border focus:outline-none"
+                    [ngClass]="{
+                        'border-gray-300 bg-white text-transparent hover:border-gray-400': item.replicationState === 0,
+                        'border-indigo-500 bg-indigo-500 text-white': item.replicationState === 1,
+                        'border-emerald-500 bg-emerald-500 text-white': item.replicationState === 2
+                    }">
+              <app-icon *ngIf="item.replicationState === 1" name="minus" class="w-3.5 h-3.5 stroke-[3] text-white"></app-icon>
+              <app-icon *ngIf="item.replicationState === 2" name="check" class="w-3.5 h-3.5 stroke-[3] text-white"></app-icon>
+            </button>
+          </td>
+
+          <td *ngIf="!isHistoricalView" class="p-1 text-center align-middle w-10">
+            <button (click)="deleteItem(item)" class="text-gray-300 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 rounded-md p-1.5 transition-all">
+              <app-icon name="Trash2" class="h-4 w-4"></app-icon>
+            </button>
+          </td>
+        </tr>
+        
+        <tr *ngIf="!isHistoricalView" class="border-t border-gray-100/60 bg-gray-50/30">
+          <td colspan="11" class="p-0">
+            <div class="flex flex-col sm:flex-row items-center justify-between px-4 py-3 gap-4">
+              <button (click)="addNewRow()" class="flex items-center gap-2 text-blue-600 hover:text-blue-700 bg-blue-50/50 hover:bg-blue-100/50 px-4 py-2 rounded-xl transition-colors font-semibold text-sm w-full sm:w-auto justify-center border border-blue-100/50">
+                <app-icon name="plus" class="h-4 w-4 stroke-[2.5]"></app-icon> Agregar nueva fila
+              </button>
+              
+              <div class="relative w-full sm:w-72">
+                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    <app-icon name="search" class="w-4 h-4 text-gray-400"></app-icon>
+                </div>
+                <input type="text" 
+                       [(ngModel)]="searchTerm" 
+                       (input)="filterItems()"
+                       placeholder="Filtrar conceptos en la planilla..." 
+                       class="bg-white border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 block w-full pl-9 p-2 transition-all shadow-sm">
+              </div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+
+      <tfoot class="bg-[#f8f9fa] sticky bottom-0 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] ring-1 ring-gray-200/60">
+        <tr>
+          <td colspan="4" class="px-4 py-3 align-middle bg-[#f8f9fa]">
+            <div class="flex items-center justify-between w-full h-full">
+              <div class="flex items-center bg-white p-1 rounded-lg border border-gray-200 shadow-sm hidden md:flex">
+                  <button (click)="changeMonth(-1)" [disabled]="selectedYear === 2026 && selectedMonth === 1" [ngClass]="{'opacity-30 cursor-not-allowed': selectedYear === 2026 && selectedMonth === 1}" class="p-1 hover:bg-gray-50 rounded-md transition-all text-gray-500 hover:text-gray-800"><app-icon name="chevron-left" class="h-3.5 w-3.5 stroke-[2.5]"></app-icon></button>
+                  <span class="font-semibold text-gray-700 min-w-[100px] text-center select-none capitalize text-[13px]">{{ monthName }}</span>
+                  <button (click)="changeMonth(1)" class="p-1 hover:bg-gray-50 rounded-md transition-all text-gray-500 hover:text-gray-800"><app-icon name="chevron-right" class="h-3.5 w-3.5 stroke-[2.5]"></app-icon></button>
+              </div>
+
+              <span class="text-[10px] uppercase tracking-widest font-bold text-gray-400">Totales Columna</span>
+            </div>
+          </td>
+          
+          <td class="px-2 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa]">
+             <div class="text-[10px] uppercase tracking-wider text-blue-600/60 font-bold mb-0.5">Depo</div>
+             <div class="text-sm font-bold text-blue-700">$ {{ tableTotals.depo | number:'1.2-2' }}</div>
+          </td>
+          <td class="px-2 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa]">
+             <div class="text-[10px] uppercase tracking-wider text-orange-600/60 font-bold mb-0.5">Casa</div>
+             <div class="text-sm font-bold text-orange-700">$ {{ tableTotals.casa | number:'1.2-2' }}</div>
+          </td>
+          <td class="px-2 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa]">
+             <div class="text-[10px] uppercase tracking-wider text-slate-500/60 font-bold mb-0.5">Retiros</div>
+             <div class="text-sm font-bold text-slate-700">$ {{ tableTotals.retiros | number:'1.2-2' }}</div>
+          </td>
+          <td class="px-2 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa]">
+             <div class="text-[10px] uppercase tracking-wider text-green-600/60 font-bold mb-0.5">Iaia</div>
+             <div class="text-sm font-bold text-green-700">$ {{ tableTotals.iaia | number:'1.2-2' }}</div>
+          </td>
+          <td class="px-2 py-3 text-center whitespace-nowrap align-middle bg-[#f8f9fa]">
+             <div class="text-[10px] uppercase tracking-wider text-emerald-600/60 font-bold mb-0.5">Pagado</div>
+             <div class="text-sm font-bold text-emerald-700">$ {{ tableTotals.pagado | number:'1.2-2' }}</div>
+          </td>
+          <td colspan="2" class="bg-[#f8f9fa]"></td>
+        </tr>
+      </tfoot>
+    </table>
+    
   </div>
 
-  
+  <ng-template #previewRowTemplate let-pItem>
+    <td class="p-1 w-8 align-middle text-center"><app-icon name="grip-vertical" class="h-4 w-4 text-gray-300"></app-icon></td>
+    <td class="p-1 w-10 align-middle text-center font-mono text-[11px] text-gray-400">{{ pItem.rowNum }}</td>
+    <td class="p-1 text-center align-middle w-16">
+      <span *ngIf="pItem.date" class="text-sm font-semibold text-gray-700">{{ pItem.date | slice:-2 }}</span>
+      <app-icon *ngIf="!pItem.date" name="calendar" class="w-4 h-4 text-gray-300"></app-icon>
+    </td>
+    <td class="p-1 relative min-w-[300px] align-middle">
+      <div class="flex items-center relative w-full h-full min-h-[40px]">
+        <div class="relative w-1.5 h-6 flex-shrink-0 mr-3 rounded-full" [style.backgroundColor]="pItem.color || '#1f2937'"></div>
+        <span class="text-sm font-medium p-1 pr-24 text-ellipsis overflow-hidden whitespace-nowrap" [style.color]="pItem.color || '#1f2937'">{{ pItem.description || 'Sin concepto' }}</span>
+        <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center p-1 bg-white/80 rounded-lg border border-gray-100">
+          <div class="w-7 h-7 flex items-center justify-center rounded-md" [ngClass]="pItem.comment ? 'text-blue-600 bg-blue-50' : 'text-gray-400'"><app-icon name="message-square" class="w-[15px] h-[15px] block"></app-icon></div>
+          <div class="w-px h-4 bg-gray-200 mx-0.5"></div>
+          <div class="w-7 h-7 flex items-center justify-center rounded-md">
+            <div class="w-4 h-4 rounded border flex items-center justify-center" [ngClass]="selectedItemIds.includes(pItem.id!) ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'border-gray-300 bg-white'">
+              <app-icon name="check" class="w-3 h-3 stroke-[3]" *ngIf="selectedItemIds.includes(pItem.id!)"></app-icon>
+            </div>
+          </div>
+        </div>
+      </div>
+    </td>
+    <td class="p-1 align-middle bg-[#f8fafc]/30">
+      <div class="flex flex-col items-end px-2">
+        <span class="w-full min-w-[95px] text-right text-sm text-blue-600 font-semibold p-1.5">{{ pItem.depo ? (pItem.depo | number:'1.2-2') : '' }}</span>
+      </div>
+    </td>
+    <td class="p-1 align-middle bg-[#fff7ed]/30">
+      <div class="flex flex-col items-end px-2">
+        <span class="w-full min-w-[95px] text-right text-sm text-orange-600 font-semibold p-1.5">{{ pItem.casa ? (pItem.casa | number:'1.2-2') : '' }}</span>
+      </div>
+    </td>
+    <td class="p-1 align-middle">
+      <div class="flex flex-col items-end px-2">
+        <span class="w-full min-w-[95px] text-right text-sm text-slate-600 font-medium p-1.5">{{ pItem.retiros ? (pItem.retiros | number:'1.2-2') : '' }}</span>
+      </div>
+    </td>
+    <td class="p-1 align-middle bg-[#f0fdf4]/30">
+      <div class="flex flex-col items-end px-2">
+        <span class="w-full min-w-[95px] text-right text-sm text-green-600 font-semibold p-1.5">{{ pItem.iaia ? (pItem.iaia | number:'1.2-2') : '' }}</span>
+      </div>
+    </td>
+    <td class="p-1 text-center align-middle">
+      <div class="w-5 h-5 rounded flex items-center justify-center mx-auto border" [ngClass]="pItem.isPaid ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-gray-300 bg-white text-transparent'"><app-icon *ngIf="pItem.isPaid" name="check" class="w-3.5 h-3.5 stroke-[3]"></app-icon></div>
+    </td>
+    <td class="p-1 text-center align-middle">
+      <div class="w-5 h-5 rounded flex items-center justify-center mx-auto border" [ngClass]="{'border-gray-300 bg-white text-transparent': pItem.replicationState === 0, 'border-indigo-500 bg-indigo-500 text-white': pItem.replicationState === 1, 'border-emerald-500 bg-emerald-500 text-white': pItem.replicationState === 2}">
+        <app-icon *ngIf="pItem.replicationState === 1" name="minus" class="w-3.5 h-3.5 stroke-[3] text-white"></app-icon>
+        <app-icon *ngIf="pItem.replicationState === 2" name="check" class="w-3.5 h-3.5 stroke-[3] text-white"></app-icon>
+      </div>
+    </td>
+    <td class="p-1 text-center align-middle w-10"></td>
+  </ng-template>
 
+  <ng-template #previewAccountTemplate let-pAcc>
+    <td class="p-3 w-12 align-middle text-center"><app-icon name="grip-vertical" class="h-4 w-4 text-gray-300"></app-icon></td>
+    <td class="p-3 align-middle relative group/desc">
+      <div class="flex items-center gap-3">
+        <div class="relative w-3 h-8 flex-shrink-0"><div class="w-full h-full rounded-md shadow-sm border border-black/10" [style.backgroundColor]="pAcc.color || '#1f2937'"></div></div>
+        <div class="w-full pr-16">
+          <span class="font-semibold text-sm text-gray-800">{{ pAcc.name || 'Sin nombre' }}</span>
+          <div class="text-[10px] font-semibold tracking-wider uppercase mt-0.5" [ngClass]="pAcc.currency === 'USD' ? 'text-green-600' : 'text-gray-400'">{{ pAcc.type }} • {{ pAcc.currency || 'ARS' }}</div>
+        </div>
+        <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center p-1 bg-white/80 rounded-lg border border-gray-100">
+          <div class="w-7 h-7 flex items-center justify-center rounded-md"><app-icon name="message-square" class="w-[15px] h-[15px] text-gray-300"></app-icon></div>
+          <div class="w-px h-4 bg-gray-200 mx-0.5"></div>
+          <div class="w-7 h-7 flex items-center justify-center rounded-md">
+            <div class="w-4 h-4 rounded border flex items-center justify-center" [ngClass]="selectedAccountIds.includes(pAcc.id!) ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'border-gray-300 bg-white'">
+              <app-icon name="check" class="w-3 h-3 stroke-[3]" *ngIf="selectedAccountIds.includes(pAcc.id!)"></app-icon>
+            </div>
+          </div>
+        </div>
+      </div>
+    </td>
+    <td class="p-3 align-middle text-right group/amt w-40">
+      <div class="flex flex-col items-end justify-center w-full relative">
+        <div class="flex items-center justify-end w-full">
+          <span class="font-bold mr-1 text-right text-gray-400 text-xs">{{ pAcc.currency === 'USD' ? 'U$D' : '$' }}</span>
+          <span class="w-full px-1 py-1 text-sm font-bold text-right text-gray-900">{{ pAcc.balance ? (pAcc.balance | number:'1.2-2') : '0' }}</span>
+        </div>
+      </div>
+    </td>
+    <td class="p-3 w-10 text-center align-middle"></td>
+  </ng-template>
+
+  </div>
 
   <div #bottomAnchor class="w-full h-1 opacity-0 pointer-events-none mt-4"></div>
 
-  <button (click)="toggleScroll()"
-          class="fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-indigo-600 text-white shadow-xl hover:bg-indigo-700 hover:scale-110 hover:shadow-indigo-500/30 transition-all duration-300 focus:outline-none"
-          [title]="isScrolledDown ? 'Volver al inicio' : 'Ir a los totales'">
-    <app-icon [name]="isScrolledDown ? 'arrow-up' : 'arrow-down'" class="h-6 w-6"></app-icon>
+  <button (click)="toggleScroll()" class="fixed bottom-8 right-8 z-50 w-12 h-12 flex items-center justify-center rounded-full bg-white text-gray-600 shadow-[0_4px_20px_rgba(0,0,0,0.1)] border border-gray-100 hover:bg-gray-50 hover:text-blue-600 hover:scale-105 transition-all duration-300 focus:outline-none" [title]="isScrolledDown ? 'Volver al inicio' : 'Ir a los totales'">
+    <app-icon [name]="isScrolledDown ? 'arrow-up' : 'arrow-down'" class="h-5 w-5"></app-icon>
   </button>
 
-  <div *ngIf="showIvaComprasModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-     (keydown.escape)="closeIvaComprasModal()"
-     tabindex="-1">
-
-  <div class="w-full max-w-3xl bg-white rounded-xl shadow-2xl p-5 border flex flex-col max-h-[85vh] animate-fade-in-down"
-       (click)="$event.stopPropagation()">
-
-    <div class="flex items-center justify-between mb-4 border-b pb-3">
-      <h4 class="font-bold text-gray-800 flex items-center gap-2 text-lg">
-        <app-icon name="file-text" class="h-5 w-5 text-purple-600"></app-icon>
-        Facturas - IVA Compras ({{ monthName }})
-      </h4>
-      <button type="button" (click)="closeIvaComprasModal()" class="text-gray-400 hover:text-red-500 transition-colors text-2xl leading-none">
-        ×
-      </button>
-    </div>
-
-    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 flex flex-col sm:flex-row gap-3 items-end shadow-sm">
-      <div class="w-full sm:w-1/3">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Fecha</label>
-        <input type="date" [(ngModel)]="newIvaCompra.date" class="w-full p-2 border border-gray-300 rounded focus:ring-purple-500 text-sm">
+  <div *ngIf="showIvaComprasModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" (keydown.escape)="closeIvaComprasModal()" tabindex="-1">
+    <div class="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col max-h-[85vh] animate-fade-in-down" (click)="$event.stopPropagation()">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h4 class="font-bold text-gray-900 flex items-center gap-2 text-base">Facturas IVA Compras <span class="text-gray-400 font-normal text-sm">({{ monthName }})</span></h4>
+        <button type="button" (click)="closeIvaComprasModal()" class="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"><app-icon name="x" class="w-5 h-5"></app-icon></button>
       </div>
-      <div class="w-full sm:w-1/3">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Monto de IVA ($)</label>
-        <input type="text" appCurrencyFormat [(ngModel)]="newIvaCompra.amount" (keydown.enter)="blurInput($event)" class="w-full p-2 border border-gray-300 rounded focus:ring-purple-500 text-sm font-bold text-purple-700">
+      <div class="p-6">
+        <div class="bg-purple-50/50 p-4 rounded-xl border border-purple-100 mb-6 flex flex-col sm:flex-row gap-3 items-end">
+          <div class="w-full sm:w-1/3"><label class="block text-[10px] uppercase tracking-wider font-bold text-purple-800/60 mb-1.5">Fecha</label><input type="date" [(ngModel)]="newIvaCompra.date" class="w-full p-2 bg-white border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-300 text-sm"></div>
+          <div class="w-full sm:w-1/3"><label class="block text-[10px] uppercase tracking-wider font-bold text-purple-800/60 mb-1.5">Monto IVA</label><input type="text" appCurrencyFormat [(ngModel)]="newIvaCompra.amount" (keydown.enter)="blurInput($event)" class="w-full p-2 bg-white border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-300 text-sm font-bold text-purple-700"></div>
+          <div class="w-full sm:w-1/3"><label class="block text-[10px] uppercase tracking-wider font-bold text-purple-800/60 mb-1.5">Detalle</label><input type="text" [(ngModel)]="newIvaCompra.comment" (keydown.enter)="saveIvaCompra()" placeholder="Ej: Internet" class="w-full p-2 bg-white border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-300 text-sm"></div>
+          <button (click)="saveIvaCompra()" class="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"><app-icon name="plus" class="w-4 h-4"></app-icon> Agregar</button>
+        </div>
+        <div class="overflow-y-auto custom-scrollbar border border-gray-100 rounded-xl" style="max-height: 40vh;">
+          <table class="w-full text-sm text-left"><thead class="text-[10px] uppercase tracking-widest text-gray-400 bg-gray-50 border-b border-gray-100 sticky top-0"><tr><th class="px-4 py-3">Fecha</th><th class="px-4 py-3">Detalle</th><th class="px-4 py-3 text-right">Monto</th><th class="px-4 py-3 text-center w-10"></th></tr></thead>
+            <tbody class="divide-y divide-gray-50"><tr *ngFor="let iva of ivaCompras; let i = index" class="hover:bg-gray-50/50 transition-colors group"><td class="px-4 py-3 font-mono text-xs text-gray-500">{{ iva.date | date:'dd/MM/yyyy' }}</td><td class="px-4 py-3 text-gray-800 font-medium">{{ iva.comment || '--' }}</td><td class="px-4 py-3 text-right font-bold text-purple-700">$ {{ iva.amount | number:'1.2-2' }}</td><td class="px-4 py-3 text-center"><button (click)="deleteIvaCompra(iva.id, i)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"><app-icon name="Trash2" class="w-4 h-4"></app-icon></button></td></tr><tr *ngIf="ivaCompras.length === 0"><td colspan="4" class="text-center py-8 text-gray-400 text-sm">No hay facturas cargadas.</td></tr></tbody>
+          </table>
+        </div>
       </div>
-      <div class="w-full sm:w-1/3">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Detalle (Opcional)</label>
-        <input type="text" [(ngModel)]="newIvaCompra.comment" (keydown.enter)="saveIvaCompra()" placeholder="Ej: Factura Fibertel" class="w-full p-2 border border-gray-300 rounded focus:ring-purple-500 text-sm">
+      <div class="px-6 py-4 bg-gray-50/80 border-t border-gray-100 rounded-b-2xl flex justify-between items-center">
+        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">Total Acumulado</span><span class="text-lg font-bold text-purple-700">$ {{ totalIvaCompras | number:'1.2-2' }}</span>
       </div>
-      <button (click)="saveIvaCompra()" class="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded transition shadow-sm flex items-center justify-center gap-2">
-        <app-icon name="plus" class="w-4 h-4"></app-icon> Agregar
-      </button>
     </div>
-
-    <div class="overflow-y-auto custom-scrollbar flex-1 border rounded-lg">
-      <table class="w-full text-sm text-left">
-        <thead class="text-xs text-gray-500 bg-gray-100 border-b sticky top-0">
-          <tr>
-            <th class="px-3 py-2">Fecha</th>
-            <th class="px-3 py-2">Detalle</th>
-            <th class="px-3 py-2 text-right">Monto IVA</th>
-            <th class="px-3 py-2 text-center w-10"></th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100">
-          <tr *ngFor="let iva of ivaCompras; let i = index" class="hover:bg-gray-50 transition-colors">
-            <td class="px-3 py-2 font-mono text-gray-600">{{ iva.date | date:'dd/MM/yyyy' }}</td>
-            <td class="px-3 py-2 text-gray-800">{{ iva.comment || 'Sin detalle' }}</td>
-            <td class="px-3 py-2 text-right font-bold text-purple-700">$ {{ iva.amount | number:'1.2-2' }}</td>
-            <td class="px-3 py-2 text-center">
-              <button (click)="deleteIvaCompra(iva.id, i)" class="text-gray-400 hover:text-red-500 transition-colors p-1">
-                <app-icon name="Trash2" class="w-4 h-4"></app-icon>
-              </button>
-            </td>
-          </tr>
-          <tr *ngIf="ivaCompras.length === 0">
-            <td colspan="4" class="text-center py-6 text-gray-400">No hay IVA cargado este mes.</td>
-          </tr>
-        </tbody>
-        <tfoot class="bg-purple-50 border-t font-bold sticky bottom-0">
-          <tr>
-            <td colspan="2" class="px-3 py-2 text-right text-purple-900">TOTAL:</td>
-            <td class="px-3 py-2 text-right text-purple-700 text-base">$ {{ totalIvaCompras | number:'1.2-2' }}</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-
   </div>
-</div>
+
 </div>
