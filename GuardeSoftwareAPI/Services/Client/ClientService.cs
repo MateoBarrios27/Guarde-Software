@@ -24,6 +24,7 @@ using GuardeSoftwareAPI.Dtos.RentalSpaceRequest;
 using GuardeSoftwareAPI.Dtos.Phone;
 using GuardeSoftwareAPI.Services.clientMonthBalance;
 using Microsoft.Data.SqlClient;
+using GuardeSoftwareAPI.Utils; // <- EL HELPER QUE ACABAMOS DE CREAR
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -139,10 +140,11 @@ namespace GuardeSoftwareAPI.Services.client
         if (!dto.LegacyNextIncreaseDate.HasValue) throw new ArgumentException("La fecha de próxima incremento de cliente heredado es requerida.");
     }
     
-    // Asign dates if not legacy
-    DateTime startDate = dto.IsLegacyClient ? dto.StartDate : DateTime.UtcNow.Date;
-    DateTime registrationDate = dto.IsLegacyClient ? dto.RegistrationDate : DateTime.UtcNow.Date;
-    var today = DateTime.UtcNow.Date;
+    // FIX UTC: Usa la hora de Argentina
+    DateTime argTime = TimeHelper.GetArgentinaTime();
+    DateTime startDate = dto.IsLegacyClient ? dto.StartDate : argTime.Date;
+    DateTime registrationDate = dto.IsLegacyClient ? dto.RegistrationDate : argTime.Date;
+    var today = argTime.Date;
     decimal calculatedTotalM3 = 0;
     
     if (dto.SpaceRequests != null && dto.SpaceRequests.Count != 0)
@@ -289,7 +291,7 @@ namespace GuardeSoftwareAPI.Services.client
                         var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(rentalId, connection, transaction);
                         if (lastAmountHistory != null)
                         {
-                            await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, rentalId, dto.Amount, DateTime.Now, connection, transaction);
+                            await rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, rentalId, dto.Amount, argTime, connection, transaction);
                         }
                     }
                 }
@@ -299,7 +301,7 @@ namespace GuardeSoftwareAPI.Services.client
                     {
                         RentalId = rentalId,
                         Amount = dto.Amount,
-                        StartDate = DateTime.Now,
+                        StartDate = argTime,
                         EndDate = null
                     }, connection, transaction);
                 }
@@ -716,37 +718,13 @@ namespace GuardeSoftwareAPI.Services.client
 
                         if (currentRental != null)
                         {
-                            // 1. Actualización de Monto (Historial de precios)
+                            var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(currentRental.Id, connection, transaction);
                             
-                            // Buscamos cuál es el monto real vigente al día de hoy para este cliente
-                            decimal currentActiveAmount = -1;
-                            string activeAmountQuery = @"
-                                SELECT TOP 1 amount 
-                                FROM rental_amount_history 
-                                WHERE rental_id = @rentalId AND start_date <= GETDATE()
-                                ORDER BY start_date DESC, rental_amount_history_id DESC";
-
-                            using (var cmdAmt = new SqlCommand(activeAmountQuery, connection, transaction))
+                            if (lastAmountHistory != null && dto.Amount != lastAmountHistory.Amount)
                             {
-                                cmdAmt.Parameters.AddWithValue("@rentalId", currentRental.Id);
-                                var res = await cmdAmt.ExecuteScalarAsync();
-                                if (res != null && res != DBNull.Value) currentActiveAmount = Convert.ToDecimal(res);
-                            }
-
-                            // Buscamos si hay aumentos futuros programados
-                            int futureIncreasesCount = 0;
-                            string futureIncreasesQuery = "SELECT COUNT(1) FROM rental_amount_history WHERE rental_id = @rentalId AND start_date > GETDATE()";
-                            using (var cmdFut = new SqlCommand(futureIncreasesQuery, connection, transaction))
-                            {
-                                cmdFut.Parameters.AddWithValue("@rentalId", currentRental.Id);
-                                futureIncreasesCount = Convert.ToInt32(await cmdFut.ExecuteScalarAsync());
-                            }
-
-                            // Si mandaste un precio distinto al de hoy, o hay aumentos futuros que queremos limpiar (aplanamiento)
-                            if (currentActiveAmount != -1 && (dto.Amount != currentActiveAmount || (dto.Amount == currentActiveAmount && futureIncreasesCount > 0)))
-                            {
-                                // 1.1 BUSCAMOS LA FECHA EXACTA DE PRÓXIMO PAGO
-                                DateTime nextPaymentDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+                                // FIX UTC: Usa la hora de Argentina
+                                DateTime argTime = TimeHelper.GetArgentinaTime();
+                                DateTime nextPaymentDate = new DateTime(argTime.Year, argTime.Month, 1);
                                 
                                 string nextPaymentQuery = @"
                                     SELECT TOP 1 
@@ -772,44 +750,26 @@ namespace GuardeSoftwareAPI.Services.client
                                                 int y = int.Parse(my.Substring(3, 4));
                                                 DateTime lastGeneratedMonth = new DateTime(y, m, 1);
                                                 
-                                                // Si debe plata, el cambio aplica desde ese mes. Si está a favor, aplica al mes siguiente.
-                                                nextPaymentDate = netBalance > 0 ? lastGeneratedMonth : lastGeneratedMonth.AddMonths(1);
+                                                if (netBalance > 0)
+                                                {
+                                                    nextPaymentDate = lastGeneratedMonth;
+                                                }
+                                                else
+                                                {
+                                                    nextPaymentDate = lastGeneratedMonth.AddMonths(1);
+                                                }
                                             }
                                         }
                                     }
                                 }
 
-                                // 1.2 INTELIGENCIA DE APLANAMIENTO: Borramos aumentos futuros que chocan con este cambio
-                                string deleteFutureHistoriesQuery = @"
-                                    DELETE FROM rental_amount_history 
-                                    WHERE rental_id = @rentalId AND start_date >= @nextPaymentDate";
-                                    
-                                using (var cmdDel = new SqlCommand(deleteFutureHistoriesQuery, connection, transaction))
+                                if (lastAmountHistory.StartDate > nextPaymentDate)
                                 {
-                                    cmdDel.Parameters.AddWithValue("@rentalId", currentRental.Id);
-                                    cmdDel.Parameters.AddWithValue("@nextPaymentDate", nextPaymentDate);
-                                    await cmdDel.ExecuteNonQueryAsync();
+                                    nextPaymentDate = lastAmountHistory.StartDate;
                                 }
 
-                                // 1.3 Cerramos el historial viejo el DÍA ANTERIOR a la fecha de cobro
-                                string closeActiveHistoryQuery = @"
-                                    UPDATE rental_amount_history
-                                    SET end_date = @closeDate
-                                    WHERE rental_amount_history_id = (
-                                        SELECT TOP 1 rental_amount_history_id 
-                                        FROM rental_amount_history 
-                                        WHERE rental_id = @rentalId AND start_date <= @closeDate
-                                        ORDER BY start_date DESC, rental_amount_history_id DESC
-                                    )";
+                                await _daoRentalAmountHistory.EndRentalAmountHistoryTransactionAsync(lastAmountHistory.Id, nextPaymentDate.AddDays(-1), connection, transaction);
 
-                                using (var cmdClose = new SqlCommand(closeActiveHistoryQuery, connection, transaction))
-                                {
-                                    cmdClose.Parameters.AddWithValue("@rentalId", currentRental.Id);
-                                    cmdClose.Parameters.AddWithValue("@closeDate", nextPaymentDate.AddDays(-1));
-                                    await cmdClose.ExecuteNonQueryAsync();
-                                }
-
-                                // 1.4 Creamos el precio oficial definitivo desde la fecha de cobro
                                 await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory 
                                 {
                                     RentalId = currentRental.Id,
@@ -818,7 +778,6 @@ namespace GuardeSoftwareAPI.Services.client
                                     EndDate = null
                                 }, connection, transaction);
 
-                                // 1.5 ALINEAR LOS DÉBITOS A PARTIR DE ESA FECHA
                                 string updateFutureDebitsQuery = @"
                                     UPDATE am
                                     SET am.amount = @newAmount
@@ -829,7 +788,6 @@ namespace GuardeSoftwareAPI.Services.client
                                       AND am.movement_type = 'DEBITO'
                                       AND am.concept LIKE 'Alquiler %'
                                       AND am.movement_date >= @nextPaymentDate
-                                      -- Condición vital: Que el mes no esté pagado totalmente
                                       AND (cmb.id IS NULL OR (cmb.balance - cmb.paid - cmb.advanced_payment) > 0)";
 
                                 using var cmdUpdateDebits = new SqlCommand(updateFutureDebitsQuery, connection, transaction);
@@ -840,13 +798,11 @@ namespace GuardeSoftwareAPI.Services.client
                                 await cmdUpdateDebits.ExecuteNonQueryAsync();
                             }
 
-                            // 2. Actualización de Espacios
                             if (dto.OccupiedSpaces != currentRental.OccupiedSpaces)
                             {
                                 await rentalService.UpdateOccupiedSpacesTransactionAsync(currentRental.Id, dto.OccupiedSpaces, connection, transaction);
                             }
 
-                            // 3. Actualización de Fecha de Próximo Aumento
                             if (dto.LegacyNextIncreaseDate.HasValue) 
                             {
                                 if (currentRental.IncreaseAnchorDate != dto.LegacyNextIncreaseDate.Value)
@@ -855,7 +811,6 @@ namespace GuardeSoftwareAPI.Services.client
                                 }
                             }
 
-                            // 4. Actualización de Lockers
                             var currentLockerIds = await lockerService.GetLockerIdsByRentalIdTransactionAsync(currentRental.Id, connection, transaction);
                             var newLockerIds = dto.LockerIds ?? [];
                             var lockersToRemove = currentLockerIds.Except(newLockerIds).ToList();
@@ -880,17 +835,17 @@ namespace GuardeSoftwareAPI.Services.client
                                 await rentalService.UpdateContractedM3TransactionAsync(currentRental.Id, newContractedM3, connection, transaction);
                             }
 
-                            // 5. RECONSTRUCCIÓN DE LA CUENTA
                             await _clientMonthBalanceService.RebuildForRentalTransactionAsync(currentRental.Id, connection, transaction);
                             
                         } else if (dto.LockerIds != null && dto.LockerIds.Count != 0) {
                             Console.WriteLine($"Advertencia: Se asignaron lockers al cliente {id} pero no tiene un rental activo.");
                         }
 
+
                         ActivityLog activityLog = new()
                         { 
                             UserId = dto.UserID,
-                            LogDate = DateTime.UtcNow,
+                            LogDate = TimeHelper.GetArgentinaTime(), // FIX UTC
                             Action = "UPDATE",
                             TableName = "clients",
                             RecordId = id,
@@ -914,7 +869,6 @@ namespace GuardeSoftwareAPI.Services.client
         {
             if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
 
-            // 1. Validación de Seguridad: Verificar lockers asignados
             var lockers = await lockerService.GetLockersByClientIdAsync(clientId);
             if (lockers != null && lockers.Count > 0)
             {
@@ -928,7 +882,7 @@ namespace GuardeSoftwareAPI.Services.client
                 {
                     try
                     {
-                        var today = DateTime.UtcNow.Date;
+                        var today = TimeHelper.GetArgentinaTime().Date; // FIX UTC
                         await daoClient.DeactivateClientTransactionAsync(clientId, connection, transaction);
                         int? activeRentalId = await rentalService.GetActiveRentalIdByClientIdTransactionAsync(clientId, connection, transaction);
 
@@ -975,16 +929,14 @@ namespace GuardeSoftwareAPI.Services.client
                         var existingClient = await daoClient.GetClientByIdTransactionAsync(clientId, connection, transaction);
                         if (existingClient == null) throw new Exception("Cliente no encontrado.");
 
-                        // 1. Reactivate in database and get new PaymentIdentifier
                         decimal maxIdentifier = await daoClient.GetMaxPaymentIdentifierAsync(connection, transaction);
                         decimal newPaymentIdentifier = maxIdentifier + 0.01m;
                         await daoClient.ReactivateClientTransactionAsync(clientId, newPaymentIdentifier, connection, transaction);
 
-                        // 2. Update the client's details with the new PaymentIdentifier and other info from DTO
                         Client clientToUpdate = new()
                         {
                             Id = clientId,
-                            PaymentIdentifier = newPaymentIdentifier, // new payment identifier upon reactivation
+                            PaymentIdentifier = newPaymentIdentifier, 
                             FullName = dto.FullName.Trim(),
                             Dni = string.IsNullOrWhiteSpace(dto.Dni) ? null : dto.Dni.Trim(),
                             Cuit = string.IsNullOrWhiteSpace(dto.Cuit) ? null : dto.Cuit.Trim(),
@@ -999,7 +951,6 @@ namespace GuardeSoftwareAPI.Services.client
                         };
                         await daoClient.UpdateClientTransactionAsync(clientToUpdate, connection, transaction);
 
-                        // Update Contact Information: Emails, Phones, Address
                         await emailService.DeleteEmailsByClientIdTransactionAsync(clientId, connection, transaction);
                         if (dto.Emails != null) {
                             foreach (string emailAddr in dto.Emails.Where(e => !string.IsNullOrWhiteSpace(e))) {
@@ -1019,11 +970,11 @@ namespace GuardeSoftwareAPI.Services.client
                             await addressService.CreateAddressTransaction(new Address { ClientId = clientId, Street = dto.AddressDto.Street.Trim(), City = "", Province = "" }, connection, transaction);
                         }
 
-                        // 3. Create new Rental with the new PaymentIdentifier and details from DTO
                         decimal calculatedTotalM3 = (dto.SpaceRequests != null && dto.SpaceRequests.Count != 0) 
                             ? dto.SpaceRequests.Sum(r => r.M3 * r.Quantity) : (dto.ContractedM3 ?? 0m);
 
-                        DateTime startDate = DateTime.Now;
+                        // FIX UTC
+                        DateTime startDate = TimeHelper.GetArgentinaTime();
                         DateTime calculationBaseDate = startDate.Date;
                         if (calculationBaseDate.Day > 20) calculationBaseDate = calculationBaseDate.AddMonths(1);
                         int frequency = existingClient.IncreaseFrequencyMonths > 0 ? existingClient.IncreaseFrequencyMonths : 4;
@@ -1042,7 +993,6 @@ namespace GuardeSoftwareAPI.Services.client
                         };
                         int rentalId = await rentalService.CreateRentalTransactionAsync(rental, connection, transaction);
 
-                        // 4. Assign lockers and create space requests if applicable
                         if (dto.SpaceRequests != null && dto.SpaceRequests.Count != 0)
                         {
                             foreach (var req in dto.SpaceRequests)
@@ -1061,13 +1011,11 @@ namespace GuardeSoftwareAPI.Services.client
                             await daoClient.OpenLockerHistoryTransactionAsync(clientId, dto.LockerIds, connection, transaction);
                         }
 
-                        // 5. New amoount history record with the new amount from DTO
                         await rentalAmountHistoryService.CreateRentalAmountHistoryTransactionAsync(new RentalAmountHistory
                         {
                             RentalId = rentalId, Amount = dto.Amount, StartDate = startDate, EndDate = null
                         }, connection, transaction);
 
-                        // 6. First debit movement for the rent (either full or proportional depending on the day of the month)
                         var culture = new CultureInfo("es-AR");
                         if (startDate.Day < 10)
                         {
@@ -1111,8 +1059,7 @@ namespace GuardeSoftwareAPI.Services.client
 
                         await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rentalId, connection, transaction);
 
-                        // 7. Log
-                        ActivityLog activityLog = new() { UserId = dto.UserID, LogDate = DateTime.UtcNow, Action = "REACTIVATE", TableName = "clients", RecordId = clientId };
+                        ActivityLog activityLog = new() { UserId = dto.UserID, LogDate = TimeHelper.GetArgentinaTime(), Action = "REACTIVATE", TableName = "clients", RecordId = clientId };
                         await activityLogService.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
 
                         await transaction.CommitAsync();
@@ -1134,8 +1081,3 @@ namespace GuardeSoftwareAPI.Services.client
         }
     }
 }
-
-
-
-
-    

@@ -6,11 +6,10 @@ using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.Client;
 using System.Text;
 using System.Text.Json;
-
+using GuardeSoftwareAPI.Utils; // <- Asegurate de incluir esto
 
 namespace GuardeSoftwareAPI.Dao
 {
-
     public class DaoClient
     {
         private readonly AccessDB accessDB;
@@ -36,7 +35,7 @@ namespace GuardeSoftwareAPI.Dao
                                 ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC
                             ) as rn
                         FROM rental_amount_history
-                        WHERE start_date <= GETDATE()
+                        WHERE start_date <= DATEADD(hour, -3, GETUTCDATE())
                     ) h
                     WHERE h.rn = 1
                 )
@@ -92,7 +91,7 @@ namespace GuardeSoftwareAPI.Dao
                     ORDER BY cmb.id DESC
                 ) db
 
-                -- CASCADA DE LIQUIDACIÓN PARA INTERESES PROPORCIONALES
+                -- CASCADA DE LIQUIDACIÓN
                 OUTER APPLY ( SELECT TotalPaid = ISNULL(db.PaidDB, 0) + ISNULL(db.AdvPayDB, 0) ) calc1
                 OUTER APPLY (
                     SELECT 
@@ -110,7 +109,6 @@ namespace GuardeSoftwareAPI.Dao
                         Overpayment = CASE WHEN calc3.Rem2 > ISNULL(db.IntsDB, 0) THEN calc3.Rem2 - ISNULL(db.IntsDB, 0) ELSE 0 END
                 ) calc4
 
-                -- CÁLCULO SEGURO DEL BALANCE MATEMÁTICO
                 OUTER APPLY (
                     SELECT
                         UI_CurrentRent = db.RentDB,
@@ -165,7 +163,6 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
 
-
         public async Task<bool> DeactivateClientTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
         {
             string query = "UPDATE clients SET active = 0 WHERE client_id = @Id";
@@ -179,10 +176,8 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<int> CreateClientAsync(Client client)
         {
-
             SqlParameter[] parameters =
             [
-
                 new("@payment_identifier", SqlDbType.Decimal)
                 {
                     Precision = 10,
@@ -214,8 +209,6 @@ namespace GuardeSoftwareAPI.Dao
             return Convert.ToInt32(result);
         }
 
-
-        //METHOD FOR TRANSACTION
         public async Task<int> CreateClientTransactionAsync(Client client, SqlConnection connection, SqlTransaction transaction)
         {
             SqlParameter[] parameters =
@@ -256,7 +249,7 @@ namespace GuardeSoftwareAPI.Dao
                     SELECT h.rental_id, h.amount AS CurrentRent
                     FROM (
                         SELECT rental_id, amount, ROW_NUMBER() OVER (PARTITION BY rental_id ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC) as rn
-                        FROM rental_amount_history WHERE start_date <= GETDATE()
+                        FROM rental_amount_history WHERE start_date <= DATEADD(hour, -3, GETUTCDATE())
                     ) h WHERE h.rn = 1
                 )
                 SELECT 
@@ -274,8 +267,8 @@ namespace GuardeSoftwareAPI.Dao
                     ISNULL(db.PaidDB, 0) AS total_paid,
                     
                     CASE 
-                        WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(GETDATE() AS DATE)
-                        THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 10)
+                        WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
+                        THEN DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 10)
                         ELSE step1.LastBalanceDate
                     END AS next_payment_day,
 
@@ -293,7 +286,7 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1 
                 LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id 
 
-                -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO (Para saber hasta dónde pagó)
+                -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO
                 OUTER APPLY (
                     SELECT TOP 1
                         MonthYearDB = cmb.month_year,
@@ -319,7 +312,6 @@ namespace GuardeSoftwareAPI.Dao
                     ORDER BY cmb.id DESC
                 ) db
 
-                -- CASCADA DE LIQUIDACIÓN PARA INTERESES PROPORCIONALES
                 OUTER APPLY ( SELECT TotalPaid = ISNULL(db.PaidDB, 0) + ISNULL(db.AdvPayDB, 0) ) calc1
                 OUTER APPLY (
                     SELECT 
@@ -337,7 +329,6 @@ namespace GuardeSoftwareAPI.Dao
                         Overpayment = CASE WHEN calc3.Rem2 > ISNULL(db.IntsDB, 0) THEN calc3.Rem2 - ISNULL(db.IntsDB, 0) ELSE 0 END
                 ) calc4
 
-                -- CÁLCULO SEGURO DEL BALANCE MATEMÁTICO Y CONVERSIÓN DE FECHA
                 OUTER APPLY (
                     SELECT 
                         UI_CurrentRent = db.RentDB, 
@@ -451,7 +442,7 @@ namespace GuardeSoftwareAPI.Dao
                     FROM (
                         SELECT rental_id, amount,
                                ROW_NUMBER() OVER (PARTITION BY rental_id ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC) as rn
-                        FROM rental_amount_history WHERE start_date <= GETDATE()
+                        FROM rental_amount_history WHERE start_date <= DATEADD(hour, -3, GETUTCDATE())
                     ) h WHERE h.rn = 1
                 ),
                 ClientData AS (
@@ -475,8 +466,8 @@ namespace GuardeSoftwareAPI.Dao
                         c.active AS Active,
 
                         CASE 
-                            WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(GETDATE() AS DATE)
-                            THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) -- Día forzado a 1
+                            WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
+                            THEN DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1) -- Día forzado a 1
                             ELSE step1.LastBalanceDate
                         END AS NextPaymentDay,
                         
@@ -494,7 +485,7 @@ namespace GuardeSoftwareAPI.Dao
                     LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1
                     LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
 
-                    -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO (Para saber hasta dónde pagó)
+                    -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO
                     OUTER APPLY (
                         SELECT TOP 1
                             MonthYearDB = cmb.month_year,
@@ -520,7 +511,6 @@ namespace GuardeSoftwareAPI.Dao
                         ORDER BY cmb.id DESC
                     ) db
 
-                    -- CASCADA DE LIQUIDACIÓN PAGINADA
                     OUTER APPLY ( SELECT TotalPaid = ISNULL(db.PaidDB, 0) + ISNULL(db.AdvPayDB, 0) ) calc1
                     OUTER APPLY (
                         SELECT 
@@ -616,32 +606,32 @@ namespace GuardeSoftwareAPI.Dao
         }
 
         private List<GetTableClientsDto> MapDataTableToDto(DataTable table)
-    {
-        var clients = new List<GetTableClientsDto>();
-        if (table == null) return clients;
-
-        foreach (DataRow row in table.Rows)
         {
-            clients.Add(new GetTableClientsDto
+            var clients = new List<GetTableClientsDto>();
+            if (table == null) return clients;
+
+            foreach (DataRow row in table.Rows)
             {
-                Id = Convert.ToInt32(row["Id"]),
-                PaymentIdentifier = row["PaymentIdentifier"] != DBNull.Value ? Convert.ToDecimal(row["PaymentIdentifier"]) : null,
-                FullName = row["FullName"]?.ToString() ?? string.Empty,
-                Status = row["Status"]?.ToString() ?? "Pendiente",
-                PreviousBalance = row["PreviousBalance"] != DBNull.Value ? Convert.ToDecimal(row["PreviousBalance"]) : 0m,
-                InterestAmount = row["InterestAmount"] != DBNull.Value ? Convert.ToDecimal(row["InterestAmount"]) : 0m,
-                CurrentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0m,
-                Balance = row["Balance"] != DBNull.Value ? Convert.ToDecimal(row["Balance"]) : 0m,
-                NextPaymentDay = row["NextPaymentDay"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDay"]) : null,
-                Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,
-                Active = Convert.ToBoolean(row["Active"]),
-                WarehouseLockers = row["WarehouseLockersJson"] != DBNull.Value 
-                    ? JsonSerializer.Deserialize<List<WarehouseLockerItem>>(row["WarehouseLockersJson"].ToString()) 
-                    : []
-            });
+                clients.Add(new GetTableClientsDto
+                {
+                    Id = Convert.ToInt32(row["Id"]),
+                    PaymentIdentifier = row["PaymentIdentifier"] != DBNull.Value ? Convert.ToDecimal(row["PaymentIdentifier"]) : null,
+                    FullName = row["FullName"]?.ToString() ?? string.Empty,
+                    Status = row["Status"]?.ToString() ?? "Pendiente",
+                    PreviousBalance = row["PreviousBalance"] != DBNull.Value ? Convert.ToDecimal(row["PreviousBalance"]) : 0m,
+                    InterestAmount = row["InterestAmount"] != DBNull.Value ? Convert.ToDecimal(row["InterestAmount"]) : 0m,
+                    CurrentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0m,
+                    Balance = row["Balance"] != DBNull.Value ? Convert.ToDecimal(row["Balance"]) : 0m,
+                    NextPaymentDay = row["NextPaymentDay"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDay"]) : null,
+                    Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,
+                    Active = Convert.ToBoolean(row["Active"]),
+                    WarehouseLockers = row["WarehouseLockersJson"] != DBNull.Value 
+                        ? JsonSerializer.Deserialize<List<WarehouseLockerItem>>(row["WarehouseLockersJson"].ToString()) 
+                        : []
+                });
+            }
+            return clients;
         }
-        return clients;
-    }
 
         public async Task<List<string>> GetActiveClientNamesAsync()
         {
@@ -667,7 +657,7 @@ namespace GuardeSoftwareAPI.Dao
                 WHERE active = 1 AND 
                     (full_name LIKE @Query)
                 ORDER BY full_name
-                OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY; -- Limitamos a 10 resultados
+                OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY; 
             ";
 
             var parameters = new[] { 
@@ -738,7 +728,6 @@ namespace GuardeSoftwareAPI.Dao
             }
         }
 
-        // Verifica CUIT existente EXCLUYENDO un ID de cliente
         public async Task<bool> ExistsByCuitAsync(string cuit, int excludeClientId, SqlConnection connection, SqlTransaction transaction)
         {
             const string query = "SELECT COUNT(1) FROM clients WHERE cuit = @cuit AND client_id != @excludeClientId AND active = 1";
@@ -773,7 +762,6 @@ namespace GuardeSoftwareAPI.Dao
             return count > 0;
         }
 
-        // Actualiza un cliente DENTRO de una transacción
         public async Task<bool> UpdateClientTransactionAsync(Client client, SqlConnection connection, SqlTransaction transaction)
         {
             string query = @"
@@ -885,7 +873,7 @@ namespace GuardeSoftwareAPI.Dao
             string ids = string.Join(",", lockerIds);
             string query = $@"
                 UPDATE client_locker_history 
-                SET end_date = GETDATE() 
+                SET end_date = DATEADD(hour, -3, GETUTCDATE())
                 WHERE client_id = @ClientId AND locker_id IN ({ids}) AND end_date IS NULL";
 
             using (var cmd = new SqlCommand(query, connection, transaction))
@@ -903,7 +891,7 @@ namespace GuardeSoftwareAPI.Dao
             {
                 string query = @"
                     INSERT INTO client_locker_history (client_id, locker_id, start_date) 
-                    VALUES (@ClientId, @LockerId, GETDATE())";
+                    VALUES (@ClientId, @LockerId, DATEADD(hour, -3, GETUTCDATE()))";
 
                 using (var cmd = new SqlCommand(query, connection, transaction))
                 {
