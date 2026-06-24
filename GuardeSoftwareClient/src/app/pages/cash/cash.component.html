@@ -213,7 +213,7 @@
                     </div>
                     <!-- Nombre expande todo su contenido (w-full flex-1) -->
                     <div class="w-full flex-1 pr-16">
-                      <input type="text" (click)="$event.stopPropagation()" (focus)="captureAccount(account)" [(ngModel)]="account.name" (change)="checkAccountChange(account); onAccountNameChange(account)" (keydown.enter)="blurInput($event)" [style.color]="account.color || '#1f2937'" class="font-semibold text-sm transition-colors bg-transparent border-none p-0 focus:ring-1 focus:ring-blue-300 rounded w-full overflow-hidden text-ellipsis m-0 shadow-none" placeholder="Nombre de la cuenta...">
+                      <input type="text" (click)="$event.stopPropagation()" (focus)="captureAccount(account)" [(ngModel)]="account.name" (change)="checkAccountChange(account); onAccountNameChange(account)" (keydown.enter)="blurInput($event)" [style.color]="account.color || '#1f2937'" class="font-semibold text-sm transition-colors bg-transparent border-none p-0 focus:ring-1 focus:ring-blue-300 rounded w-11/12 overflow-hidden text-ellipsis m-0 shadow-none" placeholder="Nombre de la cuenta...">
                       <div class="text-[10px] font-semibold tracking-wider uppercase mt-0.5" [ngClass]="account.currency === 'USD' ? 'text-green-600' : 'text-gray-400'">{{ account.type }} • {{ account.currency || 'ARS' }}</div>
                     </div>
                     <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center p-1 bg-white/80 backdrop-blur-md shadow-sm border border-gray-200/80 rounded-lg transition-all duration-200 z-10" [ngClass]="selectedAccountIds.includes(account.id!) ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2 pointer-events-none group-hover/desc:opacity-100 group-hover/desc:translate-x-0 group-hover/desc:pointer-events-auto'">
@@ -451,7 +451,7 @@
                           (click)="toggleComment(item); $event.stopPropagation()" 
                           title="Comentario"
                           class="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
-                          [ngClass]="item.comment && item.comment.trim() !== '' ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-50'">
+                          [ngClass]="item.comment && item.comment.trim() !== '' ? 'text-orange-600 hover:bg-orange-100' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'">
                     <app-icon name="message-square" class="w-4 h-4 block"></app-icon>
                   </button>
 
