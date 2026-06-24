@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.Client;
 using System.Text;
 using System.Text.Json;
-using GuardeSoftwareAPI.Utils; // <- Asegurate de incluir esto
+
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -65,7 +65,7 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN CurrentRentalAmount cr
                     ON r.rental_id = cr.rental_id
                 
-                -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO (Para saber hasta dónde pagó)
+                -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO (Para fecha de próximo pago correcta)
                 OUTER APPLY (
                     SELECT TOP 1
                         MonthYearDB = cmb.month_year,
@@ -75,7 +75,7 @@ namespace GuardeSoftwareAPI.Dao
                     ORDER BY cmb.id DESC
                 ) latest_cmb
 
-                -- BÚSQUEDA INTELIGENTE DEL MES ACTIVO (Con deuda)
+                -- BÚSQUEDA DEL MES ACTIVO (Con deuda)
                 OUTER APPLY (
                     SELECT TOP 1
                         Id = cmb.id,
@@ -91,33 +91,50 @@ namespace GuardeSoftwareAPI.Dao
                     ORDER BY cmb.id DESC
                 ) db
 
-                -- CASCADA DE LIQUIDACIÓN
-                OUTER APPLY ( SELECT TotalPaid = ISNULL(db.PaidDB, 0) + ISNULL(db.AdvPayDB, 0) ) calc1
+                -- SEPARACIÓN ESTRICTA DE CONCEPTOS
                 OUTER APPLY (
                     SELECT 
-                        UnpaidPrevBal = CASE WHEN calc1.TotalPaid > ISNULL(db.PrevBalDB, 0) THEN 0 ELSE ISNULL(db.PrevBalDB, 0) - calc1.TotalPaid END,
-                        Rem1 = CASE WHEN calc1.TotalPaid > ISNULL(db.PrevBalDB, 0) THEN calc1.TotalPaid - ISNULL(db.PrevBalDB, 0) ELSE 0 END
+                        Raw_PrevBal = ISNULL((
+                            SELECT SUM(
+                                CASE
+                                    WHEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0) > 0
+                                    THEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0)
+                                    ELSE 0
+                                END
+                            )
+                            FROM client_month_balances cmb2
+                            WHERE cmb2.rental_id = r.rental_id AND cmb2.id < db.Id
+                        ), 0),
+                        
+                        Raw_Interest = ISNULL((
+                            SELECT SUM(ISNULL(cmb2.interests, 0))
+                            FROM client_month_balances cmb2
+                            WHERE cmb2.rental_id = r.rental_id AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
+                        ), 0),
+                        
+                        TotalPaid = ISNULL(db.PaidDB, 0) + ISNULL(db.AdvPayDB, 0)
+                ) rawData
+
+                -- CASCADA DE LIQUIDACIÓN
+                OUTER APPLY (
+                    SELECT Rem1 = CASE WHEN rawData.TotalPaid > rawData.Raw_PrevBal THEN rawData.TotalPaid - rawData.Raw_PrevBal ELSE 0 END
+                ) calc1
+                OUTER APPLY (
+                    SELECT Rem2 = CASE WHEN calc1.Rem1 > db.RentDB THEN calc1.Rem1 - db.RentDB ELSE 0 END
                 ) calc2
                 OUTER APPLY (
-                    SELECT 
-                        UnpaidRent = CASE WHEN calc2.Rem1 > ISNULL(db.RentDB, 0) THEN 0 ELSE ISNULL(db.RentDB, 0) - calc2.Rem1 END,
-                        Rem2 = CASE WHEN calc2.Rem1 > ISNULL(db.RentDB, 0) THEN calc2.Rem1 - ISNULL(db.RentDB, 0) ELSE 0 END
+                    SELECT UnpaidInts = CASE WHEN calc2.Rem2 > rawData.Raw_Interest THEN 0 ELSE rawData.Raw_Interest - calc2.Rem2 END
                 ) calc3
-                OUTER APPLY (
-                    SELECT 
-                        UnpaidInts = CASE WHEN calc3.Rem2 > ISNULL(db.IntsDB, 0) THEN 0 ELSE ISNULL(db.IntsDB, 0) - calc3.Rem2 END,
-                        Overpayment = CASE WHEN calc3.Rem2 > ISNULL(db.IntsDB, 0) THEN calc3.Rem2 - ISNULL(db.IntsDB, 0) ELSE 0 END
-                ) calc4
 
+                -- ASIGNAMOS A LA UI
                 OUTER APPLY (
                     SELECT
                         UI_CurrentRent = db.RentDB,
-                        UI_InterestAmount = calc4.UnpaidInts,
-                        UI_Balance = -(ISNULL(db.PrevBalDB, 0) + ISNULL(db.IntsDB, 0) + ISNULL(db.RentDB, 0) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)),
+                        UI_InterestAmount = calc3.UnpaidInts,
+                        UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                         UI_PreviousBalance = CASE 
-                            WHEN ISNULL(db.AdvPayDB, 0) > 0 THEN ISNULL(db.AdvPayDB, 0)
-                            WHEN calc4.Overpayment > 0 THEN calc4.Overpayment
-                            ELSE -calc2.UnpaidPrevBal 
+                            WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
+                            ELSE -rawData.Raw_PrevBal
                         END,
                         LastBalanceDate = CASE 
                             WHEN latest_cmb.MonthYearDB IS NOT NULL AND LEN(latest_cmb.MonthYearDB) = 7 THEN
@@ -296,7 +313,7 @@ namespace GuardeSoftwareAPI.Dao
                     ORDER BY cmb.id DESC
                 ) latest_cmb
 
-                -- BUSCAMOS EL MES ACTIVO (Con deuda)
+                -- BÚSQUEDA DEL MES ACTIVO (Con deuda)
                 OUTER APPLY (
                     SELECT TOP 1
                         Id = cmb.id,
@@ -312,32 +329,50 @@ namespace GuardeSoftwareAPI.Dao
                     ORDER BY cmb.id DESC
                 ) db
 
-                OUTER APPLY ( SELECT TotalPaid = ISNULL(db.PaidDB, 0) + ISNULL(db.AdvPayDB, 0) ) calc1
+                -- SEPARACIÓN ESTRICTA DE CONCEPTOS
                 OUTER APPLY (
                     SELECT 
-                        UnpaidPrevBal = CASE WHEN calc1.TotalPaid > ISNULL(db.PrevBalDB, 0) THEN 0 ELSE ISNULL(db.PrevBalDB, 0) - calc1.TotalPaid END,
-                        Rem1 = CASE WHEN calc1.TotalPaid > ISNULL(db.PrevBalDB, 0) THEN calc1.TotalPaid - ISNULL(db.PrevBalDB, 0) ELSE 0 END
+                        Raw_PrevBal = ISNULL((
+                            SELECT SUM(
+                                CASE
+                                    WHEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0) > 0
+                                    THEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0)
+                                    ELSE 0
+                                END
+                            )
+                            FROM client_month_balances cmb2
+                            WHERE cmb2.rental_id = r.rental_id AND cmb2.id < db.Id
+                        ), 0),
+                        
+                        Raw_Interest = ISNULL((
+                            SELECT SUM(ISNULL(cmb2.interests, 0))
+                            FROM client_month_balances cmb2
+                            WHERE cmb2.rental_id = r.rental_id AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
+                        ), 0),
+                        
+                        TotalPaid = ISNULL(db.PaidDB, 0) + ISNULL(db.AdvPayDB, 0)
+                ) rawData
+
+                -- CASCADA DE LIQUIDACIÓN
+                OUTER APPLY (
+                    SELECT Rem1 = CASE WHEN rawData.TotalPaid > rawData.Raw_PrevBal THEN rawData.TotalPaid - rawData.Raw_PrevBal ELSE 0 END
+                ) calc1
+                OUTER APPLY (
+                    SELECT Rem2 = CASE WHEN calc1.Rem1 > db.RentDB THEN calc1.Rem1 - db.RentDB ELSE 0 END
                 ) calc2
                 OUTER APPLY (
-                    SELECT 
-                        UnpaidRent = CASE WHEN calc2.Rem1 > ISNULL(db.RentDB, 0) THEN 0 ELSE ISNULL(db.RentDB, 0) - calc2.Rem1 END,
-                        Rem2 = CASE WHEN calc2.Rem1 > ISNULL(db.RentDB, 0) THEN calc2.Rem1 - ISNULL(db.RentDB, 0) ELSE 0 END
+                    SELECT UnpaidInts = CASE WHEN calc2.Rem2 > rawData.Raw_Interest THEN 0 ELSE rawData.Raw_Interest - calc2.Rem2 END
                 ) calc3
-                OUTER APPLY (
-                    SELECT 
-                        UnpaidInts = CASE WHEN calc3.Rem2 > ISNULL(db.IntsDB, 0) THEN 0 ELSE ISNULL(db.IntsDB, 0) - calc3.Rem2 END,
-                        Overpayment = CASE WHEN calc3.Rem2 > ISNULL(db.IntsDB, 0) THEN calc3.Rem2 - ISNULL(db.IntsDB, 0) ELSE 0 END
-                ) calc4
 
+                -- ASIGNAMOS A LA UI
                 OUTER APPLY (
-                    SELECT 
-                        UI_CurrentRent = db.RentDB, 
-                        UI_InterestAmount = calc4.UnpaidInts,
-                        UI_Balance = -(ISNULL(db.PrevBalDB, 0) + ISNULL(db.IntsDB, 0) + ISNULL(db.RentDB, 0) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)),
+                    SELECT
+                        UI_CurrentRent = db.RentDB,
+                        UI_InterestAmount = calc3.UnpaidInts,
+                        UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                         UI_PreviousBalance = CASE 
-                            WHEN ISNULL(db.AdvPayDB, 0) > 0 THEN ISNULL(db.AdvPayDB, 0)
-                            WHEN calc4.Overpayment > 0 THEN calc4.Overpayment
-                            ELSE -calc2.UnpaidPrevBal 
+                            WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
+                            ELSE -rawData.Raw_PrevBal
                         END,
                         LastBalanceDate = CASE 
                             WHEN latest_cmb.MonthYearDB IS NOT NULL AND LEN(latest_cmb.MonthYearDB) = 7 THEN
@@ -485,7 +520,7 @@ namespace GuardeSoftwareAPI.Dao
                     LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1
                     LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
 
-                    -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO
+                    -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO (Para fecha de próximo pago)
                     OUTER APPLY (
                         SELECT TOP 1
                             MonthYearDB = cmb.month_year,
@@ -495,7 +530,7 @@ namespace GuardeSoftwareAPI.Dao
                         ORDER BY cmb.id DESC
                     ) latest_cmb
 
-                    -- 1. BUSCAMOS EL MES ACTIVO
+                    -- BÚSQUEDA DEL MES ACTIVO (Con deuda)
                     OUTER APPLY (
                         SELECT TOP 1
                             Id = cmb.id,
@@ -511,33 +546,50 @@ namespace GuardeSoftwareAPI.Dao
                         ORDER BY cmb.id DESC
                     ) db
 
-                    OUTER APPLY ( SELECT TotalPaid = ISNULL(db.PaidDB, 0) + ISNULL(db.AdvPayDB, 0) ) calc1
+                    -- SEPARACIÓN ESTRICTA DE CONCEPTOS
                     OUTER APPLY (
                         SELECT 
-                            UnpaidPrevBal = CASE WHEN calc1.TotalPaid > ISNULL(db.PrevBalDB, 0) THEN 0 ELSE ISNULL(db.PrevBalDB, 0) - calc1.TotalPaid END,
-                            Rem1 = CASE WHEN calc1.TotalPaid > ISNULL(db.PrevBalDB, 0) THEN calc1.TotalPaid - ISNULL(db.PrevBalDB, 0) ELSE 0 END
+                            Raw_PrevBal = ISNULL((
+                                SELECT SUM(
+                                    CASE
+                                        WHEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0) > 0
+                                        THEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0)
+                                        ELSE 0
+                                    END
+                                )
+                                FROM client_month_balances cmb2
+                                WHERE cmb2.rental_id = r.rental_id AND cmb2.id < db.Id
+                            ), 0),
+                            
+                            Raw_Interest = ISNULL((
+                                SELECT SUM(ISNULL(cmb2.interests, 0))
+                                FROM client_month_balances cmb2
+                                WHERE cmb2.rental_id = r.rental_id AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
+                            ), 0),
+                            
+                            TotalPaid = ISNULL(db.PaidDB, 0) + ISNULL(db.AdvPayDB, 0)
+                    ) rawData
+
+                    -- CASCADA DE LIQUIDACIÓN
+                    OUTER APPLY (
+                        SELECT Rem1 = CASE WHEN rawData.TotalPaid > rawData.Raw_PrevBal THEN rawData.TotalPaid - rawData.Raw_PrevBal ELSE 0 END
+                    ) calc1
+                    OUTER APPLY (
+                        SELECT Rem2 = CASE WHEN calc1.Rem1 > db.RentDB THEN calc1.Rem1 - db.RentDB ELSE 0 END
                     ) calc2
                     OUTER APPLY (
-                        SELECT 
-                            UnpaidRent = CASE WHEN calc2.Rem1 > ISNULL(db.RentDB, 0) THEN 0 ELSE ISNULL(db.RentDB, 0) - calc2.Rem1 END,
-                            Rem2 = CASE WHEN calc2.Rem1 > ISNULL(db.RentDB, 0) THEN calc2.Rem1 - ISNULL(db.RentDB, 0) ELSE 0 END
+                        SELECT UnpaidInts = CASE WHEN calc2.Rem2 > rawData.Raw_Interest THEN 0 ELSE rawData.Raw_Interest - calc2.Rem2 END
                     ) calc3
-                    OUTER APPLY (
-                        SELECT 
-                            UnpaidInts = CASE WHEN calc3.Rem2 > ISNULL(db.IntsDB, 0) THEN 0 ELSE ISNULL(db.IntsDB, 0) - calc3.Rem2 END,
-                            Overpayment = CASE WHEN calc3.Rem2 > ISNULL(db.IntsDB, 0) THEN calc3.Rem2 - ISNULL(db.IntsDB, 0) ELSE 0 END
-                    ) calc4
 
-                    -- 2. ASIGNAMOS A LA UI
+                    -- ASIGNAMOS A LA UI
                     OUTER APPLY (
-                        SELECT 
-                            UI_CurrentRent = db.RentDB, 
-                            UI_InterestAmount = calc4.UnpaidInts,
-                            UI_Balance = -(ISNULL(db.PrevBalDB, 0) + ISNULL(db.IntsDB, 0) + ISNULL(db.RentDB, 0) - ISNULL(db.PaidDB, 0) - ISNULL(db.AdvPayDB, 0)),
+                        SELECT
+                            UI_CurrentRent = db.RentDB,
+                            UI_InterestAmount = calc3.UnpaidInts,
+                            UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                             UI_PreviousBalance = CASE 
-                                WHEN ISNULL(db.AdvPayDB, 0) > 0 THEN ISNULL(db.AdvPayDB, 0)
-                                WHEN calc4.Overpayment > 0 THEN calc4.Overpayment
-                                ELSE -calc2.UnpaidPrevBal 
+                                WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
+                                ELSE -rawData.Raw_PrevBal
                             END,
                             LastBalanceDate = CASE 
                                 WHEN latest_cmb.MonthYearDB IS NOT NULL AND LEN(latest_cmb.MonthYearDB) = 7 THEN
