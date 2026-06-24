@@ -180,7 +180,6 @@
               
               <tr *ngFor="let account of accounts; let i = index" 
                   cdkDrag 
-                  (click)="toggleAccountSelection(account)"
                   class="group transition-colors cursor-pointer"
                   [ngClass]="selectedAccountIds.includes(account.id!) ? 'bg-indigo-50/40' : 'hover:bg-gray-50/60'">
                 
@@ -292,9 +291,9 @@
   </div>
 
   <!-- PLANILLA DE MOVIMIENTOS (TABLA PRINCIPAL) -->
-  <div #planillaContainer class="w-full flex flex-col bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 p-4 md:p-6 mt-2">
+  <div #planillaContainer class="w-full flex flex-col bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 md:px-0  ">
   
-    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-gray-100 pb-5 bg-white z-40">
+    <div class="flex flex-col xl:flex-row rounded-2xl justify-between items-start xl:items-center gap-4 border-b border-gray-100 py-6 md:px-6 bg-white z-40">
       <div class="flex items-center gap-4">
         <h2 class="font-semibold text-gray-900 text-xl tracking-tight">Movimientos</h2>
         <div class="flex items-center bg-gray-50 p-1 rounded-lg border border-gray-200/80 shadow-sm hidden md:flex">
@@ -335,7 +334,7 @@
     </div>
 
     <!-- TABLA RESTAURADA AL FORMATO ORIGINAL: Sin overflow, con Sticky Real a la ventana -->
-    <div class="relative w-full pb-2 mt-2">
+    <div class="relative w-full">
       
       <table class="w-full min-w-[900px] text-sm text-left border-collapse">
         
@@ -366,7 +365,7 @@
           <tr *ngFor="let item of filteredItems; let i = index" 
               cdkDrag 
               [cdkDragDisabled]="isHistoricalView"
-              (click)="toggleItemSelection(item)"
+              
               class="transition-colors cursor-pointer group"
               [ngClass]="selectedItemIds.includes(item.id!) ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'">
               
@@ -601,9 +600,9 @@
         </tbody>
 
         <!-- TFOOTER STICKY NATIVO -->
-        <tfoot class="bg-[#f8f9fa] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] ring-1 ring-gray-200/60">
+        <tfoot class="bg-[#f8f9fa] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] ring-1 ring-gray-200/60 rounded-2xl">
           <tr>
-            <td colspan="4" class="px-4 py-3 align-middle bg-[#f8f9fa] sticky bottom-0 z-30">
+            <td colspan="4" class="px-4 py-3 align-middle bg-[#f8f9fa] sticky bottom-0 z-30 rounded-2xl">
               <div class="flex items-center justify-between w-full h-full">
                 <div class="flex items-center bg-white p-1 rounded-lg border border-gray-200 shadow-sm hidden md:flex">
                     <button (click)="changeMonth(-1)" [disabled]="selectedYear === 2026 && selectedMonth === 1" [ngClass]="{'opacity-30 cursor-not-allowed': selectedYear === 2026 && selectedMonth === 1}" class="p-1 hover:bg-gray-50 rounded-md transition-all text-gray-500 hover:text-gray-800"><app-icon name="chevron-left" class="h-3.5 w-3.5 stroke-[2.5]"></app-icon></button>
