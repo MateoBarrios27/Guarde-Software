@@ -8,5 +8,6 @@ namespace GuardeSoftwareAPI.Dtos.Communication
         public decimal Balance { get; set; } 
         public int MaxUnpaidMonths { get; set; }
         public decimal CurrentRentAmount { get; set; }
+        public DateTime? NextPaymentDate { get; set; }
     }
 }

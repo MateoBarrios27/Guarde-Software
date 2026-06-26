@@ -510,8 +510,8 @@ namespace GuardeSoftwareAPI.Dao
                     ISNULL((
                         SELECT SUM(CASE WHEN am.movement_type = 'DEBITO' THEN -am.amount ELSE am.amount END)
                         FROM account_movements am
-                        JOIN rentals r ON am.rental_id = r.rental_id
-                        WHERE r.client_id = c.client_id
+                        JOIN rentals r_mov ON am.rental_id = r_mov.rental_id
+                        WHERE r_mov.client_id = c.client_id
                     ), 0) AS Balance,
 
                     ISNULL((
@@ -525,9 +525,44 @@ namespace GuardeSoftwareAPI.Dao
                         FROM rentals r2 
                         JOIN rental_amount_history h ON r2.rental_id = h.rental_id AND h.end_date IS NULL 
                         WHERE r2.client_id = c.client_id AND r2.active = 1
-                    ), 0) AS CurrentRentAmount
+                    ), 0) AS CurrentRentAmount,
+
+                    -- MOTOR DE CÁLCULO DINÁMICO DE FECHA DE PAGO (INTEGRACIÓN)
+                    CASE 
+                        WHEN latest_cmb.MonthYearDB IS NOT NULL AND LEN(latest_cmb.MonthYearDB) = 7 THEN
+                            CASE 
+                                WHEN latest_cmb.NetBalance <= 0 THEN 
+                                    DATEADD(month, 1, DATEFROMPARTS(CAST(RIGHT(latest_cmb.MonthYearDB, 4) AS INT), CAST(LEFT(latest_cmb.MonthYearDB, 2) AS INT), 1))
+                                ELSE
+                                    DATEFROMPARTS(CAST(RIGHT(ISNULL(db.MonthYearDB, latest_cmb.MonthYearDB), 4) AS INT), CAST(LEFT(ISNULL(db.MonthYearDB, latest_cmb.MonthYearDB), 2) AS INT), 1)
+                            END
+                        ELSE NULL 
+                    END AS NextPaymentDate
 
                 FROM clients c
+                -- Vinculamos el alquiler activo principal para alimentar las relaciones temporales
+                OUTER APPLY (
+                    SELECT TOP 1 rental_id 
+                    FROM rentals 
+                    WHERE client_id = c.client_id AND active = 1
+                ) r
+                -- 1. BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO (Para saber hasta dónde pagó o adelantó)
+                OUTER APPLY (
+                    SELECT TOP 1
+                        MonthYearDB = cmb.month_year,
+                        NetBalance = cmb.balance - cmb.paid - cmb.advanced_payment
+                    FROM client_month_balances cmb
+                    WHERE cmb.rental_id = r.rental_id
+                    ORDER BY cmb.id DESC
+                ) latest_cmb
+                -- 2. BÚSQUEDA DEL MES ACTIVO (El más antiguo con deuda pendiente)
+                OUTER APPLY (
+                    SELECT TOP 1 MonthYearDB = cmb.month_year
+                    FROM client_month_balances cmb
+                    WHERE cmb.rental_id = r.rental_id
+                      AND (cmb.balance - cmb.paid - cmb.advanced_payment) > 0
+                    ORDER BY cmb.id DESC
+                ) db
                 WHERE c.active = 1
                 ORDER BY c.full_name ASC";
 
@@ -538,11 +573,12 @@ namespace GuardeSoftwareAPI.Dao
                 list.Add(new ClientRecipientDto
                 {
                     Id = Convert.ToInt32(row["Id"]),
-                    FullName = row["FullName"].ToString(),
-                    Email = row["Email"].ToString(),
+                    FullName = row["FullName"].ToString() ?? "",
+                    Email = row["Email"]?.ToString() ?? "",
                     Balance = Convert.ToDecimal(row["Balance"]),
                     MaxUnpaidMonths = Convert.ToInt32(row["MaxUnpaidMonths"]),
-                    CurrentRentAmount = Convert.ToDecimal(row["CurrentRentAmount"]) 
+                    CurrentRentAmount = Convert.ToDecimal(row["CurrentRentAmount"]),
+                    NextPaymentDate = row["NextPaymentDate"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDate"]) : null
                 });
             }
             return list;
@@ -551,51 +587,180 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<ClientFinancialDto> GetClientFinancialData(int clientId, bool isNextMonth = false)
         {
             string query = @"
-                DECLARE @StartOfMonth DATE = DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1);
-                SELECT 
-                    CASE WHEN Calculos.RawCurrentBalance < 0 THEN 0 ELSE Calculos.RawCurrentBalance END AS CurrentBalance,
-                    CASE WHEN Calculos.RawPreviousBalance < 0 THEN 0 ELSE Calculos.RawPreviousBalance END AS PreviousBalance,
-                    Calculos.Surcharge,
-                    Calculos.RawCurrentBalance
-                FROM (
+                WITH CurrentRentalAmount AS (
+                    SELECT h.rental_id, h.amount AS CurrentRent
+                    FROM (
+                        SELECT rental_id, amount,
+                               ROW_NUMBER() OVER (PARTITION BY rental_id ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC) as rn
+                        FROM rental_amount_history WHERE start_date <= DATEADD(hour, -3, GETUTCDATE())
+                    ) h WHERE h.rn = 1
+                )
+                SELECT
+                    ISNULL(step1.UI_PreviousBalance, 0) AS UI_PreviousBalance,
+                    ISNULL(step1.UI_InterestAmount, 0) AS UI_InterestAmount,
+                    ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS UI_CurrentRent,
+                    ISNULL(step1.UI_Balance, 0) AS UI_Balance,
+                    
+                    ISNULL(c.payment_identifier, 0) AS PaymentIdentifier,
+                    ISNULL((SELECT SUM(pending_surcharge) FROM rentals WHERE client_id = c.client_id AND active = 1), 0) AS PendingSurcharge
+                FROM clients c
+                LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1
+                LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
+
+                OUTER APPLY (
+                    SELECT TOP 1
+                        MonthYearDB = cmb.month_year,
+                        NetBalance = cmb.balance - cmb.paid - cmb.advanced_payment
+                    FROM client_month_balances cmb
+                    WHERE cmb.rental_id = r.rental_id
+                    ORDER BY cmb.id DESC
+                ) latest_cmb
+
+                OUTER APPLY (
+                    SELECT TOP 1
+                        Id = cmb.id,
+                        PrevBalDB = ISNULL(cmb.previous_balance, 0),
+                        IntsDB = ISNULL(cmb.interests, 0),
+                        RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
+                        PaidDB = ISNULL(cmb.paid, 0),
+                        AdvPayDB = ISNULL(cmb.advanced_payment, 0),
+                        MonthYearDB = cmb.month_year
+                    FROM client_month_balances cmb
+                    WHERE cmb.rental_id = r.rental_id
+                      AND (cmb.balance - cmb.paid - cmb.advanced_payment) > 0
+                    ORDER BY cmb.id DESC
+                ) db
+
+                OUTER APPLY (
                     SELECT 
-                        (ISNULL(SUM(CASE WHEN am.movement_type = 'DEBITO' THEN am.amount ELSE -am.amount END), 0) + ISNULL((SELECT payment_identifier FROM clients WHERE client_id = @ClientId), 0)) as RawCurrentBalance,
-                        ISNULL(SUM(CASE 
-                            WHEN am.movement_date < @StartOfMonth 
-                                 AND am.movement_type = 'DEBITO'
-                                 AND LOWER(REPLACE(REPLACE(ISNULL(am.concept, ''), 'é', 'e'), 'É', 'e')) NOT LIKE '%interes por mora%'
-                                 AND LOWER(ISNULL(am.concept, '')) NOT LIKE '%recargo%'
-                            THEN am.amount
-                            WHEN am.movement_date < @StartOfMonth AND am.movement_type != 'DEBITO' THEN -am.amount
-                            ELSE 0
-                        END), 0) as RawPreviousBalance,
-                        ISNULL(SUM(CASE WHEN am.movement_date >= @StartOfMonth AND (am.concept LIKE '%Recargo%' OR am.concept LIKE '%Interés por mora%') THEN am.amount ELSE 0 END), 0) as Surcharge
-                    FROM account_movements am
-                    JOIN rentals r ON am.rental_id = r.rental_id
-                    WHERE r.client_id = @ClientId
-                ) AS Calculos";
+                        Raw_PrevBal = ISNULL((
+                            SELECT SUM(
+                                CASE
+                                    WHEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0) > 0
+                                    THEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0)
+                                    ELSE 0
+                                END
+                            )
+                            FROM client_month_balances cmb2
+                            WHERE cmb2.rental_id = r.rental_id AND cmb2.id < db.Id
+                        ), 0),
+                        
+                        Raw_Interest = ISNULL((
+                            SELECT SUM(ISNULL(cmb2.interests, 0))
+                            FROM client_month_balances cmb2
+                            WHERE cmb2.rental_id = r.rental_id AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
+                        ), 0),
+                        
+                        TotalPaid = ISNULL(db.PaidDB, 0) + ISNULL(db.AdvPayDB, 0)
+                ) rawData
+
+                OUTER APPLY (
+                    SELECT Rem1 = CASE WHEN rawData.TotalPaid > rawData.Raw_PrevBal THEN rawData.TotalPaid - rawData.Raw_PrevBal ELSE 0 END
+                ) calc1
+                OUTER APPLY (
+                    SELECT Rem2 = CASE WHEN calc1.Rem1 > db.RentDB THEN calc1.Rem1 - db.RentDB ELSE 0 END
+                ) calc2
+                OUTER APPLY (
+                    SELECT UnpaidInts = CASE WHEN calc2.Rem2 > rawData.Raw_Interest THEN 0 ELSE rawData.Raw_Interest - calc2.Rem2 END
+                ) calc3
+
+                OUTER APPLY (
+                    SELECT
+                        UI_CurrentRent = db.RentDB,
+                        UI_InterestAmount = calc3.UnpaidInts,
+                        UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
+                        UI_PreviousBalance = CASE 
+                            WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
+                            ELSE -rawData.Raw_PrevBal
+                        END
+                ) step1
+                WHERE c.client_id = @ClientId;";
 
             var dt = await _accessDB.GetTableAsync("Financial", query, [new SqlParameter("@ClientId", clientId)]);
             var data = new ClientFinancialDto();
-            
-            decimal rawCurrentBalance = 0; 
 
-            if (dt.Rows.Count > 0)
+            if (dt.Rows.Count == 0) return data;
+
+            decimal uiPreviousBalance = Convert.ToDecimal(dt.Rows[0]["UI_PreviousBalance"]);
+            decimal uiInterestAmount = Convert.ToDecimal(dt.Rows[0]["UI_InterestAmount"]);
+            decimal uiCurrentRent = Convert.ToDecimal(dt.Rows[0]["UI_CurrentRent"]);
+            decimal uiBalance = Convert.ToDecimal(dt.Rows[0]["UI_Balance"]);
+            
+            // CORRECCIÓN 1: ToDecimal en lugar de ToInt32 para mantener los ceros y centavos
+            decimal paymentIdentifier = Convert.ToDecimal(dt.Rows[0]["PaymentIdentifier"]);
+            decimal pendingSurcharge = Convert.ToDecimal(dt.Rows[0]["PendingSurcharge"]);
+
+            // --- ESCENARIO 1: MES ACTUAL ---
+            decimal currentMonthBaseDebt = uiBalance < 0 ? Math.Abs(uiBalance) : 0;
+            
+            // CORRECCIÓN 2: Invertimos el signo del saldo anterior. 
+            // Si la UI mandaba negativo (Deuda), ahora es positivo. Si mandaba positivo (A favor), ahora es negativo.
+            decimal currentMonthPrevBal = -uiPreviousBalance;
+
+            if (!isNextMonth) 
             {
-                data.CurrentBalance = Convert.ToDecimal(dt.Rows[0]["CurrentBalance"]);
-                data.PreviousBalance = Convert.ToDecimal(dt.Rows[0]["PreviousBalance"]);
-                data.Surcharge = Convert.ToDecimal(dt.Rows[0]["Surcharge"]);
-                rawCurrentBalance = Convert.ToDecimal(dt.Rows[0]["RawCurrentBalance"]); 
+                data.PreviousBalance = currentMonthPrevBal;
+                data.Surcharge = uiInterestAmount;
+                data.CurrentBalance = currentMonthBaseDebt > 0 ? currentMonthBaseDebt + paymentIdentifier : 0;
+                return data;
             }
 
-            if (!isNextMonth) return data;
+            // --- ESCENARIO 2: PROYECCIÓN MES SIGUIENTE ---
+            DateTime nextMonthDate = DateTime.Now.AddMonths(1);
+            string nextMonthString = nextMonthDate.ToString("MM/yyyy");
 
-            data.PreviousBalance = data.CurrentBalance;
-            
-            decimal projectedNextMonthRent = await CalculateProjectedNextMonthRentAsync(clientId);
-            decimal newCalculatedBalance = rawCurrentBalance + projectedNextMonthRent;
-            data.CurrentBalance = newCalculatedBalance < 0 ? 0 : newCalculatedBalance;
-            data.Surcharge = 0; 
+            string checkQuery = @"
+                SELECT 
+                    -- Restamos el advanced_payment para que el saldo a favor baje correctamente como negativo
+                    SUM(ISNULL(cmb.previous_balance, 0) - ISNULL(cmb.advanced_payment, 0)) AS PrevBal,
+                    SUM(ISNULL(cmb.interests, 0)) AS Ints,
+                    SUM(ISNULL(cmb.balance, 0) - ISNULL(cmb.paid, 0) - ISNULL(cmb.advanced_payment, 0)) AS NetBalance
+                FROM client_month_balances cmb
+                JOIN rentals r ON cmb.rental_id = r.rental_id
+                WHERE r.client_id = @ClientId AND cmb.month_year = @MonthYear AND r.active = 1";
+
+            var dtNext = await _accessDB.GetTableAsync("NextMonth", checkQuery, new[] { 
+                new SqlParameter("@ClientId", clientId),
+                new SqlParameter("@MonthYear", nextMonthString)
+            });
+
+            bool nextMonthExists = dtNext.Rows.Count > 0 && dtNext.Rows[0]["PrevBal"] != DBNull.Value;
+
+            if (nextMonthExists)
+            {
+                data.PreviousBalance = Convert.ToDecimal(dtNext.Rows[0]["PrevBal"]);
+                data.Surcharge = Convert.ToDecimal(dtNext.Rows[0]["Ints"]);
+                
+                decimal netBalanceNextMonth = Convert.ToDecimal(dtNext.Rows[0]["NetBalance"]);
+                decimal nextMonthDebt = netBalanceNextMonth > 0 ? netBalanceNextMonth : 0;
+                
+                data.CurrentBalance = nextMonthDebt > 0 ? nextMonthDebt + paymentIdentifier : 0;
+            }
+            else
+            {
+                decimal projectedNextMonthRent = await CalculateProjectedNextMonthRentAsync(clientId);
+                decimal totalProjectedDebt = 0;
+
+                if (uiBalance < 0) 
+                {
+                    data.PreviousBalance = currentMonthPrevBal + uiCurrentRent;
+                    data.Surcharge = uiInterestAmount + pendingSurcharge;
+                    
+                    totalProjectedDebt = data.PreviousBalance + data.Surcharge + projectedNextMonthRent;
+                }
+                else 
+                {
+                    // Como uiBalance es positivo (Saldo a Favor), le ponemos un menos adelante 
+                    // para que se muestre en negativo en el comprobante del mes siguiente.
+                    data.PreviousBalance = -uiBalance; 
+                    data.Surcharge = 0;
+                    
+                    totalProjectedDebt = projectedNextMonthRent - uiBalance;
+                    if (totalProjectedDebt < 0) totalProjectedDebt = 0;
+                }
+
+                data.CurrentBalance = totalProjectedDebt > 0 ? totalProjectedDebt + paymentIdentifier : 0;
+            }
 
             return data;
         }
