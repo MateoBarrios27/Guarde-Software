@@ -49,6 +49,13 @@ interface ClientSelectorItem {
   status: 'Moroso' | 'Pendiente' | 'AlDia';
   selected: boolean;
   currentRentAmount: number;
+  nextPaymentDate: Date | null;
+}
+
+interface MonthFilter {
+  label: string;
+  year: number;
+  month: number;
 }
 
 const COMMUNICATION_CHANNELS: Channel[] = [
@@ -93,6 +100,7 @@ export class CommunicationsComponent implements OnInit {
       return `${names.join(', ')} ${count > 2 ? `(+${count - 2} más)` : ''}`;
   });
   
+  dynamicMonthFilters = signal<MonthFilter[]>([]);
 
   constructor(
     private commService: CommunicationService, 
@@ -106,6 +114,7 @@ export class CommunicationsComponent implements OnInit {
     this.setupSearchDebounce();  
     this.loadSmtpConfigs();
     this.loadClientsForSelector();
+    this.generateMonthFilters();
   }
 
   loadCommunications(): void {
@@ -578,7 +587,8 @@ export class CommunicationsComponent implements OnInit {
                     unpaidMonths: c.maxUnpaidMonths,
                     currentRentAmount: c.currentRentAmount || 0,
                     status: status,
-                    selected: false
+                    selected: false,
+                    nextPaymentDate: c.nextPaymentDate ? new Date(c.nextPaymentDate) : null // <--- NUEVO
                 };
             });
             this.allClients.set(mapped);
@@ -602,7 +612,7 @@ export class CommunicationsComponent implements OnInit {
     this.showRecipientModal.set(true);
   }
 
-  applyFilter(type: 'Todos' | 'Morosos' | 'Pendientes' | 'AlDia' | 'Ninguno' | 'DesmarcarAdelantados'): void {
+  applyFilter(type: 'Todos' | 'Ninguno' | 'MesImpago', targetYear?: number, targetMonth?: number): void {
       this.allClients.update(list => list.map(c => {
           let shouldSelect = c.selected; 
           
@@ -613,18 +623,15 @@ export class CommunicationsComponent implements OnInit {
               case 'Ninguno': 
                   shouldSelect = false; 
                   break;
-              case 'Morosos': 
-                  if (c.status === 'Moroso') shouldSelect = true; 
-                  break;
-              case 'Pendientes': 
-                  if (c.status === 'Pendiente') shouldSelect = true; 
-                  break;
-              case 'AlDia': 
-                  if (c.status === 'AlDia') shouldSelect = true; 
-                  break;
-              case 'DesmarcarAdelantados':
-                  if (c.balance >= c.currentRentAmount && c.currentRentAmount > 0) {
-                      shouldSelect = false;
+              case 'MesImpago':
+                  if (c.nextPaymentDate && targetYear !== undefined && targetMonth !== undefined) {
+                      const paymentYear = c.nextPaymentDate.getFullYear();
+                      const paymentMonth = c.nextPaymentDate.getMonth();
+                      
+                      // Selecciona al cliente si su próxima fecha de pago es MENOR o IGUAL al mes del botón
+                      if (paymentYear < targetYear || (paymentYear === targetYear && paymentMonth <= targetMonth)) {
+                          shouldSelect = true;
+                      }
                   }
                   break;
           }
@@ -690,5 +697,32 @@ export class CommunicationsComponent implements OnInit {
       
       this.updateFormField('recipients', selectedNames);
       this.showRecipientModal.set(false);
+  }
+
+  // --- New method to select month unpaids filters ---
+  generateMonthFilters(): void {
+    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const filters: MonthFilter[] = [];
+    const now = new Date();
+    
+    let currentYear = now.getFullYear();
+    let currentMonth = now.getMonth();
+
+    // Generamos 3 meses (Actual, +1, +2)
+    for (let i = 0; i < 3; i++) {
+      filters.push({
+        label: `${months[currentMonth]} Impago`,
+        year: currentYear,
+        month: currentMonth
+      });
+
+      currentMonth++;
+      // Si nos pasamos de diciembre (11), volvemos a enero (0) y sumamos un año
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+      }
+    }
+    this.dynamicMonthFilters.set(filters);
   }
 }
