@@ -768,15 +768,22 @@ namespace GuardeSoftwareAPI.Dao
         private async Task<decimal> CalculateProjectedNextMonthRentAsync(int clientId)
         {
             decimal totalProjectedRent = 0;
+            
+            // Definimos los límites del próximo mes
             DateTime nextMonthFirstDay = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(1);
+            DateTime nextMonthLastDay = nextMonthFirstDay.AddMonths(1).AddDays(-1);
 
+            // Modificamos la query para traer el método de pago usando un LEFT JOIN
             string query = @"
                 SELECT 
                     r.rental_id, 
                     h.amount AS CurrentAmount, 
-                    r.increase_anchor_date AS NextIncreaseDate
+                    r.increase_anchor_date AS NextIncreaseDate,
+                    ISNULL(pm.name, '') AS PaymentMethodName
                 FROM rentals r
                 JOIN rental_amount_history h ON r.rental_id = h.rental_id AND h.end_date IS NULL
+                JOIN clients c ON r.client_id = c.client_id
+                LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
                 WHERE r.client_id = @ClientId AND r.active = 1";
 
             var dt = await _accessDB.GetTableAsync("ActiveRentals", query, new[] { new SqlParameter("@ClientId", clientId) });
@@ -785,27 +792,31 @@ namespace GuardeSoftwareAPI.Dao
             {
                 decimal currentAmount = Convert.ToDecimal(row["CurrentAmount"]);
                 DateTime nextIncreaseDate = row["NextIncreaseDate"] != DBNull.Value ? Convert.ToDateTime(row["NextIncreaseDate"]) : DateTime.MaxValue;
+                string paymentMethodName = row["PaymentMethodName"].ToString().ToLower();
 
-                if (nextIncreaseDate <= nextMonthFirstDay)
+                // Verificamos si cae un aumento dentro de todo el mes proyectado
+                if (nextIncreaseDate <= nextMonthLastDay)
                 {
-                    string percentageQuery = "SELECT percentage FROM monthly_increase_settings WHERE YEAR(effective_date) = @Year AND MONTH(effective_date) = @Month";
-                    var parameters = new[] { 
-                        new SqlParameter("@Year", nextMonthFirstDay.Year),
-                        new SqlParameter("@Month", nextMonthFirstDay.Month) 
-                    };
+                    // Aplicamos el 10% de aumento directo
+                    decimal increasedAmount = currentAmount * 1.10m;
                     
-                    var percentageResult = await _accessDB.ExecuteScalarAsync(percentageQuery, parameters);
-                    
-                    if (percentageResult != null && percentageResult != DBNull.Value)
+                    // LÓGICA DE REDONDEO DINÁMICO
+                    if (paymentMethodName.Contains("efectivo"))
                     {
-                        decimal percentage = Convert.ToDecimal(percentageResult);
-                        decimal increasedAmount = currentAmount * (1 + (percentage / 100));
-                        totalProjectedRent += RoundToNearest1000(increasedAmount);
-                        continue;
+                        // Redondeo a los 1000 más cercanos (Efectivo)
+                        totalProjectedRent += Math.Round(increasedAmount / 1000m, MidpointRounding.AwayFromZero) * 1000m;
+                    }
+                    else
+                    {
+                        // Redondeo a los 100 más cercanos (Transferencia, Tarjeta, Otros)
+                        totalProjectedRent += Math.Round(increasedAmount / 100m, MidpointRounding.AwayFromZero) * 100m;
                     }
                 }
-                
-                totalProjectedRent += currentAmount;
+                else
+                {
+                    // Si no hay aumento este mes, paga lo normal (asumimos que ya viene redondeado del historial)
+                    totalProjectedRent += currentAmount;
+                }
             }
 
             return totalProjectedRent;
