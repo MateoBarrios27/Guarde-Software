@@ -175,7 +175,6 @@
               
               <tr *ngFor="let account of accounts; let i = index" 
                   cdkDrag 
-                  (click)="toggleAccountSelection(account)"
                   class="group transition-colors cursor-pointer"
                   [ngClass]="selectedAccountIds.includes(account.id!) ? 'bg-indigo-50/40' : 'hover:bg-gray-50/60'">
                 
@@ -379,7 +378,6 @@
           <tr *ngFor="let item of filteredItems; let i = index" 
               cdkDrag 
               [cdkDragDisabled]="isHistoricalView"
-              (click)="toggleItemSelection(item)"
               class="transition-colors cursor-pointer group"
               [ngClass]="selectedItemIds.includes(item.id!) ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'">
               
