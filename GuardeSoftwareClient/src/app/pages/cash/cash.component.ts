@@ -1052,4 +1052,35 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
   getSelectedItemsList(): CashFlowItem[] {
     return this.filteredItems.filter(item => this.selectedItemIds.includes(item.id!));
   }
+
+  // Evalúa si todos los elementos actualmente listados con monto en esa columna ya están seleccionados
+isColumnAllSelected(field: string): boolean {
+  const itemsWithValues = this.filteredItems.filter(
+    item => item.id && item[field] !== null && item[field] !== undefined && item[field] !== 0 && item[field] !== ''
+  );
+  if (itemsWithValues.length === 0) return false;
+  return itemsWithValues.every(item => this.selectedItemIds.includes(item.id));
+}
+
+// Selecciona o deselecciona en bloque solo los elementos visibles que tengan valor en la columna
+toggleSelectAllColumn(field: string): void {
+  const itemsWithValues = this.filteredItems.filter(
+    item => item.id && item[field] !== null && item[field] !== undefined && item[field] !== 0 && item[field] !== ''
+  );
+  
+  const allSelected = itemsWithValues.every(item => this.selectedItemIds.includes(item.id));
+
+  if (allSelected) {
+    // Si ya estaban todos marcados, removemos sus IDs del listado de selección global
+    const idsToRemove = itemsWithValues.map(item => item.id);
+    this.selectedItemIds = this.selectedItemIds.filter(id => !idsToRemove.includes(id));
+  } else {
+    // Si faltaba alguno, los agregamos asegurando no duplicar IDs existentes
+    itemsWithValues.forEach(item => {
+      if (!this.selectedItemIds.includes(item.id)) {
+        this.selectedItemIds.push(item.id);
+      }
+    });
+  }
+}
 }
