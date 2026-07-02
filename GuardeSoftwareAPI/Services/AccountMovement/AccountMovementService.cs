@@ -188,10 +188,10 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                         }
 
                         // 2. Obtener balance actual y monto de alquiler (usando la conexión)
-                        decimal currentBalance = await _daoRental.GetBalanceByRentalIdAsync(rentalId, connection);
+                        // decimal currentBalance = await _daoRental.GetBalanceByRentalIdAsync(rentalId, connection);
                         decimal currentAmount = await _daoRental.GetCurrentRentAmountAsync(rentalId, connection, transaction);
 
-                        _logger.LogDebug($"Rental ID {rentalId}: Balance actual={currentBalance:C}, Monto alquiler={currentAmount:C}");
+                        _logger.LogDebug($"Rental ID {rentalId}:, Monto alquiler={currentAmount:C}");
 
                         if (currentAmount <= 0)
                         {
