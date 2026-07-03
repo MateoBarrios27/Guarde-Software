@@ -1,4 +1,4 @@
-﻿import { Component, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { PaymentService } from '../../core/services/payment-service/payment.service';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
 import { PendingRentalDTO } from '../../core/dtos/rental/PendingRentalDTO';
@@ -194,12 +194,31 @@ export class FinancesComponent implements OnInit {
 
   selectedMethodFilter: string = '';
   selectedMonth: string = '';
+  selectedDay: string = '';
+  dateFilterType: string = 'none';
 
   resetFilters(): void {
     this.searchPayment = '';
     this.selectedMethodFilter = '';
     this.selectedMonth = '';
+    this.selectedDay = '';
+    this.dateFilterType = 'none';
     this.filterPayments();
+  }
+
+  onDateFilterTypeChange(): void {
+    this.selectedMonth = '';
+    this.selectedDay = '';
+    this.filterPayments();
+  }
+
+  formatIdentifier(value: number | string | null | undefined): string {
+    if (value === null || value === undefined) return '';
+    const strVal = String(value).trim().replace(',', '.');
+    if (strVal === '') return '';
+    const num = Number(strVal);
+    if (isNaN(num)) return String(value);
+    return num.toFixed(2).replace('.', ',');
   }
 
   getTotalRecaudado(): number {
@@ -225,7 +244,6 @@ export class FinancesComponent implements OnInit {
     const termForId = term.replace(',', '.');
     
     const method = this.selectedMethodFilter.toLowerCase();
-    const month = this.selectedMonth;
 
     let filtered = this.payments.filter(p => {
       const clientName = p.clientName?.toLowerCase() || '';
@@ -234,9 +252,28 @@ export class FinancesComponent implements OnInit {
 
       const matchesSearch = clientName.includes(term) || paymentIdentifier.includes(termForId);
       const matchesMethod = !method || paymentMethodName === method;
-      const matchesMonth = !month || new Date(p.paymentDate).toISOString().startsWith(month);
+      
+      let matchesDate = true;
+      if (p.paymentDate) {
+        const d = new Date(p.paymentDate);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        
+        if (this.dateFilterType === 'month' && this.selectedMonth) {
+          const localYearMonth = `${y}-${m}`;
+          matchesDate = localYearMonth === this.selectedMonth;
+        } else if (this.dateFilterType === 'day' && this.selectedDay) {
+          const day = String(d.getDate()).padStart(2, '0');
+          const localYearMonthDay = `${y}-${m}-${day}`;
+          matchesDate = localYearMonthDay === this.selectedDay;
+        }
+      } else {
+        if ((this.dateFilterType === 'month' && this.selectedMonth) || (this.dateFilterType === 'day' && this.selectedDay)) {
+          matchesDate = false;
+        }
+      }
 
-      return matchesSearch && matchesMethod && matchesMonth;
+      return matchesSearch && matchesMethod && matchesDate;
     });
 
     filtered.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());

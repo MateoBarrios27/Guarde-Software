@@ -80,11 +80,30 @@
         </option>
       </select>
 
+      <select
+        [(ngModel)]="dateFilterType"
+        (change)="onDateFilterTypeChange()"
+        class="p-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+      >
+        <option value="none">Sin filtro de fecha</option>
+        <option value="month">Por Mes</option>
+        <option value="day">Por Día</option>
+      </select>
+
       <input
+        *ngIf="dateFilterType === 'month'"
         type="month"
         [(ngModel)]="selectedMonth"
         (change)="filterPayments()"
-        class="p-2 border border-gray-300 rounded-md text-sm bg-white"
+        class="p-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+      />
+
+      <input
+        *ngIf="dateFilterType === 'day'"
+        type="date"
+        [(ngModel)]="selectedDay"
+        (change)="filterPayments()"
+        class="p-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
       />
 
       <div class="flex justify-end">
@@ -142,7 +161,7 @@
           }"
         >
           <td class="py-3 px-4 font-medium text-gray-800">{{ p.clientName }}</td>
-          <td class="py-3 px-4 text-gray-700">{{ p.paymentIdentifier }}</td>
+          <td class="py-3 px-4 text-gray-700 font-mono">{{ formatIdentifier(p.paymentIdentifier) }}</td>
           
           <td class="py-3 px-4">
             <span [ngClass]="p.paymentMethodName === 'Ajuste / Manual' ? 'bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-md text-xs font-semibold' : 'text-gray-700'">
@@ -264,7 +283,7 @@
                         {{ client.fullName }}
                       </span>
                       <span class="text-sm text-gray-500 whitespace-nowrap">
-                        ID Pago: {{ client.paymentIdentifier }}
+                        ID Pago: {{ formatIdentifier(client.paymentIdentifier) }}
                       </span>
                     </div>
                   </div>
@@ -303,7 +322,7 @@
                     <label class="block font-medium text-indigo-900 truncate">
                       {{ getClientNameById(selectedClientId) }}
                     </label>
-                    <p class="text-sm text-gray-500">ID Pago: {{ selectedClientIdentifier }}</p>
+                    <p class="text-sm text-gray-500">ID Pago: {{ formatIdentifier(selectedClientIdentifier) }}</p>
                   </div>
                   <div class="lg:pl-3 text-sm text-gray-700 flex flex-col justify-center">
                     <p class="block font-medium text-indigo-900 mb-0.5">Saldo</p>
