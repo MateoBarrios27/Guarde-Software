@@ -33,7 +33,11 @@ export class SidebarComponent {
     this.userName = localStorage.getItem('userName') ?? '';
     this.firstName = localStorage.getItem('firstName') ?? '';
     this.lastName = localStorage.getItem('lastName') ?? '';
+  }
 
+  get userInitial(): string {
+    const name = (this.firstName || localStorage.getItem('firstName') || this.userName || localStorage.getItem('userName') || 'U').trim();
+    return name ? name.charAt(0).toUpperCase() : 'U';
   }
 
   menuItems: MenuItem[] = [
