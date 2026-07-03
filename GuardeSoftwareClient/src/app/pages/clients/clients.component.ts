@@ -84,6 +84,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   public warehouses: Warehouse[] = [];
   public filterWarehouse: number | 'Todos' = 'Todos';
+  public advancedFilter: string = 'Todos';
 
 
   totals = {
@@ -167,7 +168,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       searchTerm: this.searchClientes || undefined,
       statusFilter: this.filterEstadoClientes === 'Todos' ? undefined : this.filterEstadoClientes,
       active: !this.showInactivos,
-      warehouseId: this.filterWarehouse === 'Todos' ? undefined : Number(this.filterWarehouse)
+      warehouseId: this.filterWarehouse === 'Todos' ? undefined : Number(this.filterWarehouse),
+      advancedFilter: this.advancedFilter === 'Todos' ? undefined : this.advancedFilter
     };
 
     this.clientService.getTableClients(request).subscribe({
@@ -262,6 +264,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.searchClientes = '';
     this.filterEstadoClientes = 'Todos';
     this.filterWarehouse = 'Todos';
+    this.advancedFilter = 'Todos';
     this.showInactivos = false;
     this.currentPageClientes = 1;
     this.sortFieldClientes = 'PaymentIdentifier';

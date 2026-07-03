@@ -69,6 +69,9 @@ export class ClientService {
     if (request.active !== undefined && request.active !== null) {
       params = params.append('active', request.active.toString());
     }
+    if (request.advancedFilter) {
+      params = params.append('advancedFilter', request.advancedFilter);
+    }
 
     return this.httpClient.get<PaginatedResult<TableClient>>(`${this.url}/Client/table`, { params });
   }

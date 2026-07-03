@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
@@ -126,7 +126,31 @@ namespace GuardeSoftwareAPI.Dao
                 INNER JOIN
                     locker_types lt ON l.locker_type_id = lt.locker_type_id
                 WHERE
-                    r.client_id = @client_id AND r.active = 1 AND l.active = 1";    
+                    r.client_id = @client_id AND r.active = 1 AND l.active = 1
+                
+                UNION ALL
+                
+                SELECT DISTINCT
+                    l.locker_id,
+                    lt.name AS locker_type,
+                    l.identifier,
+                    l.features,
+                    w.name AS warehouse
+                FROM client_locker_history clh
+                INNER JOIN lockers l ON clh.locker_id = l.locker_id
+                INNER JOIN warehouses w ON l.warehouse_id = w.warehouse_id
+                INNER JOIN locker_types lt ON l.locker_type_id = lt.locker_type_id
+                WHERE clh.client_id = @client_id
+                  AND NOT EXISTS (
+                      SELECT 1 FROM lockers l_curr 
+                      INNER JOIN rentals r_curr ON l_curr.rental_id = r_curr.rental_id 
+                      WHERE r_curr.client_id = @client_id AND r_curr.active = 1 AND l_curr.active = 1
+                  )
+                  AND ABS(DATEDIFF(day, ISNULL(clh.end_date, clh.start_date), (
+                      SELECT MAX(ISNULL(clh2.end_date, clh2.start_date))
+                      FROM client_locker_history clh2
+                      WHERE clh2.client_id = @client_id
+                  ))) <= 1";    
 
             SqlParameter[] parameters =
             [

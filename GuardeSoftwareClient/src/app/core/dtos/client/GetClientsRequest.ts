@@ -7,4 +7,5 @@ export interface GetClientsRequest {
   statusFilter?: string;
   active?: boolean;
   warehouseId?: number;
+  advancedFilter?: string;
 }

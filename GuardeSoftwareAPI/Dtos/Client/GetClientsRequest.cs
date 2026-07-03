@@ -10,5 +10,6 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public string? StatusFilter { get; set; }
         public bool? Active { get; set; } = true;
         public int? WarehouseId { get; set; }
+        public string? AdvancedFilter { get; set; }
     }
 }

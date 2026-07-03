@@ -11,7 +11,8 @@ export interface TableClient {
   status: string; 
   lockers: string[] | null;
   warehouseLockers?: WarehouseLockerItem[];
-  nextPaymentDay?: Date | null;
+  nextPaymentDay?: Date | string | null;
+  deactivationDate?: Date | string | null;
   active: boolean;
 }
 

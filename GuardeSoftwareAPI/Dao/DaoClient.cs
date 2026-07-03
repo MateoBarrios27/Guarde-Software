@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
@@ -278,7 +278,15 @@ namespace GuardeSoftwareAPI.Dao
                     bt.billing_type_id, bt.name AS billing_type,
                     r.contracted_m3, r.increase_anchor_date, r.months_unpaid, r.occupied_spaces,
                     
-                    ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS rent_amount,
+                    CASE 
+                        WHEN c.active = 0 THEN COALESCE(
+                            cr.CurrentRent, 
+                            (SELECT TOP 1 amount FROM rental_amount_history rah WHERE rah.rental_id = r.rental_id ORDER BY start_date DESC, rental_amount_history_id DESC),
+                            c.initial_amount,
+                            0
+                        )
+                        ELSE ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0))
+                    END AS rent_amount,
                     ISNULL(step1.UI_InterestAmount, 0) AS interest_amount,
                     ISNULL(step1.UI_Balance, 0) AS balance,
                     ISNULL(db.PaidDB, 0) AS total_paid,
@@ -300,7 +308,13 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN addresses ad ON c.client_id = ad.client_id
                 LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
                 LEFT JOIN billing_types bt ON c.billing_type_id = bt.billing_type_id
-                LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1 
+                OUTER APPLY (
+                    SELECT TOP 1 *
+                    FROM rentals r_sub
+                    WHERE r_sub.client_id = c.client_id 
+                      AND (r_sub.active = 1 OR c.active = 0)
+                    ORDER BY r_sub.active DESC, r_sub.start_date DESC, r_sub.rental_id DESC
+                ) r
                 LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id 
 
                 -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO
@@ -461,14 +475,76 @@ namespace GuardeSoftwareAPI.Dao
             if (request.WarehouseId.HasValue && request.WarehouseId.Value > 0)
             {
                 finalWhereClause.Append(@"
-                    AND Id IN (
-                        SELECT r.client_id
-                        FROM rentals r
-                        JOIN lockers l ON r.rental_id = l.rental_id
-                        WHERE l.warehouse_id = @WarehouseId
-                        AND r.active = 1
+                    AND (
+                        Id IN (
+                            SELECT r.client_id
+                            FROM rentals r
+                            JOIN lockers l ON r.rental_id = l.rental_id
+                            WHERE l.warehouse_id = @WarehouseId
+                        )
+                        OR Id IN (
+                            SELECT clh.client_id
+                            FROM client_locker_history clh
+                            JOIN lockers l ON clh.locker_id = l.locker_id
+                            WHERE l.warehouse_id = @WarehouseId
+                        )
                     ) ");
                 filterParameters.Add(new SqlParameter("@WarehouseId", request.WarehouseId.Value));
+            }
+
+            if (!string.IsNullOrEmpty(request.AdvancedFilter) && request.AdvancedFilter != "Todos")
+            {
+                switch (request.AdvancedFilter)
+                {
+                    case "pagaron_este_mes":
+                        finalWhereClause.Append(@"
+                            AND EXISTS (
+                                SELECT 1 
+                                FROM rentals r_f 
+                                JOIN client_month_balances cmb_f ON r_f.rental_id = cmb_f.rental_id 
+                                WHERE r_f.client_id = ClientData.Id 
+                                  AND r_f.active = 1 
+                                  AND cmb_f.month_year = RIGHT('00' + CAST(MONTH(DATEADD(hour, -3, GETUTCDATE())) AS VARCHAR(2)), 2) + '/' + CAST(YEAR(DATEADD(hour, -3, GETUTCDATE())) AS VARCHAR(4))
+                                  AND (cmb_f.balance - cmb_f.paid - cmb_f.advanced_payment) <= 0
+                            ) ");
+                        break;
+                    case "no_pagaron_este_mes":
+                        finalWhereClause.Append(@"
+                            AND EXISTS (
+                                SELECT 1 
+                                FROM rentals r_f 
+                                JOIN client_month_balances cmb_f ON r_f.rental_id = cmb_f.rental_id 
+                                WHERE r_f.client_id = ClientData.Id 
+                                  AND r_f.active = 1 
+                                  AND cmb_f.month_year = RIGHT('00' + CAST(MONTH(DATEADD(hour, -3, GETUTCDATE())) AS VARCHAR(2)), 2) + '/' + CAST(YEAR(DATEADD(hour, -3, GETUTCDATE())) AS VARCHAR(4))
+                                  AND (cmb_f.balance - cmb_f.paid - cmb_f.advanced_payment) > 0
+                            ) ");
+                        break;
+                    case "pagaron_meses_futuros":
+                        finalWhereClause.Append(@"
+                            AND EXISTS (
+                                SELECT 1 
+                                FROM rentals r_f 
+                                JOIN client_month_balances cmb_f ON r_f.rental_id = cmb_f.rental_id 
+                                WHERE r_f.client_id = ClientData.Id 
+                                  AND r_f.active = 1 
+                                  AND (
+                                      CAST(RIGHT(cmb_f.month_year, 4) AS INT) * 100 + CAST(LEFT(cmb_f.month_year, 2) AS INT)
+                                      > YEAR(DATEADD(hour, -3, GETUTCDATE())) * 100 + MONTH(DATEADD(hour, -3, GETUTCDATE()))
+                                  )
+                                  AND (cmb_f.balance - cmb_f.paid - cmb_f.advanced_payment) <= 0
+                            ) ");
+                        break;
+                    case "intereses_impagos":
+                        finalWhereClause.Append("AND ISNULL(InterestAmount, 0) > 0 ");
+                        break;
+                    case "aumento_proximo_mes":
+                        finalWhereClause.Append(@"
+                            AND IncreaseAnchorDate IS NOT NULL 
+                            AND YEAR(IncreaseAnchorDate) = YEAR(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE())))
+                            AND MONTH(IncreaseAnchorDate) = MONTH(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))) ");
+                        break;
+                }
             }
 
             string fullQuery = $@"
@@ -479,6 +555,19 @@ namespace GuardeSoftwareAPI.Dao
                                ROW_NUMBER() OVER (PARTITION BY rental_id ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC) as rn
                         FROM rental_amount_history WHERE start_date <= DATEADD(hour, -3, GETUTCDATE())
                     ) h WHERE h.rn = 1
+                ),
+                ClientLastHistoryDate AS (
+                    SELECT client_id, MAX(ISNULL(end_date, start_date)) AS max_date
+                    FROM client_locker_history
+                    GROUP BY client_id
+                ),
+                ClientHistoricalLockers AS (
+                    SELECT DISTINCT clh.client_id, l.locker_id, l.identifier, l.warehouse_id, ISNULL(w.name, 'Sin ubicación') AS warehouse_name
+                    FROM client_locker_history clh
+                    JOIN lockers l ON clh.locker_id = l.locker_id
+                    LEFT JOIN warehouses w ON l.warehouse_id = w.warehouse_id
+                    JOIN ClientLastHistoryDate lhd ON clh.client_id = lhd.client_id
+                    WHERE ABS(DATEDIFF(day, ISNULL(clh.end_date, clh.start_date), lhd.max_date)) <= 1
                 ),
                 ClientData AS (
                     SELECT
@@ -491,7 +580,15 @@ namespace GuardeSoftwareAPI.Dao
 
                         step1.UI_PreviousBalance AS PreviousBalance,
                         step1.UI_InterestAmount AS InterestAmount,
-                        ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS CurrentRent,
+                        CASE 
+                            WHEN c.active = 0 THEN COALESCE(
+                                cr.CurrentRent, 
+                                (SELECT TOP 1 amount FROM rental_amount_history rah WHERE rah.rental_id = r.rental_id ORDER BY start_date DESC, rental_amount_history_id DESC),
+                                c.initial_amount,
+                                0
+                            )
+                            ELSE ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0))
+                        END AS CurrentRent,
                         step1.UI_Balance AS Balance,
 
                         c.preferred_payment_method_id AS PreferredPaymentMethodId,
@@ -499,12 +596,26 @@ namespace GuardeSoftwareAPI.Dao
                         locker_sub.lockers as Lockers,
                         locker_sub.lockers_json as WarehouseLockersJson,
                         c.active AS Active,
+                        r.increase_anchor_date AS IncreaseAnchorDate,
 
                         CASE 
+                            WHEN c.active = 0 THEN NULL
                             WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
                             THEN DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1) -- Día forzado a 1
                             ELSE step1.LastBalanceDate
                         END AS NextPaymentDay,
+
+                        CASE 
+                            WHEN c.active = 0 THEN 
+                                COALESCE(
+                                    r.end_date, 
+                                    (SELECT TOP 1 clh.end_date FROM client_locker_history clh WHERE clh.client_id = c.client_id AND clh.end_date IS NOT NULL ORDER BY clh.end_date DESC),
+                                    (SELECT TOP 1 clh.start_date FROM client_locker_history clh WHERE clh.client_id = c.client_id ORDER BY clh.start_date DESC),
+                                    r.start_date,
+                                    c.registration_date
+                                ) 
+                            ELSE NULL 
+                        END AS DeactivationDate,
                         
                         CASE
                             WHEN c.active = 0 THEN 'Baja'
@@ -517,7 +628,13 @@ namespace GuardeSoftwareAPI.Dao
                     OUTER APPLY ( SELECT TOP 1 e.address FROM emails e WHERE e.client_id = c.client_id AND e.active = 1 ORDER BY e.email_id ) AS first_email
                     OUTER APPLY ( SELECT TOP 1 p.number FROM phones p WHERE p.client_id = c.client_id AND p.active = 1 ORDER BY p.phone_id ) AS first_phone
                     LEFT JOIN addresses a ON c.client_id = a.client_id
-                    LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1
+                    OUTER APPLY (
+                        SELECT TOP 1 *
+                        FROM rentals r_sub
+                        WHERE r_sub.client_id = c.client_id 
+                          AND (r_sub.active = 1 OR c.active = 0)
+                        ORDER BY r_sub.active DESC, r_sub.start_date DESC, r_sub.rental_id DESC
+                    ) r
                     LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
 
                     -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO (Para fecha de próximo pago)
@@ -603,7 +720,41 @@ namespace GuardeSoftwareAPI.Dao
                             END
                     ) step1
 
-                    LEFT JOIN ( SELECT r.client_id, STRING_AGG(l.identifier, ', ') as lockers, ( SELECT ISNULL(w.name, 'Sin ubicación') AS Warehouse, STRING_AGG(l2.identifier, ', ') AS Lockers FROM rentals r2 JOIN lockers l2 ON r2.rental_id = l2.rental_id LEFT JOIN warehouses w ON l2.warehouse_id = w.warehouse_id WHERE r2.client_id = r.client_id AND r2.active = 1 GROUP BY w.name FOR JSON PATH ) as lockers_json FROM rentals r JOIN lockers l ON r.rental_id = l.rental_id WHERE r.active = 1 GROUP BY r.client_id ) locker_sub ON c.client_id = locker_sub.client_id
+                    OUTER APPLY (
+                        SELECT 
+                            STRING_AGG(loc.identifier, ', ') AS lockers,
+                            (
+                                SELECT loc2.warehouse_name AS Warehouse,
+                                       STRING_AGG(loc2.identifier, ', ') AS Lockers
+                                FROM (
+                                    SELECT l_curr.identifier, ISNULL(w_curr.name, 'Sin ubicación') AS warehouse_name
+                                    FROM lockers l_curr
+                                    LEFT JOIN warehouses w_curr ON l_curr.warehouse_id = w_curr.warehouse_id
+                                    WHERE r.rental_id IS NOT NULL AND l_curr.rental_id = r.rental_id AND l_curr.active = 1
+                                    UNION ALL
+                                    SELECT chl.identifier, chl.warehouse_name
+                                    FROM ClientHistoricalLockers chl
+                                    WHERE chl.client_id = c.client_id
+                                      AND NOT EXISTS (
+                                          SELECT 1 FROM lockers l_ex WHERE r.rental_id IS NOT NULL AND l_ex.rental_id = r.rental_id AND l_ex.active = 1
+                                      )
+                                ) loc2
+                                GROUP BY loc2.warehouse_name
+                                FOR JSON PATH
+                            ) AS lockers_json
+                        FROM (
+                            SELECT l_curr.identifier
+                            FROM lockers l_curr
+                            WHERE r.rental_id IS NOT NULL AND l_curr.rental_id = r.rental_id AND l_curr.active = 1
+                            UNION ALL
+                            SELECT chl.identifier
+                            FROM ClientHistoricalLockers chl
+                            WHERE chl.client_id = c.client_id
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM lockers l_ex WHERE r.rental_id IS NOT NULL AND l_ex.rental_id = r.rental_id AND l_ex.active = 1
+                              )
+                        ) loc
+                    ) locker_sub
                     LEFT JOIN ( SELECT r.client_id, SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid FROM rentals r WHERE r.active = 1 GROUP BY r.client_id ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
                 ),
                 FilteredData AS (
@@ -642,7 +793,8 @@ namespace GuardeSoftwareAPI.Dao
                 { "Estado", "Status" },
                 { "Balance", "Balance" },
                 { "PaymentIdentifier", "PaymentIdentifier" },
-                { "NextPaymentDay", "NextPaymentDay" }
+                { "NextPaymentDay", "NextPaymentDay" },
+                { "DeactivationDate", "DeactivationDate" }
             };
             
             string primarySort = validSortFields.TryGetValue(sortField, out var dbColumn) ? dbColumn : "Id";
@@ -675,6 +827,7 @@ namespace GuardeSoftwareAPI.Dao
                     CurrentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0m,
                     Balance = row["Balance"] != DBNull.Value ? Convert.ToDecimal(row["Balance"]) : 0m,
                     NextPaymentDay = row["NextPaymentDay"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDay"]) : null,
+                    DeactivationDate = row["DeactivationDate"] != DBNull.Value ? Convert.ToDateTime(row["DeactivationDate"]) : null,
                     Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,
                     Active = Convert.ToBoolean(row["Active"]),
                     WarehouseLockers = row["WarehouseLockersJson"] != DBNull.Value 
