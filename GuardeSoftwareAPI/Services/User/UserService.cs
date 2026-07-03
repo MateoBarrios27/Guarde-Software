@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Data;
 using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dao;
@@ -67,6 +67,7 @@ namespace GuardeSoftwareAPI.Services.user
 				UserName = row["username"]?.ToString() ?? string.Empty,
 				FirstName = row["first_name"]?.ToString() ?? string.Empty,
 				LastName = row["last_name"]?.ToString() ?? string.Empty,
+				IdentityUserId = row["identity_user_id"]?.ToString(),
 				PasswordHash = string.Empty // Do not expose password hash
 			};
 		}
@@ -89,13 +90,21 @@ namespace GuardeSoftwareAPI.Services.user
 				Email = user.UserName + "@placeholder.com"
 			};
 
-			var identityResult = await _userManager.CreateAsync(identityUser, password);
+			var identityResult = await _userManager.CreateAsync(identityUser);
 
 			if (!identityResult.Succeeded)
 			{
 
 				var errors = string.Join(" | ", identityResult.Errors.Select(e => e.Description));
 				throw new ArgumentException($"Failed to create identity user: {errors}");
+			}
+
+			identityUser.PasswordHash = _userManager.PasswordHasher.HashPassword(identityUser, password);
+			var updateResult = await _userManager.UpdateAsync(identityUser);
+			if (!updateResult.Succeeded)
+			{
+				var errors = string.Join(" | ", updateResult.Errors.Select(e => e.Description));
+				throw new ArgumentException($"Failed to set password: {errors}");
 			}
 
 			// depositamos el id al user
@@ -125,6 +134,51 @@ namespace GuardeSoftwareAPI.Services.user
 
 			if(await _daoUser.UpdateUser(user)) return true;
 			else return false;
+		}
+
+		public async Task<bool> ChangePassword(int userId, string newPassword)
+		{
+			if (userId <= 0) throw new ArgumentException("Invalid user ID.");
+			if (string.IsNullOrWhiteSpace(newPassword)) throw new ArgumentException("Password cannot be empty.");
+
+			DataTable userTable = await _daoUser.GetUserById(userId);
+			if (userTable.Rows.Count == 0) throw new ArgumentException("User not found.");
+
+			DataRow row = userTable.Rows[0];
+			string? identityUserId = row["identity_user_id"]?.ToString();
+			if (string.IsNullOrEmpty(identityUserId)) throw new ArgumentException("User is not linked to an identity user.");
+
+			var identityUser = await _userManager.FindByIdAsync(identityUserId);
+			if (identityUser == null) throw new ArgumentException("Identity user not found.");
+
+			identityUser.PasswordHash = _userManager.PasswordHasher.HashPassword(identityUser, newPassword);
+			await _userManager.UpdateSecurityStampAsync(identityUser);
+
+			var result = await _userManager.UpdateAsync(identityUser);
+			if (!result.Succeeded)
+			{
+				var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+				throw new ArgumentException($"Failed to update password: {errors}");
+			}
+
+			return true;
+		}
+
+		public async Task<User?> GetUserByIdentityUserId(string identityUserId)
+		{
+			if (string.IsNullOrEmpty(identityUserId)) return null;
+			DataTable table = await _daoUser.GetUserByIdentityUserId(identityUserId);
+			if (table.Rows.Count == 0) return null;
+			DataRow row = table.Rows[0];
+			return new User
+			{
+				Id = Convert.ToInt32(row["user_id"]),
+				UserTypeId = Convert.ToInt32(row["user_type_id"]),
+				UserName = row["username"].ToString()!,
+				FirstName = row["first_name"].ToString(),
+				LastName = row["last_name"].ToString(),
+				IdentityUserId = row["identity_user_id"].ToString()
+			};
 		}
 	}
 }

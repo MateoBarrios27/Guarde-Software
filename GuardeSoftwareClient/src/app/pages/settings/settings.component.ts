@@ -364,6 +364,44 @@ export class SettingsComponent implements OnInit {
     });
   }
 
+  changeUserPassword(user: User): void {
+    Swal.fire({
+      title: `Cambiar contraseña de ${user.userName}`,
+      input: 'password',
+      inputLabel: 'Nueva contraseña',
+      inputPlaceholder: 'Escribe la nueva contraseña',
+      inputAttributes: {
+        autocapitalize: 'off',
+        autocorrect: 'off'
+      },
+      showCancelButton: true,
+      confirmButtonText: 'Guardar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#2563EB',
+      cancelButtonColor: '#6B7280',
+      preConfirm: (newPassword) => {
+        if (!newPassword || !newPassword.trim()) {
+          Swal.showValidationMessage('La contraseña no puede estar vacía');
+          return false;
+        }
+        return newPassword.trim();
+      }
+    }).then((result) => {
+      if (result.isConfirmed && result.value) {
+        this.userService.changePassword(user.id, result.value).subscribe({
+          next: () => {
+            Swal.fire('Éxito', 'Contraseña actualizada correctamente.', 'success');
+          },
+          error: (err) => {
+            console.error('Error al cambiar contraseña:', err);
+            const msg = err.error ? (typeof err.error === 'string' ? err.error : err.error.message) : 'No se pudo cambiar la contraseña.';
+            Swal.fire('Error', msg || 'No se pudo cambiar la contraseña.', 'error');
+          }
+        });
+      }
+    });
+  }
+
   // --- Métodos de Medios de Pago (Actualizados a Swal) ---
   closeUpdatePaymentMethodModal() { this.showUpdatePaymentMethodModal = false; }
 

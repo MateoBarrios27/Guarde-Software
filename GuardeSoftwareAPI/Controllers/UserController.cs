@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using GuardeSoftwareAPI.Dtos.User;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Services.user;
@@ -69,9 +70,22 @@ namespace GuardeSoftwareAPI.Controllers
             return Ok(userDto);
         }
 
+        private async Task<bool> IsCurrentUserAdminAsync()
+        {
+            var identityUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                              ?? User.FindFirst("sub")?.Value;
+            if (string.IsNullOrEmpty(identityUserId)) return false;
+
+            var user = await _userService.GetUserByIdentityUserId(identityUserId);
+            return user != null && user.UserTypeId == 1; // 1 = Admin
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateUser([FromBody] CreateUserDTO userToCreate)
         {
+            if (!await IsCurrentUserAdminAsync())
+                return Forbid("Only administrators can perform this action.");
+
             if (userToCreate == null)
                 return BadRequest("User data is required.");
             try
@@ -120,6 +134,9 @@ namespace GuardeSoftwareAPI.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
+            if (!await IsCurrentUserAdminAsync())
+                return Forbid("Only administrators can perform this action.");
+
             bool deleted = await _userService.DeleteUser(id);
 
             if (deleted)
@@ -131,6 +148,9 @@ namespace GuardeSoftwareAPI.Controllers
         [HttpPut("{userId}")]
         public async Task<IActionResult> UpdatePaymentMethod(int userId, [FromBody] UpdateUserDTO dto)
         {
+            if (!await IsCurrentUserAdminAsync())
+                return Forbid("Only administrators can perform this action.");
+
             try
             {
                 if (dto == null)
@@ -154,6 +174,31 @@ namespace GuardeSoftwareAPI.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"Error updating user: {ex.Message}");
+            }
+        }
+
+        [HttpPost("{id}/change-password")]
+        public async Task<IActionResult> ChangePassword(int id, [FromBody] ChangePasswordDTO dto)
+        {
+            if (!await IsCurrentUserAdminAsync())
+                return Forbid("Only administrators can perform this action.");
+
+            if (dto == null || string.IsNullOrWhiteSpace(dto.NewPassword))
+                return BadRequest("New password is required.");
+
+            try
+            {
+                await _userService.ChangePassword(id, dto.NewPassword);
+                return Ok(new { message = "Password changed successfully." });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing password");
+                return StatusCode(500, $"Error changing password: {ex.Message}");
             }
         }
     }

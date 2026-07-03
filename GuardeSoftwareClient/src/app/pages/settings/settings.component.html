@@ -57,7 +57,8 @@
                 <td class="px-4 py-2">{{user.firstName}}</td>
                 <td class="px-4 py-2">{{user.lastName}}</td>     
                 <td class="px-4 py-2 flex gap-2">
-                  <button class="px-2 py-1 border rounded text-xs" (click)="openEditModalModal(user)" >Editar</button>
+                  <button class="px-2 py-1 border rounded text-xs" (click)="openEditModalModal(user)">Editar</button>
+                  <button class="px-2 py-1 border rounded text-xs text-blue-600" (click)="changeUserPassword(user)">Contraseña</button>
                   <button class="px-2 py-1 border rounded text-xs text-red-600" (click)="deleteUser(user.id)">Eliminar</button>
                 </td>
               </tr>
@@ -702,7 +703,7 @@
                    [(ngModel)]="userCreated.password"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"
                    placeholder="********" />
-            <p class="text-xs text-gray-500 mt-1">Debe poseer al menos 1 número y 6 caracteres.</p>
+            <p class="text-xs text-gray-500 mt-1">Sin requisitos mínimos para administradores.</p>
           </div>
         </div>
       </div>

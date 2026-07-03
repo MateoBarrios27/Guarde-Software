@@ -34,4 +34,8 @@ export class UserService {
     return this.httpCliente.put<any>(`${this.url}/User/${id}`, dto);
   }
 
+  public changePassword(id: number, newPassword: string): Observable<any>{
+    return this.httpCliente.post<any>(`${this.url}/User/${id}/change-password`, { newPassword });
+  }
+
 }

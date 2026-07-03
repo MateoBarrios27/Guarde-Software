@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Data;
 using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dtos.User;
@@ -25,7 +25,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<DataTable> GetUserById(int userid) {
 
-            string query = "SELECT user_id, user_type_id, username,first_name,last_name FROM users WHERE active = 1 AND user_id = @user_id";
+            string query = "SELECT user_id, user_type_id, username, first_name, last_name, identity_user_id FROM users WHERE active = 1 AND user_id = @user_id";
 
             SqlParameter[] parameters = new SqlParameter[] {
 
