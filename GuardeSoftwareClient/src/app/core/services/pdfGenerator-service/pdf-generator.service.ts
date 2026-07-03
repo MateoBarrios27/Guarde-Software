@@ -44,17 +44,28 @@ export class PdfGeneratorService {
       ]
     ];
 
-    // 2. Agregamos cada concepto
+    // 2. Agregamos cada concepto y calculamos su altura estimada
+    let conceptsHeight = 0;
     data.concepts.forEach(c => {
       tableBody.push([
         { text: c.description, colSpan: 3, margin: [3, 8, 0, 8] }, {}, {},
         { text: '$ ' + this.formatNumber(c.amount), alignment: 'right', margin: [0, 8, 3, 8] }
       ]);
+
+      // Estimamos la altura de la fila: cada línea de texto son ~12pt (estimando 70 caracteres por línea)
+      // más los márgenes superior e inferior de 8pt (total 16pt de margen).
+      const descriptionLines = Math.max(1, Math.ceil((c.description || '').length / 70));
+      conceptsHeight += (descriptionLines * 12) + 16;
     });
 
-    // 3. Agregamos una fila vacía súper alta para empujar el total hacia abajo (como tenías antes)
+    // 3. Calculamos la altura de la fila vacía de manera dinámica para mantener
+    // la estructura del recibo en una sola hoja.
+    // 590pt es la altura aproximada objetivo para los conceptos + el espacio.
+    const targetHeight = 590;
+    const spacerHeight = Math.max(30, targetHeight - conceptsHeight);
+
     tableBody.push([
-      { text: '', colSpan: 3, margin: [0, 0, 0, 600], border: [true, false, false, false] }, 
+      { text: '', colSpan: 3, margin: [0, 0, 0, spacerHeight], border: [true, false, false, false] }, 
       {}, {}, 
       { text: '', border: [true, false, true, false] }
     ]);
