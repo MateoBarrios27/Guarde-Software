@@ -24,6 +24,10 @@ export class LoginComponent {
 
   togglePasswordVisibility() {
     this.showPassword = !this.showPassword;
+    const passwordInput = document.getElementById('password') as HTMLInputElement;
+    if (passwordInput) {
+      passwordInput.type = this.showPassword ? 'text' : 'password';
+    }
   }
 
   submit() {
@@ -38,7 +42,8 @@ export class LoginComponent {
     this.authService.login(this.userName, this.password).subscribe({
       next: () => {
         this.loading = false;
-        this.router.navigate(['/dashboard']);
+        // Use native redirection to trigger iOS Keychain save (WebKit doesn't recognize SPA client-side routing as a successful form submit)
+        window.location.href = '/dashboard';
       },
       error: (err) => {
         this.loading = false;
