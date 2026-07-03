@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Data;
 using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
@@ -40,6 +40,19 @@ namespace GuardeSoftwareAPI.Dao
         {
 
             string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid FROM rentals WHERE active = 1 AND client_id = @client_id";
+
+            SqlParameter[] parameters = new SqlParameter[] {
+
+                new SqlParameter("@client_id", SqlDbType.Int){Value  = clientId},
+            };
+
+            return await accessDB.GetTableAsync("rentals", query, parameters);
+        }
+
+        public async Task<DataTable> GetRentalsByClientIdIncludingInactiveAsync(int clientId)
+        {
+
+            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid FROM rentals WHERE client_id = @client_id";
 
             SqlParameter[] parameters = new SqlParameter[] {
 

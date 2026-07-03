@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
 using System.Collections.Generic;
@@ -245,26 +245,28 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             _logger.LogInformation($"--- Job finalizado. Procesados: {processedCount}, Ya existentes: {duplicateCount}, Omitidos por crédito: {skippedCount} ---");
         }
 
-        /// <summary>
-        /// Obtiene los movimientos de cuenta usando el ID del cliente (buscando su rentalID primero).
-        /// </summary>
         public async Task<List<AccountMovement>> GetAccountMovementListByClientIdAsync(int clientId)
         {
-            // 1. Encontrar el rentalId activo para este cliente
-            // Usamos el método de DaoRental que ya existe
-            DataTable rentalTable = await _daoRental.GetRentalsByClientId(clientId);
+            // 1. Encontrar todos los alquileres (activos o inactivos) para este cliente
+            DataTable rentalTable = await _daoRental.GetRentalsByClientIdIncludingInactiveAsync(clientId);
 
             if (rentalTable.Rows.Count == 0)
             {
-                _logger.LogWarning($"No se encontró un alquiler (rental) activo para el cliente ID {clientId}.");
+                _logger.LogWarning($"No se encontró ningún alquiler (rental) para el cliente ID {clientId}.");
                 return new List<AccountMovement>(); // Devolver lista vacía
             }
 
-            // Asumimos que un cliente solo tiene un rental activo (o tomamos el primero)
-            int rentalId = Convert.ToInt32(rentalTable.Rows[0]["rental_id"]);
+            var movements = new List<AccountMovement>();
+            foreach (DataRow row in rentalTable.Rows)
+            {
+                int rentalId = Convert.ToInt32(row["rental_id"]);
+                var rentalMovements = await GetAccountMovementListByRentalId(rentalId);
+                movements.AddRange(rentalMovements);
+            }
 
-            // 2. Reutilizar la lógica existente para obtener movimientos por rentalId
-            return await GetAccountMovementListByRentalId(rentalId);
+            // Ordenamos por fecha de movimiento descendente
+            movements.Sort((a, b) => b.MovementDate.CompareTo(a.MovementDate));
+            return movements;
         }
 
         public async Task<bool> DeleteAccountMovementAsync(int movementId)
