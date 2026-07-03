@@ -152,8 +152,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.pointingUp) {
       scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      const scrollAmount = 3150;
-      scrollContainer.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+      scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
     }
   }
 
