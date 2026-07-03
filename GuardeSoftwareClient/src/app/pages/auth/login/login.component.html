@@ -1,69 +1,99 @@
-<div class="min-h-screen relative">
-  <!-- Fondo con imagen -->
+<div class="min-h-screen relative flex items-center justify-end font-sans overflow-hidden bg-slate-900">
+  <!-- Background Image with Overlay -->
   <div class="absolute inset-0">
     <img
       src="assets/imgs/guardeloquequiera.png"
       alt="Guarde Lo Que Quiera - Depósitos y mudanzas"
       class="w-full h-full object-cover"
     />
-
-    <!-- Overlay oscuro para contraste -->
-    <div class="absolute inset-0 bg-black/60"></div>
+    <div class="absolute inset-0 bg-slate-950/50"></div>
   </div>
 
-  <!-- Contenido -->
-  <div class="relative z-10 flex min-h-screen items-center justify-end px-6 md:px-12 lg:px-20">
+  <!-- Login Panel (Right-aligned Vertical Strip) -->
+  <div class="relative z-10 w-full max-w-md min-h-screen bg-white/95 backdrop-blur-md shadow-2xl flex flex-col justify-center p-8 border-l border-slate-200/50">
+    <!-- Title & Branding -->
+    <div class="mb-8 text-center">
+      <img src="assets/icons/favicon.svg" alt="GuardeSoftware Logo" class="mx-auto h-14 w-auto mb-4" />
+      <h1 class="text-2xl font-bold text-slate-800 tracking-tight">
+        Guarde Lo Que Quiera
+      </h1>
 
-    <!-- Card de login derecha (glassmorphism) -->
-    <div class="backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl rounded-xl p-8 w-full max-w-md text-white">
+    </div>
 
-      <!-- Título -->
-      <div class="mb-6 text-center">
-        <h1 class="text-3xl font-bold">Iniciar sesión</h1>
-        <p class="text-sm text-gray-200 mt-1">Accede a tu panel de gestión</p>
-      </div>
+    <!-- Error Alert Box -->
+    <div *ngIf="errorMessage" class="mb-4 p-3 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm flex items-center gap-2">
+      <app-icon name="alert-triangle" class="w-4 h-4 text-red-500 flex-shrink-0"></app-icon>
+      <span class="font-medium">{{ errorMessage }}</span>
+    </div>
 
-      <!-- Form -->
-      <form (ngSubmit)="submit()" class="space-y-5">
-
-        <div>
-          <label class="block text-sm font-medium mb-1 text-gray-100">Usuario</label>
+    <!-- Form -->
+    <form id="loginForm" (ngSubmit)="submit()" class="space-y-5">
+      <!-- Username Input -->
+      <div class="space-y-1.5">
+        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Usuario</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+            <app-icon name="user" class="w-4 h-4"></app-icon>
+          </span>
           <input
             type="text"
+            id="username"
             [(ngModel)]="userName"
-            name="userName"
-            class="w-full px-3 py-2 rounded-lg bg-white/20 text-white placeholder-gray-300 
-                   border border-white/30 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="Ingrese su usuario"
+            name="username"
+            autocomplete="username"
+            [disabled]="loading"
+            class="w-full pl-9 pr-4 py-2.5 rounded-lg bg-slate-50 text-slate-800 placeholder-slate-400 
+                   border border-slate-200 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
+                   transition-all duration-150 disabled:opacity-50 text-sm"
+            placeholder="Nombre de usuario"
+            required
           />
         </div>
+      </div>
 
-        <div>
-          <label class="block text-sm font-medium mb-1 text-gray-100">Contraseña</label>
+      <!-- Password Input -->
+      <div class="space-y-1.5">
+        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Contraseña</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+            <app-icon name="lock" class="w-4 h-4"></app-icon>
+          </span>
           <input
-            type="password"
+            [type]="showPassword ? 'text' : 'password'"
+            id="password"
             [(ngModel)]="password"
             name="password"
-            class="w-full px-3 py-2 rounded-lg bg-white/20 text-white placeholder-gray-300 
-                   border border-white/30 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="Ingrese su contraseña"
+            autocomplete="current-password"
+            [disabled]="loading"
+            class="w-full pl-9 pr-10 py-2.5 rounded-lg bg-slate-50 text-slate-800 placeholder-slate-400 
+                   border border-slate-200 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
+                   transition-all duration-150 disabled:opacity-50 text-sm"
+            placeholder="••••••••"
+            required
           />
+          <button
+            type="button"
+            (click)="togglePasswordVisibility()"
+            class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <app-icon name="eye" class="w-4 h-4" [ngClass]="{'opacity-50': !showPassword}"></app-icon>
+          </button>
         </div>
+      </div>
 
-        <div *ngIf="errorMessage" class="text-red-400 text-sm text-center">
-          {{ errorMessage }}
+      <!-- Submit Button -->
+      <button
+        type="submit"
+        [disabled]="loading"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium 
+               shadow-sm hover:shadow active:scale-[0.99] transition-all duration-150 
+               disabled:opacity-50 disabled:cursor-not-allowed text-sm mt-3"
+      >
+        <div class="flex items-center justify-center gap-2">
+          <span *ngIf="loading" class="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent text-white rounded-full"></span>
+          <span>{{ loading ? 'Iniciando sesión...' : 'Ingresar' }}</span>
         </div>
-
-        <button
-          type="submit"
-          [disabled]="loading"
-          class="w-full bg-blue-600/80 hover:bg-blue-600 text-white py-2.5 rounded-lg font-medium 
-                 shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {{ loading ? 'Ingresando...' : 'Ingresar' }}
-        </button>
-
-      </form>
-    </div>
+      </button>
+    </form>
   </div>
 </div>
