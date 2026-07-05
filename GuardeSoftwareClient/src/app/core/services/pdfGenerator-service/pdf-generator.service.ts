@@ -7,7 +7,7 @@ export interface ReceiptConcept {
 
 export interface ReceiptData {
   date: string;
-  clientNumber: number;
+  clientNumber: number | string;
   clientName: string;
   concepts: ReceiptConcept[];
   totalAmount: number;
@@ -70,10 +70,20 @@ export class PdfGeneratorService {
       { text: '', border: [true, false, true, false] }
     ]);
 
+    let formattedClientNumber = '';
+    if (data.clientNumber !== null && data.clientNumber !== undefined) {
+      const num = Number(String(data.clientNumber).replace(',', '.'));
+      if (!isNaN(num)) {
+        formattedClientNumber = this.formatNumber(num);
+      } else {
+        formattedClientNumber = String(data.clientNumber);
+      }
+    }
+
     // 4. Agregamos el pie de la tabla con el total
     tableBody.push([
       { text: 'Cliente Nº', bold: true },
-      { text: String(data.clientNumber || ''), margin: [3, 0, 0, 0] },
+      { text: formattedClientNumber, margin: [3, 0, 0, 0] },
       { text: 'TOTAL', bold: true, alignment: 'right' },
       { text: '$ ' + this.formatNumber(data.totalAmount), alignment: 'right' }
     ]);

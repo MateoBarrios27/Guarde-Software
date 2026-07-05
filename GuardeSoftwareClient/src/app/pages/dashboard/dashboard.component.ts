@@ -54,6 +54,7 @@ export class DashboardComponent implements OnInit {
   showReceiptModal = false;
   receiptPaymentInfo: Payment | null = null;
   receiptConcepts: { description: string, amount: number }[] = [];
+  receiptTotalAmountCustom: number = 0;
 
   //dto save payment
   paymentDto: CreatePaymentDTO = {
@@ -711,6 +712,10 @@ export class DashboardComponent implements OnInit {
     (event.target as HTMLElement).blur();
   }
 
+  recalculateTotalAmount() {
+    this.receiptTotalAmountCustom = this.receiptConcepts.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }
+
   openReceiptModal(item: Payment) {
     this.receiptPaymentInfo = item;
     const dt = new Date(item.paymentDate);
@@ -722,6 +727,7 @@ export class DashboardComponent implements OnInit {
     this.receiptConcepts = [
       { description: 'SERVICIO DE BAULERAS', amount: item.amount }
     ];
+    this.recalculateTotalAmount();
     this.showReceiptModal = true;
   }
 
@@ -744,21 +750,23 @@ export class DashboardComponent implements OnInit {
 
     this.pdfGeneratorService.generateBauleraReceipt({
       date: finalReceiptDate, 
-      clientNumber: Number(this.receiptPaymentInfo.paymentIdentifier) || 0,
+      clientNumber: this.receiptPaymentInfo.paymentIdentifier ?? 0,
       clientName: this.receiptPaymentInfo.clientName ?? "",
       concepts: this.receiptConcepts,
-      totalAmount: this.receiptTotalAmount
+      totalAmount: this.receiptTotalAmountCustom
     });
     this.closeReceiptModal();
   }
 
   addReceiptConcept() {
     this.receiptConcepts.push({ description: '', amount: 0 });
+    this.recalculateTotalAmount();
   }
 
   removeReceiptConcept(index: number) {
     if (this.receiptConcepts.length > 1) {
       this.receiptConcepts.splice(index, 1);
+      this.recalculateTotalAmount();
     }
   }
 

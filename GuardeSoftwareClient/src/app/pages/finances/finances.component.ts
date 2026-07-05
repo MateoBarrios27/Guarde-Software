@@ -14,6 +14,7 @@ import { CreatePaymentDTO } from '../../core/dtos/payment/CreatePaymentDTO';
 import Swal from 'sweetalert2';
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 import { ActivatedRoute, Router } from '@angular/router';
+import { PdfGeneratorService } from '../../core/services/pdfGenerator-service/pdf-generator.service';
 
 export interface DetailedPaymentView extends DetailedPaymentDTO {
   groupPos?: 'start' | 'middle' | 'end' | 'none';
@@ -39,8 +40,9 @@ export class FinancesComponent implements OnInit {
     private paymentService: PaymentService,
     private paymentMethodService: PaymentMethodService,
     private clientService: ClientService,
-    private route: ActivatedRoute, // NUEVO
-    private router: Router         // NUEVO
+    private route: ActivatedRoute,
+    private router: Router,
+    private pdfGeneratorService: PdfGeneratorService
   ){}
 
   clients: Client[] = [];
@@ -96,6 +98,14 @@ export class FinancesComponent implements OnInit {
   returnToUrl: string | null = null;
 
   autoOpenClientId: number | null = null;
+
+  // --- VARIABLES PARA EL MODAL DE RECIBO ---
+  showReceiptModal = false;
+  receiptPaymentInfo: any | null = null;
+  receiptConcepts: { description: string, amount: number }[] = [];
+  receiptDateStr: string = '';
+  receiptTotalAmountCustom: number = 0;
+  pendingReturnUrl: string | null = null;
 
   paymentDto: CreatePaymentDTO = {
       clientId: 0,
@@ -190,6 +200,13 @@ export class FinancesComponent implements OnInit {
   getClientNameById(id: number): string {
     const client = this.clients.find(m => m.id === id);
     return client ? client.fullName: ' ';
+  }
+
+  getClientIdentifierById(id: number): string {
+    const client = this.clients.find(m => m.id === id);
+    return client && client.paymentIdentifier !== null && client.paymentIdentifier !== undefined 
+      ? String(client.paymentIdentifier) 
+      : '';
   }
 
   selectedMethodFilter: string = '';
@@ -1271,7 +1288,7 @@ export class FinancesComponent implements OnInit {
 
   executeBackendCall() {
     const calc = this.getCalculatedAmounts(this.paymentDto.amount, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
-        const localDate = this.paymentDto.date;
+    const localDate = this.paymentDto.date;
     const adjustedDate = new Date(localDate.getTime() - (localDate.getTimezoneOffset() * 60000));
 
     const payloadToSave: CreatePaymentDTO = {
@@ -1281,24 +1298,135 @@ export class FinancesComponent implements OnInit {
       commissionAmount: calc.isSurcharge ? calc.difference : (calc.isDiscount ? -calc.difference : 0),
       commissionConcept: calc.isSurcharge 
           ? `Recargo por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)`
-          : (calc.isDiscount ? `BonificaciÃ³n por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)` : '')
+          : (calc.isDiscount ? `Bonificación por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)` : '')
     };
+
+    const targetReturnUrl = this.returnToUrl;
+    this.returnToUrl = null;
 
     this.paymentService.CreatePayment(payloadToSave).subscribe({
       next: () => {
-        Swal.fire({ title: 'Pago registrado', text: 'El pago se registrÃ³ correctamente.', icon: 'success', confirmButtonColor: '#2563eb' });
-        this.closeClientModal();
-        setTimeout(() => {
-          this.loadClients();
-          this.loadPayments()
-        }
-          , 100); 
+        Swal.fire({
+          title: '¡Pago registrado!',
+          text: 'El pago se registró correctamente. ¿Deseas generar el recibo de pago?',
+          icon: 'success',
+          showCancelButton: true,
+          confirmButtonColor: '#2563eb',
+          cancelButtonColor: '#6B7280',
+          confirmButtonText: 'Sí, generar recibo',
+          cancelButtonText: 'No, cerrar'
+        }).then((result) => {
+          this.closeClientModal();
+          setTimeout(() => {
+            this.loadClients();
+            this.loadPayments();
+          }, 100);
+
+          if (result.isConfirmed) {
+            this.pendingReturnUrl = targetReturnUrl;
+            this.openReceiptModalFromNewPayment({
+              clientName: this.getClientNameById(payloadToSave.clientId),
+              paymentIdentifier: this.getClientIdentifierById(payloadToSave.clientId),
+              amount: payloadToSave.amount,
+              paymentDate: payloadToSave.date,
+              concept: payloadToSave.concept || 'SERVICIO DE BAULERAS'
+            });
+          } else {
+            if (targetReturnUrl) {
+              this.router.navigate(['/' + targetReturnUrl]);
+            }
+          }
+        });
       },
       error: (err) => {
         console.error('Error al guardar payment:', err);
-        Swal.fire({ title: 'Error', text: 'Hubo un problema al registrar la transacciÃ³n en la base de datos.', icon: 'error', confirmButtonColor: '#2563eb' });
+        Swal.fire({ title: 'Error', text: 'Hubo un problema al registrar la transacción en la base de datos.', icon: 'error', confirmButtonColor: '#2563eb' });
       }
     });
+  }
+
+  openReceiptModal(item: DetailedPaymentView) {
+    this.openReceiptModalFromNewPayment({
+      clientName: item.clientName ?? '',
+      paymentIdentifier: String(item.paymentIdentifier),
+      amount: item.amount,
+      paymentDate: new Date(item.paymentDate),
+      concept: item.concept ?? 'SERVICIO DE BAULERAS'
+    });
+  }
+
+  recalculateTotalAmount() {
+    this.receiptTotalAmountCustom = this.receiptConcepts.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }
+
+  openReceiptModalFromNewPayment(info: { clientName: string, paymentIdentifier: string, amount: number, paymentDate: Date, concept: string }) {
+    this.receiptPaymentInfo = {
+      clientName: info.clientName,
+      paymentIdentifier: info.paymentIdentifier,
+      amount: info.amount,
+      paymentDate: info.paymentDate
+    };
+
+    const dt = new Date(info.paymentDate);
+    const y = dt.getFullYear();
+    const m = (dt.getMonth() + 1).toString().padStart(2, '0');
+    const d = dt.getDate().toString().padStart(2, '0');
+    this.receiptDateStr = `${y}-${m}-${d}`;
+
+    this.receiptConcepts = [
+      { description: info.concept || 'SERVICIO DE BAULERAS', amount: info.amount }
+    ];
+    this.recalculateTotalAmount();
+    this.showReceiptModal = true;
+  }
+
+  closeReceiptModal() {
+    this.showReceiptModal = false;
+    this.receiptPaymentInfo = null;
+    this.receiptConcepts = [];
+    this.receiptDateStr = '';
+    
+    if (this.pendingReturnUrl) {
+      const url = this.pendingReturnUrl;
+      this.pendingReturnUrl = null;
+      this.router.navigate(['/' + url]);
+    }
+  }
+
+  confirmGenerateReceipt() {
+    if (!this.receiptPaymentInfo) return;
+    if (this.receiptConcepts.some(c => !c.description.trim())) {
+      Swal.fire('Atención', 'Todas las descripciones deben estar completas.', 'warning');
+      return;
+    }
+
+    const [year, month, day] = this.receiptDateStr.split('-');
+    const finalReceiptDate = `${day}/${month}/${year}`;
+
+    this.pdfGeneratorService.generateBauleraReceipt({
+      date: finalReceiptDate, 
+      clientNumber: this.receiptPaymentInfo.paymentIdentifier ?? 0,
+      clientName: this.receiptPaymentInfo.clientName ?? "",
+      concepts: this.receiptConcepts,
+      totalAmount: this.receiptTotalAmountCustom
+    });
+    this.closeReceiptModal();
+  }
+
+  addReceiptConcept() {
+    this.receiptConcepts.push({ description: '', amount: 0 });
+    this.recalculateTotalAmount();
+  }
+
+  removeReceiptConcept(index: number) {
+    if (this.receiptConcepts.length > 1) {
+      this.receiptConcepts.splice(index, 1);
+      this.recalculateTotalAmount();
+    }
+  }
+
+  get receiptTotalAmount(): number {
+    return this.receiptConcepts.reduce((acc, curr) => acc + (curr.amount || 0), 0);
   }
 
   goBackFromIncrease() {
