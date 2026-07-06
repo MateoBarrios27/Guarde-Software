@@ -164,5 +164,37 @@ namespace GuardeSoftwareAPI.Services.cash
         }
 
         #endregion
+
+        #region Adelantos (Pagos Parciales)
+
+        public async Task<List<CashAdvanceDto>> GetAdvancesAsync(int itemId)
+        {
+            var dt = await _dao.GetAdvancesAsync(itemId);
+            var list = new List<CashAdvanceDto>();
+
+            foreach (DataRow row in dt.Rows)
+            {
+                list.Add(new CashAdvanceDto
+                {
+                    Id = Convert.ToInt32(row["id"]),
+                    ItemId = Convert.ToInt32(row["item_id"]),
+                    Date = Convert.ToDateTime(row["advance_date"]),
+                    Amount = Convert.ToDecimal(row["amount"])
+                });
+            }
+            return list;
+        }
+
+        public async Task<int> AddAdvanceAsync(CashAdvanceDto dto)
+        {
+            return await _dao.AddAdvanceAsync(dto.ItemId, dto.Date, dto.Amount);
+        }
+
+        public async Task DeleteAdvanceAsync(int id)
+        {
+            await _dao.DeleteAdvanceAsync(id);
+        }
+
+        #endregion
     }
 }

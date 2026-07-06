@@ -563,12 +563,24 @@
             </td>
 
             <td class="px-0.5 py-2.5 text-center align-middle w-12">
-              <button (click)="togglePaid(item)" 
-                      class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                      [disabled]="isHistoricalView"
-                      [ngClass]="item.isPaid ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-gray-300 bg-white text-transparent hover:border-emerald-300'">
-                <app-icon *ngIf="item.isPaid" name="check" class="w-3 h-3 stroke-[3]"></app-icon>
-              </button>
+              <div class="flex flex-col items-center gap-1">
+                <button (click)="item.hasAdvances ? openAdvancesModal(item) : togglePaid(item)" 
+                        class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                        [disabled]="isHistoricalView"
+                        [ngClass]="item.hasAdvances 
+                          ? 'border-blue-500 bg-blue-500 text-white' 
+                          : item.isPaid 
+                            ? 'border-emerald-500 bg-emerald-500 text-white' 
+                            : 'border-gray-300 bg-white text-transparent hover:border-emerald-300'">
+                  <app-icon *ngIf="item.hasAdvances" name="minus" class="w-3 h-3 stroke-[3]"></app-icon>
+                  <app-icon *ngIf="!item.hasAdvances && item.isPaid" name="check" class="w-3 h-3 stroke-[3]"></app-icon>
+                </button>
+                <button *ngIf="!isHistoricalView" (click)="openAdvancesModal(item); $event.stopPropagation()" 
+                        class="w-7 h-1.5 rounded-full transition-all cursor-pointer"
+                        [ngClass]="item.hasAdvances ? 'bg-blue-400 hover:bg-blue-500 shadow-sm' : 'bg-gray-200 hover:bg-blue-300'"
+                        title="Gestionar adelantos">
+                </button>
+              </div>
             </td>
 
             <td class="px-0.5 py-2.5 text-center align-middle w-12">
@@ -753,6 +765,103 @@
       </div>
       <div class="px-6 py-4 bg-gray-50/80 border-t border-gray-100 rounded-b-2xl flex justify-between items-center">
         <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">Total Acumulado</span><span class="text-lg font-bold text-purple-700">$ {{ totalIvaCompras | number:'1.2-2' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ADELANTOS (Pagos Parciales) -->
+  <div *ngIf="showAdvancesModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" (keydown.escape)="closeAdvancesModal()" tabindex="-1">
+    <div class="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col max-h-[85vh] animate-fade-in-down" (click)="$event.stopPropagation()">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div>
+          <h4 class="font-bold text-gray-900 flex items-center gap-2 text-base">
+            <div class="w-2 h-5 rounded-full bg-blue-500"></div>
+            Adelantos
+            <span class="text-gray-400 font-normal text-sm">({{ selectedItemForAdvances?.description || 'Sin nombre' }})</span>
+          </h4>
+          <p class="text-[11px] text-gray-400 mt-0.5 ml-4">{{ monthName }} • Adelantos del gasto</p>
+        </div>
+        <button type="button" (click)="closeAdvancesModal()" class="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"><app-icon name="x" class="w-5 h-5"></app-icon></button>
+      </div>
+
+      <div class="p-6">
+        <!-- Estadísticas -->
+        <div class="grid grid-cols-3 gap-3 mb-5">
+          <div class="bg-gray-50 border border-gray-100 rounded-xl p-3 flex flex-col">
+            <span class="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Total Gasto</span>
+            <span class="font-bold text-gray-800 text-sm">$ {{ getAdvancesItemTotal() | number:'1.2-2' }}</span>
+          </div>
+          <div class="bg-blue-50/60 border border-blue-100 rounded-xl p-3 flex flex-col">
+            <span class="text-[10px] uppercase tracking-wider font-bold text-blue-600/70 mb-1">Total Pagado</span>
+            <span class="font-bold text-blue-700 text-sm">$ {{ advancesTotalAmount | number:'1.2-2' }}</span>
+          </div>
+          <div class="rounded-xl p-3 flex flex-col" [ngClass]="getAdvancesRemaining() <= 0 ? 'bg-emerald-50/60 border border-emerald-100' : 'bg-amber-50/60 border border-amber-100'">
+            <span class="text-[10px] uppercase tracking-wider font-bold mb-1" [ngClass]="getAdvancesRemaining() <= 0 ? 'text-emerald-600/70' : 'text-amber-600/70'">Falta Pagar</span>
+            <span class="font-bold text-sm" [ngClass]="getAdvancesRemaining() <= 0 ? 'text-emerald-700' : 'text-amber-700'">$ {{ getAdvancesRemaining() | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <!-- Barra de progreso -->
+        <div class="mb-5">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] uppercase tracking-wider font-bold text-gray-400">Progreso de pago</span>
+            <span class="text-xs font-bold text-blue-600">{{ getAdvancesProgress() | number:'1.0-0' }}%</span>
+          </div>
+          <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-500 ease-out" 
+                 [ngClass]="getAdvancesProgress() >= 100 ? 'bg-emerald-500' : 'bg-blue-500'"
+                 [style.width.%]="getAdvancesProgress()"></div>
+          </div>
+        </div>
+
+        <!-- Formulario de nuevo adelanto -->
+        <div class="bg-blue-50/50 p-4 rounded-xl border border-blue-100 mb-5 flex flex-col sm:flex-row gap-3 items-end">
+          <div class="w-full sm:w-2/5">
+            <label class="block text-[10px] uppercase tracking-wider font-bold text-blue-800/60 mb-1.5">Fecha</label>
+            <input type="date" [(ngModel)]="newAdvance.date" class="w-full p-2 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-300 text-sm">
+          </div>
+          <div class="w-full sm:w-2/5">
+            <label class="block text-[10px] uppercase tracking-wider font-bold text-blue-800/60 mb-1.5">Monto</label>
+            <input type="text" appCurrencyFormat [(ngModel)]="newAdvance.amount" (keydown.enter)="saveAdvance()" class="w-full p-2 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-300 text-sm font-bold text-blue-700">
+          </div>
+          <button (click)="saveAdvance()" class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
+            <app-icon name="plus" class="w-4 h-4"></app-icon> Agregar
+          </button>
+        </div>
+
+        <!-- Tabla de adelantos -->
+        <div class="overflow-y-auto custom-scrollbar border border-gray-100 rounded-xl" style="max-height: 35vh;">
+          <table class="w-full text-sm text-left">
+            <thead class="text-[10px] uppercase tracking-widest text-gray-400 bg-gray-50 border-b border-gray-100 sticky top-0">
+              <tr>
+                <th class="px-4 py-3">Fecha</th>
+                <th class="px-4 py-3 text-right">Monto</th>
+                <th class="px-4 py-3 text-center w-10"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              <tr *ngFor="let adv of advances; let i = index" class="hover:bg-gray-50/50 transition-colors group">
+                <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ adv.date | date:'dd/MM/yyyy' }}</td>
+                <td class="px-4 py-3 text-right font-bold text-blue-700">$ {{ adv.amount | number:'1.2-2' }}</td>
+                <td class="px-4 py-3 text-center">
+                  <button (click)="deleteAdvance(adv.id, i)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                    <app-icon name="Trash2" class="w-4 h-4"></app-icon>
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="advances.length === 0">
+                <td colspan="3" class="text-center py-8 text-gray-400 text-sm">No hay adelantos registrados.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 bg-gray-50/80 border-t border-gray-100 rounded-b-2xl flex justify-between items-center">
+        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">Total Adelantos</span>
+        <span class="text-lg font-bold text-blue-700">$ {{ advancesTotalAmount | number:'1.2-2' }}</span>
       </div>
     </div>
   </div>

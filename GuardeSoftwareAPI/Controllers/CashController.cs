@@ -242,6 +242,56 @@ namespace GuardeSoftwareAPI.Controllers
 
         #endregion
 
+        #region Adelantos (Pagos Parciales)
+
+        [HttpGet("items/{itemId}/advances")]
+        public async Task<IActionResult> GetAdvances(int itemId)
+        {
+            try
+            {
+                var result = await _service.GetAdvancesAsync(itemId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al obtener adelantos", details = ex.Message });
+            }
+        }
+
+        [HttpPost("items/{itemId}/advances")]
+        public async Task<IActionResult> AddAdvance(int itemId, [FromBody] CashAdvanceDto dto)
+        {
+            try
+            {
+                if (dto == null || dto.Amount <= 0)
+                    return BadRequest("Datos de adelanto inválidos.");
+
+                dto.ItemId = itemId;
+                int id = await _service.AddAdvanceAsync(dto);
+                return Ok(id);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al guardar adelanto", details = ex.Message });
+            }
+        }
+
+        [HttpDelete("advances/{id}")]
+        public async Task<IActionResult> DeleteAdvance(int id)
+        {
+            try
+            {
+                await _service.DeleteAdvanceAsync(id);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al eliminar adelanto", details = ex.Message });
+            }
+        }
+
+        #endregion
+
         #endregion
     }
 }

@@ -21,5 +21,8 @@ namespace GuardeSoftwareAPI.Services.cash
         Task<int> AddIvaCompraAsync(CashIVADto dto);
         Task DeleteIvaCompraAsync(int id);
         Task<List<CashFlowItemDto>> GetHistoricalGroupedItemsAsync(DateTime fromDate, DateTime toDate);
+        Task<List<CashAdvanceDto>> GetAdvancesAsync(int itemId);
+        Task<int> AddAdvanceAsync(CashAdvanceDto dto);
+        Task DeleteAdvanceAsync(int id);
     }
 }

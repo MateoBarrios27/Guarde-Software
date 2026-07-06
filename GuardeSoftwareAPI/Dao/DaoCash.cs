@@ -19,10 +19,17 @@ namespace GuardeSoftwareAPI.Dao
         {
             var list = new List<CashFlowItemDto>();
             string query = @"
-                SELECT item_id, movement_date, description, comment, amount_depo, amount_casa, is_paid, amount_retiros, amount_extras, amount_iaia, display_order, replication_state, color
-                FROM cash_flow_items
-                WHERE month = @Month AND year = @Year
-                ORDER BY display_order ASC, movement_date ASC";
+                SELECT cfi.item_id, cfi.movement_date, cfi.description, cfi.comment, cfi.amount_depo, cfi.amount_casa, cfi.is_paid, cfi.amount_retiros, cfi.amount_extras, cfi.amount_iaia, cfi.display_order, cfi.replication_state, cfi.color,
+                       ISNULL(adv.advance_count, 0) AS advance_count,
+                       ISNULL(adv.total_advances, 0) AS total_advances
+                FROM cash_flow_items cfi
+                LEFT JOIN (
+                    SELECT item_id, COUNT(*) AS advance_count, SUM(amount) AS total_advances
+                    FROM cash_flow_item_advances
+                    GROUP BY item_id
+                ) adv ON cfi.item_id = adv.item_id
+                WHERE cfi.month = @Month AND cfi.year = @Year
+                ORDER BY cfi.display_order ASC, cfi.movement_date ASC";
 
             var parameters = new[] {
                 new SqlParameter("@Month", month),
@@ -47,7 +54,9 @@ namespace GuardeSoftwareAPI.Dao
                     Iaia = Convert.ToDecimal(row["amount_iaia"]),
                     DisplayOrder = row["display_order"] != DBNull.Value ? Convert.ToInt32(row["display_order"]) : 0,
                     ReplicationState = row["replication_state"] != DBNull.Value ? Convert.ToInt32(row["replication_state"]) : 0,
-                    Color = row["color"] != DBNull.Value ? row["color"].ToString() : null
+                    Color = row["color"] != DBNull.Value ? row["color"].ToString() : null,
+                    HasAdvances = Convert.ToInt32(row["advance_count"]) > 0,
+                    TotalAdvances = Convert.ToDecimal(row["total_advances"])
                 });
             }
             return list;
@@ -1050,6 +1059,45 @@ namespace GuardeSoftwareAPI.Dao
             }
             
             return list;
+        }
+
+        #endregion
+
+        #region Adelantos (Pagos Parciales)
+
+        public async Task<DataTable> GetAdvancesAsync(int itemId)
+        {
+            string query = @"
+                SELECT id, item_id, advance_date, amount
+                FROM cash_flow_item_advances
+                WHERE item_id = @ItemId
+                ORDER BY advance_date DESC";
+
+            return await _accessDB.GetTableAsync("Advances", query, new[] {
+                new SqlParameter("@ItemId", itemId)
+            });
+        }
+
+        public async Task<int> AddAdvanceAsync(int itemId, DateTime date, decimal amount)
+        {
+            string query = @"
+                INSERT INTO cash_flow_item_advances (item_id, advance_date, amount)
+                OUTPUT INSERTED.id
+                VALUES (@ItemId, @Date, @Amount)";
+
+            var parameters = new[] {
+                new SqlParameter("@ItemId", itemId),
+                new SqlParameter("@Date", date),
+                new SqlParameter("@Amount", amount)
+            };
+            var result = await _accessDB.ExecuteScalarAsync(query, parameters);
+            return Convert.ToInt32(result);
+        }
+
+        public async Task DeleteAdvanceAsync(int id)
+        {
+            string query = "DELETE FROM cash_flow_item_advances WHERE id = @Id";
+            await _accessDB.ExecuteCommandAsync(query, new[] { new SqlParameter("@Id", id) });
         }
 
         #endregion

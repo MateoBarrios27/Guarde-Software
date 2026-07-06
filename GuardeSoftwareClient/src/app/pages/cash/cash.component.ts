@@ -89,6 +89,13 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   totalIvaCompras: number = 0;
   newIvaCompra = { date: '', amount: null as any, comment: '' };
 
+  // --- VARIABLES ADELANTOS ---
+  showAdvancesModal: boolean = false;
+  selectedItemForAdvances: CashFlowItem | null = null;
+  advances: any[] = [];
+  newAdvance = { date: '', amount: null as any };
+  advancesTotalAmount: number = 0;
+
   constructor(private cashService: CashService) {
     this.saveSubject.pipe(
       groupBy(item => item), 
@@ -620,7 +627,11 @@ filterItems(): void {
       this.totals.iaia += Number(item.iaia) || 0;
 
       const costoFila = (Number(item.depo) || 0) + (Number(item.casa) || 0);
-      if (item.isPaid) this.totals.pagado += costoFila;
+      if (item.hasAdvances) {
+        this.totals.pagado += Number(item.totalAdvances) || 0;
+      } else if (item.isPaid) {
+        this.totals.pagado += costoFila;
+      }
     });
 
     this.totals.aPagar = this.totals.depo + this.totals.casa;
@@ -639,7 +650,11 @@ filterItems(): void {
       this.tableTotals.iaia += Number(item.iaia) || 0;
 
       const costoFila = (Number(item.depo) || 0) + (Number(item.casa) || 0);
-      if (item.isPaid) this.tableTotals.pagado += costoFila;
+      if (item.hasAdvances) {
+        this.tableTotals.pagado += Number(item.totalAdvances) || 0;
+      } else if (item.isPaid) {
+        this.tableTotals.pagado += costoFila;
+      }
     });
   }
 
@@ -1083,4 +1098,126 @@ toggleSelectAllColumn(field: string): void {
     });
   }
 }
+
+// --- ADELANTOS (Pagos Parciales) ---
+
+openAdvancesModal(item: CashFlowItem): void {
+  if (!item.id || item.id === 0) {
+    // Guardar primero el item si no tiene ID
+    const payloadToSave: CashFlowItem = {
+      ...item,
+      depo: item.depo || 0,
+      casa: item.casa || 0,
+      retiros: item.retiros || 0,
+      extras: item.extras || 0,
+      iaia: item.iaia || 0
+    };
+    this.cashService.upsertItem(payloadToSave, this.selectedMonth, this.selectedYear).subscribe(id => {
+      item.id = id;
+      this.loadAdvancesAndOpenModal(item);
+    });
+  } else {
+    this.loadAdvancesAndOpenModal(item);
+  }
+}
+
+private loadAdvancesAndOpenModal(item: CashFlowItem): void {
+  this.selectedItemForAdvances = item;
+  this.cashService.getAdvances(item.id!).subscribe(data => {
+    this.advances = data.map(adv => ({
+      id: adv.id || adv.Id,
+      itemId: adv.itemId || adv.ItemId,
+      date: adv.date || adv.Date,
+      amount: adv.amount || adv.Amount
+    }));
+    this.calculateAdvancesTotal();
+    this.showAdvancesModal = true;
+
+    const today = new Date();
+    let initialDate: Date;
+    if (this.selectedYear === today.getFullYear() && this.selectedMonth === (today.getMonth() + 1)) {
+      initialDate = today;
+    } else {
+      initialDate = new Date(this.selectedYear, this.selectedMonth - 1, 1);
+    }
+    const yyyy = initialDate.getFullYear();
+    const mm = String(initialDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(initialDate.getDate()).padStart(2, '0');
+    this.newAdvance = { date: `${yyyy}-${mm}-${dd}`, amount: null as any };
+  });
+}
+
+closeAdvancesModal(): void {
+  this.showAdvancesModal = false;
+  this.selectedItemForAdvances = null;
+  this.advances = [];
+}
+
+calculateAdvancesTotal(): void {
+  this.advancesTotalAmount = this.advances.reduce((sum, adv) => {
+    return sum + (Number(adv.amount) || 0);
+  }, 0);
+}
+
+getAdvancesItemTotal(): number {
+  if (!this.selectedItemForAdvances) return 0;
+  return (Number(this.selectedItemForAdvances.depo) || 0) + (Number(this.selectedItemForAdvances.casa) || 0);
+}
+
+getAdvancesRemaining(): number {
+  return this.getAdvancesItemTotal() - this.advancesTotalAmount;
+}
+
+getAdvancesProgress(): number {
+  const total = this.getAdvancesItemTotal();
+  if (total <= 0) return 0;
+  return Math.min((this.advancesTotalAmount / total) * 100, 100);
+}
+
+saveAdvance(): void {
+  if (!this.newAdvance.amount || this.newAdvance.amount <= 0) {
+    Swal.fire('Atención', 'Ingresa un monto válido.', 'warning');
+    return;
+  }
+  if (!this.newAdvance.date) {
+    Swal.fire('Atención', 'La fecha es obligatoria.', 'warning');
+    return;
+  }
+
+  const payload = {
+    itemId: this.selectedItemForAdvances!.id,
+    date: this.newAdvance.date,
+    amount: this.newAdvance.amount
+  };
+
+  this.cashService.addAdvance(this.selectedItemForAdvances!.id!, payload).subscribe({
+    next: (newId) => {
+      this.advances.unshift({ ...payload, id: newId });
+      this.calculateAdvancesTotal();
+
+      // Actualizar el item en la tabla principal
+      this.selectedItemForAdvances!.hasAdvances = true;
+      this.selectedItemForAdvances!.totalAdvances = this.advancesTotalAmount;
+      this.calculateMonthlyTotals();
+      this.calculateTableTotals();
+
+      this.newAdvance.amount = null as any;
+      Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Adelanto registrado', showConfirmButton: false, timer: 2000 });
+    }
+  });
+}
+
+deleteAdvance(id: number, index: number): void {
+  this.cashService.deleteAdvance(id).subscribe(() => {
+    this.advances.splice(index, 1);
+    this.calculateAdvancesTotal();
+
+    // Actualizar el item en la tabla principal
+    this.selectedItemForAdvances!.totalAdvances = this.advancesTotalAmount;
+    this.selectedItemForAdvances!.hasAdvances = this.advances.length > 0;
+    this.calculateMonthlyTotals();
+    this.calculateTableTotals();
+  });
+}
+
 }

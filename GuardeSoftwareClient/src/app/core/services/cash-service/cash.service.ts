@@ -97,4 +97,17 @@ export class CashService {
       params: { fromDate, toDate }
     });
   }
+
+  // --- Adelantos (Pagos Parciales) ---
+  getAdvances(itemId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/items/${itemId}/advances`);
+  }
+
+  addAdvance(itemId: number, advance: any): Observable<number> {
+    return this.http.post<number>(`${this.apiUrl}/items/${itemId}/advances`, advance);
+  }
+
+  deleteAdvance(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/advances/${id}`);
+  }
 }

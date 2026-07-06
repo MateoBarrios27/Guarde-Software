@@ -12,4 +12,6 @@ public class CashFlowItemDto {
     public int DisplayOrder { get; set; }
     public int ReplicationState { get; set; }
     public string? Color { get; set; }
+    public bool HasAdvances { get; set; }
+    public decimal TotalAdvances { get; set; }
 }

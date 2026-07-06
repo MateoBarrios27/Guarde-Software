@@ -14,6 +14,8 @@ export interface CashFlowItem {
   replicationState: number;
   color?: string;
   rowNum?: number;
+  hasAdvances?: boolean;
+  totalAdvances?: number;
 }
 
 export interface MonthlySummary {
