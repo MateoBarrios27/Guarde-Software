@@ -1,4 +1,4 @@
-<div class="space-y-6 bg-gray-50 min-h-screen font-inter">
+<div class="space-y-6 bg-gray-50 min-h-screen font-inter pt-4">
   
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-white rounded-xl shadow-lg">
     <div>
@@ -457,7 +457,7 @@
     <div class="flex items-start justify-between">
       <h3 class="text-sm font-semibold text-gray-900 line-clamp-2 pr-4">{{ comm.title }}</h3>
       <span [ngClass]="getBadgeMeta(comm.status).classes">
-        <app-icon *ngIf="getBadgeMeta(comm.status).icon" [name]="getBadgeMeta(comm.status).icon!" class="h-3 w-3"></app-icon>
+        <app-icon *ngIf="getBadgeMeta(comm.status).icon" [name]="getBadgeMeta(comm.status).icon!" class="h-3.5 w-3.5"></app-icon>
         <span class="ml-1 text-xs">{{ getBadgeMeta(comm.status).text }}</span>
       </span>
     </div>
@@ -469,14 +469,14 @@
 
       <div class="flex items-center gap-2 text-xs text-gray-500">
         <ng-container *ngFor="let ic of getChannelMeta(comm.channel).icons">
-          <app-icon [name]="ic.name" [ngClass]="ic.classes + ' h-3 w-3'" class="inline-block"></app-icon>
+          <app-icon [name]="ic.name" [ngClass]="ic.classes + ' h-3.5 w-3.5'"></app-icon>
         </ng-container>
         <span>{{ comm.channel }}</span>
         <span>•</span>
         @if (isDraft) {
         <span>Creado: {{ comm.creationDate | date: 'dd/MM/yyyy'}}</span>
         } @else {
-        <app-icon name="Calendar" class="h-3 w-3"></app-icon>
+        <app-icon name="Calendar" class="h-3.5 w-3.5"></app-icon>
         <span>
           {{ comm.sendDate | date: 'dd/MM/yyyy' }} {{ comm.sendTime }}
         </span>
@@ -484,7 +484,7 @@
       </div>
 
       <div class="flex items-center gap-1 text-xs text-gray-500">
-        <app-icon name="user" class="h-3 w-3"></app-icon>
+        <app-icon name="user" class="h-3.5 w-3.5"></app-icon>
         <span>{{ comm.recipients.length }} destinatario(s)</span>
       </div>
     </div>

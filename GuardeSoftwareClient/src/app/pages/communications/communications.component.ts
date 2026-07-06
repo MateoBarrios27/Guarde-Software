@@ -510,7 +510,7 @@ export class CommunicationsComponent implements OnInit {
 
   getChannelMeta(channel: string): { icons: { name: string; classes?: string }[] } {
     const mail = { name: 'Mail', classes: 'text-blue-600' };
-    const wa = { name: 'MessageSquare', classes: 'text-green-600' };
+    const wa = { name: 'whatsapp', classes: 'text-green-600' };
     if (channel === 'Email + WhatsApp') return { icons: [mail, wa] };
     if (channel === 'Email') return { icons: [mail] };
     if (channel === 'WhatsApp') return { icons: [wa] };
