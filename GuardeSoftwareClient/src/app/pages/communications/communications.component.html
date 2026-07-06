@@ -114,14 +114,20 @@
       <div class="flex flex-col sm:flex-row gap-4">
         @for (channel of channels; track channel.id) {
         <div 
-          class="flex items-center space-x-2 p-3 bg-gray-50 border rounded-lg cursor-pointer hover:bg-gray-100 transition duration-150"
+          class="flex items-center space-x-2 p-3 border rounded-lg transition duration-150"
+          [ngClass]="{
+            'opacity-50 bg-gray-100 border-gray-200 cursor-not-allowed': channel.name === 'WhatsApp' && formData().isAccountStatement,
+            'bg-gray-50 border-gray-300 cursor-pointer hover:bg-gray-100': !(channel.name === 'WhatsApp' && formData().isAccountStatement)
+          }"
           (click)="toggleChannel(channel.name)">
           <input 
             type="checkbox" 
             [id]="'channel-' + channel.name" 
             [checked]="formData().channels.includes(channel.name)" 
+            [disabled]="channel.name === 'WhatsApp' && formData().isAccountStatement"
             class="rounded text-blue-600 focus:ring-blue-500 pointer-events-none"/> 
-          <label class="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-900">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-900"
+                 [ngClass]="(channel.name === 'WhatsApp' && formData().isAccountStatement) ? 'cursor-not-allowed' : 'cursor-pointer'">
             <app-icon [name]="channel.icon" [ngClass]="channel.name === 'Email' ? 'text-blue-600' : 'text-green-600'"></app-icon>
             <span>{{ channel.spanishLabel }}</span>
           </label>

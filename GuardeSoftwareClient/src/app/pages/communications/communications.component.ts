@@ -443,6 +443,9 @@ export class CommunicationsComponent implements OnInit {
   }
 
   toggleChannel(channelName: 'Email' | 'WhatsApp'): void {
+    if (channelName === 'WhatsApp' && this.formData().isAccountStatement) {
+      return;
+    }
     const currentChannels = this.formData().channels;
     const isAdding = !currentChannels.includes(channelName);
     
@@ -524,12 +527,19 @@ export class CommunicationsComponent implements OnInit {
   return text.length > 150 ? text.substring(0, 150) + '...' : text;
 }
 
-  updateFormField<K extends keyof FormDataState>(field: K, value: FormDataState[K]) {
-    this.formData.update(currentData => ({
-      ...currentData,
-      [field]: value
-    }));
-  }
+  updateFormField<K extends keyof FormDataState>(field: K, value: FormDataState[K]) {
+    this.formData.update(currentData => {
+      const updated = {
+        ...currentData,
+        [field]: value
+      };
+      if (field === 'isAccountStatement' && value === true) {
+        updated.title = 'ESTADO DE CUENTA';
+        updated.channels = ['Email'];
+      }
+      return updated;
+    });
+  }
 
   getSanitizedHtmlContent(): SafeHtml {
     const html = this.selectedCommunication()?.content || '';
