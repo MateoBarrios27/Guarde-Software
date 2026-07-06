@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Dtos.Client;
@@ -869,12 +869,6 @@ namespace GuardeSoftwareAPI.Services.client
         {
             if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
 
-            var lockers = await lockerService.GetLockersByClientIdAsync(clientId);
-            if (lockers != null && lockers.Count > 0)
-            {
-                throw new InvalidOperationException("No se puede dar de baja al cliente porque tiene lockers asignados. Libere los lockers primero.");
-            }
-
             using (var connection = accessDB.GetConnectionClose())
             {
                 await connection.OpenAsync();
@@ -883,15 +877,25 @@ namespace GuardeSoftwareAPI.Services.client
                     try
                     {
                         var today = TimeHelper.GetArgentinaTime().Date; // FIX UTC
-                        await daoClient.DeactivateClientTransactionAsync(clientId, connection, transaction);
+                        
                         int? activeRentalId = await rentalService.GetActiveRentalIdByClientIdTransactionAsync(clientId, connection, transaction);
 
                         if (activeRentalId.HasValue)
                         {
+                            var lockerIds = await lockerService.GetLockerIdsByRentalIdTransactionAsync(activeRentalId.Value, connection, transaction);
+                            if (lockerIds != null && lockerIds.Count > 0)
+                            {
+                                await lockerService.UnassignLockersFromRentalTransactionAsync(lockerIds, connection, transaction);
+                                await daoClient.CloseLockerHistoryTransactionAsync(clientId, lockerIds, connection, transaction);
+                                await rentalService.UpdateContractedM3TransactionAsync(activeRentalId.Value, 0m, connection, transaction);
+                            }
+
                             await rentalAmountHistoryService.CloseOpenHistoriesByRentalIdTransactionAsync(activeRentalId.Value, today, connection, transaction);
                             
                             await rentalService.EndActiveRentalByClientIdTransactionAsync(clientId, today, connection, transaction);
                         }
+
+                        await daoClient.DeactivateClientTransactionAsync(clientId, connection, transaction);
 
                         await transaction.CommitAsync();
                         return true;

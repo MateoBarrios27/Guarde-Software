@@ -395,22 +395,19 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   public openDeactivateClientModal(cliente: TableClient): void {
-    if (cliente.lockers && cliente.lockers.length > 0 && cliente.lockers[0] !== '') {
-       Swal.fire({
-        icon: 'error',
-        title: 'No se puede dar de baja',
-        text: `El cliente tiene lockers asignados (${cliente.lockers.join(', ')}). Debes desasignarlos primero editando el cliente.`,
-        confirmButtonColor: '#2563eb'
-      });
-      return;
-    }
-
     let warningText = "El cliente será marcado como 'Dado de Baja'. Se finalizará su alquiler actual.";
     let iconType: 'warning' | 'info' = 'warning';
 
+    if (cliente.lockers && cliente.lockers.length > 0 && cliente.lockers[0] !== '') {
+       warningText += `\n\nLas siguientes bauleras serán liberadas y desasignadas: ${cliente.lockers.join(', ')}.`;
+    }
+
     if (cliente.balance > 0) {
        const deuda = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(cliente.balance);
-       warningText = `¡ATENCIÓN! El cliente tiene una deuda de ${deuda}. \n\n¿Estás seguro de darlo de baja sin saldar la deuda?`;
+       warningText = `¡ATENCIÓN! El cliente tiene una deuda de ${deuda}.\n\n¿Estás seguro de darlo de baja sin saldar la deuda?`;
+       if (cliente.lockers && cliente.lockers.length > 0 && cliente.lockers[0] !== '') {
+          warningText += `\n\nAdemás, las siguientes bauleras serán liberadas y desasignadas: ${cliente.lockers.join(', ')}.`;
+       }
     } else if (cliente.balance < 0) {
         warningText += "\n\nNota: El cliente tiene saldo a favor.";
     }
