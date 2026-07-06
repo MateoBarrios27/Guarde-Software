@@ -402,13 +402,25 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     const search = this.newClientForm.value.lockerSearch?.toLowerCase() || '';
     const warehouseId = this.newClientForm.value.selectedWarehouse;
     const typeId = this.newClientForm.value.selectedLockerType;
+    const assignedLockerIds = this.newClientForm.get('lockersAsignados')?.value || [];
     
-    return this.availableLockers.filter((locker) => {
+    const filtered = this.availableLockers.filter((locker) => {
       const searchMatch = search === '' || locker.identifier.toLowerCase().includes(search) || (locker.features && locker.features.toLowerCase().includes(search));
       const warehouseMatch = warehouseId === 'all' || locker.warehouseId === Number(warehouseId);
       const typeMatch = typeId === 'all' || locker.lockerTypeId === Number(typeId);
       
       return searchMatch && warehouseMatch && typeMatch;
+    });
+
+    return filtered.sort((a, b) => {
+      const aAssigned = assignedLockerIds.includes(a.id) ? 1 : 0;
+      const bAssigned = assignedLockerIds.includes(b.id) ? 1 : 0;
+      
+      if (aAssigned !== bAssigned) {
+        return bAssigned - aAssigned;
+      }
+      
+      return a.identifier.localeCompare(b.identifier, undefined, { numeric: true, sensitivity: 'base' });
     });
   }
   
