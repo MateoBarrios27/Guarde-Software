@@ -50,6 +50,7 @@ interface ClientSelectorItem {
   selected: boolean;
   currentRentAmount: number;
   nextPaymentDate: Date | null;
+  paymentIdentifier?: number | null;
 }
 
 interface MonthFilter {
@@ -88,7 +89,7 @@ export class CommunicationsComponent implements OnInit {
   
   selectedCount = computed(() => this.formData().recipients.length);
   modalSelectedCount = computed(() => this.allClients().filter(c => c.selected).length);
-  currentSort = signal<'name' | 'status'>('name');
+  currentSort = signal<'name' | 'status' | 'payment_identifier'>('name');
 
   selectedSummary = computed(() => {
       const recipients = this.formData().recipients;
@@ -588,7 +589,8 @@ export class CommunicationsComponent implements OnInit {
                     currentRentAmount: c.currentRentAmount || 0,
                     status: status,
                     selected: false,
-                    nextPaymentDate: c.nextPaymentDate ? new Date(c.nextPaymentDate) : null // <--- NUEVO
+                    nextPaymentDate: c.nextPaymentDate ? new Date(c.nextPaymentDate) : null,
+                    paymentIdentifier: c.paymentIdentifier
                 };
             });
             this.allClients.set(mapped);
@@ -643,7 +645,11 @@ export class CommunicationsComponent implements OnInit {
   }
 
   toggleSort(): void {
-      this.currentSort.update(current => current === 'name' ? 'status' : 'name');
+      this.currentSort.update(current => {
+          if (current === 'name') return 'status';
+          if (current === 'status') return 'payment_identifier';
+          return 'name';
+      });
       this.filterList(); 
   }
 
@@ -675,6 +681,10 @@ export class CommunicationsComponent implements OnInit {
               const pB = priority[b.status] || 99;
               
               if (pA !== pB) return pA - pB;
+          } else if (sortType === 'payment_identifier') {
+              const valA = a.paymentIdentifier ?? 0;
+              const valB = b.paymentIdentifier ?? 0;
+              if (valA !== valB) return valA - valB;
           }
 
           return a.fullName.localeCompare(b.fullName);

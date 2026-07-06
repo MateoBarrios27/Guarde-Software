@@ -506,6 +506,7 @@ namespace GuardeSoftwareAPI.Dao
                     c.client_id AS Id,
                     c.full_name AS FullName,
                     (SELECT TOP 1 address FROM emails WHERE client_id = c.client_id AND active = 1) AS Email,
+                    c.payment_identifier AS PaymentIdentifier,
                     
                     ISNULL((
                         SELECT SUM(CASE WHEN am.movement_type = 'DEBITO' THEN -am.amount ELSE am.amount END)
@@ -578,7 +579,8 @@ namespace GuardeSoftwareAPI.Dao
                     Balance = Convert.ToDecimal(row["Balance"]),
                     MaxUnpaidMonths = Convert.ToInt32(row["MaxUnpaidMonths"]),
                     CurrentRentAmount = Convert.ToDecimal(row["CurrentRentAmount"]),
-                    NextPaymentDate = row["NextPaymentDate"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDate"]) : null
+                    NextPaymentDate = row["NextPaymentDate"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDate"]) : null,
+                    PaymentIdentifier = row["PaymentIdentifier"] != DBNull.Value ? Convert.ToDecimal(row["PaymentIdentifier"]) : null
                 });
             }
             return list;

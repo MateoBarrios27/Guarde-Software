@@ -587,11 +587,12 @@
                     </div>
 
                     <button (click)="toggleSort()" 
-                            class="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition text-sm font-medium text-gray-700 min-w-[140px] justify-center"
-                            [title]="currentSort() === 'name' ? 'Cambiar a orden por Estado' : 'Cambiar a orden Alfabético'">
+                            class="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition text-sm font-medium text-gray-700 min-w-[170px] justify-center"
+                            [title]="currentSort() === 'name' ? 'Cambiar a orden por Estado' : (currentSort() === 'status' ? 'Cambiar a orden por Identificador de Pago' : 'Cambiar a orden Alfabético')">
                         <app-icon name="list" class="h-4 w-4 text-gray-500"></app-icon>
                         <span *ngIf="currentSort() === 'name'">Por Nombre</span>
                         <span *ngIf="currentSort() === 'status'">Por Estado</span>
+                        <span *ngIf="currentSort() === 'payment_identifier'">Por N° C</span>
                         <app-icon name="arrow-down" class="h-3 w-3 text-gray-400"></app-icon>
                     </button>
                 </div>
@@ -615,7 +616,12 @@
 
                             <div class="flex-1 min-w-0">
                                 <div class="flex justify-between items-start">
-                                    <span class="font-medium text-gray-900 truncate">{{ client.fullName }}</span>
+                                    <span class="font-medium text-gray-900 truncate">
+                                        <span *ngIf="client.paymentIdentifier !== undefined && client.paymentIdentifier !== null" class="inline-flex items-center font-mono text-xs text-gray-600 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 mr-2">
+                                            N° {{ client.paymentIdentifier | number : '1.2-2' }}
+                                        </span>
+                                        {{ client.fullName }}
+                                    </span>
                                     
                                     <span class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide"
                                           [ngClass]="{
