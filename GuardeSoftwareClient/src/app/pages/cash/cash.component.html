@@ -576,7 +576,7 @@
                   <app-icon *ngIf="!item.hasAdvances && item.isPaid" name="check" class="w-3 h-3 stroke-[3]"></app-icon>
                 </button>
                 <button *ngIf="!isHistoricalView" (click)="openAdvancesModal(item); $event.stopPropagation()" 
-                        class="w-7 h-1.5 rounded-full transition-all cursor-pointer"
+                        class="w-7 h-1.5 rounded-full transition-all cursor-pointer mt-2"
                         [ngClass]="item.hasAdvances ? 'bg-blue-400 hover:bg-blue-500 shadow-sm' : 'bg-gray-200 hover:bg-blue-300'"
                         title="Gestionar adelantos">
                 </button>
@@ -744,124 +744,179 @@
     <app-icon [name]="isScrolledDown ? 'arrow-up' : 'arrow-down'" class="h-5 w-5 stroke-[2.5]"></app-icon>
   </button>
 
-  <div *ngIf="showIvaComprasModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" (keydown.escape)="closeIvaComprasModal()" tabindex="-1">
-    <div class="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col max-h-[85vh] animate-fade-in-down" (click)="$event.stopPropagation()">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-        <h4 class="font-bold text-gray-900 flex items-center gap-2 text-base">Facturas IVA Compras <span class="text-gray-400 font-normal text-sm">({{ monthName }})</span></h4>
-        <button type="button" (click)="closeIvaComprasModal()" class="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"><app-icon name="x" class="w-5 h-5"></app-icon></button>
-      </div>
-      <div class="p-6">
-        <div class="bg-purple-50/50 p-4 rounded-xl border border-purple-100 mb-6 flex flex-col sm:flex-row gap-3 items-end">
-          <div class="w-full sm:w-1/3"><label class="block text-[10px] uppercase tracking-wider font-bold text-purple-800/60 mb-1.5">Fecha</label><input type="date" [(ngModel)]="newIvaCompra.date" class="w-full p-2 bg-white border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-300 text-sm"></div>
-          <div class="w-full sm:w-1/3"><label class="block text-[10px] uppercase tracking-wider font-bold text-purple-800/60 mb-1.5">Monto IVA</label><input type="text" appCurrencyFormat [(ngModel)]="newIvaCompra.amount" (keydown.enter)="blurInput($event)" class="w-full p-2 bg-white border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-300 text-sm font-bold text-purple-700"></div>
-          <div class="w-full sm:w-1/3"><label class="block text-[10px] uppercase tracking-wider font-bold text-purple-800/60 mb-1.5">Detalle</label><input type="text" [(ngModel)]="newIvaCompra.comment" (keydown.enter)="saveIvaCompra()" placeholder="Ej: Internet" class="w-full p-2 bg-white border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-300 text-sm"></div>
-          <button (click)="saveIvaCompra()" class="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"><app-icon name="plus" class="w-4 h-4"></app-icon> Agregar</button>
+  <div *ngIf="showIvaComprasModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" (click)="closeIvaComprasModal()">
+    <div class="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
+    <div class="relative w-full max-w-2xl bg-white rounded-xl shadow-[0_24px_80px_-12px_rgba(0,0,0,0.18)] border border-gray-200/80 flex flex-col max-h-[82vh] animate-fade-in-down" (click)="$event.stopPropagation()">
+
+      <div class="flex items-center justify-between px-6 py-4">
+        <div class="flex items-center gap-3">
+          <div class="w-[6px] h-[6px] rounded-full bg-purple-500"></div>
+          <div>
+            <h4 class="text-[15px] font-semibold text-gray-900 tracking-[-0.01em]">IVA Compras</h4>
+            <p class="text-[11px] text-gray-400 font-medium mt-0.5">{{ monthName }}</p>
+          </div>
         </div>
-        <div class="overflow-y-auto custom-scrollbar border border-gray-100 rounded-xl" style="max-height: 40vh;">
-          <table class="w-full text-sm text-left"><thead class="text-[10px] uppercase tracking-widest text-gray-400 bg-gray-50 border-b border-gray-100 sticky top-0"><tr><th class="px-4 py-3">Fecha</th><th class="px-4 py-3">Detalle</th><th class="px-4 py-3 text-right">Monto</th><th class="px-4 py-3 text-center w-10"></th></tr></thead>
-            <tbody class="divide-y divide-gray-50"><tr *ngFor="let iva of ivaCompras; let i = index" class="hover:bg-gray-50/50 transition-colors group"><td class="px-4 py-3 font-mono text-xs text-gray-500">{{ iva.date | date:'dd/MM/yyyy' }}</td><td class="px-4 py-3 text-gray-800 font-medium">{{ iva.comment || '--' }}</td><td class="px-4 py-3 text-right font-bold text-purple-700">$ {{ iva.amount | number:'1.2-2' }}</td><td class="px-4 py-3 text-center"><button (click)="deleteIvaCompra(iva.id, i)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"><app-icon name="Trash2" class="w-4 h-4"></app-icon></button></td></tr><tr *ngIf="ivaCompras.length === 0"><td colspan="4" class="text-center py-8 text-gray-400 text-sm">No hay facturas cargadas.</td></tr></tbody>
-          </table>
+        <button type="button" (click)="closeIvaComprasModal()" class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100/80 transition-all duration-150">
+          <app-icon name="x" class="w-4 h-4"></app-icon>
+        </button>
+      </div>
+
+      <div class="border-t border-gray-100"></div>
+
+      <div class="px-6 py-4">
+        <div class="flex flex-col sm:flex-row gap-2 items-end">
+          <div class="w-full sm:flex-1">
+            <label class="block text-[11px] font-medium text-gray-400 mb-1">Fecha</label>
+            <input type="date" [(ngModel)]="newIvaCompra.date" class="w-full px-3 py-[7px] bg-gray-50/80 border border-gray-200 rounded-lg text-[13px] text-gray-700 focus:bg-white focus:border-gray-300 focus:ring-2 focus:ring-gray-200/60 transition-all placeholder:text-gray-300 outline-none">
+          </div>
+          <div class="w-full sm:flex-1">
+            <label class="block text-[11px] font-medium text-gray-400 mb-1">Monto</label>
+            <input type="text" appCurrencyFormat [(ngModel)]="newIvaCompra.amount" (keydown.enter)="blurInput($event)" placeholder="0.00" class="w-full px-3 py-[7px] bg-gray-50/80 border border-gray-200 rounded-lg text-[13px] font-semibold text-gray-800 focus:bg-white focus:border-gray-300 focus:ring-2 focus:ring-gray-200/60 transition-all placeholder:text-gray-300 outline-none">
+          </div>
+          <div class="w-full sm:flex-1">
+            <label class="block text-[11px] font-medium text-gray-400 mb-1">Detalle</label>
+            <input type="text" [(ngModel)]="newIvaCompra.comment" (keydown.enter)="saveIvaCompra()" placeholder="Ej: Internet" class="w-full px-3 py-[7px] bg-gray-50/80 border border-gray-200 rounded-lg text-[13px] text-gray-700 focus:bg-white focus:border-gray-300 focus:ring-2 focus:ring-gray-200/60 transition-all placeholder:text-gray-300 outline-none">
+          </div>
+          <button (click)="saveIvaCompra()" class="w-full sm:w-auto px-4 py-[7px] bg-gray-900 hover:bg-gray-800 text-white text-[13px] font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap shadow-sm">
+            <app-icon name="plus" class="w-3.5 h-3.5 stroke-[2.5]"></app-icon> Agregar
+          </button>
         </div>
       </div>
-      <div class="px-6 py-4 bg-gray-50/80 border-t border-gray-100 rounded-b-2xl flex justify-between items-center">
-        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">Total Acumulado</span><span class="text-lg font-bold text-purple-700">$ {{ totalIvaCompras | number:'1.2-2' }}</span>
+
+      <div class="border-t border-gray-100"></div>
+
+      <div class="flex-1 overflow-y-auto min-h-0" style="max-height: 45vh;">
+        <table class="w-full">
+          <thead class="sticky top-0 z-10">
+            <tr class="bg-gray-50/90 backdrop-blur-sm border-b border-gray-100">
+              <th class="px-6 py-2.5 text-left text-[11px] font-medium text-gray-400 tracking-wide">Fecha</th>
+              <th class="px-6 py-2.5 text-left text-[11px] font-medium text-gray-400 tracking-wide">Detalle</th>
+              <th class="px-6 py-2.5 text-right text-[11px] font-medium text-gray-400 tracking-wide">Monto</th>
+              <th class="w-10 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let iva of ivaCompras; let i = index" class="group border-b border-gray-50 hover:bg-gray-50/40 transition-colors duration-100">
+              <td class="px-6 py-3 text-[13px] text-gray-500 tabular-nums">{{ iva.date | date:'dd/MM/yy' }}</td>
+              <td class="px-6 py-3 text-[13px] text-gray-700">{{ iva.comment || '—' }}</td>
+              <td class="px-6 py-3 text-right text-[13px] font-semibold text-gray-800 tabular-nums">$ {{ iva.amount | number:'1.2-2' }}</td>
+              <td class="pr-4 py-3 text-center">
+                <button (click)="deleteIvaCompra(iva.id, i)" class="text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-150 p-0.5 rounded hover:bg-red-50">
+                  <app-icon name="Trash2" class="w-3.5 h-3.5"></app-icon>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="ivaCompras.length === 0">
+              <td colspan="4" class="text-center py-12">
+                <p class="text-[13px] text-gray-300 font-medium">Sin facturas registradas</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="border-t border-gray-100 px-6 py-3.5 flex justify-between items-center bg-gray-50/40 rounded-b-xl">
+        <span class="text-[11px] font-medium text-gray-400 tracking-wide">Total</span>
+        <span class="text-[15px] font-semibold text-gray-900 tabular-nums">$ {{ totalIvaCompras | number:'1.2-2' }}</span>
       </div>
     </div>
   </div>
 
-  <!-- MODAL ADELANTOS (Pagos Parciales) -->
-  <div *ngIf="showAdvancesModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" (keydown.escape)="closeAdvancesModal()" tabindex="-1">
-    <div class="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col max-h-[85vh] animate-fade-in-down" (click)="$event.stopPropagation()">
-      <!-- Header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-        <div>
-          <h4 class="font-bold text-gray-900 flex items-center gap-2 text-base">
-            <div class="w-2 h-5 rounded-full bg-blue-500"></div>
-            Adelantos
-            <span class="text-gray-400 font-normal text-sm">({{ selectedItemForAdvances?.description || 'Sin nombre' }})</span>
-          </h4>
-          <p class="text-[11px] text-gray-400 mt-0.5 ml-4">{{ monthName }} • Adelantos del gasto</p>
+  <div *ngIf="showAdvancesModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" (click)="closeAdvancesModal()">
+    <div class="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
+    <div class="relative w-full max-w-2xl bg-white rounded-xl shadow-[0_24px_80px_-12px_rgba(0,0,0,0.18)] border border-gray-200/80 flex flex-col max-h-[82vh] animate-fade-in-down" (click)="$event.stopPropagation()">
+
+      <div class="flex items-center justify-between px-6 py-4">
+        <div class="flex items-center gap-3">
+          <div class="w-[6px] h-[6px] rounded-full bg-blue-500"></div>
+          <div>
+            <h4 class="text-[15px] font-semibold text-gray-900 tracking-[-0.01em]">Adelantos</h4>
+            <p class="text-[11px] text-gray-400 font-medium mt-0.5 max-w-[280px] truncate">{{ selectedItemForAdvances?.description || '—' }} · {{ monthName }}</p>
+          </div>
         </div>
-        <button type="button" (click)="closeAdvancesModal()" class="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"><app-icon name="x" class="w-5 h-5"></app-icon></button>
+        <button type="button" (click)="closeAdvancesModal()" class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100/80 transition-all duration-150">
+          <app-icon name="x" class="w-4 h-4"></app-icon>
+        </button>
       </div>
 
-      <div class="p-6">
-        <!-- Estadísticas -->
-        <div class="grid grid-cols-3 gap-3 mb-5">
-          <div class="bg-gray-50 border border-gray-100 rounded-xl p-3 flex flex-col">
-            <span class="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Total Gasto</span>
-            <span class="font-bold text-gray-800 text-sm">$ {{ getAdvancesItemTotal() | number:'1.2-2' }}</span>
+      <div class="border-t border-gray-100"></div>
+
+      <div class="px-6 py-4 flex flex-col gap-4">
+
+        <div class="flex gap-2">
+          <div class="flex-1 bg-gray-50/80 rounded-lg px-3.5 py-2.5 border border-gray-100/80">
+            <p class="text-[10px] font-medium text-gray-400 mb-0.5">Gasto total</p>
+            <p class="text-[14px] font-semibold text-gray-800 tabular-nums">$ {{ getAdvancesItemTotal() | number:'1.2-2' }}</p>
           </div>
-          <div class="bg-blue-50/60 border border-blue-100 rounded-xl p-3 flex flex-col">
-            <span class="text-[10px] uppercase tracking-wider font-bold text-blue-600/70 mb-1">Total Pagado</span>
-            <span class="font-bold text-blue-700 text-sm">$ {{ advancesTotalAmount | number:'1.2-2' }}</span>
+          <div class="flex-1 bg-blue-50/50 rounded-lg px-3.5 py-2.5 border border-blue-100/60">
+            <p class="text-[10px] font-medium text-blue-500 mb-0.5">Pagado</p>
+            <p class="text-[14px] font-semibold text-blue-700 tabular-nums">$ {{ advancesTotalAmount | number:'1.2-2' }}</p>
           </div>
-          <div class="rounded-xl p-3 flex flex-col" [ngClass]="getAdvancesRemaining() <= 0 ? 'bg-emerald-50/60 border border-emerald-100' : 'bg-amber-50/60 border border-amber-100'">
-            <span class="text-[10px] uppercase tracking-wider font-bold mb-1" [ngClass]="getAdvancesRemaining() <= 0 ? 'text-emerald-600/70' : 'text-amber-600/70'">Falta Pagar</span>
-            <span class="font-bold text-sm" [ngClass]="getAdvancesRemaining() <= 0 ? 'text-emerald-700' : 'text-amber-700'">$ {{ getAdvancesRemaining() | number:'1.2-2' }}</span>
+          <div class="flex-1 rounded-lg px-3.5 py-2.5 border transition-colors"
+               [ngClass]="getAdvancesRemaining() <= 0 ? 'bg-emerald-50/50 border-emerald-100/60' : 'bg-gray-50/80 border-gray-100/80'">
+            <p class="text-[10px] font-medium mb-0.5" [ngClass]="getAdvancesRemaining() <= 0 ? 'text-emerald-500' : 'text-gray-400'">Restante</p>
+            <p class="text-[14px] font-semibold tabular-nums" [ngClass]="getAdvancesRemaining() <= 0 ? 'text-emerald-700' : 'text-gray-800'">$ {{ getAdvancesRemaining() | number:'1.2-2' }}</p>
           </div>
         </div>
 
-        <!-- Barra de progreso -->
-        <div class="mb-5">
-          <div class="flex items-center justify-between mb-1.5">
-            <span class="text-[10px] uppercase tracking-wider font-bold text-gray-400">Progreso de pago</span>
-            <span class="text-xs font-bold text-blue-600">{{ getAdvancesProgress() | number:'1.0-0' }}%</span>
-          </div>
-          <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-500 ease-out" 
-                 [ngClass]="getAdvancesProgress() >= 100 ? 'bg-emerald-500' : 'bg-blue-500'"
+        <div class="flex items-center gap-3">
+          <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-700 ease-out"
+                 [ngClass]="getAdvancesProgress() >= 100 ? 'bg-emerald-400' : 'bg-blue-400'"
                  [style.width.%]="getAdvancesProgress()"></div>
           </div>
+          <span class="text-[11px] font-medium tabular-nums min-w-[36px] text-right"
+                [ngClass]="getAdvancesProgress() >= 100 ? 'text-emerald-600' : 'text-gray-400'">{{ getAdvancesProgress() | number:'1.0-0' }}%</span>
         </div>
 
-        <!-- Formulario de nuevo adelanto -->
-        <div class="bg-blue-50/50 p-4 rounded-xl border border-blue-100 mb-5 flex flex-col sm:flex-row gap-3 items-end">
-          <div class="w-full sm:w-2/5">
-            <label class="block text-[10px] uppercase tracking-wider font-bold text-blue-800/60 mb-1.5">Fecha</label>
-            <input type="date" [(ngModel)]="newAdvance.date" class="w-full p-2 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-300 text-sm">
+        <div class="flex flex-col sm:flex-row gap-2 items-end">
+          <div class="w-full sm:flex-1">
+            <label class="block text-[11px] font-medium text-gray-400 mb-1">Fecha</label>
+            <input type="date" [(ngModel)]="newAdvance.date" class="w-full px-3 py-[7px] bg-gray-50/80 border border-gray-200 rounded-lg text-[13px] text-gray-700 focus:bg-white focus:border-gray-300 focus:ring-2 focus:ring-gray-200/60 transition-all placeholder:text-gray-300 outline-none">
           </div>
-          <div class="w-full sm:w-2/5">
-            <label class="block text-[10px] uppercase tracking-wider font-bold text-blue-800/60 mb-1.5">Monto</label>
-            <input type="text" appCurrencyFormat [(ngModel)]="newAdvance.amount" (keydown.enter)="saveAdvance()" class="w-full p-2 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-300 text-sm font-bold text-blue-700">
+          <div class="w-full sm:flex-1">
+            <label class="block text-[11px] font-medium text-gray-400 mb-1">Monto</label>
+            <input type="text" appCurrencyFormat [(ngModel)]="newAdvance.amount" (keydown.enter)="saveAdvance()" placeholder="0.00" class="w-full px-3 py-[7px] bg-gray-50/80 border border-gray-200 rounded-lg text-[13px] font-semibold text-gray-800 focus:bg-white focus:border-gray-300 focus:ring-2 focus:ring-gray-200/60 transition-all placeholder:text-gray-300 outline-none">
           </div>
-          <button (click)="saveAdvance()" class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
-            <app-icon name="plus" class="w-4 h-4"></app-icon> Agregar
+          <button (click)="saveAdvance()" class="w-full sm:w-auto px-4 py-[7px] bg-gray-900 hover:bg-gray-800 text-white text-[13px] font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap shadow-sm">
+            <app-icon name="plus" class="w-3.5 h-3.5 stroke-[2.5]"></app-icon> Agregar
           </button>
-        </div>
-
-        <!-- Tabla de adelantos -->
-        <div class="overflow-y-auto custom-scrollbar border border-gray-100 rounded-xl" style="max-height: 35vh;">
-          <table class="w-full text-sm text-left">
-            <thead class="text-[10px] uppercase tracking-widest text-gray-400 bg-gray-50 border-b border-gray-100 sticky top-0">
-              <tr>
-                <th class="px-4 py-3">Fecha</th>
-                <th class="px-4 py-3 text-right">Monto</th>
-                <th class="px-4 py-3 text-center w-10"></th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-50">
-              <tr *ngFor="let adv of advances; let i = index" class="hover:bg-gray-50/50 transition-colors group">
-                <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ adv.date | date:'dd/MM/yyyy' }}</td>
-                <td class="px-4 py-3 text-right font-bold text-blue-700">$ {{ adv.amount | number:'1.2-2' }}</td>
-                <td class="px-4 py-3 text-center">
-                  <button (click)="deleteAdvance(adv.id, i)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                    <app-icon name="Trash2" class="w-4 h-4"></app-icon>
-                  </button>
-                </td>
-              </tr>
-              <tr *ngIf="advances.length === 0">
-                <td colspan="3" class="text-center py-8 text-gray-400 text-sm">No hay adelantos registrados.</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </div>
 
-      <!-- Footer -->
-      <div class="px-6 py-4 bg-gray-50/80 border-t border-gray-100 rounded-b-2xl flex justify-between items-center">
-        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">Total Adelantos</span>
-        <span class="text-lg font-bold text-blue-700">$ {{ advancesTotalAmount | number:'1.2-2' }}</span>
+      <div class="border-t border-gray-100"></div>
+
+      <div class="flex-1 overflow-y-auto min-h-0" style="max-height: 35vh;">
+        <table class="w-full">
+          <thead class="sticky top-0 z-10">
+            <tr class="bg-gray-50/90 backdrop-blur-sm border-b border-gray-100">
+              <th class="px-6 py-2.5 text-left text-[11px] font-medium text-gray-400 tracking-wide">Fecha</th>
+              <th class="px-6 py-2.5 text-right text-[11px] font-medium text-gray-400 tracking-wide">Monto</th>
+              <th class="w-10 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let adv of advances; let i = index" class="group border-b border-gray-50 hover:bg-gray-50/40 transition-colors duration-100">
+              <td class="px-6 py-3 text-[13px] text-gray-500 tabular-nums">{{ adv.date | date:'dd/MM/yy' }}</td>
+              <td class="px-6 py-3 text-right text-[13px] font-semibold text-gray-800 tabular-nums">$ {{ adv.amount | number:'1.2-2' }}</td>
+              <td class="pr-4 py-3 text-center">
+                <button (click)="deleteAdvance(adv.id, i)" class="text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-150 p-0.5 rounded hover:bg-red-50">
+                  <app-icon name="Trash2" class="w-3.5 h-3.5"></app-icon>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="advances.length === 0">
+              <td colspan="3" class="text-center py-12">
+                <p class="text-[13px] text-gray-300 font-medium">Sin adelantos registrados</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="border-t border-gray-100 px-6 py-3.5 flex justify-between items-center bg-gray-50/40 rounded-b-xl">
+        <span class="text-[11px] font-medium text-gray-400 tracking-wide">Total adelantos</span>
+        <span class="text-[15px] font-semibold text-gray-900 tabular-nums">$ {{ advancesTotalAmount | number:'1.2-2' }}</span>
       </div>
     </div>
   </div>
