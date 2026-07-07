@@ -72,7 +72,10 @@ namespace GuardeSoftwareAPI.Dao
                     DECLARE @InsertedId TABLE (Id INT);
                     DECLARE @NewDisplayOrder INT;
 
-                    SELECT @NewDisplayOrder = ISNULL(MAX(display_order), 0) + 1 FROM cash_flow_items;
+                    IF @DisplayOrder > 0
+                        SET @NewDisplayOrder = @DisplayOrder;
+                    ELSE
+                        SELECT @NewDisplayOrder = ISNULL(MAX(display_order), 0) + 1 FROM cash_flow_items;
 
                     INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, display_order, replication_state, color)
                     OUTPUT INSERTED.item_id INTO @InsertedId
@@ -190,8 +193,10 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@Extras", item.Extras),
                 new SqlParameter("@Iaia", item.Iaia),
                 new SqlParameter("@RepState", item.ReplicationState) ,
-                new SqlParameter("@color", SqlDbType.VarChar, 10) { Value = (object?)item.Color ?? DBNull.Value }
+                new SqlParameter("@color", SqlDbType.VarChar, 10) { Value = (object?)item.Color ?? DBNull.Value },
+                new SqlParameter("@DisplayOrder", item.DisplayOrder)
             };
+
 
             var result = await _accessDB.ExecuteScalarAsync(query, parameters);
             return Convert.ToInt32(result);

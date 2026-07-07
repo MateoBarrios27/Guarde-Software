@@ -443,6 +443,56 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   this.filterItems();
 }
 
+  insertRowBelow(afterItem: CashFlowItem): void {
+    const newItem: CashFlowItem = {
+      date: null as any,
+      description: '',
+      comment: '',
+      depo: null as any,
+      casa: null as any,
+      isPaid: false,
+      retiros: null as any,
+      extras: null as any,
+      iaia: null as any,
+      replicationState: 0,
+      color: null as any
+    };
+
+    // Buscar en el array principal usando referencia directa o por id
+    let indexInItems = this.items.indexOf(afterItem);
+    if (indexInItems === -1 && afterItem.id) {
+      indexInItems = this.items.findIndex(i => i.id === afterItem.id);
+    }
+
+    if (indexInItems !== -1) {
+      this.items.splice(indexInItems + 1, 0, newItem);
+    } else {
+      this.items.push(newItem);
+    }
+
+    // Reasignar displayOrder y rowNum secuencialmente
+    // IMPORTANTE: no llamar sortItems() acá porque reordenaría el array
+    // y deshace el splice. El array ya está en el orden visual correcto.
+    this.items.forEach((item, idx) => {
+      item.displayOrder = idx;
+      item.rowNum = idx + 1;
+    });
+
+    this.searchTerm = '';
+    this.searchDateFrom = '';
+    this.searchDateTo = '';
+    this.filterItems();
+
+    // Persistir el nuevo orden (solo items ya guardados)
+    const reorderedItems = this.items
+      .filter(item => item.id && item.id > 0)
+      .map(item => ({ id: item.id!, displayOrder: item.displayOrder || 0 }));
+
+    if (reorderedItems.length > 0) {
+      this.cashService.updateItemsOrder(reorderedItems).subscribe();
+    }
+  }
+
   toggleReplication(item: CashFlowItem): void {
     this.captureItem(item);
     item.replicationState = (item.replicationState + 1) % 3;
