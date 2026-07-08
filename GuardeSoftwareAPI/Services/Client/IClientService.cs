@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dtos.Client;
 using GuardeSoftwareAPI.Dtos.Common;
@@ -19,5 +19,7 @@ namespace GuardeSoftwareAPI.Services.client
         Task<bool> DeactivateClientAsync(int clientId);
         Task ReactivateClientAsync(int clientId, CreateClientDTO dto);
         Task<List<ClientLockerHistory>> GetClientLockerHistoryAsync(int clientId);
+        Task<bool> UpdateClientColorAsync(int clientId, string? color);
+        Task<bool> UpdateClientCommentAsync(int clientId, string? comment);
     }
 }

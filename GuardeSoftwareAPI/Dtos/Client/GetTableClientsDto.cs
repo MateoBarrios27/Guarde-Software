@@ -15,6 +15,9 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public DateTime? NextPaymentDay { get; set; }
         public DateTime? DeactivationDate { get; set; }
         public bool Active { get; set; }
+        public string? Color { get; set; }
+        public string? Comment { get; set; }
+        public DateTime? CommentUpdatedAt { get; set; }
     }
 
     public class WarehouseLockerItem

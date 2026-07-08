@@ -10,6 +10,7 @@ import {
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { IconComponent } from '../icon/icon.component';
 import { ClientDetailDTO } from '../../../core/dtos/client/ClientDetailDTO';
+import { FormsModule } from '@angular/forms';
 
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
@@ -43,7 +44,8 @@ export interface IClientCommunication {
     DatePipe,
     CreateMovementModalComponent, 
     NgxPaginationModule,
-    TimeDurationPipe
+    TimeDurationPipe,
+    FormsModule
 ],
   templateUrl: './client-detail-modal.component.html',
 })
@@ -197,5 +199,58 @@ export class ClientDetailModalComponent implements OnChanges {
       'Baja': 'user-x',
     };
     return icons[estado] || 'help-circle';
+  }
+
+  onClientColorChange(client: ClientDetailDTO): void {
+    if (!client || !client.id) return;
+    if (client.color && client.color.toLowerCase() === '#ffffff') {
+      client.color = null as any;
+    }
+    this.clientService.updateClientColor(client.id, client.color).subscribe({
+      next: () => this.dataUpdated.emit(client.id),
+      error: () => Swal.fire('Error', 'No se pudo actualizar el color del cliente', 'error')
+    });
+  }
+
+  onClientCommentChange(client: ClientDetailDTO): void {
+    if (!client || !client.id) return;
+    client.commentUpdatedAt = new Date();
+    this.clientService.updateClientComment(client.id, client.comment).subscribe({
+      next: () => this.dataUpdated.emit(client.id),
+      error: () => Swal.fire('Error', 'No se pudo actualizar el comentario del cliente', 'error')
+    });
+  }
+
+  resetClientColor(client: ClientDetailDTO): void {
+    client.color = null as any;
+    this.onClientColorChange(client);
+  }
+
+  deleteClientComment(client: ClientDetailDTO): void {
+    client.comment = '';
+    client.commentUpdatedAt = new Date();
+    this.onClientCommentChange(client);
+  }
+
+  getFormattedUpdatedDate(date?: Date | string | null): string {
+    if (!date) return '';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `Últ. modificación: ${day}/${month}/${year} ${hours}:${minutes}`;
+  }
+
+  isFutureMonthOrLater(date?: Date | string | null): boolean {
+    if (!date) return false;
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return false;
+    const now = new Date();
+    const dVal = d.getFullYear() * 12 + d.getMonth();
+    const nowVal = now.getFullYear() * 12 + now.getMonth();
+    return dVal > nowVal;
   }
 }

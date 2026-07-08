@@ -46,4 +46,7 @@ export interface ClientDetailDTO{
     // Increase data
     increaseFrequencyMonths?: number;
     initialAmount?: number;
+    color?: string;
+    comment?: string;
+    commentUpdatedAt?: Date | string | null;
 }

@@ -101,4 +101,12 @@ export class ClientService {
   getClientLockerHistory(clientId: number): Observable<ClientLockerHistory[]> {
     return this.httpClient.get<ClientLockerHistory[]>(`${this.url}/Client/${clientId}/locker-history`);
   }
+
+  updateClientColor(id: number, color?: string): Observable<any> {
+    return this.httpClient.put(`${this.url}/Client/${id}/color`, { color });
+  }
+
+  updateClientComment(id: number, comment?: string): Observable<any> {
+    return this.httpClient.put(`${this.url}/Client/${id}/comment`, { comment });
+  }
 }

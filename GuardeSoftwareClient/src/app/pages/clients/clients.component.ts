@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgxPaginationModule } from 'ngx-pagination';
@@ -63,6 +63,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public sortFieldClientes = 'PaymentIdentifier';
   public sortDirectionClientes: 'asc' | 'desc' = 'asc';
   public readonly Math = Math;
+  public activeCommentClient: TableClient | null = null;
 
   // --- Create Client properties  ---
   public showNewClientModal = false;
@@ -490,5 +491,94 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  toggleComment(cliente: TableClient): void {
+    if (this.activeCommentClient === cliente) {
+      this.activeCommentClient = null;
+    } else {
+      this.activeCommentClient = cliente;
+      setTimeout(() => {
+        const activeTextarea = document.getElementById('client-comment-' + cliente.id) as HTMLTextAreaElement;
+        if (activeTextarea) {
+          activeTextarea.style.height = 'auto';
+          activeTextarea.style.height = activeTextarea.scrollHeight + 'px';
+          activeTextarea.focus();
+        }
+      }, 0);
+    }
+  }
+
+  closeComment(cliente: TableClient): void {
+    this.activeCommentClient = null;
+    this.onClientCommentChange(cliente);
+  }
+
+  deleteComment(cliente: TableClient): void {
+    cliente.comment = '';
+    this.closeComment(cliente);
+  }
+
+  autoResizeTextarea(event: Event): void {
+    const textarea = event.target as HTMLTextAreaElement;
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+  }
+
+  onCommentEnter(event: Event, cliente: TableClient): void {
+    event.preventDefault();
+    this.closeComment(cliente);
+  }
+
+  onClientColorChange(cliente: TableClient): void {
+    if (cliente.color && cliente.color.toLowerCase() === '#ffffff') {
+      cliente.color = null as any;
+    }
+    this.clientService.updateClientColor(cliente.id, cliente.color).subscribe({
+      error: () => Swal.fire('Error', 'No se pudo guardar el color del cliente', 'error')
+    });
+  }
+
+  resetClientColor(cliente: TableClient): void {
+    cliente.color = null as any;
+    this.onClientColorChange(cliente);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onClickOutside(event: Event): void {
+    if (this.activeCommentClient) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.note-popup-container') && !target.closest('.note-toggle-btn')) {
+        this.closeComment(this.activeCommentClient);
+      }
+    }
+  }
+
+  onClientCommentChange(cliente: TableClient): void {
+    cliente.commentUpdatedAt = new Date();
+    this.clientService.updateClientComment(cliente.id, cliente.comment).subscribe({
+      error: () => Swal.fire('Error', 'No se pudo guardar el comentario del cliente', 'error')
+    });
+  }
+
+  getFormattedUpdatedDate(date?: Date | string | null): string {
+    if (!date) return '';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `Modif: ${day}/${month}/${year} ${hours}:${minutes}`;
+  }
+
+  isFutureMonthOrLater(date?: Date | string | null): boolean {
+    if (!date) return false;
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return false;
+    const now = new Date();
+    const dVal = d.getFullYear() * 12 + d.getMonth();
+    const nowVal = now.getFullYear() * 12 + now.getMonth();
+    return dVal > nowVal;
+  }
 }
 

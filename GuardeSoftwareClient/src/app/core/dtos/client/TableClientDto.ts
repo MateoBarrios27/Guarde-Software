@@ -14,6 +14,9 @@ export interface TableClient {
   nextPaymentDay?: Date | string | null;
   deactivationDate?: Date | string | null;
   active: boolean;
+  color?: string;
+  comment?: string;
+  commentUpdatedAt?: Date | string | null;
 }
 
 export interface WarehouseLockerItem {

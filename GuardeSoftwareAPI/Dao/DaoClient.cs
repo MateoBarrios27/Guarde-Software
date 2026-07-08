@@ -272,6 +272,7 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT 
                     c.client_id, c.payment_identifier, c.full_name, c.registration_date,
                     c.dni, c.cuit, c.iva_condition, c.notes, c.receive_communications,
+                    c.color, c.comment, c.comment_updated_at,
                     c.initial_amount, c.increase_frequency_months,
                     ad.street, ad.city, ad.province,
                     pm.name AS preferred_payment_method,
@@ -596,6 +597,9 @@ namespace GuardeSoftwareAPI.Dao
                         locker_sub.lockers as Lockers,
                         locker_sub.lockers_json as WarehouseLockersJson,
                         c.active AS Active,
+                        c.color AS Color,
+                        c.comment AS Comment,
+                        c.comment_updated_at AS CommentUpdatedAt,
                         r.increase_anchor_date AS IncreaseAnchorDate,
 
                         CASE 
@@ -830,6 +834,9 @@ namespace GuardeSoftwareAPI.Dao
                     DeactivationDate = row["DeactivationDate"] != DBNull.Value ? Convert.ToDateTime(row["DeactivationDate"]) : null,
                     Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,
                     Active = Convert.ToBoolean(row["Active"]),
+                    Color = row["Color"] != DBNull.Value ? row["Color"].ToString() : null,
+                    Comment = row["Comment"] != DBNull.Value ? row["Comment"].ToString() : null,
+                    CommentUpdatedAt = row["CommentUpdatedAt"] != DBNull.Value ? Convert.ToDateTime(row["CommentUpdatedAt"]) : null,
                     WarehouseLockers = row["WarehouseLockersJson"] != DBNull.Value 
                         ? JsonSerializer.Deserialize<List<WarehouseLockerItem>>(row["WarehouseLockersJson"].ToString()) 
                         : []
@@ -913,7 +920,10 @@ namespace GuardeSoftwareAPI.Dao
                             BillingTypeId = reader["billing_type_id"] != DBNull.Value ? Convert.ToInt32(reader["billing_type_id"]) : null,
                             IncreaseFrequencyMonths = Convert.ToInt32(reader["increase_frequency_months"]),
                             InitialAmount = reader["initial_amount"] != DBNull.Value ? Convert.ToDecimal(reader["initial_amount"]) : null,
-                            ReceiveCommunications = reader["receive_communications"] != DBNull.Value && Convert.ToBoolean(reader["receive_communications"])
+                            ReceiveCommunications = reader["receive_communications"] != DBNull.Value && Convert.ToBoolean(reader["receive_communications"]),
+                            Color = reader["color"] != DBNull.Value ? reader["color"].ToString() : null,
+                            Comment = reader["comment"] != DBNull.Value ? reader["comment"].ToString() : null,
+                            CommentUpdatedAt = reader["comment_updated_at"] != DBNull.Value ? Convert.ToDateTime(reader["comment_updated_at"]) : null
                         };
                     }
                 }
@@ -1105,6 +1115,26 @@ namespace GuardeSoftwareAPI.Dao
                     await cmd.ExecuteNonQueryAsync();
                 }
             }
+        }
+
+        public async Task<bool> UpdateClientColorAsync(int clientId, string? color)
+        {
+            string query = "UPDATE clients SET color = @Color WHERE client_id = @Id";
+            SqlParameter[] parameters = [
+                new SqlParameter("@Color", SqlDbType.VarChar) { Value = (object?)color ?? DBNull.Value },
+                new SqlParameter("@Id", SqlDbType.Int) { Value = clientId }
+            ];
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+        }
+
+        public async Task<bool> UpdateClientCommentAsync(int clientId, string? comment)
+        {
+            string query = "UPDATE clients SET comment = @Comment, comment_updated_at = GETDATE() WHERE client_id = @Id";
+            SqlParameter[] parameters = [
+                new SqlParameter("@Comment", SqlDbType.NVarChar) { Value = (object?)comment ?? DBNull.Value },
+                new SqlParameter("@Id", SqlDbType.Int) { Value = clientId }
+            ];
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
     }
 }

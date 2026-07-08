@@ -560,7 +560,10 @@ namespace GuardeSoftwareAPI.Services.client
                 // Other information
                 Notes = row["notes"]?.ToString() ?? string.Empty,
                 NextPaymentDay = row["next_payment_day"] != DBNull.Value ? Convert.ToDateTime(row["next_payment_day"]) : DateTime.MinValue,
-                ReceiveCommunications = Convert.ToBoolean(row["receive_communications"])
+                ReceiveCommunications = Convert.ToBoolean(row["receive_communications"]),
+                Color = row["color"] != DBNull.Value ? row["color"].ToString() : null,
+                Comment = row["comment"] != DBNull.Value ? row["comment"].ToString() : null,
+                CommentUpdatedAt = row["comment_updated_at"] != DBNull.Value ? Convert.ToDateTime(row["comment_updated_at"]) : null
             };
 
             // Contact Information
@@ -1082,6 +1085,18 @@ namespace GuardeSoftwareAPI.Services.client
             if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
 
             return await daoClient.GetClientLockerHistoryAsync(clientId);
+        }
+
+        public async Task<bool> UpdateClientColorAsync(int clientId, string? color)
+        {
+            if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
+            return await daoClient.UpdateClientColorAsync(clientId, color);
+        }
+
+        public async Task<bool> UpdateClientCommentAsync(int clientId, string? comment)
+        {
+            if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
+            return await daoClient.UpdateClientCommentAsync(clientId, comment);
         }
     }
 }

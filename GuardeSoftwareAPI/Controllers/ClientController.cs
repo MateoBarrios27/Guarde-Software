@@ -231,5 +231,33 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, new { message = "Error al obtener historial de bauleras.", error = ex.Message });
             }
         }
+
+        [HttpPut("{id}/color")]
+        public async Task<IActionResult> UpdateClientColor(int id, [FromBody] UpdateClientColorDto request)
+        {
+            try
+            {
+                await _clientService.UpdateClientColorAsync(id, request?.Color);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error interno al actualizar el color.", error = ex.Message });
+            }
+        }
+
+        [HttpPut("{id}/comment")]
+        public async Task<IActionResult> UpdateClientComment(int id, [FromBody] UpdateClientCommentDto request)
+        {
+            try
+            {
+                await _clientService.UpdateClientCommentAsync(id, request?.Comment);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error interno al actualizar el comentario.", error = ex.Message });
+            }
+        }
     }
 }

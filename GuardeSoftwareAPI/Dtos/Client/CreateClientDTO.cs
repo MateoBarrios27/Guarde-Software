@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using GuardeSoftwareAPI.Dtos.Address;
 using GuardeSoftwareAPI.Dtos.Phone;
 using GuardeSoftwareAPI.Dtos.RentalSpaceRequest;
@@ -49,5 +49,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public List<PhoneInputDto> Phones { get; set; } = [];
         public CreateAddressDto AddressDto { get; set; } = new CreateAddressDto();
         public bool ReceiveCommunications { get; set; } = true;
+        public string? Color { get; set; }
+        public string? Comment { get; set; }
     }
 }

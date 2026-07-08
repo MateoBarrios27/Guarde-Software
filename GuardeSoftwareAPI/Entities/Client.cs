@@ -1,4 +1,4 @@
-﻿namespace GuardeSoftwareAPI.Entities
+namespace GuardeSoftwareAPI.Entities
 {
     public class Client
     {
@@ -21,5 +21,8 @@
         public DateTime? IncreaseAnchorDate { get; set; }
         public decimal? PendingSurcharge { get; set; }
         public string? LastGeneratedMonthYear { get; set; }
+        public string? Color { get; set; }
+        public string? Comment { get; set; }
+        public DateTime? CommentUpdatedAt { get; set; }
     }
 }

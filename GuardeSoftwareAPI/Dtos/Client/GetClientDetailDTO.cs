@@ -50,7 +50,8 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public int IncreaseFrequencyMonths { get; set; } // (4 o 6)
         public DateTime NextIncreaseDay { get; set; } // La fecha ancla
         public decimal? InitialAmount { get; set; } // El monto inicial
-
-
+        public string? Color { get; set; }
+        public string? Comment { get; set; }
+        public DateTime? CommentUpdatedAt { get; set; }
     }
 }
