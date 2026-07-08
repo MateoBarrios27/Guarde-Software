@@ -214,6 +214,27 @@
           </td>
         </tr>
       </tbody>
+
+      <tfoot class="font-bold text-gray-700 border-t border-gray-200 bg-gray-50 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <tr>
+          <td colspan="4" class="p-4 text-left align-middle">
+            <div class="flex items-center gap-2">
+              <span class="text-xs uppercase tracking-wider text-gray-500 font-bold">
+                Total de Pagos:
+              </span>
+              <span class="text-base font-bold text-gray-800">
+                {{ totals.count }}
+              </span>
+            </div>
+          </td>
+
+          <td class="p-4 text-right whitespace-nowrap align-middle text-green-600">
+            <div class="text-base font-bold">${{ totals.amount | number:'1.2-2' }}</div>
+          </td>
+
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
     </table>
 
     <pagination-template [id]="'payments'" #p="paginationApi" (pageChange)="page = $event">

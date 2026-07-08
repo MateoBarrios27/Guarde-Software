@@ -60,6 +60,10 @@ export class FinancesComponent implements OnInit {
   paymentMethods: PaymentMethod[] = [];
 
   filteredPayments: DetailedPaymentView[] = [];
+  totals = {
+    count: 0,
+    amount: 0
+  };
   searchPayment: string = '';
 
   page: number = 1;
@@ -297,6 +301,7 @@ export class FinancesComponent implements OnInit {
     
     this.filteredPayments = filtered;
     this.processGroups();
+    this.calculateTotals();
   }
 
   private processGroups(): void {
@@ -323,6 +328,17 @@ export class FinancesComponent implements OnInit {
       }
       p.isGrouped = p.groupPos !== 'none';
     }
+  }
+
+  calculateTotals(): void {
+    this.totals = {
+      count: this.filteredPayments.length,
+      amount: 0
+    };
+
+    this.filteredPayments.forEach(p => {
+      this.totals.amount += Number(p.amount) || 0;
+    });
   }
 
   closeClientModal() {
