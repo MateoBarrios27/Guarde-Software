@@ -993,6 +993,7 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
   deleteComment(item: CashFlowItem): void {
     this.captureItem(item);
     item.comment = '';
+    item.commentUpdatedAt = new Date();
     this.checkItemChange(item);
     this.closeComment(item); 
   }
@@ -1005,12 +1006,42 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
     });
   }
 
+  resetAccountColor(account: FinancialAccount): void {
+    account.color = '#1f2937';
+    this.onAccountColorChange(account);
+  }
+
+  resetItemColor(item: CashFlowItem): void {
+    item.color = null as any;
+    this.checkItemChange(item);
+    this.onItemChange(item);
+  }
+
+  getFormattedUpdatedDate(date?: Date | string | null): string {
+    if (!date) return '';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `Modif: ${day}/${month}/${year} ${hours}:${minutes}`;
+  }
+
   @ViewChild('saldosContainer') saldosContainer!: ElementRef;
   @ViewChild('planillaContainer') planillaContainer!: ElementRef; 
   selectedAccountIds: number[] = [];
 
   @HostListener('document:click', ['$event'])
   onClickOutside(event: Event) {
+    if (this.activeCommentItem) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.note-popup-container') && !target.closest('.note-toggle-btn')) {
+        this.closeComment(this.activeCommentItem);
+      }
+    }
+
     if (this.selectedAccountIds.length > 0 && this.saldosContainer) {
       const clickedInside = this.saldosContainer.nativeElement.contains(event.target);
       if (!clickedInside) this.selectedAccountIds = [];

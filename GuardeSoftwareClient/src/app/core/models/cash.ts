@@ -16,6 +16,7 @@ export interface CashFlowItem {
   rowNum?: number;
   hasAdvances?: boolean;
   totalAdvances?: number;
+  commentUpdatedAt?: string | Date | null;
 }
 
 export interface MonthlySummary {

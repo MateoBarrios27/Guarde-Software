@@ -19,7 +19,7 @@ namespace GuardeSoftwareAPI.Dao
         {
             var list = new List<CashFlowItemDto>();
             string query = @"
-                SELECT cfi.item_id, cfi.movement_date, cfi.description, cfi.comment, cfi.amount_depo, cfi.amount_casa, cfi.is_paid, cfi.amount_retiros, cfi.amount_extras, cfi.amount_iaia, cfi.display_order, cfi.replication_state, cfi.color,
+                SELECT cfi.item_id, cfi.movement_date, cfi.description, cfi.comment, cfi.comment_updated_at, cfi.amount_depo, cfi.amount_casa, cfi.is_paid, cfi.amount_retiros, cfi.amount_extras, cfi.amount_iaia, cfi.display_order, cfi.replication_state, cfi.color,
                        ISNULL(adv.advance_count, 0) AS advance_count,
                        ISNULL(adv.total_advances, 0) AS total_advances
                 FROM cash_flow_items cfi
@@ -46,6 +46,7 @@ namespace GuardeSoftwareAPI.Dao
                     Date = row["movement_date"] != DBNull.Value ? Convert.ToDateTime(row["movement_date"]) : null,
                     Description = row["description"].ToString(),
                     Comment = row["comment"] != DBNull.Value ? row["comment"].ToString() : null,
+                    CommentUpdatedAt = row["comment_updated_at"] != DBNull.Value ? Convert.ToDateTime(row["comment_updated_at"]) : null,
                     Depo = Convert.ToDecimal(row["amount_depo"]),
                     Casa = Convert.ToDecimal(row["amount_casa"]),
                     IsPaid = Convert.ToBoolean(row["is_paid"]),
@@ -77,9 +78,9 @@ namespace GuardeSoftwareAPI.Dao
                     ELSE
                         SELECT @NewDisplayOrder = ISNULL(MAX(display_order), 0) + 1 FROM cash_flow_items;
 
-                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, display_order, replication_state, color)
+                    INSERT INTO cash_flow_items (month, year, movement_date, description, comment, comment_updated_at, amount_depo, amount_casa, amount_iaia, is_paid, amount_retiros, amount_extras, display_order, replication_state, color)
                     OUTPUT INSERTED.item_id INTO @InsertedId
-                    VALUES (@Month, @Year, @Date, @Desc, @Comment, @Depo, @Casa, @Iaia, @IsPaid, @Retiros, @Extras, @NewDisplayOrder, @RepState, @color);
+                    VALUES (@Month, @Year, @Date, @Desc, @Comment, CASE WHEN @Comment IS NOT NULL THEN GETDATE() ELSE NULL END, @Depo, @Casa, @Iaia, @IsPaid, @Retiros, @Extras, @NewDisplayOrder, @RepState, @color);
 
                     IF @RepState IN (1, 2)
                     BEGIN
@@ -130,7 +131,7 @@ namespace GuardeSoftwareAPI.Dao
                     WHERE item_id = @Id;
 
                     UPDATE cash_flow_items 
-                    SET movement_date = @Date, description = @Desc, comment = @Comment, amount_depo = @Depo, amount_casa = @Casa, amount_iaia = @Iaia, is_paid = @IsPaid, amount_retiros = @Retiros, amount_extras = @Extras, replication_state = @RepState, color = @color
+                    SET movement_date = @Date, description = @Desc, comment = @Comment, comment_updated_at = CASE WHEN ISNULL(comment, '') <> ISNULL(@Comment, '') THEN GETDATE() ELSE comment_updated_at END, amount_depo = @Depo, amount_casa = @Casa, amount_iaia = @Iaia, is_paid = @IsPaid, amount_retiros = @Retiros, amount_extras = @Extras, replication_state = @RepState, color = @color
                     WHERE item_id = @Id;
 
                     IF @RepState IN (1, 2)

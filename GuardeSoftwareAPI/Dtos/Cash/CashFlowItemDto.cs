@@ -14,4 +14,5 @@ public class CashFlowItemDto {
     public string? Color { get; set; }
     public bool HasAdvances { get; set; }
     public decimal TotalAdvances { get; set; }
+    public DateTime? CommentUpdatedAt { get; set; }
 }
