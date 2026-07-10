@@ -499,42 +499,18 @@ namespace GuardeSoftwareAPI.Dao
                 {
                     case "pagaron_este_mes":
                         finalWhereClause.Append(@"
-                            AND EXISTS (
-                                SELECT 1 
-                                FROM rentals r_f 
-                                JOIN client_month_balances cmb_f ON r_f.rental_id = cmb_f.rental_id 
-                                WHERE r_f.client_id = ClientData.Id 
-                                  AND r_f.active = 1 
-                                  AND cmb_f.month_year = RIGHT('00' + CAST(MONTH(DATEADD(hour, -3, GETUTCDATE())) AS VARCHAR(2)), 2) + '/' + CAST(YEAR(DATEADD(hour, -3, GETUTCDATE())) AS VARCHAR(4))
-                                  AND (cmb_f.balance - cmb_f.paid - cmb_f.advanced_payment) <= 0
-                            ) ");
+                            AND NextPaymentDay IS NOT NULL 
+                            AND (YEAR(NextPaymentDay) * 100 + MONTH(NextPaymentDay)) > (YEAR(DATEADD(hour, -3, GETUTCDATE())) * 100 + MONTH(DATEADD(hour, -3, GETUTCDATE()))) ");
                         break;
                     case "no_pagaron_este_mes":
                         finalWhereClause.Append(@"
-                            AND EXISTS (
-                                SELECT 1 
-                                FROM rentals r_f 
-                                JOIN client_month_balances cmb_f ON r_f.rental_id = cmb_f.rental_id 
-                                WHERE r_f.client_id = ClientData.Id 
-                                  AND r_f.active = 1 
-                                  AND cmb_f.month_year = RIGHT('00' + CAST(MONTH(DATEADD(hour, -3, GETUTCDATE())) AS VARCHAR(2)), 2) + '/' + CAST(YEAR(DATEADD(hour, -3, GETUTCDATE())) AS VARCHAR(4))
-                                  AND (cmb_f.balance - cmb_f.paid - cmb_f.advanced_payment) > 0
-                            ) ");
+                            AND NextPaymentDay IS NOT NULL 
+                            AND (YEAR(NextPaymentDay) * 100 + MONTH(NextPaymentDay)) <= (YEAR(DATEADD(hour, -3, GETUTCDATE())) * 100 + MONTH(DATEADD(hour, -3, GETUTCDATE()))) ");
                         break;
                     case "pagaron_meses_futuros":
                         finalWhereClause.Append(@"
-                            AND EXISTS (
-                                SELECT 1 
-                                FROM rentals r_f 
-                                JOIN client_month_balances cmb_f ON r_f.rental_id = cmb_f.rental_id 
-                                WHERE r_f.client_id = ClientData.Id 
-                                  AND r_f.active = 1 
-                                  AND (
-                                      CAST(RIGHT(cmb_f.month_year, 4) AS INT) * 100 + CAST(LEFT(cmb_f.month_year, 2) AS INT)
-                                      > YEAR(DATEADD(hour, -3, GETUTCDATE())) * 100 + MONTH(DATEADD(hour, -3, GETUTCDATE()))
-                                  )
-                                  AND (cmb_f.balance - cmb_f.paid - cmb_f.advanced_payment) <= 0
-                            ) ");
+                            AND NextPaymentDay IS NOT NULL 
+                            AND (YEAR(NextPaymentDay) * 100 + MONTH(NextPaymentDay)) > (YEAR(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))) * 100 + MONTH(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE())))) ");
                         break;
                     case "intereses_impagos":
                         finalWhereClause.Append("AND ISNULL(InterestAmount, 0) > 0 ");
