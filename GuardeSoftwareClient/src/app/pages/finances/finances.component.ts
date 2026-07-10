@@ -65,6 +65,8 @@ export class FinancesComponent implements OnInit {
     amount: 0
   };
   searchPayment: string = '';
+  sortField: string = 'paymentDate';
+  sortDirection: 'asc' | 'desc' = 'desc';
 
   page: number = 1;
   itemsPerPage: number = 100;
@@ -144,15 +146,34 @@ export class FinancesComponent implements OnInit {
     this.loadClients();
   }
 
+  private sortPaymentsDesc(payments: any[]): any[] {
+    return payments.sort((a, b) => {
+      const getDayString = (dateVal: any): string => {
+        if (!dateVal) return '';
+        const d = new Date(dateVal);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+
+      const dayA = getDayString(a.paymentDate);
+      const dayB = getDayString(b.paymentDate);
+
+      if (dayB !== dayA) {
+        return dayB.localeCompare(dayA);
+      }
+
+      const idA = Number(a.movementId || a.paymentId || 0);
+      const idB = Number(b.movementId || b.paymentId || 0);
+      return idB - idA;
+    });
+  }
+
   loadPayments(): void {
     this.paymentService.getDetailedPayment().subscribe({
       next: (data) => {
-        const sorted = data.sort((a, b) => {
-          const dateA = new Date(a.paymentDate).getTime();
-          const dateB = new Date(b.paymentDate).getTime();
-          return dateB - dateA; 
-        });
-        this.payments = sorted as DetailedPaymentView[];
+        this.payments = this.sortPaymentsDesc(data) as DetailedPaymentView[];
         this.filterPayments();
       },
       error: (err) => console.error('Error al cargar payments:', err)
@@ -297,11 +318,80 @@ export class FinancesComponent implements OnInit {
       return matchesSearch && matchesMethod && matchesDate;
     });
 
-    filtered.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+    this.sortFilteredPayments(filtered);
     
     this.filteredPayments = filtered;
     this.processGroups();
     this.calculateTotals();
+  }
+
+  handleSort(field: string): void {
+    if (this.sortField === field) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortField = field;
+      this.sortDirection = field === 'paymentDate' ? 'desc' : 'asc';
+    }
+    this.filterPayments();
+  }
+
+  getSortIcon(field: string): string {
+    if (this.sortField !== field) {
+      return 'arrow-up-down';
+    }
+    return this.sortDirection === 'asc' ? 'arrow-up' : 'arrow-down';
+  }
+
+  private sortFilteredPayments(payments: DetailedPaymentView[]): void {
+    payments.sort((a, b) => {
+      let comparison = 0;
+
+      if (this.sortField === 'paymentDate') {
+        const getDayString = (dateVal: any): string => {
+          if (!dateVal) return '';
+          const d = new Date(dateVal);
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        };
+        const dayA = getDayString(a.paymentDate);
+        const dayB = getDayString(b.paymentDate);
+
+        if (dayB !== dayA) {
+          comparison = dayA.localeCompare(dayB);
+        } else {
+          const idA = Number(a.movementId || a.paymentId || 0);
+          const idB = Number(b.movementId || b.paymentId || 0);
+          comparison = idA - idB;
+        }
+      } else if (this.sortField === 'amount') {
+        comparison = (Number(a.amount) || 0) - (Number(b.amount) || 0);
+      } else if (this.sortField === 'paymentIdentifier') {
+        const idA = Number((a.paymentIdentifier || '').toString().replace(',', '.')) || 0;
+        const idB = Number((b.paymentIdentifier || '').toString().replace(',', '.')) || 0;
+        comparison = idA - idB;
+      } else if (this.sortField === 'clientName') {
+        comparison = (a.clientName || '').localeCompare(b.clientName || '', 'es');
+      } else if (this.sortField === 'paymentMethodName') {
+        comparison = (a.paymentMethodName || '').localeCompare(b.paymentMethodName || '', 'es');
+      } else if (this.sortField === 'concept') {
+        comparison = (a.concept || '').localeCompare(b.concept || '', 'es');
+      }
+
+      if (comparison === 0 && this.sortField !== 'paymentDate') {
+        const dateA = new Date(a.paymentDate).getTime();
+        const dateB = new Date(b.paymentDate).getTime();
+        if (dateB !== dateA) {
+          return dateB - dateA;
+        }
+        const idA = Number(a.movementId || a.paymentId || 0);
+        const idB = Number(b.movementId || b.paymentId || 0);
+        return idB - idA;
+      }
+
+      return this.sortDirection === 'asc' ? comparison : -comparison;
+    });
   }
 
   private processGroups(): void {

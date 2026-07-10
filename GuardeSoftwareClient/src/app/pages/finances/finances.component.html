@@ -1,7 +1,6 @@
 <div class="pt-6 space-y-8">
  <!-- === CARDS DE ESTADÍSTICAS === -->
-   <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-    <!-- Total Pagos -->
+   <!-- <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-4 flex items-center gap-3">
         <app-icon name="file-text" class="w-5 h-5 text-blue-500"></app-icon>
         <div class="flex flex-col leading-tight">
@@ -10,7 +9,6 @@
         </div>
     </div>
 
-    <!-- Total Recaudado -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-4 flex items-center gap-3">
         <app-icon name="dollar-sign" class="w-5 h-5 text-green-600"></app-icon>
         <div class="flex flex-col leading-tight">
@@ -21,7 +19,6 @@
         </div>
     </div>
 
-    <!-- Pagos este mes -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-4 flex items-center gap-3">
         <app-icon name="clock" class="w-5 h-5 text-amber-500"></app-icon>
         <div class="flex flex-col leading-tight">
@@ -30,7 +27,6 @@
         </div>
     </div>
 
-    <!-- Transferencias -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-4 flex items-center gap-3">
         <app-icon name="wallet" class="w-5 h-5 text-yellow-600"></app-icon>
         <div class="flex flex-col leading-tight">
@@ -39,7 +35,6 @@
         </div>
     </div>
 
-    <!-- Efectivo -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-4 flex items-center gap-3">
         <app-icon name="package" class="w-5 h-5 text-purple-600"></app-icon>
         <div class="flex flex-col leading-tight">
@@ -48,7 +43,6 @@
         </div>
     </div>
 
-    <!-- Clientes distintos -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-4 flex items-center gap-3">
         <app-icon name="users" class="w-5 h-5 text-indigo-600"></app-icon>
         <div class="flex flex-col leading-tight">
@@ -56,7 +50,7 @@
         <span class="text-sm text-gray-500">Clientes distintos</span>
         </div>
     </div>
-</div>
+</div> -->
 
   <!-- === FILTROS Y BÚSQUEDA === -->
   <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -138,12 +132,78 @@
       <!-- 2. THEAD STICKY: Agregamos sticky, top-0, z-20 y shadow-sm -->
       <thead class="bg-gray-50 text-gray-700 uppercase text-xs sticky top-0 z-20 shadow-sm">
         <tr class="border-b">
-          <th class="py-3 px-4 text-left font-medium">Cliente</th>
-          <th class="py-3 px-4 text-left font-medium">Identificador</th>
-          <th class="py-3 px-4 text-left font-medium">Método</th>
-          <th class="py-3 px-4 text-left font-medium">Concepto</th>
-          <th class="py-3 px-4 text-right font-medium">Monto</th>
-          <th class="py-3 px-4 text-left font-medium">Fecha</th>
+          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none" (click)="handleSort('clientName')">
+            <div class="flex items-center gap-1 group">
+              Cliente
+              <app-icon
+                [name]="getSortIcon('clientName')"
+                class="w-4 h-4 transition-colors duration-200"
+                [class.text-blue-600]="sortField === 'clientName'"
+                [class.text-gray-400]="sortField !== 'clientName'">
+              </app-icon>
+            </div>
+          </th>
+
+          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none" (click)="handleSort('paymentIdentifier')">
+            <div class="flex items-center gap-1 group">
+              Identificador
+              <app-icon
+                [name]="getSortIcon('paymentIdentifier')"
+                class="w-4 h-4 transition-colors duration-200"
+                [class.text-blue-600]="sortField === 'paymentIdentifier'"
+                [class.text-gray-400]="sortField !== 'paymentIdentifier'">
+              </app-icon>
+            </div>
+          </th>
+
+          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none" (click)="handleSort('paymentMethodName')">
+            <div class="flex items-center gap-1 group">
+              Método
+              <app-icon
+                [name]="getSortIcon('paymentMethodName')"
+                class="w-4 h-4 transition-colors duration-200"
+                [class.text-blue-600]="sortField === 'paymentMethodName'"
+                [class.text-gray-400]="sortField !== 'paymentMethodName'">
+              </app-icon>
+            </div>
+          </th>
+
+          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none" (click)="handleSort('concept')">
+            <div class="flex items-center gap-1 group">
+              Concepto
+              <app-icon
+                [name]="getSortIcon('concept')"
+                class="w-4 h-4 transition-colors duration-200"
+                [class.text-blue-600]="sortField === 'concept'"
+                [class.text-gray-400]="sortField !== 'concept'">
+              </app-icon>
+            </div>
+          </th>
+
+          <th class="py-3 px-4 text-right font-medium cursor-pointer select-none" (click)="handleSort('amount')">
+            <div class="flex items-center justify-end gap-1 group">
+              Monto
+              <app-icon
+                [name]="getSortIcon('amount')"
+                class="w-4 h-4 transition-colors duration-200"
+                [class.text-blue-600]="sortField === 'amount'"
+                [class.text-gray-400]="sortField !== 'amount'">
+              </app-icon>
+            </div>
+          </th>
+
+          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none" (click)="handleSort('paymentDate')">
+            <div class="flex items-center gap-1 group">
+              Fecha
+              <app-icon
+                [name]="getSortIcon('paymentDate')"
+                class="w-4 h-4 transition-colors duration-200"
+                [class.text-blue-600]="sortField === 'paymentDate'"
+                [class.text-gray-400]="sortField !== 'paymentDate'">
+              </app-icon>
+            </div>
+          </th>
+
           <th class="px-4 py-3 text-center">Acciones</th>
         </tr>
       </thead>

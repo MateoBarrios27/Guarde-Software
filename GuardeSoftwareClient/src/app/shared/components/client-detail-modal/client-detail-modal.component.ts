@@ -113,9 +113,22 @@ export class ClientDetailModalComponent implements OnChanges {
       )
       .subscribe({
         next: (results) => {
-          this.historialMovimientos = results.movements.sort((a, b) => 
-            new Date(b.movementDate).getTime() - new Date(a.movementDate).getTime()
-          );
+          this.historialMovimientos = results.movements.sort((a, b) => {
+            const getDayString = (dateVal: any): string => {
+              if (!dateVal) return '';
+              const d = new Date(dateVal);
+              const y = d.getFullYear();
+              const m = String(d.getMonth() + 1).padStart(2, '0');
+              const day = String(d.getDate()).padStart(2, '0');
+              return `${y}-${m}-${day}`;
+            };
+            const dayA = getDayString(a.movementDate);
+            const dayB = getDayString(b.movementDate);
+            if (dayB !== dayA) {
+              return dayB.localeCompare(dayA);
+            }
+            return Number(b.id || 0) - Number(a.id || 0);
+          });
           this.historialComunicaciones = results.communications.sort((a, b) => 
             new Date(b.date).getTime() - new Date(a.date).getTime()
           );
