@@ -478,8 +478,18 @@
                     class="w-full pl-7 pr-2 py-2 border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
-                <div *ngIf="paymentDto.amount > 0" class="mt-1.5 text-[11px] text-indigo-700/80 font-medium">
-                  Cancela deuda por: <span class="font-bold text-indigo-900">{{ newAmount | currency:'ARS':'symbol-narrow':'1.2-2' }}</span>
+                <div class="mt-1.5 flex items-center gap-1 text-[11px] text-indigo-700/80 font-medium">
+                  <span>Cancela deuda por: $</span>
+                  <input
+                    type="text"
+                    appCurrencyFormat
+                    (keydown.enter)="blurInput($event)"
+                    min="0.01"
+                    step="0.01"
+                    [(ngModel)]="newAmount"
+                    (ngModelChange)="onDebtCancelChange($event)"
+                    class="w-24 px-1.5 py-0.5 text-xs font-bold text-indigo-900 bg-indigo-50/60 border border-indigo-200 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white"
+                  />
                 </div>
               </div>
 

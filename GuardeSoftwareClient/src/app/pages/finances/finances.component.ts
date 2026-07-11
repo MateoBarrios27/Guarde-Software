@@ -884,6 +884,29 @@ export class FinancesComponent implements OnInit {
       }
   }
 
+  onDebtCancelChange(debtCancelled: number) {
+      if (debtCancelled && debtCancelled > 0 && this.paymentDto.paymentMethodId) {
+          const selectedCommission = this.getCommissionByMethodId(this.paymentDto.paymentMethodId);
+          const includedCommission = this.getCommissionByMethodId(this.selectedPreferredPaymentId);
+
+          if (selectedCommission === includedCommission) {
+              this.paymentDto.amount = debtCancelled;
+              this.commision = 0;
+              this.newAmount = debtCancelled;
+          } else {
+              const rawBaseAmount = debtCancelled / (1 + (includedCommission / 100));
+              const amountRequired = rawBaseAmount * (1 + (selectedCommission / 100));
+              this.paymentDto.amount = Number(amountRequired.toFixed(2));
+              this.commision = Number((this.paymentDto.amount - debtCancelled).toFixed(2));
+              this.newAmount = debtCancelled;
+          }
+      } else {
+          this.paymentDto.amount = 0;
+          this.commision = 0;
+          this.newAmount = 0;
+      }
+  }
+
   getCalculatedAmounts(amountEntered: number, selectedMethodId: number, preferredPaymentId: number) {
     if (!amountEntered || amountEntered <= 0) {
         return { amountEntered: 0, equivalentDebtPaid: 0, difference: 0, isSurcharge: false, isDiscount: false, selectedCommission: 0, includedCommission: 0 };
