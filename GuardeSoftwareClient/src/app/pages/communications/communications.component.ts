@@ -671,14 +671,28 @@ export class CommunicationsComponent implements OnInit {
   }
 
   filterList(): void {
-      const term = this.recipientSearchTerm().toLowerCase();
+      const term = this.recipientSearchTerm().toLowerCase().trim();
       let list = this.allClients();
       
       if (term) {
-          list = list.filter(c => 
-              c.fullName.toLowerCase().includes(term) || 
-              (c.email && c.email.toLowerCase().includes(term))
-          );
+          const termClean = term.replace(/^n[°º.]?\s*/i, '').trim() || term;
+          list = list.filter(c => {
+              const nameMatch = c.fullName.toLowerCase().includes(term);
+              const emailMatch = !!(c.email && c.email.toLowerCase().includes(term));
+              let idMatch = false;
+              if (c.paymentIdentifier !== undefined && c.paymentIdentifier !== null) {
+                  const numVal = Number(c.paymentIdentifier);
+                  if (!isNaN(numVal)) {
+                      const numStr = c.paymentIdentifier.toString();
+                      const fixedStr = numVal.toFixed(2);
+                      idMatch = numStr.includes(termClean) ||
+                                fixedStr.includes(termClean) ||
+                                numStr.replace('.', ',').includes(termClean) ||
+                                fixedStr.replace('.', ',').includes(termClean);
+                  }
+              }
+              return nameMatch || emailMatch || idMatch;
+          });
       }
 
       const sortType = this.currentSort();
