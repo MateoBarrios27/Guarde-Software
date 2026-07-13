@@ -318,21 +318,36 @@ namespace GuardeSoftwareAPI.Dao
                         ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY id DESC) as rn
                     FROM client_month_balances
                     WHERE month_year <= FORMAT(GETDATE(), 'MM/yyyy')
+                ),
+                UnpaidInterests AS (
+                    SELECT 
+                        rental_id,
+                        ISNULL(SUM(ISNULL(interests, 0)), 0) AS TotalUnpaidInterests
+                    FROM client_month_balances
+                    WHERE (balance - paid - advanced_payment) > 0
+                    GROUP BY rental_id
                 )
                 SELECT 
                     r.rental_id,
                     r.months_unpaid,
                     ISNULL(cmb.Debt, 0) AS balance,
                     ISNULL(cra.CurrentRent, 0) AS CurrentRent,
-                    ISNULL(cmb.interests, 0) AS CurrentInterests,   
+                    ISNULL(ui.TotalUnpaidInterests, 0) AS CurrentInterests,   
                     ISNULL(cmb.monthly_debits, 0) AS MonthlyDebits,
-                    -- NUEVO: Traemos el nombre del método de pago preferido
-                    ISNULL(pm.name, '') AS PreferredPaymentMethod
+                    -- Traemos el nombre del método de pago preferido
+                    ISNULL(pm.name, '') AS PreferredPaymentMethod,
+                    -- Si ya existe un registro del próximo mes, el cliente ya pagó este mes
+                    CASE WHEN EXISTS (
+                        SELECT 1 FROM client_month_balances cmb_next
+                        WHERE cmb_next.rental_id = r.rental_id
+                          AND cmb_next.month_year = FORMAT(DATEADD(month, 1, GETDATE()), 'MM/yyyy')
+                    ) THEN 1 ELSE 0 END AS HasNextMonthBalance
                 FROM rentals r
                 LEFT JOIN clients c ON r.client_id = c.client_id
                 LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
                 LEFT JOIN LastMonthBalance cmb ON r.rental_id = cmb.rental_id AND cmb.rn = 1
                 LEFT JOIN CurrentRentalAmount cra ON r.rental_id = cra.rental_id
+                LEFT JOIN UnpaidInterests ui ON r.rental_id = ui.rental_id
                 WHERE r.active = 1;";
 
             return await accessDB.GetTableAsync("all_active_rentals", query);

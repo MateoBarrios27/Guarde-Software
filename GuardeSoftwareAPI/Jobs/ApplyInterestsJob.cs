@@ -36,8 +36,9 @@ public class ApplyInterestsJob : IJob
                 var monthlyDebits = row["MonthlyDebits"] != DBNull.Value ? Convert.ToDecimal(row["MonthlyDebits"]) : 0;
                 
                 var preferredMethod = row["PreferredPaymentMethod"].ToString();
+                var hasNextMonthBalance = row["HasNextMonthBalance"] != DBNull.Value && Convert.ToInt32(row["HasNextMonthBalance"]) == 1;
 
-                if (balance > 0)
+                if (balance > 0 && !hasNextMonthBalance)
                 {
                     var newMonthsUnpaid = monthsUnpaid + 1;
                     _logger.LogWarning("Cliente del alquiler ID {rentalId} está en mora...", rentalId);
@@ -56,6 +57,10 @@ public class ApplyInterestsJob : IJob
                     {
                         _logger.LogError("¡ACCIÓN CRÍTICA! El alquiler ID {rentalId} ha alcanzado {newMonthsUnpaid} meses de mora.", rentalId, newMonthsUnpaid);
                     }
+                }
+                else if (balance > 0 && hasNextMonthBalance)
+                {
+                    _logger.LogInformation("Alquiler ID {rentalId}: ya tiene débito del próximo mes generado, el mes actual se considera pago. No se aplica interés.", rentalId);
                 }
             }
             _logger.LogInformation("Job de Gestión de Mora finalizado con éxito.");
