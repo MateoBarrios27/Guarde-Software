@@ -1245,71 +1245,80 @@ closeAdvancesModal(): void {
   this.advances = [];
 }
 
-calculateAdvancesTotal(): void {
-  this.advancesTotalAmount = this.advances.reduce((sum, adv) => {
-    return sum + (Number(adv.amount) || 0);
-  }, 0);
-}
-
-getAdvancesItemTotal(): number {
-  if (!this.selectedItemForAdvances) return 0;
-  return (Number(this.selectedItemForAdvances.depo) || 0) + (Number(this.selectedItemForAdvances.casa) || 0);
-}
-
-getAdvancesRemaining(): number {
-  return this.getAdvancesItemTotal() - this.advancesTotalAmount;
-}
-
-getAdvancesProgress(): number {
-  const total = this.getAdvancesItemTotal();
-  if (total <= 0) return 0;
-  return Math.min((this.advancesTotalAmount / total) * 100, 100);
-}
-
-saveAdvance(): void {
-  if (!this.newAdvance.amount || this.newAdvance.amount <= 0) {
-    Swal.fire('Atención', 'Ingresa un monto válido.', 'warning');
-    return;
-  }
-  if (!this.newAdvance.date) {
-    Swal.fire('Atención', 'La fecha es obligatoria.', 'warning');
-    return;
+  isAdvancesComplete(item: CashFlowItem): boolean {
+    if (!item || !item.hasAdvances) return false;
+    const itemTotal = (Number(item.depo) || 0) + (Number(item.casa) || 0);
+    const totalAdvances = Number(item.totalAdvances) || 0;
+    if (itemTotal <= 0 && totalAdvances > 0) return true;
+    return totalAdvances >= itemTotal - 0.01 && itemTotal > 0;
   }
 
-  const payload = {
-    itemId: this.selectedItemForAdvances!.id,
-    date: this.newAdvance.date,
-    amount: this.newAdvance.amount
-  };
+  calculateAdvancesTotal(): void {
+    this.advancesTotalAmount = this.advances.reduce((sum, adv) => {
+      return sum + (Number(adv.amount) || 0);
+    }, 0);
+  }
 
-  this.cashService.addAdvance(this.selectedItemForAdvances!.id!, payload).subscribe({
-    next: (newId) => {
-      this.advances.unshift({ ...payload, id: newId });
+  getAdvancesItemTotal(): number {
+    if (!this.selectedItemForAdvances) return 0;
+    return (Number(this.selectedItemForAdvances.depo) || 0) + (Number(this.selectedItemForAdvances.casa) || 0);
+  }
+
+  getAdvancesRemaining(): number {
+    return this.getAdvancesItemTotal() - this.advancesTotalAmount;
+  }
+
+  getAdvancesProgress(): number {
+    const total = this.getAdvancesItemTotal();
+    if (total <= 0) return 0;
+    return Math.min((this.advancesTotalAmount / total) * 100, 100);
+  }
+
+  saveAdvance(): void {
+    if (!this.newAdvance.amount || this.newAdvance.amount <= 0) {
+      Swal.fire('Atención', 'Ingresa un monto válido.', 'warning');
+      return;
+    }
+    if (!this.newAdvance.date) {
+      Swal.fire('Atención', 'La fecha es obligatoria.', 'warning');
+      return;
+    }
+
+    const payload = {
+      itemId: this.selectedItemForAdvances!.id,
+      date: this.newAdvance.date,
+      amount: this.newAdvance.amount
+    };
+
+    this.cashService.addAdvance(this.selectedItemForAdvances!.id!, payload).subscribe({
+      next: (newId) => {
+        this.advances.unshift({ ...payload, id: newId });
+        this.calculateAdvancesTotal();
+
+        // Actualizar el item en la tabla principal
+        this.selectedItemForAdvances!.hasAdvances = true;
+        this.selectedItemForAdvances!.totalAdvances = this.advancesTotalAmount;
+        this.selectedItemForAdvances!.isPaid = this.isAdvancesComplete(this.selectedItemForAdvances!);
+        this.calculateMonthlyTotals();
+        this.calculateTableTotals();
+
+        this.newAdvance.amount = null as any;
+        Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Adelanto registrado', showConfirmButton: false, timer: 2000 });
+      }
+    });
+  }
+
+  deleteAdvance(id: number, index: number): void {
+    this.cashService.deleteAdvance(id).subscribe(() => {
+      this.advances.splice(index, 1);
       this.calculateAdvancesTotal();
 
       // Actualizar el item en la tabla principal
-      this.selectedItemForAdvances!.hasAdvances = true;
       this.selectedItemForAdvances!.totalAdvances = this.advancesTotalAmount;
+      this.selectedItemForAdvances!.hasAdvances = this.advances.length > 0;
+      this.selectedItemForAdvances!.isPaid = this.isAdvancesComplete(this.selectedItemForAdvances!);
       this.calculateMonthlyTotals();
       this.calculateTableTotals();
-
-      this.newAdvance.amount = null as any;
-      Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Adelanto registrado', showConfirmButton: false, timer: 2000 });
-    }
-  });
-}
-
-deleteAdvance(id: number, index: number): void {
-  this.cashService.deleteAdvance(id).subscribe(() => {
-    this.advances.splice(index, 1);
-    this.calculateAdvancesTotal();
-
-    // Actualizar el item en la tabla principal
-    this.selectedItemForAdvances!.totalAdvances = this.advancesTotalAmount;
-    this.selectedItemForAdvances!.hasAdvances = this.advances.length > 0;
-    this.calculateMonthlyTotals();
-    this.calculateTableTotals();
-  });
-}
-
+    });
+  }
 }
