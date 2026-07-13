@@ -107,7 +107,7 @@ namespace GuardeSoftwareAPI.Dao
                             CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Iaia ELSE 0 END,
-                            CASE WHEN @RepState = 2 THEN @IsPaid ELSE 0 END,
+                            0, -- is_paid independiente para cada mes
                             CASE WHEN @RepState = 2 THEN @Retiros ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Extras ELSE 0 END, 
                             @NewDisplayOrder, 
@@ -160,7 +160,7 @@ namespace GuardeSoftwareAPI.Dao
                             CASE WHEN @RepState = 2 THEN @Depo ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Casa ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Iaia ELSE 0 END,
-                            CASE WHEN @RepState = 2 THEN @IsPaid ELSE 0 END,
+                            0, -- is_paid independiente para cada mes
                             CASE WHEN @RepState = 2 THEN @Retiros ELSE 0 END, 
                             CASE WHEN @RepState = 2 THEN @Extras ELSE 0 END, 
                             @CurrentDisplayOrder, 
@@ -448,7 +448,7 @@ namespace GuardeSoftwareAPI.Dao
                     CASE WHEN replication_state = 2 THEN amount_casa ELSE 0 END, 
                     
                     CASE WHEN replication_state = 2 THEN amount_iaia ELSE 0 END,
-                    CASE WHEN replication_state = 2 THEN 1 ELSE 0 END,
+                    0, -- is_paid independiente en cada mes
                     CASE WHEN replication_state = 2 THEN amount_retiros ELSE 0 END, 
                     CASE WHEN replication_state = 2 THEN amount_extras ELSE 0 END, 
                     

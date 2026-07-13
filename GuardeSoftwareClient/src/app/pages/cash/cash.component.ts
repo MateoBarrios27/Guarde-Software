@@ -147,6 +147,17 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:keydown', ['$event'])
   handleKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      if (this.showAdvancesModal) {
+        this.closeAdvancesModal();
+      } else if (this.showIvaComprasModal) {
+        this.closeIvaComprasModal();
+      } else if (this.activeCommentItem) {
+        this.activeCommentItem = null;
+      }
+      return;
+    }
+
     if (this.isHistoricalView) return; // Desactivar Ctrl+Z si está en modo reporte
 
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
