@@ -18,6 +18,11 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public string? Color { get; set; }
         public string? Comment { get; set; }
         public DateTime? CommentUpdatedAt { get; set; }
+        public string? IvaCondition { get; set; }
+        public int? BillingTypeId { get; set; }
+        public string? BillingType { get; set; }
+        public int? PreferredPaymentMethodId { get; set; }
+        public string? PreferredPaymentMethod { get; set; }
     }
 
     public class WarehouseLockerItem

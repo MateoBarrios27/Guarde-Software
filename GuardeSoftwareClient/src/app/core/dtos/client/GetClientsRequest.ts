@@ -7,5 +7,10 @@ export interface GetClientsRequest {
   statusFilter?: string;
   active?: boolean;
   warehouseId?: number;
+  warehouseIds?: number[];
   advancedFilter?: string;
+  advancedFilters?: string[];
+  ivaConditions?: string[];
+  billingTypeIds?: number[];
+  preferredPaymentMethodIds?: number[];
 }

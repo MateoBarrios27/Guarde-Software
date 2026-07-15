@@ -22,6 +22,10 @@ import { ɵɵDir } from "@angular/cdk/scrolling";
 import { Warehouse } from '../../core/models/warehouse';
 import { WarehouseService } from '../../core/services/warehouse-service/warehouse.service';
 import { Router } from '@angular/router';
+import { BillingType } from '../../core/models/billing-type.model';
+import { BillingTypeService } from '../../core/services/billingType-service/billing-type.service';
+import { PaymentMethod } from '../../core/models/payment-method';
+import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
 
 @Component({
   selector: 'app-clients',
@@ -84,9 +88,21 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public isReactivationMode = false;
 
   public warehouses: Warehouse[] = [];
-  public filterWarehouse: number | 'Todos' = 'Todos';
-  public advancedFilter: string = 'Todos';
+  public selectedWarehouseIds: number[] = [];
+  public selectedQuickFilters: string[] = [];
 
+  // --- Tags filter properties ---
+  public billingTypes: BillingType[] = [];
+  public paymentMethods: PaymentMethod[] = [];
+  public ivaConditionsList: string[] = ['Consumidor Final', 'Monotributista', 'Responsable Inscripto', 'Exento', 'Sin asignar'];
+
+  public selectedIvaConditions: string[] = [];
+  public selectedBillingTypeIds: number[] = [];
+  public selectedPaymentMethodIds: number[] = [];
+  public showTagsPopover = false;
+
+  @ViewChild('tagsPopoverRef') tagsPopoverRef!: ElementRef;
+  @ViewChild('tagsButtonRef') tagsButtonRef!: ElementRef;
 
   totals = {
     previousBalance: 0,
@@ -101,7 +117,14 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   pointingUp: boolean = false; 
   private scrollObserver!: IntersectionObserver;
 
-  constructor(private clientService: ClientService, private statisticsService: StatisticsService, private warehouseService: WarehouseService, private router: Router) 
+  constructor(
+    private clientService: ClientService, 
+    private statisticsService: StatisticsService, 
+    private warehouseService: WarehouseService, 
+    private billingTypeService: BillingTypeService,
+    private paymentMethodService: PaymentMethodService,
+    private router: Router
+  ) 
   {
     this.searchSubject.pipe(
       debounceTime(400),
@@ -110,6 +133,16 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentPageClientes = 1; 
       this.loadClients();
     });
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (!this.showTagsPopover) return;
+    const clickedInsidePopover = this.tagsPopoverRef && this.tagsPopoverRef.nativeElement.contains(event.target);
+    const clickedInsideButton = this.tagsButtonRef && this.tagsButtonRef.nativeElement.contains(event.target);
+    if (!clickedInsidePopover && !clickedInsideButton) {
+      this.showTagsPopover = false;
+    }
   }
 
   goToPayment(clientId: number) {
@@ -125,6 +158,117 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadClients();
     this.loadStatistics();
     this.warehouseService.getWarehouses().subscribe(data => this.warehouses = data);
+    this.billingTypeService.getBillingTypes().subscribe(data => this.billingTypes = data);
+    this.paymentMethodService.getPaymentMethods().subscribe(data => this.paymentMethods = data);
+  }
+
+  public quickFiltersList = [
+    { value: 'pagaron_este_mes', label: 'Pagaron este mes' },
+    { value: 'no_pagaron_este_mes', label: 'No pagaron este mes' },
+    { value: 'pagaron_meses_futuros', label: 'Pagaron meses futuros' },
+    { value: 'intereses_impagos', label: 'Con intereses impagos' },
+    { value: 'aumento_proximo_mes', label: 'Aumento próximo mes' }
+  ];
+
+  toggleTagsPopover(): void {
+    this.showTagsPopover = !this.showTagsPopover;
+  }
+
+  toggleWarehouseId(id: number): void {
+    const idx = this.selectedWarehouseIds.indexOf(id);
+    if (idx > -1) {
+      this.selectedWarehouseIds.splice(idx, 1);
+    } else {
+      this.selectedWarehouseIds.push(id);
+    }
+    this.currentPageClientes = 1;
+    this.loadClients();
+  }
+
+  getWarehouseName(id: number): string {
+    const w = this.warehouses.find(item => item.id === id);
+    return w ? w.name : `Depósito (${id})`;
+  }
+
+  toggleQuickFilter(val: string): void {
+    const idx = this.selectedQuickFilters.indexOf(val);
+    if (idx > -1) {
+      this.selectedQuickFilters.splice(idx, 1);
+    } else {
+      this.selectedQuickFilters.push(val);
+    }
+    this.currentPageClientes = 1;
+    this.loadClients();
+  }
+
+  getQuickFilterLabel(val: string): string {
+    const qf = this.quickFiltersList.find(q => q.value === val);
+    return qf ? qf.label : val;
+  }
+
+  toggleIvaCondition(cond: string): void {
+    const idx = this.selectedIvaConditions.indexOf(cond);
+    if (idx > -1) {
+      this.selectedIvaConditions.splice(idx, 1);
+    } else {
+      this.selectedIvaConditions.push(cond);
+    }
+    this.currentPageClientes = 1;
+    this.loadClients();
+  }
+
+  toggleBillingTypeId(id: number): void {
+    const idx = this.selectedBillingTypeIds.indexOf(id);
+    if (idx > -1) {
+      this.selectedBillingTypeIds.splice(idx, 1);
+    } else {
+      this.selectedBillingTypeIds.push(id);
+    }
+    this.currentPageClientes = 1;
+    this.loadClients();
+  }
+
+  togglePaymentMethodId(id: number): void {
+    const idx = this.selectedPaymentMethodIds.indexOf(id);
+    if (idx > -1) {
+      this.selectedPaymentMethodIds.splice(idx, 1);
+    } else {
+      this.selectedPaymentMethodIds.push(id);
+    }
+    this.currentPageClientes = 1;
+    this.loadClients();
+  }
+
+  clearAllTags(): void {
+    this.selectedWarehouseIds = [];
+    this.selectedQuickFilters = [];
+    this.selectedIvaConditions = [];
+    this.selectedBillingTypeIds = [];
+    this.selectedPaymentMethodIds = [];
+    this.currentPageClientes = 1;
+    this.loadClients();
+  }
+
+  get totalActiveTagsCount(): number {
+    return (
+      this.selectedWarehouseIds.length +
+      this.selectedQuickFilters.length +
+      this.selectedIvaConditions.length +
+      this.selectedBillingTypeIds.length +
+      this.selectedPaymentMethodIds.length
+    );
+  }
+
+  getBillingTypeName(id: number): string {
+    if (id === 0 || id === -1) return 'Sin factura';
+    const bt = this.billingTypes.find(b => b.id === id);
+    return bt ? bt.name : `Factura (${id})`;
+  }
+
+  getPaymentMethodName(id: number): string {
+    if (id === 0 || id === -1) return 'Sin asignar';
+    const pm = this.paymentMethods.find(p => p.id === id);
+    return pm ? pm.name : `Método (${id})`;
   }
 
   ngAfterViewInit() {
@@ -169,8 +313,11 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       searchTerm: this.searchClientes || undefined,
       statusFilter: this.filterEstadoClientes === 'Todos' ? undefined : this.filterEstadoClientes,
       active: !this.showInactivos,
-      warehouseId: this.filterWarehouse === 'Todos' ? undefined : Number(this.filterWarehouse),
-      advancedFilter: this.advancedFilter === 'Todos' ? undefined : this.advancedFilter
+      warehouseIds: this.selectedWarehouseIds.length > 0 ? this.selectedWarehouseIds : undefined,
+      advancedFilters: this.selectedQuickFilters.length > 0 ? this.selectedQuickFilters : undefined,
+      ivaConditions: this.selectedIvaConditions.length > 0 ? this.selectedIvaConditions : undefined,
+      billingTypeIds: this.selectedBillingTypeIds.length > 0 ? this.selectedBillingTypeIds : undefined,
+      preferredPaymentMethodIds: this.selectedPaymentMethodIds.length > 0 ? this.selectedPaymentMethodIds : undefined
     };
 
     this.clientService.getTableClients(request).subscribe({
@@ -264,8 +411,11 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   handleResetFilters(): void {
     this.searchClientes = '';
     this.filterEstadoClientes = 'Todos';
-    this.filterWarehouse = 'Todos';
-    this.advancedFilter = 'Todos';
+    this.selectedWarehouseIds = [];
+    this.selectedQuickFilters = [];
+    this.selectedIvaConditions = [];
+    this.selectedBillingTypeIds = [];
+    this.selectedPaymentMethodIds = [];
     this.showInactivos = false;
     this.currentPageClientes = 1;
     this.sortFieldClientes = 'PaymentIdentifier';

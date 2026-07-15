@@ -17,6 +17,11 @@ export interface TableClient {
   color?: string;
   comment?: string;
   commentUpdatedAt?: Date | string | null;
+  ivaCondition?: string;
+  billingTypeId?: number;
+  billingType?: string;
+  preferredPaymentMethodId?: number;
+  preferredPaymentMethod?: string;
 }
 
 export interface WarehouseLockerItem {

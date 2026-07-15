@@ -72,6 +72,31 @@ export class ClientService {
     if (request.advancedFilter) {
       params = params.append('advancedFilter', request.advancedFilter);
     }
+    if (request.warehouseIds && request.warehouseIds.length > 0) {
+      request.warehouseIds.forEach(id => {
+        params = params.append('WarehouseIds', id.toString());
+      });
+    }
+    if (request.advancedFilters && request.advancedFilters.length > 0) {
+      request.advancedFilters.forEach(f => {
+        params = params.append('AdvancedFilters', f);
+      });
+    }
+    if (request.ivaConditions && request.ivaConditions.length > 0) {
+      request.ivaConditions.forEach(cond => {
+        params = params.append('IvaConditions', cond);
+      });
+    }
+    if (request.billingTypeIds && request.billingTypeIds.length > 0) {
+      request.billingTypeIds.forEach(id => {
+        params = params.append('BillingTypeIds', id.toString());
+      });
+    }
+    if (request.preferredPaymentMethodIds && request.preferredPaymentMethodIds.length > 0) {
+      request.preferredPaymentMethodIds.forEach(id => {
+        params = params.append('PreferredPaymentMethodIds', id.toString());
+      });
+    }
 
     return this.httpClient.get<PaginatedResult<TableClient>>(`${this.url}/Client/table`, { params });
   }

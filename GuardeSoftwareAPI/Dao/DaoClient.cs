@@ -473,54 +473,153 @@ namespace GuardeSoftwareAPI.Dao
                 filterParameters.Add(new SqlParameter("@StatusFilter", request.StatusFilter));
             }
 
-            if (request.WarehouseId.HasValue && request.WarehouseId.Value > 0)
+            var validWarehouseIds = request.WarehouseIds?.Where(id => id > 0).ToList() ?? new List<int>();
+            if (request.WarehouseId.HasValue && request.WarehouseId.Value > 0 && !validWarehouseIds.Contains(request.WarehouseId.Value))
             {
-                finalWhereClause.Append(@"
+                validWarehouseIds.Add(request.WarehouseId.Value);
+            }
+
+            if (validWarehouseIds.Any())
+            {
+                var paramNames = new List<string>();
+                for (int i = 0; i < validWarehouseIds.Count; i++)
+                {
+                    string pName = $"@WhId_{i}";
+                    paramNames.Add(pName);
+                    filterParameters.Add(new SqlParameter(pName, validWarehouseIds[i]));
+                }
+                string inClause = string.Join(", ", paramNames);
+                finalWhereClause.Append($@"
                     AND (
                         Id IN (
                             SELECT r.client_id
                             FROM rentals r
                             JOIN lockers l ON r.rental_id = l.rental_id
-                            WHERE l.warehouse_id = @WarehouseId
+                            WHERE l.warehouse_id IN ({inClause})
                         )
                         OR Id IN (
                             SELECT clh.client_id
                             FROM client_locker_history clh
                             JOIN lockers l ON clh.locker_id = l.locker_id
-                            WHERE l.warehouse_id = @WarehouseId
+                            WHERE l.warehouse_id IN ({inClause})
                         )
                     ) ");
-                filterParameters.Add(new SqlParameter("@WarehouseId", request.WarehouseId.Value));
             }
 
-            if (!string.IsNullOrEmpty(request.AdvancedFilter) && request.AdvancedFilter != "Todos")
+            var validAdvancedFilters = request.AdvancedFilters?.Where(f => !string.IsNullOrEmpty(f) && f != "Todos").ToList() ?? new List<string>();
+            if (!string.IsNullOrEmpty(request.AdvancedFilter) && request.AdvancedFilter != "Todos" && !validAdvancedFilters.Contains(request.AdvancedFilter))
             {
-                switch (request.AdvancedFilter)
+                validAdvancedFilters.Add(request.AdvancedFilter);
+            }
+
+            if (validAdvancedFilters.Any())
+            {
+                var advClauses = new List<string>();
+                foreach (var adv in validAdvancedFilters)
                 {
-                    case "pagaron_este_mes":
-                        finalWhereClause.Append(@"
-                            AND NextPaymentDay IS NOT NULL 
-                            AND (YEAR(NextPaymentDay) * 100 + MONTH(NextPaymentDay)) > (YEAR(DATEADD(hour, -3, GETUTCDATE())) * 100 + MONTH(DATEADD(hour, -3, GETUTCDATE()))) ");
-                        break;
-                    case "no_pagaron_este_mes":
-                        finalWhereClause.Append(@"
-                            AND NextPaymentDay IS NOT NULL 
-                            AND (YEAR(NextPaymentDay) * 100 + MONTH(NextPaymentDay)) <= (YEAR(DATEADD(hour, -3, GETUTCDATE())) * 100 + MONTH(DATEADD(hour, -3, GETUTCDATE()))) ");
-                        break;
-                    case "pagaron_meses_futuros":
-                        finalWhereClause.Append(@"
-                            AND NextPaymentDay IS NOT NULL 
-                            AND (YEAR(NextPaymentDay) * 100 + MONTH(NextPaymentDay)) > (YEAR(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))) * 100 + MONTH(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE())))) ");
-                        break;
-                    case "intereses_impagos":
-                        finalWhereClause.Append("AND ISNULL(InterestAmount, 0) > 0 ");
-                        break;
-                    case "aumento_proximo_mes":
-                        finalWhereClause.Append(@"
-                            AND IncreaseAnchorDate IS NOT NULL 
-                            AND YEAR(IncreaseAnchorDate) = YEAR(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE())))
-                            AND MONTH(IncreaseAnchorDate) = MONTH(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))) ");
-                        break;
+                    switch (adv)
+                    {
+                        case "pagaron_este_mes":
+                            advClauses.Add(@"(NextPaymentDay IS NOT NULL AND (YEAR(NextPaymentDay) * 100 + MONTH(NextPaymentDay)) > (YEAR(DATEADD(hour, -3, GETUTCDATE())) * 100 + MONTH(DATEADD(hour, -3, GETUTCDATE()))))");
+                            break;
+                        case "no_pagaron_este_mes":
+                            advClauses.Add(@"(NextPaymentDay IS NOT NULL AND (YEAR(NextPaymentDay) * 100 + MONTH(NextPaymentDay)) <= (YEAR(DATEADD(hour, -3, GETUTCDATE())) * 100 + MONTH(DATEADD(hour, -3, GETUTCDATE()))))");
+                            break;
+                        case "pagaron_meses_futuros":
+                            advClauses.Add(@"(NextPaymentDay IS NOT NULL AND (YEAR(NextPaymentDay) * 100 + MONTH(NextPaymentDay)) > (YEAR(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))) * 100 + MONTH(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE())))))");
+                            break;
+                        case "intereses_impagos":
+                            advClauses.Add(@"(ISNULL(InterestAmount, 0) > 0)");
+                            break;
+                        case "aumento_proximo_mes":
+                            advClauses.Add(@"(IncreaseAnchorDate IS NOT NULL AND YEAR(IncreaseAnchorDate) = YEAR(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))) AND MONTH(IncreaseAnchorDate) = MONTH(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))))");
+                            break;
+                    }
+                }
+                if (advClauses.Any())
+                {
+                    finalWhereClause.Append($" AND ({string.Join(" OR ", advClauses)}) ");
+                }
+            }
+
+            if (request.IvaConditions != null && request.IvaConditions.Any())
+            {
+                var conditions = request.IvaConditions.Where(c => !string.IsNullOrEmpty(c) && c != "Sin asignar").ToList();
+                bool includeNull = request.IvaConditions.Contains("Sin asignar");
+                var clauses = new List<string>();
+
+                if (conditions.Any())
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < conditions.Count; i++)
+                    {
+                        string pName = $"@IvaCond_{i}";
+                        paramNames.Add(pName);
+                        filterParameters.Add(new SqlParameter(pName, conditions[i]));
+                    }
+                    clauses.Add($"IvaCondition IN ({string.Join(", ", paramNames)})");
+                }
+                if (includeNull)
+                {
+                    clauses.Add("(IvaCondition IS NULL OR IvaCondition = '' OR IvaCondition = 'Sin asignar')");
+                }
+                if (clauses.Any())
+                {
+                    finalWhereClause.Append($" AND ({string.Join(" OR ", clauses)}) ");
+                }
+            }
+
+            if (request.BillingTypeIds != null && request.BillingTypeIds.Any())
+            {
+                var ids = request.BillingTypeIds.Where(id => id > 0).ToList();
+                bool includeNull = request.BillingTypeIds.Contains(0) || request.BillingTypeIds.Contains(-1);
+                var clauses = new List<string>();
+
+                if (ids.Any())
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < ids.Count; i++)
+                    {
+                        string pName = $"@BillType_{i}";
+                        paramNames.Add(pName);
+                        filterParameters.Add(new SqlParameter(pName, ids[i]));
+                    }
+                    clauses.Add($"BillingTypeId IN ({string.Join(", ", paramNames)})");
+                }
+                if (includeNull)
+                {
+                    clauses.Add("BillingTypeId IS NULL");
+                }
+                if (clauses.Any())
+                {
+                    finalWhereClause.Append($" AND ({string.Join(" OR ", clauses)}) ");
+                }
+            }
+
+            if (request.PreferredPaymentMethodIds != null && request.PreferredPaymentMethodIds.Any())
+            {
+                var ids = request.PreferredPaymentMethodIds.Where(id => id > 0).ToList();
+                bool includeNull = request.PreferredPaymentMethodIds.Contains(0) || request.PreferredPaymentMethodIds.Contains(-1);
+                var clauses = new List<string>();
+
+                if (ids.Any())
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < ids.Count; i++)
+                    {
+                        string pName = $"@PayMethod_{i}";
+                        paramNames.Add(pName);
+                        filterParameters.Add(new SqlParameter(pName, ids[i]));
+                    }
+                    clauses.Add($"PreferredPaymentMethodId IN ({string.Join(", ", paramNames)})");
+                }
+                if (includeNull)
+                {
+                    clauses.Add("PreferredPaymentMethodId IS NULL");
+                }
+                if (clauses.Any())
+                {
+                    finalWhereClause.Append($" AND ({string.Join(" OR ", clauses)}) ");
                 }
             }
 
@@ -569,6 +668,10 @@ namespace GuardeSoftwareAPI.Dao
                         step1.UI_Balance AS Balance,
 
                         c.preferred_payment_method_id AS PreferredPaymentMethodId,
+                        pm.name AS PreferredPaymentMethod,
+                        c.iva_condition AS IvaCondition,
+                        c.billing_type_id AS BillingTypeId,
+                        bt.name AS BillingType,
                         c.dni AS Document,
                         locker_sub.lockers as Lockers,
                         locker_sub.lockers_json as WarehouseLockersJson,
@@ -608,6 +711,8 @@ namespace GuardeSoftwareAPI.Dao
                     OUTER APPLY ( SELECT TOP 1 e.address FROM emails e WHERE e.client_id = c.client_id AND e.active = 1 ORDER BY e.email_id ) AS first_email
                     OUTER APPLY ( SELECT TOP 1 p.number FROM phones p WHERE p.client_id = c.client_id AND p.active = 1 ORDER BY p.phone_id ) AS first_phone
                     LEFT JOIN addresses a ON c.client_id = a.client_id
+                    LEFT JOIN billing_types bt ON c.billing_type_id = bt.billing_type_id
+                    LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
                     OUTER APPLY (
                         SELECT TOP 1 *
                         FROM rentals r_sub
@@ -813,8 +918,13 @@ namespace GuardeSoftwareAPI.Dao
                     Color = row["Color"] != DBNull.Value ? row["Color"].ToString() : null,
                     Comment = row["Comment"] != DBNull.Value ? row["Comment"].ToString() : null,
                     CommentUpdatedAt = row["CommentUpdatedAt"] != DBNull.Value ? Convert.ToDateTime(row["CommentUpdatedAt"]) : null,
+                    IvaCondition = row["IvaCondition"] != DBNull.Value ? row["IvaCondition"].ToString() : null,
+                    BillingTypeId = row["BillingTypeId"] != DBNull.Value ? Convert.ToInt32(row["BillingTypeId"]) : null,
+                    BillingType = row["BillingType"] != DBNull.Value ? row["BillingType"].ToString() : null,
+                    PreferredPaymentMethodId = row["PreferredPaymentMethodId"] != DBNull.Value ? Convert.ToInt32(row["PreferredPaymentMethodId"]) : null,
+                    PreferredPaymentMethod = row["PreferredPaymentMethod"] != DBNull.Value ? row["PreferredPaymentMethod"].ToString() : null,
                     WarehouseLockers = row["WarehouseLockersJson"] != DBNull.Value 
-                        ? JsonSerializer.Deserialize<List<WarehouseLockerItem>>(row["WarehouseLockersJson"].ToString()) 
+                        ? JsonSerializer.Deserialize<List<WarehouseLockerItem>>(row["WarehouseLockersJson"].ToString()!) 
                         : []
                 });
             }
