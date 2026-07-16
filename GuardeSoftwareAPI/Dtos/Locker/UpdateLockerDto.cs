@@ -1,9 +1,10 @@
-﻿namespace GuardeSoftwareAPI.Dtos.Locker
+namespace GuardeSoftwareAPI.Dtos.Locker
 {
     public class UpdateLockerDto
     {     
         public string? Identifier { get; set; } = string.Empty;
         public int LockerTypeId { get; set; }
+        public int WarehouseId { get; set; }
         public string? Features { get; set; } = string.Empty;
         public string? Status { get; set; } = string.Empty;
     }

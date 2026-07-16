@@ -7,6 +7,7 @@ export interface Locker{
     features: string;
     status: string;
     clientName?: string;
+    rentalId?: number | null;
 }
 
   

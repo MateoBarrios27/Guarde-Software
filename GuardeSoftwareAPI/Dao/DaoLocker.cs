@@ -140,12 +140,9 @@ namespace GuardeSoftwareAPI.Dao
                 INNER JOIN lockers l ON clh.locker_id = l.locker_id
                 INNER JOIN warehouses w ON l.warehouse_id = w.warehouse_id
                 INNER JOIN locker_types lt ON l.locker_type_id = lt.locker_type_id
+                INNER JOIN clients c ON clh.client_id = c.client_id
                 WHERE clh.client_id = @client_id
-                  AND NOT EXISTS (
-                      SELECT 1 FROM lockers l_curr 
-                      INNER JOIN rentals r_curr ON l_curr.rental_id = r_curr.rental_id 
-                      WHERE r_curr.client_id = @client_id AND r_curr.active = 1 AND l_curr.active = 1
-                  )
+                  AND c.active = 0
                   AND ABS(DATEDIFF(day, ISNULL(clh.end_date, clh.start_date), (
                       SELECT MAX(ISNULL(clh2.end_date, clh2.start_date))
                       FROM client_locker_history clh2
@@ -193,11 +190,34 @@ namespace GuardeSoftwareAPI.Dao
                 new("@features",SqlDbType.VarChar){Value = (object?)locker.Features ?? DBNull.Value},
                 new("@status",SqlDbType.VarChar,50){Value = locker.Status},
                 new("@locker_type_id",SqlDbType.Int){Value = locker.LockerTypeId},
+                new("@warehouse_id",SqlDbType.Int){Value = locker.WarehouseId},
             ];
 
-            string query = "UPDATE lockers SET identifier = @identifier, features = @features, status = @status, locker_type_id = @locker_type_id WHERE locker_id = @locker_id";
+            string query = "UPDATE lockers SET identifier = @identifier, features = @features, status = @status, locker_type_id = @locker_type_id, warehouse_id = @warehouse_id WHERE locker_id = @locker_id";
 
             return await accessDB.ExecuteCommandAsync(query,parameters) > 0;   
+        }
+
+        public async Task<bool> UpdateLockerTransactionAsync(Locker locker, bool unassignRental, SqlConnection connection, SqlTransaction transaction)
+        {
+            SqlParameter[] parameters =
+            [
+                new("@locker_id",SqlDbType.Int) { Value = locker.Id },
+                new("@identifier",SqlDbType.VarChar,100){Value = (object?)locker.Identifier ?? DBNull.Value},
+                new("@features",SqlDbType.VarChar){Value = (object?)locker.Features ?? DBNull.Value},
+                new("@status",SqlDbType.VarChar,50){Value = locker.Status},
+                new("@locker_type_id",SqlDbType.Int){Value = locker.LockerTypeId},
+                new("@warehouse_id",SqlDbType.Int){Value = locker.WarehouseId},
+            ];
+
+            string query = unassignRental
+                ? "UPDATE lockers SET identifier = @identifier, features = @features, status = @status, locker_type_id = @locker_type_id, warehouse_id = @warehouse_id, rental_id = NULL WHERE locker_id = @locker_id"
+                : "UPDATE lockers SET identifier = @identifier, features = @features, status = @status, locker_type_id = @locker_type_id, warehouse_id = @warehouse_id WHERE locker_id = @locker_id";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.AddRange(parameters);
+            int rowsAffected = await command.ExecuteNonQueryAsync();
+            return rowsAffected > 0;
         }
 
         public async Task<bool> UpdateLockerStatus(int lockerId, string status)

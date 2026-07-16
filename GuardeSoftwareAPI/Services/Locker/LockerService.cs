@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using GuardeSoftwareAPI.Entities;
@@ -13,10 +13,12 @@ namespace GuardeSoftwareAPI.Services.locker
 	public class LockerService : ILockerService
     {
 		private readonly DaoLocker daoLocker;
+		private readonly AccessDB _accessDB;
 
 		public LockerService(AccessDB accessDB)
 		{
 			daoLocker = new DaoLocker(accessDB);
+			_accessDB = accessDB;
 		}
 
 		public async Task<List<Locker>> GetLockersList() {
@@ -163,16 +165,20 @@ namespace GuardeSoftwareAPI.Services.locker
             if (dto.LockerTypeId <= 0)
                 throw new ArgumentException("Invalid Locker Type ID.");
 
+            if (dto.WarehouseId <= 0)
+                throw new ArgumentException("Invalid Warehouse ID.");
+
             var Locker = new Locker
             {
                 Id = Id,
                 Identifier = dto.Identifier,
                 Features = dto.Features,
                 Status = dto.Status,
-                LockerTypeId = dto.LockerTypeId
+                LockerTypeId = dto.LockerTypeId,
+                WarehouseId = dto.WarehouseId
             };
 
-            return await daoLocker.UpdateLocker(Locker);  
+            return await ProcessLockerUnassignmentIfAvailableAsync(Id, dto.Status, Locker);  
         }
 
         public async Task<bool> UpdateLockerStatus(int lockerId, UpdateLockerStatusDto dto)
@@ -181,7 +187,71 @@ namespace GuardeSoftwareAPI.Services.locker
             if (string.IsNullOrWhiteSpace(dto.Status)) throw new ArgumentException("Status is required.");
 
 
-            return await daoLocker.UpdateLockerStatus(lockerId, dto.Status);
+            return await ProcessLockerUnassignmentIfAvailableAsync(lockerId, dto.Status, null);
+        }
+
+        private async Task<bool> ProcessLockerUnassignmentIfAvailableAsync(int lockerId, string newStatus, Locker? fullLockerUpdate)
+        {
+            DataTable existingDt = await daoLocker.GetLockerById(lockerId);
+            int? existingRentalId = null;
+            if (existingDt.Rows.Count > 0 && existingDt.Rows[0]["rental_id"] != DBNull.Value)
+            {
+                existingRentalId = Convert.ToInt32(existingDt.Rows[0]["rental_id"]);
+            }
+
+            if (existingRentalId.HasValue && newStatus.Equals("DISPONIBLE", StringComparison.OrdinalIgnoreCase))
+            {
+                using var connection = _accessDB.GetConnectionClose();
+                await connection.OpenAsync();
+                using var transaction = connection.BeginTransaction();
+                try
+                {
+                    if (fullLockerUpdate != null)
+                    {
+                        fullLockerUpdate.Status = "DISPONIBLE";
+                        await daoLocker.UpdateLockerTransactionAsync(fullLockerUpdate, true, connection, transaction);
+                    }
+                    else
+                    {
+                        await daoLocker.UnassignLockersFromRentalTransactionAsync([lockerId], connection, transaction);
+                    }
+
+                    var daoRental = new DaoRental(_accessDB);
+                    var daoClient = new DaoClient(_accessDB);
+                    DataTable rentalDt = await daoRental.GetRentalById(existingRentalId.Value);
+                    if (rentalDt.Rows.Count > 0)
+                    {
+                        int clientId = Convert.ToInt32(rentalDt.Rows[0]["client_id"]);
+                        await daoClient.CloseLockerHistoryTransactionAsync(clientId, [lockerId], connection, transaction);
+                    }
+
+                    var remainingLockerIds = await daoLocker.GetLockerIdsByRentalIdTransactionAsync(existingRentalId.Value, connection, transaction);
+                    decimal newContractedM3 = await daoLocker.CalculateTotalM3ForLockersAsync(remainingLockerIds, connection, transaction);
+                    await daoRental.UpdateContractedM3TransactionAsync(existingRentalId.Value, newContractedM3, connection, transaction);
+
+                    var cmbService = new GuardeSoftwareAPI.Services.clientMonthBalance.ClientMonthBalanceService(_accessDB);
+                    await cmbService.RebuildForRentalTransactionAsync(existingRentalId.Value, connection, transaction);
+
+                    await transaction.CommitAsync();
+                    return true;
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+            else
+            {
+                if (fullLockerUpdate != null)
+                {
+                    return await daoLocker.UpdateLocker(fullLockerUpdate);
+                }
+                else
+                {
+                    return await daoLocker.UpdateLockerStatus(lockerId, newStatus);
+                }
+            }
         }
 
         public async Task<List<int>> GetLockerIdsByRentalIdTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)

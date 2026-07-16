@@ -433,12 +433,20 @@ namespace GuardeSoftwareAPI.Dao
                     r.months_unpaid,
                     r.pending_surcharge AS PendingSurcharge,
                     ISNULL(step1.UI_Balance, 0) AS balance,
+                    ISNULL(latest_cmb.PrevBalDB, 0) AS PreviousBalance,
                     ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS CurrentRent,
                     ISNULL(ll.LockerIdentifiers, '') AS locker_identifiers
                 FROM rentals r
                 INNER JOIN clients c ON r.client_id = c.client_id
                 LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
                 LEFT JOIN LockerList ll ON r.rental_id = ll.rental_id
+                OUTER APPLY (
+                    SELECT TOP 1
+                        PrevBalDB = ISNULL(cmb.previous_balance, 0)
+                    FROM client_month_balances cmb
+                    WHERE cmb.rental_id = r.rental_id
+                    ORDER BY cmb.id DESC
+                ) latest_cmb
                 OUTER APPLY (
                     SELECT TOP 1
                         RentDB = ISNULL(cmb.monthly_debits, ISNULL(cr.CurrentRent, 0)),

@@ -4,4 +4,5 @@ export interface LockerUpdateDTO{
     features: string;
     lockerTypeId: number;
     status: string;
+    warehouseId: number;
 }
