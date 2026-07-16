@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Dtos.AccountMovement;
 using GuardeSoftwareAPI.Services.clientMonthBalance;
+using Microsoft.Extensions.DependencyInjection;
+using GuardeSoftwareAPI.Services.payment;
 
 namespace GuardeSoftwareAPI.Services.accountMovement {
 
@@ -18,15 +20,16 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
         private readonly ILogger<IAccountMovementService> _logger;
         private readonly AccessDB accessDB;
         private readonly IClientMonthBalanceService _clientMonthBalanceService;
-        
+        private readonly IServiceProvider _serviceProvider;
 
-        public AccountMovementService(AccessDB _accessDB, ILogger<AccountMovementService> logger, IClientMonthBalanceService clientMonthBalanceService)
+        public AccountMovementService(AccessDB _accessDB, ILogger<AccountMovementService> logger, IClientMonthBalanceService clientMonthBalanceService, IServiceProvider serviceProvider)
         {
             _daoAccountMovement = new DaoAccountMovement(_accessDB);
             _daoRental = new DaoRental(_accessDB);
             _logger = logger;
             accessDB = _accessDB;
             _clientMonthBalanceService = clientMonthBalanceService;
+            _serviceProvider = serviceProvider;
         }
 
         public async Task<List<AccountMovement>> GetAccountMovementList()
@@ -286,11 +289,13 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             // ¡NUEVO! Rescatamos a qué alquiler pertenece para recalcular después
             int rentalId = Convert.ToInt32(row["rental_id"]);
 
-            // 2. Regla de negocio: Protegemos los ingresos físicos de dinero
-            if (paymentId.HasValue && paymentId > 0 && movementType == "CREDITO")
+            // 2. Si es un movimiento asociado a un pago formal, delegamos a IPaymentService para eliminar el pago completo con su cascada sin restricciones
+            if (paymentId.HasValue && paymentId > 0)
             {
-                _logger.LogError($"Intento de eliminar el movimiento ID {movementId}, pero está asociado al pago ID {paymentId}.");
-                throw new InvalidOperationException("No se puede eliminar un ingreso de dinero (crédito) asociado a un pago registrado. Ve al componente de finanzas para eliminar el pago completo.");
+                _logger.LogInformation($"El movimiento ID {movementId} está asociado al pago ID {paymentId}. Eliminando el pago completo en cascada desde IPaymentService.");
+                using var scope = _serviceProvider.CreateScope();
+                var paymentService = scope.ServiceProvider.GetRequiredService<IPaymentService>();
+                return await paymentService.DeletePaymentAsync(movementId);
             }
 
             // 3. Borramos el movimiento

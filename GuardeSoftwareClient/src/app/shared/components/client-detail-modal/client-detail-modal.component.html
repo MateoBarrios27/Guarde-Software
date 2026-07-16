@@ -243,10 +243,9 @@
                         $ {{ mov.amount | number:'1.2-2' }}
                       </td>
                       <td class="p-3 text-center">
-                        <button *ngIf="client.paymentStatus !== 'Baja'" (click)="deleteMovement(mov.id)" class="p-1 text-black hover:text-red-600" title="Eliminar Movimiento">
+                        <button (click)="deleteMovement(mov.id)" class="p-1 text-black hover:text-red-600" title="Eliminar Movimiento">
                           <app-icon name="Trash2" class="h-4 w-4"></app-icon>
                         </button>
-                        <span *ngIf="client.paymentStatus === 'Baja'" class="text-gray-400 font-sans text-xs">Histórico</span>
                       </td>
                     </tr>
                   </tbody>
