@@ -1102,5 +1102,11 @@ namespace GuardeSoftwareAPI.Services.client
             if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
             return await daoClient.UpdateClientCommentAsync(clientId, comment);
         }
+
+        public async Task<bool> UpdateClientNotesAsync(int clientId, string? notes)
+        {
+            if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
+            return await daoClient.UpdateClientNotesAsync(clientId, notes);
+        }
     }
 }

@@ -259,5 +259,19 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, new { message = "Error interno al actualizar el comentario.", error = ex.Message });
             }
         }
+
+        [HttpPut("{id}/notes")]
+        public async Task<IActionResult> UpdateClientNotes(int id, [FromBody] UpdateClientNotesDto request)
+        {
+            try
+            {
+                await _clientService.UpdateClientNotesAsync(id, request?.Notes);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error interno al actualizar las observaciones.", error = ex.Message });
+            }
+        }
     }
 }

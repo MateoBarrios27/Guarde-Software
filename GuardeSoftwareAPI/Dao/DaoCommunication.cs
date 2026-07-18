@@ -489,10 +489,7 @@ namespace GuardeSoftwareAPI.Dao
                     d.dispatch_date AS Date,
                     LOWER(ch.name) AS Type, 
                     ccc.subject AS Subject,
-                    CASE 
-                        WHEN LEN(ccc.content) > 150 THEN LEFT(ccc.content, 150) + '...'
-                        ELSE ccc.content
-                    END AS Snippet
+                    ccc.content AS RawContent
                 FROM dispatches d
                 JOIN communication_channel_content ccc ON d.comm_channel_content_id = ccc.comm_channel_content_id
                 JOIN communication_channels ch ON ccc.channel_id = ch.channel_id
@@ -505,13 +502,20 @@ namespace GuardeSoftwareAPI.Dao
 
             foreach (DataRow row in table.Rows)
             {
+                string rawContent = row["RawContent"] is DBNull ? "" : row["RawContent"].ToString() ?? "";
+                string cleanText = System.Text.RegularExpressions.Regex.Replace(rawContent, "<.*?>", " ");
+                cleanText = System.Net.WebUtility.HtmlDecode(cleanText);
+                cleanText = System.Text.RegularExpressions.Regex.Replace(cleanText, @"\s+", " ").Trim();
+                
+                string snippet = cleanText.Length > 200 ? cleanText.Substring(0, 200) + "..." : cleanText;
+
                 communications.Add(new ClientCommunicationDto
                 {
                     Id = Convert.ToInt32(row["Id"]),
                     Date = Convert.ToDateTime(row["Date"]),
                     Type = row["Type"]?.ToString() ?? "system",
                     Subject = row["Subject"] is DBNull ? "" : row["Subject"].ToString(),
-                    Snippet = row["Snippet"] is DBNull ? "" : row["Snippet"].ToString()
+                    Snippet = snippet
                 });
             }
             return communications;

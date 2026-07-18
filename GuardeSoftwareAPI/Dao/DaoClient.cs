@@ -1221,5 +1221,15 @@ namespace GuardeSoftwareAPI.Dao
             ];
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
         }
+
+        public async Task<bool> UpdateClientNotesAsync(int clientId, string? notes)
+        {
+            string query = "UPDATE clients SET notes = @Notes WHERE client_id = @Id";
+            SqlParameter[] parameters = [
+                new SqlParameter("@Notes", SqlDbType.NVarChar) { Value = (object?)notes ?? DBNull.Value },
+                new SqlParameter("@Id", SqlDbType.Int) { Value = clientId }
+            ];
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+        }
     }
 }

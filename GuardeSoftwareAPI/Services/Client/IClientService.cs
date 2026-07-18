@@ -21,5 +21,6 @@ namespace GuardeSoftwareAPI.Services.client
         Task<List<ClientLockerHistory>> GetClientLockerHistoryAsync(int clientId);
         Task<bool> UpdateClientColorAsync(int clientId, string? color);
         Task<bool> UpdateClientCommentAsync(int clientId, string? comment);
+        Task<bool> UpdateClientNotesAsync(int clientId, string? notes);
     }
 }

@@ -134,4 +134,8 @@ export class ClientService {
   updateClientComment(id: number, comment?: string): Observable<any> {
     return this.httpClient.put(`${this.url}/Client/${id}/comment`, { comment });
   }
+
+  updateClientNotes(id: number, notes?: string): Observable<any> {
+    return this.httpClient.put(`${this.url}/Client/${id}/notes`, { notes });
+  }
 }

@@ -234,6 +234,14 @@ export class ClientDetailModalComponent implements OnChanges {
     });
   }
 
+  onClientNotesChange(client: ClientDetailDTO): void {
+    if (!client || !client.id) return;
+    this.clientService.updateClientNotes(client.id, client.notes).subscribe({
+      next: () => this.dataUpdated.emit(client.id),
+      error: () => Swal.fire('Error', 'No se pudieron actualizar las observaciones del cliente', 'error')
+    });
+  }
+
   resetClientColor(client: ClientDetailDTO): void {
     client.color = null as any;
     this.onClientColorChange(client);

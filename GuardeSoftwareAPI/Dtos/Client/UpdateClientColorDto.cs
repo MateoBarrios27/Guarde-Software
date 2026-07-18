@@ -9,4 +9,9 @@ namespace GuardeSoftwareAPI.Dtos.Client
     {
         public string? Comment { get; set; }
     }
+
+    public class UpdateClientNotesDto
+    {
+        public string? Notes { get; set; }
+    }
 }
