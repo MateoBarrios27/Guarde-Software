@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from "../../shared/components/icon/icon.component";
 import { CommunicationService } from '../../core/services/communication-service/communication.service';
-import { ComunicacionDto, UpsertComunicacionRequest } from '../../core/dtos/communications/communicationDto';
+import { ComunicacionDto, CommunicationDispatchDto, UpsertComunicacionRequest } from '../../core/dtos/communications/communicationDto';
 import { ClientService } from '../../core/services/client-service/client.service';
 import { catchError, debounceTime, distinctUntilChanged, of, Subject, switchMap } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
@@ -102,6 +102,7 @@ export class CommunicationsComponent implements OnInit {
   });
   
   dynamicMonthFilters = signal<MonthFilter[]>([]);
+  activeQuickFilter = signal<string | null>(null);
 
   constructor(
     private commService: CommunicationService, 
@@ -179,7 +180,7 @@ export class CommunicationsComponent implements OnInit {
     isNextMonthStatement: false
   });
   
-  currentModal = signal<'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm' | 'none'>('none');
+  currentModal = signal<'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm' | 'retry' | 'none'>('none');
   selectedCommunication = signal<ComunicacionDto | null>(null);
 
   toast = signal<ToastState>({
@@ -253,7 +254,7 @@ export class CommunicationsComponent implements OnInit {
   }
 
   openModal(
-    modalType: 'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm', 
+    modalType: 'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm' | 'retry', 
     communication: ComunicacionDto | null = null, 
     isResend: boolean = false // Este flag ahora servirá para "Clonar"
   ): void {
@@ -303,6 +304,18 @@ export class CommunicationsComponent implements OnInit {
       if (isResend) finalModalType = 'add';
     }
     
+    if (communication && (modalType === 'view' || modalType === 'retry')) {
+      this.commService.getCommunicationById(communication.id).subscribe({
+        next: (fullComm) => {
+          if (modalType === 'retry' && fullComm.dispatches) {
+            fullComm.dispatches.forEach(d => d.isSelected = (d.status !== 'Exitoso'));
+          }
+          this.selectedCommunication.set(fullComm);
+        },
+        error: (err) => console.error('Error cargando detalle del comunicado', err)
+      });
+    }
+
     this.currentModal.set(finalModalType);
   }
 
@@ -571,8 +584,72 @@ export class CommunicationsComponent implements OnInit {
   }
 
   openRetryModal(comm: ComunicacionDto): void {
-    this.openModal('edit', comm);
-    this.showToast('Modo Reintento', 'Edita la configuración y guarda para reintentar a los fallidos.', 'edit', 'success');
+    this.openModal('retry', comm);
+  }
+
+  getFailedDispatches(comm: ComunicacionDto): CommunicationDispatchDto[] {
+    if (!comm.dispatches || comm.dispatches.length === 0) {
+      return comm.recipients.map((name, idx) => ({
+        clientId: -(idx + 1),
+        clientName: name,
+        channel: comm.channel,
+        status: 'Fallido',
+        errorMessage: comm.errorMessage || 'Envío fallido o interrumpido',
+        dispatchDate: comm.creationDate,
+        isSelected: true
+      }));
+    }
+    return comm.dispatches.filter(d => d.status !== 'Exitoso');
+  }
+
+  toggleAllRetrySelection(select: boolean): void {
+    const comm = this.selectedCommunication();
+    if (!comm || !comm.dispatches) return;
+    comm.dispatches.forEach(d => {
+      if (d.status !== 'Exitoso') d.isSelected = select;
+    });
+    this.selectedCommunication.set({ ...comm });
+  }
+
+  getSelectedRetryCount(): number {
+    const comm = this.selectedCommunication();
+    if (!comm) return 0;
+    const failed = this.getFailedDispatches(comm);
+    return failed.filter(d => d.isSelected !== false).length;
+  }
+
+  getSuccessCount(dispatches: CommunicationDispatchDto[]): number {
+    return dispatches.filter(d => d.status === 'Exitoso').length;
+  }
+
+  getFailedCount(dispatches: CommunicationDispatchDto[]): number {
+    return dispatches.filter(d => d.status !== 'Exitoso').length;
+  }
+
+  confirmRetrySelected(): void {
+    const comm = this.selectedCommunication();
+    if (!comm) return;
+    const failed = this.getFailedDispatches(comm);
+    const selected = failed.filter(d => d.isSelected !== false);
+    
+    if (selected.length === 0) {
+      this.showToast('Advertencia', 'Debes seleccionar al menos un cliente para reintentar.', 'alert-triangle', 'error');
+      return;
+    }
+
+    const selectedClientIds = selected.map(d => d.clientId).filter(id => id > 0);
+    
+    this.commService.retrySelectedCommunication(comm.id, selectedClientIds).subscribe({
+      next: (res) => {
+        this.showToast('Reintento Programado', `Se enviará a ${selected.length} clientes seleccionados.`, 'check', 'success');
+        this.closeModal();
+        this.loadCommunications();
+      },
+      error: (err) => {
+        console.error('Error en reintento', err);
+        this.showToast('Error', 'Hubo un error al iniciar el reintento.', 'alert-triangle', 'error');
+      }
+    });
   }
 
   // --- new methods for client selector ---
@@ -612,6 +689,7 @@ export class CommunicationsComponent implements OnInit {
 
   openRecipientSelector(): void {
     const currentRecipients = this.formData().recipients;
+    this.activeQuickFilter.set(null);
     
     if (currentRecipients.length > 0) {
         this.allClients.update(list => list.map(c => ({
@@ -624,7 +702,27 @@ export class CommunicationsComponent implements OnInit {
     this.showRecipientModal.set(true);
   }
 
-  applyFilter(type: 'Todos' | 'Ninguno' | 'MesImpago', targetYear?: number, targetMonth?: number): void {
+  applyFilter(type: 'Todos' | 'Ninguno' | 'MesImpago', targetYear?: number, targetMonth?: number, filterLabel?: string): void {
+      if (type === 'MesImpago' && filterLabel) {
+          if (this.activeQuickFilter() === filterLabel) {
+              this.activeQuickFilter.set(null);
+              this.allClients.update(list => list.map(c => ({ ...c, selected: false })));
+              this.filterList();
+              return;
+          }
+          this.activeQuickFilter.set(filterLabel);
+      } else if (type === 'Todos') {
+          if (this.activeQuickFilter() === 'Todos') {
+              this.activeQuickFilter.set(null);
+              this.allClients.update(list => list.map(c => ({ ...c, selected: false })));
+              this.filterList();
+              return;
+          }
+          this.activeQuickFilter.set('Todos');
+      } else if (type === 'Ninguno') {
+          this.activeQuickFilter.set(null);
+      }
+
       this.allClients.update(list => list.map(c => {
           let shouldSelect = c.selected; 
           
@@ -718,9 +816,36 @@ export class CommunicationsComponent implements OnInit {
   }
 
   toggleSelection(id: number): void {
-      this.allClients.update(list => list.map(c => 
-          c.id === id ? { ...c, selected: !c.selected } : c
-      ));
+      const currentActive = this.activeQuickFilter();
+      let toggledClient: ClientSelectorItem | null = null;
+
+      this.allClients.update(list => list.map(c => {
+          if (c.id === id) {
+              const updated = { ...c, selected: !c.selected };
+              toggledClient = updated;
+              return updated;
+          }
+          return c;
+      }));
+
+      if (toggledClient && (toggledClient as ClientSelectorItem).selected === false && currentActive) {
+          if (currentActive === 'Todos') {
+              this.activeQuickFilter.set(null);
+          } else {
+              const activeFilterObj = this.dynamicMonthFilters().find(f => f.label === currentActive);
+              if (activeFilterObj && (toggledClient as ClientSelectorItem).nextPaymentDate) {
+                  const targetYear = activeFilterObj.year;
+                  const targetMonth = activeFilterObj.month;
+                  const paymentYear = (toggledClient as ClientSelectorItem).nextPaymentDate!.getFullYear();
+                  const paymentMonth = (toggledClient as ClientSelectorItem).nextPaymentDate!.getMonth();
+                  
+                  if (paymentYear < targetYear || (paymentYear === targetYear && paymentMonth <= targetMonth)) {
+                      this.activeQuickFilter.set(null);
+                  }
+              }
+          }
+      }
+
       this.filterList();
   }
 

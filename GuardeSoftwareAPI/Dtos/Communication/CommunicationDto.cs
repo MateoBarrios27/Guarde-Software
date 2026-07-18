@@ -14,9 +14,11 @@ public class CommunicationDto
     public int? SmtpConfigId { get; set; }
     public bool IsAccountStatement { get; set; }
     public bool IsNextMonthStatement { get; set; }
+    public string? ErrorMessage { get; set; }
+    public List<CommunicationDispatchDto> Dispatches { get; set; } = [];
 }
     
-    public class UpsertCommunicationRequest
+public class UpsertCommunicationRequest
 {
     public int? Id { get; set; }
     public string Title { get; set; } = string.Empty;
@@ -31,3 +33,9 @@ public class CommunicationDto
     public bool IsAccountStatement { get; set; }
     public bool IsNextMonthStatement { get; set; }
 }
+
+public class RetryCommunicationRequest
+{
+    public List<int> SelectedClientIds { get; set; } = [];
+}
+

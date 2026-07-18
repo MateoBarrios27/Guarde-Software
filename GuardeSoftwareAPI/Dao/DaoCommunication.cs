@@ -33,6 +33,7 @@ namespace GuardeSoftwareAPI.Dao
                 c.smtp_configuration_id AS SmtpConfigId,
                 c.is_account_statement,
                 c.is_next_month_statement,
+                c.error_message AS ErrorMessage,
 
                 (SELECT STRING_AGG(chan.name, ' + ') 
                  FROM communication_channel_content ccc
@@ -73,7 +74,9 @@ namespace GuardeSoftwareAPI.Dao
             {
                 throw new Exception($"Communication with ID {id} not found.");
             }
-            return MapDataRowToDto(table.Rows[0]);
+            var dto = MapDataRowToDto(table.Rows[0]);
+            dto.Dispatches = await GetDispatchesByCommunicationIdAsync(id);
+            return dto;
         }
 
         private CommunicationDto MapDataRowToDto(DataRow row)
@@ -95,8 +98,52 @@ namespace GuardeSoftwareAPI.Dao
                              ? new List<string>()
                              : recipientsCsv.Split(',').ToList(),
                 IsAccountStatement = row["is_account_statement"] is not DBNull && Convert.ToBoolean(row["is_account_statement"]),
-                IsNextMonthStatement = row["is_next_month_statement"] is not DBNull && Convert.ToBoolean(row["is_next_month_statement"])
+                IsNextMonthStatement = row["is_next_month_statement"] is not DBNull && Convert.ToBoolean(row["is_next_month_statement"]),
+                ErrorMessage = row["ErrorMessage"] is DBNull ? null : row["ErrorMessage"].ToString()
             };
+        }
+
+        public async Task<List<CommunicationDispatchDto>> GetDispatchesByCommunicationIdAsync(int communicationId)
+        {
+            var list = new List<CommunicationDispatchDto>();
+            string query = @"
+                SELECT 
+                    c.client_id AS ClientId,
+                    c.full_name AS ClientName,
+                    ISNULL(ch.name, 'N/A') AS Channel,
+                    ISNULL(d.status, CASE WHEN comm.status IN ('Failed', 'Finished w/ Errors') THEN 'Fallido' ELSE 'Pendiente' END) AS Status,
+                    ISNULL(d.provider_response, CASE WHEN comm.status = 'Failed' THEN ISNULL(comm.error_message, 'Error en el envío') ELSE '' END) AS ErrorMessage,
+                    ISNULL(FORMAT(d.dispatch_date, 'yyyy-MM-dd HH:mm'), '') AS DispatchDate,
+                    ISNULL(cr.is_selected_for_retry, 1) AS IsSelected
+                FROM communication_recipients cr
+                JOIN clients c ON cr.client_id = c.client_id
+                JOIN communications comm ON cr.communication_id = comm.communication_id
+                LEFT JOIN communication_channel_content ccc ON comm.communication_id = ccc.communication_id
+                LEFT JOIN communication_channels ch ON ccc.channel_id = ch.channel_id
+                LEFT JOIN (
+                    SELECT comm_channel_content_id, client_id, status, provider_response, dispatch_date,
+                           ROW_NUMBER() OVER (PARTITION BY comm_channel_content_id, client_id ORDER BY dispatch_id DESC) AS rn
+                    FROM dispatches
+                ) d ON ccc.comm_channel_content_id = d.comm_channel_content_id AND cr.client_id = d.client_id AND d.rn = 1
+                WHERE cr.communication_id = @Id
+                ORDER BY c.full_name, ch.name;";
+                
+            var parameters = new[] { new SqlParameter("@Id", communicationId) };
+            DataTable table = await _accessDB.GetTableAsync("Dispatches", query, parameters);
+            foreach (DataRow row in table.Rows)
+            {
+                list.Add(new CommunicationDispatchDto
+                {
+                    ClientId = Convert.ToInt32(row["ClientId"]),
+                    ClientName = row["ClientName"]?.ToString() ?? "",
+                    Channel = row["Channel"]?.ToString() ?? "",
+                    Status = row["Status"]?.ToString() ?? "",
+                    ErrorMessage = row["ErrorMessage"]?.ToString() ?? "",
+                    DispatchDate = row["DispatchDate"]?.ToString() ?? "",
+                    IsSelected = row["IsSelected"] is not DBNull && Convert.ToBoolean(row["IsSelected"])
+                });
+            }
+            return list;
         }
 
         #endregion
@@ -222,11 +269,23 @@ namespace GuardeSoftwareAPI.Dao
             };
             await _accessDB.ExecuteCommandAsync(query, parameters);
         }
+
+        public async Task UpdateCommunicationStatusAndErrorAsync(int communicationId, string status, string? errorMessage)
+        {
+            string query = "UPDATE communications SET status = @Status, error_message = @Error WHERE communication_id = @Id";
+            var parameters = new[]
+            {
+                new SqlParameter("@Status", status),
+                new SqlParameter("@Error", (object)errorMessage ?? DBNull.Value),
+                new SqlParameter("@Id", communicationId)
+            };
+            await _accessDB.ExecuteCommandAsync(query, parameters);
+        }
         
         // Usado para "Enviar Ahora" y "Reintentar"
         public async Task<bool> UpdateCommunicationStatusAndDateAsync(int communicationId, string status, DateTime scheduledDate)
         {
-            string query = "UPDATE communications SET status = @Status, scheduled_date = @Date WHERE communication_id = @Id";
+            string query = "UPDATE communications SET status = @Status, scheduled_date = @Date, error_message = NULL WHERE communication_id = @Id";
             var parameters = new[]
             {
                 new SqlParameter("@Status", status),
@@ -286,7 +345,7 @@ namespace GuardeSoftwareAPI.Dao
                      WHERE p.client_id = c.client_id AND p.whatsapp = 1 AND p.active = 1) AS Phone
                 FROM clients c
                 JOIN communication_recipients cr ON c.client_id = cr.client_id
-                WHERE cr.communication_id = @Id AND c.active = 1 AND c.receive_communications = 1
+                WHERE cr.communication_id = @Id AND cr.is_selected_for_retry = 1 AND c.active = 1 AND c.receive_communications = 1
                 AND c.client_id NOT IN (
                     SELECT client_id FROM dispatches 
                     WHERE comm_channel_content_id IN (
@@ -311,6 +370,46 @@ namespace GuardeSoftwareAPI.Dao
                 });
             }
             return recipients;
+        }
+
+        public async Task UpdateRecipientsRetrySelectionAsync(int communicationId, List<int> selectedClientIds)
+        {
+            string resetQuery = @"
+                UPDATE cr SET is_selected_for_retry = 0
+                FROM communication_recipients cr
+                WHERE cr.communication_id = @Id
+                AND cr.client_id NOT IN (
+                    SELECT client_id FROM dispatches 
+                    WHERE comm_channel_content_id IN (
+                        SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id
+                    ) AND status = 'Exitoso'
+                );";
+            await _accessDB.ExecuteCommandAsync(resetQuery, new[] { new SqlParameter("@Id", communicationId) });
+
+            if (selectedClientIds != null && selectedClientIds.Count > 0)
+            {
+                string joinedIds = string.Join(",", selectedClientIds.Distinct());
+                string enableQuery = $@"
+                    UPDATE cr SET is_selected_for_retry = 1
+                    FROM communication_recipients cr
+                    WHERE cr.communication_id = @Id
+                    AND cr.client_id IN ({joinedIds});";
+                await _accessDB.ExecuteCommandAsync(enableQuery, new[] { new SqlParameter("@Id", communicationId) });
+            }
+            else
+            {
+                string enableAllQuery = @"
+                    UPDATE cr SET is_selected_for_retry = 1
+                    FROM communication_recipients cr
+                    WHERE cr.communication_id = @Id
+                    AND cr.client_id NOT IN (
+                        SELECT client_id FROM dispatches 
+                        WHERE comm_channel_content_id IN (
+                            SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id
+                        ) AND status = 'Exitoso'
+                    );";
+                await _accessDB.ExecuteCommandAsync(enableAllQuery, new[] { new SqlParameter("@Id", communicationId) });
+            }
         }
 
         // Obtener Configuración SMTP Específica (incluye datos de BCC)

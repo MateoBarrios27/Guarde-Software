@@ -37,7 +37,7 @@ namespace GuardeSoftwareAPI.Jobs
             
             try
             {
-                await _communicationDao.UpdateCommunicationStatusAsync(comunicadoId, "Procesando");
+                await _communicationDao.UpdateCommunicationStatusAndErrorAsync(comunicadoId, "Procesando", null);
 
                 var channels = await _communicationDao.GetChannelsForSendingAsync(comunicadoId);
                 var recipients = await _communicationDao.GetRecipientsForSendingAsync(comunicadoId);
@@ -57,13 +57,15 @@ namespace GuardeSoftwareAPI.Jobs
                 }
 
                 string finalStatus = errorLog.Length > 0 ? "Finished w/ Errors" : "Finished";
-                await _communicationDao.UpdateCommunicationStatusAsync(comunicadoId, finalStatus);
+                await _communicationDao.UpdateCommunicationStatusAndErrorAsync(comunicadoId, finalStatus, errorLog.Length > 0 ? errorLog.ToString() : null);
                 _logger.LogInformation("Communication job for ID: {ComunicadoId} finished with status: {Status}", comunicadoId, finalStatus);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Fatal error in communication job for ID: {ComunicadoId}", comunicadoId);
-                await _communicationDao.UpdateCommunicationStatusAsync(comunicadoId, "Failed");
+                string fatalError = $"Error general en la ejecución o envío: {ex.Message}";
+                if (ex.InnerException != null) fatalError += $"\n({ex.InnerException.Message})";
+                await _communicationDao.UpdateCommunicationStatusAndErrorAsync(comunicadoId, "Failed", fatalError);
                 throw new JobExecutionException("Job execution failed.", ex, false);
             }
         }

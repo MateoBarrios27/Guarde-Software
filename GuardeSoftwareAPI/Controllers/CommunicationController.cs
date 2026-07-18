@@ -145,15 +145,27 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                // Reutilizamos la lógica de "SendDraftNow" porque hace exactamente lo que queremos:
-                // Pone estado 'Scheduled' y fecha 'Now'. 
-                // El Job se encarga de filtrar los que ya fueron exitosos gracias al DAO.
-                var updatedComm = await _communicationService.SendDraftNowAsync(id);
+                var updatedComm = await _communicationService.RetrySelectedFailedCommunicationAsync(id, new List<int>());
                 return Ok(updatedComm);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error reintentando comunicado {Id}", id);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("{id}/retry-selected")]
+        public async Task<IActionResult> RetrySelectedFailedCommunication(int id, [FromBody] RetryCommunicationRequest request)
+        {
+            try
+            {
+                var updatedComm = await _communicationService.RetrySelectedFailedCommunicationAsync(id, request?.SelectedClientIds ?? new List<int>());
+                return Ok(updatedComm);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reintentando seleccionados del comunicado {Id}", id);
                 return StatusCode(500, new { message = ex.Message });
             }
         }

@@ -63,12 +63,20 @@ export class CommunicationService {
     return this.http.delete<void>(`${this.url}/Communications/${id}`);
   }
 
+  getCommunicationById(id: number): Observable<ComunicacionDto> {
+    return this.http.get<ComunicacionDto>(`${this.url}/Communications/${id}`);
+  }
+
   sendDraftNow(id: number): Observable<ComunicacionDto> {
     return this.http.post<ComunicacionDto>(`${this.url}/Communications/${id}/send`, {});
   }
 
   retryCommunication(id: number): Observable<ComunicacionDto> {
     return this.http.post<ComunicacionDto>(`${this.url}/Communications/${id}/retry`, {});
+  }
+
+  retrySelectedCommunication(id: number, selectedClientIds: number[]): Observable<ComunicacionDto> {
+    return this.http.post<ComunicacionDto>(`${this.url}/Communications/${id}/retry-selected`, { selectedClientIds });
   }
 
   getAllSmtpConfigs(): Observable<SmtpConfig[]> {
