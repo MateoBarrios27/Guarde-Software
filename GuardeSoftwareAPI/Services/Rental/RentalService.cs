@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Data;
 using System.Threading.Tasks;
 using GuardeSoftwareAPI.Dao;
@@ -133,12 +133,15 @@ namespace GuardeSoftwareAPI.Services.rental
 					MonthsUnpaid = row["months_unpaid"] != DBNull.Value ? (int)row["months_unpaid"] : 0,
 					CurrentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0m,
 					Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0m,
+					PreviousBalance = row.Table.Columns.Contains("PreviousBalance") && row["PreviousBalance"] != DBNull.Value ? Convert.ToDecimal(row["PreviousBalance"]) : 0m,
 					LockerIdentifiers = row["locker_identifiers"] != DBNull.Value
 						? row["locker_identifiers"].ToString()!
 						: string.Empty,
 					PreferredPayment = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : null,
 					IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? (DateTime?)row["IncreaseAnchorDate"] : null,
-					PendingSurcharge = row["PendingSurcharge"] != DBNull.Value ? Convert.ToDecimal(row["PendingSurcharge"]) : null
+					PendingSurcharge = row["PendingSurcharge"] != DBNull.Value ? Convert.ToDecimal(row["PendingSurcharge"]) : null,
+					InterestAmount = row.Table.Columns.Contains("InterestAmount") && row["InterestAmount"] != DBNull.Value ? Convert.ToDecimal(row["InterestAmount"]) : null,
+					NextPaymentDay = row.Table.Columns.Contains("NextPaymentDay") && row["NextPaymentDay"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDay"]) : null
 				};
 				pendingRentals.Add(rental);
 			}

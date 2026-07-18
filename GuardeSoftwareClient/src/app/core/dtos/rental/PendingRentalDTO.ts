@@ -5,6 +5,7 @@ export interface PendingRentalDTO{
     paymentIdentifier: number;
     monthsUnpaid: number;
     balance: number;
+    previousBalance?: number;
     currentRent: number;
     pendingAmount: number;
     isPending: boolean;
@@ -12,4 +13,6 @@ export interface PendingRentalDTO{
     preferredPayment: number;
     increaseAnchorDate: number;
     pendingSurcharge: number;
+    interestAmount?: number;
+    nextPaymentDay?: Date | string | null;
 }

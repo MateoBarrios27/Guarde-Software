@@ -86,10 +86,13 @@ namespace GuardeSoftwareAPI.Services.client
                     Cuit = row["cuit"]?.ToString() ?? string.Empty,
                     PreferredPaymentMethodId = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : 0,
                     Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0m,
+                    PreviousBalance = row.Table.Columns.Contains("PreviousBalance") && row["PreviousBalance"] != DBNull.Value ? Convert.ToDecimal(row["PreviousBalance"]) : 0m,
                     CurrentRent = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m,
                     IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? Convert.ToDateTime(row["IncreaseAnchorDate"]) : null,
                     PendingSurcharge = row["PendingSurcharge"] != DBNull.Value ? Convert.ToDecimal(row["PendingSurcharge"]) : 0m,
-                    LastGeneratedMonthYear = row["last_generated_month_year"]?.ToString() ?? string.Empty
+                    InterestAmount = row.Table.Columns.Contains("interest_amount") && row["interest_amount"] != DBNull.Value ? Convert.ToDecimal(row["interest_amount"]) : 0m,
+                    LastGeneratedMonthYear = row["last_generated_month_year"]?.ToString() ?? string.Empty,
+                    NextPaymentDay = row.Table.Columns.Contains("next_payment_day") && row["next_payment_day"] != DBNull.Value ? Convert.ToDateTime(row["next_payment_day"]) : null
                 };
                 clients.Add(client);
             }
@@ -115,6 +118,7 @@ namespace GuardeSoftwareAPI.Services.client
                     Dni = row["dni"]?.ToString() ?? string.Empty,
                     Cuit = row["cuit"]?.ToString() ?? string.Empty,
                     PreferredPaymentMethodId = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : 0,
+                    PreviousBalance = row.Table.Columns.Contains("PreviousBalance") && row["PreviousBalance"] != DBNull.Value ? Convert.ToDecimal(row["PreviousBalance"]) : 0m,
                 };
                 clients.Add(client);
             }

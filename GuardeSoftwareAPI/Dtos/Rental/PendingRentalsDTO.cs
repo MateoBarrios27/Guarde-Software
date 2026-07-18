@@ -6,9 +6,12 @@ public class PendingRentalDTO
     public decimal PaymentIdentifier {get; set;}
     public int MonthsUnpaid { get; set; }
     public decimal Balance { get; set; }
+    public decimal PreviousBalance { get; set; }
     public decimal CurrentRent { get; set; }
     public string LockerIdentifiers { get; set; } = string.Empty;
     public int? PreferredPayment{ get; set; }
     public DateTime? IncreaseAnchorDate { get; set; }
     public decimal? PendingSurcharge { get; set; }
+    public decimal? InterestAmount { get; set; }
+    public DateTime? NextPaymentDay { get; set; }
 }

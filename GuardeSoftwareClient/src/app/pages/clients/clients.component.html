@@ -363,12 +363,12 @@
       </div>
 
       <div class="relative w-full">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm border-separate border-spacing-0">
           
           <thead class="text-xs text-gray-700 bg-gray-50 sticky top-0 z-20 shadow-sm">
-            <tr class="border-b">
+            <tr>
               
-              <th class="p-4 text-left font-medium cursor-pointer" (click)="handleSort('FullName')">
+              <th class="p-4 text-left font-medium cursor-pointer border-b border-gray-200" (click)="handleSort('FullName')">
                 <div class="flex items-center gap-1 group">
                   Cliente
                   <app-icon 
@@ -380,7 +380,7 @@
                 </div>
               </th>
 
-              <th class="p-4 text-left font-medium cursor-pointer" (click)="handleSort('Baulera')">
+              <th class="p-4 text-left font-medium cursor-pointer border-b border-gray-200" (click)="handleSort('Baulera')">
                 <div class="flex items-center gap-1">
                   Baulera
                   <app-icon 
@@ -392,7 +392,7 @@
                 </div>
               </th>
 
-              <th class="p-4 text-left font-medium cursor-pointer" (click)="handleSort(showInactivos ? 'DeactivationDate' : 'NextPaymentDay')">
+              <th class="p-4 text-left font-medium cursor-pointer border-b border-gray-200" (click)="handleSort(showInactivos ? 'DeactivationDate' : 'NextPaymentDay')">
                 <div class="flex items-center gap-1 group">
                   {{ showInactivos ? 'Fecha de Baja' : 'Próx. Pago' }}
                   <app-icon 
@@ -404,7 +404,7 @@
                 </div>
               </th>
 
-              <th class="p-4 text-right font-medium cursor-pointer" (click)="handleSort('PreviousBalance')">
+              <th class="p-4 text-right font-medium cursor-pointer border-b border-gray-200" (click)="handleSort('PreviousBalance')">
                 <div class="flex items-center justify-end gap-1 group">
                   Saldo Ant.
                   <app-icon 
@@ -416,7 +416,7 @@
                 </div>
               </th>
 
-              <th class="p-4 text-right font-medium cursor-pointer" (click)="handleSort('InterestAmount')">
+              <th class="p-4 text-right font-medium cursor-pointer border-b border-gray-200" (click)="handleSort('InterestAmount')">
                 <div class="flex items-center justify-end gap-1 group">
                   Interés
                   <app-icon 
@@ -428,7 +428,7 @@
                 </div>
               </th>
 
-              <th class="p-4 text-right font-medium cursor-pointer" (click)="handleSort('CurrentRent')">
+              <th class="p-4 text-right font-medium cursor-pointer border-b border-gray-200" (click)="handleSort('CurrentRent')">
                 <div class="flex items-center justify-end gap-1 group">
                   {{ showInactivos ? 'Último Abono' : 'Abono' }}
                   <app-icon 
@@ -440,7 +440,7 @@
                 </div>
               </th>
 
-              <th class="p-4 text-right font-medium cursor-pointer" (click)="handleSort('Balance')">
+              <th class="p-4 text-right font-medium cursor-pointer border-b border-gray-200" (click)="handleSort('Balance')">
                 <div class="flex items-center justify-end gap-1 group">
                   Saldo
                   <app-icon 
@@ -452,7 +452,7 @@
                 </div>
               </th>
 
-              <th class="p-4 text-center font-medium">Acciones</th>
+              <th class="p-4 text-center font-medium border-b border-gray-200">Acciones</th>
             </tr>
           </thead>
           
@@ -462,7 +462,7 @@
               class="border-b hover:bg-gray-50 transition-colors"
               [style.backgroundColor]="cliente.color ? (cliente.color + '15') : ''"
             >
-              <td class="py-2 px-4 relative">
+              <td class="py-2 px-4 relative" [ngStyle]="getCellStyle(cliente, 'first')">
                 <div class="flex items-center gap-3">
                   <div class="relative w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all shadow-sm cursor-pointer border border-black/10"
                        [style.backgroundColor]="cliente.color || '#dbeafe'"
@@ -516,7 +516,7 @@
                 </div>
               </td>
 
-              <td class="p-4 align-middle">
+              <td class="p-4 align-middle" [ngStyle]="getCellStyle(cliente)">
   
                 <div *ngIf="cliente.lockers && cliente.lockers.length > 0 && cliente.lockers[0] !== ''; else noLockers" class="flex flex-col">
                   <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
@@ -538,7 +538,7 @@
                 </ng-template>
               </td>
 
-              <td class="p-4 align-middle font-medium text-gray-700">
+              <td class="p-4 align-middle font-medium text-gray-700" [ngStyle]="getCellStyle(cliente)">
                 <span *ngIf="!showInactivos && cliente.nextPaymentDay"
                       class="text-sm font-semibold"
                       [ngClass]="isFutureMonthOrLater(cliente.nextPaymentDay) ? 'text-green-600' : 'text-gray-800'">
@@ -550,28 +550,28 @@
                 <span *ngIf="(!showInactivos && !cliente.nextPaymentDay) || (showInactivos && !cliente.deactivationDate)" class="text-gray-400">-</span>
               </td>
 
-              <td class="p-4 font-semibold text-right" 
+              <td class="p-4 font-semibold text-right" [ngStyle]="getCellStyle(cliente)"
                   [ngClass]="(cliente.previousBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
                 $ {{ cliente.previousBalance || 0 | number:'1.2-2' }}
               </td>
 
-              <td class="p-4 font-medium text-right"
+              <td class="p-4 font-medium text-right" [ngStyle]="getCellStyle(cliente)"
                   [ngClass]="(cliente.interestAmount || 0) > 0 ? 'text-red-600' : 'text-gray-400'">
                 $ {{ cliente.interestAmount || 0 | number:'1.2-2' }}
               </td>
 
-              <td class="p-4 font-semibold text-right"
+              <td class="p-4 font-semibold text-right" [ngStyle]="getCellStyle(cliente)"
                   [ngClass]="(cliente.currentRent || 0) > 0 ? 'text-blue-700' : 'text-gray-400'"
               >
                 $ {{ cliente.currentRent || 0 | number:'1.2-2' }}
               </td>
 
-              <td class="p-4 text-base font-bold text-right" 
+              <td class="p-4 text-base font-bold text-right" [ngStyle]="getCellStyle(cliente)"
                   [ngClass]="(cliente.balance || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
                 $ {{ cliente.balance || 0 | number:'1.2-2' }}
               </td>
 
-              <td class="p-4">
+              <td class="p-4" [ngStyle]="getCellStyle(cliente, 'last')">
                 <div class="flex items-center justify-center gap-2">
 
                   <button *ngIf="cliente.status !== 'Baja'" (click)="goToPayment(cliente.id)" class="p-1 hover:text-green-600 flex items-center justify-center" title="Registrar Pago">
@@ -598,34 +598,34 @@
 
             </tr>
           </tbody>
-          <tfoot class="font-bold text-gray-700 border-t border-gray-200 bg-gray-50 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <tfoot class="font-bold text-gray-700 bg-gray-50 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             <tr>
-              <td colspan="3" class="p-4 text-right align-middle">
+              <td colspan="3" class="p-4 text-right align-middle border-t border-gray-200">
                 <span class="text-xs uppercase tracking-wider text-gray-500 font-bold">
                   Totales Columna:
                 </span>
               </td>
               
-              <td class="p-4 text-right whitespace-nowrap align-middle" 
+              <td class="p-4 text-right whitespace-nowrap align-middle border-t border-gray-200" 
                   [ngClass]="totals.previousBalance >= 0 ? 'text-green-600' : 'text-red-600'">
                  <div class="text-base font-bold">$ {{ totals.previousBalance | number:'1.2-2' }}</div>
               </td>
 
-              <td class="p-4 text-right whitespace-nowrap align-middle" 
+              <td class="p-4 text-right whitespace-nowrap align-middle border-t border-gray-200" 
                   [ngClass]="totals.interestAmount > 0 ? 'text-red-600' : 'text-gray-500'">
                  <div class="text-base font-bold">$ {{ totals.interestAmount | number:'1.2-2' }}</div>
               </td>
               
-              <td class="p-4 text-right text-blue-700 whitespace-nowrap align-middle">
+              <td class="p-4 text-right text-blue-700 whitespace-nowrap align-middle border-t border-gray-200">
                  <div class="text-base font-bold">$ {{ totals.currentRent | number:'1.2-2' }}</div>
               </td>
               
-              <td class="p-4 text-right whitespace-nowrap align-middle" 
+              <td class="p-4 text-right whitespace-nowrap align-middle border-t border-gray-200" 
                   [ngClass]="totals.balance >= 0 ? 'text-green-600' : 'text-red-600'">
                  <div class="text-base font-bold">$ {{ totals.balance | number:'1.2-2' }}</div>
               </td>
               
-              <td></td>
+              <td class="border-t border-gray-200"></td>
             </tr>
           </tfoot>
 

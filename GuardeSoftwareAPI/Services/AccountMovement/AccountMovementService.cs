@@ -289,10 +289,10 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             // ¡NUEVO! Rescatamos a qué alquiler pertenece para recalcular después
             int rentalId = Convert.ToInt32(row["rental_id"]);
 
-            // 2. Si es un movimiento asociado a un pago formal, delegamos a IPaymentService para eliminar el pago completo con su cascada sin restricciones
-            if (paymentId.HasValue && paymentId > 0)
+            // 2. Si es un ingreso de dinero (CREDITO) asociado a un pago formal, delegamos a IPaymentService para eliminar el pago completo en cascada
+            if (paymentId.HasValue && paymentId > 0 && movementType == "CREDITO")
             {
-                _logger.LogInformation($"El movimiento ID {movementId} está asociado al pago ID {paymentId}. Eliminando el pago completo en cascada desde IPaymentService.");
+                _logger.LogInformation($"El movimiento ID {movementId} (CREDITO) está asociado al pago ID {paymentId}. Eliminando el pago completo en cascada desde IPaymentService.");
                 using var scope = _serviceProvider.CreateScope();
                 var paymentService = scope.ServiceProvider.GetRequiredService<IPaymentService>();
                 return await paymentService.DeletePaymentAsync(movementId);

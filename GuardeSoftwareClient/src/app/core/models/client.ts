@@ -10,9 +10,11 @@ export interface Client{
     preferredPaymentMethod: number;
     ivaCondition: string;
     balance?: number;
+    previousBalance?: number;
     currentRent?: number;
     increaseAnchorDate?: string;
     pendingSurcharge?: number;
+    interestAmount?: number;
     lastGeneratedMonthYear?: string;
     nextPaymentDay?: Date | string | null;
     nextIncreaseDay?: Date | string | null;

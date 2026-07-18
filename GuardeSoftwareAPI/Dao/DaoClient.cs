@@ -56,8 +56,10 @@ namespace GuardeSoftwareAPI.Dao
                     r.pending_surcharge AS PendingSurcharge,
                     ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS rent_amount,
                     ISNULL(step1.UI_Balance, 0) AS balance,
+                    ISNULL(step1.UI_PreviousBalance, 0) AS PreviousBalance,
                     ISNULL(step1.UI_InterestAmount, 0) AS interest_amount,
-                    ISNULL(db.MonthYearDB, '') AS last_generated_month_year
+                    ISNULL(db.MonthYearDB, '') AS last_generated_month_year,
+                    step1.LastBalanceDate AS next_payment_day
                 FROM clients c
                 LEFT JOIN rentals r
                     ON c.client_id = r.client_id
@@ -501,7 +503,8 @@ namespace GuardeSoftwareAPI.Dao
                             SELECT clh.client_id
                             FROM client_locker_history clh
                             JOIN lockers l ON clh.locker_id = l.locker_id
-                            WHERE l.warehouse_id IN ({inClause})
+                            JOIN clients cl ON clh.client_id = cl.client_id
+                            WHERE l.warehouse_id IN ({inClause}) AND cl.active = 0
                         )
                     ) ");
             }
@@ -820,9 +823,7 @@ namespace GuardeSoftwareAPI.Dao
                                     SELECT chl.identifier, chl.warehouse_name
                                     FROM ClientHistoricalLockers chl
                                     WHERE chl.client_id = c.client_id
-                                      AND NOT EXISTS (
-                                          SELECT 1 FROM lockers l_ex WHERE r.rental_id IS NOT NULL AND l_ex.rental_id = r.rental_id AND l_ex.active = 1
-                                      )
+                                      AND c.active = 0
                                 ) loc2
                                 GROUP BY loc2.warehouse_name
                                 FOR JSON PATH
@@ -835,9 +836,7 @@ namespace GuardeSoftwareAPI.Dao
                             SELECT chl.identifier
                             FROM ClientHistoricalLockers chl
                             WHERE chl.client_id = c.client_id
-                              AND NOT EXISTS (
-                                  SELECT 1 FROM lockers l_ex WHERE r.rental_id IS NOT NULL AND l_ex.rental_id = r.rental_id AND l_ex.active = 1
-                              )
+                              AND c.active = 0
                         ) loc
                     ) locker_sub
                     LEFT JOIN ( SELECT r.client_id, SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid FROM rentals r WHERE r.active = 1 GROUP BY r.client_id ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id

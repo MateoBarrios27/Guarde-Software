@@ -17,10 +17,13 @@ namespace GuardeSoftwareAPI.Entities
         public bool ReceiveCommunications { get; set; } = true;
         public bool? Active { get; set; }
         public decimal? Balance {get; set;}
+        public decimal? PreviousBalance { get; set; }
         public decimal? CurrentRent { get; set; }
         public DateTime? IncreaseAnchorDate { get; set; }
         public decimal? PendingSurcharge { get; set; }
+        public decimal? InterestAmount { get; set; }
         public string? LastGeneratedMonthYear { get; set; }
+        public DateTime? NextPaymentDay { get; set; }
         public string? Color { get; set; }
         public string? Comment { get; set; }
         public DateTime? CommentUpdatedAt { get; set; }

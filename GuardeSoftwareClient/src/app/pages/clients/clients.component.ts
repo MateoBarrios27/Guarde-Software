@@ -692,6 +692,24 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.onClientColorChange(cliente);
   }
 
+  getCellStyle(cliente: TableClient, position?: 'first' | 'last'): { [key: string]: string } {
+    if (!cliente || !cliente.color) {
+      return { 'border-bottom': '1px solid #e5e7eb' };
+    }
+    const color = cliente.color;
+    const topBottomBorder = `1px solid ${color}B3`;
+    const styles: { [key: string]: string } = {
+      'border-top': topBottomBorder,
+      'border-bottom': topBottomBorder
+    };
+    if (position === 'first') {
+      styles['border-left'] = `3px solid ${color}`;
+    } else if (position === 'last') {
+      styles['border-right'] = topBottomBorder;
+    }
+    return styles;
+  }
+
   @HostListener('document:click', ['$event'])
   onClickOutside(event: Event): void {
     if (this.activeCommentClient) {
