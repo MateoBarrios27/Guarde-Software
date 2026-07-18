@@ -1681,16 +1681,38 @@ export class FinancesComponent implements OnInit {
           ${moneyBoxesHtml}
 
           <!-- Tarjetas KPI (Dinero Cobrado vs Deuda Neta Cancelada) -->
-          <div class="grid grid-cols-2 gap-3">
-            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 shadow-2xs">
-              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Dinero Cobrado</span>
-              <span id="swal-cobrado-display" class="text-xl font-black text-slate-900 tabular-nums">${formatARS(calcObj.amountEntered + (isImmediate ? interestAmt : 0))}</span>
+          ${(!calcObj.isSurcharge && !calcObj.isDiscount) ? `
+          <div class="my-4 p-3.5 rounded-xl bg-gradient-to-r from-slate-50 to-indigo-50/40 border border-slate-200/80 shadow-2xs flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-indigo-100/70 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <div>
+                <span class="text-xs font-bold text-slate-800 tracking-wide block leading-tight">Total Cobrado & Acreditado</span>
+                <span class="text-[10px] text-slate-500 font-medium block mt-0.5 leading-tight">Sin recargos ni descuentos del método</span>
+              </div>
             </div>
-            <div class="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 shadow-2xs">
-              <span class="text-[10px] font-bold text-blue-600 uppercase tracking-wider block mb-1">Deuda Neta Cancelada</span>
-              <span id="swal-debt-display" class="text-xl font-black text-blue-800 tabular-nums">$0.00</span>
+            <span id="swal-cobrado-display" class="text-lg font-black text-slate-900 tabular-nums shrink-0">${formatARS(calcObj.amountEntered + (isImmediate ? interestAmt : 0))}</span>
+            <span id="swal-debt-display" class="hidden">${formatARS(calcObj.equivalentDebtPaid + (isImmediate ? interestAmt : 0))}</span>
+          </div>
+          ` : `
+          <div class="grid grid-cols-2 gap-3 my-4">
+            <div class="p-3 rounded-xl bg-slate-50/90 border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+              <div>
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block leading-tight">Dinero Cobrado</span>
+                <span class="text-[10px] text-slate-400 font-medium block leading-tight">Ingreso bruto a caja</span>
+              </div>
+              <span id="swal-cobrado-display" class="text-base sm:text-lg font-black text-slate-900 tabular-nums self-end sm:self-auto">${formatARS(calcObj.amountEntered + (isImmediate ? interestAmt : 0))}</span>
+            </div>
+            <div class="p-3 rounded-xl ${calcObj.isDiscount ? 'bg-emerald-50/90 border-emerald-200/80' : 'bg-indigo-50/90 border-indigo-200/80'} shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+              <div>
+                <span class="text-[10px] font-bold ${calcObj.isDiscount ? 'text-emerald-700' : 'text-indigo-700'} uppercase tracking-wider block leading-tight">Deuda Cancelada</span>
+                <span class="text-[10px] ${calcObj.isDiscount ? 'text-emerald-600' : 'text-indigo-600'} font-medium block leading-tight">Acreditación neta</span>
+              </div>
+              <span id="swal-debt-display" class="text-base sm:text-lg font-black ${calcObj.isDiscount ? 'text-emerald-900' : 'text-indigo-900'} tabular-nums self-end sm:self-auto">${formatARS(calcObj.equivalentDebtPaid + (isImmediate ? interestAmt : 0))}</span>
             </div>
           </div>
+          `}
 
           <!-- Cascada de Pagos -->
           <div class="p-4 rounded-xl border border-gray-200/80 bg-white shadow-2xs">
