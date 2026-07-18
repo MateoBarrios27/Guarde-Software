@@ -33,6 +33,7 @@ namespace GuardeSoftwareAPI.Dtos.Payment
         public decimal? NewRentAmount { get; set; }
         public bool SkipFutureProjection { get; set; } = false;
         public List<PaymentIncreaseDto> AppliedIncreases { get; set; } = new List<PaymentIncreaseDto>();
-        
+        public string? SurchargeAction { get; set; }
+        public decimal? SurchargeAmount { get; set; }
     }
 }

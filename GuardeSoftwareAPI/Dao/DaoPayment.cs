@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Data;
 using System.Threading.Tasks;
 using GuardeSoftwareAPI.Entities;
@@ -151,7 +151,7 @@ namespace GuardeSoftwareAPI.Dao
             {
                 // 1. Buscamos si el movimiento tiene un pago (padre) asociado
                 int? paymentIdToDelete = null;
-                string getPaymentIdQuery = "SELECT payment_id FROM account_movements WHERE movement_id = @MovementId";
+                string getPaymentIdQuery = "SELECT payment_id FROM account_movements WHERE movement_id = @MovementId AND movement_type = 'CREDITO'";
                 
                 using (var cmdCheck = new SqlCommand(getPaymentIdQuery, connection, transaction))
                 {
@@ -211,7 +211,7 @@ namespace GuardeSoftwareAPI.Dao
         {
             // 1. Buscamos si el movimiento tiene un pago (padre) asociado
             int? paymentIdToDelete = null;
-            string getPaymentIdQuery = "SELECT payment_id FROM account_movements WHERE movement_id = @MovementId";
+            string getPaymentIdQuery = "SELECT payment_id FROM account_movements WHERE movement_id = @MovementId AND movement_type = 'CREDITO'";
 
             using (var cmdCheck = new SqlCommand(getPaymentIdQuery, connection, transaction))
             {

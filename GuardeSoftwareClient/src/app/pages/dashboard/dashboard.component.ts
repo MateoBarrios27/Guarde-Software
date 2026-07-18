@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { PendingRentalDTO } from '../../core/dtos/rental/PendingRentalDTO';
 import { RentalService } from '../../core/services/rental-service/rental.service';
 import { PaymentService } from '../../core/services/payment-service/payment.service';
@@ -47,7 +47,9 @@ export class DashboardComponent implements OnInit {
   selectedClientName = '';
   selectedPaymentIdentifier = 0;
   selectedBalance = 0;
+  selectedPreviousBalance = 0;
   selectedCurrentRent = 0;
+  selectedMonthsUnpaid = 0;
   receiptDateStr: string = '';
   
   //receipt modal
@@ -85,7 +87,13 @@ export class DashboardComponent implements OnInit {
   increasePromptReason: string = '';
   increasePercentage: number = 0;
   currentIncreaseFlow: 'advance' | 'normal' | 'none' = 'none';
+  isPreviousBalanceSelected: boolean = false;
   public selectedPendingSurcharge: number = 0;
+  public selectedInterestAmount: number = 0;
+  public selectedSurchargeAction: string = 'next_payment';
+  public applyScenarioCInterest: boolean = false;
+  public selectedNextPaymentDay: Date | string | null = null;
+  public customScenarioCInterest: number | null = null;
 
   constructor(
     private rentalService: RentalService,
@@ -105,6 +113,73 @@ export class DashboardComponent implements OnInit {
       style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2
     }).format(value);
   };
+
+  formatARSInput(value: number): string {
+    return new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value || 0);
+  }
+
+  attachCurrencyFormatListener(inputEl: HTMLInputElement, onChangeCallback: (val: number) => void) {
+    inputEl.addEventListener('input', (event: any) => {
+      const input = event.target as HTMLInputElement;
+      let val = input.value;
+      let cursorPosition = input.selectionStart || 0;
+      const originalLength = val.length;
+      const isNegative = val.startsWith('-');
+
+      val = val.replace(/[^0-9,]/g, '');
+      let parts = val.split(',');
+      if (parts.length > 2) {
+        parts.pop(); 
+        val = parts.join(',');
+      }
+      if (parts.length === 2 && parts[1].length > 2) {
+        parts[1] = parts[1].substring(0, 2);
+      }
+      let integerPart = parts[0];
+      if (integerPart) {
+        integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      }
+      let formattedStr = integerPart;
+      if (parts.length > 1) {
+        formattedStr += ',' + parts[1];
+      } else if (val.endsWith(',')) {
+        formattedStr += ',';
+      }
+      if (isNegative) {
+        formattedStr = formattedStr !== '' ? '-' + formattedStr : '-';
+      }
+      input.value = formattedStr;
+      const newLength = formattedStr.length;
+      cursorPosition = cursorPosition + (newLength - originalLength);
+      if (cursorPosition < 0) cursorPosition = 0;
+      setTimeout(() => input.setSelectionRange(cursorPosition, cursorPosition), 0);
+
+      const cleanValue = formattedStr.replace(/\./g, '').replace(',', '.');
+      const numberValue = parseFloat(cleanValue);
+      onChangeCallback(isNaN(numberValue) ? 0 : numberValue);
+    });
+
+    inputEl.addEventListener('blur', () => {
+      const val = inputEl.value;
+      if (val === '-' || !val) {
+        onChangeCallback(0);
+        inputEl.value = '';
+        return;
+      }
+      const cleanValue = val.replace(/\./g, '').replace(',', '.');
+      const numberValue = parseFloat(cleanValue);
+      if (!isNaN(numberValue)) {
+        onChangeCallback(numberValue);
+        inputEl.value = this.formatARSInput(numberValue);
+      } else {
+        onChangeCallback(0);
+        inputEl.value = '';
+      }
+    });
+  }
 
   LoadPedingRentals(): void{
     this.rentalService.getPendingRentals().subscribe({
@@ -140,6 +215,92 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  getPaymentDay(): number {
+    if (!this.paymentDto || !this.paymentDto.date) return new Date().getDate();
+    return new Date(this.paymentDto.date).getDate();
+  }
+
+  isNextPaymentInNextMonthOrLater(): boolean {
+    const nextDate = this.selectedNextPaymentDay;
+    if (!nextDate) return false;
+    const d = new Date(nextDate);
+    const payDate = new Date(this.paymentDto?.date || new Date());
+    const nextMonthIndex = d.getFullYear() * 12 + d.getMonth();
+    const payMonthIndex = payDate.getFullYear() * 12 + payDate.getMonth();
+    return nextMonthIndex > payMonthIndex;
+  }
+
+  isPotentiallyDuplicate(): boolean {
+    if (this.paymentDto?.isAdvancePayment || this.isPreviousBalanceSelected) return false;
+    return this.isNextPaymentInNextMonthOrLater() || this.selectedBalance >= 0;
+  }
+
+  getSurchargeScenario(): 'A' | 'B' | 'C' | 'D' {
+    if (this.isPreviousBalanceSelected) return 'D';
+    const day = this.getPaymentDay();
+    const hasSurcharge = (this.selectedPendingSurcharge > 0);
+    if (hasSurcharge && day <= 10) return 'A';
+    if (hasSurcharge && day > 10) return 'B';
+    if (!hasSurcharge && day > 10 && this.selectedCurrentRent > 0 && !this.isNextPaymentInNextMonthOrLater()) return 'C';
+    if (this.paymentDto?.isAdvancePayment) return 'D';
+    return 'D';
+  }
+
+  calculateInterestAmount(): number {
+    const scenario = this.getSurchargeScenario();
+    if (scenario === 'A' || scenario === 'B') {
+      return this.selectedPendingSurcharge;
+    }
+    if (scenario === 'C') {
+      if (this.customScenarioCInterest !== null) {
+        return this.customScenarioCInterest;
+      }
+      const baseImponible = (this.selectedInterestAmount || 0) + (this.selectedCurrentRent || 0);
+      const rawPenalty = baseImponible * 0.10;
+      return Math.floor(rawPenalty / 100) * 100;
+    }
+    return 0;
+  }
+
+  modifyInterestAmount(fromSummary: boolean = false): void {
+    const scenario = this.getSurchargeScenario();
+    const currentAmt = (scenario === 'C') ? this.calculateInterestAmount() : (this.selectedPendingSurcharge || 0);
+
+    Swal.fire({
+      title: 'Modificar Monto de Recargo / Interés',
+      input: 'text',
+      inputValue: this.formatARSInput(currentAmt),
+      text: 'Ingresá el nuevo monto que deseas aplicar o registrar por mora:',
+      showCancelButton: true,
+      confirmButtonText: 'Guardar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#2563eb',
+      didOpen: () => {
+        const inputEl = Swal.getInput();
+        if (inputEl) {
+          this.attachCurrencyFormatListener(inputEl, () => {});
+        }
+      },
+      preConfirm: (value) => {
+        if (!value) return 0;
+        const cleanVal = value.replace(/\./g, '').replace(',', '.');
+        const parsed = parseFloat(cleanVal);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+    }).then((result) => {
+      if (result.isConfirmed && result.value !== undefined) {
+        if (scenario === 'C') {
+          this.customScenarioCInterest = result.value;
+        } else {
+          this.selectedPendingSurcharge = result.value;
+        }
+        if (fromSummary) {
+          setTimeout(() => this.showSummarySwal(), 0);
+        }
+      }
+    });
+  }
+
   getNamePaymentMethodById(id: number | string | null | undefined): string {
     if (id === null || id === undefined) return 'Desconocido';
     const numericId = Number(id);
@@ -155,19 +316,31 @@ export class DashboardComponent implements OnInit {
     this.selectedClientName = item.clientName ?? '';
     this.selectedPaymentIdentifier = Number(item.paymentIdentifier ?? 0);
     this.selectedBalance = Number(item.balance ?? 0);
+    this.selectedPreviousBalance = Number(item.previousBalance ?? 0);
     this.selectedCurrentRent = Number(item.currentRent ?? 0);
+    this.selectedMonthsUnpaid = Number(item.monthsUnpaid ?? 0);
     this.selectedIncreaseAnchorDate = item.increaseAnchorDate ?? null;
     this.selectedPendingSurcharge = Number(item.pendingSurcharge ?? 0);
+    this.selectedInterestAmount = Number(item.interestAmount ?? 0);
+    this.selectedNextPaymentDay = item.nextPaymentDay ?? null;
+    this.selectedSurchargeAction = 'next_payment';
+    this.applyScenarioCInterest = false;
+    this.customScenarioCInterest = null;
     
     this.increaseResolved = false;
     this.increasePercentage = 0;
     this.showIncreaseOverlay = false;
     this.currentIncreaseFlow = 'none';
+    this.isPreviousBalanceSelected = false;
 
     // Sugerencia inteligente de monto
     const suggestedAmount = this.selectedBalance < 0 
         ? Math.abs(this.selectedBalance) 
         : this.selectedCurrentRent;
+
+    if (this.selectedPreviousBalance < 0 && suggestedAmount === Math.abs(Number(this.selectedPreviousBalance)) && suggestedAmount > 0) {
+      this.isPreviousBalanceSelected = true;
+    }
 
     this.paymentDto = {
       clientId: item.clientId ?? 0,
@@ -180,7 +353,11 @@ export class DashboardComponent implements OnInit {
       advanceMonths: 0
     };
 
-    this.updateConceptFromDate(now);
+    if (this.isPreviousBalanceSelected) {
+      this.paymentDto.concept = 'Pago de saldo anterior';
+    } else {
+      this.updateConceptFromDate(now);
+    }
     this.dateString = now.toISOString().split('T')[0];
     this.showPaymentModal = true;
     this.manualDateEnabled = false;
@@ -189,8 +366,25 @@ export class DashboardComponent implements OnInit {
     this.onAmountChange(this.paymentDto.amount);
   }
 
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeKey(event: KeyboardEvent): void {
+    if (this.showIncreaseOverlay) {
+      this.skipIncrease();
+      return;
+    }
+    if (this.showReceiptModal) {
+      this.closeReceiptModal();
+      return;
+    }
+    if (this.showPaymentModal) {
+      this.closePaymentModal();
+      return;
+    }
+  }
+
   closePaymentModal() { 
     this.showPaymentModal = false;
+    this.selectedPreviousBalance = 0;
     this.manualDateEnabled = false;
     this.showIncreaseOverlay = false;
     this.currentIncreaseFlow = 'none';
@@ -240,6 +434,19 @@ export class DashboardComponent implements OnInit {
           this.commision = 0;
           this.newAmount = 0;
       }
+
+      if (this.selectedPreviousBalance !== 0 && (newAmount === Math.abs(Number(this.selectedPreviousBalance)) || this.newAmount === Math.abs(Number(this.selectedPreviousBalance))) && newAmount > 0) {
+          this.isPreviousBalanceSelected = true;
+          this.paymentDto.concept = 'Pago de saldo anterior';
+      } else if (this.isPreviousBalanceSelected && newAmount !== Math.abs(Number(this.selectedPreviousBalance)) && this.newAmount !== Math.abs(Number(this.selectedPreviousBalance))) {
+          this.isPreviousBalanceSelected = false;
+          let targetDate = this.manualDateEnabled && this.dateString ? new Date(this.dateString) : new Date();
+          if (this.paymentDto.isAdvancePayment) {
+              this.updateAdvanceConcept();
+          } else {
+              this.updateConceptFromDate(targetDate);
+          }
+      }
   }
 
   onDebtCancelChange(debtCancelled: number) {
@@ -263,6 +470,57 @@ export class DashboardComponent implements OnInit {
           this.commision = 0;
           this.newAmount = 0;
       }
+
+      if (this.selectedPreviousBalance < 0 && debtCancelled === Math.abs(Number(this.selectedPreviousBalance)) && debtCancelled > 0) {
+          this.isPreviousBalanceSelected = true;
+          this.paymentDto.concept = 'Pago de saldo anterior';
+      } else if (this.isPreviousBalanceSelected && debtCancelled !== Math.abs(Number(this.selectedPreviousBalance))) {
+          this.isPreviousBalanceSelected = false;
+          let targetDate = this.manualDateEnabled && this.dateString ? new Date(this.dateString) : new Date();
+          if (this.paymentDto.isAdvancePayment) {
+              this.updateAdvanceConcept();
+          } else {
+              this.updateConceptFromDate(targetDate);
+          }
+      }
+  }
+
+  isPaymentMethodDifferent(): boolean {
+    return Number(this.paymentDto?.paymentMethodId ?? 0) !== Number(this.selectedPreferredPaymentId ?? 0);
+  }
+
+  usePreviousBalance(): void {
+    if (this.selectedPreviousBalance < 0) {
+      this.isPreviousBalanceSelected = true;
+      this.paymentDto.amount = Math.abs(Number(this.selectedPreviousBalance));
+      this.paymentDto.concept = 'Pago de saldo anterior';
+      this.onAmountChange(this.paymentDto.amount);
+    }
+  }
+
+  getAbsolutePreviousBalance(): number {
+    return Math.abs(Number(this.selectedPreviousBalance ?? 0));
+  }
+
+  getTotalDebtAmount(): number {
+    return this.selectedBalance < 0 
+        ? Math.abs(this.selectedBalance) 
+        : this.selectedCurrentRent;
+  }
+
+  useTotalDebt(): void {
+    const totalDebt = this.getTotalDebtAmount();
+    if (totalDebt > 0) {
+      this.isPreviousBalanceSelected = false;
+      this.paymentDto.amount = totalDebt;
+      this.onAmountChange(this.paymentDto.amount);
+      const targetDate = this.manualDateEnabled && this.dateString ? new Date(this.dateString) : new Date();
+      if (this.paymentDto.isAdvancePayment) {
+        this.updateAdvanceConcept();
+      } else {
+        this.updateConceptFromDate(targetDate);
+      }
+    }
   }
 
   filterPendingRentals(): void {
@@ -301,6 +559,10 @@ export class DashboardComponent implements OnInit {
   }  
 
   private updateConceptFromDate(date: Date) {
+    if (this.isPreviousBalanceSelected) {
+      this.paymentDto.concept = 'Pago de saldo anterior';
+      return;
+    }
     const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
     const monthName = monthNames[date.getMonth()];
     this.paymentDto.concept = `Pago alquiler ${monthName}`;
@@ -322,6 +584,7 @@ export class DashboardComponent implements OnInit {
   }
 
   private updateAdvanceConcept() {
+    this.isPreviousBalanceSelected = false;
     const months = this.paymentDto.advanceMonths;
     if (months === null || months === undefined || months === 0) {
       this.paymentDto.concept = 'Pago adelantado';
@@ -457,6 +720,8 @@ export class DashboardComponent implements OnInit {
     this.hasIncreaseInPeriod = false;
     this.isIncreaseNextMonth = false;
 
+    if (this.isPreviousBalanceSelected) return;
+
     if (!this.selectedIncreaseAnchorDate) return;
 
     const anchorString = this.selectedIncreaseAnchorDate.split('T')[0];
@@ -492,20 +757,13 @@ export class DashboardComponent implements OnInit {
     }
 
     const farthestMonthValue = farthestYear * 100 + farthestMonth;
+    const nextMonth = this.addMonths(farthestYear, farthestMonth, 1);
+    const nextMonthValue = nextMonth.year * 100 + nextMonth.month;
 
     if (anchorValue >= currentMonthValue && anchorValue <= farthestMonthValue) {
       this.hasIncreaseInPeriod = true;
-    }
-
-    if (!this.hasIncreaseInPeriod) {
-      const nextCoverageMonth = this.addMonths(farthestYear, farthestMonth, 1);
-      const nextMonth = nextCoverageMonth.month;
-      const nextYear = nextCoverageMonth.year;
-      const nextMonthValue = nextYear * 100 + nextMonth;
-
-      if (anchorValue === nextMonthValue) {
-          this.isIncreaseNextMonth = true;
-      }
+    } else if (anchorValue === nextMonthValue || (anchorValue > farthestMonthValue && anchorValue <= nextMonthValue)) {
+      this.isIncreaseNextMonth = true;
     }
   }
 
@@ -647,48 +905,254 @@ export class DashboardComponent implements OnInit {
 
     let commissionHtml = '';
     if (calc.isSurcharge) {
-        commissionHtml = `<div class="flex justify-between text-sm text-orange-600 mt-1 pt-2 border-t border-gray-200"><span>Porción retenida por comisión</span><span class="font-bold">- ${this.formatARS(calc.difference)}</span></div>`;
+        commissionHtml = `<div class="flex justify-between items-center text-sm text-orange-700 font-semibold mt-3 pt-2.5 border-t border-gray-200"><span>Porción retenida por comisión / recargo</span><span class="font-bold">- ${this.formatARS(calc.difference)}</span></div>`;
     } else if (calc.isDiscount) {
-        commissionHtml = `<div class="flex justify-between text-sm text-green-600 mt-1 pt-2 border-t border-gray-200"><span>Bonificación a favor aplicada</span><span class="font-bold">+ ${this.formatARS(calc.difference)}</span></div>`;
+        commissionHtml = `<div class="flex justify-between items-center text-sm text-emerald-700 font-semibold mt-3 pt-2.5 border-t border-gray-200"><span>Bonificación a favor aplicada</span><span class="font-bold">+ ${this.formatARS(calc.difference)}</span></div>`;
     } else {
-        commissionHtml = `<div class="mt-2 text-xs text-gray-500">Mismo método de pago habitual. Sin diferencias.</div>`;
+        commissionHtml = `<div class="mt-3 pt-2.5 border-t border-gray-200 text-xs text-gray-500 font-medium flex items-center justify-between"><span>Método de pago habitual</span><span class="text-green-600 font-bold">Sin diferencias ($0.00)</span></div>`;
     }
 
+    const clientName = this.selectedClientName || 'Cliente';
+    const clientNumber = this.selectedPaymentIdentifier || '';
+    const methodName = this.getNamePaymentMethodById(this.paymentDto.paymentMethodId);
+    const dateStr = new Date(this.paymentDto.date).toLocaleDateString('es-AR');
+
+    const scenario = this.getSurchargeScenario();
+    const interestAmt = this.calculateInterestAmount();
+    const isImmediate = (scenario === 'B' && this.selectedSurchargeAction === 'immediate') ||
+                        (scenario === 'C' && this.applyScenarioCInterest && this.selectedSurchargeAction === 'immediate');
+
+    const isPotentiallyDuplicate = this.isPotentiallyDuplicate();
+    let warningBannerHtml = isPotentiallyDuplicate ? `
+        <div class="bg-amber-50/90 border border-amber-200/80 px-3.5 py-2.5 mb-4 rounded-xl text-left flex items-center justify-between gap-3 shadow-2xs">
+          <div class="flex items-center gap-2">
+            <h4 class="text-xs font-bold text-amber-900 uppercase tracking-wider m-0">Posible réplica de pago / Al día</h4>
+          </div>
+          <span class="bg-amber-100/90 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold shrink-0">Al día</span>
+        </div>` : '';
+
+    let surchargeBannerHtml = '';
+    if (scenario === 'A') {
+      surchargeBannerHtml = `
+        <div class="bg-emerald-50/90 border border-emerald-200/80 p-3.5 mb-4 rounded-xl text-left flex items-start justify-between gap-3 shadow-2xs">
+          <div>
+            <h4 class="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
+              <span>Recargo por mora condonado</span>
+              <button type="button" id="swal-edit-interest-btn-a" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-emerald-300 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors shadow-2xs">Modificar monto</button>
+            </h4>
+            <p class="text-xs text-emerald-700 mt-0.5">El recargo pendiente de <span class="font-bold">${this.formatARS(this.selectedPendingSurcharge)}</span> será eliminado automáticamente porque el pago se registra dentro del plazo (día 10 o antes).</p>
+          </div>
+          <span class="bg-emerald-100/90 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día ≤ 10</span>
+        </div>`;
+    } else if (scenario === 'B') {
+      surchargeBannerHtml = `
+        <div class="bg-amber-50/90 border border-amber-200/80 p-4 rounded-xl mb-4 text-left shadow-2xs space-y-3">
+          <div class="flex items-start justify-between gap-3 border-b border-amber-200/60 pb-2.5">
+            <div>
+              <h4 class="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
+                <span>Recargo por mora pendiente (${this.formatARS(this.selectedPendingSurcharge)})</span>
+                <button type="button" id="swal-edit-interest-btn-b" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Modificar monto</button>
+              </h4>
+              <p class="text-xs text-amber-700 mt-0.5">El cliente registra un recargo por pago fuera de término. Seleccioná cómo aplicarlo:</p>
+            </div>
+            <span class="bg-amber-100/90 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día > 10</span>
+          </div>
+          <div class="space-y-2 pt-1 text-xs font-semibold text-amber-900">
+            <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-amber-100/60 transition-colors">
+              <input type="radio" name="swal-surcharge-action" value="next_payment" ${this.selectedSurchargeAction === 'next_payment' ? 'checked' : ''} class="text-amber-600 focus:ring-amber-500 w-4 h-4">
+              <span>Cobrar en próximo pago (por defecto)</span>
+            </label>
+            <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-amber-100/60 transition-colors">
+              <input type="radio" name="swal-surcharge-action" value="immediate" ${this.selectedSurchargeAction === 'immediate' ? 'checked' : ''} class="text-amber-600 focus:ring-amber-500 w-4 h-4">
+              <span>Cobrar ahora (se suma al pago actual)</span>
+            </label>
+            <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-amber-100/60 transition-colors">
+              <input type="radio" name="swal-surcharge-action" value="forgive" ${this.selectedSurchargeAction === 'forgive' ? 'checked' : ''} class="text-amber-600 focus:ring-amber-500 w-4 h-4">
+              <span>Condonar recargo (no cobrar)</span>
+            </label>
+          </div>
+        </div>`;
+    } else if (scenario === 'C') {
+      const baseImp = (this.selectedInterestAmount || 0) + (this.selectedCurrentRent || 0);
+      surchargeBannerHtml = `
+        <div class="bg-amber-50/90 border border-amber-200/80 p-4 rounded-xl mb-4 text-left shadow-2xs space-y-3">
+          <div class="flex items-start justify-between gap-3 border-b border-amber-200/60 pb-2.5">
+            <div>
+              <h4 class="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
+                <span>Aplicar intereses por mora (${this.formatARS(interestAmt)})</span>
+                <button type="button" id="swal-edit-interest-btn-c" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Modificar monto</button>
+              </h4>
+              <p class="text-xs text-amber-700 mt-0.5">Fecha posterior al día 10. Cálculo: 10% de base imponible (${this.formatARS(baseImp)}).</p>
+            </div>
+            <label class="flex items-center gap-2 cursor-pointer shrink-0 pt-1">
+              <input type="checkbox" id="swal-apply-scenario-c" ${this.applyScenarioCInterest ? 'checked' : ''} class="rounded text-amber-600 focus:ring-amber-500 w-4 h-4">
+              <span class="text-xs font-bold text-amber-900">Aplicar</span>
+            </label>
+          </div>
+          <div id="swal-scenario-c-options" class="space-y-2 pt-1 text-xs font-semibold text-amber-900 ${!this.applyScenarioCInterest ? 'hidden' : ''}">
+            <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-amber-100/60 transition-colors">
+              <input type="radio" name="swal-surcharge-action-c" value="next_payment" ${this.selectedSurchargeAction === 'next_payment' ? 'checked' : ''} class="text-amber-600 focus:ring-amber-500 w-4 h-4">
+              <span>Cobrar en próximo pago (por defecto)</span>
+            </label>
+            <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-amber-100/60 transition-colors">
+              <input type="radio" name="swal-surcharge-action-c" value="immediate" ${this.selectedSurchargeAction === 'immediate' ? 'checked' : ''} class="text-amber-600 focus:ring-amber-500 w-4 h-4">
+              <span>Cobrar ahora (se suma al pago actual)</span>
+            </label>
+          </div>
+        </div>`;
+    }
+
+    let moneyBoxesHtml = '';
+    if (this.paymentDto.isAdvancePayment || isImmediate) {
+        const displayTotalEntered = this.paymentDto.amount + (isImmediate ? interestAmt : 0);
+        moneyBoxesHtml = `
+          <div class="bg-indigo-50/70 border border-indigo-200/80 p-4 rounded-xl mb-4 text-left shadow-2xs">
+            <label class="block text-xs font-bold text-indigo-900 uppercase tracking-wider mb-2">
+              ${isImmediate ? 'Dinero entregado por el cliente (Modificable si paga de más o menos)' : 'Dinero entregado por el cliente'}
+            </label>
+            <div class="relative">
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-lg">$</span>
+              <input id="swal-custom-amount" type="text" value="${this.formatARSInput(displayTotalEntered)}" 
+                     class="w-full pl-8 pr-4 py-2.5 rounded-xl border border-indigo-300 font-bold text-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white shadow-xs">
+            </div>
+            <p class="text-xs text-indigo-700/80 mt-1.5 font-medium">
+              ${isImmediate ? 'Modificá este valor si el cliente entregó una suma diferente; la deuda neta cancelada se recalcula automáticamente.' : 'Modificá este valor si el cliente entregó una suma diferente.'}
+            </p>
+          </div>
+        `;
+    }
+
+    const displayAmountEntered = calc.amountEntered + (isImmediate ? interestAmt : 0);
+    const displayEquivalentDebtPaid = calc.equivalentDebtPaid + (isImmediate ? interestAmt : 0);
+
     Swal.fire({
-      title: 'Resumen de Transacción',
       html: `
-        <div class="text-left space-y-3">
-          <div class="pb-3 border-b border-gray-200">
-            <div class="text-sm text-gray-500">Método de pago utilizado</div>
-            <div class="text-base font-semibold text-gray-800">${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)}</div>
+        <div class="text-left space-y-4">
+          <!-- Cabecera limpia con estilo Figma/Notion -->
+          <div class="flex items-center justify-between pb-4 border-b border-gray-100">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-gray-900 leading-tight">Resumen de Cobranza</h3>
+                <p class="text-xs text-gray-500 font-medium mt-0.5">Confirmá los datos antes de registrar el ingreso</p>
+              </div>
+            </div>
           </div>
+
+          ${warningBannerHtml}
+          ${surchargeBannerHtml}
+          ${moneyBoxesHtml}
+
+          <!-- Tarjetas KPI (Dinero ingresado vs Deuda Cancelada) -->
           <div class="grid grid-cols-2 gap-3">
-            <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
-              <div class="text-sm text-gray-500">Dinero ingresado</div>
-              <div class="text-lg font-semibold text-gray-900">${this.formatARS(calc.amountEntered)}</div>
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 shadow-2xs">
+              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Dinero Cobrado</span>
+              <span id="swal-cobrado-display" class="text-xl font-black text-slate-900 tabular-nums">${this.formatARS(displayAmountEntered)}</span>
             </div>
-            <div class="p-3 rounded-lg ${calc.isDiscount ? 'bg-green-50 border-green-200' : (calc.isSurcharge ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200')}">
-              <div class="text-sm ${calc.isDiscount ? 'text-green-800' : (calc.isSurcharge ? 'text-orange-800' : 'text-blue-800')}">Deuda cancelada</div>
-              <div class="text-lg font-bold ${calc.isDiscount ? 'text-green-900' : (calc.isSurcharge ? 'text-orange-900' : 'text-blue-900')}">${this.formatARS(calc.equivalentDebtPaid)}</div>
+            <div class="p-4 rounded-xl ${calc.isDiscount ? 'bg-emerald-50 border-emerald-200/80' : (calc.isSurcharge ? 'bg-orange-50 border-orange-200/80' : 'bg-blue-50 border-blue-200/80')} shadow-2xs">
+              <span class="text-[10px] font-bold ${calc.isDiscount ? 'text-emerald-600' : (calc.isSurcharge ? 'text-orange-600' : 'text-blue-600')} uppercase tracking-wider block mb-1">Deuda Neta Cancelada</span>
+              <span id="swal-debt-display" class="text-xl font-black ${calc.isDiscount ? 'text-emerald-900' : (calc.isSurcharge ? 'text-orange-900' : 'text-blue-900')} tabular-nums">${this.formatARS(displayEquivalentDebtPaid)}</span>
             </div>
           </div>
-          <div class="p-4 rounded-lg border border-gray-200 bg-white">
-            <div class="text-base font-semibold text-gray-800 mb-2">Desglose de cuenta corriente</div>
-            <div class="flex justify-between text-sm text-gray-700">
-              <span>Acreditación base</span><span class="font-semibold">${this.formatARS(calc.amountEntered)}</span>
+
+          <!-- Desglose de Cuenta Corriente -->
+          <div class="p-4 rounded-xl border border-gray-200/80 bg-white shadow-2xs">
+            <div class="text-[11px] font-bold text-gray-400 mb-2 uppercase tracking-wider border-b border-gray-100 pb-2 flex items-center justify-between">
+              <span>Desglose de Acreditación</span>
+              <span>Monto</span>
             </div>
+            <div class="flex justify-between items-center py-2 text-sm text-gray-800">
+              <span class="font-bold">Acreditación base en cuenta</span>
+              <span class="font-bold tabular-nums">${this.formatARS(calc.amountEntered)}</span>
+            </div>
+            ${isImmediate ? `<div class="flex justify-between items-center py-2 text-sm text-amber-800 font-medium border-t border-gray-100"><span>Interés por mora (cobrado en el acto)</span><span class="font-bold tabular-nums">+ ${this.formatARS(interestAmt)}</span></div>` : ''}
             ${commissionHtml}
           </div>
         </div>
       `,
-      icon: 'info',
       showCancelButton: true,
-      confirmButtonText: 'Registrar pago',
+      confirmButtonText: 'Confirmar Transacción',
       cancelButtonText: 'Cancelar',
       buttonsStyling: false,
-      customClass: { confirmButton: 'bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-all duration-150 mx-2', cancelButton: 'bg-gray-200 text-gray-800 px-4 py-2 rounded-md', actions: 'flex justify-end mt-4', popup: 'rounded-xl shadow-lg p-4' }
+      width: '640px',
+      customClass: { 
+          confirmButton: 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-xs transition-all duration-150 mx-2 active:scale-95', 
+          cancelButton: 'bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm px-6 py-3 rounded-xl transition-all duration-150 active:scale-95', 
+          popup: '!rounded-2xl !p-6 shadow-xl border border-gray-100 bg-white'
+      },
+      didOpen: () => {
+          if (scenario === 'B') {
+            const radios = document.querySelectorAll('input[name="swal-surcharge-action"]');
+            radios.forEach(radio => {
+              radio.addEventListener('change', (e: any) => {
+                if (e.target.checked) {
+                  this.selectedSurchargeAction = e.target.value;
+                  Swal.close();
+                  setTimeout(() => this.showSummarySwal(), 0);
+                }
+              });
+            });
+          } else if (scenario === 'C') {
+            const chk = document.getElementById('swal-apply-scenario-c') as HTMLInputElement;
+            if (chk) {
+              chk.addEventListener('change', (e: any) => {
+                this.applyScenarioCInterest = e.target.checked;
+                Swal.close();
+                setTimeout(() => this.showSummarySwal(), 0);
+              });
+            }
+            const radiosC = document.querySelectorAll('input[name="swal-surcharge-action-c"]');
+            radiosC.forEach(radio => {
+              radio.addEventListener('change', (e: any) => {
+                if (e.target.checked) {
+                  this.selectedSurchargeAction = e.target.value;
+                  Swal.close();
+                  setTimeout(() => this.showSummarySwal(), 0);
+                }
+              });
+            });
+          }
+
+          const editBtnA = document.getElementById('swal-edit-interest-btn-a');
+          const editBtnB = document.getElementById('swal-edit-interest-btn-b');
+          const editBtnC = document.getElementById('swal-edit-interest-btn-c');
+          const handleEdit = () => { this.modifyInterestAmount(true); };
+          if (editBtnA) editBtnA.addEventListener('click', handleEdit);
+          if (editBtnB) editBtnB.addEventListener('click', handleEdit);
+          if (editBtnC) editBtnC.addEventListener('click', handleEdit);
+
+          const updateSummaryDisplays = (rawInputValue: number) => {
+              const baseAmt = Math.max(0, rawInputValue - (isImmediate ? interestAmt : 0));
+              const newCalc = this.getCalculatedAmounts(baseAmt, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
+              const cobradoEl = document.getElementById('swal-cobrado-display');
+              if (cobradoEl) cobradoEl.innerText = this.formatARS(newCalc.amountEntered + (isImmediate ? interestAmt : 0));
+              const debtEl = document.getElementById('swal-debt-display');
+              if (debtEl) debtEl.innerText = this.formatARS(newCalc.equivalentDebtPaid + (isImmediate ? interestAmt : 0));
+          };
+
+          const input = document.getElementById('swal-custom-amount') as HTMLInputElement;
+          if (input) {
+              this.attachCurrencyFormatListener(input, (newVal: number) => {
+                  updateSummaryDisplays(newVal);
+              });
+          }
+      },
+      preConfirm: () => {
+          const input = document.getElementById('swal-custom-amount') as HTMLInputElement;
+          if (input && input.value) {
+              const cleanVal = input.value.replace(/\./g, '').replace(',', '.');
+              const parsed = parseFloat(cleanVal);
+              if (!isNaN(parsed)) {
+                  return Math.max(0, parsed - (isImmediate ? interestAmt : 0));
+              }
+          }
+          return this.paymentDto.amount;
+      }
     }).then((result) => {
       if (result.isConfirmed) {
+        this.paymentDto.amount = result.value;
         if (this.currentIncreaseFlow === 'normal' && !this.increaseResolved) {
           this.increasePromptReason = 'El próximo mes le corresponde una actualización de abono.';
           this.calculateProjectedRent();
@@ -707,14 +1171,36 @@ export class DashboardComponent implements OnInit {
     const localDate = this.paymentDto.date;
     const adjustedDate = new Date(localDate.getTime() - (localDate.getTimezoneOffset() * 60000));
 
+    const scenario = this.getSurchargeScenario();
+    let action: string | undefined = undefined;
+    let amount: number | undefined = undefined;
+
+    if (scenario === 'A') {
+      action = 'forgive';
+      amount = this.selectedPendingSurcharge;
+    } else if (scenario === 'B') {
+      action = this.selectedSurchargeAction;
+      amount = this.selectedPendingSurcharge;
+    } else if (scenario === 'C') {
+      if (this.applyScenarioCInterest) {
+        action = this.selectedSurchargeAction;
+        amount = this.calculateInterestAmount();
+      } else {
+        action = 'forgive';
+        amount = 0;
+      }
+    }
+
     const payloadToSave: CreatePaymentDTO = {
       ...this.paymentDto,
       date: adjustedDate,
-      amount: calc.amountEntered,
+      amount: calc.amountEntered + ((action === 'immediate') ? (amount ?? 0) : 0),
       commissionAmount: calc.isSurcharge ? calc.difference : (calc.isDiscount ? -calc.difference : 0),
       commissionConcept: calc.isSurcharge 
           ? `Recargo por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)` 
-          : (calc.isDiscount ? `Bonificación por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)` : '')
+          : (calc.isDiscount ? `Bonificación por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)` : ''),
+      surchargeAction: action,
+      surchargeAmount: amount
     };
 
     this.paymentService.CreatePayment(payloadToSave).subscribe({

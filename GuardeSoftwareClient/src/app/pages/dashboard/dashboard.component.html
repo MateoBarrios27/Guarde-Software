@@ -181,105 +181,198 @@
 
 
 <div *ngIf="showPaymentModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
      (keydown.escape)="closePaymentModal()"
+     (click)="closePaymentModal()"
      tabindex="-1">
-
-  <div class="w-full max-w-3xl bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl shadow-2xl p-5 md:p-6 border border-indigo-200 flex flex-col max-h-[95vh] max-w-[85vh] relative animate-fadeIn"
+  <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
+  <div class="relative w-full max-w-3xl bg-white rounded-2xl shadow-[0_24px_60px_-15px_rgba(0,0,0,0.2)] border flex flex-col max-h-[92vh] overflow-hidden animate-fade-in-down"
+       [ngClass]="isPotentiallyDuplicate() ? 'border-2 border-amber-400' : 'border-gray-200/90'"
        (click)="$event.stopPropagation()">
 
-    <div class="flex items-center justify-between mb-4 border-b border-indigo-200/60 pb-3">
-      <h4 class="font-medium text-indigo-900 flex items-center gap-2 text-lg">
-        <app-icon name="dollar-sign" class="h-5 w-5"></app-icon>
-        Detalle del Pago
-      </h4>
-      <button type="button"
-              (click)="closePaymentModal()"
-              class="text-indigo-400 hover:text-indigo-800 transition-colors text-2xl leading-none">
-        ×
-      </button>
+    <!-- Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
+          <app-icon name="dollar-sign" class="w-5 h-5"></app-icon>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h4 class="text-base font-bold text-gray-900 tracking-tight">Registrar Pago</h4>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-100/70 text-indigo-700 border border-indigo-200/50">Cobranza</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-0.5">Ingresa los detalles del cobro y estado de cuenta del cliente</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono font-medium text-gray-400 bg-gray-100 rounded border border-gray-200">ESC</span>
+        <button type="button" (click)="closePaymentModal()" class="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition-all duration-150">
+          <app-icon name="x" class="w-4 h-4"></app-icon>
+        </button>
+      </div>
     </div>
 
-    <div class="text-sm flex-1 min-h-0 p-1 overflow-y-auto pr-1 space-y-4 custom-scrollbar">
+    <!-- Body / Form Content -->
+    <div class="p-6 overflow-y-auto flex-1 min-h-0 space-y-5 custom-scrollbar bg-white">
       
-      <div>
-        <label class="block mb-1.5 font-medium text-indigo-900">
-          Cliente seleccionado
-        </label>
-
-        <div class="bg-white/70 border rounded-md border-gray-200 overflow-hidden flex flex-col shadow-sm">
-          <div class="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x border-gray-200">
-            
-            <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
-              <label class="block font-medium text-indigo-900 truncate">
-                {{ selectedClientName }}
-              </label>
-              <p class="text-sm text-gray-500">
-                ID Pago: {{ selectedPaymentIdentifier }}
-              </p>
-            </div>
-
-            <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
-              <p class="block font-medium text-indigo-900 mb-0.5">
-                Saldo
-              </p>
-              <p class="text-sm text-gray-800 font-bold"
-                 [ngClass]="{'text-green-600': selectedBalance > 0, 'text-red-600': selectedBalance < 0}">
-                $ {{ selectedBalance | number:'1.2-2' }}
-              </p>
-            </div>
-
-            <div class="p-3 text-sm text-gray-700 flex flex-col justify-center">
-              <p class="block font-medium text-indigo-900 mb-0.5">
-                Pago mensual
-              </p>
-              <p class="text-sm text-gray-800">
-                $ {{ selectedCurrentRent | number:'1.2-2' }}
-              </p>
-            </div>
-
-          </div>
-
-          <div class="bg-indigo-50/50 border-t border-gray-200 p-2 px-3 text-xs md:text-sm text-gray-600 flex justify-between items-center">
-            <span>Método de pago del cliente:</span>
-            <span class="font-semibold text-indigo-900 px-2 py-0.5">
-              {{ getNamePaymentMethodById(selectedPreferredPaymentId) }}
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-400">
+            Detalle de Estado del Cliente
+          </label>
+          <div class="flex items-center gap-2 mt-1">
+            <span class="text-[11px] font-mono font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+              ID: {{ selectedPaymentIdentifier }}
+            </span>
+            <span class="text-[11px] font-bold px-2 py-0.5 rounded border"
+                  [ngClass]="{
+                    'bg-rose-50 text-rose-700 border-rose-200': selectedMonthsUnpaid > 0 || selectedBalance < 0,
+                    'bg-emerald-50 text-emerald-700 border-emerald-200': selectedMonthsUnpaid === 0 && selectedBalance >= 0
+                  }">
+              {{ selectedMonthsUnpaid > 0 ? selectedMonthsUnpaid + ' mes(es) pendiente(s)' : 'Al día' }}
             </span>
           </div>
         </div>
+        <span class="text-xs font-semibold text-indigo-700 bg-indigo-50/80 px-2.5 py-1 rounded-lg border border-indigo-100 self-start">
+          Método Pref: {{ getNamePaymentMethodById(selectedPreferredPaymentId) }}
+        </span>
       </div>
 
+      <!-- Client Status KPI Grid (Notion/Figma Style Card) -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="bg-slate-50/80 rounded-xl p-3 border border-slate-200/80 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between">
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <app-icon name="user" class="w-3.5 h-3.5 text-slate-500"></app-icon>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cliente</p>
+          </div>
+          <p class="text-sm sm:text-base font-extrabold text-gray-900 truncate" [title]="selectedClientName">
+            {{ selectedClientName || '—' }}
+          </p>
+        </div>
+
+        <div class="rounded-xl p-3 border shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between"
+             [ngClass]="{
+               'bg-emerald-50/80 border-emerald-200/80': selectedBalance > 0,
+               'bg-rose-50/80 border-rose-200/80': selectedBalance < 0,
+               'bg-gray-50/80 border-gray-200/80': selectedBalance === 0
+             }">
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <app-icon name="dollar-sign" class="w-3.5 h-3.5"
+                      [ngClass]="{
+                        'text-emerald-600': selectedBalance > 0,
+                        'text-rose-600': selectedBalance < 0,
+                        'text-gray-500': selectedBalance === 0
+                      }"></app-icon>
+            <p class="text-[10px] font-bold uppercase tracking-wider"
+               [ngClass]="{
+                 'text-emerald-700': selectedBalance > 0,
+                 'text-rose-700': selectedBalance < 0,
+                 'text-gray-500': selectedBalance === 0
+               }">Saldo en Cuenta</p>
+          </div>
+          <p class="text-sm sm:text-base font-extrabold tabular-nums"
+             [ngClass]="{
+               'text-emerald-900': selectedBalance > 0,
+               'text-rose-900': selectedBalance < 0,
+               'text-gray-900': selectedBalance === 0
+             }">
+            $ {{ selectedBalance | number:'1.2-2' }}
+          </p>
+        </div>
+
+        <div class="bg-indigo-50/60 rounded-xl p-3 border border-indigo-200/70 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between">
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <app-icon name="calendar" class="w-3.5 h-3.5 text-indigo-600"></app-icon>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Abono Mensual</p>
+          </div>
+          <p class="text-sm sm:text-base font-extrabold text-indigo-950 tabular-nums">$ {{ selectedCurrentRent | number:'1.2-2' }}</p>
+        </div>
+      </div>
+
+      <!-- Banner de Posible Pago Duplicado en Modal -->
+      <div *ngIf="isPotentiallyDuplicate()" class="bg-amber-50/90 border border-amber-200/80 px-3.5 py-2.5 rounded-xl flex items-center justify-between gap-3 animate-fade-in shadow-2xs mb-4">
+        <div class="flex items-center gap-2">
+          <app-icon name="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0"></app-icon>
+          <span class="text-xs font-bold text-amber-900 leading-tight uppercase tracking-wider">Posible réplica de pago / Al día</span>
+        </div>
+        <span class="bg-amber-100/90 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold shrink-0">Al día</span>
+      </div>
+
+      <!-- Banner de Recargo Pendiente en Modal -->
+      <div *ngIf="selectedPendingSurcharge > 0 && !isPreviousBalanceSelected" class="bg-amber-50/90 border border-amber-200/80 p-3 rounded-xl flex items-center justify-between gap-3 animate-fade-in shadow-2xs mb-4">
+        <div>
+          <p class="text-xs font-bold text-amber-900 leading-tight uppercase tracking-wider">Recargo por mora pendiente</p>
+          <p class="text-[11px] text-amber-700 mt-0.5 flex items-center gap-2">
+            <span>Monto registrado: <span class="font-bold">$ {{ selectedPendingSurcharge | number:'1.2-2' }}</span></span>
+            <button type="button" (click)="modifyInterestAmount()" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Modificar monto</button>
+          </p>
+        </div>
+        <span [ngClass]="getPaymentDay() <= 10 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-amber-100 text-amber-800 border-amber-300'" class="px-2.5 py-1 rounded-lg text-[10px] font-semibold border shrink-0">
+          {{ getPaymentDay() <= 10 ? 'A condonar (Día ≤ 10)' : 'Aplicable (Día > 10)' }}
+        </span>
+      </div>
+
+      <!-- Concept input -->
       <div>
-        <label class="block mb-1.5 font-medium text-indigo-900">
-          Concepto
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+          Concepto del pago
         </label>
         <input 
           type="text"
           [(ngModel)]="paymentDto.concept"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white/90 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm transition-all"
+          class="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-medium text-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all outline-none shadow-2xs"
           placeholder="Ej: Pago alquiler marzo"
         />
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Monto and Método de Pago (2 cols) + Cancela deuda por inline input -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label class="block mb-1.5 font-medium text-indigo-900">
-            Monto
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+            Monto Cobrado
           </label>
           <div class="relative">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
             <input
               type="text"
               appCurrencyFormat
+              (keydown.enter)="blurInput($event)"
               min="0.01"
               step="0.01"
               [(ngModel)]="paymentDto.amount"
-              (keydown.enter)="blurInput($event)"
               (ngModelChange)="onAmountChange($event)"
-              class="w-full pl-7 pr-2 py-2 border border-gray-300 rounded-md bg-white/90 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm transition-all"
+              placeholder="0.00"
+              class="w-full pl-8 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all outline-none shadow-2xs tabular-nums"
             />
           </div>
-          <div class="mt-1.5 flex items-center gap-1 text-[11px] text-indigo-700/80 font-medium">
+
+          <!-- Botones de Saldo Anterior y Monto Adeudado (Pagar Todo) -->
+          <div *ngIf="selectedPreviousBalance < 0 || (isPreviousBalanceSelected && getTotalDebtAmount() > 0)" class="mt-2.5 flex items-center flex-wrap gap-2 animate-fade-in">
+            <!-- Botón de Saldo Anterior -->
+            <button
+              *ngIf="selectedPreviousBalance < 0 && !isPreviousBalanceSelected"
+              type="button"
+              (click)="usePreviousBalance()"
+              class="text-[11px] text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100/90 border border-indigo-200/70 font-semibold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 active:scale-95 shadow-2xs"
+            >
+              <app-icon name="dollar-sign" class="text-indigo-600 w-3.5 h-3.5 shrink-0"></app-icon>
+              <span>Saldo anterior ($ {{ getAbsolutePreviousBalance() | number:'1.2-2' }})</span>
+            </button>
+
+            <!-- Botón de Monto Adeudado (Volver a pagar todo) -->
+            <button
+              *ngIf="isPreviousBalanceSelected && getTotalDebtAmount() > 0"
+              type="button"
+              (click)="useTotalDebt()"
+              class="text-[11px] font-semibold text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100/90 border border-emerald-200/70 px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 active:scale-95 shadow-2xs animate-fade-in"
+            >
+              <app-icon name="dollar-sign" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></app-icon>
+              <span>Monto adeudado / Pagar todo ($ {{ getTotalDebtAmount() | number:'1.2-2' }})</span>
+            </button>
+          </div>
+
+          <!-- Input de Cancela Deuda Condicional -->
+          <div *ngIf="isPaymentMethodDifferent()" class="mt-2.5 flex items-center gap-1.5 text-[11px] text-indigo-700 font-medium bg-indigo-50/60 px-2.5 py-1.5 rounded-lg border border-indigo-100/80 w-fit animate-fade-in">
             <span>Cancela deuda por: $</span>
             <input
               type="text"
@@ -289,19 +382,19 @@
               step="0.01"
               [(ngModel)]="newAmount"
               (ngModelChange)="onDebtCancelChange($event)"
-              class="w-24 px-1.5 py-0.5 text-xs font-bold text-indigo-900 bg-indigo-50/60 border border-indigo-200 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white"
+              class="w-24 px-1.5 py-0.5 text-xs font-bold text-indigo-950 bg-white border border-indigo-200 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500/20 tabular-nums"
             />
           </div>
         </div>
 
         <div>
-          <label class="block mb-1.5 font-medium text-indigo-900">
-            Método de pago
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+            Método de Pago
           </label>
           <select
             [(ngModel)]="paymentDto.paymentMethodId"
             (ngModelChange)="onAmountChange(paymentDto.amount)"
-            class="w-full px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 bg-white/90 border border-gray-300 rounded-md shadow-sm transition-all"
+            class="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-semibold text-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all outline-none shadow-2xs cursor-pointer"
           >
             <option *ngFor="let method of paymentMethods" [value]="method.id">
               {{ method.name }}
@@ -310,138 +403,116 @@
         </div>
       </div>
 
-      <div>
-        <div class="flex items-center justify-between mb-1.5">
-          <span class="font-medium text-indigo-900">Fecha de pago</span>
-          <button
-            type="button"
-            class="text-xs text-indigo-600 underline hover:text-indigo-800 transition-colors"
-            (click)="toggleManualDate()">
-            {{ manualDateEnabled ? 'Usar fecha actual' : 'Editar fecha' }}
-          </button>
-        </div>
-
-        <div *ngIf="!manualDateEnabled" class="text-xs text-gray-500 mb-2">
-          Se usará la fecha y hora actual al guardar.
-        </div>
-
-        <div *ngIf="manualDateEnabled" class="animate-fadeIn">
-          <input
-            type="date"
-            [(ngModel)]="dateString"
-            (ngModelChange)="onManualDateChange($event)"
-            class="w-full p-2 border border-gray-300 rounded-md bg-white/90 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm transition-all"
-          />
-        </div>
-      </div>
-      
-      <div>
-        <label class="block mb-2 font-medium text-indigo-900">
-          Pago adelantado
-        </label>
-
-        <div class="flex flex-col gap-3">
-          <label class="flex items-center gap-2 cursor-pointer select-none w-fit">
+      <!-- Opciones Adicionales (Fecha y Adelantos) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-gray-50/60 border border-gray-200/70">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-gray-700">Fecha de pago</span>
+            <button type="button" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold underline transition-colors" (click)="toggleManualDate()">
+              {{ manualDateEnabled ? 'Usar fecha actual' : 'Editar fecha' }}
+            </button>
+          </div>
+          <div *ngIf="!manualDateEnabled" class="text-[11px] text-gray-400 py-2">
+            Se registrará con la fecha y hora actual del sistema.
+          </div>
+          <div *ngIf="manualDateEnabled" class="animate-fade-in">
             <input
-              type="checkbox"
-              [(ngModel)]="paymentDto.isAdvancePayment"
-              (change)="onAdvancePaymentToggle()"
-              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer transition-all"
+              type="date"
+              [(ngModel)]="dateString"
+              (ngModelChange)="onManualDateChange($event)"
+              class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-medium text-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all outline-none shadow-2xs"
             />
-            <span class="text-gray-800 font-medium">Pago adelantado</span>
+          </div>
+        </div>
+
+        <div class="sm:border-l sm:pl-4 border-gray-200/60 flex flex-col justify-center">
+          <label class="flex items-center gap-2.5 cursor-pointer select-none w-fit mb-2">
+            <input type="checkbox" [(ngModel)]="paymentDto.isAdvancePayment" (change)="onAdvancePaymentToggle()" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded transition-all cursor-pointer" />
+            <span class="text-xs font-bold text-gray-700">Pago adelantado</span>
           </label>
-
-          <div
-            *ngIf="paymentDto.isAdvancePayment"
-            class="flex items-center border border-gray-300 rounded-md overflow-hidden bg-white/90 w-fit focus-within:ring-2 focus-within:ring-indigo-500/50 shadow-sm animate-fadeIn"
-          >
-            <span class="px-3 py-2 text-xs font-medium text-gray-500 select-none bg-gray-50 border-r border-gray-200">Cantidad de meses a pagar</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              [(ngModel)]="paymentDto.advanceMonths"
-              (ngModelChange)="onAdvanceMonthsChange()"
-              class="w-20 px-3 py-2 focus:outline-none text-gray-800 text-sm font-medium"
-              placeholder="1"
-            />
+          <div *ngIf="paymentDto.isAdvancePayment" class="flex items-center border border-gray-200 rounded-xl overflow-hidden bg-white w-fit shadow-2xs focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all animate-fade-in">
+            <span class="px-3 py-1.5 text-[11px] font-semibold text-gray-500 select-none bg-gray-50 border-r border-gray-200">Meses a cubrir</span>
+            <input type="number" min="1" step="1" [(ngModel)]="paymentDto.advanceMonths" (ngModelChange)="onAdvanceMonthsChange()" class="w-16 px-2.5 py-1.5 focus:outline-none text-gray-900 text-xs font-bold tabular-nums text-center" placeholder="1" />
           </div>
         </div>
       </div>
 
     </div>
 
-    <div *ngIf="showIncreaseOverlay" class="absolute inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 rounded-xl">
-      <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-fade-in-up">
+    <!-- Increase Queue Overlay inside modal -->
+    <div *ngIf="showIncreaseOverlay" class="absolute inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-200 flex flex-col animate-fade-in-up">
         
-        <div class="bg-blue-600 text-white p-4 flex items-center gap-2">
+        <div class="bg-blue-600 text-white px-6 py-4 flex items-center gap-2.5">
           <app-icon name="trending-up" class="h-5 w-5"></app-icon>
-          <h3 class="font-bold text-lg">Actualización de Abono</h3>
+          <h3 class="font-bold text-sm sm:text-base tracking-tight">Actualización de Abono</h3>
         </div>
         
-        <div class="p-5 space-y-5">
-          <p class="text-gray-600 text-sm font-medium">{{ increasePromptReason }}</p>
+        <div class="p-6 space-y-5 flex-1 overflow-y-auto">
+          <p class="text-gray-600 text-xs sm:text-sm font-medium">{{ increasePromptReason }}</p>
 
-          <div class="grid grid-cols-2 gap-4 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+          <div class="grid grid-cols-2 gap-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
             <div>
-              <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Abono Actual</p>
-              <p class="text-xl font-bold text-gray-900">${{ selectedCurrentRent | number:'1.2-2' }}</p>
+              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Abono Actual</p>
+              <p class="text-lg font-bold text-gray-900 tabular-nums">${{ selectedCurrentRent | number:'1.2-2' }}</p>
             </div>
             <div>
               <p class="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Nuevo Abono ($)</p>
               <div class="relative">
-                <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
                 <input type="number" 
                        [(ngModel)]="projectedNewRent" 
                        (blur)="onProjectedRentBlur()"
                        (keydown.enter)="blurInput($event)"
-                       class="w-full pl-6 pr-2 py-1.5 border-2 border-blue-200 rounded-md text-lg font-bold text-blue-700 focus:ring-0 focus:border-blue-500 transition-colors bg-white">
+                       class="w-full pl-7 pr-2 py-1.5 border border-blue-200 rounded-xl text-base font-bold text-blue-700 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all bg-white shadow-2xs tabular-nums">
               </div>
             </div>
           </div>
 
           <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">Porcentaje de aumento a aplicar:</label>
-            <div class="relative w-1/2">
+            <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Porcentaje de aumento a aplicar:</label>
+            <div class="relative w-2/3">
               <input type="number" 
                      [(ngModel)]="increasePercentage" 
                      (blur)="onIncreasePercentageBlur()"
                      (keydown.enter)="blurInput($event)"
-                     class="w-full pl-3 pr-8 py-2.5 border-2 border-blue-200 rounded-lg text-lg font-bold text-gray-800 focus:ring-0 focus:border-blue-500 transition-colors" 
+                     class="w-full pl-3.5 pr-8 py-2 border border-blue-200 rounded-xl text-base font-bold text-gray-800 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-2xs tabular-nums" 
                      placeholder="Ej: 20">
-              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">%</span>
+              <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
             </div>
           </div>
 
-          <div class="bg-gray-50 p-3 rounded-lg border text-sm text-gray-700 flex items-center gap-3">
-            <app-icon name="calendar" class="h-5 w-5 text-gray-400"></app-icon>
+          <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200/80 text-xs text-gray-700 flex items-center gap-3">
+            <app-icon name="calendar" class="h-5 w-5 text-gray-400 shrink-0"></app-icon>
             <div>
-              <span class="block text-xs text-gray-500">Próxima fecha de aumento pasaría al:</span>
-              <strong class="text-gray-900 capitalize">{{ projectedNextIncreaseDate | date:'MMMM yyyy' }}</strong>
+              <span class="block text-gray-400 font-medium">Próxima fecha de aumento pasaría al:</span>
+              <strong class="text-gray-900 capitalize text-sm">{{ projectedNextIncreaseDate | date:'MMMM yyyy' }}</strong>
             </div>
           </div>
         </div>
 
-        <div class="p-4 border-t bg-gray-50 flex justify-end gap-3">
-          <button (click)="skipIncrease()" class="px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">
+        <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/80 flex justify-end gap-3">
+          <button (click)="skipIncrease()" class="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-2xs">
             Omitir por ahora
           </button>
-          <button (click)="confirmIncrease()" class="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-colors">
+          <button (click)="confirmIncrease()" class="px-5 py-2 text-xs font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-sm transition-colors">
             Confirmar Aumento
           </button>
         </div>
       </div>
     </div>
-    <div class="mt-4 pt-4 border-t border-indigo-200/60 flex justify-end gap-3">
+
+    <!-- Footer Buttons -->
+    <div class="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50/80 border-t border-gray-100 shrink-0">
       <button type="button"
               (click)="closePaymentModal()"
-              class="px-4 py-2 rounded-md border border-indigo-200 text-indigo-700 bg-white/50 hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+              class="px-4 py-2 text-xs font-semibold text-gray-600 hover:text-gray-800 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-all shadow-2xs">
         Cancelar
       </button>
       <button type="button"
               (click)="savePayment(paymentDto)"
-              class="px-5 py-2 rounded-md bg-indigo-600 text-white font-medium hover:bg-indigo-700 hover:shadow-md transition-all text-sm">
-        Guardar Pago
+              class="px-5 py-2 text-xs font-semibold text-white bg-gray-900 hover:bg-gray-800 rounded-xl transition-all shadow-sm active:scale-[0.98] flex items-center gap-1.5">
+        <app-icon name="check" class="w-3.5 h-3.5 stroke-[2.5]"></app-icon> Guardar Pago
       </button>
     </div>
 

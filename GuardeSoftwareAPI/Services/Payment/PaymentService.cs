@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
 using System.Data;
@@ -402,60 +402,64 @@ namespace GuardeSoftwareAPI.Services.payment
         // --- 5. EFECTIVIZACIÓN Y LIMPIEZA DE MORA ---
         // ==============================================================================
 
-        if (rental.PendingSurcharge > 0)
+        string surchargeAction = dto.SurchargeAction ?? (rental.PendingSurcharge > 0 ? "next_payment" : null);
+
+        if (surchargeAction == "forgive")
         {
-            // A. OBTENER EL VALOR REAL DE LA DEUDA DEL MES DE MORA
-            // Consultamos el monthly_debits del mes exacto en que se originó el pago tardío.
-            decimal debtAmountForPenalty = 0;
-            string penaltyQuery = @"
-                SELECT monthly_debits 
-                FROM client_month_balances 
-                WHERE rental_id = @rid 
-                AND month_year = @mYear";
+            // No crear DEBITO de interés, solo limpiar pendiente de mora
+        }
+        else if (surchargeAction == "immediate" || surchargeAction == "next_payment")
+        {
+            decimal finalPenalty = dto.SurchargeAmount ?? 0;
 
-            using (var cmdPenalty = new SqlCommand(penaltyQuery, connection, transaction))
+            if (finalPenalty <= 0 && rental.PendingSurcharge > 0)
             {
-                cmdPenalty.Parameters.AddWithValue("@rid", rental.Id);
-                cmdPenalty.Parameters.AddWithValue("@mYear", dto.Date.ToString("MM/yyyy"));
-                var result = await cmdPenalty.ExecuteScalarAsync();
-                if (result != null) debtAmountForPenalty = Convert.ToDecimal(result);
+                // Fallback: calcular como antes si el frontend no envió un monto específico
+                decimal debtAmountForPenalty = 0;
+                string penaltyQuery = @"
+                    SELECT monthly_debits 
+                    FROM client_month_balances 
+                    WHERE rental_id = @rid 
+                    AND month_year = @mYear";
+
+                using (var cmdPenalty = new SqlCommand(penaltyQuery, connection, transaction))
+                {
+                    cmdPenalty.Parameters.AddWithValue("@rid", rental.Id);
+                    cmdPenalty.Parameters.AddWithValue("@mYear", dto.Date.ToString("MM/yyyy"));
+                    var result = await cmdPenalty.ExecuteScalarAsync();
+                    if (result != null) debtAmountForPenalty = Convert.ToDecimal(result);
+                }
+
+                decimal rawPenalty = debtAmountForPenalty * 0.10m;
+                finalPenalty = Math.Floor(rawPenalty / 100m) * 100m;
             }
 
-            // B. CALCULAR EL 10% SOBRE ESE VALOR ESPECÍFICO
-            decimal rawPenalty = debtAmountForPenalty * 0.10m;
-            decimal finalPenalty = rawPenalty;
-
-            // C. REDONDEO SEGÚN MÉTODO DE PAGO
-            string paymentMethodName = "";
-            string pmQuery = "SELECT name FROM payment_methods WHERE payment_method_id = (SELECT preferred_payment_method_id FROM clients WHERE client_id = @cid)";
-            using (var cmdPm = new SqlCommand(pmQuery, connection, transaction))
+            if (finalPenalty > 0)
             {
-                cmdPm.Parameters.AddWithValue("@cid", rental.ClientId);
-                var result = await cmdPm.ExecuteScalarAsync();
-                if (result != null) paymentMethodName = result.ToString().ToLower();
+                DateTime interestDate;
+                string concept;
+                string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(new CultureInfo("es-AR").DateTimeFormat.GetMonthName(dto.Date.Month));
+
+                if (surchargeAction == "immediate")
+                {
+                    interestDate = dto.Date;
+                    concept = $"Interés por mora de {monthTitle} {dto.Date.Year} (cobrado en el acto)";
+                }
+                else
+                {
+                    interestDate = new DateTime(dto.Date.Year, dto.Date.Month, 1).AddMonths(1);
+                    concept = $"Interés por mora de {monthTitle} {dto.Date.Year}";
+                }
+
+                await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement {
+                    RentalId = rental.Id, 
+                    PaymentId = paymentId, 
+                    MovementDate = interestDate, 
+                    MovementType = "DEBITO", 
+                    Concept = concept, 
+                    Amount = finalPenalty 
+                }, connection, transaction);
             }
-
-            if (paymentMethodName.Contains("efectivo")) 
-            {
-                finalPenalty = Math.Round(rawPenalty / 1000m, MidpointRounding.AwayFromZero) * 1000m;
-            } 
-            else 
-            {
-                finalPenalty = Math.Round(rawPenalty / 100m, MidpointRounding.AwayFromZero) * 100m;
-            }
-
-            // D. CREAR EL DÉBITO DEL INTERÉS
-            DateTime nextMonthInterestDate = new DateTime(dto.Date.Year, dto.Date.Month, 1).AddMonths(1);
-            string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(new CultureInfo("es-AR").DateTimeFormat.GetMonthName(dto.Date.Month));
-
-            await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement {
-                RentalId = rental.Id, 
-                PaymentId = paymentId, 
-                MovementDate = nextMonthInterestDate, 
-                MovementType = "DEBITO", 
-                Concept = $"Interés por mora de {monthTitle} {dto.Date.Year}", 
-                Amount = finalPenalty 
-            }, connection, transaction);
         }
 
         // E. LIMPIEZA Y RECONSTRUCCIÓN (SIEMPRE EJECUTAR)

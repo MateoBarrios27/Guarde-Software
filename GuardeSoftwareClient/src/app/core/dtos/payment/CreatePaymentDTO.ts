@@ -14,4 +14,6 @@ export interface CreatePaymentDTO{
     newRentAmount?: number;
     skipFutureProjection?: boolean;
     appliedIncreases?: { year: number, month: number, percentage: number, newRentAmount: number }[];
+    surchargeAction?: string;
+    surchargeAmount?: number;
 }
