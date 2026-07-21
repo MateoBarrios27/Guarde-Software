@@ -291,16 +291,14 @@ namespace GuardeSoftwareAPI.Dao
         #region 3. Cálculos para Resumen (Automático)
         public async Task<decimal> GetSystemIncomeAsync(int month, int year)
         {
+            string monthYear = $"{month:D2}/{year}";
             string query = @"
-                SELECT ISNULL(SUM(amount), 0)
-                FROM payments
-                WHERE MONTH(payment_date) = @Month 
-                  AND YEAR(payment_date) = @Year 
-                  "; 
+                SELECT ISNULL(SUM(ISNULL(paid, 0) + ISNULL(advanced_payment, 0)), 0)
+                FROM client_month_balances
+                WHERE month_year = @MonthYear"; 
 
             var result = await _accessDB.ExecuteScalarAsync(query, new[] { 
-                new SqlParameter("@Month", month),
-                new SqlParameter("@Year", year)
+                new SqlParameter("@MonthYear", SqlDbType.VarChar, 7) { Value = monthYear }
             });
             return Convert.ToDecimal(result);
         }
@@ -594,65 +592,14 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<decimal> GetTotalAdvancePaymentsAsync(int month, int year)
         {
+            string monthYear = $"{month:D2}/{year}";
             string query = @"
-                WITH PositiveBalances AS (
-                    SELECT
-                        r.client_id,
-                        SUM(
-                            CASE 
-                                WHEN am.movement_type = 'DEBITO' THEN -am.amount 
-                                ELSE am.amount 
-                            END
-                        ) AS CurrentGlobalBalance
-                    FROM account_movements am
-                    INNER JOIN rentals r ON am.rental_id = r.rental_id
-                    WHERE r.active = 1
-                    GROUP BY r.client_id
-                    HAVING SUM(CASE WHEN am.movement_type = 'DEBITO' THEN -am.amount ELSE am.amount END) > 0
-                ),
-
-                MonthlyCredits AS (
-                    SELECT 
-                        r.client_id,
-                        ISNULL(SUM(am.amount), 0) as TotalCreditedInMonth
-                    FROM account_movements am
-                    INNER JOIN rentals r ON am.rental_id = r.rental_id
-                    WHERE am.movement_type <> 'DEBITO' 
-                    AND MONTH(am.movement_date) = @Month
-                    AND YEAR(am.movement_date) = @Year
-                    GROUP BY r.client_id
-                ),
-
-                MonthlyDebits AS (
-                    SELECT 
-                        r.client_id,
-                        ISNULL(SUM(am.amount), 0) as TotalDebitedInMonth
-                    FROM account_movements am
-                    INNER JOIN rentals r ON am.rental_id = r.rental_id
-                    WHERE am.movement_type = 'DEBITO' 
-                    AND MONTH(am.movement_date) = @Month
-                    AND YEAR(am.movement_date) = @Year
-                    GROUP BY r.client_id
-                )
-
-                SELECT ISNULL(SUM(
-                    CASE 
-                        WHEN (mc.TotalCreditedInMonth - ISNULL(md.TotalDebitedInMonth, 0)) > pb.CurrentGlobalBalance 
-                        THEN pb.CurrentGlobalBalance
-                        
-                        ELSE (mc.TotalCreditedInMonth - ISNULL(md.TotalDebitedInMonth, 0))
-                    END
-                ), 0)
-                FROM MonthlyCredits mc
-                INNER JOIN PositiveBalances pb ON mc.client_id = pb.client_id
-                LEFT JOIN MonthlyDebits md ON mc.client_id = md.client_id
-                WHERE 
-                    mc.TotalCreditedInMonth > ISNULL(md.TotalDebitedInMonth, 0);
-            ";
+                SELECT ISNULL(SUM(ISNULL(advanced_payment, 0)), 0)
+                FROM client_month_balances
+                WHERE month_year = @MonthYear";
 
             var parameters = new[] {
-                new SqlParameter("@Month", month),
-                new SqlParameter("@Year", year)
+                new SqlParameter("@MonthYear", SqlDbType.VarChar, 7) { Value = monthYear }
             };
 
             var result = await _accessDB.ExecuteScalarAsync(query, parameters);
