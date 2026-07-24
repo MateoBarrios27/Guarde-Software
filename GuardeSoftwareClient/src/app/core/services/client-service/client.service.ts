@@ -136,6 +136,48 @@ export class ClientService {
   }
 
   updateClientNotes(id: number, notes?: string): Observable<any> {
-    return this.httpClient.put(`${this.url}/Client/${id}/notes`, { notes });
+    return this.httpClient.put<any>(`${this.url}/Client/${id}/notes`, { notes });
   }
+
+  // ── Rental Amount History ──────────────────────────────────────────────────
+  getRentalAmountHistory(clientId: number): Observable<RentalAmountHistoryItem[]> {
+    return this.httpClient.get<RentalAmountHistoryItem[]>(
+      `${this.url}/Client/${clientId}/rental-amount-history`
+    );
+  }
+
+  addRentalAmountEntry(
+    clientId: number,
+    data: { amount: number; year: number; month: number }
+  ): Observable<void> {
+    return this.httpClient.post<void>(
+      `${this.url}/Client/${clientId}/rental-amount-history`,
+      data
+    );
+  }
+
+  updateRentalAmountEntry(
+    clientId: number,
+    histId: number,
+    data: { amount: number; year: number; month: number }
+  ): Observable<void> {
+    return this.httpClient.put<void>(
+      `${this.url}/Client/${clientId}/rental-amount-history/${histId}`,
+      data
+    );
+  }
+
+  deleteRentalAmountEntry(clientId: number, histId: number): Observable<void> {
+    return this.httpClient.delete<void>(
+      `${this.url}/Client/${clientId}/rental-amount-history/${histId}`
+    );
+  }
+}
+
+export interface RentalAmountHistoryItem {
+  id: number;
+  amount: number;
+  startDate: string;
+  endDate?: string;
+  status: 'active' | 'planned' | 'past';
 }

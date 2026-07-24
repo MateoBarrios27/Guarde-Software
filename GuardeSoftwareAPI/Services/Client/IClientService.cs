@@ -22,5 +22,9 @@ namespace GuardeSoftwareAPI.Services.client
         Task<bool> UpdateClientColorAsync(int clientId, string? color);
         Task<bool> UpdateClientCommentAsync(int clientId, string? comment);
         Task<bool> UpdateClientNotesAsync(int clientId, string? notes);
+        Task<List<RentalAmountHistoryItemDto>> GetClientRentalAmountHistoryAsync(int clientId);
+        Task AddClientRentalAmountEntryAsync(int clientId, decimal amount, int year, int month);
+        Task UpdateClientRentalAmountEntryAsync(int clientId, int histId, decimal amount, int year, int month);
+        Task DeleteClientRentalAmountEntryAsync(int clientId, int histId);
     }
 }

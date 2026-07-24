@@ -273,5 +273,73 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, new { message = "Error interno al actualizar las observaciones.", error = ex.Message });
             }
         }
+
+        [HttpGet("{clientId}/rental-amount-history")]
+        public async Task<IActionResult> GetClientRentalAmountHistory(int clientId)
+        {
+            try
+            {
+                var result = await _clientService.GetClientRentalAmountHistoryAsync(clientId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al obtener historial de abonos.", error = ex.Message });
+            }
+        }
+
+        [HttpPost("{clientId}/rental-amount-history")]
+        public async Task<IActionResult> AddClientRentalAmountEntry(int clientId, [FromBody] CreateClientRentalAmountDto request)
+        {
+            try
+            {
+                await _clientService.AddClientRentalAmountEntryAsync(clientId, request.Amount, request.Year, request.Month);
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al agregar tramo de abono.", error = ex.Message });
+            }
+        }
+
+        [HttpPut("{clientId}/rental-amount-history/{histId}")]
+        public async Task<IActionResult> UpdateClientRentalAmountEntry(int clientId, int histId, [FromBody] UpdateClientRentalAmountDto request)
+        {
+            try
+            {
+                await _clientService.UpdateClientRentalAmountEntryAsync(clientId, histId, request.Amount, request.Year, request.Month);
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al actualizar tramo de abono.", error = ex.Message });
+            }
+        }
+
+        [HttpDelete("{clientId}/rental-amount-history/{histId}")]
+        public async Task<IActionResult> DeleteClientRentalAmountEntry(int clientId, int histId)
+        {
+            try
+            {
+                await _clientService.DeleteClientRentalAmountEntryAsync(clientId, histId);
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al eliminar tramo de abono.", error = ex.Message });
+            }
+        }
     }
 }

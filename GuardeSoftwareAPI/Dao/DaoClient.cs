@@ -131,7 +131,21 @@ namespace GuardeSoftwareAPI.Dao
                 -- ASIGNAMOS A LA UI
                 OUTER APPLY (
                     SELECT
-                        UI_CurrentRent = db.RentDB,
+                        UI_CurrentRent = CASE 
+                            WHEN db.MonthYearDB IS NOT NULL THEN
+                                ISNULL((
+                                    SELECT TOP 1 rah.amount
+                                    FROM rental_amount_history rah
+                                    WHERE rah.rental_id = r.rental_id
+                                      AND rah.start_date <= DATEFROMPARTS(
+                                            CAST(RIGHT(db.MonthYearDB, 4) AS INT),
+                                            CAST(LEFT(db.MonthYearDB, 2) AS INT), 1)
+                                    ORDER BY rah.start_date DESC,
+                                             CASE WHEN rah.end_date IS NULL THEN 1 ELSE 0 END DESC,
+                                             rah.rental_amount_history_id DESC
+                                ), ISNULL(cr.CurrentRent, 0))
+                            ELSE ISNULL(cr.CurrentRent, 0)
+                        END,
                         UI_InterestAmount = calc3.UnpaidInts,
                         UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                         UI_PreviousBalance = CASE 
@@ -279,17 +293,17 @@ namespace GuardeSoftwareAPI.Dao
                     ad.street, ad.city, ad.province,
                     pm.name AS preferred_payment_method,
                     bt.billing_type_id, bt.name AS billing_type,
-                    r.contracted_m3, r.increase_anchor_date, r.months_unpaid, r.occupied_spaces,
+                    r.rental_id, r.contracted_m3, r.increase_anchor_date, r.months_unpaid, r.occupied_spaces,
                     
-                    CASE 
+                    ISNULL(step1.UI_CurrentRent, CASE 
                         WHEN c.active = 0 THEN COALESCE(
                             cr.CurrentRent, 
                             (SELECT TOP 1 amount FROM rental_amount_history rah WHERE rah.rental_id = r.rental_id ORDER BY start_date DESC, rental_amount_history_id DESC),
                             c.initial_amount,
                             0
                         )
-                        ELSE ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0))
-                    END AS rent_amount,
+                        ELSE ISNULL(cr.CurrentRent, 0)
+                    END) AS rent_amount,
                     ISNULL(step1.UI_InterestAmount, 0) AS interest_amount,
                     ISNULL(step1.UI_Balance, 0) AS balance,
                     ISNULL(db.PaidDB, 0) AS total_paid,
@@ -384,7 +398,21 @@ namespace GuardeSoftwareAPI.Dao
                 -- ASIGNAMOS A LA UI
                 OUTER APPLY (
                     SELECT
-                        UI_CurrentRent = db.RentDB,
+                        UI_CurrentRent = CASE 
+                            WHEN db.MonthYearDB IS NOT NULL THEN
+                                ISNULL((
+                                    SELECT TOP 1 rah.amount
+                                    FROM rental_amount_history rah
+                                    WHERE rah.rental_id = r.rental_id
+                                      AND rah.start_date <= DATEFROMPARTS(
+                                            CAST(RIGHT(db.MonthYearDB, 4) AS INT),
+                                            CAST(LEFT(db.MonthYearDB, 2) AS INT), 1)
+                                    ORDER BY rah.start_date DESC,
+                                             CASE WHEN rah.end_date IS NULL THEN 1 ELSE 0 END DESC,
+                                             rah.rental_amount_history_id DESC
+                                ), ISNULL(cr.CurrentRent, 0))
+                            ELSE ISNULL(cr.CurrentRent, 0)
+                        END,
                         UI_InterestAmount = calc3.UnpaidInts,
                         UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                         UI_PreviousBalance = CASE 
@@ -659,15 +687,15 @@ namespace GuardeSoftwareAPI.Dao
 
                         step1.UI_PreviousBalance AS PreviousBalance,
                         step1.UI_InterestAmount AS InterestAmount,
-                        CASE 
+                        ISNULL(step1.UI_CurrentRent, CASE 
                             WHEN c.active = 0 THEN COALESCE(
                                 cr.CurrentRent, 
                                 (SELECT TOP 1 amount FROM rental_amount_history rah WHERE rah.rental_id = r.rental_id ORDER BY start_date DESC, rental_amount_history_id DESC),
                                 c.initial_amount,
                                 0
                             )
-                            ELSE ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0))
-                        END AS CurrentRent,
+                            ELSE ISNULL(cr.CurrentRent, 0)
+                        END) AS CurrentRent,
                         step1.UI_Balance AS Balance,
 
                         c.preferred_payment_method_id AS PreferredPaymentMethodId,
@@ -789,7 +817,21 @@ namespace GuardeSoftwareAPI.Dao
                     -- ASIGNAMOS A LA UI
                     OUTER APPLY (
                         SELECT
-                            UI_CurrentRent = db.RentDB,
+                            UI_CurrentRent = CASE 
+                                WHEN db.MonthYearDB IS NOT NULL THEN
+                                    ISNULL((
+                                        SELECT TOP 1 rah.amount
+                                        FROM rental_amount_history rah
+                                        WHERE rah.rental_id = r.rental_id
+                                          AND rah.start_date <= DATEFROMPARTS(
+                                                CAST(RIGHT(db.MonthYearDB, 4) AS INT),
+                                                CAST(LEFT(db.MonthYearDB, 2) AS INT), 1)
+                                        ORDER BY rah.start_date DESC,
+                                                 CASE WHEN rah.end_date IS NULL THEN 1 ELSE 0 END DESC,
+                                                 rah.rental_amount_history_id DESC
+                                    ), ISNULL(cr.CurrentRent, 0))
+                                ELSE ISNULL(cr.CurrentRent, 0)
+                            END,
                             UI_InterestAmount = calc3.UnpaidInts,
                             UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                             UI_PreviousBalance = CASE 

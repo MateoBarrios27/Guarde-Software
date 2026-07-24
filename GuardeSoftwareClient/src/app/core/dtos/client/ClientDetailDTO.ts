@@ -6,6 +6,7 @@ import { SpaceRequestDetailDto } from "../rentalSpaceRequest/GetSpaceRequestDeta
 export interface ClientDetailDTO{
 
     id: number;
+    rentalId?: number;
     paymentIdentifier: number;
     fullName: string;
     city: string;

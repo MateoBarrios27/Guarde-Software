@@ -8,6 +8,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
     {
         //Personal Information
         public int Id { get; set; }
+        public int? RentalId { get; set; }
         public decimal PaymentIdentifier { get; set; }
         public string FullName { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;

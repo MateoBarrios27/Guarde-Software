@@ -147,11 +147,11 @@
 
       <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border">
         <div class="border-b border-gray-200">
-          <nav class="flex -mb-px " aria-label="Tabs">
-             <button
+          <nav class="flex -mb-px" aria-label="Tabs">
+            <button
               (click)="activeTab = 'movimientos'"
               [ngClass]="activeTab === 'movimientos' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-2"
+              class="flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-1.5"
             >
               <app-icon name="dollar-sign" class="h-4 w-4"></app-icon> Movimientos
             </button>
@@ -159,7 +159,7 @@
             <button
               (click)="activeTab = 'comunicaciones'"
               [ngClass]="activeTab === 'comunicaciones' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-2"
+              class="flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-1.5"
             >
               <app-icon name="message-circle" class="h-4 w-4"></app-icon> Comunicaciones
             </button>
@@ -167,15 +167,23 @@
             <button
               (click)="activeTab = 'bauleras'"
               [ngClass]="activeTab === 'bauleras' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="w-1/4 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-2"
+              class="flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-1.5"
             >
               <app-icon name="package" class="h-4 w-4"></app-icon> Bauleras
             </button>
 
             <button
+              (click)="onTabAbono()"
+              [ngClass]="activeTab === 'abono' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+              class="flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-1.5"
+            >
+              <app-icon name="trending-up" class="h-4 w-4"></app-icon> Abono
+            </button>
+
+            <button
               (click)="activeTab = 'detalles'"
               [ngClass]="activeTab === 'detalles' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-2"
+              class="flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-1.5"
             >
               <app-icon name="file-text" class="h-4 w-4"></app-icon> Detalles
             </button>
@@ -286,7 +294,7 @@
                            'bg-gray-100 border-gray-200 text-gray-600': !com.type.includes('email') && !com.type.includes('whatsapp') && !com.type.includes('sms')
                          }">
                       <app-icon 
-                        [name]="com.type.includes('email') ? 'envelope' : (com.type.includes('whatsapp') || com.type.includes('sms') ? 'message-circle' : 'cog')" 
+                        [name]="com.type.includes('email') ? 'envelope' : (com.type.includes('whatsapp') || com.type.includes('sms') ? 'whatsapp' : 'whatsapp')" 
                         class="h-4 w-4"
                       ></app-icon>
                     </div>
@@ -385,6 +393,178 @@
                 </pagination-controls>
               </div>
             </div>
+          </div>
+
+          <!-- ─── Pestaña ABONO ─────────────────────────────────────────── -->
+          <div *ngIf="activeTab === 'abono'" class="space-y-4 animate-fade-in">
+
+            <!-- Loading skeleton -->
+            <div *ngIf="isLoadingAbono" class="flex items-center justify-center py-12">
+              <app-icon name="loader" class="h-6 w-6 text-blue-500 animate-spin"></app-icon>
+              <span class="ml-2 text-sm text-gray-500">Cargando historial de abonos...</span>
+            </div>
+
+            <ng-container *ngIf="!isLoadingAbono">
+
+              <!-- Header + add button -->
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-base font-semibold text-gray-800">Historial de Abonos</h3>
+                  <p class="text-xs text-gray-400 mt-0.5">{{ rentalAmountHistory.length }} {{ rentalAmountHistory.length === 1 ? 'tramo' : 'tramos' }} registrados</p>
+                </div>
+                <button
+                  *ngIf="client && client.paymentStatus !== 'Baja' && !showAbonoForm"
+                  (click)="openAddAbonoForm()"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <app-icon name="plus" class="h-4 w-4"></app-icon>
+                  Agregar tramo
+                </button>
+              </div>
+
+              <!-- Add / Edit form -->
+              <div *ngIf="showAbonoForm"
+                   class="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                <h4 class="text-sm font-semibold text-blue-800">
+                  {{ editingHistId !== null ? 'Editar tramo' : 'Nuevo tramo de abono' }}
+                </h4>
+                <div class="grid grid-cols-3 gap-3">
+                  <!-- Monto -->
+                  <div class="col-span-3 sm:col-span-1">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Monto ($)</label>
+                    <input
+                      type="number"
+                      [(ngModel)]="abonoFormAmount"
+                      placeholder="Ej: 120000"
+                      min="0"
+                      class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none"
+                    />
+                  </div>
+                  <!-- Mes -->
+                  <div class="col-span-3 sm:col-span-1">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Mes de inicio</label>
+                    <select
+                      [(ngModel)]="abonoFormMonth"
+                      class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none capitalize"
+                    >
+                      <option *ngFor="let m of months; let i = index" [value]="i + 1">
+                        {{ m | titlecase }}
+                      </option>
+                    </select>
+                  </div>
+                  <!-- Año -->
+                  <div class="col-span-3 sm:col-span-1">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Año</label>
+                    <select
+                      [(ngModel)]="abonoFormYear"
+                      class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                    >
+                      <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="flex gap-2 justify-end pt-1">
+                  <button
+                    (click)="cancelAbonoForm()"
+                    class="px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >Cancelar</button>
+                  <button
+                    (click)="saveAbono()"
+                    [disabled]="isSavingAbono || !abonoFormAmount"
+                    class="px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <app-icon *ngIf="isSavingAbono" name="loader" class="h-4 w-4 animate-spin"></app-icon>
+                    {{ isSavingAbono ? 'Guardando...' : 'Guardar' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Empty state -->
+              <div *ngIf="rentalAmountHistory.length === 0 && !showAbonoForm"
+                   class="text-center py-10 text-gray-400">
+                <app-icon name="trending-up" class="h-10 w-10 mx-auto mb-2 opacity-30"></app-icon>
+                <p class="text-sm">No hay tramos de abono registrados.</p>
+              </div>
+
+              <!-- Timeline items -->
+              <div class="relative space-y-0" *ngIf="rentalAmountHistory.length > 0">
+                <!-- Vertical line -->
+                <div class="absolute left-[11px] top-4 bottom-4 w-px bg-gray-200"></div>
+
+                <div *ngFor="let item of rentalAmountHistory; let last = last"
+                     class="relative flex gap-4 pb-4">
+
+                  <!-- Dot -->
+                  <div class="flex-shrink-0 mt-3">
+                    <span class="block w-[10px] h-[10px] rounded-full border-2 border-white shadow-sm"
+                          [ngClass]="getAbonoDotClass(item.status)"></span>
+                  </div>
+
+                  <!-- Card -->
+                  <div class="flex-1 bg-white border rounded-xl px-4 py-3 shadow-sm"
+                       [class.border-emerald-200]="item.status === 'active'"
+                       [class.border-blue-200]="item.status === 'planned'"
+                       [class.border-gray-200]="item.status === 'past'">
+
+                    <div class="flex items-start justify-between gap-2">
+                      <!-- Left: date + badge -->
+                      <div class="min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <span class="text-sm font-medium text-gray-700 capitalize">
+                            {{ formatAbonoDate(item) }}
+                          </span>
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border"
+                                [ngClass]="getAbonoStatusClasses(item.status)">
+                            {{ getAbonoStatusLabel(item.status) }}
+                          </span>
+                        </div>
+                        <p class="text-xl font-bold text-gray-900 mt-1">
+                          $ {{ item.amount | number:'1.0-0' }}
+                        </p>
+                        <!-- Warning for past items -->
+                        <p *ngIf="item.status === 'past'"
+                           class="text-[11px] text-amber-600 flex items-center gap-1 mt-1">
+                          <app-icon name="alert-triangle" class="h-3 w-3"></app-icon>
+                          Editar o eliminar puede afectar balances ya contabilizados.
+                        </p>
+                      </div>
+
+                      <!-- Right: actions -->
+                      <div class="flex items-center gap-1 flex-shrink-0">
+                        <!-- Edit always visible (admin required for 'past') -->
+                        <button
+                          *ngIf="!showAbonoForm"
+                          (click)="openEditAbonoForm(item)"
+                          [title]="item.status === 'past' ? 'Solo admin' : 'Editar tramo'"
+                          class="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                          [class.opacity-40]="item.status === 'past' && !isAdmin"
+                        >
+                          <app-icon name="edit" class="h-4 w-4"></app-icon>
+                        </button>
+
+                        <!-- Delete: not for active; admin-only for past -->
+                        <button
+                          *ngIf="item.status !== 'active' && !showAbonoForm"
+                          (click)="deleteAbono(item)"
+                          [title]="item.status === 'past' ? 'Solo admin' : 'Eliminar tramo'"
+                          class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          [class.opacity-40]="item.status === 'past' && !isAdmin"
+                        >
+                          <app-icon name="Trash2" class="h-4 w-4"></app-icon>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Footer note -->
+              <p class="text-xs text-gray-400 flex items-center gap-1 pt-1">
+                <app-icon name="info" class="h-3.5 w-3.5"></app-icon>
+                El tramo vigente se determina por la fecha de inicio. Solo puede haber un tramo activo a la vez.
+              </p>
+
+            </ng-container>
           </div>
 
           <div *ngIf="activeTab === 'detalles' && !isLoadingHistory && !historyError" class="space-y-6 animate-fade-in">

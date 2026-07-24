@@ -513,7 +513,249 @@ namespace GuardeSoftwareAPI.Services.client
         }
     }
 }
-        
+
+        public async Task<List<RentalAmountHistoryItemDto>> GetClientRentalAmountHistoryAsync(int clientId)
+        {
+            if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
+
+            // Get active rental_id for the client
+            string rentalQuery = @"SELECT TOP 1 rental_id FROM rentals WHERE client_id = @clientId AND active = 1 ORDER BY rental_id DESC";
+            var rentalParam = new[] { new Microsoft.Data.SqlClient.SqlParameter("@clientId", clientId) };
+            var rentalTable = await accessDB.GetTableAsync("rentals", rentalQuery, rentalParam);
+            if (rentalTable.Rows.Count == 0) return [];
+            int rentalId = Convert.ToInt32(rentalTable.Rows[0]["rental_id"]);
+
+            // Get all history items ordered by start_date DESC
+            string histQuery = @"
+                SELECT rental_amount_history_id, amount, start_date, end_date
+                FROM rental_amount_history
+                WHERE rental_id = @rentalId
+                ORDER BY start_date DESC, rental_amount_history_id DESC";
+            var histParam = new[] { new Microsoft.Data.SqlClient.SqlParameter("@rentalId", rentalId) };
+            var histTable = await accessDB.GetTableAsync("rental_amount_history", histQuery, histParam);
+
+            var now = DateTime.UtcNow.AddHours(-3); // Argentina time
+            var result = new List<RentalAmountHistoryItemDto>();
+            foreach (System.Data.DataRow row in histTable.Rows)
+            {
+                var startDate = Convert.ToDateTime(row["start_date"]);
+                var endDate = row["end_date"] != DBNull.Value ? Convert.ToDateTime(row["end_date"]) : (DateTime?)null;
+
+                string status;
+                if (startDate > now)
+                    status = "planned";
+                else if (!endDate.HasValue || endDate.Value >= now)
+                    status = "active";
+                else
+                    status = "past";
+
+                result.Add(new RentalAmountHistoryItemDto
+                {
+                    Id = Convert.ToInt32(row["rental_amount_history_id"]),
+                    Amount = Convert.ToDecimal(row["amount"]),
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    Status = status
+                });
+            }
+            return result;
+        }
+
+        public async Task AddClientRentalAmountEntryAsync(int clientId, decimal amount, int year, int month)
+        {
+            if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
+            if (amount < 0) throw new ArgumentException("El monto debe ser 0 o mayor.");
+
+            // Get active rental_id
+            string rentalQuery = @"SELECT TOP 1 rental_id FROM rentals WHERE client_id = @clientId AND active = 1 ORDER BY rental_id DESC";
+            var rentalParam = new[] { new Microsoft.Data.SqlClient.SqlParameter("@clientId", clientId) };
+            var rentalTable = await accessDB.GetTableAsync("rentals", rentalQuery, rentalParam);
+            if (rentalTable.Rows.Count == 0) throw new InvalidOperationException("El cliente no tiene un alquiler activo.");
+            int rentalId = Convert.ToInt32(rentalTable.Rows[0]["rental_id"]);
+
+            var newStartDate = new DateTime(year, month, 1);
+
+            using var connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+            try
+            {
+                // Close any overlapping open history entries
+                var closeEndDate = newStartDate.AddSeconds(-1);
+                string closeQuery = @"
+                    UPDATE rental_amount_history
+                    SET end_date = @EndDate
+                    WHERE rental_id = @RentalId
+                      AND end_date IS NULL
+                      AND start_date < @NewStart";
+                using (var cmd = new Microsoft.Data.SqlClient.SqlCommand(closeQuery, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@EndDate", closeEndDate);
+                    cmd.Parameters.AddWithValue("@RentalId", rentalId);
+                    cmd.Parameters.AddWithValue("@NewStart", newStartDate);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                // Insert new entry
+                string insertQuery = @"
+                    INSERT INTO rental_amount_history (rental_id, amount, start_date)
+                    VALUES (@RentalId, @Amount, @StartDate)";
+                using (var cmd = new Microsoft.Data.SqlClient.SqlCommand(insertQuery, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@RentalId", rentalId);
+                    cmd.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@Amount", System.Data.SqlDbType.Decimal) { Precision = 18, Scale = 2, Value = amount });
+                    cmd.Parameters.AddWithValue("@StartDate", newStartDate);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+
+            // Rebuild balances
+            await _clientMonthBalanceService.RebuildForRentalAsync(rentalId);
+        }
+
+        public async Task UpdateClientRentalAmountEntryAsync(int clientId, int histId, decimal amount, int year, int month)
+        {
+            if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
+            if (histId <= 0) throw new ArgumentException("Invalid history ID.");
+            if (amount < 0) throw new ArgumentException("El monto debe ser 0 o mayor.");
+
+            // Verify the history belongs to this client's rental
+            string verifyQuery = @"
+                SELECT rah.rental_id
+                FROM rental_amount_history rah
+                JOIN rentals r ON rah.rental_id = r.rental_id
+                WHERE rah.rental_amount_history_id = @HistId
+                  AND r.client_id = @ClientId";
+            var verifyParams = new[]
+            {
+                new Microsoft.Data.SqlClient.SqlParameter("@HistId", histId),
+                new Microsoft.Data.SqlClient.SqlParameter("@ClientId", clientId)
+            };
+            var verifyTable = await accessDB.GetTableAsync("verify", verifyQuery, verifyParams);
+            if (verifyTable.Rows.Count == 0) throw new InvalidOperationException("Tramo no encontrado o no pertenece al cliente.");
+            int rentalId = Convert.ToInt32(verifyTable.Rows[0]["rental_id"]);
+
+            var newStartDate = new DateTime(year, month, 1);
+
+            using var connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+            try
+            {
+                // Update the entry
+                string updateQuery = @"
+                    UPDATE rental_amount_history
+                    SET amount = @Amount, start_date = @StartDate
+                    WHERE rental_amount_history_id = @HistId";
+                using (var cmd = new Microsoft.Data.SqlClient.SqlCommand(updateQuery, connection, transaction))
+                {
+                    cmd.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@Amount", System.Data.SqlDbType.Decimal) { Precision = 18, Scale = 2, Value = amount });
+                    cmd.Parameters.AddWithValue("@StartDate", newStartDate);
+                    cmd.Parameters.AddWithValue("@HistId", histId);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                // Recalculate end_dates for all entries of this rental (sort and fix chain)
+                string fixQuery = @"
+                    WITH Ordered AS (
+                        SELECT rental_amount_history_id, start_date,
+                               LEAD(start_date) OVER (ORDER BY start_date ASC, rental_amount_history_id ASC) AS next_start
+                        FROM rental_amount_history
+                        WHERE rental_id = @RentalId
+                    )
+                    UPDATE rah
+                    SET end_date = CASE WHEN o.next_start IS NOT NULL THEN DATEADD(second, -1, o.next_start) ELSE NULL END
+                    FROM rental_amount_history rah
+                    JOIN Ordered o ON rah.rental_amount_history_id = o.rental_amount_history_id
+                    WHERE rah.rental_id = @RentalId";
+                using (var cmd = new Microsoft.Data.SqlClient.SqlCommand(fixQuery, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@RentalId", rentalId);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+
+            await _clientMonthBalanceService.RebuildForRentalAsync(rentalId);
+        }
+
+        public async Task DeleteClientRentalAmountEntryAsync(int clientId, int histId)
+        {
+            if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
+            if (histId <= 0) throw new ArgumentException("Invalid history ID.");
+
+            // Verify and get rental info
+            string verifyQuery = @"
+                SELECT rah.rental_id
+                FROM rental_amount_history rah
+                JOIN rentals r ON rah.rental_id = r.rental_id
+                WHERE rah.rental_amount_history_id = @HistId
+                  AND r.client_id = @ClientId";
+            var verifyParams = new[]
+            {
+                new Microsoft.Data.SqlClient.SqlParameter("@HistId", histId),
+                new Microsoft.Data.SqlClient.SqlParameter("@ClientId", clientId)
+            };
+            var verifyTable = await accessDB.GetTableAsync("verify", verifyQuery, verifyParams);
+            if (verifyTable.Rows.Count == 0) throw new InvalidOperationException("Tramo no encontrado o no pertenece al cliente.");
+            int rentalId = Convert.ToInt32(verifyTable.Rows[0]["rental_id"]);
+
+            using var connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+            try
+            {
+                // Delete the entry
+                string deleteQuery = "DELETE FROM rental_amount_history WHERE rental_amount_history_id = @HistId";
+                using (var cmd = new Microsoft.Data.SqlClient.SqlCommand(deleteQuery, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@HistId", histId);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                // Fix end_dates chain after deletion
+                string fixQuery = @"
+                    WITH Ordered AS (
+                        SELECT rental_amount_history_id, start_date,
+                               LEAD(start_date) OVER (ORDER BY start_date ASC, rental_amount_history_id ASC) AS next_start
+                        FROM rental_amount_history
+                        WHERE rental_id = @RentalId
+                    )
+                    UPDATE rah
+                    SET end_date = CASE WHEN o.next_start IS NOT NULL THEN DATEADD(second, -1, o.next_start) ELSE NULL END
+                    FROM rental_amount_history rah
+                    JOIN Ordered o ON rah.rental_amount_history_id = o.rental_amount_history_id
+                    WHERE rah.rental_id = @RentalId";
+                using (var cmd = new Microsoft.Data.SqlClient.SqlCommand(fixQuery, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@RentalId", rentalId);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+
+            await _clientMonthBalanceService.RebuildForRentalAsync(rentalId);
+        }
+
         public async Task<GetClientDetailDTO> GetClientDetailByIdAsync(int id)
         {
             if (id <= 0) throw new ArgumentException("Invalid client ID.");
@@ -555,6 +797,7 @@ namespace GuardeSoftwareAPI.Services.client
                 // --- FIN CAMPOS ACTUALIZADOS ---
 
                 ContractedM3 = row["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(row["contracted_m3"]) : 0m,
+                RentalId = row["rental_id"] != DBNull.Value ? Convert.ToInt32(row["rental_id"]) : null,
                 OccupiedSpaces = row["occupied_spaces"] != DBNull.Value ? Convert.ToInt32(row["occupied_spaces"]) : 0,
                 Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0,
                 InterestAmount = row["interest_amount"] != DBNull.Value ? Convert.ToDecimal(row["interest_amount"]) : 0m,
