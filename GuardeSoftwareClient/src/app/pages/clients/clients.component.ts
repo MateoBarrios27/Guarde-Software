@@ -68,6 +68,9 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public sortDirectionClientes: 'asc' | 'desc' = 'asc';
   public readonly Math = Math;
   public activeCommentClient: TableClient | null = null;
+  public isCommentPinned: boolean = false;
+  private commentHoverTimer: any = null;
+  private commentLeaveTimer: any = null;
 
   // --- Create Client properties  ---
   public showNewClientModal = false;
@@ -641,11 +644,96 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  toggleComment(cliente: TableClient): void {
-    if (this.activeCommentClient === cliente) {
-      this.activeCommentClient = null;
-    } else {
+  onCommentMouseEnter(cliente: TableClient): void {
+    if (this.commentLeaveTimer) {
+      clearTimeout(this.commentLeaveTimer);
+      this.commentLeaveTimer = null;
+    }
+
+    if (this.activeCommentClient === cliente) return;
+
+    if (this.commentHoverTimer) {
+      clearTimeout(this.commentHoverTimer);
+    }
+
+    this.commentHoverTimer = setTimeout(() => {
+      if (this.activeCommentClient && !this.isCommentPinned && this.activeCommentClient !== cliente) {
+        this.closeComment(this.activeCommentClient);
+      }
       this.activeCommentClient = cliente;
+      this.isCommentPinned = false;
+      setTimeout(() => {
+        const activeTextarea = document.getElementById('client-comment-' + cliente.id) as HTMLTextAreaElement;
+        if (activeTextarea) {
+          activeTextarea.style.height = 'auto';
+          activeTextarea.style.height = activeTextarea.scrollHeight + 'px';
+        }
+      }, 0);
+    }, 400);
+  }
+
+  onCommentMouseLeave(cliente: TableClient): void {
+    if (this.commentHoverTimer) {
+      clearTimeout(this.commentHoverTimer);
+      this.commentHoverTimer = null;
+    }
+
+    if (this.activeCommentClient === cliente && !this.isCommentPinned) {
+      if (this.commentLeaveTimer) {
+        clearTimeout(this.commentLeaveTimer);
+      }
+      this.commentLeaveTimer = setTimeout(() => {
+        if (this.activeCommentClient === cliente && !this.isCommentPinned) {
+          this.closeComment(cliente);
+        }
+      }, 200);
+    }
+  }
+
+  pinComment(cliente: TableClient): void {
+    if (this.commentLeaveTimer) {
+      clearTimeout(this.commentLeaveTimer);
+      this.commentLeaveTimer = null;
+    }
+    if (this.activeCommentClient === cliente) {
+      this.isCommentPinned = true;
+      setTimeout(() => {
+        const activeTextarea = document.getElementById('client-comment-' + cliente.id) as HTMLTextAreaElement;
+        if (activeTextarea && document.activeElement !== activeTextarea) {
+          activeTextarea.focus();
+        }
+      }, 0);
+    }
+  }
+
+  toggleComment(cliente: TableClient): void {
+    if (this.commentHoverTimer) {
+      clearTimeout(this.commentHoverTimer);
+      this.commentHoverTimer = null;
+    }
+    if (this.commentLeaveTimer) {
+      clearTimeout(this.commentLeaveTimer);
+      this.commentLeaveTimer = null;
+    }
+
+    if (this.activeCommentClient === cliente) {
+      if (this.isCommentPinned) {
+        this.closeComment(cliente);
+      } else {
+        this.isCommentPinned = true;
+        setTimeout(() => {
+          const activeTextarea = document.getElementById('client-comment-' + cliente.id) as HTMLTextAreaElement;
+          if (activeTextarea) {
+            activeTextarea.focus();
+          }
+        }, 0);
+      }
+    } else {
+      if (this.activeCommentClient) {
+        this.closeComment(this.activeCommentClient);
+      }
+      this.activeCommentClient = cliente;
+      this.isCommentPinned = true;
       setTimeout(() => {
         const activeTextarea = document.getElementById('client-comment-' + cliente.id) as HTMLTextAreaElement;
         if (activeTextarea) {
@@ -658,13 +746,27 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   closeComment(cliente: TableClient): void {
+    if (this.commentHoverTimer) {
+      clearTimeout(this.commentHoverTimer);
+      this.commentHoverTimer = null;
+    }
+    if (this.commentLeaveTimer) {
+      clearTimeout(this.commentLeaveTimer);
+      this.commentLeaveTimer = null;
+    }
     this.activeCommentClient = null;
+    this.isCommentPinned = false;
     this.onClientCommentChange(cliente);
   }
 
   deleteComment(cliente: TableClient): void {
     cliente.comment = '';
+    cliente.commentUpdatedAt = new Date();
     this.closeComment(cliente);
+  }
+
+  onClientCommentInput(cliente: TableClient): void {
+    cliente.commentUpdatedAt = new Date();
   }
 
   autoResizeTextarea(event: Event): void {
@@ -721,15 +823,18 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onClientCommentChange(cliente: TableClient): void {
-    cliente.commentUpdatedAt = new Date();
+    if (!cliente.commentUpdatedAt) {
+      cliente.commentUpdatedAt = new Date();
+    }
     this.clientService.updateClientComment(cliente.id, cliente.comment).subscribe({
       error: () => Swal.fire('Error', 'No se pudo guardar el comentario del cliente', 'error')
     });
   }
 
-  getFormattedUpdatedDate(date?: Date | string | null): string {
-    if (!date) return '';
-    const d = new Date(date);
+  getFormattedUpdatedDate(date?: Date | string | null, fallbackItem?: any): string {
+    const rawDate = date || (fallbackItem?.CommentUpdatedAt) || (fallbackItem?.comment_updated_at);
+    if (!rawDate) return '';
+    const d = new Date(rawDate);
     if (isNaN(d.getTime())) return '';
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');

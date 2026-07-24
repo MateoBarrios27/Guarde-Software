@@ -34,7 +34,9 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedMonth = this.currentDate.getMonth() + 1;
   selectedYear = this.currentDate.getFullYear();
   activeCommentItem: CashFlowItem | null = null;
-  
+  isCommentPinned: boolean = false;
+  private commentHoverTimer: any = null;
+  private commentLeaveTimer: any = null;
   items: CashFlowItem[] = [];
 
   summary: MonthlySummary = {
@@ -871,11 +873,96 @@ filterItems(): void {
     });
   } 
 
-  toggleComment(item: CashFlowItem): void {
-    if (this.activeCommentItem === item) {
-      this.activeCommentItem = null;
-    } else {
+  onCommentMouseEnter(item: CashFlowItem): void {
+    if (this.commentLeaveTimer) {
+      clearTimeout(this.commentLeaveTimer);
+      this.commentLeaveTimer = null;
+    }
+
+    if (this.activeCommentItem === item) return;
+
+    if (this.commentHoverTimer) {
+      clearTimeout(this.commentHoverTimer);
+    }
+
+    this.commentHoverTimer = setTimeout(() => {
+      if (this.activeCommentItem && !this.isCommentPinned && this.activeCommentItem !== item) {
+        this.closeComment(this.activeCommentItem);
+      }
       this.activeCommentItem = item;
+      this.isCommentPinned = false;
+      setTimeout(() => {
+        const activeTextarea = document.getElementById('excel-comment-' + item.id) as HTMLTextAreaElement;
+        if (activeTextarea) {
+          activeTextarea.style.height = 'auto';
+          activeTextarea.style.height = activeTextarea.scrollHeight + 'px';
+        }
+      }, 0);
+    }, 400);
+  }
+
+  onCommentMouseLeave(item: CashFlowItem): void {
+    if (this.commentHoverTimer) {
+      clearTimeout(this.commentHoverTimer);
+      this.commentHoverTimer = null;
+    }
+
+    if (this.activeCommentItem === item && !this.isCommentPinned) {
+      if (this.commentLeaveTimer) {
+        clearTimeout(this.commentLeaveTimer);
+      }
+      this.commentLeaveTimer = setTimeout(() => {
+        if (this.activeCommentItem === item && !this.isCommentPinned) {
+          this.closeComment(item);
+        }
+      }, 100);
+    }
+  }
+
+  pinComment(item: CashFlowItem): void {
+    if (this.commentLeaveTimer) {
+      clearTimeout(this.commentLeaveTimer);
+      this.commentLeaveTimer = null;
+    }
+    if (this.activeCommentItem === item) {
+      this.isCommentPinned = true;
+      setTimeout(() => {
+        const activeTextarea = document.getElementById('excel-comment-' + item.id) as HTMLTextAreaElement;
+        if (activeTextarea && document.activeElement !== activeTextarea) {
+          activeTextarea.focus();
+        }
+      }, 0);
+    }
+  }
+
+  toggleComment(item: CashFlowItem): void {
+    if (this.commentHoverTimer) {
+      clearTimeout(this.commentHoverTimer);
+      this.commentHoverTimer = null;
+    }
+    if (this.commentLeaveTimer) {
+      clearTimeout(this.commentLeaveTimer);
+      this.commentLeaveTimer = null;
+    }
+
+    if (this.activeCommentItem === item) {
+      if (this.isCommentPinned) {
+        this.closeComment(item);
+      } else {
+        this.isCommentPinned = true;
+        setTimeout(() => {
+          const activeTextarea = document.getElementById('excel-comment-' + item.id) as HTMLTextAreaElement;
+          if (activeTextarea) {
+            activeTextarea.focus();
+          }
+        }, 0);
+      }
+    } else {
+      if (this.activeCommentItem) {
+        this.closeComment(this.activeCommentItem);
+      }
+      this.activeCommentItem = item;
+      this.isCommentPinned = true;
       setTimeout(() => {
         const activeTextarea = document.getElementById('excel-comment-' + item.id) as HTMLTextAreaElement;
         if (activeTextarea) {
@@ -888,8 +975,17 @@ filterItems(): void {
   }
 
   closeComment(item: CashFlowItem): void {
+    if (this.commentHoverTimer) {
+      clearTimeout(this.commentHoverTimer);
+      this.commentHoverTimer = null;
+    }
+    if (this.commentLeaveTimer) {
+      clearTimeout(this.commentLeaveTimer);
+      this.commentLeaveTimer = null;
+    }
     this.checkItemChange(item);
     this.activeCommentItem = null;
+    this.isCommentPinned = false;
     this.onItemChange(item); 
   }
 
@@ -1028,9 +1124,14 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
     this.onItemChange(item);
   }
 
-  getFormattedUpdatedDate(date?: Date | string | null): string {
-    if (!date) return '';
-    const d = new Date(date);
+  onItemCommentInput(item: CashFlowItem): void {
+    item.commentUpdatedAt = new Date();
+  }
+
+  getFormattedUpdatedDate(date?: Date | string | null, fallbackItem?: any): string {
+    const rawDate = date || (fallbackItem?.CommentUpdatedAt) || (fallbackItem?.comment_updated_at);
+    if (!rawDate) return '';
+    const d = new Date(rawDate);
     if (isNaN(d.getTime())) return '';
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -1158,6 +1259,40 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
 // --- GRAB MULTIPLE ITEMS
   getSelectedItemsList(): CashFlowItem[] {
     return this.filteredItems.filter(item => this.selectedItemIds.includes(item.id!));
+  }
+
+  isAllItemsSelected(): boolean {
+    if (!this.filteredItems || this.filteredItems.length === 0) return false;
+    const validItems = this.filteredItems.filter(item => item.id);
+    if (validItems.length === 0) return false;
+    return validItems.every(item => this.selectedItemIds.includes(item.id!));
+  }
+
+  toggleSelectAllItems(): void {
+    if (this.selectedItemIds.length > 0) {
+      this.selectedItemIds = [];
+    } else {
+      this.selectedItemIds = this.filteredItems
+        .filter(item => item.id)
+        .map(item => item.id!);
+    }
+  }
+
+  isAllAccountsSelected(): boolean {
+    if (!this.accounts || this.accounts.length === 0) return false;
+    const validAccounts = this.accounts.filter(acc => acc.id);
+    if (validAccounts.length === 0) return false;
+    return validAccounts.every(acc => this.selectedAccountIds.includes(acc.id!));
+  }
+
+  toggleSelectAllAccounts(): void {
+    if (this.selectedAccountIds.length > 0) {
+      this.selectedAccountIds = [];
+    } else {
+      this.selectedAccountIds = this.accounts
+        .filter(acc => acc.id)
+        .map(acc => acc.id!);
+    }
   }
 
   // Evalúa si todos los elementos actualmente listados con monto en esa columna ya están seleccionados

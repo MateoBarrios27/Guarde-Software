@@ -482,6 +482,8 @@
                         N° {{ cliente.paymentIdentifier | number : "1.2-2" }}
                       </span>
                       <button (click)="toggleComment(cliente); $event.stopPropagation()"
+                              (mouseenter)="onCommentMouseEnter(cliente)"
+                              (mouseleave)="onCommentMouseLeave(cliente)"
                               title="Observaciones del cliente"
                               class="note-toggle-btn w-6 h-6 inline-flex items-center justify-center rounded-md transition-colors"
                               [ngClass]="cliente.comment && cliente.comment.trim() !== '' ? 'text-gray-700 hover:bg-black/5' : 'text-gray-400 hover:text-gray-700 hover:bg-black/5'">
@@ -496,7 +498,10 @@
                 </div>
 
                 <div *ngIf="activeCommentClient === cliente"
-                     class="note-popup-container absolute top-10 left-12 z-50 w-80 bg-white border border-gray-200 shadow-2xl p-0 origin-top-left animate-fade-in-down rounded-xl overflow-hidden text-left">
+                     (mouseenter)="onCommentMouseEnter(cliente)"
+                     (mouseleave)="onCommentMouseLeave(cliente)"
+                     (click)="pinComment(cliente); $event.stopPropagation()"
+                     class="note-popup-container absolute top-6 left-12 z-50 w-80 bg-white border border-gray-200 shadow-2xl p-0 origin-top-left animate-fade-in-down rounded-xl overflow-hidden text-left">
                   <div class="flex justify-between items-center border-b border-gray-100 px-3 py-2 bg-gray-50/50">
                     <span class="text-[10px] uppercase font-bold text-gray-500 tracking-wider flex items-center gap-1.5"><app-icon name="message-square" class="w-3 h-3"></app-icon> Notas del Cliente</span>
                     <button (click)="closeComment(cliente)" class="text-gray-400 hover:text-gray-700 hover:bg-gray-200 p-1 rounded-md transition-colors"><app-icon name="x" class="w-3.5 h-3.5"></app-icon></button>
@@ -504,13 +509,14 @@
                   <div class="p-3">
                     <textarea [id]="'client-comment-' + cliente.id"
                               [(ngModel)]="cliente.comment"
-                              (input)="autoResizeTextarea($event)"
+                              (input)="autoResizeTextarea($event); onClientCommentInput(cliente)"
+                              (focus)="pinComment(cliente)"
                               (keydown.enter)="onCommentEnter($event, cliente)"
                               class="w-full bg-transparent border-none focus:ring-0 text-sm text-gray-700 p-0 resize-none overflow-hidden min-h-[60px]"
                               placeholder="Escribe una observación detallada..."></textarea>
                   </div>
                   <div class="flex items-center justify-between px-3 pb-2.5 border-t border-gray-50 pt-2">
-                    <span class="text-[10px] text-gray-400 font-medium">{{ getFormattedUpdatedDate(cliente.commentUpdatedAt) }}</span>
+                    <span class="text-[10px] text-gray-400 font-medium">{{ getFormattedUpdatedDate(cliente.commentUpdatedAt, cliente) }}</span>
                     <button *ngIf="cliente.comment && cliente.comment.trim() !== ''" (click)="deleteComment(cliente)" class="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-md font-medium transition-colors focus:outline-none">Borrar nota</button>
                   </div>
                 </div>

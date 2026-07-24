@@ -70,7 +70,7 @@ export class ClientDetailModalComponent implements OnChanges {
   public showNewMovementModal = false;
 
   public movementCurrentPage: number = 1;
-  public movementItemsPerPage: number = 5;
+  public movementItemsPerPage: number = 10;
   public commCurrentPage: number = 1;
   public commItemsPerPage: number = 5; 
 
