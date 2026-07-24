@@ -239,7 +239,7 @@ namespace GuardeSoftwareAPI.Jobs
                 <body>
                     
                     <p><b style='color: black;'> Estimado/a: {clientName}</b></p> 
-                    <p>Le recordamos que el vencimiento de la cuota correspondiente al mes {monthYear} es el 10/{monthYear}. Vencido dicho plazo el importe mensual tendrá un recargo del 10%, sin excepción.</p>
+                    <p>Le recordamos que el pago de la cuota correspondiente al mes {monthYear} es hasta el día 10/{monthYear}. Vencido dicho plazo el importe mensual tendrá un recargo del 10%, sin excepción.</p>
                     
                     <b style='color: green;'> ""No pierda su beneficio por pago puntual"", por atrasos reiterados su abono será ajustado a los valores actuales""</b></p>
 
