@@ -30,14 +30,25 @@
     <div class="col-span-12 lg:col-span-9">
       <!-- Sección Usuarios -->
       <div *ngIf="activeSection === 'usuarios'" class="border rounded-lg shadow bg-white">
-        <div class="p-4 flex justify-between items-center border-b">
+        <div class="p-4 flex flex-wrap justify-between items-center gap-2 border-b">
           <div class="font-semibold flex items-center gap-2 text-gray-700">
             Gestión de Usuarios
           </div>
-          <button class="px-3 py-1 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
-          (click)="openCreateUserModal()">
-            + Nuevo Usuario
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              (click)="openCreateAlertModal()"
+              id="btn-emitir-advertencia"
+              title="Emitir advertencia a todos los usuarios conectados"
+              class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 hover:bg-orange-100 hover:border-orange-300 hover:text-orange-700 transition-all text-sm font-medium group"
+            >
+              <app-icon name="megaphone" class="h-4 w-4 transition-transform group-hover:scale-110"></app-icon>
+              <span>Emitir Advertencia</span>
+            </button>
+            <button class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 font-medium"
+            (click)="openCreateUserModal()">
+              + Nuevo Usuario
+            </button>
+          </div>
         </div>
         <div class="p-4 overflow-x-auto">
           <table class="min-w-full border text-sm">
@@ -1026,6 +1037,12 @@
 
   
 </div>
+
+<!-- Modal para emitir advertencia al sistema -->
+<app-create-alert-modal
+  *ngIf="isCreateAlertOpen"
+  (closeModal)="closeCreateAlertModal()"
+></app-create-alert-modal>
 
 
 

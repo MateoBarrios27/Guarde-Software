@@ -1,4 +1,5 @@
 using GuardeSoftwareAPI.Dao;
+using GuardeSoftwareAPI.Hubs;
 using System.Data;
 using GuardeSoftwareAPI.Services.accountMovement;
 using GuardeSoftwareAPI.Services.activityLog;
@@ -52,11 +53,23 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAngular",
         policy =>
         {
-            policy.WithOrigins("http://localhost:4200", "http://filgueira.ar", "http://200.58.127.32") 
+            policy.WithOrigins(
+                    "http://localhost:4200", 
+                    "http://filgueira.ar", 
+                    "https://filgueira.ar", 
+                    "http://www.filgueira.ar", 
+                    "https://www.filgueira.ar", 
+                    "http://200.58.127.32",
+                    "https://200.58.127.32"
+                  )
                   .AllowAnyHeader()
-                  .AllowAnyMethod();
+                  .AllowAnyMethod()
+                  .AllowCredentials(); // Requerido por SignalR WebSockets
         });
 });
+
+// --- SignalR (para alertas en tiempo real y futuros webhooks) ---
+builder.Services.AddSignalR();
 
 // DbContext para Identity (usa la connection string del appsettings.json)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -208,6 +221,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseRouting();
 app.UseCors("AllowAngular");
 
 app.UseHttpsRedirection();
@@ -217,6 +231,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// --- Hub de SignalR para alertas y notificaciones en tiempo real ---
+app.MapHub<AlertHub>("/hubs/alert");
 
 
 app.Run();

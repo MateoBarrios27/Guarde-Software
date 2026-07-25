@@ -1,0 +1,102 @@
+<div
+  *ngIf="isVisible && alert"
+  class="fixed inset-0 z-[9999] flex items-start justify-center pt-6 px-4 pointer-events-none"
+>
+  <!-- Backdrop sutil para alertas regulares (no urgente) -->
+  <div
+    *ngIf="alert.severity !== 'danger'"
+    class="absolute inset-0 bg-black/30 backdrop-blur-[2px] pointer-events-auto"
+    [class.animate-fadeIn]="!isLeaving"
+    [class.animate-fadeOut]="isLeaving"
+  ></div>
+
+  <!-- 1. Cartel para severidades Regulares (warning, info, maintenance) -->
+  <div
+    *ngIf="alert.severity !== 'danger'"
+    class="relative w-full max-w-lg pointer-events-auto rounded-2xl shadow-2xl border-2 overflow-hidden bg-white"
+    [class]="config.containerClass"
+    [class.animate-slideDown]="!isLeaving"
+    [class.animate-slideUp]="isLeaving"
+  >
+    <div class="h-1 w-full" [class]="config.progressClass"></div>
+    <div class="p-5">
+      <div class="flex items-start gap-4">
+        <div class="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" [class]="config.iconBgClass">
+          <app-icon [name]="config.icon" class="h-6 w-6" [class]="config.iconColorClass"></app-icon>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold tracking-wide uppercase" [class]="config.badgeClass">
+              {{ config.label }}
+            </span>
+            <span class="text-xs text-gray-500">
+              Emitido por <strong>{{ alert.senderName }}</strong>
+            </span>
+          </div>
+          <h3 class="text-base font-bold leading-snug" [class]="config.titleClass">{{ alert.title }}</h3>
+          <p class="mt-1.5 text-sm leading-relaxed" [class]="config.messageClass">{{ alert.message }}</p>
+          <p class="mt-2 text-xs text-gray-400">{{ alert.createdAt | date:'d/M/yyyy, HH:mm' : undefined : 'es-AR' }}</p>
+        </div>
+        <button (click)="dismiss()" class="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-black/5" title="Cerrar">
+          <app-icon name="x" class="h-5 w-5"></app-icon>
+        </button>
+      </div>
+      <div class="mt-4 flex justify-end">
+        <button (click)="dismiss()" class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm" [class]="config.btnClass">
+          Entendido
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Cartel URGENTE (Estilo Google Warning Banner) -->
+  <div
+    *ngIf="alert.severity === 'danger'"
+    class="relative w-full max-w-5xl pointer-events-auto shadow-2xl rounded-sm bg-[#c5221f] text-white overflow-hidden flex"
+    [class.animate-slideDown]="!isLeaving"
+    [class.animate-slideUp]="isLeaving"
+  >
+    <div class="p-4 flex-1 flex flex-col sm:flex-row gap-4">
+      
+      <!-- Ícono X en octágono blanco (o círculo blanco) -->
+      <div class="flex-shrink-0 mt-0.5">
+        <div class="w-7 h-7 bg-white text-[#c5221f] rounded-full flex items-center justify-center shadow-sm">
+          <app-icon name="x" class="w-5 h-5 font-bold"></app-icon>
+        </div>
+      </div>
+
+      <!-- Contenido -->
+      <div class="flex-1">
+        <h2 class="text-[17px] font-semibold leading-tight">{{ alert.title }}</h2>
+        <p class="mt-2 text-[14px] leading-relaxed text-red-50">
+          {{ alert.message }}
+        </p>
+        
+        <!-- Botones y Footer -->
+        <div class="mt-5 flex flex-wrap items-center gap-6">
+          <button 
+            (click)="dismiss()" 
+            class="px-4 py-1.5 border border-white text-white text-sm font-medium rounded hover:bg-white/10 transition-colors">
+            Cerrar Advertencia
+          </button>
+          
+          <span class="text-sm text-red-100/80">
+            Enviado por {{ alert.senderName }} ({{ alert.createdAt | date:'HH:mm' : undefined : 'es-AR' }})
+          </span>
+        </div>
+      </div>
+
+      <!-- Botón X arriba a la derecha (opcional, como en algunas alertas) -->
+      <div class="flex-shrink-0 hidden sm:block">
+         <!-- Help icon o X icon (según la imagen tiene un signo de pregunta) -->
+         <div class="w-6 h-6 rounded-full border border-white/40 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 cursor-help transition-colors" title="Advertencia de nivel Urgente">
+           <span class="text-xs font-bold">?</span>
+         </div>
+      </div>
+    </div>
+    
+    <!-- Barra vertical al final como acento decorativo (opcional) -->
+    <div class="w-2 bg-orange-400 opacity-80"></div>
+  </div>
+
+</div>

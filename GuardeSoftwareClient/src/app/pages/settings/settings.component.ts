@@ -32,12 +32,13 @@ import { LockerType } from '../../core/models/locker-type';
 import { CreateLockerTypeDto } from '../../core/dtos/lockerType/CreateLockerTypeDto';
 import { ɵɵDir } from "@angular/cdk/scrolling";
 import { AuthService } from '../../core/services/auth-service/auth.service';
+import { CreateAlertModalComponent } from '../../shared/components/create-alert-modal/create-alert-modal.component';
 
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, ɵɵDir], // DatePipe añadido
+  imports: [CommonModule, FormsModule, IconComponent, ɵɵDir, CreateAlertModalComponent], // DatePipe añadido
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css'
 })
@@ -56,6 +57,16 @@ export class SettingsComponent implements OnInit {
   ) {}
 
   activeSection: string = 'usuarios';
+  isCreateAlertOpen: boolean = false;
+
+  openCreateAlertModal() {
+    this.isCreateAlertOpen = true;
+  }
+
+  closeCreateAlertModal() {
+    this.isCreateAlertOpen = false;
+  }
+
   users : User[] = [];
   userTypes: UserType[] = [];
   paymentMethods : PaymentMethod [] = [];
