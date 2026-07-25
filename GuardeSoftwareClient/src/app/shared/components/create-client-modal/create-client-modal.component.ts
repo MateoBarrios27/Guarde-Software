@@ -130,6 +130,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
         this.availableLockers = results.lockers.filter(
           (l: Locker) =>
             l.status.toLowerCase() === 'disponible' ||
+            (l.isFreeSpace && l.status.toUpperCase() !== 'OCUPADO') ||
             (this.clientData?.lockersList?.some(
               (assignedLocker) => assignedLocker.id === l.id
             ) === true)

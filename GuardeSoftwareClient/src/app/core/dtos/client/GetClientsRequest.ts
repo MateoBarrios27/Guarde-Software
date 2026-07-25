@@ -13,4 +13,5 @@ export interface GetClientsRequest {
   ivaConditions?: string[];
   billingTypeIds?: number[];
   preferredPaymentMethodIds?: number[];
+  lockerTypeIds?: number[];
 }

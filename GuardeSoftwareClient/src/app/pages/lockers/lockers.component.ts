@@ -35,7 +35,8 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
     status: '',
     features: '',
     lockerTypeId: 0,
-    warehouseId: 0
+    warehouseId: 0,
+    isFreeSpace: false
   };
   lockerOriginal: LockerUpdateDTO = { ...this.lockerUpdate }; 
   showUpdateLockerModal = false;
@@ -385,7 +386,8 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
       status : item.status,
       features: item.features,
       lockerTypeId: item.lockerTypeId,
-      warehouseId: item.warehouseId
+      warehouseId: item.warehouseId,
+      isFreeSpace: item.isFreeSpace ?? false
     };
     this.lockerOriginal = { ...this.lockerUpdate };
     this.idLockerUpdated = item.id;
@@ -409,7 +411,8 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
                         dto.status !== this.lockerOriginal.status ||
                         dto.features !== this.lockerOriginal.features ||
                         dto.lockerTypeId !== this.lockerOriginal.lockerTypeId ||
-                        dto.warehouseId !== this.lockerOriginal.warehouseId;
+                        dto.warehouseId !== this.lockerOriginal.warehouseId ||
+                        dto.isFreeSpace !== this.lockerOriginal.isFreeSpace;
 
      if (!hasChanged) {
        Swal.fire({
@@ -425,6 +428,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
      const isAssignedToClient = Boolean(
        (this.selectedLockerForEdit?.rentalId && this.selectedLockerForEdit.rentalId > 0) ||
        (this.selectedLockerForEdit?.clientName && this.selectedLockerForEdit.clientName.trim() !== '') ||
+       (this.selectedLockerForEdit?.clientNames && this.selectedLockerForEdit.clientNames.trim() !== '') ||
        this.lockerOriginal.status === 'OCUPADO'
      );
 
@@ -492,7 +496,8 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
       warehouseId: 0,
       lockerTypeId: 0,
       features: '',
-      status: 'DISPONIBLE'
+      status: 'DISPONIBLE',
+      isFreeSpace: false
     };
   }
 

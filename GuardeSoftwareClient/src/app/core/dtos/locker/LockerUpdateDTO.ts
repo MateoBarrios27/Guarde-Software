@@ -5,4 +5,5 @@ export interface LockerUpdateDTO{
     lockerTypeId: number;
     status: string;
     warehouseId: number;
-}
+    isFreeSpace: boolean;
+}

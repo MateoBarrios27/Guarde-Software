@@ -26,6 +26,7 @@ import { BillingType } from '../../core/models/billing-type.model';
 import { BillingTypeService } from '../../core/services/billingType-service/billing-type.service';
 import { PaymentMethod } from '../../core/models/payment-method';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
+import { LockerTypeService } from '../../core/services/lockerType-service/locker-type.service';
 
 @Component({
   selector: 'app-clients',
@@ -102,6 +103,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public selectedIvaConditions: string[] = [];
   public selectedBillingTypeIds: number[] = [];
   public selectedPaymentMethodIds: number[] = [];
+  public selectedLockerTypeIds: number[] = [];
   public showTagsPopover = false;
 
   @ViewChild('tagsPopoverRef') tagsPopoverRef!: ElementRef;
@@ -126,6 +128,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     private warehouseService: WarehouseService, 
     private billingTypeService: BillingTypeService,
     private paymentMethodService: PaymentMethodService,
+    private lockerTypeService: LockerTypeService,
     private router: Router
   ) 
   {
@@ -157,12 +160,15 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  public lockerTypes: any[] = [];
+
   ngOnInit(): void {
     this.loadClients();
     this.loadStatistics();
     this.warehouseService.getWarehouses().subscribe(data => this.warehouses = data);
     this.billingTypeService.getBillingTypes().subscribe(data => this.billingTypes = data);
     this.paymentMethodService.getPaymentMethods().subscribe(data => this.paymentMethods = data);
+    this.lockerTypeService.getLockerTypes().subscribe(data => this.lockerTypes = data);
   }
 
   public quickFiltersList = [
@@ -242,12 +248,24 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadClients();
   }
 
+  toggleLockerTypeId(id: number): void {
+    const idx = this.selectedLockerTypeIds.indexOf(id);
+    if (idx > -1) {
+      this.selectedLockerTypeIds.splice(idx, 1);
+    } else {
+      this.selectedLockerTypeIds.push(id);
+    }
+    this.currentPageClientes = 1;
+    this.loadClients();
+  }
+
   clearAllTags(): void {
     this.selectedWarehouseIds = [];
     this.selectedQuickFilters = [];
     this.selectedIvaConditions = [];
     this.selectedBillingTypeIds = [];
     this.selectedPaymentMethodIds = [];
+    this.selectedLockerTypeIds = [];
     this.currentPageClientes = 1;
     this.loadClients();
   }
@@ -258,7 +276,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedQuickFilters.length +
       this.selectedIvaConditions.length +
       this.selectedBillingTypeIds.length +
-      this.selectedPaymentMethodIds.length
+      this.selectedPaymentMethodIds.length +
+      this.selectedLockerTypeIds.length
     );
   }
 
@@ -272,6 +291,11 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     if (id === 0 || id === -1) return 'Sin asignar';
     const pm = this.paymentMethods.find(p => p.id === id);
     return pm ? pm.name : `Método (${id})`;
+  }
+
+  getLockerTypeName(id: number): string {
+    const lt = this.lockerTypes.find(t => t.id === id);
+    return lt ? lt.name : `Tipo (${id})`;
   }
 
   ngAfterViewInit() {
@@ -320,7 +344,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       advancedFilters: this.selectedQuickFilters.length > 0 ? this.selectedQuickFilters : undefined,
       ivaConditions: this.selectedIvaConditions.length > 0 ? this.selectedIvaConditions : undefined,
       billingTypeIds: this.selectedBillingTypeIds.length > 0 ? this.selectedBillingTypeIds : undefined,
-      preferredPaymentMethodIds: this.selectedPaymentMethodIds.length > 0 ? this.selectedPaymentMethodIds : undefined
+      preferredPaymentMethodIds: this.selectedPaymentMethodIds.length > 0 ? this.selectedPaymentMethodIds : undefined,
+      lockerTypeIds: this.selectedLockerTypeIds.length > 0 ? this.selectedLockerTypeIds : undefined
     };
 
     this.clientService.getTableClients(request).subscribe({

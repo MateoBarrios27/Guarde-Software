@@ -16,5 +16,6 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public List<string>? IvaConditions { get; set; }
         public List<int>? BillingTypeIds { get; set; }
         public List<int>? PreferredPaymentMethodIds { get; set; }
+        public List<int>? LockerTypeIds { get; set; }
     }
 }

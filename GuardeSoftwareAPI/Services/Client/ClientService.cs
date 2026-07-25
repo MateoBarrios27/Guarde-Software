@@ -1067,11 +1067,12 @@ namespace GuardeSoftwareAPI.Services.client
                             var lockersToAdd = newLockerIds.Except(currentLockerIds).ToList();
 
                             if (lockersToRemove.Count != 0) {
-                                await lockerService.UnassignLockersFromRentalTransactionAsync(lockersToRemove, connection, transaction);
+                                await lockerService.UnassignLockersFromRentalTransactionAsync(currentRental.Id, lockersToRemove, connection, transaction);
                                 await daoClient.CloseLockerHistoryTransactionAsync(id, lockersToRemove, connection, transaction);
                             }
                             if (lockersToAdd.Count != 0) {
                                 foreach(var lockerIdToAdd in lockersToAdd) {
+                                    // IsLockerAvailableAsync ya considera espacios libres (status != OCUPADO)
                                     if (!await lockerService.IsLockerAvailableAsync(lockerIdToAdd, connection, transaction)) {
                                         throw new InvalidOperationException($"El locker {lockerIdToAdd} ya no está disponible.");
                                     }
@@ -1135,7 +1136,7 @@ namespace GuardeSoftwareAPI.Services.client
                             var lockerIds = await lockerService.GetLockerIdsByRentalIdTransactionAsync(activeRentalId.Value, connection, transaction);
                             if (lockerIds != null && lockerIds.Count > 0)
                             {
-                                await lockerService.UnassignLockersFromRentalTransactionAsync(lockerIds, connection, transaction);
+                                await lockerService.UnassignLockersFromRentalTransactionAsync(activeRentalId.Value, lockerIds, connection, transaction);
                                 await daoClient.CloseLockerHistoryTransactionAsync(clientId, lockerIds, connection, transaction);
                                 await rentalService.UpdateContractedM3TransactionAsync(activeRentalId.Value, 0m, connection, transaction);
                             }
@@ -1258,6 +1259,7 @@ namespace GuardeSoftwareAPI.Services.client
                         {
                             foreach (var lockerIdToAdd in dto.LockerIds)
                             {
+                                // IsLockerAvailableAsync ya considera espacios libres (status != OCUPADO)
                                 if (!await lockerService.IsLockerAvailableAsync(lockerIdToAdd, connection, transaction))
                                     throw new InvalidOperationException($"El locker {lockerIdToAdd} ya no está disponible.");
                             }

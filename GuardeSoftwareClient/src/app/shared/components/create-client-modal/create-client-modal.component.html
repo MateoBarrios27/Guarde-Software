@@ -385,7 +385,11 @@
                         <input type="checkbox" [checked]="newClientForm.get('lockersAsignados')?.value.includes(locker.id)" readonly class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" (keydown.enter)="blurInput($event)"/>
                         <div class="flex-1">
                           <div class="flex justify-between items-center mb-1">
-                            <span class="font-medium text-indigo-900">{{ locker.identifier }}</span>
+                            <div class="flex items-center gap-2">
+                              <span class="font-medium text-indigo-900">{{ locker.identifier }}</span>
+                              <span *ngIf="locker.isFreeSpace" 
+                                    class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-700 border border-teal-200 uppercase tracking-wide">EL</span>
+                            </div>
                           </div>
                           <div class="flex items-center gap-4 text-sm text-gray-600">
                             <span *ngIf="getLockerDetails(locker.id).warehouse">{{ getLockerDetails(locker.id).warehouse?.name }}</span>

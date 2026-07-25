@@ -263,6 +263,30 @@
                     </button>
                   </div>
                 </div>
+
+                <!-- Tipo de Baulera -->
+                <div>
+                  <span class="block text-xs font-semibold text-gray-600 mb-2">Tipo de Baulera</span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      *ngFor="let lt of lockerTypes"
+                      type="button"
+                      (click)="toggleLockerTypeId(lt.id)"
+                      class="px-2.5 py-1 rounded-full text-xs transition-colors border"
+                      [ngClass]="selectedLockerTypeIds.includes(lt.id) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                    >
+                      {{ lt.name }}
+                    </button>
+                    <button
+                      type="button"
+                      (click)="toggleLockerTypeId(0)"
+                      class="px-2.5 py-1 rounded-full text-xs transition-colors border"
+                      [ngClass]="selectedLockerTypeIds.includes(0) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                    >
+                      Sin baulera
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div *ngIf="totalActiveTagsCount > 0" class="pt-2 border-t border-gray-100 flex justify-end">
@@ -315,10 +339,18 @@
             </button>
           </span>
 
-          <!-- Condición ante el IVA activas -->
+          <!-- Condición de IVA activas -->
           <span *ngFor="let cond of selectedIvaConditions" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
-            {{ cond }}
+            IVA: {{ cond }}
             <button type="button" (click)="toggleIvaCondition(cond)" class="hover:text-blue-900 focus:outline-none">
+              <app-icon name="x" class="h-3 w-3"></app-icon>
+            </button>
+          </span>
+
+          <!-- Tipos de baulera activos -->
+          <span *ngFor="let id of selectedLockerTypeIds" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
+            Tipo de Baulera: {{ getLockerTypeName(id) }}
+            <button type="button" (click)="toggleLockerTypeId(id)" class="hover:text-blue-900 focus:outline-none">
               <app-icon name="x" class="h-3 w-3"></app-icon>
             </button>
           </span>

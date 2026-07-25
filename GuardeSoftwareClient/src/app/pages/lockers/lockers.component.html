@@ -310,16 +310,32 @@
       
       <tbody class="divide-y divide-gray-200">
         <tr *ngFor="let locker of filteredLockers | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'lockers' }" class="hover:bg-gray-50">
-          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{{ locker.identifier }}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+            <div class="flex items-center gap-2">
+              {{ locker.identifier }}
+              <span *ngIf="locker.isFreeSpace"
+                    class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-700 border border-teal-200 uppercase tracking-wide"
+                    title="Espacio Libre - puede tener múltiples clientes asignados">EL</span>
+            </div>
+          </td>
           <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-600">{{ getWarehouseName(locker.warehouseId) }}</td>
-          <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-600">{{ getLockerTypeName(locker.lockerTypeId) }}</td> <!-- TIPO AÑADIDO -->
+          <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-600">{{ getLockerTypeName(locker.lockerTypeId) }}</td>
           <td class="px-2 py-3 text-sm text-gray-600 truncate max-w-64">{{ locker.features || '-' }}</td>
           <td class="px-2 py-3 whitespace-nowrap text-sm">
             <span class="px-2.5 py-0.5 rounded-full text-xs font-medium" [ngClass]="getStatusColor(locker.status)">
               {{ locker.status }}
             </span>
           </td>
-          <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-600">{{ locker.clientName || '-' }}</td>
+          <td class="px-2 py-3 text-sm text-gray-600">
+            <!-- Para espacios libres, mostramos todos los clientes asignados -->
+            <ng-container *ngIf="locker.isFreeSpace; else normalClient">
+              <span *ngIf="locker.clientNames" class="block text-xs leading-snug">{{ locker.clientNames }}</span>
+              <span *ngIf="!locker.clientNames" class="text-gray-400 italic text-xs">Sin asignar</span>
+            </ng-container>
+            <ng-template #normalClient>
+              {{ locker.clientName || '-' }}
+            </ng-template>
+          </td>
           <td class="px-2 py-3 whitespace-nowrap text-sm font-medium"> 
             <button (click)="openUpdateLockerModal(locker)" 
                     class="p-1 text-black hover:text-blue-800" title="Editar"> 
@@ -425,6 +441,23 @@
                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none resize-none"
                   rows="3"></textarea>
       </div>
+
+      <!-- Toggle: Espacio Libre -->
+      <div class="pt-2 border-t border-dashed border-gray-200">
+        <label class="flex items-center justify-between cursor-pointer group">
+          <div class="flex flex-col">
+            <span class="text-sm font-medium text-teal-800 flex items-center gap-2">
+              <app-icon name="layers" class="h-4 w-4 text-teal-600"></app-icon>
+              Espacio Libre (Multi-cliente)
+            </span>
+            <span class="text-xs text-gray-500 mt-0.5">Permite asignar este espacio a múltiples clientes simultáneamente.</span>
+          </div>
+          <div class="relative ml-4 flex-shrink-0">
+            <input type="checkbox" [(ngModel)]="lockerUpdate.isFreeSpace" class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+          </div>
+        </label>
+      </div>
     </div>
 
     <!-- Footer -->
@@ -518,6 +551,23 @@
                   placeholder="Ej: Locker con ventilación, candado magnético, etc."
                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none resize-none"
                   rows="3"></textarea>
+      </div>
+
+      <!-- Toggle: Espacio Libre -->
+      <div class="pt-2 border-t border-dashed border-gray-200">
+        <label class="flex items-center justify-between cursor-pointer group">
+          <div class="flex flex-col">
+            <span class="text-sm font-medium text-teal-800 flex items-center gap-2">
+              <app-icon name="layers" class="h-4 w-4 text-teal-600"></app-icon>
+              Espacio Libre (Multi-cliente)
+            </span>
+            <span class="text-xs text-gray-500 mt-0.5">Al activar esto, el espacio podrá ser asignado a múltiples clientes. El estado inicial será siempre DISPONIBLE.</span>
+          </div>
+          <div class="relative ml-4 flex-shrink-0">
+            <input type="checkbox" [(ngModel)]="newLocker.isFreeSpace" class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+          </div>
+        </label>
       </div>
     </div>
 

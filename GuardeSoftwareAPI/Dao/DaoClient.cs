@@ -654,6 +654,35 @@ namespace GuardeSoftwareAPI.Dao
                 }
             }
 
+            if (request.LockerTypeIds != null && request.LockerTypeIds.Any())
+            {
+                var ids = request.LockerTypeIds.Where(id => id > 0).ToList();
+                bool includeNull = request.LockerTypeIds.Contains(0) || request.LockerTypeIds.Contains(-1);
+                var clauses = new List<string>();
+
+                if (ids.Any())
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < ids.Count; i++)
+                    {
+                        string pName = $"@LockerType_{i}";
+                        paramNames.Add(pName);
+                        filterParameters.Add(new SqlParameter(pName, ids[i]));
+                    }
+                    clauses.Add($"EXISTS (SELECT 1 FROM lockers l_filt WHERE l_filt.rental_id = r.rental_id AND l_filt.locker_type_id IN ({string.Join(", ", paramNames)}) AND l_filt.active = 1)");
+                    clauses.Add($"EXISTS (SELECT 1 FROM rental_lockers rl_filt INNER JOIN lockers l_rl_filt ON rl_filt.locker_id = l_rl_filt.locker_id WHERE rl_filt.rental_id = r.rental_id AND l_rl_filt.locker_type_id IN ({string.Join(", ", paramNames)}) AND l_rl_filt.active = 1)");
+                }
+                if (includeNull)
+                {
+                    clauses.Add("NOT EXISTS (SELECT 1 FROM lockers l_filt WHERE l_filt.rental_id = r.rental_id AND l_filt.active = 1)");
+                    clauses.Add("NOT EXISTS (SELECT 1 FROM rental_lockers rl_filt WHERE rl_filt.rental_id = r.rental_id)");
+                }
+                if (clauses.Any())
+                {
+                    finalWhereClause.Append($" AND ({string.Join(" OR ", clauses)}) ");
+                }
+            }
+
             string fullQuery = $@"
                 WITH CurrentRentalAmount AS (
                     SELECT h.rental_id, h.amount AS CurrentRent
@@ -862,6 +891,12 @@ namespace GuardeSoftwareAPI.Dao
                                     LEFT JOIN warehouses w_curr ON l_curr.warehouse_id = w_curr.warehouse_id
                                     WHERE r.rental_id IS NOT NULL AND l_curr.rental_id = r.rental_id AND l_curr.active = 1
                                     UNION ALL
+                                    SELECT l_rl.identifier, ISNULL(w_rl.name, 'Sin ubicación') AS warehouse_name
+                                    FROM rental_lockers rl
+                                    INNER JOIN lockers l_rl ON rl.locker_id = l_rl.locker_id
+                                    LEFT JOIN warehouses w_rl ON l_rl.warehouse_id = w_rl.warehouse_id
+                                    WHERE r.rental_id IS NOT NULL AND rl.rental_id = r.rental_id AND l_rl.active = 1
+                                    UNION ALL
                                     SELECT chl.identifier, chl.warehouse_name
                                     FROM ClientHistoricalLockers chl
                                     WHERE chl.client_id = c.client_id
@@ -874,6 +909,11 @@ namespace GuardeSoftwareAPI.Dao
                             SELECT l_curr.identifier
                             FROM lockers l_curr
                             WHERE r.rental_id IS NOT NULL AND l_curr.rental_id = r.rental_id AND l_curr.active = 1
+                            UNION ALL
+                            SELECT l_rl.identifier
+                            FROM rental_lockers rl
+                            INNER JOIN lockers l_rl ON rl.locker_id = l_rl.locker_id
+                            WHERE r.rental_id IS NOT NULL AND rl.rental_id = r.rental_id AND l_rl.active = 1
                             UNION ALL
                             SELECT chl.identifier
                             FROM ClientHistoricalLockers chl

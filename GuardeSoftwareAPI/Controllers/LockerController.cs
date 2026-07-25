@@ -64,7 +64,8 @@ namespace GuardeSoftwareAPI.Controllers
                 LockerTypeId = LockerToCreate.LockerTypeId,
                 Identifier = LockerToCreate.Identifier,
                 Features = LockerToCreate.Features,
-                Status = LockerToCreate.Status
+                Status = LockerToCreate.Status,
+                IsFreeSpace = LockerToCreate.IsFreeSpace
             };
 
             try

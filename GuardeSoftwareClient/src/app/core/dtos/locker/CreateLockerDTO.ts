@@ -5,6 +5,7 @@ export interface CreateLockerDTO{
     identifier: string;
     features: string;
     status: string;
+    isFreeSpace: boolean;
 }
 
     
