@@ -16,7 +16,7 @@ export interface ComunicacionDto {
   sendTime: string | null;
   channel: string;
   recipients: string[];
-  status: 'Draft' | 'Scheduled' | 'Processing' | 'Finished' | 'Finished w/ Errors' | 'Failed';
+  status: 'Draft' | 'Scheduled' | 'Procesando' | 'Finished' | 'Finished w/ Errors' | 'Failed';
   creationDate: string;
   smtpConfigId?: number | null;
   isAccountStatement: boolean;

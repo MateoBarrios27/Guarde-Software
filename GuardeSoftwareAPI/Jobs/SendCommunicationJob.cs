@@ -8,7 +8,8 @@ using System.Text;
 using GuardeSoftwareAPI.Dtos.Client;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-
+using Microsoft.AspNetCore.SignalR;
+using GuardeSoftwareAPI.Hubs;
 namespace GuardeSoftwareAPI.Jobs
 {
     [DisallowConcurrentExecution]
@@ -17,15 +18,18 @@ namespace GuardeSoftwareAPI.Jobs
         private readonly CommunicationDao _communicationDao;
         private readonly IConfiguration _config;
         private readonly ILogger<SendCommunicationJob> _logger;
+        private readonly IHubContext<CommunicationHub> _hubContext;
 
         public SendCommunicationJob(
             AccessDB _accessDB,
             IConfiguration config,
-            ILogger<SendCommunicationJob> logger)
+            ILogger<SendCommunicationJob> logger,
+            IHubContext<CommunicationHub> hubContext)
         {
             _communicationDao = new CommunicationDao(_accessDB);
             _config = config;
             _logger = logger;
+            _hubContext = hubContext;
         }
 
         public async Task Execute(IJobExecutionContext context)
@@ -38,6 +42,7 @@ namespace GuardeSoftwareAPI.Jobs
             try
             {
                 await _communicationDao.UpdateCommunicationStatusAndErrorAsync(comunicadoId, "Procesando", null);
+                await _hubContext.Clients.All.SendAsync("CommunicationUpdated", comunicadoId);
 
                 var channels = await _communicationDao.GetChannelsForSendingAsync(comunicadoId);
                 var recipients = await _communicationDao.GetRecipientsForSendingAsync(comunicadoId);
@@ -67,6 +72,11 @@ namespace GuardeSoftwareAPI.Jobs
                 if (ex.InnerException != null) fatalError += $"\n({ex.InnerException.Message})";
                 await _communicationDao.UpdateCommunicationStatusAndErrorAsync(comunicadoId, "Failed", fatalError);
                 throw new JobExecutionException("Job execution failed.", ex, false);
+            }
+            finally 
+            {
+                // Emitir actualización al finalizar el job independientemente de si falló o no
+                await _hubContext.Clients.All.SendAsync("CommunicationUpdated", comunicadoId);
             }
         }
 

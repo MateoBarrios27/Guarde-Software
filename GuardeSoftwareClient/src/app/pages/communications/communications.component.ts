@@ -1,11 +1,11 @@
-import { Component, signal, computed, ChangeDetectionStrategy, OnInit } from '@angular/core';
+import { Component, signal, computed, ChangeDetectionStrategy, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from "../../shared/components/icon/icon.component";
 import { CommunicationService } from '../../core/services/communication-service/communication.service';
 import { ComunicacionDto, CommunicationDispatchDto, UpsertComunicacionRequest } from '../../core/dtos/communications/communicationDto';
 import { ClientService } from '../../core/services/client-service/client.service';
-import { catchError, debounceTime, distinctUntilChanged, of, Subject, switchMap } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, of, Subject, switchMap, Subscription } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
@@ -72,7 +72,7 @@ const COMMUNICATION_CHANNELS: Channel[] = [
   styleUrl: './communications.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CommunicationsComponent implements OnInit {
+export class CommunicationsComponent implements OnInit, OnDestroy {
 
   communications = signal<ComunicacionDto[]>([]); 
   staticGroups = signal<string[]>([]); 
@@ -104,13 +104,31 @@ export class CommunicationsComponent implements OnInit {
   dynamicMonthFilters = signal<MonthFilter[]>([]);
   activeQuickFilter = signal<string | null>(null);
 
-  constructor(
+  private signalRSubscription?: Subscription;
+
+  constructor(
     private commService: CommunicationService, 
     private clientService: ClientService,
     private sanitizer: DomSanitizer
   ) {}
 
   ngOnInit(): void {
+    // Iniciar conexión SignalR y escuchar actualizaciones
+    this.commService.startSignalRConnection();
+    this.signalRSubscription = this.commService.onCommunicationUpdated$.subscribe((id) => {
+      // Recargar listado en segundo plano
+      this.loadCommunications();
+      
+      // Si el usuario está viendo los detalles o reintentos de ese mismo comunicado, 
+      // actualizamos los datos silenciosamente
+      const currentComm = this.selectedCommunication();
+      if (currentComm && currentComm.id === id) {
+          this.commService.getCommunicationById(id).subscribe(updatedComm => {
+              this.selectedCommunication.set(updatedComm);
+          });
+      }
+    });
+
     this.loadCommunications();
     this.loadRecipientOptions();
     this.setupSearchDebounce();  
@@ -119,9 +137,44 @@ export class CommunicationsComponent implements OnInit {
     this.generateMonthFilters();
   }
 
+  ngOnDestroy(): void {
+    if (this.signalRSubscription) {
+      this.signalRSubscription.unsubscribe();
+    }
+    this.commService.stopSignalRConnection();
+  }
+
   loadCommunications(): void {
     this.commService.getCommunications().subscribe({ 
-      next: (data) => this.communications.set(data),
+      next: (data) => {
+        const oldComms = this.communications();
+        const newTrans = new Set(this.transitioningCommunications());
+        let hasNewTransitions = false;
+
+        data.forEach(newComm => {
+          const oldComm = oldComms.find(c => c.id === newComm.id);
+          const isFinishedStatus = newComm.status === 'Finished' || newComm.status === 'Failed' || newComm.status === 'Finished w/ Errors';
+          
+          if (oldComm && oldComm.status === 'Procesando' && isFinishedStatus) {
+            newTrans.add(newComm.id);
+            hasNewTransitions = true;
+            
+            // Remove from transition state after 3.5 seconds
+            setTimeout(() => {
+              this.transitioningCommunications.update(set => {
+                const updated = new Set(set);
+                updated.delete(newComm.id);
+                return updated;
+              });
+            }, 3500);
+          }
+        });
+        
+        if (hasNewTransitions) {
+          this.transitioningCommunications.set(newTrans);
+        }
+        this.communications.set(data);
+      },
       error: (err) => this.showToast('Error de Carga', 'No se pudieron cargar los datos', '❌', 'error')
     });
   }
@@ -182,6 +235,7 @@ export class CommunicationsComponent implements OnInit {
   
   currentModal = signal<'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm' | 'retry' | 'none'>('none');
   selectedCommunication = signal<ComunicacionDto | null>(null);
+  transitioningCommunications = signal<Set<number>>(new Set());
 
   toast = signal<ToastState>({
     show: false,
@@ -195,21 +249,26 @@ export class CommunicationsComponent implements OnInit {
   
   // --- Computed Signals ---
   
-  scheduledCommunications = computed(() => 
-    this.communications().filter(c => c.status === 'Scheduled' || c.status === 'Processing')
-  );
+  scheduledCommunications = computed(() => {
+    const trans = this.transitioningCommunications();
+    return this.communications().filter(c => 
+      c.status === 'Scheduled' || 
+      c.status === 'Procesando' || 
+      trans.has(c.id)
+    );
+  });
 
   draftCommunications = computed(() => 
     this.communications().filter(c => c.status === 'Draft')
   );
 
-  pastCommunications = computed(() => 
-    this.communications().filter(c => 
-      c.status === 'Finished' || 
-      c.status === 'Finished w/ Errors' ||
-      c.status === 'Failed'
-    )
-  );
+  pastCommunications = computed(() => {
+    const trans = this.transitioningCommunications();
+    return this.communications().filter(c => 
+      (c.status === 'Finished' || c.status === 'Finished w/ Errors' || c.status === 'Failed') &&
+      !trans.has(c.id)
+    );
+  });
 
   isFormValid = computed(() => {
     const data = this.formData();
@@ -273,7 +332,7 @@ export class CommunicationsComponent implements OnInit {
       let formType: 'programar' | 'borrador' | 'enviar_ahora' = 'borrador';
       
       // If it's a resend, default to 'enviar_ahora' regardless of original status
-      if (communication.status === 'Scheduled' || communication.status === 'Processing') {
+      if (communication.status === 'Scheduled' || communication.status === 'Procesando') {
         formType = 'programar';
       } 
       // If the communication failed or had errors, we want to allow quick resend
@@ -500,25 +559,25 @@ export class CommunicationsComponent implements OnInit {
 
     switch (status) {
       case 'Finished': 
-        colorClass = 'bg-green-100 text-green-800'; icon = 'check-circle'; text = 'Enviado';
+        colorClass = 'badge-finished'; icon = 'check-circle'; text = 'Enviado';
         break;
       case 'Scheduled': 
-        colorClass = 'bg-blue-100 text-blue-800'; icon = 'clock'; text = 'Programado';
+        colorClass = 'badge-scheduled'; icon = 'clock'; text = 'Programado';
         break;
       case 'Draft': 
-        colorClass = 'bg-gray-100 text-gray-800'; icon = 'file-text'; text = 'Borrador';
+        colorClass = 'badge-draft'; icon = 'file-text'; text = 'Borrador';
         break;
-      case 'Processing':
-        colorClass = 'bg-yellow-100 text-yellow-800'; icon = 'refresh-cw'; text = 'Procesando';
+      case 'Procesando':
+        colorClass = 'processing-badge'; icon = 'refresh-cw'; text = 'Procesando';
         break;
       case 'Failed':
       case 'Finished w/ Errors':
-        colorClass = 'bg-red-100 text-red-800'; icon = 'alert-triangle'; text = 'Error';
+        colorClass = 'badge-error'; icon = 'alert-triangle'; text = 'Error';
         break;
       default: 
-        colorClass = 'bg-gray-100 text-gray-800'; text = status;
+        colorClass = 'badge-draft'; text = status;
     }
-    return { text, classes: `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass} min-w-[70px] justify-center`, icon };
+    return { text, classes: `status-badge ${colorClass}`, icon };
   }
 
   getChannelMeta(channel: string): { icons: { name: string; classes?: string }[] } {

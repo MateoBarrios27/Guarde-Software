@@ -3,6 +3,8 @@ using GuardeSoftwareAPI.Jobs; // Assuming your Job is in a Jobs folder
 using Microsoft.Data.SqlClient;
 using Quartz;
 using GuardeSoftwareAPI.Dtos.Communication;
+using Microsoft.AspNetCore.SignalR;
+using GuardeSoftwareAPI.Hubs;
 
 namespace GuardeSoftwareAPI.Services.communication
 {
@@ -12,16 +14,19 @@ namespace GuardeSoftwareAPI.Services.communication
         private readonly AccessDB accessDB; // To get the connection
         private readonly ISchedulerFactory _schedulerFactory;
         private readonly ILogger<CommunicationService> logger;
+        private readonly IHubContext<CommunicationHub> _hubContext;
 
         public CommunicationService(
             AccessDB _accessDB, // Inject your AccessDB
             ISchedulerFactory schedulerFactory,
-            ILogger<CommunicationService> _logger)
+            ILogger<CommunicationService> _logger,
+            IHubContext<CommunicationHub> hubContext)
         {
             _communicationDao = new CommunicationDao(_accessDB);
             accessDB = _accessDB;
             _schedulerFactory = schedulerFactory;
             logger = _logger;
+            _hubContext = hubContext;
         }
 
         public async Task<List<CommunicationDto>> GetCommunications()
@@ -110,7 +115,11 @@ namespace GuardeSoftwareAPI.Services.communication
                         }
 
                         // Return the newly created DTO (read is outside transaction)
-                        return await _communicationDao.GetCommunicationByIdAsync(newId);
+                        var newCommunication = await _communicationDao.GetCommunicationByIdAsync(newId);
+                        
+                        await _hubContext.Clients.All.SendAsync("CommunicationUpdated", newId);
+
+                        return newCommunication;
                     }
                     catch (Exception ex)
                     {
@@ -285,7 +294,11 @@ namespace GuardeSoftwareAPI.Services.communication
                             await ScheduleJobAsync(communicationId, scheduledAt.Value);
                         }
                         
-                        return await _communicationDao.GetCommunicationByIdAsync(communicationId);
+                        var newCommunication = await _communicationDao.GetCommunicationByIdAsync(communicationId);
+                        
+                        await _hubContext.Clients.All.SendAsync("CommunicationUpdated", communicationId);
+
+                        return newCommunication;
                     }
                     catch (Exception ex)
                     {
@@ -301,7 +314,12 @@ namespace GuardeSoftwareAPI.Services.communication
         public async Task<bool> DeleteCommunicationAsync(int communicationId)
         {
             // You already implemented this, but I include it for completeness
-            return await _communicationDao.DeleteCommunicationAsync(communicationId);
+            var result = await _communicationDao.DeleteCommunicationAsync(communicationId);
+            if (result)
+            {
+                await _hubContext.Clients.All.SendAsync("CommunicationUpdated", communicationId);
+            }
+            return result;
         }
 
         public async Task<CommunicationDto> SendDraftNowAsync(int communicationId)
@@ -315,6 +333,7 @@ namespace GuardeSoftwareAPI.Services.communication
             if (success)
             {
                 await ScheduleJobAsync(communicationId, scheduleTime);
+                await _hubContext.Clients.All.SendAsync("CommunicationUpdated", communicationId);
                 return await _communicationDao.GetCommunicationByIdAsync(communicationId);
             }
 

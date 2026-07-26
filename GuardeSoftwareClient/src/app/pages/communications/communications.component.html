@@ -359,11 +359,23 @@
     <div class="p-4 rounded-lg space-y-3 border bg-gray-50">
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-bold text-gray-900">{{ selectedCommunication()!.title }}</h3>
-        <span [ngClass]="getBadgeMeta(selectedCommunication()!.status).classes">
+        @if (selectedCommunication()!.status === 'Procesando') {
+          <span class="status-badge processing-badge">
+            <span class="signal-bars">
+              <span class="signal-bar"></span>
+              <span class="signal-bar"></span>
+              <span class="signal-bar"></span>
+              <span class="signal-bar"></span>
+            </span>
+            Procesando
+          </span>
+        } @else {
+        <span [ngClass]="getBadgeMeta(selectedCommunication()!.status).classes + (transitioningCommunications().has(selectedCommunication()!.id) ? ' badge-transition-pop' : '')">
           <app-icon *ngIf="getBadgeMeta(selectedCommunication()!.status).icon"
-            [name]="getBadgeMeta(selectedCommunication()!.status).icon!"></app-icon>
-          <span class="ml-2">{{ getBadgeMeta(selectedCommunication()!.status).text }}</span>
+            [name]="getBadgeMeta(selectedCommunication()!.status).icon!" class="h-3.5 w-3.5"></app-icon>
+          <span>{{ getBadgeMeta(selectedCommunication()!.status).text }}</span>
         </span>
+        }
       </div>
 
       <div class="flex items-center gap-2 text-sm text-gray-600">
@@ -575,18 +587,30 @@
 }
 
 <ng-template #communicationCardTemplate let-comm="communication" let-isDraft="isDraft" let-isPast="isPast">
-  <div class="p-4 pb-2 bg-white rounded-xl border border-gray-200 shadow hover:shadow-lg transition-shadow duration-200 flex flex-col h-full">
+  <div class="p-4 bg-white rounded-lg border border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md transition-all duration-200 flex flex-col h-full">
 
     <div class="flex items-start justify-between">
-      <h3 class="text-sm font-semibold text-gray-900 line-clamp-2 pr-4">{{ comm.title }}</h3>
-      <span [ngClass]="getBadgeMeta(comm.status).classes">
+      <h3 class="text-sm font-medium text-gray-800 line-clamp-2 pr-4">{{ comm.title }}</h3>
+      @if (comm.status === 'Procesando') {
+        <span class="status-badge processing-badge">
+          <span class="signal-bars">
+            <span class="signal-bar"></span>
+            <span class="signal-bar"></span>
+            <span class="signal-bar"></span>
+            <span class="signal-bar"></span>
+          </span>
+          Procesando
+        </span>
+      } @else {
+      <span [ngClass]="getBadgeMeta(comm.status).classes + (transitioningCommunications().has(comm.id) ? ' badge-transition-pop' : '')">
         <app-icon *ngIf="getBadgeMeta(comm.status).icon" [name]="getBadgeMeta(comm.status).icon!" class="h-3.5 w-3.5"></app-icon>
-        <span class="ml-1 text-xs">{{ getBadgeMeta(comm.status).text }}</span>
+        <span>{{ getBadgeMeta(comm.status).text }}</span>
       </span>
+      }
     </div>
 
     <div class="space-y-3 mt-3 flex-grow">
-      <p class="text-xs text-gray-600 line-clamp-2">
+      <p class="text-xs text-gray-500 line-clamp-2">
         {{ getCommunicationPreview(comm.content, comm.channel) }}
       </p>
 
@@ -612,7 +636,7 @@
       </div>
     </div>
 
-    <div class="flex gap-1 pt-2 border-t mt-3">
+    <div class="flex gap-1 pt-3 border-t border-gray-100 mt-4">
       <button (click)="openModal('view', comm)" title="Ver detalles"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-gray-600 hover:bg-gray-100 transition">
         <app-icon name="eye" class="h-4 w-4"></app-icon>
@@ -648,7 +672,7 @@
         </button>
       }
 
-      @if (comm.status !== 'Processing') {
+      @if (comm.status !== 'Procesando') {
       <button (click)="openModal('delete-confirm', comm)" title="Eliminar comunicado"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-red-600 hover:bg-red-100 transition">
         <app-icon name="Trash2" class="h-4 w-4"></app-icon>

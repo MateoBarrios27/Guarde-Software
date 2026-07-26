@@ -64,7 +64,7 @@ builder.Services.AddCors(options =>
                   )
                   .AllowAnyHeader()
                   .AllowAnyMethod()
-                  .AllowCredentials(); // Requerido por SignalR WebSockets
+                  .AllowCredentials();
         });
 });
 
@@ -234,6 +234,7 @@ app.MapControllers();
 
 // --- Hub de SignalR para alertas y notificaciones en tiempo real ---
 app.MapHub<AlertHub>("/hubs/alert");
+app.MapHub<CommunicationHub>("/hubs/communications");
 
 
 app.Run();

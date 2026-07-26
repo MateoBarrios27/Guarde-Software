@@ -1,10 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 import { ComunicacionDto, UpsertComunicacionRequest } from './../../dtos/communications/communicationDto';
 import { environment } from '../../../../environments/environments';
 import { IClientCommunication } from '../../../shared/components/client-detail-modal/client-detail-modal.component';
 import { SmtpConfig } from '../../models/smtp-config';
+import * as signalR from '@microsoft/signalr';
 
 @Injectable({
   providedIn: 'root'
@@ -12,8 +13,42 @@ import { SmtpConfig } from '../../models/smtp-config';
 export class CommunicationService {
   private http = inject(HttpClient);
   private url: string = environment.apiUrl;
+  
+  private hubConnection: signalR.HubConnection | undefined;
+  private communicationUpdatedSource = new Subject<number>();
+  public onCommunicationUpdated$ = this.communicationUpdatedSource.asObservable();
 
   constructor() { }
+
+  public startSignalRConnection(): void {
+    // Si url es http://localhost:5242/api, el hub estará en http://localhost:5242/hubs/communications
+    const baseUrl = this.url.endsWith('/api') ? this.url.substring(0, this.url.length - 4) : this.url;
+    const hubUrl = `${baseUrl}/hubs/communications`;
+    
+    this.hubConnection = new signalR.HubConnectionBuilder()
+      .withUrl(hubUrl)
+      .withAutomaticReconnect()
+      .configureLogging(signalR.LogLevel.Information)
+      .build();
+
+    this.hubConnection
+      .start()
+      .then(() => console.log('[CommunicationService] Conexión SignalR establecida.'))
+      .catch(err => console.error('[CommunicationService] Error al conectar SignalR:', err));
+
+    this.hubConnection.on('CommunicationUpdated', (communicationId: number) => {
+      console.log(`[CommunicationService] Evento CommunicationUpdated recibido para ID: ${communicationId}`);
+      this.communicationUpdatedSource.next(communicationId);
+    });
+  }
+  
+  public stopSignalRConnection(): void {
+    if (this.hubConnection) {
+      this.hubConnection.stop()
+        .then(() => console.log('[CommunicationService] Conexión SignalR detenida.'))
+        .catch(err => console.error('[CommunicationService] Error al detener SignalR:', err));
+    }
+  }
 
   getCommunications(): Observable<ComunicacionDto[]> {
     return this.http.get<ComunicacionDto[]>(`${this.url}/Communications`);
