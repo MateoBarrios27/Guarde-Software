@@ -233,9 +233,16 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     isNextMonthStatement: false
   });
   
-  currentModal = signal<'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm' | 'retry' | 'none'>('none');
+  currentModal = signal<'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm' | 'retry' | 'history' | 'none'>('none');
   selectedCommunication = signal<ComunicacionDto | null>(null);
   transitioningCommunications = signal<Set<number>>(new Set());
+
+  // History Modal Signals
+  historySearchTerm = signal<string>('');
+  historyStatusFilter = signal<string>('ALL');
+  historyChannelFilter = signal<string>('ALL');
+  historyCurrentPage = signal<number>(1);
+  historyItemsPerPage = 10;
 
   toast = signal<ToastState>({
     show: false,
@@ -268,6 +275,43 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       (c.status === 'Finished' || c.status === 'Finished w/ Errors' || c.status === 'Failed') &&
       !trans.has(c.id)
     );
+  });
+
+  filteredHistoryCommunications = computed(() => {
+    let comms = this.pastCommunications();
+    const search = this.historySearchTerm().toLowerCase().trim();
+    const status = this.historyStatusFilter();
+    const channel = this.historyChannelFilter();
+
+    if (search) {
+      comms = comms.filter(c => c.title.toLowerCase().includes(search));
+    }
+    if (status !== 'ALL') {
+      if (status === 'Failed') {
+        comms = comms.filter(c => c.status === 'Failed' || c.status === 'Finished w/ Errors');
+      } else {
+        comms = comms.filter(c => c.status === status);
+      }
+    }
+    if (channel !== 'ALL') {
+      if (channel === 'Email') {
+         comms = comms.filter(c => c.channel.includes('Email'));
+      } else if (channel === 'WhatsApp') {
+         comms = comms.filter(c => c.channel.includes('WhatsApp'));
+      }
+    }
+    return comms;
+  });
+
+  paginatedHistoryCommunications = computed(() => {
+    const all = this.filteredHistoryCommunications();
+    const page = this.historyCurrentPage();
+    const startIndex = (page - 1) * this.historyItemsPerPage;
+    return all.slice(startIndex, startIndex + this.historyItemsPerPage);
+  });
+
+  historyTotalPages = computed(() => {
+    return Math.max(1, Math.ceil(this.filteredHistoryCommunications().length / this.historyItemsPerPage));
   });
 
   isFormValid = computed(() => {
@@ -313,7 +357,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   }
 
   openModal(
-    modalType: 'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm' | 'retry', 
+    modalType: 'add' | 'edit' | 'view' | 'delete-confirm' | 'send-confirm' | 'retry' | 'history', 
     communication: ComunicacionDto | null = null, 
     isResend: boolean = false // Este flag ahora servirá para "Clonar"
   ): void {
@@ -378,11 +422,22 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     this.currentModal.set(finalModalType);
   }
 
-  closeModal(): void {
-    this.currentModal.set('none');
-    this.selectedCommunication.set(null);
-    this.resetForm();
-  }
+  closeModal(): void {
+    this.currentModal.set('none');
+    this.selectedCommunication.set(null);
+    this.historySearchTerm.set('');
+    this.historyStatusFilter.set('ALL');
+    this.historyChannelFilter.set('ALL');
+    this.historyCurrentPage.set(1);
+    this.resetForm();
+  }
+
+  changeHistoryPage(delta: number): void {
+    const newPage = this.historyCurrentPage() + delta;
+    if (newPage >= 1 && newPage <= this.historyTotalPages()) {
+      this.historyCurrentPage.set(newPage);
+    }
+  }
 
   addCommunication(): void {
     const data = this.formData();

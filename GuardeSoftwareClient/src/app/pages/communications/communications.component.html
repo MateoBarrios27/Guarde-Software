@@ -57,11 +57,17 @@
       <p>No hay comunicados anteriores</p>
     </div>
     <div *ngIf="pastCommunications().length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      @for (comm of pastCommunications(); track comm.id) {
+      @for (comm of pastCommunications().slice(0, 19); track comm.id) {
         <ng-container
           [ngTemplateOutlet]="communicationCardTemplate"
           [ngTemplateOutletContext]="{ communication: comm, isDraft: false, isPast: true }">
         </ng-container>
+      }
+      @if (pastCommunications().length > 19) {
+        <div (click)="openModal('history')" class="p-4 bg-white rounded-lg border border-dashed border-gray-300 shadow-sm hover:border-gray-400 hover:shadow-md transition-all duration-200 flex flex-col items-center justify-center h-full cursor-pointer group text-gray-500 hover:text-blue-600 min-h-[160px]">
+          <app-icon name="archive" class="h-8 w-8 mb-2 group-hover:scale-110 transition-transform duration-200"></app-icon>
+          <span class="font-medium text-center">Ver historial completo ({{ pastCommunications().length }})</span>
+        </div>
       }
     </div>
   </div>
@@ -93,6 +99,7 @@
         @case ('delete-confirm') { Confirmar Eliminación }
         @case ('send-confirm') { Confirmar Envío }
         @case ('retry') { Reintentar Envíos Fallidos }
+        @case ('history') { Historial de Comunicados }
       }
     </h2>
     <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600">
@@ -580,6 +587,120 @@
         class="flex-1 px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200">
         Cancelar
       </button>
+    </div>
+  </div>
+  }
+
+  @if (currentModal() === 'history') {
+  <div class="space-y-4 flex flex-col h-full">
+    <!-- Barra de Herramientas -->
+    <div class="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+      <div class="flex-grow relative">
+        <app-icon name="search" class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></app-icon>
+        <input type="text" placeholder="Buscar por título..."
+          [ngModel]="historySearchTerm()"
+          (ngModelChange)="historySearchTerm.set($event); historyCurrentPage.set(1)"
+          class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+      </div>
+      <div class="flex gap-2">
+        <div class="relative">
+          <select [ngModel]="historyStatusFilter()"
+                  (ngModelChange)="historyStatusFilter.set($event); historyCurrentPage.set(1)"
+                  class="text-sm border border-gray-300 rounded-md pl-3 pr-8 py-2 bg-white cursor-pointer focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none bg-none">
+            <option value="ALL">Todos los Estados</option>
+            <option value="Finished">Enviado exitoso</option>
+            <option value="Failed">Fallidos / Con Errores</option>
+          </select>
+          <app-icon name="chevron-down" class="h-4 w-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"></app-icon>
+        </div>
+        
+        <div class="relative">
+          <select [ngModel]="historyChannelFilter()"
+                  (ngModelChange)="historyChannelFilter.set($event); historyCurrentPage.set(1)"
+                  class="text-sm border border-gray-300 rounded-md pl-3 pr-8 py-2 bg-white cursor-pointer focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none bg-none">
+            <option value="ALL">Todos los Canales</option>
+            <option value="Email">Email</option>
+            <option value="WhatsApp">WhatsApp</option>
+          </select>
+          <app-icon name="chevron-down" class="h-4 w-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"></app-icon>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista Compacta -->
+    <div class="flex-grow overflow-y-auto space-y-2 border border-gray-100 rounded-lg bg-gray-50/50 p-2 min-h-[350px]">
+      @if (paginatedHistoryCommunications().length === 0) {
+        <div class="flex flex-col items-center justify-center h-full text-gray-400 py-16">
+          <app-icon name="Archive" class="h-12 w-12 mb-3 opacity-50"></app-icon>
+          <p class="text-sm">No se encontraron comunicados con los filtros actuales.</p>
+        </div>
+      } @else {
+        @for (comm of paginatedHistoryCommunications(); track comm.id) {
+          <div class="flex items-center justify-between bg-white p-3 rounded-md border border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md transition-all">
+            
+            <div class="flex-grow min-w-0 pr-4">
+              <div class="flex items-center gap-2 mb-1">
+                <span [ngClass]="getBadgeMeta(comm.status).classes" style="transform: scale(0.9); transform-origin: left;">
+                  <app-icon *ngIf="getBadgeMeta(comm.status).icon" [name]="getBadgeMeta(comm.status).icon!" class="h-3.5 w-3.5"></app-icon>
+                  <span>{{ getBadgeMeta(comm.status).text }}</span>
+                </span>
+                <span class="text-[11px] text-gray-500 flex items-center gap-1">
+                  <app-icon name="Calendar" class="h-3 w-3"></app-icon>
+                  {{ comm.sendDate | date: 'dd/MM/yyyy' }}
+                </span>
+                <div class="flex items-center gap-2 ml-2 border-l pl-2 border-gray-200">
+                  <ng-container *ngFor="let ic of getChannelMeta(comm.channel).icons">
+                    <app-icon [name]="ic.name" [ngClass]="ic.classes + ' h-3.5 w-3.5'"></app-icon>
+                  </ng-container>
+                </div>
+              </div>
+              <h4 class="text-sm font-medium text-gray-800 truncate" [title]="comm.title">{{ comm.title }}</h4>
+            </div>
+
+            <div class="flex items-center gap-1 flex-shrink-0 border-l border-gray-100 pl-3">
+              <button (click)="openModal('view', comm)" title="Ver detalles" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
+                <app-icon name="eye" class="h-4 w-4"></app-icon>
+              </button>
+              @if (comm.status === 'Failed' || comm.status === 'Finished w/ Errors') {
+                <button (click)="openRetryModal(comm)" title="Reintentar fallidos" class="p-1.5 text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-full transition">
+                  <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
+                </button>
+              } @else if (comm.status === 'Finished') {
+                <button (click)="openModal('add', comm, true)" title="Reutilizar / Clonar" class="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
+                  <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
+                </button>
+              }
+            </div>
+
+          </div>
+        }
+      }
+    </div>
+    
+    <!-- Paginación y Cierre -->
+    <div class="flex items-center justify-between pt-4 mt-2 border-t border-gray-100">
+      <div class="text-sm text-gray-500">
+        Mostrando página <span class="font-medium text-gray-800">{{ historyCurrentPage() }}</span> de <span class="font-medium text-gray-800">{{ historyTotalPages() }}</span>
+        <span class="hidden sm:inline"> (Total: {{ filteredHistoryCommunications().length }})</span>
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <div class="flex gap-1">
+          <button (click)="changeHistoryPage(-1)" [disabled]="historyCurrentPage() === 1"
+            class="px-3 py-1.5 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm">
+            Anterior
+          </button>
+          <button (click)="changeHistoryPage(1)" [disabled]="historyCurrentPage() === historyTotalPages()"
+            class="px-3 py-1.5 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm">
+            Siguiente
+          </button>
+        </div>
+        
+        <button (click)="closeModal()"
+          class="px-6 py-1.5 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition shadow-sm">
+          Cerrar
+        </button>
+      </div>
     </div>
   </div>
   }
