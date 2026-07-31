@@ -12,7 +12,7 @@ import { GetClientsRequest } from '../../core/dtos/client/GetClientsRequest';
 import { ClientService } from '../../core/services/client-service/client.service';
 import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO';
 
-import { Subject, Observable } from 'rxjs';
+import { Subject, Observable, firstValueFrom } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { ClientDetailModalComponent } from "../../shared/components/client-detail-modal/client-detail-modal.component";
 import Swal from 'sweetalert2';
@@ -21,12 +21,14 @@ import { StatisticsService } from '../../core/services/statics-service/statics-s
 import { ɵɵDir } from "@angular/cdk/scrolling";
 import { Warehouse } from '../../core/models/warehouse';
 import { WarehouseService } from '../../core/services/warehouse-service/warehouse.service';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { BillingType } from '../../core/models/billing-type.model';
 import { BillingTypeService } from '../../core/services/billingType-service/billing-type.service';
 import { PaymentMethod } from '../../core/models/payment-method';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
 import { LockerTypeService } from '../../core/services/lockerType-service/locker-type.service';
+import { OfflineService } from '../../core/services/offline-service/offline.service';
+import { IndexedDbService } from '../../core/services/offline-service/indexed-db.service';
 
 @Component({
   selector: 'app-clients',
@@ -35,12 +37,9 @@ import { LockerTypeService } from '../../core/services/lockerType-service/locker
     CommonModule,
     FormsModule,
     IconComponent,
-    CurrencyPipe,
     NgxPaginationModule,
-    PhonePipe,
     CreateClientModalComponent,
-    ClientDetailModalComponent,
-    ɵɵDir
+    ClientDetailModalComponent
 ],
   templateUrl: './clients.component.html',
 })
@@ -129,7 +128,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     private billingTypeService: BillingTypeService,
     private paymentMethodService: PaymentMethodService,
     private lockerTypeService: LockerTypeService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute,
+    public offlineService: OfflineService,
+    private idb: IndexedDbService
   ) 
   {
     this.searchSubject.pipe(
@@ -163,7 +165,22 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public lockerTypes: any[] = [];
 
   ngOnInit(): void {
-    this.loadClients();
+    this.route.queryParams.subscribe(params => {
+      const returnClientId = params['returnClientId'];
+      this.loadClients().then(() => {
+        if (returnClientId) {
+          setTimeout(() => {
+            const el = document.getElementById('client-row-' + returnClientId);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              // Highlight temporal
+              el.classList.add('bg-blue-100');
+              setTimeout(() => el.classList.remove('bg-blue-100'), 2500);
+            }
+          }, 100);
+        }
+      });
+    });
     this.loadStatistics();
     this.warehouseService.getWarehouses().subscribe(data => this.warehouses = data);
     this.billingTypeService.getBillingTypes().subscribe(data => this.billingTypes = data);
@@ -297,7 +314,6 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     const lt = this.lockerTypes.find(t => t.id === id);
     return lt ? lt.name : `Tipo (${id})`;
   }
-
   ngAfterViewInit() {
     this.scrollObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
@@ -329,8 +345,58 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-   loadClients(): void {
+   async loadClients(): Promise<void> {
     this.isLoading = true;
+
+    if (!this.offlineService.isOnline) {
+      // Load from IndexedDB cache
+      const cached = await this.idb.getCachedClients();
+      
+      // We map the cached Client model (which is simple) to the TableClient format as best as possible
+      let filtered = cached.map(c => ({
+        id: c.id,
+        fullName: c.fullName,
+        paymentIdentifier: c.paymentIdentifier ?? 0,
+        balance: c.balance ?? 0,
+        currentRent: c.currentRent ?? 0,
+        previousBalance: c.previousBalance ?? 0,
+        pendingSurcharge: c.pendingSurcharge ?? 0,
+        interestAmount: c.interestAmount ?? 0,
+        lastGeneratedMonthYear: c.lastGeneratedMonthYear,
+        color: c.color,
+        status: c.status ?? (c.active ? 'Al día' : 'Baja'),
+        nextPaymentDay: c.nextPaymentDay ? new Date(c.nextPaymentDay) : null,
+        active: c.active ?? true,
+        phone1: '',
+        email: '',
+        lockers: [],
+        registrationDate: new Date(),
+        documentType: '',
+        documentNumber: '',
+        comment: '',
+        commentUpdatedAt: new Date(),
+        billingTypeId: 0,
+        ivaCondition: '',
+        preferredPaymentMethodId: c.preferredPaymentMethodId ?? 0,
+        dni: '',
+        cuit: ''
+      } as unknown as TableClient));
+
+      // Apply basic search filter if present
+      if (this.searchClientes) {
+        const term = this.searchClientes.toLowerCase();
+        filtered = filtered.filter(c => 
+          c.fullName.toLowerCase().includes(term) || 
+          (c.paymentIdentifier?.toString().includes(term) ?? false)
+        );
+      }
+
+      this.clientes = filtered;
+      this.totalClientes = filtered.length;
+      this.calculateTotals();
+      this.isLoading = false;
+      return;
+    }
 
     const request: GetClientsRequest = {
       pageNumber: this.currentPageClientes,
@@ -348,21 +414,16 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       lockerTypeIds: this.selectedLockerTypeIds.length > 0 ? this.selectedLockerTypeIds : undefined
     };
 
-    this.clientService.getTableClients(request).subscribe({
-      next: (result) => {
-        this.clientes = result.items;
-
-        this.totalClientes = result.totalCount;
-        this.calculateTotals();
-        this.isLoading = false;
-      },
-
-      error: (err) => {
-        console.error('Error al cargar clientes:', err);
-
-        this.isLoading = false;
-      },
-    });
+    try {
+      const result = await firstValueFrom(this.clientService.getTableClients(request));
+      this.clientes = result.items;
+      this.totalClientes = result.totalCount;
+      this.calculateTotals();
+      this.isLoading = false;
+    } catch (err) {
+      console.error('Error al cargar clientes:', err);
+      this.isLoading = false;
+    }
   }
 
   get totalPages(): number {

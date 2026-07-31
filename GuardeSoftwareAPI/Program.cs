@@ -36,6 +36,7 @@ using System.Text;
 using System.Globalization;
 using GuardeSoftwareAPI.Services.cash;
 using GuardeSoftwareAPI.Services.clientMonthBalance;
+using GuardeSoftwareAPI.Services.sync;
 
 
 
@@ -143,6 +144,7 @@ builder.Services.AddScoped<IRentalAmountHistoryService, RentalAmountHistoryServi
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserTypeService, UserTypeService>();
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+builder.Services.AddScoped<ISyncService, SyncService>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<DaoStatistics>();
 builder.Services.AddScoped<IAuthService, AuthService>();

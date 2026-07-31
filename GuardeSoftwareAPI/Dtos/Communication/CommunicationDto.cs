@@ -32,6 +32,8 @@ public class UpsertCommunicationRequest
     public List<IFormFile>? Attachments { get; set; }
     public bool IsAccountStatement { get; set; }
     public bool IsNextMonthStatement { get; set; }
+    public bool IsTestMode { get; set; }
+    public string? TestEmailAddress { get; set; }
 }
 
 public class RetryCommunicationRequest

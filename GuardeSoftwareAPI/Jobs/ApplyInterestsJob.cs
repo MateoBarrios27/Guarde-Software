@@ -34,6 +34,7 @@ public class ApplyInterestsJob : IJob
                 
                 var currentInterests = row["CurrentInterests"] != DBNull.Value ? Convert.ToDecimal(row["CurrentInterests"]) : 0;
                 var monthlyDebits = row["MonthlyDebits"] != DBNull.Value ? Convert.ToDecimal(row["MonthlyDebits"]) : 0;
+                var unpaidMonthlyDebits = row["UnpaidMonthlyDebits"] != DBNull.Value ? Convert.ToDecimal(row["UnpaidMonthlyDebits"]) : 0;
                 
                 var preferredMethod = row["PreferredPaymentMethod"].ToString();
                 var hasNextMonthBalance = row["HasNextMonthBalance"] != DBNull.Value && Convert.ToInt32(row["HasNextMonthBalance"]) == 1;
@@ -43,7 +44,9 @@ public class ApplyInterestsJob : IJob
                     var newMonthsUnpaid = monthsUnpaid + 1;
                     _logger.LogWarning("Cliente del alquiler ID {rentalId} está en mora...", rentalId);
 
-                    decimal cuotaBase = monthlyDebits > 0 ? monthlyDebits : currentRent;
+                    // Si existe registro CMB con débitos, usamos la porción impaga (descontando pagos parciales).
+                    // Si no hay CMB aún, usamos la cuota actual como fallback.
+                    decimal cuotaBase = monthlyDebits > 0 ? unpaidMonthlyDebits : currentRent;
                     decimal baseImponible = cuotaBase + currentInterests;
 
                     var interestAmount = baseImponible * 0.10m;

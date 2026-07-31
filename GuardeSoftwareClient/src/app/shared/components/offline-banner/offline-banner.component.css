@@ -1,0 +1,111 @@
+:host {
+  display: block;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: all 0.3s ease;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.banner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.banner-meta {
+  font-size: 0.75rem;
+  opacity: 0.75;
+  margin-left: 6px;
+}
+
+.banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Variants */
+.offline {
+  background: linear-gradient(90deg, #1e293b 0%, #334155 100%);
+  color: #f1f5f9;
+  border-bottom: 2px solid #ef4444;
+}
+
+.pending {
+  background: linear-gradient(90deg, #78350f 0%, #92400e 100%);
+  color: #fef3c7;
+  border-bottom: 2px solid #f59e0b;
+}
+
+.syncing {
+  background: linear-gradient(90deg, #1e3a5f 0%, #1d4ed8 100%);
+  color: #dbeafe;
+  border-bottom: 2px solid #60a5fa;
+}
+
+.success {
+  background: linear-gradient(90deg, #14532d 0%, #166534 100%);
+  color: #dcfce7;
+  border-bottom: 2px solid #4ade80;
+}
+
+.error {
+  background: linear-gradient(90deg, #7f1d1d 0%, #991b1b 100%);
+  color: #fee2e2;
+  border-bottom: 2px solid #f87171;
+}
+
+/* Sync button */
+.sync-btn {
+  background: rgba(255,255,255,0.15);
+  color: inherit;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.sync-btn:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+/* Spinner */
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

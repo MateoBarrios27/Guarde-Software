@@ -314,7 +314,16 @@ namespace GuardeSoftwareAPI.Dao
                         rental_id, 
                         (balance - paid - advanced_payment) AS Debt,
                         ISNULL(interests, 0) AS interests,          
-                        ISNULL(monthly_debits, 0) AS monthly_debits, 
+                        ISNULL(monthly_debits, 0) AS monthly_debits,
+                        -- Débito mensual impago: pagos cubren saldo anterior primero, luego débitos
+                        CASE 
+                            WHEN ISNULL(monthly_debits, 0) = 0 THEN 0
+                            WHEN (ISNULL(paid, 0) + ISNULL(advanced_payment, 0)) <= ISNULL(previous_balance, 0) 
+                                THEN ISNULL(monthly_debits, 0)
+                            WHEN (ISNULL(paid, 0) + ISNULL(advanced_payment, 0) - ISNULL(previous_balance, 0)) >= ISNULL(monthly_debits, 0) 
+                                THEN 0
+                            ELSE ISNULL(monthly_debits, 0) - (ISNULL(paid, 0) + ISNULL(advanced_payment, 0) - ISNULL(previous_balance, 0))
+                        END AS UnpaidMonthlyDebits,
                         ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY id DESC) as rn
                     FROM client_month_balances
                     WHERE month_year <= FORMAT(GETDATE(), 'MM/yyyy')
@@ -334,6 +343,7 @@ namespace GuardeSoftwareAPI.Dao
                     ISNULL(cra.CurrentRent, 0) AS CurrentRent,
                     ISNULL(ui.TotalUnpaidInterests, 0) AS CurrentInterests,   
                     ISNULL(cmb.monthly_debits, 0) AS MonthlyDebits,
+                    ISNULL(cmb.UnpaidMonthlyDebits, 0) AS UnpaidMonthlyDebits,
                     -- Traemos el nombre del método de pago preferido
                     ISNULL(pm.name, '') AS PreferredPaymentMethod,
                     -- Si ya existe un registro del próximo mes, el cliente ya pagó este mes

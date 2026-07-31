@@ -35,7 +35,10 @@ namespace GuardeSoftwareAPI.Jobs
         public async Task Execute(IJobExecutionContext context)
         {
             int comunicadoId = context.JobDetail.JobDataMap.GetInt("CommunicationId");
-            _logger.LogInformation("Starting communication job for ID: {ComunicadoId}", comunicadoId);
+            bool isTestMode = context.JobDetail.JobDataMap.ContainsKey("IsTestMode") && context.JobDetail.JobDataMap.GetBooleanValue("IsTestMode");
+            string testEmail = context.JobDetail.JobDataMap.GetString("TestEmailAddress") ?? "";
+
+            _logger.LogInformation("Starting communication job for ID: {ComunicadoId}. TestMode: {IsTestMode}", comunicadoId, isTestMode);
 
             var errorLog = new StringBuilder();
             
@@ -52,7 +55,7 @@ namespace GuardeSoftwareAPI.Jobs
                 var emailChannel = channels.FirstOrDefault(c => c.ChannelName == "Email");
                 if (emailChannel != null)
                 {
-                    await ProcessEmailChannel(emailChannel, recipients, errorLog, comunicadoId);
+                    await ProcessEmailChannel(emailChannel, recipients, errorLog, comunicadoId, isTestMode, testEmail);
                 }
 
                 var whatsappChannel = channels.FirstOrDefault(c => c.ChannelName == "WhatsApp");
@@ -80,7 +83,7 @@ namespace GuardeSoftwareAPI.Jobs
             }
         }
 
-        private async Task ProcessEmailChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog, int communicationId)
+        private async Task ProcessEmailChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog, int communicationId, bool isTestMode, string testEmail)
         {
             var dbSmtp = await _communicationDao.GetSmtpSettingsAsync(communicationId);
             bool isAccountStatement = await _communicationDao.IsAccountStatementAsync(communicationId);
@@ -122,6 +125,11 @@ namespace GuardeSoftwareAPI.Jobs
                 {
                     try 
                     {
+                        if (isTestMode && !string.IsNullOrEmpty(testEmail))
+                        {
+                            recipient.Email = testEmail;
+                        }
+
                         MimeMessage message;
 
                         if (isAccountStatement)

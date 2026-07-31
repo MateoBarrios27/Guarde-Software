@@ -163,7 +163,18 @@
           </div>
           <app-icon name="users" class="text-gray-400 group-hover:text-blue-600 transition h-5 w-5"></app-icon>
       </div>
-      <p class="text-xs text-gray-500 mt-1">Puedes seleccionar grupos completos y excluir personas específicas.</p>
+      
+      <div class="flex justify-between items-center mt-2">
+        <p class="text-xs text-gray-500">Puedes seleccionar grupos completos y excluir personas específicas.</p>
+        
+        <button type="button" 
+                (click)="sendTestCommunication()" 
+                [disabled]="!isFormValid()"
+                class="text-xs font-semibold bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-md hover:bg-indigo-100 flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-100">
+          <app-icon name="send" class="w-3.5 h-3.5 mr-1.5"></app-icon>
+          Enviar Prueba
+        </button>
+      </div>
     </div>
 
     <div class="space-y-4 pt-2 border-t border-dashed">

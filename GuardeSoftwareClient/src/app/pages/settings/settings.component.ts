@@ -33,12 +33,12 @@ import { CreateLockerTypeDto } from '../../core/dtos/lockerType/CreateLockerType
 import { ɵɵDir } from "@angular/cdk/scrolling";
 import { AuthService } from '../../core/services/auth-service/auth.service';
 import { CreateAlertModalComponent } from '../../shared/components/create-alert-modal/create-alert-modal.component';
-
+import { SyncService } from '../../core/services/offline-service/sync.service';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, ɵɵDir, CreateAlertModalComponent], // DatePipe añadido
+  imports: [CommonModule, FormsModule, IconComponent, CreateAlertModalComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css'
 })
@@ -53,7 +53,8 @@ export class SettingsComponent implements OnInit {
     private monthlyIncreaseService: MonthlyIncreaseService,
     private communicationService: CommunicationService,
     private lockerTypeService: LockerTypeService,
-    public authService: AuthService
+    public authService: AuthService,
+    private syncService: SyncService
   ) {}
 
   activeSection: string = 'usuarios';
@@ -256,8 +257,8 @@ export class SettingsComponent implements OnInit {
     { id: 'locker-types', title: 'Tipos de Bauleras', icon: '🗄️' },
     { id: 'depositos', title: 'Depósitos', icon: '🏢' },
     // { id: 'aumentos', title: 'Aumentos Mensuales', icon: '📈' },
-    { id: 'smtp', title: 'Configuración SMTP', icon: '✉️' },
-    
+    { id: 'smtp', title: 'Configuración de Mails', icon: '✉️' },
+    { id: 'offline', title: ' Modo Offline', icon: '💾' }
     // { id: 'datos', title: 'Datos', icon: '🗄️' }
   ];
 
@@ -697,6 +698,37 @@ export class SettingsComponent implements OnInit {
         });
       }
     });
+  }
+
+  // --- Offline Snapshot Methods ---
+  async downloadSnapshot(): Promise<void> {
+    try {
+      await this.syncService.downloadSnapshot();
+      Swal.fire('Éxito', 'El archivo de respaldo (snapshot) se descargó correctamente.', 'success');
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Error', 'No se pudo generar el archivo de respaldo.', 'error');
+    }
+  }
+
+  async importSnapshot(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    
+    const file = input.files[0];
+    try {
+      const success = await this.syncService.importSnapshot(file);
+      if (success) {
+        Swal.fire('Éxito', 'El archivo de respaldo fue importado y guardado localmente para uso sin conexión.', 'success');
+      } else {
+        Swal.fire('Error', 'El archivo es inválido o corrupto.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Error', 'Hubo un problema al importar el archivo.', 'error');
+    } finally {
+      input.value = ''; // Reset input
+    }
   }
 
   // Helper para mostrar "Noviembre 2025"

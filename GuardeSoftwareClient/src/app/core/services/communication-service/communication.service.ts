@@ -67,6 +67,9 @@ export class CommunicationService {
     formData.append('isAccountStatement', request.isAccountStatement ? 'true' : 'false');
     formData.append('isNextMonthStatement', request.isNextMonthStatement ? 'true' : 'false');
     
+    if (request.isTestMode !== undefined) formData.append('isTestMode', request.isTestMode ? 'true' : 'false');
+    if (request.testEmailAddress) formData.append('testEmailAddress', request.testEmailAddress);
+    
     if (request.sendDate) formData.append('sendDate', request.sendDate);
     if (request.sendTime) formData.append('sendTime', request.sendTime);
     if (request.smtpConfigId) formData.append('smtpConfigId', request.smtpConfigId.toString());

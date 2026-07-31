@@ -491,6 +491,7 @@
           <tbody>
             <tr
               *ngFor="let cliente of clientes | paginate: { itemsPerPage: itemsPerPageClientes, currentPage: currentPageClientes, totalItems: totalClientes }"
+              id="client-row-{{cliente.id}}"
               class="border-b hover:bg-gray-50 transition-colors"
               [style.backgroundColor]="cliente.color ? (cliente.color + '15') : ''"
             >
@@ -689,6 +690,8 @@
         [title]="pointingUp ? 'Subir' : 'Bajar'">
   <app-icon [name]="pointingUp ? 'arrow-up' : 'arrow-down'" class="h-6 w-6"></app-icon>
 </button>
+
+
 <!-- </div> -->
 
 <app-create-client-modal 

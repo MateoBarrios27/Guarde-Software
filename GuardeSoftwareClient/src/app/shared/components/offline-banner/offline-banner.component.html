@@ -1,0 +1,16 @@
+<div *ngIf="showBanner" class="offline-banner" [ngClass]="bannerClass">
+  <div class="banner-content">
+    <span class="banner-dot"></span>
+    <span class="banner-text">{{ bannerMessage }}</span>
+    <span class="banner-meta" *ngIf="!isOnline">{{ formattedSnapshotTime }}</span>
+  </div>
+  <div class="banner-actions">
+    <button
+      *ngIf="isOnline && pendingCount > 0 && syncStatus !== 'syncing'"
+      class="sync-btn"
+      (click)="manualSync()">
+      Sincronizar ahora
+    </button>
+    <div class="spinner" *ngIf="syncStatus === 'syncing'"></div>
+  </div>
+</div>

@@ -7,6 +7,8 @@ import { ScrollingModule } from '@angular/cdk/scrolling';
 import { AlertService } from './core/services/alert-service/alert.service';
 import { SystemAlertModalComponent } from './shared/components/system-alert-modal/system-alert-modal.component';
 import { AuthService } from './core/services/auth-service/auth.service';
+import { OfflineBannerComponent } from './shared/components/offline-banner/offline-banner.component';
+import { SyncService } from './core/services/offline-service/sync.service';
 
 @Component({
   selector: 'app-root',
@@ -16,7 +18,8 @@ import { AuthService } from './core/services/auth-service/auth.service';
     RouterOutlet,
     SidebarComponent,
     ScrollingModule,
-    SystemAlertModalComponent
+    SystemAlertModalComponent,
+    OfflineBannerComponent
   ],
   templateUrl: './app.component.html',
 })
@@ -29,10 +32,14 @@ export class AppComponent implements OnInit, OnDestroy {
     private router: Router,
     private activatedRoute: ActivatedRoute,
     private alertService: AlertService,
-    public authService: AuthService
+    public authService: AuthService,
+    private syncService: SyncService
   ) {}
 
   ngOnInit() {
+    // Initialize offline/sync service
+    this.syncService.init();
+
     // Escuchar cambios de ruta para actualizar el título
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd),

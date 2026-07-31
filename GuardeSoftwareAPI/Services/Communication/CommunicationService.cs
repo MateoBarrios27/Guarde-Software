@@ -111,7 +111,7 @@ namespace GuardeSoftwareAPI.Services.communication
                         // Schedule Quartz job (only after commit is successful)
                         if (status == "Scheduled" && scheduledAt.HasValue)
                         {
-                            await ScheduleJobAsync(newId, scheduledAt.Value);
+                            await ScheduleJobAsync(newId, scheduledAt.Value, request.IsTestMode, request.TestEmailAddress);
                         }
 
                         // Return the newly created DTO (read is outside transaction)
@@ -132,13 +132,16 @@ namespace GuardeSoftwareAPI.Services.communication
             } // Connection is automatically closed by 'using'
         }
 
-        private async Task ScheduleJobAsync(int communicationId, DateTime runTime)
+        private async Task ScheduleJobAsync(int communicationId, DateTime runTime, bool isTestMode = false, string? testEmail = null)
         {
             var scheduler = await _schedulerFactory.GetScheduler();
 
+            string jobSuffix = isTestMode ? $"-test-{Guid.NewGuid()}" : "";
             var job = JobBuilder.Create<SendCommunicationJob>() // Use your actual Job class
-                .WithIdentity($"comm-job-{communicationId}")
+                .WithIdentity($"comm-job-{communicationId}{jobSuffix}")
                 .UsingJobData("CommunicationId", communicationId)
+                .UsingJobData("IsTestMode", isTestMode)
+                .UsingJobData("TestEmailAddress", testEmail ?? "")
                 .Build();
 
             var trigger = TriggerBuilder.Create()
@@ -291,7 +294,7 @@ namespace GuardeSoftwareAPI.Services.communication
                         // Si el nuevo estado es Scheduled, creamos el nuevo Job
                         if (status == "Scheduled" && scheduledAt.HasValue)
                         {
-                            await ScheduleJobAsync(communicationId, scheduledAt.Value);
+                            await ScheduleJobAsync(communicationId, scheduledAt.Value, request.IsTestMode, request.TestEmailAddress);
                         }
                         
                         var newCommunication = await _communicationDao.GetCommunicationByIdAsync(communicationId);

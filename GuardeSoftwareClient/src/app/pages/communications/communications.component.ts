@@ -485,6 +485,44 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     });
   }
 
+  sendTestCommunication(): void {
+    const data = this.formData();
+    if (!this.isFormValid()) { return; }
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const finalSendDate = `${year}-${month}-${day}`; 
+
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const finalSendTime = `${hours}:${minutes}`;
+
+    const request = {
+      ...data,
+      title: `[PRUEBA] ${data.title}`,
+      content: data.isAccountStatement ? 'Estado de cuenta (Autm.)' : data.content,
+      type: 'schedule',
+      sendDate: finalSendDate,
+      sendTime: finalSendTime,
+      isTestMode: true,
+      testEmailAddress: 'fsgbrunofranco@gmail.com'
+    };
+
+    this.commService.createCommunication(request, this.selectedFiles()).subscribe({
+      next: (newCommunication) => {
+        this.communications.update(comms => [newCommunication, ...comms]);
+        this.closeModal();
+        this.showToast('¡Prueba enviada!', 'El envío de prueba se está procesando y llegará a fsgbrunofranco@gmail.com', 'check-circle', 'success');
+      },
+      error: (err) => {
+        console.error(err);
+        this.showToast('Error', 'No se pudo enviar la prueba', 'alert-circle', 'error');
+      }
+    });
+  }
+
   editCommunication(): void {
     const data = this.formData();
     const commId = data.id;

@@ -15,6 +15,10 @@ import Swal from 'sweetalert2';
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PdfGeneratorService } from '../../core/services/pdfGenerator-service/pdf-generator.service';
+import { OfflineService } from '../../core/services/offline-service/offline.service';
+import { IndexedDbService } from '../../core/services/offline-service/indexed-db.service';
+import { SyncService } from '../../core/services/offline-service/sync.service';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface DetailedPaymentView extends DetailedPaymentDTO {
   groupPos?: 'start' | 'middle' | 'end' | 'none';
@@ -42,7 +46,10 @@ export class FinancesComponent implements OnInit {
     private clientService: ClientService,
     private route: ActivatedRoute,
     private router: Router,
-    private pdfGeneratorService: PdfGeneratorService
+    private pdfGeneratorService: PdfGeneratorService,
+    public offlineService: OfflineService,
+    private idb: IndexedDbService,
+    private syncService: SyncService
   ){}
 
   clients: Client[] = [];
@@ -118,6 +125,7 @@ export class FinancesComponent implements OnInit {
   receiptDateStr: string = '';
   receiptTotalAmountCustom: number = 0;
   pendingReturnUrl: string | null = null;
+  pendingReturnClientId: number | null = null;
 
   paymentDto: CreatePaymentDTO = {
       clientId: 0,
@@ -187,6 +195,19 @@ export class FinancesComponent implements OnInit {
   }
 
   loadPaymentMethods(): void {
+    if (!this.offlineService.isOnline) {
+      // Load from IndexedDB cache when offline
+      this.idb.getCachedPaymentMethods().then(cached => {
+        if (cached.length > 0) {
+          this.paymentMethods = cached.map(pm => ({
+            id: pm.id,
+            name: pm.name,
+            commission: pm.commission
+          } as PaymentMethod));
+        }
+      });
+      return;
+    }
     this.paymentMethodService.getPaymentMethods().subscribe({
       next: (data) => this.paymentMethods = data,
       error: (err) => console.error('error al cargar los metodos de pago',err)
@@ -194,6 +215,50 @@ export class FinancesComponent implements OnInit {
   }
 
   loadClients(): void {
+    if (!this.offlineService.isOnline) {
+      // Load from IndexedDB cache when offline
+      this.idb.getCachedClients().then(cached => {
+        if (cached.length > 0) {
+          this.clients = cached.map(c => ({
+            id: c.id,
+            fullName: c.fullName,
+            paymentIdentifier: c.paymentIdentifier ?? 0,
+            balance: c.balance,
+            currentRent: c.currentRent,
+            previousBalance: c.previousBalance,
+            pendingSurcharge: c.pendingSurcharge,
+            interestAmount: c.interestAmount,
+            lastGeneratedMonthYear: c.lastGeneratedMonthYear,
+            color: c.color,
+            active: c.active,
+            preferredPaymentMethod: c.preferredPaymentMethodId ?? 0,
+            // Enriched offline fields — keep dates as ISO strings for compatibility
+            nextPaymentDay: c.nextPaymentDay ?? undefined,
+            increaseAnchorDate: c.increaseAnchorDate ?? undefined,  // string ISO, NOT Date object
+            increaseFrequencyMonths: c.increaseFrequencyMonths ?? 1,
+            // Required but not critical offline
+            registrationDate: new Date(),
+            notes: '',
+            dni: '',
+            cuit: '',
+            ivaCondition: ''
+          } as Client));
+
+          // Handle autoOpenPayment navigation from clients table
+          if (this.autoOpenClientId) {
+            const clientToPay = this.clients.find(c => c.id === this.autoOpenClientId);
+            if (clientToPay) {
+              this.OpenPaymentModal();
+              this.searchClient = clientToPay.fullName;
+              this.selectClient(clientToPay);
+            }
+            this.router.navigate([], { queryParams: { autoOpenPayment: null }, queryParamsHandling: 'merge' });
+            this.autoOpenClientId = null;
+          }
+        }
+      });
+      return;
+    }
     this.clientService.getClients().subscribe({
       next: (data) => {
         this.clients = data;
@@ -541,6 +606,8 @@ export class FinancesComponent implements OnInit {
     const now = new Date();
     this.dateString = now.toISOString().split('T')[0];
 
+    const returnClientId = this.paymentDto.clientId || this.selectedClientId;
+
     this.paymentDto = {
       clientId: 0, movementType: 'CREDITO', concept: ` `, amount: 0, paymentMethodId: 1, date: now, isAdvancePayment: false, advanceMonths: 0,
       skipFutureProjection: false 
@@ -550,7 +617,7 @@ export class FinancesComponent implements OnInit {
     if (this.returnToUrl) {
       const url = this.returnToUrl;
       this.returnToUrl = null;
-      this.router.navigate(['/' + url]);
+      this.router.navigate(['/' + url], { queryParams: { returnClientId: returnClientId } });
     }
   }
 
@@ -1875,7 +1942,7 @@ export class FinancesComponent implements OnInit {
     });
   }
 
-  executeBackendCall() {
+  async executeBackendCall() {
     const calc = this.getCalculatedAmounts(this.paymentDto.amount, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
     const localDate = this.paymentDto.date;
     const adjustedDate = new Date(localDate.getTime() - (localDate.getTimezoneOffset() * 60000));
@@ -1915,6 +1982,41 @@ export class FinancesComponent implements OnInit {
     const targetReturnUrl = this.returnToUrl;
     this.returnToUrl = null;
 
+    // --- OFFLINE MODE: Queue the payment locally ---
+    if (!this.offlineService.isOnline) {
+      const clientName = this.getClientNameById(payloadToSave.clientId);
+      const pmName = this.getNamePaymentMethodById(payloadToSave.paymentMethodId);
+      await this.syncService.queuePayment({
+        localId: uuidv4(),
+        clientId: payloadToSave.clientId,
+        clientName,
+        paymentMethodId: payloadToSave.paymentMethodId,
+        paymentMethodName: pmName,
+        movementType: payloadToSave.movementType,
+        concept: payloadToSave.concept ?? '',
+        amount: payloadToSave.amount,
+        date: (payloadToSave.date instanceof Date ? payloadToSave.date : new Date(payloadToSave.date)).toISOString(),
+        isAdvancePayment: payloadToSave.isAdvancePayment,
+        advanceMonths: payloadToSave.advanceMonths,
+        commissionAmount: payloadToSave.commissionAmount,
+        commissionConcept: payloadToSave.commissionConcept,
+        skipFutureProjection: true,
+        surchargeAction: payloadToSave.surchargeAction,
+        surchargeAmount: payloadToSave.surchargeAmount
+      });
+
+      Swal.fire({
+        title: '💾 Pago guardado localmente',
+        html: `El pago de <b>$${payloadToSave.amount.toLocaleString('es-AR')}</b> para <b>${clientName}</b> fue guardado.<br><br><small>Se enviará al servidor automáticamente cuando se restaure la conexión.</small>`,
+        icon: 'info',
+        confirmButtonColor: '#2563eb',
+        confirmButtonText: 'Entendido'
+      });
+      this.closeClientModal();
+      return;
+    }
+
+    // --- ONLINE MODE: Send to API as usual ---
     this.paymentService.CreatePayment(payloadToSave).subscribe({
       next: () => {
         Swal.fire({
@@ -1935,6 +2037,7 @@ export class FinancesComponent implements OnInit {
 
           if (result.isConfirmed) {
             this.pendingReturnUrl = targetReturnUrl;
+            this.pendingReturnClientId = payloadToSave.clientId;
             this.openReceiptModalFromNewPayment({
               clientName: this.getClientNameById(payloadToSave.clientId),
               paymentIdentifier: this.getClientIdentifierById(payloadToSave.clientId),
@@ -1944,7 +2047,7 @@ export class FinancesComponent implements OnInit {
             });
           } else {
             if (targetReturnUrl) {
-              this.router.navigate(['/' + targetReturnUrl]);
+              this.router.navigate(['/' + targetReturnUrl], { queryParams: { returnClientId: payloadToSave.clientId } });
             }
           }
         });
@@ -1999,8 +2102,10 @@ export class FinancesComponent implements OnInit {
     
     if (this.pendingReturnUrl) {
       const url = this.pendingReturnUrl;
+      const clientId = this.pendingReturnClientId;
       this.pendingReturnUrl = null;
-      this.router.navigate(['/' + url]);
+      this.pendingReturnClientId = null;
+      this.router.navigate(['/' + url], { queryParams: clientId ? { returnClientId: clientId } : {} });
     }
   }
 

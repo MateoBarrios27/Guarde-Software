@@ -414,24 +414,9 @@ namespace GuardeSoftwareAPI.Services.payment
 
             if (finalPenalty <= 0 && rental.PendingSurcharge > 0)
             {
-                // Fallback: calcular como antes si el frontend no envió un monto específico
-                decimal debtAmountForPenalty = 0;
-                string penaltyQuery = @"
-                    SELECT monthly_debits 
-                    FROM client_month_balances 
-                    WHERE rental_id = @rid 
-                    AND month_year = @mYear";
-
-                using (var cmdPenalty = new SqlCommand(penaltyQuery, connection, transaction))
-                {
-                    cmdPenalty.Parameters.AddWithValue("@rid", rental.Id);
-                    cmdPenalty.Parameters.AddWithValue("@mYear", dto.Date.ToString("MM/yyyy"));
-                    var result = await cmdPenalty.ExecuteScalarAsync();
-                    if (result != null) debtAmountForPenalty = Convert.ToDecimal(result);
-                }
-
-                decimal rawPenalty = debtAmountForPenalty * 0.10m;
-                finalPenalty = Math.Floor(rawPenalty / 100m) * 100m;
+                // Fallback: usar directamente el recargo que ya calculó y guardó el ApplyInterestsJob,
+                // asegurando que el monto sea siempre exactamente el mismo.
+                finalPenalty = rental.PendingSurcharge.Value;
             }
 
             if (finalPenalty > 0)

@@ -19,6 +19,7 @@
     "@angular/platform-browser": "~19.2.0",
     "@angular/platform-browser-dynamic": "~19.2.0",
     "@angular/router": "~19.2.0",
+    "@angular/service-worker": "~19.2.0",
     "@microsoft/signalr": "^10.0.0",
     "ngx-pagination": "^6.0.3",
     "ngx-quill": "^27.1.2",
@@ -27,6 +28,7 @@
     "rxjs": "~7.8.0",
     "sweetalert2": "^11.26.2",
     "tslib": "~2.3.0",
+    "uuid": "^14.0.1",
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
@@ -37,6 +39,7 @@
     "@types/jasmine": "~5.1.0",
     "@types/pdfmake": "^0.2.12",
     "@types/quill": "^2.0.14",
+    "@types/uuid": "^10.0.0",
     "angular-eslint": "20.1.1",
     "autoprefixer": "^10.4.21",
     "eslint": "~9.29.0",

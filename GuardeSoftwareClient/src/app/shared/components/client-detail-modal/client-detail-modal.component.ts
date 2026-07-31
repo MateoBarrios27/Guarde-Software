@@ -45,7 +45,6 @@ const SPANISH_MONTHS = [
   imports: [
     CommonModule,
     IconComponent,
-    CurrencyPipe,
     DatePipe,
     CreateMovementModalComponent, 
     NgxPaginationModule,
