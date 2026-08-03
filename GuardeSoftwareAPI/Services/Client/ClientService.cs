@@ -1184,8 +1184,21 @@ namespace GuardeSoftwareAPI.Services.client
                         var existingClient = await daoClient.GetClientByIdTransactionAsync(clientId, connection, transaction);
                         if (existingClient == null) throw new Exception("Cliente no encontrado.");
 
-                        decimal maxIdentifier = await daoClient.GetMaxPaymentIdentifierAsync(connection, transaction);
-                        decimal newPaymentIdentifier = maxIdentifier + 0.01m;
+                        decimal newPaymentIdentifier;
+                        if (dto.PaymentIdentifier.HasValue && dto.PaymentIdentifier.Value > 0)
+                        {
+                            if (await daoClient.ExistsByPaymentIdentifierAsync(dto.PaymentIdentifier.Value, clientId, connection, transaction))
+                            {
+                                throw new InvalidOperationException("Ya existe otro cliente activo con este Identificador de Pago.");
+                            }
+                            newPaymentIdentifier = dto.PaymentIdentifier.Value;
+                        }
+                        else
+                        {
+                            decimal maxIdentifier = await daoClient.GetMaxPaymentIdentifierAsync(connection, transaction);
+                            newPaymentIdentifier = maxIdentifier + 0.01m;
+                        }
+
                         await daoClient.ReactivateClientTransactionAsync(clientId, newPaymentIdentifier, connection, transaction);
 
                         Client clientToUpdate = new()
@@ -1352,6 +1365,28 @@ namespace GuardeSoftwareAPI.Services.client
         {
             if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
             return await daoClient.UpdateClientNotesAsync(clientId, notes);
+        }
+
+        public async Task<decimal> GetNextPaymentIdentifierAsync()
+        {
+            using var connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+            decimal maxIdentifier = await daoClient.GetMaxPaymentIdentifierAsync(connection, transaction);
+            return maxIdentifier + 0.01m;
+        }
+
+        public async Task<bool> CheckPaymentIdentifierExistsAsync(decimal identifier, int? excludeClientId = null)
+        {
+            using var connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+            
+            if (excludeClientId.HasValue)
+            {
+                return await daoClient.ExistsByPaymentIdentifierAsync(identifier, excludeClientId.Value, connection, transaction);
+            }
+            return await daoClient.ExistsByPaymentIdentifierAsync(identifier, connection, transaction);
         }
     }
 }

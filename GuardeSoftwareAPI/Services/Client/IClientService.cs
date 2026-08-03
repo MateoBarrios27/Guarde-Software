@@ -18,6 +18,8 @@ namespace GuardeSoftwareAPI.Services.client
         Task<bool> UpdateClientAsync(int id, CreateClientDTO dto);
         Task<bool> DeactivateClientAsync(int clientId);
         Task ReactivateClientAsync(int clientId, CreateClientDTO dto);
+        Task<decimal> GetNextPaymentIdentifierAsync();
+        Task<bool> CheckPaymentIdentifierExistsAsync(decimal identifier, int? excludeClientId = null);
         Task<List<ClientLockerHistory>> GetClientLockerHistoryAsync(int clientId);
         Task<bool> UpdateClientColorAsync(int clientId, string? color);
         Task<bool> UpdateClientCommentAsync(int clientId, string? comment);

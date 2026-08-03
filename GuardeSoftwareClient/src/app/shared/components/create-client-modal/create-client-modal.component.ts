@@ -34,7 +34,8 @@ import { WarehouseService } from '../../../core/services/warehouse-service/wareh
 import { PaymentMethodService } from '../../../core/services/paymentMethod-service/payment-method.service';
 import { LockerTypeService } from '../../../core/services/lockerType-service/locker-type.service';
 import { ClientService } from '../../../core/services/client-service/client.service';
-import { forkJoin, Observable, of } from 'rxjs'; 
+import { forkJoin, Observable, of, Subject } from 'rxjs'; 
+import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators'; 
 import { BillingType } from '../../../core/models/billing-type.model';
 import { BillingTypeService } from '../../../core/services/billingType-service/billing-type.service';
 import { PhoneInputDto } from '../../../core/dtos/phone/PhoneInputDto';
@@ -57,6 +58,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   @Output() saveSuccess = new EventEmitter<void>();
 
   public newClientForm!: FormGroup;
+  public identifierError: string | null = null;
 
   // --- Datos ---
   public warehouses: Warehouse[] = [];
@@ -165,8 +167,11 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
 
   private initNewClientForm(): void {
     // 1. Inicialización Base: TODOS los controles deben existir desde el principio
+    const defaultMode = this.isReactivation ? 'keep_old' : (this.isEditMode ? 'manual' : 'auto');
+
     this.newClientForm = this.fb.group({
-      numeroIdentificacion: [''],
+      numeroIdentificacion: [{ value: '', disabled: defaultMode !== 'manual' }],
+      reactivationIdentifierMode: [defaultMode],
       nombreCompleto: ['', Validators.required],
       tipoDocumento: ['DNI'],
       numeroDocumento: ['', Validators.required],
@@ -205,6 +210,63 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
 
     // 2. Suscripciones y lógica de negocio para los FormArrays
     
+    this.newClientForm.get('reactivationIdentifierMode')?.valueChanges.subscribe((mode) => {
+      const numCtrl = this.newClientForm.get('numeroIdentificacion');
+      if (mode === 'manual') {
+        numCtrl?.enable();
+      } else if (mode === 'keep_old') {
+        numCtrl?.disable();
+        if (this.clientData?.paymentIdentifier) {
+          numCtrl?.setValue(this.clientData.paymentIdentifier);
+        }
+      } else if (mode === 'auto') {
+        numCtrl?.disable();
+        numCtrl?.setValue('Cargando...');
+        this.clientService.getNextPaymentIdentifier().subscribe({
+          next: (res) => {
+            if (this.newClientForm.get('reactivationIdentifierMode')?.value === 'auto') {
+               numCtrl?.setValue(res.nextIdentifier);
+            }
+          },
+          error: (err) => {
+            console.error(err);
+            numCtrl?.setValue('Error');
+          }
+        });
+      }
+    });
+
+    if (defaultMode === 'auto') {
+      this.newClientForm.get('reactivationIdentifierMode')?.updateValueAndValidity({ emitEvent: true });
+    }
+
+    this.newClientForm.get('numeroIdentificacion')?.valueChanges.pipe(
+      debounceTime(400),
+      distinctUntilChanged(),
+      switchMap(value => {
+        const mode = this.newClientForm.get('reactivationIdentifierMode')?.value;
+        if (mode === 'manual' && value !== null && value !== '') {
+          const excludeId = this.isEditMode ? this.clientData?.id : undefined;
+          return this.clientService.checkPaymentIdentifierExists(Number(value), excludeId);
+        }
+        return of(null);
+      })
+    ).subscribe(res => {
+      if (res?.exists) {
+        this.identifierError = 'Este número ya está en uso por otro cliente.';
+        this.newClientForm.get('numeroIdentificacion')?.setErrors({ taken: true });
+      } else {
+        this.identifierError = null;
+        if (this.newClientForm.get('numeroIdentificacion')?.hasError('taken')) {
+          const currentErrors = this.newClientForm.get('numeroIdentificacion')?.errors;
+          if (currentErrors) {
+            delete currentErrors['taken'];
+            this.newClientForm.get('numeroIdentificacion')?.setErrors(Object.keys(currentErrors).length ? currentErrors : null);
+          }
+        }
+      }
+    });
+
     // A. Lógica para Lockers Físicos
     const lockersAsignados = this.newClientForm.get('lockersAsignados') as FormArray;
     lockersAsignados.valueChanges.subscribe((ids: (number | null)[]) => {
@@ -517,7 +579,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
 
   const dto: CreateClientDTO = {
     id: isEditing ? this.clientData?.id : undefined,
-    paymentIdentifier: Number(formValue.numeroIdentificacion) || 0,
+    paymentIdentifier: (this.isReactivation && formValue.reactivationIdentifierMode === 'auto') ? 0 : (Number(formValue.numeroIdentificacion) || 0),
     fullName: formValue.nombreCompleto,
     notes: formValue.observaciones || null,
     dni: formValue.numeroDocumento || null,

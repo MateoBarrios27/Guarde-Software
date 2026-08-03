@@ -218,6 +218,34 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpGet("next-payment-identifier")]
+        public async Task<IActionResult> GetNextPaymentIdentifier()
+        {
+            try
+            {
+                var nextId = await _clientService.GetNextPaymentIdentifierAsync();
+                return Ok(new { nextIdentifier = nextId });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("check-payment-identifier")]
+        public async Task<IActionResult> CheckPaymentIdentifier([FromQuery] decimal identifier, [FromQuery] int? excludeClientId = null)
+        {
+            try
+            {
+                bool exists = await _clientService.CheckPaymentIdentifierExistsAsync(identifier, excludeClientId);
+                return Ok(new { exists });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
         [HttpGet("{id}/locker-history")]
         public async Task<IActionResult> GetLockerHistory(int id)
         {

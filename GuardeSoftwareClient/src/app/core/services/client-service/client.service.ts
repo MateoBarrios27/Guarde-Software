@@ -39,6 +39,18 @@ export class ClientService {
     return this.httpClient.put<any>(`${this.url}/Client/${id}`, dto);
   }
 
+  public getNextPaymentIdentifier(): Observable<{ nextIdentifier: number }> {
+    return this.httpClient.get<{ nextIdentifier: number }>(`${this.url}/Client/next-payment-identifier`);
+  }
+
+  public checkPaymentIdentifierExists(identifier: number, excludeClientId?: number): Observable<{ exists: boolean }> {
+    let params = new HttpParams().set('identifier', identifier.toString());
+    if (excludeClientId) {
+      params = params.set('excludeClientId', excludeClientId.toString());
+    }
+    return this.httpClient.get<{ exists: boolean }>(`${this.url}/Client/check-payment-identifier`, { params });
+  }
+
   /**
    * Obtains a paginated list of clients from the backend.
    * @param request - An object containing pagination, sorting, and filtering parameters.

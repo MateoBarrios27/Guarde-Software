@@ -47,7 +47,34 @@
           <div class="p-4 space-y-4">
             <div>
               <label class="text-sm font-medium text-blue-700">Número de Identificación</label>
-              <input formControlName="numeroIdentificacion" placeholder="Ej: 0.14" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/>
+              
+              <input formControlName="numeroIdentificacion" 
+                     placeholder="Ej: 0.14" 
+                     class="w-full mt-1 p-2 border rounded-md transition-colors" 
+                     [ngClass]="{'bg-gray-100 text-gray-500': newClientForm.get('numeroIdentificacion')?.disabled, 'border-red-500 focus:ring-red-500': identifierError}"
+                     (keydown.enter)="blurInput($event)"/>
+
+              <div *ngIf="identifierError" class="text-xs text-red-500 mt-1 font-medium">
+                {{ identifierError }}
+              </div>
+
+              <div *ngIf="!isEditMode || isReactivation" class="mt-2 flex bg-gray-100 rounded-lg p-1 text-xs">
+                <label *ngIf="isReactivation" class="flex-1 text-center py-1.5 rounded-md cursor-pointer transition-colors"
+                       [ngClass]="{'bg-white shadow-sm text-blue-700 font-semibold': newClientForm.get('reactivationIdentifierMode')?.value === 'keep_old', 'text-gray-500 hover:text-gray-700': newClientForm.get('reactivationIdentifierMode')?.value !== 'keep_old'}">
+                  <input type="radio" formControlName="reactivationIdentifierMode" value="keep_old" class="sr-only">
+                  Anterior
+                </label>
+                <label class="flex-1 text-center py-1.5 rounded-md cursor-pointer transition-colors"
+                       [ngClass]="{'bg-white shadow-sm text-blue-700 font-semibold': newClientForm.get('reactivationIdentifierMode')?.value === 'auto', 'text-gray-500 hover:text-gray-700': newClientForm.get('reactivationIdentifierMode')?.value !== 'auto'}">
+                  <input type="radio" formControlName="reactivationIdentifierMode" value="auto" class="sr-only">
+                  Automático
+                </label>
+                <label class="flex-1 text-center py-1.5 rounded-md cursor-pointer transition-colors"
+                       [ngClass]="{'bg-white shadow-sm text-blue-700 font-semibold': newClientForm.get('reactivationIdentifierMode')?.value === 'manual', 'text-gray-500 hover:text-gray-700': newClientForm.get('reactivationIdentifierMode')?.value !== 'manual'}">
+                  <input type="radio" formControlName="reactivationIdentifierMode" value="manual" class="sr-only">
+                  Manual
+                </label>
+              </div>
             </div>
             <div class="col-span-2">
               <div>
