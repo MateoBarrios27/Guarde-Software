@@ -62,8 +62,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public filterEstadoClientes = 'Todos';
   public showInactivos = false;
   public currentPageClientes = 1;
-  public itemsPerPageClientes = 400;
-  // public itemsPerPageOptions = [100];
+  public itemsPerPageClientes = 10000;
+  // public itemsPerPageOptions = [50, 100, 200, 400];
   public sortFieldClientes = 'PaymentIdentifier';
   public sortDirectionClientes: 'asc' | 'desc' = 'asc';
   public readonly Math = Math;

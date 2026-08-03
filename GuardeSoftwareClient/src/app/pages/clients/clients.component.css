@@ -1,0 +1,13 @@
+tr.client-row.has-color > td {
+  border-top: 1px solid var(--client-color-light);
+  border-bottom: 1px solid var(--client-color-light);
+}
+tr.client-row:not(.has-color) > td {
+  border-bottom: 1px solid #e5e7eb;
+}
+tr.client-row.has-color > td:first-child {
+  border-left: 3px solid var(--client-color);
+}
+tr.client-row.has-color > td:last-child {
+  border-right: 1px solid var(--client-color-light);
+}

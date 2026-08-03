@@ -492,10 +492,13 @@
             <tr
               *ngFor="let cliente of clientes | paginate: { itemsPerPage: itemsPerPageClientes, currentPage: currentPageClientes, totalItems: totalClientes }"
               id="client-row-{{cliente.id}}"
-              class="border-b hover:bg-gray-50 transition-colors"
+              class="border-b hover:bg-gray-50 transition-colors client-row"
+              [class.has-color]="!!cliente.color"
+              [style.--client-color]="cliente.color"
+              [style.--client-color-light]="cliente.color ? cliente.color + 'B3' : null"
               [style.backgroundColor]="cliente.color ? (cliente.color + '15') : ''"
             >
-              <td class="py-2 px-4 relative" [ngStyle]="getCellStyle(cliente, 'first')">
+              <td class="py-2 px-4 relative">
                 <div class="flex items-center gap-3">
                   <div class="relative w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all shadow-sm cursor-pointer border border-black/10"
                        [style.backgroundColor]="cliente.color || '#dbeafe'"
@@ -555,7 +558,7 @@
                 </div>
               </td>
 
-              <td class="p-4 align-middle" [ngStyle]="getCellStyle(cliente)">
+              <td class="p-4 align-middle">
   
                 <div *ngIf="cliente.lockers && cliente.lockers.length > 0 && cliente.lockers[0] !== ''; else noLockers" class="flex flex-col">
                   <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
@@ -577,7 +580,7 @@
                 </ng-template>
               </td>
 
-              <td class="p-4 align-middle font-medium text-gray-700" [ngStyle]="getCellStyle(cliente)">
+              <td class="p-4 align-middle font-medium text-gray-700">
                 <span *ngIf="!showInactivos && cliente.nextPaymentDay"
                       class="text-sm font-semibold"
                       [ngClass]="isFutureMonthOrLater(cliente.nextPaymentDay) ? 'text-green-600' : 'text-gray-800'">
@@ -589,28 +592,28 @@
                 <span *ngIf="(!showInactivos && !cliente.nextPaymentDay) || (showInactivos && !cliente.deactivationDate)" class="text-gray-400">-</span>
               </td>
 
-              <td class="p-4 font-semibold text-right" [ngStyle]="getCellStyle(cliente)"
+              <td class="p-4 font-semibold text-right"
                   [ngClass]="(cliente.previousBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
                 $ {{ cliente.previousBalance || 0 | number:'1.2-2' }}
               </td>
 
-              <td class="p-4 font-medium text-right" [ngStyle]="getCellStyle(cliente)"
+              <td class="p-4 font-medium text-right"
                   [ngClass]="(cliente.interestAmount || 0) > 0 ? 'text-red-600' : 'text-gray-400'">
                 $ {{ cliente.interestAmount || 0 | number:'1.2-2' }}
               </td>
 
-              <td class="p-4 font-semibold text-right" [ngStyle]="getCellStyle(cliente)"
+              <td class="p-4 font-semibold text-right"
                   [ngClass]="(cliente.currentRent || 0) > 0 ? 'text-blue-700' : 'text-gray-400'"
               >
                 $ {{ cliente.currentRent || 0 | number:'1.2-2' }}
               </td>
 
-              <td class="p-4 text-base font-bold text-right" [ngStyle]="getCellStyle(cliente)"
+              <td class="p-4 text-base font-bold text-right"
                   [ngClass]="(cliente.balance || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
                 $ {{ cliente.balance || 0 | number:'1.2-2' }}
               </td>
 
-              <td class="p-4" [ngStyle]="getCellStyle(cliente, 'last')">
+              <td class="p-4">
                 <div class="flex items-center justify-center gap-2">
 
                   <button *ngIf="cliente.status !== 'Baja'" (click)="goToPayment(cliente.id)" class="p-1 hover:text-green-600 flex items-center justify-center" title="Registrar Pago">
@@ -672,7 +675,7 @@
       </div> 
 
       <!-- Pagination Controls with ngx-pagination -->
-      <div class="p-4 flex items-center justify-center">
+      <div class="p-4 flex items-center justify-center hidden">
         <pagination-controls
           (pageChange)="onPageChange($event)"
           previousLabel="Anterior"
