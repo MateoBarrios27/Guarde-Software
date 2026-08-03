@@ -604,7 +604,7 @@ export class FinancesComponent implements OnInit {
     this.currentIncreaseFlow = 'none';
     
     const now = new Date();
-    this.dateString = now.toISOString().split('T')[0];
+    this.dateString = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
 
     const returnClientId = this.paymentDto.clientId || this.selectedClientId;
 
@@ -652,7 +652,7 @@ export class FinancesComponent implements OnInit {
     this.currentIncreaseFlow = 'none';
     const now = new Date();
     this.manualDateEnabled = false;
-    this.dateString = now.toISOString().split('T')[0];
+    this.dateString = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
     this.paymentDto = {
       clientId: 0, movementType: 'CREDITO', concept: ` `, amount: 0, paymentMethodId: 1, date: now, isAdvancePayment: false, advanceMonths: 0,
       skipFutureProjection: false 
@@ -1040,7 +1040,7 @@ export class FinancesComponent implements OnInit {
     if (!this.manualDateEnabled) {
       const now = new Date();
       this.paymentDto.date = now;
-      this.dateString = now.toISOString().split('T')[0];
+      this.dateString = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
 
       if (this.paymentDto.isAdvancePayment) {
         this.updateAdvanceConcept();

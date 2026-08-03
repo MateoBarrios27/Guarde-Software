@@ -358,7 +358,7 @@ export class DashboardComponent implements OnInit {
     } else {
       this.updateConceptFromDate(now);
     }
-    this.dateString = now.toISOString().split('T')[0];
+    this.dateString = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
     this.showPaymentModal = true;
     this.manualDateEnabled = false;
 
@@ -549,7 +549,7 @@ export class DashboardComponent implements OnInit {
     if (!this.manualDateEnabled) {
       const now = new Date();
       this.paymentDto.date = now;
-      this.dateString = now.toISOString().split('T')[0];
+      this.dateString = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
       if (this.paymentDto.isAdvancePayment) {
         this.updateAdvanceConcept();
       } else {
