@@ -352,14 +352,58 @@ namespace GuardeSoftwareAPI.Jobs
         {
             if (string.IsNullOrWhiteSpace(phone)) return null;
 
+            bool isInternational = phone.TrimStart().StartsWith("+");
             var clean = new string(phone.Where(char.IsDigit).ToArray());
 
-            if (!clean.StartsWith("549"))
+            if (string.IsNullOrEmpty(clean)) return null;
+
+            if (!isInternational)
             {
-                clean = "549" + clean;
+                // Detectar si es un número internacional que no le pusieron el '+'
+                bool looksLikeArgentine = 
+                    clean.StartsWith("549") || 
+                    clean.StartsWith("54") ||
+                    (clean.Length == 10) ||
+                    (clean.Length == 11 && clean.StartsWith("0")) ||
+                    (clean.Length == 12) || // Podría tener el 15
+                    (clean.Length == 13 && clean.StartsWith("0"));
+
+                if (!looksLikeArgentine)
+                {
+                    isInternational = true;
+                }
             }
 
-            return $"{clean}@c.us";
+            if (isInternational)
+            {
+                if (!clean.StartsWith("54"))
+                {
+                    return $"{clean}@c.us";
+                }
+                
+                if (clean.StartsWith("549")) clean = clean.Substring(3);
+                else if (clean.StartsWith("54")) clean = clean.Substring(2);
+            }
+            else
+            {
+                if (clean.StartsWith("549")) clean = clean.Substring(3);
+                else if (clean.StartsWith("54")) clean = clean.Substring(2);
+            }
+
+            // --- NORMALIZACIÓN ARGENTINA ---
+            if (clean.StartsWith("0"))
+            {
+                clean = clean.Substring(1);
+            }
+
+            if (clean.Length == 12)
+            {
+                if (clean.Substring(2, 2) == "15") clean = clean.Remove(2, 2);
+                else if (clean.Substring(3, 2) == "15") clean = clean.Remove(3, 2);
+                else if (clean.Substring(4, 2) == "15") clean = clean.Remove(4, 2);
+            }
+
+            return $"549{clean}@c.us";
         }
 
         private string StripHtmlForWhatsApp(string input)
