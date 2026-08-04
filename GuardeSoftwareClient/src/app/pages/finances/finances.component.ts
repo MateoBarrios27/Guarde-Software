@@ -145,13 +145,18 @@ export class FinancesComponent implements OnInit {
   selectedClientFrequency: number = 4; // Frecuencia de aumento del cliente (ej: 4 meses)
   originalBaseRentCopy: number = 0; // Para no perder el precio original en la UI
 
+  public returnSearchTerm: string = '';
+
   ngOnInit(): void {
     this.route.queryParams.subscribe(params => {
       if (params['autoOpenPayment']) {
         this.autoOpenClientId = Number(params['autoOpenPayment']);
       }
       if (params['returnTo']) {
-        this.returnToUrl = params['returnTo']; // <-- Lo guardamos
+        this.returnToUrl = params['returnTo'];
+      }
+      if (params['searchTerm']) {
+        this.returnSearchTerm = params['searchTerm'];
       }
     });
 
@@ -617,7 +622,11 @@ export class FinancesComponent implements OnInit {
     if (this.returnToUrl) {
       const url = this.returnToUrl;
       this.returnToUrl = null;
-      this.router.navigate(['/' + url], { queryParams: { returnClientId: returnClientId } });
+      const queryParams: any = {};
+      if (this.returnSearchTerm) {
+        queryParams.searchTerm = this.returnSearchTerm;
+      }
+      this.router.navigate(['/' + url], { queryParams });
     }
   }
 
@@ -2047,7 +2056,11 @@ export class FinancesComponent implements OnInit {
             });
           } else {
             if (targetReturnUrl) {
-              this.router.navigate(['/' + targetReturnUrl], { queryParams: { returnClientId: payloadToSave.clientId } });
+              const queryParams: any = {};
+              if (this.returnSearchTerm) {
+                queryParams.searchTerm = this.returnSearchTerm;
+              }
+              this.router.navigate(['/' + targetReturnUrl], { queryParams });
             }
           }
         });
@@ -2105,7 +2118,11 @@ export class FinancesComponent implements OnInit {
       const clientId = this.pendingReturnClientId;
       this.pendingReturnUrl = null;
       this.pendingReturnClientId = null;
-      this.router.navigate(['/' + url], { queryParams: clientId ? { returnClientId: clientId } : {} });
+      const queryParams: any = {};
+      if (this.returnSearchTerm) {
+        queryParams.searchTerm = this.returnSearchTerm;
+      }
+      this.router.navigate(['/' + url], { queryParams });
     }
   }
 

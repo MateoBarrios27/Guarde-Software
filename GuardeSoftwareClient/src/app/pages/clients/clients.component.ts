@@ -157,7 +157,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.router.navigate(['/finances'], { 
       queryParams: { 
         autoOpenPayment: clientId, 
-        returnTo: 'clients' 
+        returnTo: 'clients',
+        searchTerm: this.searchClientes || ''
       } 
     });
   }
@@ -166,21 +167,19 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     this.route.queryParams.subscribe(params => {
-      const returnClientId = params['returnClientId'];
-      this.loadClients().then(() => {
-        if (returnClientId) {
-          setTimeout(() => {
-            const el = document.getElementById('client-row-' + returnClientId);
-            if (el) {
-              el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-              // Highlight temporal
-              el.classList.add('bg-blue-100');
-              setTimeout(() => el.classList.remove('bg-blue-100'), 2500);
-            }
-          }, 100);
-        }
-      });
+      const searchTerm = params['searchTerm'];
+      if (searchTerm) {
+        this.searchClientes = searchTerm;
+      }
+      
+      this.loadClients();
     });
+
+    this.searchSubject.pipe(debounceTime(300)).subscribe(() => {
+      this.currentPageClientes = 1; 
+      this.loadClients();
+    });
+
     this.loadStatistics();
     this.warehouseService.getWarehouses().subscribe(data => this.warehouses = data);
     this.billingTypeService.getBillingTypes().subscribe(data => this.billingTypes = data);
