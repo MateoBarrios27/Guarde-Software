@@ -396,7 +396,13 @@ namespace GuardeSoftwareAPI.Jobs
                 clean = clean.Substring(1);
             }
 
-            if (clean.Length == 12)
+            if (clean.Length == 10 && clean.StartsWith("15"))
+            {
+                // El usuario omitió el código de área 11 (Buenos Aires) y solo escribió el 15.
+                // En Argentina, los números locales de 8 dígitos solo existen con el código de área 11.
+                clean = "11" + clean.Substring(2);
+            }
+            else if (clean.Length == 12)
             {
                 if (clean.Substring(2, 2) == "15") clean = clean.Remove(2, 2);
                 else if (clean.Substring(3, 2) == "15") clean = clean.Remove(3, 2);
