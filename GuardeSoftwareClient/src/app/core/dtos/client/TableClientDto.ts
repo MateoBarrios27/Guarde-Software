@@ -22,6 +22,11 @@ export interface TableClient {
   billingType?: string;
   preferredPaymentMethodId?: number;
   preferredPaymentMethod?: string;
+
+  // Precomputed properties for rendering performance
+  _isFutureMonth?: boolean;
+  _bgColor?: string;
+  _colorLight?: string | null;
 }
 
 export interface WarehouseLockerItem {

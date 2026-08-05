@@ -1,5 +1,38 @@
-import { Component, Input, OnChanges } from '@angular/core';
+import { Component, Input, OnChanges, ChangeDetectionStrategy } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+
+// Static cache shared across all IconComponent instances
+const SANITIZED_CACHE = new Map<string, SafeHtml>();
+
+@Component({
+  selector: 'app-icon',
+  standalone: true,
+  templateUrl: './icon.component.html',
+  styleUrls: ['./icon.component.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class IconComponent implements OnChanges {
+  @Input() name?: string;
+  svgContent?: SafeHtml;
+
+  constructor(private sanitizer: DomSanitizer) {}
+
+  ngOnChanges(): void {
+    if (!this.name) {
+      this.svgContent = '';
+      return;
+    }
+    const cached = SANITIZED_CACHE.get(this.name);
+    if (cached) {
+      this.svgContent = cached;
+      return;
+    }
+    const svg = ICONS[this.name];
+    const sanitized = this.sanitizer.bypassSecurityTrustHtml(svg || '');
+    SANITIZED_CACHE.set(this.name, sanitized);
+    this.svgContent = sanitized;
+  }
+}
 
 // Nuestra "biblioteca" interna de íconos de Phosphor
 const ICONS: Record<string, string> = {
@@ -85,26 +118,4 @@ const ICONS: Record<string, string> = {
   'download-cloud' : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M96,208H72A56,56,0,1,1,85.92,97.74" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M80,128a80,80,0,1,1,144,48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="120 176 152 208 184 176" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="152" y1="128" x2="152" y2="208" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>`,
   'sound' :  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><circle cx="108" cy="108" r="60" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M24,208c20.55-24.45,49.56-40,84-40s63.45,15.55,84,40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M200,68.74a100.33,100.33,0,0,1,0,78.52" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M229.36,56a132.39,132.39,0,0,1,0,104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>`,
   'shield-password': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M216,112V56a8,8,0,0,0-8-8H48a8,8,0,0,0-8,8v56c0,96,88,120,88,120S216,208,216,112Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="232" x2="128" y2="48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="40.86" y1="128" x2="215.14" y2="128" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>`
-};
-
-@Component({
-  selector: 'app-icon',
-  standalone: true,
-  templateUrl: './icon.component.html',
-  styleUrls: ['./icon.component.css'],
-})
-export class IconComponent implements OnChanges {
-  @Input() name?: string;
-  svgContent?: SafeHtml;
-
-  constructor(private sanitizer: DomSanitizer) {}
-
-  ngOnChanges(): void {
-    if (!this.name) {
-      this.svgContent = '';
-      return;
-    }
-    const svg = ICONS[this.name];
-    this.svgContent = this.sanitizer.bypassSecurityTrustHtml(svg || '');
-  }
-}
+};

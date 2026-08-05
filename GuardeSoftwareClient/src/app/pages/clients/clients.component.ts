@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgxPaginationModule } from 'ngx-pagination';
@@ -42,6 +42,7 @@ import { IndexedDbService } from '../../core/services/offline-service/indexed-db
     ClientDetailModalComponent
 ],
   templateUrl: './clients.component.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
@@ -131,7 +132,9 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     public offlineService: OfflineService,
-    private idb: IndexedDbService
+    private idb: IndexedDbService,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
   ) 
   {
     this.searchSubject.pipe(
@@ -181,10 +184,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     this.loadStatistics();
-    this.warehouseService.getWarehouses().subscribe(data => this.warehouses = data);
-    this.billingTypeService.getBillingTypes().subscribe(data => this.billingTypes = data);
-    this.paymentMethodService.getPaymentMethods().subscribe(data => this.paymentMethods = data);
-    this.lockerTypeService.getLockerTypes().subscribe(data => this.lockerTypes = data);
+    this.warehouseService.getWarehouses().subscribe(data => { this.warehouses = data; this.cdr.markForCheck(); });
+    this.billingTypeService.getBillingTypes().subscribe(data => { this.billingTypes = data; this.cdr.markForCheck(); });
+    this.paymentMethodService.getPaymentMethods().subscribe(data => { this.paymentMethods = data; this.cdr.markForCheck(); });
+    this.lockerTypeService.getLockerTypes().subscribe(data => { this.lockerTypes = data; this.cdr.markForCheck(); });
   }
 
   public quickFiltersList = [
@@ -392,8 +395,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
       this.clientes = filtered;
       this.totalClientes = filtered.length;
+      this.precomputeClientProps();
       this.calculateTotals();
       this.isLoading = false;
+      this.cdr.markForCheck();
       return;
     }
 
@@ -417,11 +422,14 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       const result = await firstValueFrom(this.clientService.getTableClients(request));
       this.clientes = result.items;
       this.totalClientes = result.totalCount;
+      this.precomputeClientProps();
       this.calculateTotals();
       this.isLoading = false;
+      this.cdr.markForCheck();
     } catch (err) {
       console.error('Error al cargar clientes:', err);
       this.isLoading = false;
+      this.cdr.markForCheck();
     }
   }
 
@@ -444,6 +452,33 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.totals.currentRent += Number(cliente.currentRent) || 0;
       this.totals.balance += Number(cliente.balance) || 0;
     });
+  }
+
+  trackByClientId(index: number, cliente: TableClient): number {
+    return cliente.id;
+  }
+
+  private precomputeClientProps(): void {
+    const now = new Date();
+    const nowVal = now.getFullYear() * 12 + now.getMonth();
+    for (const c of this.clientes) {
+      // Precompute isFutureMonth
+      if (c.nextPaymentDay) {
+        const d = new Date(c.nextPaymentDay);
+        const dVal = d.getFullYear() * 12 + d.getMonth();
+        c._isFutureMonth = dVal > nowVal;
+      } else {
+        c._isFutureMonth = false;
+      }
+      // Precompute color styles
+      if (c.color) {
+        c._bgColor = c.color + '15';
+        c._colorLight = c.color + 'B3';
+      } else {
+        c._bgColor = '';
+        c._colorLight = null;
+      }
+    }
   }
 
   handleSort(field: string): void {
@@ -584,6 +619,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.clientService.getClientDetailById(clientId).subscribe((clientDetail) => {
       this.clientToEdit = clientDetail;
       this.showNewClientModal = true;
+      this.cdr.markForCheck();
     });
   }
 
@@ -606,8 +642,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.toastMessage = message;
     this.toastType = type;
     this.showToast = true;
+    this.cdr.markForCheck();
     setTimeout(() => {
       this.showToast = false;
+      this.cdr.markForCheck();
     }, 3000);
   }
 
@@ -625,6 +663,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe((clientDetail) => {
         this.clientToView = clientDetail;
         this.showDetailClientModal = true;
+        this.cdr.markForCheck();
       });
   }
 
@@ -666,6 +705,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         this.clientService.deactivateClient(cliente.id).subscribe({
           next: () => {
             this.isLoading = false;
+            this.cdr.markForCheck();
             Swal.fire(
               '¡Dado de Baja!',
               'El cliente ha sido desactivado exitosamente.',
@@ -675,6 +715,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
           },
           error: (err) => {
             this.isLoading = false;
+            this.cdr.markForCheck();
             console.error('Error al dar de baja:', err);
             const msg = err.error?.message || 'Ocurrió un error al intentar dar de baja.';
             Swal.fire('Error', msg, 'error');
@@ -688,6 +729,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.statisticsService.getClientStatistics().subscribe({
       next: (stats) => {
         this.estadisticas = stats;
+        this.cdr.markForCheck();
       },
       error: (err) => console.error('Error cargando estadísticas:', err)
     });
@@ -726,53 +768,64 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.clientService.getClientDetailById(clientId).subscribe((clientDetail) => {
       this.clientToView = clientDetail;
+      this.cdr.markForCheck();
     });
   }
 
   onCommentMouseEnter(cliente: TableClient): void {
-    if (this.commentLeaveTimer) {
-      clearTimeout(this.commentLeaveTimer);
-      this.commentLeaveTimer = null;
-    }
-
-    if (this.activeCommentClient === cliente) return;
-
-    if (this.commentHoverTimer) {
-      clearTimeout(this.commentHoverTimer);
-    }
-
-    this.commentHoverTimer = setTimeout(() => {
-      if (this.activeCommentClient && !this.isCommentPinned && this.activeCommentClient !== cliente) {
-        this.closeComment(this.activeCommentClient);
+    this.ngZone.runOutsideAngular(() => {
+      if (this.commentLeaveTimer) {
+        clearTimeout(this.commentLeaveTimer);
+        this.commentLeaveTimer = null;
       }
-      this.activeCommentClient = cliente;
-      this.isCommentPinned = false;
-      setTimeout(() => {
-        const activeTextarea = document.getElementById('client-comment-' + cliente.id) as HTMLTextAreaElement;
-        if (activeTextarea) {
-          activeTextarea.style.height = 'auto';
-          activeTextarea.style.height = activeTextarea.scrollHeight + 'px';
-        }
-      }, 0);
-    }, 400);
+
+      if (this.activeCommentClient === cliente) return;
+
+      if (this.commentHoverTimer) {
+        clearTimeout(this.commentHoverTimer);
+      }
+
+      this.commentHoverTimer = setTimeout(() => {
+        this.ngZone.run(() => {
+          if (this.activeCommentClient && !this.isCommentPinned && this.activeCommentClient !== cliente) {
+            this.closeComment(this.activeCommentClient);
+          }
+          this.activeCommentClient = cliente;
+          this.isCommentPinned = false;
+          this.cdr.markForCheck();
+          setTimeout(() => {
+            const activeTextarea = document.getElementById('client-comment-' + cliente.id) as HTMLTextAreaElement;
+            if (activeTextarea) {
+              activeTextarea.style.height = 'auto';
+              activeTextarea.style.height = activeTextarea.scrollHeight + 'px';
+            }
+          }, 0);
+        });
+      }, 400);
+    });
   }
 
   onCommentMouseLeave(cliente: TableClient): void {
-    if (this.commentHoverTimer) {
-      clearTimeout(this.commentHoverTimer);
-      this.commentHoverTimer = null;
-    }
-
-    if (this.activeCommentClient === cliente && !this.isCommentPinned) {
-      if (this.commentLeaveTimer) {
-        clearTimeout(this.commentLeaveTimer);
+    this.ngZone.runOutsideAngular(() => {
+      if (this.commentHoverTimer) {
+        clearTimeout(this.commentHoverTimer);
+        this.commentHoverTimer = null;
       }
-      this.commentLeaveTimer = setTimeout(() => {
-        if (this.activeCommentClient === cliente && !this.isCommentPinned) {
-          this.closeComment(cliente);
+
+      if (this.activeCommentClient === cliente && !this.isCommentPinned) {
+        if (this.commentLeaveTimer) {
+          clearTimeout(this.commentLeaveTimer);
         }
-      }, 200);
-    }
+        this.commentLeaveTimer = setTimeout(() => {
+          this.ngZone.run(() => {
+            if (this.activeCommentClient === cliente && !this.isCommentPinned) {
+              this.closeComment(cliente);
+              this.cdr.markForCheck();
+            }
+          });
+        }, 200);
+      }
+    });
   }
 
   pinComment(cliente: TableClient): void {
@@ -869,6 +922,15 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     if (cliente.color && cliente.color.toLowerCase() === '#ffffff') {
       cliente.color = null as any;
     }
+    // Recompute precomputed color styles
+    if (cliente.color) {
+      cliente._bgColor = cliente.color + '15';
+      cliente._colorLight = cliente.color + 'B3';
+    } else {
+      cliente._bgColor = '';
+      cliente._colorLight = null;
+    }
+    this.cdr.markForCheck();
     this.clientService.updateClientColor(cliente.id, cliente.color).subscribe({
       error: () => Swal.fire('Error', 'No se pudo guardar el color del cliente', 'error')
     });

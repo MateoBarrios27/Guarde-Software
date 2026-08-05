@@ -5,6 +5,7 @@ import {
   EventEmitter,
   OnChanges,
   SimpleChanges,
+  ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { IconComponent } from '../icon/icon.component';
@@ -98,7 +99,8 @@ export class ClientDetailModalComponent implements OnChanges {
     private accountMovementService: AccountMovementService,
     private communicationService: CommunicationService,
     private clientService: ClientService,
-    private authService: AuthService
+    private authService: AuthService,
+    private cdr: ChangeDetectorRef
   ) {
     this.isAdmin = this.authService.isAdmin();
   }
@@ -130,7 +132,10 @@ export class ClientDetailModalComponent implements OnChanges {
       communications: this.communicationService.getCommunicationsByClientId(clientId),
       lockers: this.clientService.getClientLockerHistory(clientId)
     })
-      .pipe(finalize(() => { this.isLoadingHistory = false; }))
+      .pipe(finalize(() => { 
+        this.isLoadingHistory = false; 
+        this.cdr.markForCheck();
+      }))
       .subscribe({
         next: (results) => {
           this.historialMovimientos = results.movements.sort((a, b) => {
@@ -174,9 +179,11 @@ export class ClientDetailModalComponent implements OnChanges {
       next: (data) => {
         this.rentalAmountHistory = data;
         this.isLoadingAbono = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.isLoadingAbono = false;
+        this.cdr.markForCheck();
         Swal.fire('Error', 'No se pudo cargar el historial de abonos.', 'error');
       }
     });
@@ -236,6 +243,7 @@ export class ClientDetailModalComponent implements OnChanges {
         this.rentalAmountHistory = [];
         this.loadRentalAmountHistory();
         this.dataUpdated.emit(this.client!.id);
+        this.cdr.markForCheck();
         Swal.fire({
           icon: 'success',
           title: 'Guardado',
@@ -246,6 +254,7 @@ export class ClientDetailModalComponent implements OnChanges {
       },
       error: (err) => {
         this.isSavingAbono = false;
+        this.cdr.markForCheck();
         Swal.fire('Error', err.error?.message || 'No se pudo guardar el tramo.', 'error');
       }
     });
@@ -291,9 +300,11 @@ export class ClientDetailModalComponent implements OnChanges {
             this.rentalAmountHistory = [];
             this.loadRentalAmountHistory();
             this.dataUpdated.emit(clientId);
+            this.cdr.markForCheck();
             Swal.fire({ title: 'Eliminado', icon: 'success', timer: 1200, showConfirmButton: false });
           },
           error: (err) => {
+            this.cdr.markForCheck();
             Swal.fire('Error', err.error?.message || 'No se pudo eliminar el tramo.', 'error');
           }
         });
@@ -380,9 +391,11 @@ export class ClientDetailModalComponent implements OnChanges {
             this.movementCurrentPage = 1;
             this.loadHistoriales(clientId); 
             this.dataUpdated.emit(clientId);
+            this.cdr.markForCheck();
           },
           error: (err) => {
             this.isLoadingHistory = false;
+            this.cdr.markForCheck();
             Swal.fire({ title: 'Error', text: 'No se pudo eliminar el movimiento. ' + (err.error?.message || ''), icon: 'error', confirmButtonColor: '#2563eb' });
           },
         });

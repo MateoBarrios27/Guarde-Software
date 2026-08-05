@@ -489,14 +489,45 @@
           </thead>
           
           <tbody>
+            <!-- Skeleton Loader -->
+            <ng-container *ngIf="isLoading">
+              <tr *ngFor="let i of [1,2,3,4,5,6,7,8,9,10]" class="border-b">
+                <td class="py-2 px-4">
+                  <div class="flex items-center gap-3">
+                    <div class="skeleton-pulse w-8 h-8 rounded-full"></div>
+                    <div class="flex flex-col gap-1.5">
+                      <div class="skeleton-pulse h-3 w-32 rounded-md"></div>
+                      <div class="skeleton-pulse h-2.5 w-20 rounded-md"></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="p-4"><div class="skeleton-pulse h-3 w-24 rounded-md"></div></td>
+                <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md"></div></td>
+                <td class="p-4"><div class="skeleton-pulse h-3 w-16 rounded-md"></div></td>
+                <td class="p-4"><div class="skeleton-pulse h-3 w-16 rounded-md mx-auto"></div></td>
+                <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md ml-auto"></div></td>
+                <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md ml-auto"></div></td>
+                <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md ml-auto"></div></td>
+                <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md ml-auto"></div></td>
+                <td class="p-4">
+                  <div class="flex items-center justify-center gap-2">
+                    <div class="skeleton-pulse w-7 h-7 rounded-lg"></div>
+                    <div class="skeleton-pulse w-7 h-7 rounded-lg"></div>
+                    <div class="skeleton-pulse w-7 h-7 rounded-lg"></div>
+                  </div>
+                </td>
+              </tr>
+            </ng-container>
+
+            <!-- Data rows -->
             <tr
-              *ngFor="let cliente of clientes | paginate: { itemsPerPage: itemsPerPageClientes, currentPage: currentPageClientes, totalItems: totalClientes }"
+              *ngFor="let cliente of clientes | paginate: { itemsPerPage: itemsPerPageClientes, currentPage: currentPageClientes, totalItems: totalClientes }; trackBy: trackByClientId"
               id="client-row-{{cliente.id}}"
               class="border-b hover:bg-gray-50 transition-colors client-row"
               [class.has-color]="!!cliente.color"
               [style.--client-color]="cliente.color"
-              [style.--client-color-light]="cliente.color ? cliente.color + 'B3' : null"
-              [style.backgroundColor]="cliente.color ? (cliente.color + '15') : ''"
+              [style.--client-color-light]="cliente._colorLight"
+              [style.backgroundColor]="cliente._bgColor"
             >
               <td class="py-2 px-4 relative">
                 <div class="flex items-center gap-3">
@@ -583,7 +614,7 @@
               <td class="p-4 align-middle font-medium text-gray-700">
                 <span *ngIf="!showInactivos && cliente.nextPaymentDay"
                       class="text-sm font-semibold"
-                      [ngClass]="isFutureMonthOrLater(cliente.nextPaymentDay) ? 'text-green-600' : 'text-gray-800'">
+                      [ngClass]="cliente._isFutureMonth ? 'text-green-600' : 'text-gray-800'">
                   {{ cliente.nextPaymentDay | date : "MM/yyyy" }}
                 </span>
                 <span *ngIf="showInactivos && cliente.deactivationDate" class="text-sm font-semibold text-gray-800">

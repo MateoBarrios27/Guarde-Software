@@ -11,3 +11,20 @@ tr.client-row.has-color > td:first-child {
 tr.client-row.has-color > td:last-child {
   border-right: 1px solid var(--client-color-light);
 }
+
+/* ── Skeleton Loader ─────────────────────────────────── */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton-pulse {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 37%,
+    #f0f0f0 63%
+  );
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
