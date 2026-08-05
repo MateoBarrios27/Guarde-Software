@@ -1,4 +1,4 @@
 public class UpdateAccountColorDto
 {
-    public string Color { get; set; } = string.Empty;
+    public string? Color { get; set; }
 }

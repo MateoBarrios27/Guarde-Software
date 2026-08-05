@@ -237,6 +237,6 @@ app.MapControllers();
 // --- Hub de SignalR para alertas y notificaciones en tiempo real ---
 app.MapHub<AlertHub>("/hubs/alert");
 app.MapHub<CommunicationHub>("/hubs/communications");
-
+app.MapHub<CashHub>("/hubs/cash");
 
 app.Run();

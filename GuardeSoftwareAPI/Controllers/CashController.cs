@@ -2,6 +2,7 @@ using GuardeSoftwareAPI.Dtos.Cash;
 using GuardeSoftwareAPI.Services.cash;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -11,10 +12,12 @@ namespace GuardeSoftwareAPI.Controllers
     public class CashFlowController : ControllerBase
     {
         private readonly ICashService _service;
+        private readonly Microsoft.AspNetCore.SignalR.IHubContext<GuardeSoftwareAPI.Hubs.CashHub> _hubContext;
 
-        public CashFlowController(ICashService service)
+        public CashFlowController(ICashService service, Microsoft.AspNetCore.SignalR.IHubContext<GuardeSoftwareAPI.Hubs.CashHub> hubContext)
         {
             _service = service;
+            _hubContext = hubContext;
         }
 
         [HttpGet("items")]
@@ -30,6 +33,7 @@ namespace GuardeSoftwareAPI.Controllers
             try
             {
                 int id = await _service.UpsertItemAsync(item, month, year);
+                await NotifyCashUpdateAsync();
                 return Ok(id);
             }
             catch (Exception ex)
@@ -42,6 +46,7 @@ namespace GuardeSoftwareAPI.Controllers
         public async Task<IActionResult> DeleteItem(int id)
         {
             await _service.DeleteItemAsync(id);
+            await NotifyCashUpdateAsync();
             return NoContent();
         }
 
@@ -63,6 +68,7 @@ namespace GuardeSoftwareAPI.Controllers
         public async Task<IActionResult> UpdateAccount(int id, [FromBody] UpdateAccountRequest request)
         {
             await _service.UpdateAccountBalanceAsync(id, request.Balance);
+            await NotifyCashUpdateAsync();
             return NoContent();
         }
 
@@ -70,6 +76,7 @@ namespace GuardeSoftwareAPI.Controllers
         public async Task<IActionResult> CreateAccount([FromBody] FinancialAccountDto account, [FromQuery] int month, [FromQuery] int year)
         {
             int id = await _service.CreateAccountAsync(account, month, year);
+            await NotifyCashUpdateAsync();
             return Ok(id);
         }
 
@@ -77,6 +84,7 @@ namespace GuardeSoftwareAPI.Controllers
         public async Task<IActionResult> DeleteAccount(int id)
         {
             await _service.DeleteAccountAsync(id);
+            await NotifyCashUpdateAsync();
             return NoContent();
         }
 
@@ -89,6 +97,7 @@ namespace GuardeSoftwareAPI.Controllers
             try
             {
                 await _service.UpdateItemsOrderAsync(itemsOrder);
+                await NotifyCashUpdateAsync();
                 return Ok(new { message = "Orden actualizado correctamente" });
             }
             catch (Exception ex)
@@ -106,6 +115,7 @@ namespace GuardeSoftwareAPI.Controllers
             try
             {
                 await _service.UpdateAccountsOrderAsync(accountsOrder);
+                await NotifyCashUpdateAsync();
                 return Ok(new { message = "Orden de cuentas actualizado correctamente" });
             }
             catch (Exception ex)
@@ -125,6 +135,7 @@ namespace GuardeSoftwareAPI.Controllers
         public async Task<IActionResult> UpdateUsdRate([FromBody] UpdateAccountRequest request, [FromQuery] int month, [FromQuery] int year)
         {
             await _service.UpdateUsdRateAsync(request.Balance, month, year);
+            await NotifyCashUpdateAsync();
             return Ok();
         }
 
@@ -133,10 +144,11 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                if (request == null || string.IsNullOrWhiteSpace(request.Color))
-                    return BadRequest("El color no puede estar vacío.");
+                // Permitimos que request.Color sea null o vacío para resetearlo a nulo
+                string? newColor = string.IsNullOrWhiteSpace(request?.Color) ? null : request.Color;
 
-                await _service.UpdateAccountColorAsync(id, request.Color);
+                await _service.UpdateAccountColorAsync(id, newColor);
+                await NotifyCashUpdateAsync();
                 
                 return NoContent();
             }
@@ -147,7 +159,7 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         // Creamos un DTO chiquito para recibir el string
-        public class UpdateAccountNameDto { public string Name { get; set; } }
+        public class UpdateAccountNameDto { public string? Name { get; set; } }
 
         [HttpPut("accounts/{id}/name")]
         public async Task<IActionResult> UpdateAccountName(int id, [FromBody] UpdateAccountNameDto dto)
@@ -159,6 +171,7 @@ namespace GuardeSoftwareAPI.Controllers
                 bool success = await _service.UpdateAccountNameAsync(id, dto.Name);
                 if (!success) return NotFound("Cuenta no encontrada.");
                 
+                await NotifyCashUpdateAsync();
                 return Ok();
             }
             catch (Exception ex)
@@ -192,6 +205,7 @@ namespace GuardeSoftwareAPI.Controllers
                     return BadRequest("Datos de compra inválidos.");
 
                 int id = await _service.AddIvaCompraAsync(dto);
+                await NotifyCashUpdateAsync();
                 return Ok(id);
             }
             catch (Exception ex)
@@ -206,6 +220,7 @@ namespace GuardeSoftwareAPI.Controllers
             try
             {
                 await _service.DeleteIvaCompraAsync(id);
+                await NotifyCashUpdateAsync();
                 return Ok();
             }
             catch (Exception ex)
@@ -268,6 +283,7 @@ namespace GuardeSoftwareAPI.Controllers
 
                 dto.ItemId = itemId;
                 int id = await _service.AddAdvanceAsync(dto);
+                await NotifyCashUpdateAsync();
                 return Ok(id);
             }
             catch (Exception ex)
@@ -282,11 +298,20 @@ namespace GuardeSoftwareAPI.Controllers
             try
             {
                 await _service.DeleteAdvanceAsync(id);
+                await NotifyCashUpdateAsync();
                 return Ok();
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Error al eliminar adelanto", details = ex.Message });
+            }
+        }
+
+        private async Task NotifyCashUpdateAsync()
+        {
+            if (_hubContext != null)
+            {
+                await _hubContext.Clients.All.SendAsync("CashUpdated");
             }
         }
 

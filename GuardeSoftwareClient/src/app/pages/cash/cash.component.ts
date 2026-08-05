@@ -1,6 +1,7 @@
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CashService } from '../../core/services/cash-service/cash.service';
-import { Subject } from 'rxjs';
+import { CashSignalrService } from '../../core/services/cash-signalr/cash-signalr.service';
+import { Subject, Subscription } from 'rxjs';
 import { debounceTime, groupBy, mergeMap } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 import { IconComponent } from "../../shared/components/icon/icon.component";
@@ -98,7 +99,12 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   newAdvance = { date: '', amount: null as any };
   advancesTotalAmount: number = 0;
 
-  constructor(private cashService: CashService) {
+  private signalRSubscription?: Subscription;
+
+  constructor(
+    private cashService: CashService,
+    private cashSignalrService: CashSignalrService
+  ) {
     this.saveSubject.pipe(
       groupBy(item => item), 
       mergeMap(group => group.pipe(debounceTime(400))) 
@@ -342,6 +348,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.scrollObserver) {
       this.scrollObserver.disconnect();
     }
+    if (this.signalRSubscription) {
+      this.signalRSubscription.unsubscribe();
+    }
+    this.cashSignalrService.stopConnection();
   }
 
   toggleScroll() {
@@ -367,6 +377,19 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.loadUndoStack();
     this.loadData();
+
+    // Iniciar SignalR y escuchar eventos
+    this.cashSignalrService.startConnection();
+    this.signalRSubscription = this.cashSignalrService.onCashUpdated$.subscribe(() => {
+      // Evitar interrumpir al usuario si está editando activamente
+      const activeEl = document.activeElement as HTMLElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
+        console.log('[Cash] Actualización recibida pero ignorada porque el usuario está editando.');
+        return;
+      }
+      console.log('[Cash] Actualización recibida, recargando datos...');
+      this.loadData();
+    });
   }
 
   loadData(): void {
@@ -550,6 +573,11 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onItemChange(item: CashFlowItem): void {
     if (item.date === '') item.date = null as any;
+    
+    // Si el usuario pone el color blanco, lo interpretamos como "sin color"
+    if (item.color && item.color.toLowerCase() === '#ffffff') {
+      item.color = null as any;
+    }
     
     // Al modificar, actualizamos ambos paneles
     this.calculateMonthlyTotals(); 
@@ -1106,22 +1134,13 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
   }
 
   onAccountColorChange(account: FinancialAccount): void {
-    if (!account.color) account.color = '#1f2937';
+    if (!account.color || account.color.toLowerCase() === '#ffffff') {
+      account.color = null as any; // Volver a la normalidad
+    }
 
     this.cashService.updateAccountColor(account.id!, account.color).subscribe({
         error: () => Swal.fire('Error', 'No se pudo guardar el color de la cuenta', 'error')
     });
-  }
-
-  resetAccountColor(account: FinancialAccount): void {
-    account.color = '#1f2937';
-    this.onAccountColorChange(account);
-  }
-
-  resetItemColor(item: CashFlowItem): void {
-    item.color = null as any;
-    this.checkItemChange(item);
-    this.onItemChange(item);
   }
 
   onItemCommentInput(item: CashFlowItem): void {

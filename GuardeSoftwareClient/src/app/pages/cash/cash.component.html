@@ -228,12 +228,6 @@
                     <div class="relative w-3 h-8 flex-shrink-0 group/clr">
                       <input type="color" (click)="$event.stopPropagation()" (focus)="captureAccount(account)" [(ngModel)]="account.color" (change)="checkAccountChange(account); onAccountColorChange(account)" title="Cambiar color" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                       <div class="w-full h-full rounded-md shadow-sm border border-black/10" [style.backgroundColor]="account.color || '#1f2937'"></div>
-                      <button *ngIf="account.color && account.color !== '#1f2937'"
-                              (click)="resetAccountColor(account); $event.stopPropagation()"
-                              title="Volver a la normalidad (quitar color)"
-                              class="absolute -top-1.5 -right-1.5 z-20 w-3.5 h-3.5 bg-white border border-gray-300 text-gray-500 hover:text-red-600 rounded-full flex items-center justify-center shadow opacity-0 group-hover/clr:opacity-100 transition-opacity">
-                        <app-icon name="x" class="w-2 h-2"></app-icon>
-                      </button>
                     </div>
                     <div class="w-full min-w-[120px] pr-14 flex-1">
                       <input type="text" (click)="$event.stopPropagation()" (focus)="captureAccount(account)" [(ngModel)]="account.name" (change)="checkAccountChange(account); onAccountNameChange(account)" (keydown.enter)="blurInput($event)" [style.color]="account.color || '#1f2937'" class="font-semibold text-sm transition-colors bg-transparent border-none p-0 focus:ring-1 focus:ring-blue-300 rounded w-full overflow-hidden text-ellipsis m-0 shadow-none" placeholder="Nombre de la cuenta...">
@@ -496,12 +490,6 @@
                          title="Cambiar color"
                          class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                   <div class="w-full h-full rounded-full" [style.backgroundColor]="item.color || '#1f2937'"></div>
-                  <button *ngIf="item.color"
-                          (click)="resetItemColor(item); $event.stopPropagation()"
-                          title="Volver a la normalidad (quitar color)"
-                          class="absolute -top-1.5 -right-1.5 z-20 w-3.5 h-3.5 bg-white border border-gray-300 text-gray-500 hover:text-red-600 rounded-full flex items-center justify-center shadow opacity-0 group-hover/clr:opacity-100 transition-opacity">
-                    <app-icon name="x" class="w-2 h-2"></app-icon>
-                  </button>
                 </div>
 
                 <input type="text" 

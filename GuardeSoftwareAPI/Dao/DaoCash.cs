@@ -773,7 +773,7 @@ namespace GuardeSoftwareAPI.Dao
 
                         using (var updateCmd = new SqlCommand(updateQuery, connection, transaction))
                         {
-                            updateCmd.Parameters.AddWithValue("@Color", newColor);
+                            updateCmd.Parameters.AddWithValue("@Color", (object?)newColor ?? DBNull.Value);
                             updateCmd.Parameters.AddWithValue("@Id", accountId);
 
                             if (!isPastMonth)
