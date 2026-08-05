@@ -546,7 +546,7 @@
                   min="0.01"
                   step="0.01"
                   [(ngModel)]="paymentDto.amount"
-                  (ngModelChange)="onAmountChange($event)"
+                  (ngModelChange)="onAmountChange($event, true)"
                   placeholder="0.00"
                   class="w-full pl-8 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all outline-none shadow-2xs tabular-nums"
                 />

@@ -113,6 +113,7 @@ export class FinancesComponent implements OnInit {
   public selectedClientNextPaymentDay: Date | string | null = null;
   public selectedClientNextIncreaseDay: Date | string | null = null;
   public customScenarioCInterest: number | null = null;
+  private paymentAmountManuallyEdited = false;
 
   returnToUrl: string | null = null;
 
@@ -604,6 +605,7 @@ export class FinancesComponent implements OnInit {
     this.selectedClientNextPaymentDay = null;
     this.selectedClientNextIncreaseDay = null;
     this.paymentMonthBreakdown = [];
+    this.paymentAmountManuallyEdited = false;
     this.manualDateEnabled = false;
     this.showIncreaseOverlay = false;
     this.currentIncreaseFlow = 'none';
@@ -920,6 +922,7 @@ export class FinancesComponent implements OnInit {
     }
 
     this.paymentDto.amount = suggestedAmount;
+    this.paymentAmountManuallyEdited = false;
 
     this.checkIncreaseLogic();
     this.syncPaymentPreview();
@@ -1099,6 +1102,7 @@ export class FinancesComponent implements OnInit {
   }
 
   onAdvancePaymentToggle() {
+    this.paymentAmountManuallyEdited = false;
     if (!this.paymentDto.isAdvancePayment) {
       this.paymentDto.advanceMonths = undefined;
       let targetDate = this.manualDateEnabled && this.dateString ? new Date(this.dateString) : new Date();
@@ -1113,6 +1117,7 @@ export class FinancesComponent implements OnInit {
   }
 
   onAdvanceMonthsChange() {
+    this.paymentAmountManuallyEdited = false;
     this.updateAdvanceConcept();
     this.checkIncreaseLogic();
     this.calculateAdvancePayment();
@@ -1152,7 +1157,10 @@ export class FinancesComponent implements OnInit {
     (event.target as HTMLElement).blur();
   }
 
-  onAmountChange(newAmount: number) {
+  onAmountChange(newAmount: number, manuallyEdited: boolean = false) {
+      if (manuallyEdited) {
+          this.paymentAmountManuallyEdited = true;
+      }
       if (newAmount && this.paymentDto.paymentMethodId) {
           const calc = this.getCalculatedAmounts(newAmount, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
           this.commision = calc.difference; 
@@ -1172,6 +1180,7 @@ export class FinancesComponent implements OnInit {
   }
 
   onDebtCancelChange(debtCancelled: number) {
+      this.paymentAmountManuallyEdited = true;
       if (debtCancelled && debtCancelled > 0 && this.paymentDto.paymentMethodId) {
           const selectedCommission = this.getCommissionByMethodId(this.paymentDto.paymentMethodId);
           const includedCommission = this.getCommissionByMethodId(this.selectedPreferredPaymentId);
@@ -1208,6 +1217,7 @@ export class FinancesComponent implements OnInit {
 
   usePreviousBalance(): void {
     if (this.selectedClientPreviousBalance < 0) {
+      this.paymentAmountManuallyEdited = true;
       this.isPreviousBalanceSelected = true;
       this.paymentDto.amount = Math.abs(Number(this.selectedClientPreviousBalance));
       this.paymentDto.concept = 'Pago de saldo anterior';
@@ -1228,6 +1238,7 @@ export class FinancesComponent implements OnInit {
   useTotalDebt(): void {
     const totalDebt = this.getTotalDebtAmount();
     if (totalDebt > 0) {
+      this.paymentAmountManuallyEdited = true;
       this.isPreviousBalanceSelected = false;
       this.paymentDto.amount = totalDebt;
       this.onAmountChange(this.paymentDto.amount);
@@ -1442,10 +1453,12 @@ export class FinancesComponent implements OnInit {
 
       const coverageStart = this.getCoverageStartMonth();
       if (this.paymentDto.isAdvancePayment) {
-        this.calculateAdvancePayment();
+        if (!this.paymentAmountManuallyEdited) {
+          this.calculateAdvancePayment();
+        }
       } else {
         const currentInc = this.paymentDto.appliedIncreases.find(inc => inc.year === coverageStart.year && inc.month === coverageStart.month);
-        if (currentInc) {
+        if (currentInc && !this.paymentAmountManuallyEdited) {
           this.paymentDto.amount = currentInc.newRentAmount;
           this.onAmountChange(this.paymentDto.amount);
           this.syncPaymentPreview();
@@ -1579,7 +1592,9 @@ export class FinancesComponent implements OnInit {
     this.selectedClientRentAmount = this.originalBaseRentCopy; // Restauramos
     
     if (this.currentIncreaseFlow === 'advance') {
-      this.calculateAdvancePayment();
+      if (!this.paymentAmountManuallyEdited) {
+        this.calculateAdvancePayment();
+      }
       this.showSummarySwal();
     } else {
       this.executeBackendCall();
