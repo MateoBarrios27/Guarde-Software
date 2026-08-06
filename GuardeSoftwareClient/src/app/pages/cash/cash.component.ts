@@ -56,6 +56,14 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   // Totales estáticos para el Panel Izquierdo (Siempre es el mes seleccionado)
   totals = { depo: 0, casa: 0, pagado: 0, retiros: 0, extras: 0, iaia: 0, aPagar: 0, faltaPagar: 0 };
   
+  // Array de columnas visibles guardado en localstorage para recordar la selección
+  visibleColumns: string[] = ['depo', 'casa', 'iaia', 'retiros'];
+
+  // Para evitar que el scroll salte al recargar los datos
+  trackById(index: number, item: any): number | string {
+    return item.id || index;
+  }
+  
   // Totales dinámicos para el Footer de la Tabla (Cambian con la búsqueda)
   tableTotals = { depo: 0, casa: 0, retiros: 0, extras: 0, iaia: 0, pagado: 0 };
 
