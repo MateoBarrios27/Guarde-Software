@@ -59,7 +59,7 @@ namespace GuardeSoftwareAPI.Dao
                     ISNULL(step1.UI_PreviousBalance, 0) AS PreviousBalance,
                     ISNULL(step1.UI_InterestAmount, 0) AS interest_amount,
                     ISNULL(db.MonthYearDB, '') AS last_generated_month_year,
-                    step1.LastBalanceDate AS next_payment_day
+                    nextPayment.NextPaymentDay AS next_payment_day
                 FROM clients c
                 LEFT JOIN rentals r
                     ON c.client_id = r.client_id
@@ -92,6 +92,19 @@ namespace GuardeSoftwareAPI.Dao
                       AND (cmb.balance - cmb.paid - cmb.advanced_payment) > 0
                     ORDER BY cmb.id DESC
                 ) db
+
+                OUTER APPLY (
+                    SELECT NextPaymentDay = CASE 
+                        WHEN latest_cmb.MonthYearDB IS NOT NULL AND LEN(latest_cmb.MonthYearDB) = 7 THEN
+                            CASE 
+                                WHEN latest_cmb.NetBalance <= 0 THEN 
+                                    DATEADD(month, 1, DATEFROMPARTS(CAST(RIGHT(latest_cmb.MonthYearDB, 4) AS INT), CAST(LEFT(latest_cmb.MonthYearDB, 2) AS INT), 1))
+                                ELSE
+                                    DATEFROMPARTS(CAST(RIGHT(ISNULL(db.MonthYearDB, latest_cmb.MonthYearDB), 4) AS INT), CAST(LEFT(ISNULL(db.MonthYearDB, latest_cmb.MonthYearDB), 2) AS INT), 1)
+                            END
+                        ELSE NULL
+                    END
+                ) nextPayment
 
                 -- SEPARACIÓN ESTRICTA DE CONCEPTOS
                 OUTER APPLY (
@@ -131,21 +144,15 @@ namespace GuardeSoftwareAPI.Dao
                 -- ASIGNAMOS A LA UI
                 OUTER APPLY (
                     SELECT
-                        UI_CurrentRent = CASE 
-                            WHEN db.MonthYearDB IS NOT NULL THEN
-                                ISNULL((
-                                    SELECT TOP 1 rah.amount
-                                    FROM rental_amount_history rah
-                                    WHERE rah.rental_id = r.rental_id
-                                      AND rah.start_date <= DATEFROMPARTS(
-                                            CAST(RIGHT(db.MonthYearDB, 4) AS INT),
-                                            CAST(LEFT(db.MonthYearDB, 2) AS INT), 1)
-                                    ORDER BY rah.start_date DESC,
-                                             CASE WHEN rah.end_date IS NULL THEN 1 ELSE 0 END DESC,
-                                             rah.rental_amount_history_id DESC
-                                ), ISNULL(cr.CurrentRent, 0))
-                            ELSE ISNULL(cr.CurrentRent, 0)
-                        END,
+                        UI_CurrentRent = ISNULL((
+                            SELECT TOP 1 rah.amount
+                            FROM rental_amount_history rah
+                            WHERE rah.rental_id = r.rental_id
+                              AND nextPayment.NextPaymentDay IS NOT NULL
+                              AND rah.start_date < DATEADD(month, 1, DATEFROMPARTS(YEAR(nextPayment.NextPaymentDay), MONTH(nextPayment.NextPaymentDay), 1))
+                              AND (rah.end_date IS NULL OR rah.end_date >= DATEFROMPARTS(YEAR(nextPayment.NextPaymentDay), MONTH(nextPayment.NextPaymentDay), 1))
+                            ORDER BY rah.start_date DESC, rah.rental_amount_history_id DESC
+                        ), ISNULL(cr.CurrentRent, 0)),
                         UI_InterestAmount = calc3.UnpaidInts,
                         UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                         UI_PreviousBalance = CASE 
@@ -741,12 +748,12 @@ namespace GuardeSoftwareAPI.Dao
                         c.comment_updated_at AS CommentUpdatedAt,
                         r.increase_anchor_date AS IncreaseAnchorDate,
 
-                        CASE 
-                            WHEN c.active = 0 THEN NULL
-                            WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
+                        /*
+                            
+                            
                             THEN DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1) -- Día forzado a 1
-                            ELSE step1.LastBalanceDate
-                        END AS NextPaymentDay,
+                        */
+                        nextPayment.NextPaymentDay AS NextPaymentDay,
 
                         CASE 
                             WHEN c.active = 0 THEN 
@@ -808,6 +815,29 @@ namespace GuardeSoftwareAPI.Dao
                         ORDER BY cmb.id DESC
                     ) db
 
+                    OUTER APPLY (
+                        SELECT NextPaymentDay = CASE 
+                            WHEN latest_cmb.MonthYearDB IS NOT NULL AND LEN(latest_cmb.MonthYearDB) = 7 THEN
+                                CASE 
+                                    WHEN latest_cmb.NetBalance <= 0 THEN 
+                                        DATEADD(month, 1, DATEFROMPARTS(CAST(RIGHT(latest_cmb.MonthYearDB, 4) AS INT), CAST(LEFT(latest_cmb.MonthYearDB, 2) AS INT), 1))
+                                    ELSE
+                                        DATEFROMPARTS(CAST(RIGHT(ISNULL(db.MonthYearDB, latest_cmb.MonthYearDB), 4) AS INT), CAST(LEFT(ISNULL(db.MonthYearDB, latest_cmb.MonthYearDB), 2) AS INT), 1)
+                                END
+                            ELSE NULL
+                        END
+                    ) baseNextPayment
+
+                    OUTER APPLY (
+                        SELECT NextPaymentDay = CASE
+                            WHEN c.active = 0 THEN NULL
+                            WHEN baseNextPayment.NextPaymentDay IS NULL
+                                 OR baseNextPayment.NextPaymentDay < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
+                            THEN DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)
+                            ELSE baseNextPayment.NextPaymentDay
+                        END
+                    ) nextPayment
+
                     -- SEPARACIÓN ESTRICTA DE CONCEPTOS
                     OUTER APPLY (
                         SELECT 
@@ -846,21 +876,15 @@ namespace GuardeSoftwareAPI.Dao
                     -- ASIGNAMOS A LA UI
                     OUTER APPLY (
                         SELECT
-                            UI_CurrentRent = CASE 
-                                WHEN db.MonthYearDB IS NOT NULL THEN
-                                    ISNULL((
-                                        SELECT TOP 1 rah.amount
-                                        FROM rental_amount_history rah
-                                        WHERE rah.rental_id = r.rental_id
-                                          AND rah.start_date <= DATEFROMPARTS(
-                                                CAST(RIGHT(db.MonthYearDB, 4) AS INT),
-                                                CAST(LEFT(db.MonthYearDB, 2) AS INT), 1)
-                                        ORDER BY rah.start_date DESC,
-                                                 CASE WHEN rah.end_date IS NULL THEN 1 ELSE 0 END DESC,
-                                                 rah.rental_amount_history_id DESC
-                                    ), ISNULL(cr.CurrentRent, 0))
-                                ELSE ISNULL(cr.CurrentRent, 0)
-                            END,
+                            UI_CurrentRent = ISNULL((
+                                SELECT TOP 1 rah.amount
+                                FROM rental_amount_history rah
+                                WHERE rah.rental_id = r.rental_id
+                                  AND nextPayment.NextPaymentDay IS NOT NULL
+                                  AND rah.start_date < DATEADD(month, 1, DATEFROMPARTS(YEAR(nextPayment.NextPaymentDay), MONTH(nextPayment.NextPaymentDay), 1))
+                                  AND (rah.end_date IS NULL OR rah.end_date >= DATEFROMPARTS(YEAR(nextPayment.NextPaymentDay), MONTH(nextPayment.NextPaymentDay), 1))
+                                ORDER BY rah.start_date DESC, rah.rental_amount_history_id DESC
+                            ), ISNULL(cr.CurrentRent, 0)),
                             UI_InterestAmount = calc3.UnpaidInts,
                             UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                             UI_PreviousBalance = CASE 
