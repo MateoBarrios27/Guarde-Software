@@ -126,7 +126,8 @@ export class SyncService {
           commissionConcept: p.commissionConcept,
           skipFutureProjection: p.skipFutureProjection,
           surchargeAction: p.surchargeAction,
-          surchargeAmount: p.surchargeAmount
+          surchargeAmount: p.surchargeAmount,
+          expectedPaymentStateToken: p.expectedPaymentStateToken
         }))
       };
 

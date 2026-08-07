@@ -215,29 +215,38 @@ namespace GuardeSoftwareAPI.Dao
                         c.client_id,
                         CASE 
                             WHEN c.active = 0 THEN 'Baja'
-                            WHEN ISNULL(r_stats.total_months_unpaid, 0) >= 1 THEN 'Moroso'
-                            WHEN ISNULL(acc_stats.balance, 0) <= 0 THEN 'AlDia'
-                            ELSE 'Pendiente'
+                            WHEN ISNULL(r.months_unpaid, 0) >= 1 THEN 'Moroso'
+                            WHEN (
+                                CASE 
+                                    WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
+                                    THEN DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 10)
+                                    ELSE step1.LastBalanceDate
+                                END
+                            ) > EOMONTH(DATEADD(hour, -3, GETUTCDATE())) THEN 'PagaronElMes'
+                            ELSE 'NoPagaronElMes'
                         END AS Status
                     FROM clients c
-                    LEFT JOIN (
-                        SELECT client_id, SUM(months_unpaid) as total_months_unpaid 
-                        FROM rentals WHERE active = 1 GROUP BY client_id
-                    ) r_stats ON c.client_id = r_stats.client_id
-                    LEFT JOIN (
-                        SELECT r.client_id, 
-                               SUM(am.amount * CASE WHEN am.movement_type = 'DEBITO' THEN 1 ELSE -1 END) as balance 
-                        FROM rentals r 
-                        JOIN account_movements am ON r.rental_id = am.rental_id 
-                        GROUP BY r.client_id
-                    ) acc_stats ON c.client_id = acc_stats.client_id
+                    OUTER APPLY (
+                        SELECT TOP 1 *
+                        FROM rentals r_sub
+                        WHERE r_sub.client_id = c.client_id 
+                          AND (r_sub.active = 1 OR c.active = 0)
+                        ORDER BY r_sub.active DESC, r_sub.start_date DESC, r_sub.rental_id DESC
+                    ) r
+                    OUTER APPLY (
+                        SELECT TOP 1
+                            LastBalanceDate = TRY_CONVERT(date, CONCAT('01/', cmb.month_year), 103)
+                        FROM client_month_balances cmb
+                        WHERE cmb.rental_id = r.rental_id
+                        ORDER BY cmb.id DESC
+                    ) step1
                 )
                 SELECT 
                     SUM(CASE WHEN Status <> 'Baja' THEN 1 ELSE 0 END) as Total,
                     
-                    SUM(CASE WHEN Status = 'AlDia' THEN 1 ELSE 0 END) as AlDia,
+                    SUM(CASE WHEN Status = 'PagaronElMes' THEN 1 ELSE 0 END) as AlDia,
                     SUM(CASE WHEN Status = 'Moroso' THEN 1 ELSE 0 END) as Morosos,
-                    SUM(CASE WHEN Status = 'Pendiente' THEN 1 ELSE 0 END) as Pendientes,
+                    SUM(CASE WHEN Status = 'NoPagaronElMes' THEN 1 ELSE 0 END) as Pendientes,
                     SUM(CASE WHEN Status = 'Baja' THEN 1 ELSE 0 END) as DadosBaja
                 FROM ClientStatus;
             ";

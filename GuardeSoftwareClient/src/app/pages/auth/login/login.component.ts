@@ -43,7 +43,7 @@ export class LoginComponent {
       next: () => {
         this.loading = false;
         // Use native redirection to trigger iOS Keychain save (WebKit doesn't recognize SPA client-side routing as a successful form submit)
-        window.location.href = '/dashboard';
+        window.location.href = '/clients';
       },
       error: (err) => {
         this.loading = false;

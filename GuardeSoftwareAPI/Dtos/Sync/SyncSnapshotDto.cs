@@ -65,6 +65,7 @@ namespace GuardeSoftwareAPI.Dtos.Sync
         public bool SkipFutureProjection { get; set; } = true; // Offline payments skip complex projections by default
         public string? SurchargeAction { get; set; }
         public decimal? SurchargeAmount { get; set; }
+        public string? ExpectedPaymentStateToken { get; set; }
     }
 
     public class SyncPaymentsRequestDto

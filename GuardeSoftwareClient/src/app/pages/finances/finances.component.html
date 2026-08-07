@@ -210,7 +210,7 @@
 
       <tbody>
         <tr
-          *ngFor="let p of filteredPayments | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'payments' }"
+          *ngFor="let p of filteredPayments | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'payments' }; trackBy: trackByPayment"
           class="transition"
           [ngClass]="{
             'border-b hover:bg-gray-50': p.groupPos === 'none',
@@ -316,9 +316,27 @@
   (click)="closeClientModal()"
 >
   <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
-  <div class="relative w-full max-w-6xl bg-white rounded-2xl shadow-[0_24px_60px_-15px_rgba(0,0,0,0.2)] border flex flex-col max-h-[92vh] overflow-hidden animate-fade-in-down"
-       [ngClass]="isPotentiallyDuplicate() && selectedClientId > 0 ? 'border-2 border-amber-400' : 'border-gray-200/90'"
+  <div class="relative w-full max-w-6xl max-h-[92vh] overflow-visible animate-fade-in-down"
        (click)="$event.stopPropagation()">
+
+    <div *ngIf="otherPaymentViewers.length > 0 && !paymentCollision" class="payment-presence-badge" role="status" aria-live="polite">
+      <div class="payment-presence-avatar">{{ otherPaymentViewers[0].displayName.charAt(0) }}</div>
+      <div class="min-w-0">
+        <p class="payment-presence-eyebrow">También viendo este pago</p>
+        <p class="payment-presence-name">{{ otherPaymentViewers[0].displayName }}<span *ngIf="otherPaymentViewers.length > 1"> +{{ otherPaymentViewers.length - 1 }}</span></p>
+      </div>
+      <app-icon name="user" class="payment-presence-icon"></app-icon>
+    </div>
+
+    <div class="relative w-full bg-white rounded-2xl shadow-[0_24px_60px_-15px_rgba(0,0,0,0.2)] border flex flex-col max-h-[92vh] overflow-hidden"
+         [ngClass]="isPotentiallyDuplicate() && selectedClientId > 0 ? 'border-2 border-amber-400' : 'border-gray-200/90'"
+         (click)="$event.stopPropagation()">
+
+    <div *ngIf="paymentCollision" class="payment-collision-banner" role="alert">
+      <app-icon name="lock" class="w-4 h-4 shrink-0"></app-icon>
+      <span>El estado de esta cobranza cambió. Actualizá los datos antes de registrar el pago.</span>
+      <button type="button" (click)="refreshAfterPaymentCollision()" class="payment-collision-action">Actualizar</button>
+    </div>
     
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white shrink-0">
@@ -343,7 +361,7 @@
     </div>
 
     <!-- Body Container (Grid 2 cols for left client picker and right payment form) -->
-    <div class="grid grid-cols-1 lg:grid-cols-[1.2fr_2fr] divide-y lg:divide-y-0 lg:divide-x divide-gray-100 flex-1 min-h-0 bg-white overflow-hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-[0.9fr_2.3fr] divide-y lg:divide-y-0 lg:divide-x divide-gray-100 flex-1 min-h-0 bg-white overflow-hidden">
       
       <!-- Left Column: Client Selection -->
       <div class="flex flex-col min-h-0 bg-gray-50/40 p-5">
@@ -372,7 +390,7 @@
           </p>
 
           <div
-            *ngFor="let client of filteredClients"
+            *ngFor="let client of filteredClients; trackBy: trackByClient"
             (click)="selectClient(client)"
             [ngClass]="{
               'bg-indigo-50/80 border-indigo-300 ring-1 ring-indigo-300 shadow-sm': selectedClientId === client.id,
@@ -743,15 +761,16 @@
           <button
             type="button"
             (click)="savePaymentModal(paymentDto)"
-            [disabled]="selectedClientId === 0 || !paymentDto.amount || paymentDto.amount <= 0"
+            [disabled]="selectedClientId === 0 || !paymentDto.amount || paymentDto.amount <= 0 || isSubmittingPayment || paymentCollision"
             class="px-5 py-2 text-xs font-semibold text-white bg-gray-900 hover:bg-gray-800 disabled:opacity-50 disabled:pointer-events-none rounded-xl transition-all shadow-sm active:scale-[0.98] flex items-center gap-1.5"
           >
-            <app-icon name="check" class="w-3.5 h-3.5 stroke-[2.5]"></app-icon> Guardar Pago
+            <app-icon name="check" class="w-3.5 h-3.5 stroke-[2.5]"></app-icon> {{ isSubmittingPayment ? 'Registrando...' : 'Guardar Pago' }}
           </button>
         </div>
 
       </div>
     </div>
+  </div>
   </div>
 </div>
 

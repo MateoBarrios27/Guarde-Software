@@ -22,23 +22,6 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<DataTable> GetClients()
         {
             string query = @"
-                WITH CurrentRentalAmount AS (
-                    SELECT 
-                        h.rental_id,
-                        h.amount AS CurrentRent
-                    FROM (
-                        SELECT 
-                            rental_id, 
-                            amount,
-                            ROW_NUMBER() OVER (
-                                PARTITION BY rental_id 
-                                ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC
-                            ) as rn
-                        FROM rental_amount_history
-                        WHERE start_date <= DATEADD(hour, -3, GETUTCDATE())
-                    ) h
-                    WHERE h.rn = 1
-                )
                 SELECT
                     c.client_id,
                     c.payment_identifier,
@@ -54,7 +37,7 @@ namespace GuardeSoftwareAPI.Dao
                     c.initial_amount,
                     r.increase_anchor_date AS IncreaseAnchorDate,
                     r.pending_surcharge AS PendingSurcharge,
-                    ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS rent_amount,
+                    ISNULL(step1.UI_CurrentRent, ISNULL(currentRental.CurrentRent, 0)) AS rent_amount,
                     ISNULL(step1.UI_Balance, 0) AS balance,
                     ISNULL(step1.UI_PreviousBalance, 0) AS PreviousBalance,
                     ISNULL(step1.UI_InterestAmount, 0) AS interest_amount,
@@ -64,8 +47,16 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN rentals r
                     ON c.client_id = r.client_id
                     AND r.active = 1
-                LEFT JOIN CurrentRentalAmount cr
-                    ON r.rental_id = cr.rental_id
+                OUTER APPLY (
+                    SELECT TOP 1
+                        CurrentRent = rah.amount
+                    FROM rental_amount_history rah
+                    WHERE rah.rental_id = r.rental_id
+                      AND rah.start_date <= DATEADD(hour, -3, GETUTCDATE())
+                    ORDER BY rah.start_date DESC,
+                             CASE WHEN rah.end_date IS NULL THEN 1 ELSE 0 END DESC,
+                             rah.rental_amount_history_id DESC
+                ) currentRental
                 
                 -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO (Para fecha de próximo pago correcta)
                 OUTER APPLY (
@@ -83,7 +74,7 @@ namespace GuardeSoftwareAPI.Dao
                         Id = cmb.id,
                         PrevBalDB = ISNULL(cmb.previous_balance, 0),
                         IntsDB = ISNULL(cmb.interests, 0),
-                        RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
+                        RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(currentRental.CurrentRent, 0) ELSE cmb.monthly_debits END,
                         PaidDB = ISNULL(cmb.paid, 0),
                         AdvPayDB = ISNULL(cmb.advanced_payment, 0),
                         MonthYearDB = cmb.month_year
@@ -152,7 +143,7 @@ namespace GuardeSoftwareAPI.Dao
                               AND rah.start_date < DATEADD(month, 1, DATEFROMPARTS(YEAR(nextPayment.NextPaymentDay), MONTH(nextPayment.NextPaymentDay), 1))
                               AND (rah.end_date IS NULL OR rah.end_date >= DATEFROMPARTS(YEAR(nextPayment.NextPaymentDay), MONTH(nextPayment.NextPaymentDay), 1))
                             ORDER BY rah.start_date DESC, rah.rental_amount_history_id DESC
-                        ), ISNULL(cr.CurrentRent, 0)),
+                        ), ISNULL(currentRental.CurrentRent, 0)),
                         UI_InterestAmount = calc3.UnpaidInts,
                         UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                         UI_PreviousBalance = CASE 
@@ -485,6 +476,7 @@ namespace GuardeSoftwareAPI.Dao
         {
             var filterParameters = new List<SqlParameter>();
             var finalWhereClause = new StringBuilder("WHERE 1=1 ");
+            var clientDataWhereClause = request.Active.HasValue ? "WHERE c.active = @Active " : string.Empty;
 
             if (request.Active.HasValue)
             {
@@ -692,17 +684,21 @@ namespace GuardeSoftwareAPI.Dao
 
             string fullQuery = $@"
                 WITH CurrentRentalAmount AS (
-                    SELECT h.rental_id, h.amount AS CurrentRent
-                    FROM (
-                        SELECT rental_id, amount,
-                               ROW_NUMBER() OVER (PARTITION BY rental_id ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC) as rn
-                        FROM rental_amount_history WHERE start_date <= DATEADD(hour, -3, GETUTCDATE())
-                    ) h WHERE h.rn = 1
+                    SELECT r_amount.rental_id, r_amount_history.amount AS CurrentRent
+                    FROM rentals r_amount
+                    CROSS APPLY (
+                        SELECT TOP 1 rah.amount
+                        FROM rental_amount_history rah
+                        WHERE rah.rental_id = r_amount.rental_id
+                          AND rah.start_date <= DATEADD(hour, -3, GETUTCDATE())
+                        ORDER BY rah.start_date DESC, CASE WHEN rah.end_date IS NULL THEN 1 ELSE 0 END DESC, rah.rental_amount_history_id DESC
+                    ) r_amount_history
                 ),
                 ClientLastHistoryDate AS (
-                    SELECT client_id, MAX(ISNULL(end_date, start_date)) AS max_date
-                    FROM client_locker_history
-                    GROUP BY client_id
+                    SELECT h.client_id, MAX(ISNULL(h.end_date, h.start_date)) AS max_date
+                    FROM client_locker_history h
+                    INNER JOIN clients inactive_clients ON inactive_clients.client_id = h.client_id AND inactive_clients.active = 0
+                    GROUP BY h.client_id
                 ),
                 ClientHistoricalLockers AS (
                     SELECT DISTINCT clh.client_id, l.locker_id, l.identifier, l.warehouse_id, ISNULL(w.name, 'Sin ubicación') AS warehouse_name
@@ -712,14 +708,18 @@ namespace GuardeSoftwareAPI.Dao
                     JOIN ClientLastHistoryDate lhd ON clh.client_id = lhd.client_id
                     WHERE ABS(DATEDIFF(day, ISNULL(clh.end_date, clh.start_date), lhd.max_date)) <= 1
                 ),
+                ClientHistoryDates AS (
+                    SELECT h.client_id, MAX(h.end_date) AS last_end_date, MAX(h.start_date) AS last_start_date
+                    FROM client_locker_history h
+                    INNER JOIN clients inactive_clients ON inactive_clients.client_id = h.client_id AND inactive_clients.active = 0
+                    GROUP BY h.client_id
+                ),
                 ClientData AS (
                     SELECT
                         c.client_id AS Id,
                         c.payment_identifier AS PaymentIdentifier,
                         c.full_name AS FullName,
                         first_email.address AS Email,
-                        first_phone.number AS Phone,
-                        a.city AS City,
 
                         step1.UI_PreviousBalance AS PreviousBalance,
                         step1.UI_InterestAmount AS InterestAmount,
@@ -759,8 +759,8 @@ namespace GuardeSoftwareAPI.Dao
                             WHEN c.active = 0 THEN 
                                 COALESCE(
                                     r.end_date, 
-                                    (SELECT TOP 1 clh.end_date FROM client_locker_history clh WHERE clh.client_id = c.client_id AND clh.end_date IS NOT NULL ORDER BY clh.end_date DESC),
-                                    (SELECT TOP 1 clh.start_date FROM client_locker_history clh WHERE clh.client_id = c.client_id ORDER BY clh.start_date DESC),
+                                    history_dates.last_end_date,
+                                    history_dates.last_start_date,
                                     r.start_date,
                                     c.registration_date
                                 ) 
@@ -776,8 +776,6 @@ namespace GuardeSoftwareAPI.Dao
                         
                     FROM clients c
                     OUTER APPLY ( SELECT TOP 1 e.address FROM emails e WHERE e.client_id = c.client_id AND e.active = 1 ORDER BY e.email_id ) AS first_email
-                    OUTER APPLY ( SELECT TOP 1 p.number FROM phones p WHERE p.client_id = c.client_id AND p.active = 1 ORDER BY p.phone_id ) AS first_phone
-                    LEFT JOIN addresses a ON c.client_id = a.client_id
                     LEFT JOIN billing_types bt ON c.billing_type_id = bt.billing_type_id
                     LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
                     OUTER APPLY (
@@ -788,6 +786,7 @@ namespace GuardeSoftwareAPI.Dao
                         ORDER BY r_sub.active DESC, r_sub.start_date DESC, r_sub.rental_id DESC
                     ) r
                     LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
+                    LEFT JOIN ClientHistoryDates history_dates ON history_dates.client_id = c.client_id AND c.active = 0
 
                     -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO (Para fecha de próximo pago)
                     OUTER APPLY (
@@ -946,15 +945,14 @@ namespace GuardeSoftwareAPI.Dao
                         ) loc
                     ) locker_sub
                     LEFT JOIN ( SELECT r.client_id, SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid FROM rentals r WHERE r.active = 1 GROUP BY r.client_id ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
+                    {clientDataWhereClause}
                 ),
                 FilteredData AS (
                     SELECT * FROM ClientData
                     {finalWhereClause}
-                ),
-                TotalCount AS (
-                    SELECT COUNT(*) AS TotalRows FROM FilteredData
                 )
-                SELECT * FROM FilteredData, TotalCount
+                SELECT FilteredData.*, COUNT(*) OVER() AS TotalRows
+                FROM FilteredData
                 ORDER BY {GetSortColumn(request.SortField).Replace(", PaymentIdentifier", "")} {GetSortDirection(request.SortDirection)}
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
             ";

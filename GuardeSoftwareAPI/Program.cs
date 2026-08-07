@@ -106,6 +106,21 @@ builder.Services
     .AddJwtBearer(options =>
     {
         options.SaveToken = true;
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var requestPath = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrWhiteSpace(accessToken) && requestPath.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -150,6 +165,8 @@ builder.Services.AddScoped<DaoStatistics>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICashService, CashService>();
 builder.Services.AddScoped<IClientMonthBalanceService, ClientMonthBalanceService>();
+builder.Services.AddScoped<IPaymentStateService, PaymentStateService>();
+builder.Services.AddSingleton<PaymentPresenceRegistry>();
 
 // --- Configuration Quartz.NET ---
 builder.Services.AddQuartz(q =>
@@ -238,5 +255,6 @@ app.MapControllers();
 app.MapHub<AlertHub>("/hubs/alert");
 app.MapHub<CommunicationHub>("/hubs/communications");
 app.MapHub<CashHub>("/hubs/cash");
+app.MapHub<PaymentPresenceHub>("/hubs/payment-presence");
 
 app.Run();

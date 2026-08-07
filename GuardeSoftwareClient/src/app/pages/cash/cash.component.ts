@@ -673,8 +673,8 @@ filterItems(): void {
         
         this.filteredItems = data.filter(item => {
           if (!term) return true;
-          // Buscador global (Busca por monto, nro de fila, concepto, nota, etc)
-          const searchStr = `${item.rowNum} ${item.description || ''} ${item.comment || ''} ${item.depo || ''} ${item.casa || ''} ${item.retiros || ''} ${item.iaia || ''}`.toLowerCase();
+          // Buscador global (Busca por monto, nro de fila, concepto, etc. EXCLUYE NOTAS)
+          const searchStr = `${item.rowNum} ${item.description || ''} ${item.depo || ''} ${item.casa || ''} ${item.retiros || ''} ${item.iaia || ''}`.toLowerCase();
           return searchStr.includes(term);
         });
         
@@ -696,7 +696,8 @@ filterItems(): void {
     });
 
     this.filteredItems = this.items.filter(item => {
-      const searchStr = `${item.rowNum} ${item.description || ''} ${item.comment || ''} ${item.depo || ''} ${item.casa || ''} ${item.retiros || ''} ${item.iaia || ''}`.toLowerCase();
+      // Excluimos item.comment de la búsqueda
+      const searchStr = `${item.rowNum} ${item.description || ''} ${item.depo || ''} ${item.casa || ''} ${item.retiros || ''} ${item.iaia || ''}`.toLowerCase();
       const matchesText = !term || searchStr.includes(term);
       const matchesDate = !this.searchDateFrom || item.date === this.searchDateFrom;
       return matchesText && matchesDate;

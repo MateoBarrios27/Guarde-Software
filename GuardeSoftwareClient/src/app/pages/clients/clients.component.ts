@@ -42,6 +42,9 @@ import { IndexedDbService } from '../../core/services/offline-service/indexed-db
     ClientDetailModalComponent
 ],
   templateUrl: './clients.component.html',
+  host: {
+    class: 'block w-full min-w-0'
+  },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -175,11 +178,6 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         this.searchClientes = searchTerm;
       }
       
-      this.loadClients();
-    });
-
-    this.searchSubject.pipe(debounceTime(300)).subscribe(() => {
-      this.currentPageClientes = 1; 
       this.loadClients();
     });
 
@@ -317,22 +315,26 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     return lt ? lt.name : `Tipo (${id})`;
   }
   ngAfterViewInit() {
-    this.scrollObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.target === this.bottomAnchor.nativeElement) {
-          this.pointingUp = entry.isIntersecting;
-        }
-      });
-    }, { threshold: 0 });
+    setTimeout(() => {
+      const scrollContainer = document.getElementById('main-scroll');
+      if (scrollContainer) {
+        scrollContainer.addEventListener('scroll', this.onScroll.bind(this));
+        this.onScroll({ target: scrollContainer } as any); // Initialize
+      }
+    }, 100);
+  }
 
-    if (this.bottomAnchor) {
-      this.scrollObserver.observe(this.bottomAnchor.nativeElement);
-    }
+  onScroll(event: Event) {
+    const target = event.target as HTMLElement;
+    // Si estamos cerca del fondo, la flecha apunta hacia arriba
+    const isAtBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 100;
+    this.pointingUp = isAtBottom;
   }
 
   ngOnDestroy() {
-    if (this.scrollObserver) {
-      this.scrollObserver.disconnect();
+    const scrollContainer = document.getElementById('main-scroll');
+    if (scrollContainer) {
+      scrollContainer.removeEventListener('scroll', this.onScroll.bind(this));
     }
   }
 
@@ -500,6 +502,13 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   onSearchChange(): void {
     this.searchSubject.next(this.searchClientes);
     this.calculateTotals();
+
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { searchTerm: this.searchClientes || null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
   }
 
   onFilterChange(): void {

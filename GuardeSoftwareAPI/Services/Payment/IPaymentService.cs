@@ -10,7 +10,7 @@ namespace GuardeSoftwareAPI.Services.payment
 		Task<List<Payment>> GetPaymentsList();
 		Task<Payment> GetPaymentById(int id);
 		Task<List<Payment>> GetPaymentsByClientId(int clientId);
-		Task<bool> CreatePaymentWithMovementAsync(CreatePaymentTransaction dto);
+		Task<bool> CreatePaymentWithMovementAsync(CreatePaymentTransaction dto, string? recordedByName = null, string? recordedByUserName = null);
 		Task<List<DetailedPaymentDto>> GetDetailedPaymentsAsync();
 		Task<bool> DeletePaymentAsync(int paymentId);
 

@@ -35,5 +35,6 @@ namespace GuardeSoftwareAPI.Dtos.Payment
         public List<PaymentIncreaseDto> AppliedIncreases { get; set; } = new List<PaymentIncreaseDto>();
         public string? SurchargeAction { get; set; }
         public decimal? SurchargeAmount { get; set; }
+        public string? ExpectedPaymentStateToken { get; set; }
     }
 }

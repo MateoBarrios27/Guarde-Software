@@ -38,7 +38,7 @@
             <p class="text-2xl font-bold text-green-900">
               {{ estadisticas.alDia }}
             </p>
-            <p class="text-sm text-gray-500">Al Día</p>
+            <p class="text-sm text-gray-500">Pagaron el mes</p>
           </div>
         </div>
       </div>
@@ -63,7 +63,7 @@
             <p class="text-2xl font-bold text-orange-900">
               {{ estadisticas.pendientes }}
             </p>
-            <p class="text-sm text-gray-500">Pendientes</p>
+            <p class="text-sm text-gray-500">No pagaron el mes</p>
           </div>
         </div>
       </div>
@@ -80,7 +80,7 @@
       </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-clip">
       <div class="p-4 space-y-4">
         <div class="flex items-center justify-between">
           <h3
@@ -116,7 +116,7 @@
               class="w-full sm:w-80 pl-10 pr-4 py-2 border rounded-lg"
               
             />
-            <button *ngIf="this.searchClientes" (click)="this.searchClientes = ''" (ngModelChange)="onSearchChange()" tabindex="-1"
+            <button *ngIf="this.searchClientes" (click)="this.searchClientes = ''; onSearchChange()" tabindex="-1"
                     class="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
                     <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
             </button>
@@ -151,7 +151,7 @@
             <div
               #tagsPopoverRef
               *ngIf="showTagsPopover"
-              class="absolute right-0 sm:left-0 mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-2xl w-[480px] sm:w-[580px] p-5 text-sm"
+              class="absolute left-0 mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-2xl w-[calc(100vw-2rem)] sm:w-[580px] max-w-[340px] sm:max-w-none p-4 sm:p-5 text-sm"
             >
               <div class="flex items-center justify-between pb-2 border-b border-gray-100">
                 <div>

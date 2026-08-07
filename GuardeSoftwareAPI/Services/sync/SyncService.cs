@@ -277,6 +277,7 @@ namespace GuardeSoftwareAPI.Services.sync
                         SkipFutureProjection = offlinePayment.SkipFutureProjection,
                         SurchargeAction = offlinePayment.SurchargeAction,
                         SurchargeAmount = offlinePayment.SurchargeAmount,
+                        ExpectedPaymentStateToken = offlinePayment.ExpectedPaymentStateToken,
                         AppliedIncreases = new List<PaymentIncreaseDto>()
                     };
 

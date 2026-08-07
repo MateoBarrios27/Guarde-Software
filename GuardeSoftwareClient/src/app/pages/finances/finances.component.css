@@ -1,0 +1,141 @@
+.payment-presence-badge {
+    position: absolute;
+    z-index: 30;
+    top: 7.25rem;
+    left: calc(100% - 1px);
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 12rem;
+    min-width: 12rem;
+    padding: 0.7rem 0.8rem 0.7rem 0.7rem;
+    box-sizing: border-box;
+    color: #92400e;
+    background: rgba(255, 251, 235, 0.97);
+    border: 1px solid rgba(251, 191, 36, 0.55);
+    border-radius: 0.85rem;
+    box-shadow: 0 8px 20px -14px rgba(180, 83, 9, 0.55);
+    transform: translateX(0);
+    animation: payment-presence-slide-in 400ms cubic-bezier(0.16, 1, 0.3, 1) both, payment-presence-pulse 2.4s ease-in-out 500ms infinite;
+}
+
+.payment-presence-avatar {
+    display: grid;
+    width: 1.8rem;
+    height: 1.8rem;
+    place-items: center;
+    flex: 0 0 auto;
+    border: 1px solid rgba(217, 119, 6, 0.25);
+    border-radius: 0.6rem;
+    color: #b45309;
+    background: rgba(254, 243, 199, 0.9);
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.payment-presence-eyebrow {
+    margin: 0;
+    color: #b45309;
+    font-size: 0.56rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1.1;
+    text-transform: uppercase;
+}
+
+.payment-presence-name {
+    margin: 0.12rem 0 0;
+    overflow: hidden;
+    color: #78350f;
+    font-size: 0.73rem;
+    font-weight: 750;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.payment-presence-icon {
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 auto;
+    color: #d97706;
+}
+
+.payment-collision-banner {
+    position: absolute;
+    z-index: 31;
+    top: 0.8rem;
+    right: 4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    max-width: min(32rem, calc(100% - 5.5rem));
+    padding: 0.55rem 0.65rem 0.55rem 0.75rem;
+    color: #9f1239;
+    background: rgba(255, 241, 242, 0.97);
+    border: 1px solid rgba(253, 164, 175, 0.8);
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 20px -16px rgba(190, 24, 93, 0.55);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+    animation: payment-collision-enter 260ms ease-out both;
+}
+
+.payment-collision-action {
+    flex: 0 0 auto;
+    padding: 0.25rem 0.42rem;
+    color: #9f1239;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(253, 164, 175, 0.8);
+    border-radius: 0.45rem;
+    font-size: 0.63rem;
+    font-weight: 800;
+    transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.payment-collision-action:hover { background: #ffffff; }
+.payment-collision-action:active { transform: scale(0.96); }
+
+@keyframes payment-presence-slide-in {
+    from { opacity: 0; transform: translateX(1.25rem); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes payment-presence-pulse {
+    0%, 100% { box-shadow: 0 8px 20px -14px rgba(180, 83, 9, 0.55); }
+    50% { box-shadow: 0 8px 26px -10px rgba(245, 158, 11, 0.75); }
+}
+
+@keyframes payment-collision-enter {
+    from { opacity: 0; transform: translateY(-0.35rem); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 639px) {
+    .payment-presence-badge {
+        top: 4.2rem;
+        right: 0.75rem;
+        left: 0.75rem;
+        width: auto;
+        min-width: 0;
+        border: 1px solid rgba(251, 191, 36, 0.55);
+        border-radius: 0.75rem;
+        transform: none;
+        animation: payment-presence-mobile-in 350ms cubic-bezier(0.16, 1, 0.3, 1) both, payment-presence-pulse 2.4s ease-in-out 500ms infinite;
+    }
+
+    .payment-collision-banner {
+        top: 4.2rem;
+        right: 0.75rem;
+        left: 0.75rem;
+        max-width: none;
+    }
+
+    .payment-presence-badge + .payment-collision-banner { top: 7.65rem; }
+
+    @keyframes payment-presence-mobile-in {
+        from { opacity: 0; transform: translateY(-0.35rem); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+}

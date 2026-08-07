@@ -51,6 +51,7 @@ export interface PendingPayment {
   skipFutureProjection: boolean;
   surchargeAction?: string;
   surchargeAmount?: number;
+  expectedPaymentStateToken?: string | null;
   createdAt: string;         // ISO string - when queued
   status: 'pending' | 'syncing' | 'failed';
   errorMessage?: string;

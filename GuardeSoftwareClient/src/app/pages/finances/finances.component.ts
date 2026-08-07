@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnDestroy, OnInit, HostListener } from '@angular/core';
 import { PaymentService } from '../../core/services/payment-service/payment.service';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
 import { PendingRentalDTO } from '../../core/dtos/rental/PendingRentalDTO';
@@ -19,10 +19,21 @@ import { OfflineService } from '../../core/services/offline-service/offline.serv
 import { IndexedDbService } from '../../core/services/offline-service/indexed-db.service';
 import { SyncService } from '../../core/services/offline-service/sync.service';
 import { v4 as uuidv4 } from 'uuid';
+import { Subscription } from 'rxjs';
+import { PaymentCompletedNotice, PaymentPresenceService, PaymentPresenceUser } from '../../core/services/payment-presence/payment-presence.service';
 
 export interface DetailedPaymentView extends DetailedPaymentDTO {
   groupPos?: 'start' | 'middle' | 'end' | 'none';
   isGrouped?: boolean;
+  _clientNameLower?: string;
+  _paymentIdentifierSearch?: string;
+  _paymentMethodNameLower?: string;
+  _paymentDayKey?: string;
+  _paymentMonthKey?: string;
+  _paymentMonthIndex?: number;
+  _paymentTimestamp?: number;
+  _paymentIdentifierNumber?: number;
+  _sortId?: number;
 }
 
 interface PaymentMonthBreakdown {
@@ -38,7 +49,7 @@ interface PaymentMonthBreakdown {
   templateUrl: './finances.component.html',
   styleUrl: './finances.component.css'
 })
-export class FinancesComponent implements OnInit {
+export class FinancesComponent implements OnInit, OnDestroy {
 
   constructor(
     private paymentService: PaymentService,
@@ -49,10 +60,16 @@ export class FinancesComponent implements OnInit {
     private pdfGeneratorService: PdfGeneratorService,
     public offlineService: OfflineService,
     private idb: IndexedDbService,
-    private syncService: SyncService
+    private syncService: SyncService,
+    private paymentPresenceService: PaymentPresenceService
   ){}
 
   clients: Client[] = [];
+  private clientsById = new Map<number, Client>();
+  private paymentMethodsById = new Map<number, PaymentMethod>();
+  private filteredClientsCache: Client[] = [];
+  private filteredClientsCacheTerm = '';
+  private filteredClientsCacheSource: Client[] | null = null;
   showClientModal = false;
   selectedClientId: number | 0 = 0;
   selectedClientName: string = '';
@@ -114,6 +131,11 @@ export class FinancesComponent implements OnInit {
   public selectedClientNextIncreaseDay: Date | string | null = null;
   public customScenarioCInterest: number | null = null;
   private paymentAmountManuallyEdited = false;
+  otherPaymentViewers: PaymentPresenceUser[] = [];
+  paymentCollision: PaymentCompletedNotice | null = null;
+  isSubmittingPayment = false;
+  private activePresenceClientId = 0;
+  private readonly paymentPresenceSubscriptions = new Subscription();
 
   returnToUrl: string | null = null;
 
@@ -127,6 +149,11 @@ export class FinancesComponent implements OnInit {
   receiptTotalAmountCustom: number = 0;
   pendingReturnUrl: string | null = null;
   pendingReturnClientId: number | null = null;
+
+  private totalRecaudado = 0;
+  private pagosMesActual = 0;
+  private pagosPorMetodo = new Map<string, number>();
+  private clientesDistintos = 0;
 
   paymentDto: CreatePaymentDTO = {
       clientId: 0,
@@ -149,6 +176,12 @@ export class FinancesComponent implements OnInit {
   public returnSearchTerm: string = '';
 
   ngOnInit(): void {
+    this.paymentPresenceSubscriptions.add(
+      this.paymentPresenceService.onPresenceChanged$.subscribe(event => this.handlePaymentPresenceChanged(event.clientId, event.viewers))
+    );
+    this.paymentPresenceSubscriptions.add(
+      this.paymentPresenceService.onPaymentCompleted$.subscribe(event => this.handleExternalPayment(event))
+    );
     this.route.queryParams.subscribe(params => {
       if (params['autoOpenPayment']) {
         this.autoOpenClientId = Number(params['autoOpenPayment']);
@@ -166,26 +199,52 @@ export class FinancesComponent implements OnInit {
     this.loadClients();
   }
 
-  private sortPaymentsDesc(payments: any[]): any[] {
-    return payments.sort((a, b) => {
-      const getDayString = (dateVal: any): string => {
-        if (!dateVal) return '';
-        const d = new Date(dateVal);
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-      };
+  ngOnDestroy(): void {
+    if (this.activePresenceClientId) {
+      void this.paymentPresenceService.leaveClientRoom(this.activePresenceClientId);
+    }
+    this.paymentPresenceSubscriptions.unsubscribe();
+  }
 
-      const dayA = getDayString(a.paymentDate);
-      const dayB = getDayString(b.paymentDate);
+  private preparePaymentViews(data: DetailedPaymentDTO[]): DetailedPaymentView[] {
+    return data.map(payment => {
+      const date = payment.paymentDate ? new Date(payment.paymentDate) : null;
+      const timestamp = date ? date.getTime() : NaN;
+      const hasValidDate = date !== null && !Number.isNaN(timestamp);
+      const dayKey = hasValidDate
+        ? `${date!.getFullYear()}-${String(date!.getMonth() + 1).padStart(2, '0')}-${String(date!.getDate()).padStart(2, '0')}`
+        : '';
+      const monthKey = hasValidDate
+        ? `${date!.getFullYear()}-${String(date!.getMonth() + 1).padStart(2, '0')}`
+        : '';
+      const paymentIdentifierSearch = (payment.paymentIdentifier?.toString() || '').toLowerCase().replace(',', '.');
+
+      return {
+        ...payment,
+        _clientNameLower: payment.clientName?.toLowerCase() || '',
+        _paymentIdentifierSearch: paymentIdentifierSearch,
+        _paymentMethodNameLower: payment.paymentMethodName?.toLowerCase() || '',
+        _paymentDayKey: dayKey,
+        _paymentMonthKey: monthKey,
+        _paymentMonthIndex: hasValidDate ? date!.getMonth() : undefined,
+        _paymentTimestamp: timestamp,
+        _paymentIdentifierNumber: Number(paymentIdentifierSearch) || 0,
+        _sortId: Number(payment.movementId || payment.paymentId || 0)
+      };
+    });
+  }
+
+  private sortPaymentsDesc(payments: DetailedPaymentView[]): DetailedPaymentView[] {
+    return payments.sort((a, b) => {
+      const dayA = a._paymentDayKey || '';
+      const dayB = b._paymentDayKey || '';
 
       if (dayB !== dayA) {
         return dayB.localeCompare(dayA);
       }
 
-      const idA = Number(a.movementId || a.paymentId || 0);
-      const idB = Number(b.movementId || b.paymentId || 0);
+      const idA = a._sortId || 0;
+      const idB = b._sortId || 0;
       return idB - idA;
     });
   }
@@ -193,7 +252,8 @@ export class FinancesComponent implements OnInit {
   loadPayments(): void {
     this.paymentService.getDetailedPayment().subscribe({
       next: (data) => {
-        this.payments = this.sortPaymentsDesc(data) as DetailedPaymentView[];
+        this.payments = this.sortPaymentsDesc(this.preparePaymentViews(data));
+        this.calculatePaymentStats();
         this.filterPayments();
       },
       error: (err) => console.error('Error al cargar payments:', err)
@@ -210,12 +270,16 @@ export class FinancesComponent implements OnInit {
             name: pm.name,
             commission: pm.commission
           } as PaymentMethod));
+          this.paymentMethodsById = new Map(this.paymentMethods.map(method => [method.id, method]));
         }
       });
       return;
     }
     this.paymentMethodService.getPaymentMethods().subscribe({
-      next: (data) => this.paymentMethods = data,
+      next: (data) => {
+        this.paymentMethods = data;
+        this.paymentMethodsById = new Map(data.map(method => [method.id, method]));
+      },
       error: (err) => console.error('error al cargar los metodos de pago',err)
     });
   }
@@ -249,6 +313,8 @@ export class FinancesComponent implements OnInit {
             cuit: '',
             ivaCondition: ''
           } as Client));
+          this.clientsById = new Map(this.clients.map(client => [client.id, client]));
+          this.invalidateFilteredClientsCache();
 
           // Handle autoOpenPayment navigation from clients table
           if (this.autoOpenClientId) {
@@ -268,6 +334,8 @@ export class FinancesComponent implements OnInit {
     this.clientService.getClients().subscribe({
       next: (data) => {
         this.clients = data;
+        this.clientsById = new Map(data.map(client => [client.id, client]));
+        this.invalidateFilteredClientsCache();
         
         // MAGIA: Si tenemos una orden de auto-apertura pendiente
         if (this.autoOpenClientId) {
@@ -295,17 +363,17 @@ export class FinancesComponent implements OnInit {
     if (id === null || id === undefined) return 'Desconocido';
     const numericId = Number(id);
     if (Number.isNaN(numericId)) return 'Desconocido';
-    const method = this.paymentMethods.find(m => m.id === numericId);
+    const method = this.paymentMethodsById.get(numericId);
     return method ? method.name : 'Desconocido';
   }
 
   getClientNameById(id: number): string {
-    const client = this.clients.find(m => m.id === id);
+    const client = this.clientsById.get(id);
     return client ? client.fullName: ' ';
   }
 
   getClientIdentifierById(id: number): string {
-    const client = this.clients.find(m => m.id === id);
+    const client = this.clientsById.get(id);
     return client && client.paymentIdentifier !== null && client.paymentIdentifier !== undefined 
       ? String(client.paymentIdentifier) 
       : '';
@@ -342,6 +410,15 @@ export class FinancesComponent implements OnInit {
 
   formatARSInput(value: number): string {
     return new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value || 0);
+  }
+
+  formatARS(value: number): string {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(value || 0);
@@ -407,22 +484,41 @@ export class FinancesComponent implements OnInit {
     });
   }
 
+  private calculatePaymentStats(): void {
+    this.totalRecaudado = 0;
+    this.pagosMesActual = 0;
+    this.pagosPorMetodo.clear();
+
+    const currentMonth = new Date().getMonth();
+    const uniqueClients = new Set<string>();
+
+    for (const payment of this.payments) {
+      this.totalRecaudado += payment.amount;
+      if (payment._paymentMonthIndex === currentMonth) {
+        this.pagosMesActual++;
+      }
+      const method = payment.paymentMethodName;
+      this.pagosPorMetodo.set(method, (this.pagosPorMetodo.get(method) || 0) + 1);
+      uniqueClients.add(payment.clientName);
+    }
+
+    this.clientesDistintos = uniqueClients.size;
+  }
+
   getTotalRecaudado(): number {
-    return this.payments.reduce((sum, p) => sum + p.amount, 0);
+    return this.totalRecaudado;
   }
 
   getPagosMesActual(): number {
-    const currentMonth = new Date().getMonth();
-    return this.payments.filter(p => new Date(p.paymentDate).getMonth() === currentMonth).length;
+    return this.pagosMesActual;
   }
 
   getPagosPorMetodo(method: string): number {
-    return this.payments.filter(p => p.paymentMethodName === method).length;
+    return this.pagosPorMetodo.get(method) || 0;
   }
 
   uniqueClientsCount(): number {
-    const uniqueClients = new Set(this.payments.map(p => p.clientName));
-    return uniqueClients.size;
+    return this.clientesDistintos;
   }
 
   filterPayments(): void {
@@ -432,26 +528,15 @@ export class FinancesComponent implements OnInit {
     const method = this.selectedMethodFilter.toLowerCase();
 
     let filtered = this.payments.filter(p => {
-      const clientName = p.clientName?.toLowerCase() || '';
-      const paymentIdentifier = (p.paymentIdentifier?.toString() || '').toLowerCase().replace(',', '.');
-      const paymentMethodName = p.paymentMethodName?.toLowerCase() || '';
-
-      const matchesSearch = clientName.includes(term) || paymentIdentifier.includes(termForId);
-      const matchesMethod = !method || paymentMethodName === method;
+      const matchesSearch = p._clientNameLower!.includes(term) || p._paymentIdentifierSearch!.includes(termForId);
+      const matchesMethod = !method || p._paymentMethodNameLower === method;
       
       let matchesDate = true;
       if (p.paymentDate) {
-        const d = new Date(p.paymentDate);
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        
         if (this.dateFilterType === 'month' && this.selectedMonth) {
-          const localYearMonth = `${y}-${m}`;
-          matchesDate = localYearMonth === this.selectedMonth;
+          matchesDate = p._paymentMonthKey === this.selectedMonth;
         } else if (this.dateFilterType === 'day' && this.selectedDay) {
-          const day = String(d.getDate()).padStart(2, '0');
-          const localYearMonthDay = `${y}-${m}-${day}`;
-          matchesDate = localYearMonthDay === this.selectedDay;
+          matchesDate = p._paymentDayKey === this.selectedDay;
         }
       } else {
         if ((this.dateFilterType === 'month' && this.selectedMonth) || (this.dateFilterType === 'day' && this.selectedDay)) {
@@ -486,34 +571,34 @@ export class FinancesComponent implements OnInit {
     return this.sortDirection === 'asc' ? 'arrow-up' : 'arrow-down';
   }
 
+  trackByPayment(index: number, payment: DetailedPaymentView): number | string {
+    return payment.movementId || payment.paymentId || index;
+  }
+
+  trackByClient(_index: number, client: Client): number {
+    return client.id;
+  }
+
   private sortFilteredPayments(payments: DetailedPaymentView[]): void {
     payments.sort((a, b) => {
       let comparison = 0;
 
       if (this.sortField === 'paymentDate') {
-        const getDayString = (dateVal: any): string => {
-          if (!dateVal) return '';
-          const d = new Date(dateVal);
-          const y = d.getFullYear();
-          const m = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          return `${y}-${m}-${day}`;
-        };
-        const dayA = getDayString(a.paymentDate);
-        const dayB = getDayString(b.paymentDate);
+        const dayA = a._paymentDayKey || '';
+        const dayB = b._paymentDayKey || '';
 
         if (dayB !== dayA) {
           comparison = dayA.localeCompare(dayB);
         } else {
-          const idA = Number(a.movementId || a.paymentId || 0);
-          const idB = Number(b.movementId || b.paymentId || 0);
+          const idA = a._sortId || 0;
+          const idB = b._sortId || 0;
           comparison = idA - idB;
         }
       } else if (this.sortField === 'amount') {
         comparison = (Number(a.amount) || 0) - (Number(b.amount) || 0);
       } else if (this.sortField === 'paymentIdentifier') {
-        const idA = Number((a.paymentIdentifier || '').toString().replace(',', '.')) || 0;
-        const idB = Number((b.paymentIdentifier || '').toString().replace(',', '.')) || 0;
+        const idA = a._paymentIdentifierNumber || 0;
+        const idB = b._paymentIdentifierNumber || 0;
         comparison = idA - idB;
       } else if (this.sortField === 'clientName') {
         comparison = (a.clientName || '').localeCompare(b.clientName || '', 'es');
@@ -524,13 +609,13 @@ export class FinancesComponent implements OnInit {
       }
 
       if (comparison === 0 && this.sortField !== 'paymentDate') {
-        const dateA = new Date(a.paymentDate).getTime();
-        const dateB = new Date(b.paymentDate).getTime();
+        const dateA = a._paymentTimestamp || 0;
+        const dateB = b._paymentTimestamp || 0;
         if (dateB !== dateA) {
           return dateB - dateA;
         }
-        const idA = Number(a.movementId || a.paymentId || 0);
-        const idB = Number(b.movementId || b.paymentId || 0);
+        const idA = a._sortId || 0;
+        const idB = b._sortId || 0;
         return idB - idA;
       }
 
@@ -592,6 +677,12 @@ export class FinancesComponent implements OnInit {
   }
 
   closeClientModal() {
+    const presenceClientId = this.activePresenceClientId;
+    if (presenceClientId) {
+      void this.paymentPresenceService.leaveClientRoom(presenceClientId);
+      this.activePresenceClientId = 0;
+    }
+
     this.showClientModal = false;
     this.searchClient = '';
     this.selectedClientId = 0;
@@ -609,6 +700,9 @@ export class FinancesComponent implements OnInit {
     this.manualDateEnabled = false;
     this.showIncreaseOverlay = false;
     this.currentIncreaseFlow = 'none';
+    this.otherPaymentViewers = [];
+    this.paymentCollision = null;
+    this.isSubmittingPayment = false;
     
     const now = new Date();
     this.dateString = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
@@ -661,6 +755,9 @@ export class FinancesComponent implements OnInit {
     this.selectedClientIdentifier = 0;
     this.showIncreaseOverlay = false;
     this.currentIncreaseFlow = 'none';
+    this.otherPaymentViewers = [];
+    this.paymentCollision = null;
+    this.isSubmittingPayment = false;
     const now = new Date();
     this.manualDateEnabled = false;
     this.dateString = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
@@ -669,6 +766,166 @@ export class FinancesComponent implements OnInit {
       skipFutureProjection: false 
     };
     this.updateConceptFromDate(now);
+  }
+
+  private async joinPaymentPresence(clientId: number): Promise<void> {
+    try {
+      const snapshot = await this.paymentPresenceService.joinClientRoom(clientId);
+      if (!snapshot || this.selectedClientId !== clientId) {
+        if (snapshot) {
+          await this.paymentPresenceService.leaveClientRoom(clientId);
+        }
+        return;
+      }
+
+      this.activePresenceClientId = clientId;
+      this.paymentDto.expectedPaymentStateToken = snapshot.stateToken;
+      this.handlePaymentPresenceChanged(clientId, snapshot.viewers);
+    } catch (error) {
+      console.warn('No se pudo iniciar la presencia de pago.', error);
+    }
+  }
+
+  private async ensurePaymentStateToken(): Promise<boolean> {
+    const clientId = this.paymentDto.clientId;
+    if (!clientId) {
+      return false;
+    }
+
+    if (this.paymentDto.expectedPaymentStateToken) {
+      return true;
+    }
+
+    try {
+      const snapshot = this.activePresenceClientId === clientId
+        ? await this.paymentPresenceService.refreshClientState(clientId)
+        : await this.paymentPresenceService.joinClientRoom(clientId);
+
+      if (snapshot && this.selectedClientId === clientId) {
+        this.activePresenceClientId = clientId;
+        this.paymentDto.expectedPaymentStateToken = snapshot.stateToken;
+        this.handlePaymentPresenceChanged(clientId, snapshot.viewers);
+        return true;
+      }
+    } catch (error) {
+      console.warn('No se pudo validar el estado del pago en tiempo real.', error);
+    }
+
+    await Swal.fire({
+      icon: 'warning',
+      title: 'No se pudo verificar el cobro',
+      text: 'La conexion en tiempo real no esta disponible. Reintenta cuando se restablezca para proteger la cuenta del cliente.',
+      confirmButtonText: 'Entendido',
+      customClass: {
+        confirmButton: 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-xs transition-all duration-150 mx-2 active:scale-95',
+        popup: '!rounded-2xl !p-6 shadow-xl border border-gray-100 bg-white'
+      },
+      buttonsStyling: false
+    });
+    return false;
+  }
+
+  private handlePaymentPresenceChanged(clientId: number, viewers: PaymentPresenceUser[]): void {
+    if (clientId !== this.selectedClientId) {
+      return;
+    }
+
+    const currentUserName = (localStorage.getItem('userName') ?? '').trim().toLowerCase();
+    this.otherPaymentViewers = (viewers ?? []).filter(viewer =>
+      !currentUserName || viewer.userName.trim().toLowerCase() !== currentUserName
+    );
+  }
+
+  private handleExternalPayment(notice: PaymentCompletedNotice): void {
+    if (!this.showClientModal || notice.clientId !== this.selectedClientId) {
+      return;
+    }
+
+    const currentUserName = (localStorage.getItem('userName') ?? '').trim().toLowerCase();
+    if (currentUserName && notice.payerUserName?.trim().toLowerCase() === currentUserName) {
+      return;
+    }
+
+    if (this.paymentCollision?.recordedAtUtc === notice.recordedAtUtc) {
+      return;
+    }
+
+    this.paymentCollision = notice;
+    Swal.close();
+    setTimeout(() => this.showPaymentCollisionAlert(notice), 0);
+  }
+
+  private showPaymentCollisionAlert(notice: PaymentCompletedNotice, fallbackMessage?: string): void {
+    const payer = notice.payerName || 'Otro usuario';
+    const hasRecordedPayment = Number(notice.amount ?? 0) > 0;
+    const collisionTitle = hasRecordedPayment ? 'Pago actualizado por otro usuario' : 'El estado de cuenta cambio';
+    const collisionText = hasRecordedPayment
+      ? undefined
+      : (fallbackMessage ?? 'Actualiza los datos antes de continuar para no acreditar meses incorrectos.');
+    const amount = this.formatARS(Number(notice.amount ?? 0));
+    const date = notice.recordedAtUtc ? new Date(notice.recordedAtUtc).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : 'recién';
+
+    Swal.fire({
+      icon: 'warning',
+      title: collisionTitle,
+      text: hasRecordedPayment
+        ? `${payer} registró un pago de ${amount} a las ${date}. Actualizá el estado antes de continuar para no acreditar meses incorrectos.`
+        : collisionText,
+      confirmButtonText: 'Actualizar datos',
+      customClass: {
+        confirmButton: 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-xs transition-all duration-150 mx-2 active:scale-95',
+        popup: '!rounded-2xl !p-6 shadow-xl border border-gray-100 bg-white'
+      },
+      buttonsStyling: false
+    }).then(result => {
+      if (result.isConfirmed) {
+        void this.refreshAfterPaymentCollision();
+      }
+    });
+  }
+
+  async refreshAfterPaymentCollision(): Promise<void> {
+    const clientId = this.selectedClientId;
+    if (!clientId) {
+      return;
+    }
+
+    const snapshot = await this.paymentPresenceService.refreshClientState(clientId);
+    if (snapshot && this.selectedClientId === clientId) {
+      this.paymentDto.expectedPaymentStateToken = snapshot.stateToken;
+      this.handlePaymentPresenceChanged(clientId, snapshot.viewers);
+    }
+
+    this.paymentCollision = null;
+    this.clientService.getClients().subscribe({
+      next: clients => {
+        this.clients = clients;
+        this.clientsById = new Map(clients.map(client => [client.id, client]));
+        this.invalidateFilteredClientsCache();
+        const refreshedClient = clients.find(client => client.id === clientId);
+        if (refreshedClient && this.showClientModal && this.selectedClientId === clientId) {
+          this.selectClient(refreshedClient);
+        }
+      },
+      error: err => console.error('No se pudo actualizar el estado del cliente tras el conflicto.', err)
+    });
+    this.loadPayments();
+  }
+
+  private handlePaymentConflictResponse(error: any): void {
+    const details = error?.error ?? {};
+    const notice: PaymentCompletedNotice = {
+      clientId: Number(details.clientId ?? this.selectedClientId),
+      payerName: details.registeredByName ?? 'Otro usuario',
+      payerUserName: '',
+      amount: Number(details.amount ?? 0),
+      paymentDate: details.registeredAt ?? new Date().toISOString(),
+      recordedAtUtc: details.registeredAt ?? new Date().toISOString(),
+      concept: details.concept ?? this.paymentDto.concept
+    };
+
+    this.paymentCollision = notice;
+    this.showPaymentCollisionAlert(notice, details.message);
   }
 
   commision:number = 0;
@@ -870,6 +1127,12 @@ export class FinancesComponent implements OnInit {
   }
 
   selectClient(client: any) {
+    const selectedClientChanged = this.selectedClientId !== client.id;
+    if (selectedClientChanged && this.activePresenceClientId && this.activePresenceClientId !== client.id) {
+      void this.paymentPresenceService.leaveClientRoom(this.activePresenceClientId);
+      this.activePresenceClientId = 0;
+    }
+
     this.selectedClientId = client.id;
     this.selectedClientIdentifier = client.paymentIdentifier;
     this.paymentDto.clientId = client.id;
@@ -927,6 +1190,11 @@ export class FinancesComponent implements OnInit {
     this.checkIncreaseLogic();
     this.syncPaymentPreview();
     this.onAmountChange(this.paymentDto.amount);
+
+    if (selectedClientChanged || this.activePresenceClientId !== client.id) {
+      this.paymentCollision = null;
+      void this.joinPaymentPresence(client.id);
+    }
   }
 
   getPaymentDay(): number {
@@ -1085,15 +1353,33 @@ export class FinancesComponent implements OnInit {
 
   get filteredClients(): Client[] {
     const term = this.searchClient?.toLowerCase().trim();
-    if (!term) return this.clients;
+    if (this.filteredClientsCacheSource === this.clients && this.filteredClientsCacheTerm === term) {
+      return this.filteredClientsCache;
+    }
+
+    if (!term) {
+      this.filteredClientsCache = this.clients;
+      this.filteredClientsCacheTerm = term;
+      this.filteredClientsCacheSource = this.clients;
+      return this.filteredClientsCache;
+    }
     const termForId = term.replace(',', '.');
 
-    return this.clients.filter(c => {
+    this.filteredClientsCache = this.clients.filter(c => {
       const fullName = c.fullName.toLowerCase();
       const identifier = (c.paymentIdentifier ?? '').toString().toLowerCase().replace(',', '.');
       
       return fullName.includes(term) || identifier.includes(termForId);
     });
+    this.filteredClientsCacheTerm = term;
+    this.filteredClientsCacheSource = this.clients;
+    return this.filteredClientsCache;
+  }
+
+  private invalidateFilteredClientsCache(): void {
+    this.filteredClientsCache = [];
+    this.filteredClientsCacheTerm = '';
+    this.filteredClientsCacheSource = null;
   }
 
   private updateAdvanceConcept() {
@@ -1967,6 +2253,21 @@ export class FinancesComponent implements OnInit {
   }
 
   async executeBackendCall() {
+    if (this.isSubmittingPayment) {
+      return;
+    }
+
+    if (this.paymentCollision) {
+      this.showPaymentCollisionAlert(this.paymentCollision);
+      return;
+    }
+
+    this.isSubmittingPayment = true;
+    if (this.offlineService.isOnline && !(await this.ensurePaymentStateToken())) {
+      this.isSubmittingPayment = false;
+      return;
+    }
+
     const calc = this.getCalculatedAmounts(this.paymentDto.amount, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
     const localDate = this.paymentDto.date;
     const adjustedDate = new Date(localDate.getTime() - (localDate.getTimezoneOffset() * 60000));
@@ -2026,7 +2327,8 @@ export class FinancesComponent implements OnInit {
         commissionConcept: payloadToSave.commissionConcept,
         skipFutureProjection: true,
         surchargeAction: payloadToSave.surchargeAction,
-        surchargeAmount: payloadToSave.surchargeAmount
+        surchargeAmount: payloadToSave.surchargeAmount,
+        expectedPaymentStateToken: payloadToSave.expectedPaymentStateToken
       });
 
       Swal.fire({
@@ -2043,6 +2345,7 @@ export class FinancesComponent implements OnInit {
     // --- ONLINE MODE: Send to API as usual ---
     this.paymentService.CreatePayment(payloadToSave).subscribe({
       next: () => {
+        this.isSubmittingPayment = false;
         Swal.fire({
           title: '¡Pago registrado!',
           text: 'El pago se registró correctamente. ¿Deseas generar el recibo de pago?',
@@ -2081,7 +2384,12 @@ export class FinancesComponent implements OnInit {
         });
       },
       error: (err) => {
+        this.isSubmittingPayment = false;
         console.error('Error al guardar payment:', err);
+        if (err?.status === 409) {
+          this.handlePaymentConflictResponse(err);
+          return;
+        }
         Swal.fire({ title: 'Error', text: 'Hubo un problema al registrar la transacción en la base de datos.', icon: 'error', confirmButtonColor: '#2563eb' });
       }
     });

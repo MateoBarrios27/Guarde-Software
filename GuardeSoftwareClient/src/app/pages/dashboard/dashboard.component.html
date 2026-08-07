@@ -186,9 +186,27 @@
      (click)="closePaymentModal()"
      tabindex="-1">
   <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
-  <div class="relative w-full max-w-3xl bg-white rounded-2xl shadow-[0_24px_60px_-15px_rgba(0,0,0,0.2)] border flex flex-col max-h-[92vh] overflow-hidden animate-fade-in-down"
-       [ngClass]="isPotentiallyDuplicate() ? 'border-2 border-amber-400' : 'border-gray-200/90'"
+  <div class="relative w-full max-w-3xl max-h-[92vh] overflow-visible animate-fade-in-down"
        (click)="$event.stopPropagation()">
+
+    <div *ngIf="otherPaymentViewers.length > 0 && !paymentCollision" class="payment-presence-badge" role="status" aria-live="polite">
+      <div class="payment-presence-avatar">{{ otherPaymentViewers[0].displayName.charAt(0) }}</div>
+      <div class="min-w-0">
+        <p class="payment-presence-eyebrow">También viendo este pago</p>
+        <p class="payment-presence-name">{{ otherPaymentViewers[0].displayName }}<span *ngIf="otherPaymentViewers.length > 1"> +{{ otherPaymentViewers.length - 1 }}</span></p>
+      </div>
+      <app-icon name="user" class="payment-presence-icon"></app-icon>
+    </div>
+
+    <div class="relative w-full bg-white rounded-2xl shadow-[0_24px_60px_-15px_rgba(0,0,0,0.2)] border flex flex-col max-h-[92vh] overflow-hidden"
+         [ngClass]="isPotentiallyDuplicate() ? 'border-2 border-amber-400' : 'border-gray-200/90'"
+         (click)="$event.stopPropagation()">
+
+    <div *ngIf="paymentCollision" class="payment-collision-banner" role="alert">
+      <app-icon name="lock" class="w-4 h-4 shrink-0"></app-icon>
+      <span>El estado de esta cobranza cambió. Actualizá los datos antes de registrar el pago.</span>
+      <button type="button" (click)="refreshAfterPaymentCollision()" class="payment-collision-action">Actualizar</button>
+    </div>
 
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white shrink-0">
@@ -511,11 +529,13 @@
       </button>
       <button type="button"
               (click)="savePayment(paymentDto)"
-              class="px-5 py-2 text-xs font-semibold text-white bg-gray-900 hover:bg-gray-800 rounded-xl transition-all shadow-sm active:scale-[0.98] flex items-center gap-1.5">
-        <app-icon name="check" class="w-3.5 h-3.5 stroke-[2.5]"></app-icon> Guardar Pago
+              [disabled]="!paymentDto.amount || paymentDto.amount <= 0 || isSubmittingPayment || paymentCollision"
+              class="px-5 py-2 text-xs font-semibold text-white bg-gray-900 hover:bg-gray-800 disabled:opacity-50 disabled:pointer-events-none rounded-xl transition-all shadow-sm active:scale-[0.98] flex items-center gap-1.5">
+        <app-icon name="check" class="w-3.5 h-3.5 stroke-[2.5]"></app-icon> {{ isSubmittingPayment ? 'Registrando...' : 'Guardar Pago' }}
       </button>
     </div>
 
+  </div>
   </div>
 </div>
 

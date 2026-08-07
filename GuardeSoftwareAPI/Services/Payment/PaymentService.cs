@@ -9,6 +9,7 @@ using GuardeSoftwareAPI.Services.rental;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
 using GuardeSoftwareAPI.Services.paymentMethod;
 using GuardeSoftwareAPI.Services.clientMonthBalance;
+using GuardeSoftwareAPI.Hubs;
 using Microsoft.Data.SqlClient;
 using System.Globalization;
 
@@ -27,8 +28,10 @@ namespace GuardeSoftwareAPI.Services.payment
 		private readonly DaoClientMonthBalance _daoMonthBalance;
 		private readonly AccessDB accessDB;
         private readonly IClientMonthBalanceService _clientMonthBalanceService;
+        private readonly IPaymentStateService _paymentStateService;
+        private readonly PaymentPresenceRegistry _paymentPresenceRegistry;
 
-		public PaymentService(AccessDB _accessDB, IAccountMovementService _accountMovementService, ILogger<PaymentService> logger, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, IPaymentMethodService _paymentMethodService, IClientMonthBalanceService clientMonthBalanceService)
+		public PaymentService(AccessDB _accessDB, IAccountMovementService _accountMovementService, ILogger<PaymentService> logger, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, IPaymentMethodService _paymentMethodService, IClientMonthBalanceService clientMonthBalanceService, IPaymentStateService paymentStateService, PaymentPresenceRegistry paymentPresenceRegistry)
 		{
 			this._daoPayment = new DaoPayment(_accessDB);
 			this.accountMovementService = _accountMovementService;
@@ -39,7 +42,9 @@ namespace GuardeSoftwareAPI.Services.payment
 			this.rentalService = _rentalService;
 			this.rentalAmountHistoryService = _rentalAmountHistoryService;
 			this._daoMonthBalance = new DaoClientMonthBalance(_accessDB);
-            _clientMonthBalanceService = clientMonthBalanceService;
+             _clientMonthBalanceService = clientMonthBalanceService;
+             _paymentStateService = paymentStateService;
+             _paymentPresenceRegistry = paymentPresenceRegistry;
 		}
 
 		public async Task<List<Payment>> GetPaymentsList()
@@ -115,7 +120,7 @@ namespace GuardeSoftwareAPI.Services.payment
 		}
 
 
-		public async Task<bool> CreatePaymentWithMovementAsync(CreatePaymentTransaction dto)
+		public async Task<bool> CreatePaymentWithMovementAsync(CreatePaymentTransaction dto, string? recordedByName = null, string? recordedByUserName = null)
         {
             if (dto == null) throw new ArgumentNullException(nameof(dto), "DTO cannot be null.");
             if (dto.ClientId <= 0) throw new ArgumentException("Invalid client ID.");
@@ -127,6 +132,21 @@ namespace GuardeSoftwareAPI.Services.payment
 
             try
             {
+                await AcquireClientPaymentLockAsync(dto.ClientId, connection, transaction);
+
+                var currentState = await _paymentStateService.GetSnapshotAsync(dto.ClientId, connection, transaction);
+                if (!string.IsNullOrWhiteSpace(dto.ExpectedPaymentStateToken)
+                    && !string.Equals(dto.ExpectedPaymentStateToken, currentState.Token, StringComparison.Ordinal))
+                {
+                    throw new PaymentConflictException(await BuildConflictDetailsAsync(dto, connection, transaction, duplicateAttempt: false));
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.ExpectedPaymentStateToken)
+                    && await IsRecentDuplicateByConceptAsync(dto, connection, transaction))
+                {
+                    throw new PaymentConflictException(await BuildConflictDetailsAsync(dto, connection, transaction, duplicateAttempt: true));
+                }
+
                 // 1. OBTENEMOS DATOS BASE Y CREAMOS EL PAGO GENERAL
                 int paymentId = await _daoPayment.CreatePaymentTransactionAsync(new Payment
                 {
@@ -453,6 +473,18 @@ namespace GuardeSoftwareAPI.Services.payment
         await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rental.Id, connection, transaction);
 
         await transaction.CommitAsync();
+
+        _paymentPresenceRegistry.RecordPayment(new PaymentCompletedNotice
+        {
+            ClientId = dto.ClientId,
+            PayerName = string.IsNullOrWhiteSpace(recordedByName) ? "Otro usuario" : recordedByName,
+            PayerUserName = recordedByUserName ?? string.Empty,
+            Amount = dto.Amount,
+            PaymentDate = dto.Date,
+            RecordedAtUtc = DateTime.UtcNow,
+            Concept = dto.Concept
+        });
+
         return true;
             }
             catch (Exception ex)
@@ -460,6 +492,144 @@ namespace GuardeSoftwareAPI.Services.payment
                 await transaction.RollbackAsync();
                 throw;
             }
+        }
+
+        private static async Task AcquireClientPaymentLockAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = @"
+                DECLARE @lockResult INT;
+                EXEC @lockResult = sp_getapplock
+                    @Resource = @resource,
+                    @LockMode = 'Exclusive',
+                    @LockOwner = 'Transaction',
+                    @LockTimeout = 15000,
+                    @DbPrincipal = 'public';
+                SELECT @lockResult;";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@resource", SqlDbType.NVarChar, 255)
+            {
+                Value = $"payment-client:{clientId}"
+            });
+
+            var result = Convert.ToInt32(await command.ExecuteScalarAsync());
+            if (result < 0)
+            {
+                throw new PaymentConflictException(new PaymentConflictDetails
+                {
+                    Code = "PAYMENT_IN_PROGRESS",
+                    ClientId = clientId,
+                    Message = "Hay otra cobranza en proceso para este cliente. Actualiza el estado antes de continuar."
+                });
+            }
+        }
+
+        private async Task<bool> IsRecentDuplicateByConceptAsync(
+            CreatePaymentTransaction dto,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Concept))
+            {
+                return false;
+            }
+
+            const string query = @"
+                SELECT TOP (1) 1
+                FROM payments p
+                INNER JOIN account_movements am ON am.payment_id = p.payment_id AND am.movement_type = 'CREDITO'
+                WHERE p.client_id = @clientId
+                  AND p.amount = @amount
+                  AND UPPER(LTRIM(RTRIM(ISNULL(am.concept, '')))) = UPPER(LTRIM(RTRIM(@concept)))
+                  AND ABS(DATEDIFF(MINUTE, p.payment_date, @paymentDate)) <= 1
+                ORDER BY p.payment_id DESC;";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@clientId", SqlDbType.Int) { Value = dto.ClientId });
+            command.Parameters.Add(new SqlParameter("@amount", SqlDbType.Decimal)
+            {
+                Precision = 18,
+                Scale = 2,
+                Value = dto.Amount
+            });
+            command.Parameters.Add(new SqlParameter("@concept", SqlDbType.NVarChar, 255) { Value = dto.Concept.Trim() });
+            command.Parameters.Add(new SqlParameter("@paymentDate", SqlDbType.DateTime) { Value = dto.Date });
+
+            return await command.ExecuteScalarAsync() != null;
+        }
+
+        private async Task<PaymentConflictDetails> BuildConflictDetailsAsync(
+            CreatePaymentTransaction dto,
+            SqlConnection connection,
+            SqlTransaction transaction,
+            bool duplicateAttempt)
+        {
+            if (!duplicateAttempt)
+            {
+                return new PaymentConflictDetails
+                {
+                    Code = "PAYMENT_STATE_CHANGED",
+                    ClientId = dto.ClientId,
+                    Message = "El estado de cuenta cambio mientras preparabas el pago."
+                };
+            }
+
+            const string query = @"
+                SELECT TOP (1)
+                    p.amount,
+                    p.payment_date,
+                    am.concept
+                FROM payments p
+                INNER JOIN account_movements am ON am.payment_id = p.payment_id AND am.movement_type = 'CREDITO'
+                WHERE p.client_id = @clientId
+                  AND p.amount = @amount
+                  AND UPPER(LTRIM(RTRIM(ISNULL(am.concept, '')))) = UPPER(LTRIM(RTRIM(@concept)))
+                  AND ABS(DATEDIFF(MINUTE, p.payment_date, @paymentDate)) <= 1
+                ORDER BY p.payment_id DESC;";
+
+            decimal? amount = null;
+            DateTime? registeredAt = null;
+            string? concept = null;
+
+            using (var command = new SqlCommand(query, connection, transaction))
+            {
+                command.Parameters.Add(new SqlParameter("@clientId", SqlDbType.Int) { Value = dto.ClientId });
+                command.Parameters.Add(new SqlParameter("@amount", SqlDbType.Decimal)
+                {
+                    Precision = 18,
+                    Scale = 2,
+                    Value = dto.Amount
+                });
+                command.Parameters.Add(new SqlParameter("@concept", SqlDbType.NVarChar, 255) { Value = dto.Concept?.Trim() ?? string.Empty });
+                command.Parameters.Add(new SqlParameter("@paymentDate", SqlDbType.DateTime) { Value = dto.Date });
+                using var reader = await command.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    amount = reader.IsDBNull(0) ? null : reader.GetDecimal(0);
+                    registeredAt = reader.IsDBNull(1) ? null : reader.GetDateTime(1);
+                    concept = reader.IsDBNull(2) ? null : reader.GetString(2);
+                }
+            }
+
+            var latestNotice = _paymentPresenceRegistry.GetLatestPayment(dto.ClientId);
+            var registryMatchesPayment = latestNotice != null
+                && amount.HasValue
+                && registeredAt.HasValue
+                && latestNotice.Amount == amount.Value
+                && Math.Abs((latestNotice.PaymentDate - registeredAt.Value).TotalMinutes) <= 1
+                && string.Equals(latestNotice.Concept?.Trim(), concept?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+            return new PaymentConflictDetails
+            {
+                Code = "DUPLICATE_PAYMENT",
+                ClientId = dto.ClientId,
+                Message = "Ya se registro un pago con el mismo concepto para este cliente.",
+                RegisteredByName = registryMatchesPayment ? latestNotice!.PayerName : null,
+                Amount = amount,
+                RegisteredAt = registryMatchesPayment ? latestNotice!.RecordedAtUtc : registeredAt,
+                Concept = concept,
+                SameConcept = amount.HasValue
+            };
         }
 
         private async Task<bool> IsDebitAlreadyCreatedAsync(int id, string targetConcept, SqlConnection connection, SqlTransaction transaction)

@@ -16,4 +16,5 @@ export interface CreatePaymentDTO{
     appliedIncreases?: { year: number, month: number, percentage: number, newRentAmount: number }[];
     surchargeAction?: string;
     surchargeAmount?: number;
+    expectedPaymentStateToken?: string | null;
 }

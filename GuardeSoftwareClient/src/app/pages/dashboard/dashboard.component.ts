@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnDestroy, OnInit, HostListener } from '@angular/core';
 import { PendingRentalDTO } from '../../core/dtos/rental/PendingRentalDTO';
 import { RentalService } from '../../core/services/rental-service/rental.service';
 import { PaymentService } from '../../core/services/payment-service/payment.service';
@@ -13,6 +13,8 @@ import { PaymentMethod } from '../../core/models/payment-method';
 import Swal from 'sweetalert2';
 import { PdfGeneratorService } from '../../core/services/pdfGenerator-service/pdf-generator.service';
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
+import { Subscription } from 'rxjs';
+import { PaymentCompletedNotice, PaymentPresenceService, PaymentPresenceUser } from '../../core/services/payment-presence/payment-presence.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -20,7 +22,7 @@ import { CurrencyFormatDirective } from '../../shared/directives/currency-format
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
 
   //Pagination
   page: number = 1;
@@ -94,18 +96,37 @@ export class DashboardComponent implements OnInit {
   public applyScenarioCInterest: boolean = false;
   public selectedNextPaymentDay: Date | string | null = null;
   public customScenarioCInterest: number | null = null;
+  otherPaymentViewers: PaymentPresenceUser[] = [];
+  paymentCollision: PaymentCompletedNotice | null = null;
+  isSubmittingPayment = false;
+  private activePresenceClientId = 0;
+  private readonly paymentPresenceSubscriptions = new Subscription();
 
   constructor(
     private rentalService: RentalService,
     private paymentService: PaymentService,
     private paymentMethodService: PaymentMethodService,
-    private pdfGeneratorService: PdfGeneratorService
+    private pdfGeneratorService: PdfGeneratorService,
+    private paymentPresenceService: PaymentPresenceService
   ) {}
 
   ngOnInit(): void {
+    this.paymentPresenceSubscriptions.add(
+      this.paymentPresenceService.onPresenceChanged$.subscribe(event => this.handlePaymentPresenceChanged(event.clientId, event.viewers))
+    );
+    this.paymentPresenceSubscriptions.add(
+      this.paymentPresenceService.onPaymentCompleted$.subscribe(event => this.handleExternalPayment(event))
+    );
     this.LoadPedingRentals();
     this.LoadPayments();
     this.loadPaymentMethods();
+  }
+
+  ngOnDestroy(): void {
+    if (this.activePresenceClientId) {
+      void this.paymentPresenceService.leaveClientRoom(this.activePresenceClientId);
+    }
+    this.paymentPresenceSubscriptions.unsubscribe();
   }
 
   formatARS = (value: number) => {
@@ -309,7 +330,13 @@ export class DashboardComponent implements OnInit {
     return method ? method.name : 'Desconocido';
   }
 
-  openPaymentModalWith(item: any) { 
+  openPaymentModalWith(item: any, updatePresence = true) { 
+    const nextClientId = Number(item.clientId ?? 0);
+    if (updatePresence && this.activePresenceClientId && this.activePresenceClientId !== nextClientId) {
+      void this.paymentPresenceService.leaveClientRoom(this.activePresenceClientId);
+      this.activePresenceClientId = 0;
+    }
+
     const now = new Date();
 
     this.selectedPreferredPaymentId = Number(item.preferredPayment ?? item.preferredPaymentMethodId ?? 1); 
@@ -364,6 +391,13 @@ export class DashboardComponent implements OnInit {
 
     this.checkIncreaseLogic();
     this.onAmountChange(this.paymentDto.amount);
+
+    if (updatePresence) {
+      this.paymentCollision = null;
+      this.otherPaymentViewers = [];
+      this.isSubmittingPayment = false;
+      void this.joinPaymentPresence(this.paymentDto.clientId);
+    }
   }
 
   @HostListener('document:keydown.escape', ['$event'])
@@ -383,6 +417,12 @@ export class DashboardComponent implements OnInit {
   }
 
   closePaymentModal() { 
+    const presenceClientId = this.activePresenceClientId;
+    if (presenceClientId) {
+      void this.paymentPresenceService.leaveClientRoom(presenceClientId);
+      this.activePresenceClientId = 0;
+    }
+
     this.showPaymentModal = false;
     this.selectedPreviousBalance = 0;
     this.manualDateEnabled = false;
@@ -390,6 +430,175 @@ export class DashboardComponent implements OnInit {
     this.currentIncreaseFlow = 'none';
     this.paymentDto.isAdvancePayment = false;
     this.paymentDto.advanceMonths = 0;
+    this.otherPaymentViewers = [];
+    this.paymentCollision = null;
+    this.isSubmittingPayment = false;
+  }
+
+  private async joinPaymentPresence(clientId: number): Promise<void> {
+    if (!clientId) {
+      return;
+    }
+
+    try {
+      const snapshot = await this.paymentPresenceService.joinClientRoom(clientId);
+      if (!snapshot || this.paymentDto.clientId !== clientId) {
+        if (snapshot) {
+          await this.paymentPresenceService.leaveClientRoom(clientId);
+        }
+        return;
+      }
+
+      this.activePresenceClientId = clientId;
+      this.paymentDto.expectedPaymentStateToken = snapshot.stateToken;
+      this.handlePaymentPresenceChanged(clientId, snapshot.viewers);
+    } catch (error) {
+      console.warn('No se pudo iniciar la presencia de pago.', error);
+    }
+  }
+
+  private async ensurePaymentStateToken(): Promise<boolean> {
+    const clientId = this.paymentDto.clientId;
+    if (!clientId) {
+      return false;
+    }
+
+    if (this.paymentDto.expectedPaymentStateToken) {
+      return true;
+    }
+
+    try {
+      const snapshot = this.activePresenceClientId === clientId
+        ? await this.paymentPresenceService.refreshClientState(clientId)
+        : await this.paymentPresenceService.joinClientRoom(clientId);
+
+      if (snapshot && this.paymentDto.clientId === clientId) {
+        this.activePresenceClientId = clientId;
+        this.paymentDto.expectedPaymentStateToken = snapshot.stateToken;
+        this.handlePaymentPresenceChanged(clientId, snapshot.viewers);
+        return true;
+      }
+    } catch (error) {
+      console.warn('No se pudo validar el estado del pago en tiempo real.', error);
+    }
+
+    await Swal.fire({
+      icon: 'warning',
+      title: 'No se pudo verificar el cobro',
+      text: 'La conexion en tiempo real no esta disponible. Reintenta cuando se restablezca para proteger la cuenta del cliente.',
+      confirmButtonText: 'Entendido',
+      customClass: {
+        confirmButton: 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-xs transition-all duration-150 mx-2 active:scale-95',
+        popup: '!rounded-2xl !p-6 shadow-xl border border-gray-100 bg-white'
+      },
+      buttonsStyling: false
+    });
+    return false;
+  }
+
+  private handlePaymentPresenceChanged(clientId: number, viewers: PaymentPresenceUser[]): void {
+    if (clientId !== this.paymentDto.clientId) {
+      return;
+    }
+
+    const currentUserName = (localStorage.getItem('userName') ?? '').trim().toLowerCase();
+    this.otherPaymentViewers = (viewers ?? []).filter(viewer =>
+      !currentUserName || viewer.userName.trim().toLowerCase() !== currentUserName
+    );
+  }
+
+  private handleExternalPayment(notice: PaymentCompletedNotice): void {
+    if (!this.showPaymentModal || notice.clientId !== this.paymentDto.clientId) {
+      return;
+    }
+
+    const currentUserName = (localStorage.getItem('userName') ?? '').trim().toLowerCase();
+    if (currentUserName && notice.payerUserName?.trim().toLowerCase() === currentUserName) {
+      return;
+    }
+
+    if (this.paymentCollision?.recordedAtUtc === notice.recordedAtUtc) {
+      return;
+    }
+
+    this.paymentCollision = notice;
+    Swal.close();
+    setTimeout(() => this.showPaymentCollisionAlert(notice), 0);
+  }
+
+  private showPaymentCollisionAlert(notice: PaymentCompletedNotice, fallbackMessage?: string): void {
+    const payer = notice.payerName || 'Otro usuario';
+    const hasRecordedPayment = Number(notice.amount ?? 0) > 0;
+    const collisionTitle = hasRecordedPayment ? 'Pago actualizado por otro usuario' : 'El estado de cuenta cambio';
+    const collisionText = hasRecordedPayment
+      ? undefined
+      : (fallbackMessage ?? 'Actualiza los datos antes de continuar para no acreditar meses incorrectos.');
+    const amount = this.formatARS(Number(notice.amount ?? 0));
+    const time = notice.recordedAtUtc ? new Date(notice.recordedAtUtc).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : 'recién';
+
+    Swal.fire({
+      icon: 'warning',
+      title: collisionTitle,
+      text: hasRecordedPayment
+        ? `${payer} registró un pago de ${amount} a las ${time}. Actualizá el estado antes de continuar para no acreditar meses incorrectos.`
+        : collisionText,
+      confirmButtonText: 'Actualizar datos',
+      customClass: {
+        confirmButton: 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-xs transition-all duration-150 mx-2 active:scale-95',
+        popup: '!rounded-2xl !p-6 shadow-xl border border-gray-100 bg-white'
+      },
+      buttonsStyling: false
+    }).then(result => {
+      if (result.isConfirmed) {
+        void this.refreshAfterPaymentCollision();
+      }
+    });
+  }
+
+  async refreshAfterPaymentCollision(): Promise<void> {
+    const clientId = this.paymentDto.clientId;
+    if (!clientId) {
+      return;
+    }
+
+    const snapshot = await this.paymentPresenceService.refreshClientState(clientId);
+    if (snapshot && this.paymentDto.clientId === clientId) {
+      this.paymentDto.expectedPaymentStateToken = snapshot.stateToken;
+      this.handlePaymentPresenceChanged(clientId, snapshot.viewers);
+    }
+
+    this.paymentCollision = null;
+    this.rentalService.getPendingRentals().subscribe({
+      next: rentals => {
+        this.pendingRentals = rentals;
+        this.filteredPendingRentals = rentals;
+        const refreshedRental = rentals.find(rental => rental.clientId === clientId);
+        if (refreshedRental && this.showPaymentModal && this.paymentDto.clientId === clientId) {
+          this.openPaymentModalWith(refreshedRental, false);
+          if (snapshot) {
+            this.paymentDto.expectedPaymentStateToken = snapshot.stateToken;
+          }
+        }
+      },
+      error: err => console.error('No se pudo actualizar el estado del cliente tras el conflicto.', err)
+    });
+    this.LoadPayments();
+  }
+
+  private handlePaymentConflictResponse(error: any): void {
+    const details = error?.error ?? {};
+    const notice: PaymentCompletedNotice = {
+      clientId: Number(details.clientId ?? this.paymentDto.clientId),
+      payerName: details.registeredByName ?? 'Otro usuario',
+      payerUserName: '',
+      amount: Number(details.amount ?? 0),
+      paymentDate: details.registeredAt ?? new Date().toISOString(),
+      recordedAtUtc: details.registeredAt ?? new Date().toISOString(),
+      concept: details.concept ?? this.paymentDto.concept
+    };
+
+    this.paymentCollision = notice;
+    this.showPaymentCollisionAlert(notice, details.message);
   }
 
   private getCommissionByMethodId(paymentMethodId: number): number {
@@ -1186,7 +1395,22 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  executeBackendCall() {
+  async executeBackendCall(): Promise<void> {
+    if (this.isSubmittingPayment) {
+      return;
+    }
+
+    if (this.paymentCollision) {
+      this.showPaymentCollisionAlert(this.paymentCollision);
+      return;
+    }
+
+    this.isSubmittingPayment = true;
+    if (!(await this.ensurePaymentStateToken())) {
+      this.isSubmittingPayment = false;
+      return;
+    }
+
     const calc = this.getCalculatedAmounts(this.paymentDto.amount, this.paymentDto.paymentMethodId, this.selectedPreferredPaymentId);
     
     // Blindaje de TimeZone igual que en Finances
@@ -1227,13 +1451,19 @@ export class DashboardComponent implements OnInit {
 
     this.paymentService.CreatePayment(payloadToSave).subscribe({
       next: () => {
+        this.isSubmittingPayment = false;
         Swal.fire({ title: 'Pago registrado', text: 'El pago y el ajuste fueron registrados correctamente.', icon: 'success', confirmButtonColor: '#2563eb' });
         this.closePaymentModal();
         setTimeout(() => this.LoadPayments(), 100); 
         setTimeout(() => this.LoadPedingRentals(), 100);
       },
       error: (err) => {
+        this.isSubmittingPayment = false;
         console.error('Error al guardar payment:', err);
+        if (err?.status === 409) {
+          this.handlePaymentConflictResponse(err);
+          return;
+        }
         Swal.fire({ title: 'Error', text: 'Hubo un problema al registrar el pago.', icon: 'error', confirmButtonColor: '#2563eb' });
       }
     });
