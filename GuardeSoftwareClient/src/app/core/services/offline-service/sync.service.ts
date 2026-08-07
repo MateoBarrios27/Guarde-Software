@@ -38,12 +38,21 @@ export class SyncService {
 
   /** Call once from AppComponent.ngOnInit */
   async init(): Promise<void> {
-    // Load pending count from storage
-    await this.refreshPendingCount();
+    // Remember the initial state so reconnecting after an offline reload also
+    // triggers the normal refresh/sync flow.
+    this.wasOffline = !this.offlineService.isOnline;
 
-    // Load last snapshot timestamp
-    const ts = await this.idb.getSnapshotTimestamp();
-    this._lastSnapshotAt.next(ts);
+    // IndexedDB is an enhancement for offline mode. It must never prevent the
+    // Angular shell from starting if the browser blocks storage or the DB is
+    // temporarily unavailable.
+    try {
+      await this.refreshPendingCount();
+      const ts = await this.idb.getSnapshotTimestamp();
+      this._lastSnapshotAt.next(ts);
+    } catch {
+      this._pendingCount.next(0);
+      this._lastSnapshotAt.next(null);
+    }
 
     // Auto-refresh snapshot every 5 minutes when online
     this.autoRefreshSub = interval(5 * 60 * 1000).pipe(

@@ -23,8 +23,10 @@ export const appConfig: ApplicationConfig = {
       useClass: AuthInterceptor,
       multi: true,
     }, provideServiceWorker('ngsw-worker.js', {
-            enabled: !isDevMode(),
-            registrationStrategy: 'registerWhenStable:30000'
-          }),
+      enabled: !isDevMode(),
+      // Register the shell before the user can lose the connection and
+      // reload a deep route while offline.
+      registrationStrategy: 'registerImmediately'
+    }),
   ],
 };
