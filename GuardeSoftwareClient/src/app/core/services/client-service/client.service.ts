@@ -139,6 +139,10 @@ export class ClientService {
     return this.httpClient.get<ClientLockerHistory[]>(`${this.url}/Client/${clientId}/locker-history`);
   }
 
+  deleteLockerHistory(clientId: number, historyId: number): Observable<void> {
+    return this.httpClient.delete<void>(`${this.url}/Client/${clientId}/locker-history/${historyId}`);
+  }
+
   updateClientColor(id: number, color?: string): Observable<any> {
     return this.httpClient.put(`${this.url}/Client/${id}/color`, { color });
   }

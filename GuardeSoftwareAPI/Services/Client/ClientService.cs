@@ -1349,6 +1349,14 @@ namespace GuardeSoftwareAPI.Services.client
             return await daoClient.GetClientLockerHistoryAsync(clientId);
         }
 
+        public async Task DeleteLockerHistoryAsync(int clientId, int historyId)
+        {
+            if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
+            if (historyId <= 0) throw new ArgumentException("Invalid history ID.");
+
+            await daoClient.DeleteLockerHistoryAsync(clientId, historyId);
+        }
+
         public async Task<bool> UpdateClientColorAsync(int clientId, string? color)
         {
             if (clientId <= 0) throw new ArgumentException("Invalid client ID.");

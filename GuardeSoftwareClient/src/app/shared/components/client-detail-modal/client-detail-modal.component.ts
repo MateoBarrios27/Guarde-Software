@@ -164,6 +164,35 @@ export class ClientDetailModalComponent implements OnChanges {
       });
   }
 
+  // ── Tab "Bauleras" ──────────────────────────────────────────────────────────
+  deleteLockerHistory(histId: number): void {
+    if (!this.client || !this.isAdmin) return;
+    Swal.fire({
+      title: '¿Eliminar historial?',
+      text: 'Esta acción borrará este registro del historial de la baulera. No se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.clientService.deleteLockerHistory(this.client!.id, histId).subscribe({
+          next: () => {
+            this.historialBauleras = this.historialBauleras.filter(h => h.id !== histId);
+            this.cdr.markForCheck();
+            Swal.fire('Eliminado', 'El historial fue eliminado correctamente.', 'success');
+          },
+          error: (err) => {
+            console.error('Error al eliminar historial de baulera:', err);
+            Swal.fire('Error', 'No se pudo eliminar el historial. Es posible que no tenga permisos suficientes o haya ocurrido un error.', 'error');
+          }
+        });
+      }
+    });
+  }
+
   // ── Tab "Abono" ──────────────────────────────────────────────────────────
   onTabAbono(): void {
     this.activeTab = 'abono';

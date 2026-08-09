@@ -1270,6 +1270,19 @@ namespace GuardeSoftwareAPI.Dao
             return list;
         }
 
+        public async Task DeleteLockerHistoryAsync(int clientId, int historyId)
+        {
+            string query = "DELETE FROM client_locker_history WHERE history_id = @HistoryId AND client_id = @ClientId";
+            using SqlConnection connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using SqlCommand cmd = new SqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@HistoryId", historyId);
+            cmd.Parameters.AddWithValue("@ClientId", clientId);
+            int rows = await cmd.ExecuteNonQueryAsync();
+            if (rows == 0)
+                throw new InvalidOperationException("No se encontró el historial o no pertenece a este cliente.");
+        }
+
         public async Task CloseLockerHistoryTransactionAsync(int clientId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
         {
             if (lockerIds == null || lockerIds.Count == 0) return;

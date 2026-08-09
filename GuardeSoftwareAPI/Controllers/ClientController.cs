@@ -260,6 +260,20 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpDelete("{clientId}/locker-history/{historyId}")]
+        public async Task<IActionResult> DeleteLockerHistory(int clientId, int historyId)
+        {
+            try
+            {
+                await _clientService.DeleteLockerHistoryAsync(clientId, historyId);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al eliminar el historial de la baulera.", error = ex.Message });
+            }
+        }
+
         [HttpPut("{id}/color")]
         public async Task<IActionResult> UpdateClientColor(int id, [FromBody] UpdateClientColorDto request)
         {
