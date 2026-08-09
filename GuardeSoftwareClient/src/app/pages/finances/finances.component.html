@@ -125,9 +125,9 @@
   </div>
 
   <!-- === TABLA DE PAGOS === -->
-  <!-- 1. CONTENEDOR LIBRE: Quitamos el overflow-x-auto y agregamos relative w-full -->
-  <div class="relative w-full bg-white rounded-xl border border-gray-200 shadow-sm">
-    <table class="w-full text-sm border-collapse">
+  <div class="relative w-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="w-full overflow-x-auto overscroll-x-contain" aria-label="Tabla de pagos">
+    <table class="min-w-[900px] w-full text-sm border-collapse">
       
       <!-- 2. THEAD STICKY: Agregamos sticky, top-0, z-20 y shadow-sm -->
       <thead class="bg-gray-50 text-gray-700 uppercase text-xs sticky top-0 z-20 shadow-sm">
@@ -296,6 +296,7 @@
         </tr>
       </tfoot>
     </table>
+    </div>
 
     <pagination-template [id]="'payments'" #p="paginationApi" (pageChange)="page = $event">
         <div class="flex justify-center items-center gap-3">

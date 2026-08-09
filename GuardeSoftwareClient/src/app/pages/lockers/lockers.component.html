@@ -227,8 +227,9 @@
 
   
   <!-- Tabla -->
-  <div class="relative w-full mt-6 bg-white rounded-xl shadow-sm border border-gray-200">
-    <table class="min-w-full">
+  <div class="relative w-full mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="w-full overflow-x-auto overscroll-x-contain" aria-label="Tabla de bauleras">
+    <table class="min-w-[900px] w-full">
       
       <thead class="bg-gray-50 sticky top-0 z-20 shadow-sm text-gray-600 uppercase text-xs">
         <tr class="border-b">
@@ -354,6 +355,7 @@
         </tr>
       </tbody>
     </table>
+    </div>
   </div>
 
   <!-- Paginación -->
