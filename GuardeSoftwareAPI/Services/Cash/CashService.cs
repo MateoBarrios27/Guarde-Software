@@ -179,7 +179,8 @@ namespace GuardeSoftwareAPI.Services.cash
                     Id = Convert.ToInt32(row["id"]),
                     ItemId = Convert.ToInt32(row["item_id"]),
                     Date = Convert.ToDateTime(row["advance_date"]),
-                    Amount = Convert.ToDecimal(row["amount"])
+                    Amount = Convert.ToDecimal(row["amount"]),
+                    Comment = row["comment"] == DBNull.Value ? null : row["comment"].ToString()
                 });
             }
             return list;
@@ -187,7 +188,7 @@ namespace GuardeSoftwareAPI.Services.cash
 
         public async Task<int> AddAdvanceAsync(CashAdvanceDto dto)
         {
-            return await _dao.AddAdvanceAsync(dto.ItemId, dto.Date, dto.Amount);
+            return await _dao.AddAdvanceAsync(dto.ItemId, dto.Date, dto.Amount, dto.Comment);
         }
 
         public async Task DeleteAdvanceAsync(int id)

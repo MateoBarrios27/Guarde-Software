@@ -904,7 +904,7 @@
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white">
         <div class="flex items-center gap-3 min-w-0">
           <div class="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm shrink-0">
-            <app-icon name="layers" class="w-4 h-4"></app-icon>
+            <app-icon name="clock-clockwise" class="w-4 h-4"></app-icon>
           </div>
           <div class="min-w-0">
             <div class="flex items-center gap-2">
@@ -964,6 +964,10 @@
             <input type="date" [(ngModel)]="newAdvance.date" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all outline-none shadow-2xs">
           </div>
           <div class="w-full sm:flex-1">
+            <label class="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Concepto / Comentario</label>
+            <input type="text" [(ngModel)]="newAdvance.comment" (keydown.enter)="saveAdvance()" placeholder="Opcional" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all outline-none shadow-2xs">
+          </div>
+          <div class="w-full sm:w-32">
             <label class="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Monto del pago</label>
             <input type="text" appCurrencyFormat [(ngModel)]="newAdvance.amount" (keydown.enter)="saveAdvance()" placeholder="0.00" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all outline-none shadow-2xs">
           </div>
@@ -979,6 +983,7 @@
           <thead class="sticky top-0 z-10 bg-gray-50/90 backdrop-blur-md border-b border-gray-100">
             <tr>
               <th class="px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400">Fecha</th>
+              <th class="px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400">Concepto</th>
               <th class="px-6 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-gray-400">Monto</th>
               <th class="w-12 py-2.5"></th>
             </tr>
@@ -986,6 +991,7 @@
           <tbody class="divide-y divide-gray-50">
             <tr *ngFor="let adv of advances; let i = index; trackBy: trackById" class="group hover:bg-blue-50/30 transition-colors duration-150">
               <td class="px-6 py-3 text-xs font-mono text-gray-500 tabular-nums">{{ adv.date | date:'dd/MM/yy' }}</td>
+              <td class="px-6 py-3 text-xs font-medium text-gray-700">{{ adv.comment || '—' }}</td>
               <td class="px-6 py-3 text-right text-xs font-bold text-gray-900 tabular-nums">$ {{ adv.amount | number:'1.2-2' }}</td>
               <td class="pr-6 py-3 text-right">
                 <button (click)="deleteAdvance(adv.id, i)" title="Eliminar pago parcial" class="text-gray-400 hover:text-red-500 opacity-20 group-hover:opacity-100 transition-all duration-150 p-1 rounded-lg hover:bg-red-50">
@@ -997,7 +1003,7 @@
               <td colspan="3" class="text-center py-14">
                 <div class="flex flex-col items-center justify-center text-gray-300">
                   <div class="w-10 h-10 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center mb-2">
-                    <app-icon name="layers" class="w-5 h-5 text-gray-300"></app-icon>
+                    <app-icon name="clock-clockwise" class="w-5 h-5 text-gray-300"></app-icon>
                   </div>
                   <p class="text-xs font-medium text-gray-400">Sin pagos parciales en este concepto</p>
                 </div>

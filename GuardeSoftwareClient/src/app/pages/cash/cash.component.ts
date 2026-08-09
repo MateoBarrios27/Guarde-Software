@@ -104,7 +104,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   showAdvancesModal: boolean = false;
   selectedItemForAdvances: CashFlowItem | null = null;
   advances: any[] = [];
-  newAdvance = { date: '', amount: null as any };
+  newAdvance = { date: '', amount: null as any, comment: '' };
   advancesTotalAmount: number = 0;
 
   private signalRSubscription?: Subscription;
@@ -1398,7 +1398,7 @@ private loadAdvancesAndOpenModal(item: CashFlowItem): void {
     const yyyy = initialDate.getFullYear();
     const mm = String(initialDate.getMonth() + 1).padStart(2, '0');
     const dd = String(initialDate.getDate()).padStart(2, '0');
-    this.newAdvance = { date: `${yyyy}-${mm}-${dd}`, amount: null as any };
+    this.newAdvance = { date: `${yyyy}-${mm}-${dd}`, amount: null as any, comment: '' };
   });
 }
 
@@ -1450,7 +1450,8 @@ closeAdvancesModal(): void {
     const payload = {
       itemId: this.selectedItemForAdvances!.id,
       date: this.newAdvance.date,
-      amount: this.newAdvance.amount
+      amount: this.newAdvance.amount,
+      comment: this.newAdvance.comment
     };
 
     this.cashService.addAdvance(this.selectedItemForAdvances!.id!, payload).subscribe({
@@ -1466,6 +1467,7 @@ closeAdvancesModal(): void {
         this.calculateTableTotals();
 
         this.newAdvance.amount = null as any;
+        this.newAdvance.comment = '';
         Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Adelanto registrado', showConfirmButton: false, timer: 2000 });
       }
     });

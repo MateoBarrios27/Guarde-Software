@@ -1021,7 +1021,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<DataTable> GetAdvancesAsync(int itemId)
         {
             string query = @"
-                SELECT id, item_id, advance_date, amount
+                SELECT id, item_id, advance_date, amount, comment
                 FROM cash_flow_item_advances
                 WHERE item_id = @ItemId
                 ORDER BY advance_date DESC";
@@ -1031,17 +1031,18 @@ namespace GuardeSoftwareAPI.Dao
             });
         }
 
-        public async Task<int> AddAdvanceAsync(int itemId, DateTime date, decimal amount)
+        public async Task<int> AddAdvanceAsync(int itemId, DateTime date, decimal amount, string? comment)
         {
             string query = @"
-                INSERT INTO cash_flow_item_advances (item_id, advance_date, amount)
+                INSERT INTO cash_flow_item_advances (item_id, advance_date, amount, comment)
                 OUTPUT INSERTED.id
-                VALUES (@ItemId, @Date, @Amount)";
+                VALUES (@ItemId, @Date, @Amount, @Comment)";
 
             var parameters = new[] {
                 new SqlParameter("@ItemId", itemId),
                 new SqlParameter("@Date", date),
-                new SqlParameter("@Amount", amount)
+                new SqlParameter("@Amount", amount),
+                new SqlParameter("@Comment", (object?)comment ?? DBNull.Value)
             };
             var result = await _accessDB.ExecuteScalarAsync(query, parameters);
             return Convert.ToInt32(result);
