@@ -1410,7 +1410,7 @@ closeAdvancesModal(): void {
 
   isAdvancesComplete(item: CashFlowItem): boolean {
     if (!item || !item.hasAdvances) return false;
-    const itemTotal = (Number(item.depo) || 0) + (Number(item.casa) || 0);
+    const itemTotal = (Number(item.depo) || 0) + (Number(item.casa) || 0) + (Number(item.retiros) || 0) + (Number(item.iaia) || 0);
     const totalAdvances = Number(item.totalAdvances) || 0;
     if (itemTotal <= 0 && totalAdvances > 0) return true;
     return totalAdvances >= itemTotal - 0.01 && itemTotal > 0;
@@ -1424,7 +1424,10 @@ closeAdvancesModal(): void {
 
   getAdvancesItemTotal(): number {
     if (!this.selectedItemForAdvances) return 0;
-    return (Number(this.selectedItemForAdvances.depo) || 0) + (Number(this.selectedItemForAdvances.casa) || 0);
+    return (Number(this.selectedItemForAdvances.depo) || 0) + 
+           (Number(this.selectedItemForAdvances.casa) || 0) + 
+           (Number(this.selectedItemForAdvances.retiros) || 0) + 
+           (Number(this.selectedItemForAdvances.iaia) || 0);
   }
 
   getAdvancesRemaining(): number {
