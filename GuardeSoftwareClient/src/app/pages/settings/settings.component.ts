@@ -15,7 +15,7 @@ import { UpdateUserDTO } from '../../core/dtos/user/UpdateUserDTO';
 import { BillingTypeService } from '../../core/services/billingType-service/billing-type.service';
 import { BillingType } from '../../core/models/billing-type.model';
 import { CreateBillingTypeDTO } from '../../core/dtos/billingType/create-billing-type.dto';
-import Swal from 'sweetalert2';
+import Swal from '../../shared/services/ui-alert.service';
 import { UpdateBillingTypeDTO } from '../../core/dtos/billingType/update-billing-type.dto';
 import { MonthlyIncreaseService } from '../../core/services/monthlyIncrease-service/monthly-increase.service';
 import { MonthlyIncreaseSetting } from '../../core/models/monthly-increase-setting';
@@ -133,6 +133,7 @@ export class SettingsComponent implements OnInit {
   // --- Propiedades SMTP ---
   smtpConfigs = signal<SmtpConfig[]>([]);
   isModalOpen = signal(false);
+  showSmtpPassword = false;
 
   currentConfig = signal<SmtpConfig>({
     id: null,
@@ -746,6 +747,7 @@ export class SettingsComponent implements OnInit {
   }
 
   openModal(config?: SmtpConfig) {
+    this.showSmtpPassword = false;
     if (config) {
       this.currentConfig.set({ ...config });
     } else {
@@ -772,8 +774,63 @@ export class SettingsComponent implements OnInit {
     });
   }
 
+  updateSmtpField(field: keyof SmtpConfig, value: string | number | boolean): void {
+    this.currentConfig.update(config => ({
+      ...config,
+      [field]: value
+    } as SmtpConfig));
+  }
+
+  toggleSmtpPassword(): void {
+    this.showSmtpPassword = !this.showSmtpPassword;
+  }
+
   saveConfig() {
-    const config = this.currentConfig();
+    const config = {
+      ...this.currentConfig(),
+      name: this.currentConfig().name.trim(),
+      host: this.currentConfig().host.trim(),
+      email: this.currentConfig().email.trim(),
+      bccEmail: this.currentConfig().bccEmail.trim()
+    };
+
+    if (!config.name || !config.host || !config.email || !config.password) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Faltan datos',
+        text: 'Completá el nombre, host, usuario y contraseña del servidor.'
+      });
+      return;
+    }
+
+    if (!this.isValidEmail(config.email) || (config.enableBcc && !this.isValidEmail(config.bccEmail))) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Email inválido',
+        text: 'Revisá la dirección de correo ingresada antes de continuar.'
+      });
+      return;
+    }
+
+    if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Puerto inválido',
+        text: 'Ingresá un puerto entre 1 y 65535.'
+      });
+      return;
+    }
+
+    if (config.enableBcc && !config.bccEmail) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Falta el correo de copia',
+        text: 'Ingresá una dirección para activar la copia oculta.'
+      });
+      return;
+    }
+
+    this.currentConfig.set(config);
     
     if (config.id) {
       // Update vía Service
@@ -781,8 +838,21 @@ export class SettingsComponent implements OnInit {
         next: () => {
           this.loadConfigs();
           this.closeModal();
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Servidor actualizado',
+            showConfirmButton: false,
+            timer: 2600,
+            timerProgressBar: true
+          });
         },
-        error: (err) => alert('Error al actualizar configuración')
+        error: () => Swal.fire({
+          icon: 'error',
+          title: 'No se pudo actualizar',
+          text: 'Revisá los datos e intentá nuevamente.'
+        })
       });
     } else {
       // Create vía Service
@@ -790,20 +860,61 @@ export class SettingsComponent implements OnInit {
         next: () => {
           this.loadConfigs();
           this.closeModal();
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Servidor creado',
+            showConfirmButton: false,
+            timer: 2600,
+            timerProgressBar: true
+          });
         },
-        error: (err) => alert('Error al crear configuración')
+        error: () => Swal.fire({
+          icon: 'error',
+          title: 'No se pudo crear',
+          text: 'El servidor no fue guardado. Revisá los datos e intentá nuevamente.'
+        })
       });
     }
   }
 
+  private isValidEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
   deleteConfig(id: number) {
-    if(confirm('¿Borrar esta configuración?')) {
-      // Delete vía Service
+    Swal.fire({
+      title: '¿Eliminar servidor?',
+      text: 'Las comunicaciones futuras ya no podrán usar esta configuración.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#d33'
+    }).then(result => {
+      if (!result.isConfirmed) return;
+
       this.communicationService.deleteSmtpConfig(id).subscribe({
-        next: () => this.loadConfigs(),
-        error: (err) => alert('Error al eliminar configuración')
+        next: () => {
+          this.loadConfigs();
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Servidor eliminado',
+            showConfirmButton: false,
+            timer: 2400,
+            timerProgressBar: true
+          });
+        },
+        error: () => Swal.fire({
+          icon: 'error',
+          title: 'No se pudo eliminar',
+          text: 'Intentá nuevamente en unos instantes.'
+        })
       });
-    }
+    });
   }
 
   loadWarehouses(): void {

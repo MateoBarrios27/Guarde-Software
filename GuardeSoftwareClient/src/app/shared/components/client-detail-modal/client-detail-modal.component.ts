@@ -14,7 +14,7 @@ import { FormsModule } from '@angular/forms';
 
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-import Swal from 'sweetalert2';
+import Swal from '../../services/ui-alert.service';
 import { AccountMovementService } from '../../../core/services/accountMovement-service/account-movement.service';
 import { CommunicationService } from '../../../core/services/communication-service/communication.service';
 import { AccountMovementDTO } from '../../../core/dtos/accountMovement/account-movement.dto';

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { IconComponent } from '../icon/icon.component';
 import { AuthService } from '../../../core/services/auth-service/auth.service';
-import Swal from 'sweetalert2';
+import Swal from '../../services/ui-alert.service';
 
 interface MenuItem {
   path: string;
@@ -17,6 +17,7 @@ interface MenuItem {
   standalone: true,
   imports: [CommonModule, RouterModule, IconComponent],
   templateUrl: './sidebar.component.html',
+  styleUrls: ['./sidebar.component.css'],
 })
 export class SidebarComponent {
 

@@ -8,7 +8,7 @@ import { WarehouseService } from '../../core/services/warehouse-service/warehous
 import { NgxPaginationModule } from 'ngx-pagination';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { LockerUpdateDTO } from '../../core/dtos/locker/LockerUpdateDTO';
-import Swal from 'sweetalert2';
+import Swal from '../../shared/services/ui-alert.service';
 
 // --- NUEVAS IMPORTACIONES ---
 import { LockerType } from '../../core/models/locker-type';

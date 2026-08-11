@@ -5,6 +5,7 @@
     [formGroup]="newClientForm"
     (ngSubmit)="onSubmit()"
     (click)="$event.stopPropagation()"
+    [class.validation-submitted]="hasAttemptedSubmit"
     class="flex flex-col max-h-[90vh] w-full max-w-7xl bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg shadow-2xl"
   >
     <!-- Header -->
@@ -502,7 +503,7 @@
     <!-- Footer -->
     <footer class="flex-shrink-0 p-4 flex justify-end gap-4 bg-gray-50 border-t">
       <button type="button" (click)="closeModal.emit()" class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-100">Cancelar</button>
-      <button type="submit" [disabled]="newClientForm.invalid || isLoading" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
+      <button type="submit" [disabled]="isLoading" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
         <app-icon *ngIf="isLoading" name="loader" class="h-4 w-4 animate-spin"></app-icon>
         {{ isLoading ? 'Guardando...' : (isEditMode ? 'Guardar Cambios' : 'Guardar Cliente') }}
       </button>

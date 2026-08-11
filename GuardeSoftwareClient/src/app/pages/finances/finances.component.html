@@ -125,14 +125,14 @@
   </div>
 
   <!-- === TABLA DE PAGOS === -->
-  <div class="relative w-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-    <div class="w-full overflow-x-auto overscroll-x-contain" aria-label="Tabla de pagos">
+  <div class="relative w-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden md:overflow-visible">
+    <div class="w-full overflow-x-auto overscroll-x-contain md:overflow-visible" aria-label="Tabla de pagos">
     <table class="min-w-[900px] w-full text-sm border-collapse">
       
       <!-- 2. THEAD STICKY: Agregamos sticky, top-0, z-20 y shadow-sm -->
-      <thead class="bg-gray-50 text-gray-700 uppercase text-xs sticky top-0 z-20 shadow-sm">
+      <thead class="bg-gray-50 text-gray-700 uppercase text-xs relative md:sticky top-0 z-20 shadow-sm">
         <tr class="border-b">
-          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none" (click)="handleSort('clientName')">
+          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('clientName')">
             <div class="flex items-center gap-1 group">
               Cliente
               <app-icon
@@ -144,7 +144,7 @@
             </div>
           </th>
 
-          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none" (click)="handleSort('paymentIdentifier')">
+          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('paymentIdentifier')">
             <div class="flex items-center gap-1 group">
               Identificador
               <app-icon
@@ -156,7 +156,7 @@
             </div>
           </th>
 
-          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none" (click)="handleSort('paymentMethodName')">
+          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('paymentMethodName')">
             <div class="flex items-center gap-1 group">
               Método
               <app-icon
@@ -168,7 +168,7 @@
             </div>
           </th>
 
-          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none" (click)="handleSort('concept')">
+          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('concept')">
             <div class="flex items-center gap-1 group">
               Concepto
               <app-icon
@@ -180,7 +180,7 @@
             </div>
           </th>
 
-          <th class="py-3 px-4 text-right font-medium cursor-pointer select-none" (click)="handleSort('amount')">
+          <th class="py-3 px-4 text-right font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('amount')">
             <div class="flex items-center justify-end gap-1 group">
               Monto
               <app-icon
@@ -192,7 +192,7 @@
             </div>
           </th>
 
-          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none" (click)="handleSort('paymentDate')">
+          <th class="py-3 px-4 text-left font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('paymentDate')">
             <div class="flex items-center gap-1 group">
               Fecha
               <app-icon
@@ -204,7 +204,7 @@
             </div>
           </th>
 
-          <th class="px-4 py-3 text-center">Acciones</th>
+          <th class="px-4 py-3 text-center bg-gray-50">Acciones</th>
         </tr>
       </thead>
 
@@ -275,9 +275,9 @@
         </tr>
       </tbody>
 
-      <tfoot class="font-bold text-gray-700 border-t border-gray-200 bg-gray-50 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      <tfoot class="font-bold text-gray-700 border-t border-gray-200 bg-gray-50 relative md:sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <tr>
-          <td colspan="4" class="p-4 text-left align-middle">
+          <td colspan="4" class="p-4 text-left align-middle bg-gray-50">
             <div class="flex items-center gap-2">
               <span class="text-xs uppercase tracking-wider text-gray-500 font-bold">
                 Total de Pagos:
@@ -288,11 +288,11 @@
             </div>
           </td>
 
-          <td class="p-4 text-right whitespace-nowrap align-middle text-green-600">
+          <td class="p-4 text-right whitespace-nowrap align-middle text-green-600 bg-gray-50">
             <div class="text-base font-bold">${{ totals.amount | number:'1.2-2' }}</div>
           </td>
 
-          <td colspan="2"></td>
+          <td colspan="2" class="bg-gray-50"></td>
         </tr>
       </tfoot>
     </table>

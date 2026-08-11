@@ -19,7 +19,7 @@ import {
   AbstractControl 
 } from '@angular/forms';
 import { IconComponent } from '../icon/icon.component';
-import Swal from 'sweetalert2';
+import Swal from '../../services/ui-alert.service';
 
 // --- Modelos y Servicios ---
 import { Locker } from '../../../core/models/locker';
@@ -47,6 +47,7 @@ import { AuthService } from '../../../core/services/auth-service/auth.service';
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, IconComponent, CurrencyFormatDirective],
   templateUrl: './create-client-modal.component.html',
+  styleUrl: './create-client-modal.component.css',
 })
 export class CreateClientModalComponent implements OnInit, OnChanges {
   private _clientData: ClientDetailDTO | null = null;
@@ -67,6 +68,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   public paymentMethods: PaymentMethod[] = [];
   public billingTypes: BillingType[] = [];
   isLoading: boolean = false;
+  public hasAttemptedSubmit = false;
   private areBasicDataLoaded = false;
   public phonesSignal: WritableSignal<PhoneInputDto[]> = signal([
     { number: '', whatsapp: true },
@@ -166,6 +168,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   }
 
   private initNewClientForm(): void {
+    this.hasAttemptedSubmit = false;
+
     // 1. Inicialización Base: TODOS los controles deben existir desde el principio
     const defaultMode = this.isReactivation ? 'keep_old' : (this.isEditMode ? 'manual' : 'auto');
 
@@ -300,6 +304,13 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     });
 
     // 3. Suscripción Legacy
+    if (this.isEditMode) {
+      ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate'].forEach(field => {
+        this.newClientForm.get(field)?.setValidators(Validators.required);
+        this.newClientForm.get(field)?.updateValueAndValidity({ emitEvent: false });
+      });
+    }
+
     this.newClientForm.get('isLegacyClient')?.valueChanges.subscribe((isLegacy) => {
        if (this.isEditMode) return;
        const fields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate', 'isLegacy6MonthPromo', 'prepaidMonths'];
@@ -507,20 +518,21 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   const formValue = this.newClientForm.getRawValue();
 
   if (this.newClientForm.invalid) {
-    Object.values(this.newClientForm.controls).forEach((control) => {
-      control.markAsTouched({ onlySelf: true });
-      if (control instanceof FormArray) {
-        (control as FormArray).controls.forEach((arrayControl) =>
-          arrayControl.markAsTouched({ onlySelf: true })
-        );
-      }
-    });
+    this.hasAttemptedSubmit = true;
+    this.newClientForm.markAllAsTouched();
     console.warn('Formulario inválido:', formValue);
-    Swal.fire(
-      'Formulario Inválido',
-      'Por favor, completa todos los campos requeridos (*).',
-      'warning'
-    );
+    const invalidField = this.getFirstInvalidField();
+    const fieldLabel = this.getFieldLabel(invalidField?.getAttribute('formControlName') ?? null);
+    const isRequired = this.getControlForElement(invalidField)?.hasError('required') ?? false;
+
+    Swal.fire({
+      icon: 'warning',
+      title: isRequired ? `Falta ${fieldLabel}` : `Revisá ${fieldLabel}`,
+      text: isRequired
+        ? `El campo ${fieldLabel} es obligatorio.`
+        : `El campo ${fieldLabel} tiene un valor inválido.`,
+      confirmButtonText: 'Completar campo',
+    }).then(() => this.revealInvalidField(invalidField));
     return;
   }
 
@@ -669,30 +681,98 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     error: (err) => {
       this.isLoading = false;
       console.error('Error al guardar:', err);
+      const actionLabel = isEditing ? 'actualizar' : 'crear';
+      const backendUnavailable = err?.status === 0;
       let errorDetails = '';
+
       if (err.error && err.error.errors) {
         errorDetails = Object.entries(err.error.errors)
           .map(
             ([key, value]) =>
-              `<b>${key}:</b> ${(value as string[]).join(', ')}`
+              `${key}: ${Array.isArray(value) ? value.join(', ') : String(value)}`
           )
-          .join('<br>');
+          .join('\n');
       }
-      const errorMsg =
-        errorDetails ||
-        err.error?.message ||
-        err.statusText ||
-        'Ocurrió un error desconocido.';
+
+      const apiMessage =
+        typeof err.error?.message === 'string' ? err.error.message : '';
+      const errorMsg = backendUnavailable
+        ? 'No se pudo conectar con el backend. Verificá que la API esté encendida y volvé a intentarlo.'
+        : errorDetails ||
+          apiMessage ||
+          (err.status >= 500
+            ? 'El servidor encontró un problema al procesar la solicitud.'
+            : err.statusText || 'Ocurrió un error inesperado al guardar el cliente.');
+
       Swal.fire({
         icon: 'error',
-        title: `Error al ${isEditing ? 'actualizar' : 'crear'}`,
-        html: `No se pudo guardar el cliente.<br><br><small class="text-left">${errorMsg}</small>`,
+        title: `No se pudo ${actionLabel} el cliente`,
+        text: errorMsg,
         confirmButtonColor: '#2563eb',
       });
     },
   });
 }
 
+
+  private getFirstInvalidField(): HTMLElement | null {
+    return document.querySelector(
+      'app-create-client-modal input.ng-invalid, app-create-client-modal select.ng-invalid, app-create-client-modal textarea.ng-invalid'
+    ) as HTMLElement | null;
+  }
+
+  private getControlForElement(element: HTMLElement | null): AbstractControl | null {
+    if (!element) return null;
+
+    const controlName = element.getAttribute('formControlName');
+    if (!controlName) return null;
+
+    const parentArray = element.closest('[formArrayName]');
+    if (parentArray) {
+      const arrayName = parentArray.getAttribute('formArrayName');
+      const groupIndex = element.closest('[formGroupName]')?.getAttribute('formGroupName');
+      const formArray = arrayName ? this.newClientForm.get(arrayName) as FormArray : null;
+
+      if (formArray && groupIndex !== null && groupIndex !== undefined) {
+        return formArray.at(Number(groupIndex))?.get(controlName) ?? null;
+      }
+
+      if (formArray && /^\d+$/.test(controlName)) {
+        return formArray.at(Number(controlName)) ?? null;
+      }
+    }
+
+    return this.newClientForm.get(controlName);
+  }
+
+  private getFieldLabel(controlName: string | null): string {
+    const labels: Record<string, string> = {
+      numeroIdentificacion: 'Número de Identificación',
+      nombreCompleto: 'Nombre Completo',
+      numeroDocumento: 'Nº Doc. (DNI)',
+      direccion: 'Dirección Completa',
+      condicionIVA: 'Condición IVA',
+      billingTypeId: 'Tipo Factura',
+      metodoPago: 'Método de Pago',
+      legacyStartDate: 'Fecha de Ingreso',
+      legacyInitialAmount: 'Monto Inicial',
+      legacyNextIncreaseDate: 'Próx. Aumento',
+      warehouseId: 'Depósito',
+      quantity: 'Cantidad',
+      montoManual: 'Abono',
+    };
+
+    if (controlName && /^\d+$/.test(controlName)) return 'Email';
+    return controlName ? (labels[controlName] ?? 'el campo indicado') : 'el campo indicado';
+  }
+
+  private revealInvalidField(field: HTMLElement | null): void {
+    const target = field ?? this.getFirstInvalidField();
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    window.setTimeout(() => target.focus({ preventScroll: true }), 350);
+  }
 
   // --- Métodos Helper de Cálculo ---
   private calculateTotalM3(ids: number[]): number {

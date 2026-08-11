@@ -110,7 +110,7 @@
               <div class="flex justify-between items-start mb-3 relative z-10">
                 <div class="flex items-center gap-3">
                   <div class="p-2.5 bg-blue-100/50 text-blue-600 rounded-lg border border-blue-200/50">
-                      <app-icon name="Mail" class="w-5 h-5"></app-icon>
+                      <app-icon name="envelope" class="w-5 h-5"></app-icon>
                   </div>
                   <h3 class="font-bold text-gray-800 text-base tracking-tight">{{ smtp.name }}</h3>
                 </div>
@@ -140,6 +140,90 @@
             </div>
           }
         </div>
+      </div>
+
+      <!-- Modal SMTP -->
+      <div *ngIf="isModalOpen()" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm sm:p-6" (click)="closeModal()" (keyup.enter)="closeModal()" (keydown.escape)="closeModal()" tabindex="-1" role="presentation">
+        <section class="smtp-modal-shell flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-[0_30px_90px_-28px_rgba(15,23,42,0.62)] sm:max-h-[calc(100vh-3rem)]" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="smtp-modal-title">
+          <div class="relative overflow-hidden border-b border-slate-100 bg-gradient-to-br from-slate-50 via-white to-blue-50/80 px-5 py-5 sm:px-7 sm:py-6">
+            <div class="absolute -right-12 -top-16 h-40 w-40 rounded-full bg-blue-200/30 blur-3xl"></div>
+            <div class="relative flex items-start justify-between gap-4">
+              <div class="flex items-start gap-3.5">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+                  <app-icon name="send" class="h-5 w-5"></app-icon>
+                </div>
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">Canal de comunicación</p>
+                  <h2 id="smtp-modal-title" class="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{{ currentConfig().id ? 'Editar servidor SMTP' : 'Nuevo servidor SMTP' }}</h2>
+                  <p class="mt-1 max-w-xl text-sm leading-relaxed text-slate-500">Configurá la cuenta que utilizará Guarde para enviar comunicados y estados de cuenta.</p>
+                </div>
+              </div>
+              <button type="button" (click)="closeModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-xl leading-none text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-100" aria-label="Cerrar modal">×</button>
+            </div>
+          </div>
+
+          <form #smtpForm="ngForm" novalidate (ngSubmit)="saveConfig()" class="min-h-0 overflow-y-auto">
+            <div class="grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_15rem]">
+              <div class="min-w-0 space-y-5">
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <label class="block sm:col-span-2">
+                    <span class="smtp-field-label">Nombre de referencia <span class="text-rose-500">*</span></span>
+                    <input type="text" name="smtpName" autocomplete="off" required [ngModel]="currentConfig().name" (ngModelChange)="updateSmtpField('name', $event)" class="smtp-field-input" placeholder="Ej. Gmail principal" />
+                  </label>
+                  <label class="block sm:col-span-2">
+                    <span class="smtp-field-label">Servidor SMTP <span class="text-rose-500">*</span></span>
+                    <input type="text" name="smtpHost" autocomplete="url" required [ngModel]="currentConfig().host" (ngModelChange)="updateSmtpField('host', $event)" class="smtp-field-input" placeholder="smtp.gmail.com" />
+                  </label>
+                  <label class="block">
+                    <span class="smtp-field-label">Puerto <span class="text-rose-500">*</span></span>
+                    <input type="number" name="smtpPort" min="1" max="65535" required [ngModel]="currentConfig().port" (ngModelChange)="updateSmtpField('port', +$event)" class="smtp-field-input" placeholder="587" />
+                  </label>
+                  <label class="block">
+                    <span class="smtp-field-label">Usuario / email <span class="text-rose-500">*</span></span>
+                    <input type="email" name="smtpEmail" autocomplete="username" required [ngModel]="currentConfig().email" (ngModelChange)="updateSmtpField('email', $event)" class="smtp-field-input" placeholder="cuenta@dominio.com" />
+                  </label>
+                  <label class="block sm:col-span-2">
+                    <span class="smtp-field-label">Contraseña <span class="text-rose-500">*</span></span>
+                    <div class="relative">
+                      <input [type]="showSmtpPassword ? 'text' : 'password'" name="smtpPassword" autocomplete="current-password" required [ngModel]="currentConfig().password" (ngModelChange)="updateSmtpField('password', $event)" class="smtp-field-input pr-12" placeholder="Contraseña de la cuenta" />
+                      <button type="button" (click)="toggleSmtpPassword()" class="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" [attr.aria-label]="showSmtpPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"><app-icon name="eye" class="h-4 w-4"></app-icon></button>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <label class="smtp-toggle-card">
+                    <input type="checkbox" name="smtpUseSsl" class="smtp-toggle-input" [ngModel]="currentConfig().useSsl" (ngModelChange)="updateSmtpField('useSsl', $event)" />
+                    <span class="smtp-toggle-track"><span class="smtp-toggle-thumb"></span></span>
+                    <span class="min-w-0"><span class="block text-sm font-semibold text-slate-800">Usar SSL / TLS</span><span class="mt-0.5 block text-xs text-slate-500">Recomendado para puertos seguros.</span></span>
+                  </label>
+                  <label class="smtp-toggle-card">
+                    <input type="checkbox" name="smtpEnableBcc" class="smtp-toggle-input" [ngModel]="currentConfig().enableBcc" (ngModelChange)="updateSmtpField('enableBcc', $event)" />
+                    <span class="smtp-toggle-track"><span class="smtp-toggle-thumb"></span></span>
+                    <span class="min-w-0"><span class="block text-sm font-semibold text-slate-800">Copia oculta</span><span class="mt-0.5 block text-xs text-slate-500">Recibí una copia de cada envío.</span></span>
+                  </label>
+                </div>
+
+                <label *ngIf="currentConfig().enableBcc" class="block animate-fadeIn">
+                  <span class="smtp-field-label">Email para copia oculta <span class="text-rose-500">*</span></span>
+                  <input type="email" name="smtpBccEmail" autocomplete="off" [required]="currentConfig().enableBcc" [ngModel]="currentConfig().bccEmail" (ngModelChange)="updateSmtpField('bccEmail', $event)" class="smtp-field-input" placeholder="auditoria@dominio.com" />
+                </label>
+              </div>
+
+              <aside class="hidden rounded-2xl border border-blue-100 bg-blue-50/70 p-4 lg:block">
+                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm"><app-icon name="info" class="h-4 w-4"></app-icon></div>
+                <h3 class="mt-4 text-sm font-bold text-slate-900">Configuración segura</h3>
+                <p class="mt-2 text-xs leading-relaxed text-slate-600">Verificá el puerto y el tipo de cifrado con tu proveedor de correo antes de guardar.</p>
+                <div class="mt-4 space-y-2 border-t border-blue-100 pt-4 text-xs text-slate-600"><div class="flex items-center justify-between gap-3"><span>SSL / TLS</span><strong class="text-slate-800">465 / 587</strong></div><div class="flex items-center justify-between gap-3"><span>Sin cifrado</span><strong class="text-slate-800">25</strong></div></div>
+              </aside>
+            </div>
+
+            <div class="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
+              <button type="button" (click)="closeModal()" class="smtp-secondary-action">Cancelar</button>
+              <button type="submit" class="smtp-primary-action"><app-icon name="check" class="h-4 w-4"></app-icon>{{ currentConfig().id ? 'Guardar cambios' : 'Crear servidor' }}</button>
+            </div>
+          </form>
+        </section>
       </div>
 
       <!-- Sección Offline -->

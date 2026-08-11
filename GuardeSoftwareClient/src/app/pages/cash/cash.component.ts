@@ -3,7 +3,7 @@ import { CashService } from '../../core/services/cash-service/cash.service';
 import { CashSignalrService } from '../../core/services/cash-signalr/cash-signalr.service';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, groupBy, mergeMap } from 'rxjs/operators';
-import Swal from 'sweetalert2';
+import Swal from '../../shared/services/ui-alert.service';
 import { IconComponent } from "../../shared/components/icon/icon.component";
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';

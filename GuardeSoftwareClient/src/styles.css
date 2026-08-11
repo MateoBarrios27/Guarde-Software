@@ -79,3 +79,317 @@ body {
   height: 100%;
   overflow: hidden; /* Disable the scroll */
 }
+
+/* -------------------------------------------------------------------------- */
+/* Guarde UI alerts                                                          */
+/* -------------------------------------------------------------------------- */
+
+:root {
+  --guarde-alert-blue: #2563eb;
+  --guarde-alert-blue-dark: #1d4ed8;
+  --guarde-alert-ink: #172033;
+  --guarde-alert-muted: #64748b;
+  --guarde-alert-border: #e2e8f0;
+}
+
+.guarde-alert-container {
+  z-index: 10000;
+}
+
+.guarde-alert-popup,
+.guarde-alert-toast {
+  border: 1px solid var(--guarde-alert-border) !important;
+  color: var(--guarde-alert-ink);
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+.guarde-alert-popup {
+  width: min(92vw, 31rem) !important;
+  padding: 0 !important;
+  overflow: hidden;
+  border-radius: 1.5rem !important;
+  box-shadow: 0 24px 70px -28px rgba(15, 23, 42, 0.48), 0 12px 28px -22px rgba(37, 99, 235, 0.28) !important;
+}
+
+.guarde-alert-title {
+  margin: 0.55rem 1.75rem 0 !important;
+  color: var(--guarde-alert-ink) !important;
+  font-size: 1.18rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
+  line-height: 1.3 !important;
+}
+
+.guarde-alert-html,
+.guarde-alert-popup .swal2-html-container {
+  max-width: 29rem;
+  margin: 0.45rem auto 0 !important;
+  padding: 0 1.75rem !important;
+  color: var(--guarde-alert-muted) !important;
+  font-size: 0.92rem !important;
+  line-height: 1.55 !important;
+}
+
+.guarde-alert-icon {
+  width: 4.25rem !important;
+  height: 4.25rem !important;
+  margin: 1.35rem auto 0.45rem !important;
+  border: 0 !important;
+  border-radius: 1.35rem !important;
+  /* SweetAlert2 positions its internal marks in em units. Keeping the icon
+     font-size at the base scale prevents checks and exclamation marks from
+     escaping the icon box. */
+  font-size: 1rem !important;
+  line-height: 4.25rem !important;
+}
+
+.guarde-alert-popup .swal2-icon.swal2-success {
+  color: #059669;
+  background: #ecfdf5;
+}
+
+.guarde-alert-popup .swal2-icon.swal2-error {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.guarde-alert-popup .swal2-icon.swal2-warning {
+  color: #d97706;
+  background: #fffbeb;
+}
+
+.guarde-alert-popup .swal2-icon.swal2-info,
+.guarde-alert-popup .swal2-icon.swal2-question {
+  color: var(--guarde-alert-blue);
+  background: #eff6ff;
+}
+
+.guarde-alert-popup .swal2-icon.swal2-success .swal2-success-ring {
+  border-color: rgba(16, 185, 129, 0.26);
+}
+
+.guarde-alert-popup .swal2-icon.swal2-success [class^='swal2-success-line'] {
+  background-color: #059669;
+}
+
+.guarde-alert-popup .swal2-icon.swal2-error [class^='swal2-x-mark-line'] {
+  background-color: #dc2626;
+}
+
+.guarde-alert-actions {
+  display: flex !important;
+  width: auto !important;
+  margin: 1.5rem 0 0 !important;
+  padding: 0 1.75rem 1.75rem !important;
+  gap: 0.65rem !important;
+}
+
+.guarde-alert-confirm,
+.guarde-alert-cancel,
+.guarde-alert-deny {
+  min-height: 2.75rem;
+  border: 0 !important;
+  border-radius: 0.85rem !important;
+  padding: 0.72rem 1.2rem !important;
+  font-size: 0.84rem !important;
+  font-weight: 750 !important;
+  line-height: 1 !important;
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease !important;
+}
+
+.guarde-alert-confirm {
+  color: #ffffff !important;
+  background: var(--guarde-alert-blue) !important;
+  box-shadow: 0 8px 16px -10px rgba(37, 99, 235, 0.9);
+}
+
+.guarde-alert-confirm:hover {
+  background: var(--guarde-alert-blue-dark) !important;
+  box-shadow: 0 10px 18px -10px rgba(37, 99, 235, 0.95);
+  transform: translateY(-1px);
+}
+
+.guarde-alert-confirm--danger {
+  background: #dc2626 !important;
+  box-shadow: 0 8px 16px -10px rgba(220, 38, 38, 0.9);
+}
+
+.guarde-alert-confirm--danger:hover {
+  background: #b91c1c !important;
+  box-shadow: 0 10px 18px -10px rgba(220, 38, 38, 0.95);
+}
+
+.guarde-alert-confirm--success {
+  background: #059669 !important;
+  box-shadow: 0 8px 16px -10px rgba(5, 150, 105, 0.9);
+}
+
+.guarde-alert-confirm--success:hover {
+  background: #047857 !important;
+  box-shadow: 0 10px 18px -10px rgba(5, 150, 105, 0.95);
+}
+
+.guarde-alert-cancel,
+.guarde-alert-deny {
+  color: #475569 !important;
+  background: #f1f5f9 !important;
+}
+
+.guarde-alert-cancel:hover,
+.guarde-alert-deny:hover {
+  color: #1e293b !important;
+  background: #e2e8f0 !important;
+  transform: translateY(-1px);
+}
+
+.guarde-alert-confirm:focus-visible,
+.guarde-alert-cancel:focus-visible,
+.guarde-alert-deny:focus-visible,
+.guarde-alert-popup .swal2-close:focus-visible {
+  outline: 3px solid rgba(96, 165, 250, 0.45) !important;
+  outline-offset: 2px;
+}
+
+.guarde-alert-input,
+.guarde-alert-popup .swal2-input,
+.guarde-alert-popup .swal2-select,
+.guarde-alert-popup .swal2-textarea {
+  width: calc(100% - 3.5rem) !important;
+  margin: 1rem 1.75rem 0 !important;
+  box-sizing: border-box !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 0.85rem !important;
+  color: #0f172a !important;
+  background: #f8fafc !important;
+  font-family: inherit !important;
+  font-size: 0.92rem !important;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease !important;
+}
+
+.guarde-alert-input:focus,
+.guarde-alert-popup .swal2-input:focus,
+.guarde-alert-popup .swal2-select:focus,
+.guarde-alert-popup .swal2-textarea:focus {
+  border-color: #60a5fa !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.16) !important;
+  outline: none !important;
+}
+
+.guarde-alert-validation {
+  width: calc(100% - 3.5rem) !important;
+  margin: 0.75rem 1.75rem 0 !important;
+  border-radius: 0.75rem !important;
+  color: #b91c1c !important;
+  background: #fef2f2 !important;
+  font-size: 0.78rem !important;
+  text-align: left !important;
+}
+
+.guarde-alert-toast {
+  width: min(92vw, 25rem) !important;
+  min-height: 4.4rem;
+  padding: 0.9rem 1rem !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 18px 45px -24px rgba(15, 23, 42, 0.55) !important;
+}
+
+.guarde-alert-toast .guarde-alert-icon {
+  width: 2.1rem !important;
+  height: 2.1rem !important;
+  margin: 0 0.75rem 0 0 !important;
+  border-radius: 0.65rem !important;
+  font-size: 1rem !important;
+  line-height: 2.1rem !important;
+}
+
+.guarde-alert-toast .guarde-alert-title {
+  margin: 0 !important;
+  color: var(--guarde-alert-ink) !important;
+  font-size: 0.86rem !important;
+  text-align: left !important;
+}
+
+.guarde-alert-toast .guarde-alert-html {
+  margin: 0.1rem 0 0 !important;
+  padding: 0 !important;
+  font-size: 0.76rem !important;
+  text-align: left !important;
+}
+
+.guarde-alert-toast .guarde-alert-actions {
+  display: none !important;
+}
+
+.guarde-alert-toast .guarde-alert-progress {
+  height: 0.2rem !important;
+  background: linear-gradient(90deg, #2563eb, #93c5fd) !important;
+}
+
+.guarde-alert-pop-in {
+  animation: guarde-alert-pop-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+.guarde-alert-pop-out {
+  animation: guarde-alert-pop-out 150ms ease-in both !important;
+}
+
+@keyframes guarde-alert-pop-in {
+  from { opacity: 0; transform: translateY(0.65rem) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes guarde-alert-pop-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(0.35rem) scale(0.985); }
+}
+
+@media (max-width: 480px) {
+  .guarde-alert-popup {
+    width: calc(100vw - 1.5rem) !important;
+    border-radius: 1.25rem !important;
+  }
+
+  .guarde-alert-title,
+  .guarde-alert-html,
+  .guarde-alert-input,
+  .guarde-alert-popup .swal2-input,
+  .guarde-alert-popup .swal2-select,
+  .guarde-alert-popup .swal2-textarea,
+  .guarde-alert-validation {
+    margin-left: 1.25rem !important;
+    margin-right: 1.25rem !important;
+  }
+
+  .guarde-alert-html,
+  .guarde-alert-input,
+  .guarde-alert-popup .swal2-input,
+  .guarde-alert-popup .swal2-select,
+  .guarde-alert-popup .swal2-textarea,
+  .guarde-alert-validation {
+    width: calc(100% - 2.5rem) !important;
+  }
+
+  .guarde-alert-actions {
+    padding: 0 1.25rem 1.25rem !important;
+  }
+
+  .guarde-alert-confirm,
+  .guarde-alert-cancel,
+  .guarde-alert-deny {
+    flex: 1 1 0;
+    padding-inline: 0.8rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guarde-alert-pop-in,
+  .guarde-alert-pop-out,
+  .guarde-alert-confirm,
+  .guarde-alert-cancel,
+  .guarde-alert-deny {
+    animation: none !important;
+    transition: none !important;
+  }
+}

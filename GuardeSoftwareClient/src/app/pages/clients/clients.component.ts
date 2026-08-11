@@ -15,7 +15,7 @@ import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO';
 import { Subject, Observable, firstValueFrom } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { ClientDetailModalComponent } from "../../shared/components/client-detail-modal/client-detail-modal.component";
-import Swal from 'sweetalert2';
+import Swal from '../../shared/services/ui-alert.service';
 import { ClientStatisticsDto } from '../../core/dtos/statistics/ClientStatisticsDto';
 import { StatisticsService } from '../../core/services/statics-service/statics-service.service';
 import { ɵɵDir } from "@angular/cdk/scrolling";

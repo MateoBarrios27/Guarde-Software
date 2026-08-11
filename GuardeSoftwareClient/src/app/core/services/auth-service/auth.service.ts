@@ -3,7 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs';
 import { environment } from '../../../../environments/environments';
-import Swal from 'sweetalert2';
+import Swal from '../../../shared/services/ui-alert.service';
+import { WorkspaceRouteReuseStrategy } from '../../routing/workspace-route-reuse.strategy';
 
 interface LoginRequest {
   emailOrUserName: string;
@@ -26,7 +27,11 @@ export class AuthService {
   private expirationTimer: any;
   private isShowingAlert = false;
 
-  constructor(private http: HttpClient, private router: Router) {
+  constructor(
+    private http: HttpClient,
+    private router: Router,
+    private workspaceRouteReuse: WorkspaceRouteReuseStrategy,
+  ) {
     this.autoLogoutOnTokenExpiration();
   }
 
@@ -35,6 +40,7 @@ export class AuthService {
 
     return this.http.post<AuthResponse>(`${this.url}/Auth/login`, body).pipe(
       tap(res => {
+        this.workspaceRouteReuse.startSession();
         localStorage.setItem('authToken', res.token);
         localStorage.setItem('expiresAt', res.expiresAt);
         localStorage.setItem('userName', res.userName);
@@ -47,6 +53,8 @@ export class AuthService {
   }
 
   logout() {
+    this.workspaceRouteReuse.clearForLogout();
+
     if (this.expirationTimer) {
       clearTimeout(this.expirationTimer);
       this.expirationTimer = null;

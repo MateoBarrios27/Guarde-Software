@@ -10,7 +10,7 @@ import { CreatePaymentDTO } from '../../core/dtos/payment/CreatePaymentDTO';
 import { NgxPaginationModule } from 'ngx-pagination';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
 import { PaymentMethod } from '../../core/models/payment-method';
-import Swal from 'sweetalert2';
+import Swal from '../../shared/services/ui-alert.service';
 import { PdfGeneratorService } from '../../core/services/pdfGenerator-service/pdf-generator.service';
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 import { Subscription } from 'rxjs';

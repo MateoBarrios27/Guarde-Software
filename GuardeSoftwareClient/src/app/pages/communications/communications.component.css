@@ -120,4 +120,427 @@
     transform: scale(1);
     opacity: 1;
   }
-}
+}
+
+/* === Sistema visual compartido para modales === */
+.communications-modal-backdrop,
+.communications-recipient-backdrop {
+  background: rgba(15, 23, 42, 0.58);
+  animation: communications-backdrop-in 180ms ease-out;
+}
+
+.communications-modal-shell,
+.communications-recipient-shell {
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 1.75rem;
+  background: #ffffff;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.24), 0 8px 24px rgba(37, 99, 235, 0.08);
+  animation: communications-modal-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.communications-modal-shell {
+  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-width: thin;
+}
+
+.communications-modal-history-shell {
+  max-width: 56rem;
+}
+
+.communications-modal-scroll {
+  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-width: thin;
+}
+
+.communications-modal-scroll::-webkit-scrollbar,
+.communications-recipient-shell *::-webkit-scrollbar {
+  width: 8px;
+}
+
+.communications-modal-scroll::-webkit-scrollbar-track,
+.communications-recipient-shell *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.communications-modal-scroll::-webkit-scrollbar-thumb,
+.communications-recipient-shell *::-webkit-scrollbar-thumb {
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.communications-modal-scroll::-webkit-scrollbar-thumb:hover,
+.communications-recipient-shell *::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.communications-modal-header {
+  position: relative;
+  overflow: hidden;
+  min-height: 76px;
+  margin: 0 !important;
+  padding: 1.25rem 1.5rem 1.1rem !important;
+  border-bottom: 1px solid #eef2f7 !important;
+  background: #ffffff;
+}
+
+.communications-modal-title {
+  margin: 0;
+  color: #172033;
+  letter-spacing: -0.025em;
+}
+
+.communications-modal-heading-icon {
+  flex: 0 0 auto;
+}
+
+.communications-modal-eyebrow {
+  line-height: 1.1;
+}
+
+.communications-modal-accent-danger .communications-modal-heading-icon {
+  border-color: #fecaca !important;
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+}
+
+.communications-modal-accent-danger .communications-modal-eyebrow {
+  color: #dc2626 !important;
+}
+
+.communications-modal-accent-success .communications-modal-heading-icon {
+  border-color: #bbf7d0 !important;
+  background: #f0fdf4 !important;
+  color: #059669 !important;
+}
+
+.communications-modal-accent-success .communications-modal-eyebrow {
+  color: #059669 !important;
+}
+
+.communications-modal-accent-warning .communications-modal-heading-icon {
+  border-color: #fed7aa !important;
+  background: #fff7ed !important;
+  color: #ea580c !important;
+}
+
+.communications-modal-accent-warning .communications-modal-eyebrow {
+  color: #ea580c !important;
+}
+
+.communications-modal-header > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  color: #94a3b8;
+  transition: color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.communications-modal-header > button:hover {
+  color: #334155;
+  background: #f1f5f9;
+  transform: rotate(4deg);
+}
+
+.communications-modal-content {
+  padding: 1.25rem 1.25rem 1.5rem;
+}
+
+.communications-confirmation-content {
+  padding: 2rem 1.5rem 1.5rem;
+}
+
+.communications-history-content {
+  min-height: 500px;
+}
+
+.communications-modal-shell label,
+.communications-recipient-shell label {
+  color: #475569;
+}
+
+.communications-modal-shell input:not([type='checkbox']):not([type='radio']):not([type='file']),
+.communications-modal-shell textarea,
+.communications-modal-shell select,
+.communications-recipient-shell input:not([type='checkbox']):not([type='radio']):not([type='file']) {
+  border-color: #dbe3ef;
+  border-radius: 0.85rem;
+  background-color: #ffffff;
+  color: #172033;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.communications-modal-shell input:not([type='checkbox']):not([type='radio']):not([type='file']):hover,
+.communications-modal-shell textarea:hover,
+.communications-modal-shell select:hover,
+.communications-recipient-shell input:not([type='checkbox']):not([type='radio']):not([type='file']):hover {
+  border-color: #b8c7dc;
+}
+
+.communications-modal-shell input:not([type='checkbox']):not([type='radio']):not([type='file']):focus,
+.communications-modal-shell textarea:focus,
+.communications-modal-shell select:focus,
+.communications-recipient-shell input:not([type='checkbox']):not([type='radio']):not([type='file']):focus {
+  border-color: #60a5fa;
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.16);
+}
+
+.communications-modal-shell textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.communications-modal-shell .bg-gray-50,
+.communications-modal-shell .bg-blue-50,
+.communications-modal-shell .bg-yellow-50,
+.communications-modal-shell .bg-red-50 {
+  border-radius: 1rem;
+}
+
+.communications-modal-shell .border-t {
+  border-color: #eef2f7;
+}
+
+.communications-submit-action,
+.communications-success-action,
+.communications-danger-action,
+.communications-warning-action {
+  border: 0;
+  border-radius: 0.9rem !important;
+  font-weight: 700;
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.communications-submit-action:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #3159d9 100%) !important;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+}
+
+.communications-submit-action:not(:disabled):hover,
+.communications-success-action:hover,
+.communications-danger-action:hover,
+.communications-warning-action:hover {
+  transform: translateY(-1px);
+}
+
+.communications-submit-action:not(:disabled):hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2647c3 100%) !important;
+  box-shadow: 0 14px 26px rgba(37, 99, 235, 0.28);
+}
+
+.communications-submit-action:disabled {
+  background: #cbd5e1 !important;
+  color: #64748b !important;
+}
+
+.communications-success-action {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  box-shadow: 0 10px 22px rgba(5, 150, 105, 0.2);
+}
+
+.communications-danger-action {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.2);
+}
+
+.communications-warning-action {
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%) !important;
+  box-shadow: 0 10px 22px rgba(234, 88, 12, 0.2);
+}
+
+.communications-cancel-action {
+  border-color: #e2e8f0 !important;
+  border-radius: 0.9rem !important;
+  background: #f8fafc !important;
+  color: #475569 !important;
+  font-weight: 650;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.communications-cancel-action:hover {
+  border-color: #cbd5e1 !important;
+  background: #eef2f7 !important;
+  transform: translateY(-1px);
+}
+
+.communications-confirmation-icon {
+  box-shadow: 0 10px 24px rgba(220, 38, 38, 0.14);
+}
+
+.communications-recipient-shell {
+  position: relative;
+  border-radius: 1.5rem;
+}
+
+.communications-recipient-header {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 1.25rem 1.5rem !important;
+}
+
+.communications-recipient-header h2 {
+  position: relative;
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.communications-recipient-header p {
+  position: relative;
+  color: #64748b;
+}
+
+.communications-recipient-header > button {
+  position: relative;
+  z-index: 1;
+  transition: transform 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.communications-recipient-header > button:hover {
+  color: #334155;
+  background: #f1f5f9;
+  transform: rotate(4deg);
+}
+
+.communications-recipient-sidebar {
+  border-color: #e8eef6 !important;
+  background: linear-gradient(180deg, #f8fbff 0%, #f8fafc 100%) !important;
+}
+
+.communications-recipient-sidebar h3 {
+  color: #64748b;
+}
+
+.communications-recipient-toolbar {
+  border-color: #eef2f7 !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+}
+
+.communications-recipient-toolbar button {
+  border-color: #dbe3ef;
+  border-radius: 0.8rem;
+}
+
+.communications-recipient-count,
+.communications-recipient-footer {
+  border-color: #eef2f7 !important;
+  background: #f8fafc !important;
+}
+
+.communications-recipient-footer button {
+  min-height: 2.75rem;
+}
+
+.communications-recipient-shell .selector-btn {
+  min-height: 3.25rem;
+  border-color: #dbe3ef;
+  border-radius: 0.9rem;
+}
+
+.communications-recipient-shell .selector-btn:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 8px 18px rgba(59, 130, 246, 0.1);
+  transform: translateY(-1px);
+}
+
+.communications-recipient-shell .grid > div {
+  border-color: #eef2f7;
+  border-radius: 0.85rem;
+}
+
+.communications-recipient-shell .grid > div:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 5px 14px rgba(30, 64, 175, 0.07);
+}
+
+.communications-recipient-shell .grid > div .bg-blue-50 {
+  background: #eff6ff;
+}
+
+@keyframes communications-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes communications-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 768px) {
+  .communications-modal-shell {
+    border-radius: 1.35rem;
+  }
+
+  .communications-modal-header {
+    padding: 1.1rem 1.15rem 1rem !important;
+  }
+
+  .communications-modal-content {
+    padding: 1.15rem;
+  }
+
+  .communications-recipient-shell {
+    height: calc(100vh - 1rem);
+    border-radius: 1.25rem;
+  }
+
+  .communications-recipient-body {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .communications-recipient-sidebar {
+    width: 100%;
+    max-height: 13.5rem;
+    overflow-y: auto;
+    border-right: 0 !important;
+    border-bottom: 1px solid #e8eef6;
+  }
+
+  .communications-recipient-toolbar {
+    flex-direction: column;
+  }
+
+  .communications-recipient-toolbar button {
+    width: 100%;
+  }
+
+  .communications-recipient-footer {
+    flex-direction: column-reverse;
+  }
+
+  .communications-recipient-footer button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .communications-modal-backdrop,
+  .communications-recipient-backdrop,
+  .communications-modal-shell,
+  .communications-recipient-shell {
+    animation: none;
+  }
+
+  .communications-submit-action,
+  .communications-success-action,
+  .communications-danger-action,
+  .communications-warning-action,
+  .communications-cancel-action,
+  .communications-recipient-shell .selector-btn {
+    transition: none;
+  }
+}

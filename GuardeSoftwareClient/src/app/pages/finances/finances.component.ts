@@ -11,7 +11,7 @@ import { NgxPaginationModule } from 'ngx-pagination';
 import { ClientService } from '../../core/services/client-service/client.service';
 import { Client } from '../../core/models/client';
 import { CreatePaymentDTO } from '../../core/dtos/payment/CreatePaymentDTO';
-import Swal from 'sweetalert2';
+import Swal from '../../shared/services/ui-alert.service';
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PdfGeneratorService } from '../../core/services/pdfGenerator-service/pdf-generator.service';
@@ -102,7 +102,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
   amountOriginal = 0;
   selectedClientIncreaseAnchorDate: string | null = null;
   
-  // Banderas de lÃ³gica
+  // Banderas de lógica
   hasIncreaseInPeriod: boolean = false;
   public isIncreaseNextMonth: boolean = false;
 
@@ -346,7 +346,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
             this.OpenPaymentModal();
             // 2. Llenamos el buscador visualmente (opcional pero queda bien)
             this.searchClient = clientToPay.fullName;
-            // 3. Ejecutamos tu funciÃ³n exacta que carga toda la deuda y comisiones
+            // 3. Ejecutamos tu función exacta que carga toda la deuda y comisiones
             this.selectClient(clientToPay);
           }
 
@@ -1412,21 +1412,21 @@ export class FinancesComponent implements OnInit, OnDestroy {
   deletePayment(p: DetailedPaymentView): void {
       const isGroup = p.isGrouped;
       Swal.fire({
-        title: isGroup ? 'Â¿Eliminar transacciÃ³n completa?' : 'Â¿Eliminar movimiento?',
+        title: isGroup ? '¿Eliminar transacción completa?' : '¿Eliminar movimiento?',
         text: isGroup 
-           ? 'Se borrarÃ¡ el pago principal y su bonificaciÃ³n/recargo asociado. Esta acciÃ³n no se puede deshacer.'
-           : 'Esta acciÃ³n borrarÃ¡ este registro contable. No se puede deshacer.',
+           ? 'Se borrará el pago principal y su bonificación/recargo asociado. Esta acción no se puede deshacer.'
+           : 'Esta acción borrará este registro contable. No se puede deshacer.',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33', 
         cancelButtonColor: '#9ca3af', 
-        confirmButtonText: 'SÃ­, eliminar',
+        confirmButtonText: 'Sí, eliminar',
         cancelButtonText: 'Cancelar'
       }).then((result) => {
         if (result.isConfirmed) {
           this.paymentService.deletePayment(p.movementId).subscribe({
             next: () => {
-              Swal.fire({ title: 'Â¡Eliminado!', text: 'El registro ha sido borrado correctamente.', icon: 'success', confirmButtonColor: '#2563eb' });
+              Swal.fire({ title: '¡Eliminado!', text: 'El registro ha sido borrado correctamente.', icon: 'success', confirmButtonColor: '#2563eb' });
               this.loadPayments(); 
               this.loadClients();
             },
@@ -1564,7 +1564,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
   }
 
   // =========================================================
-  // --- LÃ“GICA DEL CEREBRO DE AUMENTOS ---
+  // --- LÓGICA DEL CEREBRO DE AUMENTOS ---
   // =========================================================
   
   private getSelectedPaymentMonth(): { year: number; month: number } {
@@ -1583,18 +1583,18 @@ export class FinancesComponent implements OnInit, OnDestroy {
       return this.getSelectedPaymentMonth();
     }
 
-    // 2. Desarmamos el Ãºltimo mes generado por el backend (Ej: "05/2026")
+    // 2. Desarmamos el último mes generado por el backend (Ej: "05/2026")
     const [mStr, yStr] = this.selectedClientLastMonth.split('/');
     let lastMonth = parseInt(mStr, 10);
     let lastYear = parseInt(yStr, 10);
 
-    // 3. Si el balance es >= 0, el Ãºltimo mes que figura en la base de datos ya no tiene deuda.
-    // En ese caso, tomamos como base el mes del pago seleccionado para no correr un mes de mÃ¡s.
+    // 3. Si el balance es >= 0, el último mes que figura en la base de datos ya no tiene deuda.
+    // En ese caso, tomamos como base el mes del pago seleccionado para no correr un mes de más.
     if (this.selectedClientBalance >= 0) {
         return this.getSelectedPaymentMonth();
     } else {
         // Si DEBE PLATA (balance < 0), la plata que traiga ahora se va a aplicar 
-        // a ese mismo Ãºltimo mes para tapar el agujero de deuda.
+        // a ese mismo último mes para tapar el agujero de deuda.
         return { year: lastYear, month: lastMonth };
     }
   }
@@ -1676,11 +1676,11 @@ export class FinancesComponent implements OnInit, OnDestroy {
   }
 
   savePaymentModal(dto: CreatePaymentDTO) {
-    if (!this.paymentMethods?.length) { Swal.fire({ icon: 'warning', title: 'Cargando mÃ©todos', text: 'EsperÃ¡ a que carguen.' }); return; }
-    if (!this.paymentDto.clientId || this.paymentDto.clientId <= 0) { Swal.fire({ icon: 'warning', title: 'Cliente requerido', text: 'SeleccionÃ¡ un cliente.' }); return; }
-    if (!dto.amount || dto.amount <= 0) { Swal.fire({ icon: 'warning', title: 'Monto invÃ¡lido', text: 'IngresÃ¡ un monto vÃ¡lido.' }); return; }
-    if (!dto.paymentMethodId) { Swal.fire({ icon: 'warning', title: 'MÃ©todo requerido', text: 'SeleccionÃ¡ mÃ©todo.' }); return; }
-    if (dto.isAdvancePayment && (!dto.advanceMonths || dto.advanceMonths < 1)) { Swal.fire({ icon: 'warning', title: 'Meses invÃ¡lidos', text: 'MÃ­nimo 1 mes.' }); return; }
+    if (!this.paymentMethods?.length) { Swal.fire({ icon: 'warning', title: 'Cargando métodos', text: 'Esperá a que carguen.' }); return; }
+    if (!this.paymentDto.clientId || this.paymentDto.clientId <= 0) { Swal.fire({ icon: 'warning', title: 'Cliente requerido', text: 'Seleccioná un cliente.' }); return; }
+    if (!dto.amount || dto.amount <= 0) { Swal.fire({ icon: 'warning', title: 'Monto inválido', text: 'Ingresá un monto válido.' }); return; }
+    if (!dto.paymentMethodId) { Swal.fire({ icon: 'warning', title: 'Método requerido', text: 'Seleccioná método.' }); return; }
+    if (dto.isAdvancePayment && (!dto.advanceMonths || dto.advanceMonths < 1)) { Swal.fire({ icon: 'warning', title: 'Meses inválidos', text: 'Mínimo 1 mes.' }); return; }
 
     if (this.manualDateEnabled && this.dateString) {
       const [year, month, day] = this.dateString.split('-').map(Number);
@@ -1785,7 +1785,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
     const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
     
-    // Aplicamos redondeo segÃºn el mÃ©todo
+    // Aplicamos redondeo según el método
     newRent = this.roundRentAmount(newRent, methodName, rent, perc);
 
     // RE-CALCULAMOS el porcentaje exacto tras el redondeo usando 4 decimales
@@ -1815,12 +1815,12 @@ export class FinancesComponent implements OnInit, OnDestroy {
   // --- ESCENARIO A: Al terminar de editar el PORCENTAJE ---
   onIncreasePercentageBlur() {
   const rent = this.selectedClientRentAmount || 0;
-  const perc = this.increasePercentage || 0; // El % que escribiÃ³ el usuario
+  const perc = this.increasePercentage || 0; // El % que escribió el usuario
   
   let targetRent = rent + (rent * (perc / 100));
   const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
   
-  // AquÃ­ pasamos el 'perc' para que la funciÃ³n sepa quÃ© cumplir
+  // Aquí pasamos el 'perc' para que la función sepa qué cumplir
   this.projectedNewRent = this.roundRentAmount(targetRent, methodName, rent, perc);
     
   // Recalculamos el % real final tras el redondeo forzado
@@ -1836,7 +1836,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
     const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
     
-    // Aplicamos redondeo a lo que escribiÃ³ el usuario segÃºn el mÃ©todo
+    // Aplicamos redondeo a lo que escribió el usuario según el método
     targetRent = this.roundRentAmount(targetRent, methodName, rent, this.increasePercentage);
     this.projectedNewRent = targetRent; 
     

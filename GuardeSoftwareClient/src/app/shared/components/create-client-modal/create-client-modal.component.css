@@ -1,0 +1,15 @@
+:host ::ng-deep .validation-submitted input.ng-invalid:not([type='checkbox']):not([type='radio']),
+:host ::ng-deep .validation-submitted select.ng-invalid,
+:host ::ng-deep .validation-submitted textarea.ng-invalid {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+  box-shadow: 0 0 0 3px rgb(220 38 38 / 18%);
+}
+
+:host ::ng-deep .validation-submitted input.ng-invalid:not([type='checkbox']):not([type='radio']):focus,
+:host ::ng-deep .validation-submitted select.ng-invalid:focus,
+:host ::ng-deep .validation-submitted textarea.ng-invalid:focus {
+  border-color: #b91c1c !important;
+  outline: none;
+  box-shadow: 0 0 0 4px rgb(220 38 38 / 28%);
+}
