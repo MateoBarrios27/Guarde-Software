@@ -43,7 +43,7 @@ namespace GuardeSoftwareAPI.Controllers
 
                 if (lockerTypes == null)
                 {
-                    return NotFound($"locker type id n�{id} not found ");
+                    return NotFound($"locker type id {id} not found");
                 }
                 return Ok(lockerTypes);
             }

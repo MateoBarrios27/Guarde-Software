@@ -476,7 +476,7 @@ namespace GuardeSoftwareAPI.Dao
         {
             var filterParameters = new List<SqlParameter>();
             var finalWhereClause = new StringBuilder("WHERE 1=1 ");
-            var clientDataWhereClause = request.Active.HasValue ? "WHERE c.active = @Active " : string.Empty;
+            var clientDataWhereClause = request.Active.HasValue ? "WHERE c.active = @Active AND c.is_deleted = 0 " : "WHERE c.is_deleted = 0 ";
 
             if (request.Active.HasValue)
             {
@@ -1344,6 +1344,15 @@ namespace GuardeSoftwareAPI.Dao
             string query = "UPDATE clients SET notes = @Notes WHERE client_id = @Id";
             SqlParameter[] parameters = [
                 new SqlParameter("@Notes", SqlDbType.NVarChar) { Value = (object?)notes ?? DBNull.Value },
+                new SqlParameter("@Id", SqlDbType.Int) { Value = clientId }
+            ];
+            return await accessDB.ExecuteCommandAsync(query, parameters) > 0;
+        }
+
+        public async Task<bool> SoftDeleteClientAsync(int clientId)
+        {
+            string query = "UPDATE clients SET is_deleted = 1 WHERE client_id = @Id";
+            SqlParameter[] parameters = [
                 new SqlParameter("@Id", SqlDbType.Int) { Value = clientId }
             ];
             return await accessDB.ExecuteCommandAsync(query, parameters) > 0;

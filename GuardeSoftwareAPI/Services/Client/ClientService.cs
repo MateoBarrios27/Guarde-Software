@@ -881,6 +881,8 @@ namespace GuardeSoftwareAPI.Services.client
         {
             if (id <= 0) throw new ArgumentException("ID de cliente inválido.");
             ArgumentNullException.ThrowIfNull(dto);
+            if (!dto.LegacyNextIncreaseDate.HasValue)
+                throw new ArgumentException("La fecha de próximo aumento es requerida.");
 
             using (var connection = accessDB.GetConnectionClose())
             {
