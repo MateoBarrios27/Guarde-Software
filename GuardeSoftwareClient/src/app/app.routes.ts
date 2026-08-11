@@ -18,15 +18,15 @@ export const routes: Routes = [
 
   { path: 'login', component: LoginComponent, data: { title: 'Login' } },
   
-  { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard], data: { title: 'Panel Principal' } },
-  { path: 'clients', component: ClientsComponent, canActivate: [AuthGuard], data: { title: 'Clientes' } },
-  { path: 'lockers', component: LockersComponent, canActivate: [AuthGuard], data: { title: 'Bauleras' } },
-  { path: 'finances', component: FinancesComponent, canActivate: [AuthGuard], data: { title: 'Finanzas' } },
-  { path: 'communications', component: CommunicationsComponent, data: { title: 'Comunicaciones' } },
-  { path: 'reports', component: ReportsComponent, canActivate: [AuthGuard], data: { title: 'Reportes' } },
-  { path: 'statistics', component: StatisticsComponent, canActivate: [AuthGuard], data: { title: 'Estadísticas' } },
-  { path: 'settings', component: SettingsComponent, canActivate: [AuthGuard], data: { title: 'Configuración' } },
-  { path: 'cash', component: CashComponent, canActivate: [adminGuard], data: { title: 'Caja' } },
+  { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard], data: { title: 'Panel Principal', reuse: true } },
+  { path: 'clients', component: ClientsComponent, canActivate: [AuthGuard], data: { title: 'Clientes', reuse: true } },
+  { path: 'lockers', component: LockersComponent, canActivate: [AuthGuard], data: { title: 'Bauleras', reuse: true } },
+  { path: 'finances', component: FinancesComponent, canActivate: [AuthGuard], data: { title: 'Finanzas', reuse: true } },
+  { path: 'communications', component: CommunicationsComponent, data: { title: 'Comunicaciones', reuse: true } },
+  { path: 'reports', component: ReportsComponent, canActivate: [AuthGuard], data: { title: 'Reportes', reuse: true } },
+  { path: 'statistics', component: StatisticsComponent, canActivate: [AuthGuard], data: { title: 'Estadísticas', reuse: true } },
+  { path: 'settings', component: SettingsComponent, canActivate: [AuthGuard], data: { title: 'Configuración', reuse: true } },
+  { path: 'cash', component: CashComponent, canActivate: [adminGuard], data: { title: 'Caja', reuse: true } },
   
   // Wildcard route to handle not-found URLs
   { path: '**', redirectTo: '/login' }

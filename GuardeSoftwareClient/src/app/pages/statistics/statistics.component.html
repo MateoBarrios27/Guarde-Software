@@ -1,197 +1,255 @@
-<div class="space-y-8 animate-fade-in p-2">
-  
-  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-    <div>
-      <h1 class="text-xl font-semibold text-gray-900">Estadísticas Financieras</h1>
-      <p class="text-gray-500 text-sm mt-1">Métricas del mes de {{ monthName }}.</p>
-    </div>
-    
-    <div class="flex items-center bg-gray-50 rounded-lg p-1 border border-gray-200">
-      <button 
-        (click)="prevMonth()" 
-        [disabled]="isLoading" 
-        class="p-2 flex items-center justify-center hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
-        <app-icon name="chevron-left" class="h-5 w-5"></app-icon>
-      </button>
-      <div class="px-4 py-1 min-w-[160px] text-center text-sm font-medium text-gray-700 capitalize">
-        {{ monthName }}
+<section class="statistics-page">
+  <!-- Barra de contexto: la vista no queda encerrada en una tarjeta adicional -->
+  <header class="flex flex-col gap-4 border-b border-gray-200/80 bg-white px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between lg:px-6">
+      <div class="flex min-w-0 items-center gap-3.5">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+          <app-icon name="trending-up" class="h-5 w-5"></app-icon>
+        </div>
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-base font-bold tracking-tight text-gray-900 sm:text-lg">Estadísticas financieras</h1>
+            <span class="rounded-full border border-blue-200/70 bg-blue-100/70 px-2 py-0.5 text-[10px] font-bold capitalize text-blue-700">
+              {{ monthName }}
+            </span>
+          </div>
+          <p class="mt-0.5 text-xs font-medium text-gray-500">Resumen de ingresos, saldos y ocupación del período.</p>
+        </div>
       </div>
-      <button 
-        (click)="nextMonth()" 
-        [disabled]="isLoading || isCurrentMonth" 
-        class="p-2 flex items-center justify-center hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
-        
-        <app-icon name="chevron-right" class="h-5 w-5"></app-icon>
 
-      </button>
-    </div>
+      <div class="flex w-full items-center rounded-lg border border-gray-200 bg-gray-50/80 p-1 shadow-sm lg:w-auto">
+        <button
+          type="button"
+          (click)="prevMonth()"
+          [disabled]="isLoading"
+          aria-label="Ver mes anterior"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-white hover:text-gray-900 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <app-icon name="chevron-left" class="h-4 w-4"></app-icon>
+        </button>
+        <div class="min-w-0 flex-1 px-4 text-center lg:min-w-[170px]">
+          <p class="truncate text-xs font-bold capitalize text-gray-800">{{ monthName }}</p>
+          <p class="text-[9px] font-bold uppercase tracking-wider text-gray-400">Período seleccionado</p>
+        </div>
+        <button
+          type="button"
+          (click)="nextMonth()"
+          [disabled]="isLoading || isCurrentMonth"
+          aria-label="Ver mes siguiente"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-white hover:text-gray-900 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <app-icon name="chevron-right" class="h-4 w-4"></app-icon>
+        </button>
+      </div>
+  </header>
+
+    <!-- Skeleton de carga: mantiene la estructura y evita saltos de layout -->
+  <div *ngIf="isLoading" class="statistics-content space-y-4" aria-live="polite" aria-busy="true">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div *ngFor="let item of [1, 2, 3, 4]" class="h-28 animate-pulse rounded-xl border border-gray-100 bg-gray-100/70"></div>
+      </div>
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div class="h-64 animate-pulse rounded-xl bg-gray-100/70 lg:col-span-2"></div>
+        <div class="h-64 animate-pulse rounded-xl bg-gray-100/70"></div>
+      </div>
+      <p class="sr-only">Cargando estadísticas</p>
   </div>
 
-  <div *ngIf="isLoading" class="flex justify-center py-12">
-    <app-icon name="loader" class="h-10 w-10 text-blue-600 animate-spin"></app-icon>
-  </div>
-
-  <div *ngIf="!isLoading" class="space-y-8">
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-      
-      <div class="bg-gray-50/50 p-6 rounded-xl border border-gray-100 shadow-sm relative">
-        <div class="flex justify-between items-start">
-          <div>
-            <p class="text-xs font-semibold text-gray-600 uppercase tracking-wider">INGRESOS</p>
-            <div class="mt-3 text-3xl font-bold text-gray-600">
-              {{ stats.totalPagado | currency:'ARS':'symbol-narrow':'1.0-0' }}
-            </div>
-            <p class="text-xs text-gray-400 mt-1">Ingresos reales recibidos</p>
-          </div>
-          <app-icon name="dollar-sign" class="h-5 w-5 text-gray-400"></app-icon>
+    <!-- Estado de error alineado con el tratamiento de estados de los modales -->
+  <div *ngIf="!isLoading && hasError" class="statistics-content">
+      <div class="flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-red-200 bg-red-50/50 px-6 py-12 text-center">
+        <div class="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-red-100 bg-white text-red-500 shadow-sm">
+          <app-icon name="alert-triangle" class="h-5 w-5"></app-icon>
         </div>
+        <h2 class="text-sm font-bold text-gray-900">No pudimos cargar las estadísticas</h2>
+        <p class="mt-1 max-w-sm text-xs leading-5 text-gray-500">Revisá la conexión e intentá nuevamente. El período seleccionado no se modificó.</p>
+        <button
+          type="button"
+          (click)="loadStats()"
+          class="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+        >
+          <app-icon name="RefreshCw" class="h-3.5 w-3.5"></app-icon>
+          Reintentar
+        </button>
       </div>
-
-      <div class="bg-gray-50/50 p-6 rounded-xl border border-gray-100 shadow-sm relative">
-        <div class="flex justify-between items-start">
-          <div>
-            <p class="text-xs font-semibold text-gray-600 uppercase tracking-wider">ABONO</p>
-            <div class="mt-3 text-3xl font-bold text-gray-600">
-              {{ stats.totalAlquileres | currency:'ARS':'symbol-narrow':'1.0-0' }}
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Sumatoria de los alquileres</p>
-          </div>
-          <app-icon name="receipt" class="h-5 w-5 text-gray-500"></app-icon>
-        </div>
-      </div>
-
-      <div class="bg-purple-50/50 p-6 rounded-xl border border-purple-100 shadow-sm relative">
-        <div class="flex justify-between items-start">
-          <div>
-            <p class="text-xs font-semibold text-purple-600 uppercase tracking-wider">INTERESES</p>
-            <div class="mt-3 text-3xl font-bold text-purple-600">
-              {{ stats.totalIntereses | currency:'ARS':'symbol-narrow':'1.0-0' }}
-            </div>
-            <p class="text-xs text-purple-500 mt-1">Intereses aplicados</p>
-          </div>
-          <app-icon name="percent" class="h-5 w-5 text-purple-500"></app-icon>
-        </div>
-      </div>
-
-      <div class="bg-orange-50/50 p-6 rounded-xl border border-orange-100 shadow-sm relative">
-        <div class="flex justify-between items-start">
-          <div>
-            <p class="text-xs font-semibold text-orange-600 uppercase tracking-wider">SALDO ANTERIOR</p>
-            <div class="mt-3 text-3xl font-bold text-orange-600">
-              {{ stats.deudaTotalDelMes | currency:'ARS':'symbol-narrow':'1.0-0' }}
-            </div>
-            <p class="text-xs text-orange-500 mt-1">Saldo proveniente de meses anteriores</p>
-          </div>
-          <app-icon name="file-text" class="h-5 w-5 text-orange-500"></app-icon>
-        </div>
-      </div>
-
-      <div class="bg-gray-50/50 p-6 rounded-xl border border-gray-100 shadow-sm relative">
-        <div class="flex justify-between items-start">
-          <div>
-            <p class="text-xs font-semibold text-gray-600 uppercase tracking-wider">Pagos Adelantados</p>
-            <div class="mt-3 text-3xl font-bold text-gray-600">
-              {{ stats.totalAdvancePayments | currency:'ARS':'symbol-narrow':'1.0-0' }}
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Saldo a favor generado este mes</p>
-          </div>
-          <app-icon name="clock-clockwise" class="h-5 w-5 text-gray-500"></app-icon>
-        </div>
-      </div>
-
-      <div class="bg-yellow-50/50 p-6 rounded-xl border border-yellow-200 shadow-sm relative">
-        <div class="flex justify-between items-start">
-          <div>
-            <p class="text-xs font-semibold text-yellow-600 uppercase tracking-wider">Total IVA Factura A</p>
-            <div class="mt-3 text-3xl font-bold text-yellow-600">
-              {{ stats.totalIvaFacturaA | currency:'ARS':'symbol-narrow':'1.0-0' }}
-            </div>
-            <p class="text-xs text-yellow-500 mt-1">IVA generado en facturas A</p>
-          </div>
-          <app-icon name="file-invoice" class="h-5 w-5 text-yellow-500"></app-icon>
-        </div>
-      </div>
-
-      <div class="bg-yellow-50/50 p-6 rounded-xl border border-yellow-200 shadow-sm relative">
-        <div class="flex justify-between items-start">
-          <div>
-            <p class="text-xs font-semibold text-yellow-600 uppercase tracking-wider">Total IVA Factura B</p>
-            <div class="mt-3 text-3xl font-bold text-yellow-600">
-              {{ stats.totalIvaFacturaB | currency:'ARS':'symbol-narrow':'1.0-0' }}
-            </div>
-            <p class="text-xs text-yellow-500 mt-1">IVA generado en facturas B</p>
-          </div>
-          <app-icon name="file-invoice" class="h-5 w-5 text-yellow-500"></app-icon>
-        </div>
-      </div>
-
     </div>
 
-    <div>
-      <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">RECAUDACIÓN POR DEPÓSITO</h3>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        
-        <div *ngFor="let depo of stats.warehouseRevenues" class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-          <div class="flex items-start gap-4">
-            <div class="bg-blue-50 p-3 rounded-lg">
-              <app-icon name="warehouse" class="h-6 w-6 text-blue-600"></app-icon>
+  <div *ngIf="!isLoading && !hasError" class="statistics-content">
+      <!-- Indicadores principales -->
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <article class="metric-card metric-card--primary">
+          <div class="metric-icon bg-blue-50 text-blue-600 ring-blue-100">
+            <app-icon name="dollar-circle" class="h-4 w-4"></app-icon>
+          </div>
+          <div class="min-w-0">
+            <p class="metric-label text-blue-600">Ingresos recibidos</p>
+            <p class="metric-value">{{ stats.totalPagado | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+            <p class="metric-caption">Pagos reales del mes</p>
+          </div>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-icon bg-gray-100 text-gray-600 ring-gray-200">
+            <app-icon name="receipt" class="h-4 w-4"></app-icon>
+          </div>
+          <div class="min-w-0">
+            <p class="metric-label">Abonos</p>
+            <p class="metric-value">{{ stats.totalAlquileres | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+            <p class="metric-caption">Alquileres facturados</p>
+          </div>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-icon bg-purple-50 text-purple-600 ring-purple-100">
+            <app-icon name="percent" class="h-4 w-4"></app-icon>
+          </div>
+          <div class="min-w-0">
+            <p class="metric-label text-purple-600">Intereses</p>
+            <p class="metric-value">{{ stats.totalIntereses | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+            <p class="metric-caption">Intereses aplicados</p>
+          </div>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-icon bg-amber-50 text-amber-600 ring-amber-100">
+            <app-icon name="clock" class="h-4 w-4"></app-icon>
+          </div>
+          <div class="min-w-0">
+            <p class="metric-label text-amber-600">Saldo anterior</p>
+            <p class="metric-value">{{ stats.deudaTotalDelMes | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+            <p class="metric-caption">De meses anteriores</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <!-- Recaudación por depósito -->
+        <section class="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm xl:col-span-2">
+          <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <div class="flex items-center gap-3">
+              <div class="flex h-8 w-8 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+                <app-icon name="warehouse" class="h-4 w-4"></app-icon>
+              </div>
+              <div>
+                <h2 class="text-sm font-bold tracking-tight text-gray-900">Recaudación por depósito</h2>
+                <p class="text-[11px] font-medium capitalize text-gray-400">Detalle de {{ monthName }}</p>
+              </div>
             </div>
-            
-            <div class="flex-1">
-              <h4 class="text-sm font-semibold text-gray-800">{{ depo.name }}</h4>
-              <!-- <p class="text-xs text-gray-500 mb-3">{{ depo.address }}</p> -->
-              
-              <div class="text-xl font-bold text-blue-600">
+            <span class="rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">
+              {{ stats.warehouseRevenues?.length || 0 }} depósitos
+            </span>
+          </div>
+
+          <div *ngIf="stats.warehouseRevenues?.length; else emptyWarehouses" class="divide-y divide-gray-100 px-5">
+            <div
+              *ngFor="let depo of stats.warehouseRevenues; trackBy: trackWarehouse"
+              class="group flex items-center gap-4 py-4"
+            >
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-500 transition-colors group-hover:border-blue-100 group-hover:bg-blue-50 group-hover:text-blue-600">
+                <app-icon name="building" class="h-4 w-4"></app-icon>
+              </div>
+              <div class="min-w-0 flex-1">
+                <h3 class="truncate text-xs font-bold text-gray-800">{{ depo.name }}</h3>
+                <p class="mt-0.5 text-[10px] font-medium text-gray-400">Ingresos acreditados en el período</p>
+              </div>
+              <p class="shrink-0 text-sm font-bold tabular-nums text-gray-900 sm:text-base">
                 {{ depo.revenue | currency:'ARS':'symbol-narrow':'1.0-0' }}
-              </div>
-              <p class="text-[10px] text-gray-400 mt-1">Recaudado en {{ monthName | titlecase }}</p>
+              </p>
             </div>
           </div>
-        </div>
 
-        <div *ngIf="!stats.warehouseRevenues?.length" class="col-span-full py-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
-           <p class="text-gray-500 text-sm">No hay datos de recaudación por depósito para este periodo.</p>
-        </div>
+          <ng-template #emptyWarehouses>
+            <div class="flex min-h-52 flex-col items-center justify-center px-6 py-10 text-center">
+              <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-400">
+                <app-icon name="warehouse" class="h-4 w-4"></app-icon>
+              </div>
+              <p class="text-xs font-bold text-gray-700">Sin recaudación por depósito</p>
+              <p class="mt-1 text-[11px] text-gray-400">No hay movimientos registrados para este período.</p>
+            </div>
+          </ng-template>
+        </section>
 
-      </div>
-    </div>
-
-    <div class="border-t border-gray-200 pt-8">
-      <h3 class="text-center text-xs font-semibold text-gray-400 uppercase tracking-widest mb-6 px-4 bg-gray-100 w-fit mx-auto -mt-11">ESTADÍSTICAS ACTUALES</h3>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        <div class="bg-gray-50/50 p-6 rounded-xl border border-gray-100 shadow-sm">
-          <div class="flex justify-between items-start">
+        <!-- Estado actual -->
+        <section class="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm">
+          <div class="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+            <div class="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm">
+              <app-icon name="scales" class="h-4 w-4"></app-icon>
+            </div>
             <div>
-              <p class="text-xs font-semibold text-gray-600 uppercase tracking-wider">SALDOS</p>
-              <div class="mt-3 text-3xl font-bold text-gray-600">
-                {{ stats.balanceGlobalActual | currency:'ARS':'symbol-narrow':'1.0-0' }}
-              </div>
-              <p class="text-xs text-gray-500 mt-1">Saldo actual de los clientes activos</p>
+              <h2 class="text-sm font-bold tracking-tight text-gray-900">Estado actual</h2>
+              <p class="text-[11px] font-medium text-gray-400">Foto general del negocio</p>
             </div>
-            <app-icon name="scales" class="h-5 w-5 text-gray-600"></app-icon>
           </div>
-        </div>
 
-        <div class="bg-orange-50/50 p-6 rounded-xl border border-orange-100 shadow-sm">
-          <div class="flex justify-between items-start">
-            <div>
-              <p class="text-xs font-semibold text-orange-600 uppercase tracking-wider">ESPACIOS OCUPADOS</p>
-              <div class="mt-3 text-3xl font-bold text-orange-600 flex items-baseline gap-2">
-                {{ stats.totalEspaciosOcupados }} 
-                <span class="text-lg font-normal text-orange-500">espacios</span>
+          <div class="space-y-3 p-4">
+            <div class="rounded-xl border border-emerald-200/60 bg-emerald-50/60 p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Saldo de clientes activos</p>
+                  <p class="mt-1 text-xl font-bold tabular-nums tracking-tight text-emerald-800">
+                    {{ stats.balanceGlobalActual | currency:'ARS':'symbol-narrow':'1.0-0' }}
+                  </p>
+                </div>
+                <app-icon name="wallet" class="h-4 w-4 shrink-0 text-emerald-500"></app-icon>
               </div>
-              <p class="text-xs text-orange-500 mt-1">Espacios ocupados actualmente</p>
             </div>
-            <app-icon name="package" class="h-5 w-5 text-orange-600"></app-icon>
-          </div>
-        </div>
 
+            <div class="rounded-xl border border-gray-200 bg-white p-4">
+              <div class="flex items-end justify-between gap-3">
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Espacios ocupados</p>
+                  <p class="mt-1 text-xl font-bold tabular-nums tracking-tight text-gray-900">{{ stats.totalEspaciosOcupados }}</p>
+                </div>
+                <span class="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-bold text-gray-500">espacios</span>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
 
+      <!-- Datos complementarios -->
+      <section class="mt-4 overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm">
+        <div class="border-b border-gray-100 px-5 py-4">
+          <h2 class="text-sm font-bold tracking-tight text-gray-900">Información complementaria</h2>
+          <p class="mt-0.5 text-[11px] font-medium text-gray-400">Adelantos e impuestos discriminados del período.</p>
+        </div>
+
+        <div class="grid grid-cols-1 divide-y divide-gray-100 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div class="flex items-center gap-3 p-5">
+            <div class="metric-icon bg-blue-50 text-blue-600 ring-blue-100">
+              <app-icon name="clock-clockwise" class="h-4 w-4"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="metric-label text-blue-600">Pagos adelantados</p>
+              <p class="text-base font-bold tabular-nums text-gray-900">{{ stats.totalAdvancePayments | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+              <p class="metric-caption">Saldo a favor generado</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 p-5">
+            <div class="metric-icon bg-amber-50 text-amber-600 ring-amber-100">
+              <app-icon name="file-text" class="h-4 w-4"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="metric-label text-amber-600">IVA Factura A</p>
+              <p class="text-base font-bold tabular-nums text-gray-900">{{ stats.totalIvaFacturaA | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+              <p class="metric-caption">Impuesto generado</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 p-5">
+            <div class="metric-icon bg-violet-50 text-violet-600 ring-violet-100">
+              <app-icon name="file-text" class="h-4 w-4"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <p class="metric-label text-violet-600">IVA Factura B</p>
+                <span class="text-[9px] font-bold text-gray-400">Total IVA {{ totalIva | currency:'ARS':'symbol-narrow':'1.0-0' }}</span>
+              </div>
+              <p class="text-base font-bold tabular-nums text-gray-900">{{ stats.totalIvaFacturaB | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+              <p class="metric-caption">Impuesto generado</p>
+            </div>
+          </div>
+        </div>
+      </section>
   </div>
-</div>
+</section>

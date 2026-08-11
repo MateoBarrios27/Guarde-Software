@@ -1,0 +1,95 @@
+:host {
+  display: contents;
+}
+
+.sidebar-shell {
+  background: #3a7bd5;
+}
+
+.sidebar-surface {
+  color: #eff6ff;
+  background: #3a7bd5;
+  border-right: 1px solid rgb(255 255 255 / 0.14);
+}
+
+.sidebar-close,
+.logout-button {
+  border: 1px solid transparent;
+  color: rgb(255 255 255 / 0.76);
+  transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+
+.sidebar-close:hover,
+.logout-button:hover {
+  border-color: rgb(255 255 255 / 0.18);
+  color: #fff;
+  background: rgb(0 45 110 / 0.18);
+}
+
+.sidebar-link {
+  margin-bottom: 0.15rem;
+  color: rgb(255 255 255 / 0.86);
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.sidebar-link:hover {
+  color: #fff;
+  background: rgb(0 45 110 / 0.16);
+}
+
+.sidebar-icon {
+  color: rgb(255 255 255 / 0.82);
+  transition: color 140ms ease;
+}
+
+.active-indicator {
+  opacity: 0;
+  background: #fff;
+  transition: opacity 140ms ease;
+}
+
+.sidebar-link.active-link {
+  color: #fff;
+  background: #255fae;
+}
+
+.sidebar-link.active-link .sidebar-icon {
+  color: #fff;
+}
+
+.sidebar-link.active-link .active-indicator {
+  opacity: 1;
+}
+
+.sidebar-nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.28) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.28);
+}
+
+.sidebar-footer {
+  border-top: 1px solid rgb(255 255 255 / 0.16);
+}
+
+.user-avatar {
+  color: #fff;
+  background: rgb(255 255 255 / 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-link,
+  .sidebar-icon,
+  .active-indicator,
+  .sidebar-close,
+  .logout-button {
+    transition: none;
+  }
+}

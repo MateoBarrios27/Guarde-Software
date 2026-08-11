@@ -1,61 +1,71 @@
-<aside 
-  class="fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out lg:translate-x-0"
+<aside
+  class="sidebar-shell fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out lg:translate-x-0"
   [ngClass]="isOpen ? 'translate-x-0' : '-translate-x-full'"
-  style="background-color: #3A7BD5;"
 >
-  <div class="flex flex-col h-full">
-    <div class="flex items-center justify-between h-16 px-6 flex-shrink-0">
-      <h1 class="text-xl text-white font-bold font-sans">GuardeSoftware
-      </h1>
-      <button (click)="closeSidebar.emit()" class="lg:hidden text-white hover:text-blue-100 p-1">
-        <app-icon name="x" class="h-5 w-5"></app-icon> </button>
-    </div>
-    
-    <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+  <div class="sidebar-surface flex h-full flex-col overflow-hidden">
+    <header class="flex h-20 shrink-0 items-center justify-between px-5">
+      <h1 class="truncate text-xl font-bold tracking-[-0.025em] text-white">GuardeSoftware</h1>
+
+      <button
+        type="button"
+        (click)="closeSidebar.emit()"
+        class="sidebar-close flex h-8 w-8 items-center justify-center lg:hidden"
+        aria-label="Cerrar navegación"
+      >
+        <app-icon name="x" class="h-4 w-4"></app-icon>
+      </button>
+    </header>
+
+    <div class="mx-5 h-px shrink-0 bg-white/10"></div>
+
+    <nav class="sidebar-nav flex-1 overflow-y-auto px-3 py-4" aria-label="Navegación principal">
       <ng-container *ngFor="let item of menuItems">
-        
-        <a 
+        <div
+          *ngIf="(item.path === '/settings' || item.path === '/cash') && (!item.adminOnly || authService.isAdmin())"
+          class="mx-3 my-3 h-px bg-white/10"
+          aria-hidden="true"
+        ></div>
+
+        <a
           *ngIf="!item.adminOnly || authService.isAdmin()"
           [routerLink]="item.path"
           routerLinkActive="active-link"
-          [routerLinkActiveOptions]="{exact: true}"
+          [routerLinkActiveOptions]="{ exact: true }"
           (click)="onLinkClick()"
-          class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors text-white hover:bg-[#E0F4FF] hover:text-[#1B1B1B] relative"
+          class="sidebar-link group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left"
         >
-          <app-icon [name]="item.icon" class="h-5 w-5"></app-icon>
-          <span class="font-sans">{{ item.title }}</span>
+          <span class="active-indicator absolute left-0 h-5 w-0.5 rounded-full" aria-hidden="true"></span>
+          <span class="sidebar-icon flex h-8 w-8 shrink-0 items-center justify-center">
+            <app-icon [name]="item.icon" class="h-[18px] w-[18px]"></app-icon>
+          </span>
+          <span class="min-w-0 truncate text-[13px] font-semibold tracking-[-0.01em]">{{ item.title }}</span>
         </a>
-        
       </ng-container>
     </nav>
-    
-    <div class="p-4 border-t border-white border-opacity-20 flex-shrink-0">
-  <div class="flex items-center gap-3 text-white">
-    <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-white font-bold font-sans">
-      {{ userInitial }}
-    </div>
 
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center justify-between gap-2">
-        <div class="text-sm font-sans truncate">
-          {{ firstName + " " + lastName }}
+    <footer class="sidebar-footer shrink-0 px-4 py-4">
+      <div class="flex items-center gap-3">
+        <div class="user-avatar flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
+          {{ userInitial }}
+        </div>
+
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-xs font-semibold leading-4 text-white">
+            {{ (firstName + ' ' + lastName).trim() || userName }}
+          </p>
+          <p class="truncate text-[10px] font-normal leading-4 text-blue-100/70">{{ userName }}</p>
         </div>
 
         <button
+          type="button"
           (click)="logout()"
-          class=""
+          class="logout-button flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
           aria-label="Cerrar sesión"
           title="Cerrar sesión"
         >
-          <app-icon name="logout" class="h-2 w-5 mr-3"></app-icon>
+          <app-icon name="logout" class="h-4 w-4"></app-icon>
         </button>
       </div>
-      <div class="text-xs text-blue-100 font-sans truncate">
-        {{ userName }}
-      </div>
-    </div>
-  </div>
-</div>
-
+    </footer>
   </div>
 </aside>
