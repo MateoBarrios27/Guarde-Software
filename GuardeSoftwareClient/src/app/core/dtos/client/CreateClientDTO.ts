@@ -37,6 +37,7 @@ export interface CreateClientDTO{
     legacyInitialAmount?: number;
     legacyNextIncreaseDate?: Date;
     isLegacy6MonthPromo?: boolean;
+    isSixMonthPromotion?: boolean;
 
 
     // increaseFrequency: string;

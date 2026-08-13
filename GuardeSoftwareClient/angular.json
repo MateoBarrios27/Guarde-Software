@@ -25,12 +25,16 @@
                 "glob": "**/*",
                 "input": "public"
               },
+              {
+                "glob": "quill.snow.css",
+                "input": "node_modules/quill/dist",
+                "output": "assets/quill"
+              },
               "src/assets",       
               "src/favicon.ico"
             ],
             "styles": [
-              "src/styles.css",
-              "node_modules/quill/dist/quill.snow.css"
+              "src/styles.css"
             ],
             "scripts": []
           },
@@ -51,7 +55,7 @@
                 {
                   "type": "anyComponentStyle",
                   "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumError": "15kB"
                 }
               ],
               "outputHashing": "all",
@@ -95,9 +99,7 @@
               }
             ],
             "styles": [
-              "src/styles.css",
-              "node_modules/quill/dist/quill.snow.css"
-              
+              "src/styles.css"
             ],
             "scripts": []
           }

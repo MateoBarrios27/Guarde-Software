@@ -4,6 +4,7 @@ import { RentalService } from '../../core/services/rental-service/rental.service
 import { PaymentService } from '../../core/services/payment-service/payment.service';
 import { CommonModule } from '@angular/common';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { PaymentIncreaseModalComponent } from '../../shared/components/payment-increase-modal/payment-increase-modal.component';
 import { Payment } from '../../core/models/payment';
 import { FormsModule } from '@angular/forms';
 import { CreatePaymentDTO } from '../../core/dtos/payment/CreatePaymentDTO';
@@ -18,7 +19,7 @@ import { PaymentCompletedNotice, PaymentPresenceService, PaymentPresenceUser } f
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, IconComponent, FormsModule, NgxPaginationModule, CurrencyFormatDirective],
+  imports: [CommonModule, IconComponent, PaymentIncreaseModalComponent, FormsModule, NgxPaginationModule, CurrencyFormatDirective],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })

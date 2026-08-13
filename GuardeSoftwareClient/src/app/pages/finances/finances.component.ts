@@ -7,6 +7,7 @@ import { DetailedPaymentDTO } from '../../core/dtos/payment/DetailedPaymentDTO';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { PaymentIncreaseModalComponent } from '../../shared/components/payment-increase-modal/payment-increase-modal.component';
 import { NgxPaginationModule } from 'ngx-pagination';
 import { ClientService } from '../../core/services/client-service/client.service';
 import { Client } from '../../core/models/client';
@@ -45,9 +46,12 @@ interface PaymentMonthBreakdown {
 
 @Component({
   selector: 'app-finances',
-  imports: [FormsModule, CommonModule, IconComponent, NgxPaginationModule, CurrencyFormatDirective],
+  imports: [FormsModule, CommonModule, IconComponent, PaymentIncreaseModalComponent, NgxPaginationModule, CurrencyFormatDirective],
   templateUrl: './finances.component.html',
-  styleUrl: './finances.component.css'
+  styleUrl: './finances.component.css',
+  host: {
+    class: 'block w-full min-w-0'
+  }
 })
 export class FinancesComponent implements OnInit, OnDestroy {
 
@@ -129,6 +133,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
   public paymentMonthBreakdown: PaymentMonthBreakdown[] = [];
   public selectedClientNextPaymentDay: Date | string | null = null;
   public selectedClientNextIncreaseDay: Date | string | null = null;
+  public selectedPlannedPaymentAmount = 0;
+  public hasSelectedPlannedPayment = false;
   public customScenarioCInterest: number | null = null;
   private paymentAmountManuallyEdited = false;
   otherPaymentViewers: PaymentPresenceUser[] = [];
@@ -140,6 +146,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
   returnToUrl: string | null = null;
 
   autoOpenClientId: number | null = null;
+  private clientsLoaded = false;
 
   // --- VARIABLES PARA EL MODAL DE RECIBO ---
   showReceiptModal = false;
@@ -175,6 +182,21 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
   public returnSearchTerm: string = '';
 
+  private navigateToReturn(url: string): void {
+    const queryParams: any = {};
+    if (this.returnSearchTerm) {
+      queryParams.searchTerm = this.returnSearchTerm;
+    }
+
+    // Clientes se conserva en memoria mediante RouteReuseStrategy. Un valor
+    // cambiante obliga a emitir queryParams y dispara su recarga completa.
+    if (url === 'clients') {
+      queryParams.refreshClients = Date.now();
+    }
+
+    this.router.navigate(['/' + url], { queryParams });
+  }
+
   ngOnInit(): void {
     this.paymentPresenceSubscriptions.add(
       this.paymentPresenceService.onPresenceChanged$.subscribe(event => this.handlePaymentPresenceChanged(event.clientId, event.viewers))
@@ -185,6 +207,16 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.route.queryParams.subscribe(params => {
       if (params['autoOpenPayment']) {
         this.autoOpenClientId = Number(params['autoOpenPayment']);
+        // Finanzas puede quedar reutilizada al volver desde Clientes. En ese
+        // caso forzamos una lectura fresca antes de abrir el selector para no
+        // usar el cliente que quedÃ³ en memoria.
+        if (this.clientsLoaded) {
+          this.loadClients();
+        } else {
+          this.openAutoPaymentClientIfReady();
+        }
+      } else {
+        this.autoOpenClientId = null;
       }
       if (params['returnTo']) {
         this.returnToUrl = params['returnTo'];
@@ -306,6 +338,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
             nextPaymentDay: c.nextPaymentDay ?? undefined,
             increaseAnchorDate: c.increaseAnchorDate ?? undefined,  // string ISO, NOT Date object
             increaseFrequencyMonths: c.increaseFrequencyMonths ?? 1,
+            plannedPaymentAmount: c.plannedPaymentAmount ?? 0,
+            hasPlannedPayment: c.hasPlannedPayment ?? false,
             // Required but not critical offline
             registrationDate: new Date(),
             notes: '',
@@ -315,18 +349,9 @@ export class FinancesComponent implements OnInit, OnDestroy {
           } as Client));
           this.clientsById = new Map(this.clients.map(client => [client.id, client]));
           this.invalidateFilteredClientsCache();
+          this.clientsLoaded = true;
 
-          // Handle autoOpenPayment navigation from clients table
-          if (this.autoOpenClientId) {
-            const clientToPay = this.clients.find(c => c.id === this.autoOpenClientId);
-            if (clientToPay) {
-              this.OpenPaymentModal();
-              this.searchClient = clientToPay.fullName;
-              this.selectClient(clientToPay);
-            }
-            this.router.navigate([], { queryParams: { autoOpenPayment: null }, queryParamsHandling: 'merge' });
-            this.autoOpenClientId = null;
-          }
+          this.openAutoPaymentClientIfReady();
         }
       });
       return;
@@ -336,6 +361,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
         this.clients = data;
         this.clientsById = new Map(data.map(client => [client.id, client]));
         this.invalidateFilteredClientsCache();
+        this.clientsLoaded = true;
+        this.openAutoPaymentClientIfReady();
         
         // MAGIA: Si tenemos una orden de auto-apertura pendiente
         if (this.autoOpenClientId) {
@@ -357,6 +384,30 @@ export class FinancesComponent implements OnInit, OnDestroy {
       },
       error: (err) => console.log('error cargando clientes: ',err)
     });
+  }
+
+  /**
+   * Abre el selector de cliente cuando la navegaciÃ³n viene desde la tabla de
+   * clientes. Finanzas se conserva mediante RouteReuseStrategy, por lo que
+   * este flujo tambiÃ©n debe ejecutarse cuando cambia la query string y no solo
+   * durante ngOnInit.
+   */
+  private openAutoPaymentClientIfReady(): void {
+    const clientId = Number(this.autoOpenClientId ?? 0);
+    if (!clientId || this.clients.length === 0) return;
+
+    const clientToPay = this.clients.find(client => Number(client.id) === clientId);
+    if (!clientToPay) return;
+
+    this.OpenPaymentModal();
+    this.searchClient = clientToPay.fullName;
+    this.selectClient(clientToPay);
+
+    this.router.navigate([], {
+      queryParams: { autoOpenPayment: null },
+      queryParamsHandling: 'merge'
+    });
+    this.autoOpenClientId = null;
   }
 
   getNamePaymentMethodById(id: number | string | null | undefined): string {
@@ -579,6 +630,24 @@ export class FinancesComponent implements OnInit, OnDestroy {
     return client.id;
   }
 
+  openClientInClients(payment: DetailedPaymentView): void {
+    const normalizedName = (payment.clientName || '').trim().toLowerCase();
+    const matchingClient = this.clients.find(client =>
+      client.fullName.trim().toLowerCase() === normalizedName
+      && (!payment.paymentIdentifier
+        || String(client.paymentIdentifier ?? '') === String(payment.paymentIdentifier))
+    ) ?? this.clients.find(client => client.fullName.trim().toLowerCase() === normalizedName);
+    const clientId = Number(payment.clientId ?? matchingClient?.id ?? 0);
+    if (!clientId) {
+      console.warn('No se pudo identificar el cliente de este movimiento financiero.', payment);
+      return;
+    }
+
+    this.router.navigate(['/clients'], {
+      queryParams: { clientId }
+    });
+  }
+
   private sortFilteredPayments(payments: DetailedPaymentView[]): void {
     payments.sort((a, b) => {
       let comparison = 0;
@@ -695,6 +764,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.selectedClientLastMonth = '';
     this.selectedClientNextPaymentDay = null;
     this.selectedClientNextIncreaseDay = null;
+    this.selectedPlannedPaymentAmount = 0;
+    this.hasSelectedPlannedPayment = false;
     this.paymentMonthBreakdown = [];
     this.paymentAmountManuallyEdited = false;
     this.manualDateEnabled = false;
@@ -718,11 +789,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
     if (this.returnToUrl) {
       const url = this.returnToUrl;
       this.returnToUrl = null;
-      const queryParams: any = {};
-      if (this.returnSearchTerm) {
-        queryParams.searchTerm = this.returnSearchTerm;
-      }
-      this.router.navigate(['/' + url], { queryParams });
+      this.navigateToReturn(url);
     }
   }
 
@@ -1142,6 +1209,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.selectedClientIncreaseAnchorDate = client.increaseAnchorDate;
     this.selectedClientNextPaymentDay = client.nextPaymentDay ?? null;
     this.selectedClientNextIncreaseDay = client.nextIncreaseDay ?? client.increaseAnchorDate ?? null;
+    this.selectedPlannedPaymentAmount = Number(client.plannedPaymentAmount ?? 0);
+    this.hasSelectedPlannedPayment = Boolean(client.hasPlannedPayment) && this.selectedPlannedPaymentAmount > 0;
     this.selectedPreferredPaymentId = Number(client.preferredPaymentMethodId ?? 1); 
     this.paymentDto.paymentMethodId = this.selectedPreferredPaymentId;
     this.selectedPendingSurcharge = Number(client.pendingSurcharge ?? 0);
@@ -1175,9 +1244,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
     }
 
     this.isPreviousBalanceSelected = false;
-    const suggestedAmount = this.isCurrentMonthPaidFlag 
-        ? 0 
-        : (this.selectedClientBalance < 0 ? Math.abs(this.selectedClientBalance) : this.selectedClientRentAmount);
+    const suggestedAmount = this.getSuggestedPaymentAmount();
 
     if (this.selectedClientPreviousBalance !== 0 && suggestedAmount === Math.abs(Number(this.selectedClientPreviousBalance)) && suggestedAmount > 0) {
       this.isPreviousBalanceSelected = true;
@@ -1216,6 +1283,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
   }
 
   isPotentiallyDuplicate(): boolean {
+    if (this.hasSelectedPlannedPayment) return false;
     if (this.paymentDto?.isAdvancePayment || this.isPreviousBalanceSelected) return false;
     return this.isCurrentMonthPaidFlag || this.selectedClientBalance >= 0;
   }
@@ -1286,18 +1354,28 @@ export class FinancesComponent implements OnInit, OnDestroy {
     });
   }
 
-  getBaseSuggestedAmount(): number {
+  private getSuggestedPaymentAmount(): number {
+    if (this.hasSelectedPlannedPayment && this.selectedPlannedPaymentAmount > 0) {
+      return this.selectedPlannedPaymentAmount;
+    }
+
+    if (this.selectedClientBalance < 0) {
+      return Math.abs(this.selectedClientBalance);
+    }
+
     if (this.isCurrentMonthPaidFlag) return 0;
+    return this.selectedClientRentAmount;
+  }
+
+  getBaseSuggestedAmount(): number {
     if (this.selectedClientPreviousBalance !== 0 && this.isPreviousBalanceSelected) {
       return Math.abs(Number(this.selectedClientPreviousBalance));
     }
-    return this.selectedClientBalance < 0 ? Math.abs(this.selectedClientBalance) : this.selectedClientRentAmount;
+    return this.getSuggestedPaymentAmount();
   }
 
   calculateAdvancePayment(): void {
-    const suggestedAmount = this.isCurrentMonthPaidFlag 
-      ? 0 
-      : (this.selectedClientBalance < 0 ? Math.abs(this.selectedClientBalance) : this.selectedClientRentAmount);
+    const suggestedAmount = this.getSuggestedPaymentAmount();
 
     // Si destildaron pago adelantado, volvemos al monto sugerido inteligente ($0 o deuda)
     if (!this.paymentDto.isAdvancePayment || !this.paymentDto.advanceMonths) {
@@ -2374,11 +2452,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
             });
           } else {
             if (targetReturnUrl) {
-              const queryParams: any = {};
-              if (this.returnSearchTerm) {
-                queryParams.searchTerm = this.returnSearchTerm;
-              }
-              this.router.navigate(['/' + targetReturnUrl], { queryParams });
+              this.navigateToReturn(targetReturnUrl);
             }
           }
         });
@@ -2441,11 +2515,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
       const clientId = this.pendingReturnClientId;
       this.pendingReturnUrl = null;
       this.pendingReturnClientId = null;
-      const queryParams: any = {};
-      if (this.returnSearchTerm) {
-        queryParams.searchTerm = this.returnSearchTerm;
-      }
-      this.router.navigate(['/' + url], { queryParams });
+      this.navigateToReturn(url);
     }
   }
 

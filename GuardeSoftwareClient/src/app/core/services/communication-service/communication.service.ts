@@ -136,4 +136,8 @@ export class CommunicationService {
   getClientsForSelector(): Observable<any[]> {
     return this.http.get<any[]>(`${this.url}/Communications/recipients-list`);
   }
+
+  getDispatchContent(dispatchId: number): Observable<{content: string}> {
+    return this.http.get<{content: string}>(`${this.url}/Communications/dispatch/${dispatchId}/content`);
+  }
 }

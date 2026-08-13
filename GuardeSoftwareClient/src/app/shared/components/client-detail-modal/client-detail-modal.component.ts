@@ -3,12 +3,14 @@ import {
   Input,
   Output,
   EventEmitter,
+  HostListener,
   OnChanges,
   SimpleChanges,
   ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { IconComponent } from '../icon/icon.component';
+import { PaymentIncreaseModalComponent } from '../payment-increase-modal/payment-increase-modal.component';
 import { ClientDetailDTO } from '../../../core/dtos/client/ClientDetailDTO';
 import { FormsModule } from '@angular/forms';
 
@@ -26,6 +28,12 @@ import { TimeDurationPipe } from '../../pipes/time-duration.pipe';
 import { ClientLockerHistory } from '../../../core/models/client-locker-history';
 import { ClientService, RentalAmountHistoryItem } from '../../../core/services/client-service/client.service';
 import { AuthService } from '../../../core/services/auth-service/auth.service';
+import {
+  AppliedPaymentPlanningIncrease,
+  PaymentPlanningContext,
+  PaymentPlanningMonth
+} from '../../../core/dtos/accountMovement/payment-planning.dto';
+import { buildPaymentPlanningBreakdown, roundPlannedRent } from '../../utils/payment-planning.util';
 
 export interface IClientCommunication {
   id: number;
@@ -46,6 +54,7 @@ const SPANISH_MONTHS = [
   imports: [
     CommonModule,
     IconComponent,
+    PaymentIncreaseModalComponent,
     DatePipe,
     CreateMovementModalComponent, 
     NgxPaginationModule,
@@ -59,6 +68,9 @@ export class ClientDetailModalComponent implements OnChanges {
   @Output() closeModal = new EventEmitter<void>();
   @Output() dataUpdated = new EventEmitter<number>();
 
+  previewContent: string | null = null;
+  previewClientName: string = '';
+
   public activeTab: 'movimientos' | 'comunicaciones' | 'detalles' | 'bauleras' | 'abono' =
     'movimientos';
 
@@ -68,6 +80,18 @@ export class ClientDetailModalComponent implements OnChanges {
   public historyError: string | null = null;
 
   public showNewMovementModal = false;
+  public showPaymentPlanningModal = false;
+  public paymentPlanningStep: 'setup' | 'increase' | 'summary' = 'setup';
+  public paymentPlanningMonths = 1;
+  public chargeHalfSixthMonth = true;
+  public paymentPlanningContext: PaymentPlanningContext | null = null;
+  public paymentPlanningIncreases: AppliedPaymentPlanningIncrease[] = [];
+  public paymentPlanningBreakdown: PaymentPlanningMonth[] = [];
+  public currentPlanningIncreaseIndex = 0;
+  public planningIncreasePercentage = 0;
+  public planningProjectedRent = 0;
+  public isLoadingPaymentPlan = false;
+  public isSavingPaymentPlan = false;
 
   public movementCurrentPage: number = 1;
   public movementItemsPerPage: number = 10;
@@ -119,6 +143,23 @@ export class ClientDetailModalComponent implements OnChanges {
         this.editingHistId = null;
       }
     }
+  }
+
+  viewDispatchContent(dispatchId: number): void {
+    this.communicationService.getDispatchContent(dispatchId).subscribe({
+      next: (res) => {
+        this.previewContent = res.content;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.previewContent = null;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  closeContentPreview(): void {
+    this.previewContent = null;
   }
 
   loadHistoriales(clientId: number): void {
@@ -387,6 +428,197 @@ export class ClientDetailModalComponent implements OnChanges {
 
   closeNewMovementModal(): void {
     this.showNewMovementModal = false;
+  }
+
+  openPaymentPlanningModal(): void {
+    this.paymentPlanningMonths = 1;
+    this.chargeHalfSixthMonth = true;
+    this.paymentPlanningStep = 'setup';
+    this.paymentPlanningContext = null;
+    this.paymentPlanningIncreases = [];
+    this.paymentPlanningBreakdown = [];
+    this.currentPlanningIncreaseIndex = 0;
+    this.showPaymentPlanningModal = true;
+  }
+
+  closePaymentPlanningModal(): void {
+    if (this.isSavingPaymentPlan) return;
+    this.showPaymentPlanningModal = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  onPaymentPlanningEscape(): void {
+    if (!this.showPaymentPlanningModal) return;
+    if (this.paymentPlanningStep === 'increase') {
+      this.skipPlanningIncrease();
+      return;
+    }
+    this.closePaymentPlanningModal();
+  }
+
+  preparePaymentPlan(): void {
+    if (!this.client || this.paymentPlanningMonths < 1 || this.paymentPlanningMonths > 24) return;
+    this.isLoadingPaymentPlan = true;
+    this.accountMovementService
+      .getPaymentPlanningContext(this.client.id, this.paymentPlanningMonths)
+      .pipe(finalize(() => {
+        this.isLoadingPaymentPlan = false;
+        this.cdr.markForCheck();
+      }))
+      .subscribe({
+        next: context => {
+          this.paymentPlanningContext = context;
+          this.paymentPlanningIncreases = [];
+          this.currentPlanningIncreaseIndex = 0;
+          if (context.increases.length > 0) {
+            this.startCurrentPlanningIncrease();
+            this.paymentPlanningStep = 'increase';
+          } else {
+            this.updatePaymentPlanningBreakdown();
+            this.paymentPlanningStep = 'summary';
+          }
+        },
+        error: err => Swal.fire('No se pudo preparar', err.error?.message || 'No se pudo obtener la vista previa del pago.', 'error')
+      });
+  }
+
+  get currentPlanningIncrease() {
+    return this.paymentPlanningContext?.increases[this.currentPlanningIncreaseIndex] ?? null;
+  }
+
+  get currentPlanningBaseRent(): number {
+    if (this.paymentPlanningIncreases.length > 0) {
+      return this.paymentPlanningIncreases[this.paymentPlanningIncreases.length - 1].newRentAmount;
+    }
+    return Number(this.paymentPlanningContext?.baseRent || 0);
+  }
+
+  get planningProjectedNextIncreaseDate(): Date | null {
+    const increase = this.currentPlanningIncrease;
+    const frequency = Number(this.paymentPlanningContext?.increaseFrequencyMonths || 0);
+    if (!increase || frequency <= 0) return null;
+    return new Date(increase.year, increase.month - 1 + Math.max(1, frequency - 1), 1);
+  }
+
+  startCurrentPlanningIncrease(): void {
+    this.planningIncreasePercentage = 0;
+    this.planningProjectedRent = this.currentPlanningBaseRent;
+  }
+
+  calculatePlanningProjectedRent(): void {
+    this.planningProjectedRent = roundPlannedRent(
+      this.currentPlanningBaseRent,
+      Number(this.planningIncreasePercentage || 0),
+      this.client?.preferredPaymentMethod || ''
+    );
+    if (this.currentPlanningBaseRent > 0 && this.planningIncreasePercentage > 0) {
+      this.planningIncreasePercentage = Number(
+        (((this.planningProjectedRent - this.currentPlanningBaseRent) / this.currentPlanningBaseRent) * 100).toFixed(4)
+      );
+    }
+  }
+
+  onPlanningProjectedRentBlur(): void {
+    const baseRent = this.currentPlanningBaseRent;
+    const targetRent = Number(this.planningProjectedRent || 0);
+
+    if (baseRent <= 0 || targetRent <= baseRent) {
+      this.planningIncreasePercentage = 0;
+      this.planningProjectedRent = baseRent;
+      return;
+    }
+
+    this.planningIncreasePercentage = Number(
+      (((targetRent - baseRent) / baseRent) * 100).toFixed(4)
+    );
+    this.calculatePlanningProjectedRent();
+  }
+
+  confirmPlanningIncrease(): void {
+    const increase = this.currentPlanningIncrease;
+    if (!increase || this.planningProjectedRent <= 0) return;
+    this.paymentPlanningIncreases.push({
+      year: increase.year,
+      month: increase.month,
+      percentage: Number(this.planningIncreasePercentage || 0),
+      newRentAmount: this.planningProjectedRent
+    });
+    this.currentPlanningIncreaseIndex++;
+    if (this.paymentPlanningContext && this.currentPlanningIncreaseIndex < this.paymentPlanningContext.increases.length) {
+      this.startCurrentPlanningIncrease();
+      return;
+    }
+    this.updatePaymentPlanningBreakdown();
+    this.paymentPlanningStep = 'summary';
+  }
+
+  skipPlanningIncrease(): void {
+    if (!this.currentPlanningIncrease) return;
+    this.planningIncreasePercentage = 0;
+    this.planningProjectedRent = this.currentPlanningBaseRent;
+    this.confirmPlanningIncrease();
+  }
+
+  backPaymentPlanningStep(): void {
+    if (this.paymentPlanningStep === 'summary' && this.paymentPlanningContext?.increases.length) {
+      this.paymentPlanningStep = 'increase';
+      this.currentPlanningIncreaseIndex = Math.max(0, this.paymentPlanningIncreases.length - 1);
+      const previous = this.paymentPlanningIncreases.pop();
+      this.planningIncreasePercentage = previous?.percentage ?? 0;
+      this.planningProjectedRent = previous?.newRentAmount ?? this.currentPlanningBaseRent;
+      return;
+    }
+    if (this.paymentPlanningStep === 'increase' && this.currentPlanningIncreaseIndex > 0) {
+      this.currentPlanningIncreaseIndex--;
+      const previous = this.paymentPlanningIncreases.pop();
+      this.planningIncreasePercentage = previous?.percentage ?? 0;
+      this.planningProjectedRent = previous?.newRentAmount ?? this.currentPlanningBaseRent;
+      return;
+    }
+    this.paymentPlanningStep = 'setup';
+    this.paymentPlanningContext = null;
+    this.paymentPlanningIncreases = [];
+  }
+
+  updatePaymentPlanningBreakdown(): void {
+    if (!this.paymentPlanningContext) return;
+    this.paymentPlanningBreakdown = buildPaymentPlanningBreakdown(
+      this.paymentPlanningContext,
+      this.paymentPlanningIncreases,
+      this.chargeHalfSixthMonth
+    );
+  }
+
+  get paymentPlanningTotal(): number {
+    return this.paymentPlanningBreakdown.reduce((total, month) => total + month.amount, 0);
+  }
+
+  savePaymentPlan(): void {
+    if (!this.client || !this.paymentPlanningContext || this.isSavingPaymentPlan) return;
+    this.isSavingPaymentPlan = true;
+    this.accountMovementService.planClientPayment({
+      clientId: this.client.id,
+      months: this.paymentPlanningMonths,
+      chargeHalfSixthMonth: this.chargeHalfSixthMonth,
+      appliedIncreases: this.paymentPlanningIncreases
+    }).pipe(finalize(() => {
+      this.isSavingPaymentPlan = false;
+      this.cdr.markForCheck();
+    })).subscribe({
+      next: result => {
+        this.showPaymentPlanningModal = false;
+        this.movementCurrentPage = 1;
+        this.loadHistoriales(this.client!.id);
+        this.dataUpdated.emit(this.client!.id);
+        Swal.fire({
+          icon: 'success',
+          title: 'Pago planificado',
+          text: `Se generaron ${result.createdDebits} débitos por $${result.totalAmount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`,
+          confirmButtonColor: '#2563eb'
+        });
+      },
+      error: err => Swal.fire('No se pudo planificar', err.error?.message || 'Ocurrió un error al generar los débitos.', 'error')
+    });
   }
 
   onMovementSaveSuccess(): void {

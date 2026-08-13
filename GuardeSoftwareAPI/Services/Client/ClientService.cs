@@ -90,9 +90,12 @@ namespace GuardeSoftwareAPI.Services.client
                     CurrentRent = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m,
                     IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? Convert.ToDateTime(row["IncreaseAnchorDate"]) : null,
                     PendingSurcharge = row["PendingSurcharge"] != DBNull.Value ? Convert.ToDecimal(row["PendingSurcharge"]) : 0m,
+                    IsSixMonthPromotion = row.Table.Columns.Contains("is_six_month_promotion") && row["is_six_month_promotion"] != DBNull.Value && Convert.ToBoolean(row["is_six_month_promotion"]),
                     InterestAmount = row.Table.Columns.Contains("interest_amount") && row["interest_amount"] != DBNull.Value ? Convert.ToDecimal(row["interest_amount"]) : 0m,
                     LastGeneratedMonthYear = row["last_generated_month_year"]?.ToString() ?? string.Empty,
-                    NextPaymentDay = row.Table.Columns.Contains("next_payment_day") && row["next_payment_day"] != DBNull.Value ? Convert.ToDateTime(row["next_payment_day"]) : null
+                    NextPaymentDay = row.Table.Columns.Contains("next_payment_day") && row["next_payment_day"] != DBNull.Value ? Convert.ToDateTime(row["next_payment_day"]) : null,
+                    PlannedPaymentAmount = row.Table.Columns.Contains("planned_payment_amount") && row["planned_payment_amount"] != DBNull.Value ? Convert.ToDecimal(row["planned_payment_amount"]) : 0m,
+                    HasPlannedPayment = row.Table.Columns.Contains("has_planned_payment") && row["has_planned_payment"] != DBNull.Value && Convert.ToBoolean(row["has_planned_payment"])
                 };
                 clients.Add(client);
             }
@@ -118,6 +121,7 @@ namespace GuardeSoftwareAPI.Services.client
                     Dni = row["dni"]?.ToString() ?? string.Empty,
                     Cuit = row["cuit"]?.ToString() ?? string.Empty,
                     PreferredPaymentMethodId = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : 0,
+                    IsSixMonthPromotion = row.Table.Columns.Contains("is_six_month_promotion") && row["is_six_month_promotion"] != DBNull.Value && Convert.ToBoolean(row["is_six_month_promotion"]),
                     PreviousBalance = row.Table.Columns.Contains("PreviousBalance") && row["PreviousBalance"] != DBNull.Value ? Convert.ToDecimal(row["PreviousBalance"]) : 0m,
                 };
                 clients.Add(client);
@@ -204,7 +208,8 @@ namespace GuardeSoftwareAPI.Services.client
                     IvaCondition = string.IsNullOrWhiteSpace(dto.IvaCondition) ? null : dto.IvaCondition.Trim(),
                     Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
                     BillingTypeId = dto.BillingTypeId,
-                    IncreaseFrequencyMonths = dto.IsLegacy6MonthPromo ? 6 : 4,
+                    IncreaseFrequencyMonths = dto.IsLegacy6MonthPromo || dto.IsSixMonthPromotion ? 6 : 4,
+                    IsSixMonthPromotion = dto.IsLegacy6MonthPromo || dto.IsSixMonthPromotion,
                     InitialAmount = dto.IsLegacyClient ? dto.LegacyInitialAmount : dto.Amount,
                     ReceiveCommunications = dto.ReceiveCommunications
                 };
@@ -500,6 +505,7 @@ namespace GuardeSoftwareAPI.Services.client
 
                 await activityLogService.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
 
+                await rentalAmountHistoryService.NormalizeRentalAmountHistoryTransactionAsync(rentalId, connection, transaction);
                 await transaction.CommitAsync();
 
                 return newClientId;
@@ -608,6 +614,7 @@ namespace GuardeSoftwareAPI.Services.client
                     await cmd.ExecuteNonQueryAsync();
                 }
 
+                await rentalAmountHistoryService.NormalizeRentalAmountHistoryTransactionAsync(rentalId, connection, transaction);
                 await transaction.CommitAsync();
             }
             catch
@@ -662,6 +669,21 @@ namespace GuardeSoftwareAPI.Services.client
                     await cmd.ExecuteNonQueryAsync();
                 }
 
+                // Si el tramo se movió a una fecha ya existente, el registro
+                // editado es la versión válida y los duplicados se descartan.
+                const string deleteDuplicatesQuery = @"
+                    DELETE FROM rental_amount_history
+                    WHERE rental_id = @RentalId
+                      AND CAST(start_date AS date) = @StartDate
+                      AND rental_amount_history_id <> @HistId";
+                using (var cmd = new Microsoft.Data.SqlClient.SqlCommand(deleteDuplicatesQuery, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@RentalId", rentalId);
+                    cmd.Parameters.AddWithValue("@StartDate", newStartDate);
+                    cmd.Parameters.AddWithValue("@HistId", histId);
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
                 // Recalculate end_dates for all entries of this rental (sort and fix chain)
                 string fixQuery = @"
                     WITH Ordered AS (
@@ -681,6 +703,7 @@ namespace GuardeSoftwareAPI.Services.client
                     await cmd.ExecuteNonQueryAsync();
                 }
 
+                await rentalAmountHistoryService.NormalizeRentalAmountHistoryTransactionAsync(rentalId, connection, transaction);
                 await transaction.CommitAsync();
             }
             catch
@@ -791,7 +814,8 @@ namespace GuardeSoftwareAPI.Services.client
                 TotalPaid = Convert.ToDecimal(row["total_paid"]),
 
                 // --- CAMPOS ACTUALIZADOS ---
-                IncreaseFrequencyMonths = Convert.ToInt32(row["increase_frequency_months"]),
+                    IncreaseFrequencyMonths = Convert.ToInt32(row["increase_frequency_months"]),
+                    IsSixMonthPromotion = row["is_six_month_promotion"] != DBNull.Value && Convert.ToBoolean(row["is_six_month_promotion"]),
                 InitialAmount = row["initial_amount"] != DBNull.Value ? Convert.ToDecimal(row["initial_amount"]) : null,
                 NextIncreaseDay = row["increase_anchor_date"] != DBNull.Value ? Convert.ToDateTime(row["increase_anchor_date"]) : DateTime.MinValue,
                 // --- FIN CAMPOS ACTUALIZADOS ---
@@ -918,6 +942,7 @@ namespace GuardeSoftwareAPI.Services.client
                             // Campos que NO se editan
                             RegistrationDate = dto.RegistrationDate, 
                             IncreaseFrequencyMonths = existingClient.IncreaseFrequencyMonths, 
+                            IsSixMonthPromotion = dto.IsLegacy6MonthPromo || dto.IsSixMonthPromotion,
                             InitialAmount = dto.LegacyInitialAmount,
                             ReceiveCommunications = dto.ReceiveCommunications
                         };
@@ -1216,6 +1241,7 @@ namespace GuardeSoftwareAPI.Services.client
                             Notes = string.IsNullOrWhiteSpace(dto.Notes) ? existingClient.Notes : dto.Notes.Trim(),
                             RegistrationDate = existingClient.RegistrationDate, 
                             IncreaseFrequencyMonths = existingClient.IncreaseFrequencyMonths, 
+                            IsSixMonthPromotion = dto.IsLegacy6MonthPromo || dto.IsSixMonthPromotion,
                             InitialAmount = existingClient.InitialAmount,
                             ReceiveCommunications = dto.ReceiveCommunications
                         };

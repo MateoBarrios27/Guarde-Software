@@ -125,12 +125,12 @@
   </div>
 
   <!-- === TABLA DE PAGOS === -->
-  <div class="relative w-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden md:overflow-visible">
-    <div class="w-full overflow-x-auto overscroll-x-contain md:overflow-visible" aria-label="Tabla de pagos">
-    <table class="min-w-[900px] w-full text-sm border-collapse">
+  <div class="relative w-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible">
+    <div class="w-full min-w-0 overflow-visible" aria-label="Tabla de pagos">
+    <table class="min-w-[1050px] w-full text-sm border-collapse">
       
       <!-- 2. THEAD STICKY: Agregamos sticky, top-0, z-20 y shadow-sm -->
-      <thead class="bg-gray-50 text-gray-700 uppercase text-xs relative md:sticky top-0 z-20 shadow-sm">
+      <thead class="bg-gray-50 text-gray-700 uppercase text-xs sticky top-0 z-20 shadow-sm">
         <tr class="border-b">
           <th class="py-3 px-4 text-left font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('clientName')">
             <div class="flex items-center gap-1 group">
@@ -220,7 +220,16 @@
             'border-b border-r border-indigo-100': p.groupPos === 'end'
           }"
         >
-          <td class="py-3 px-4 font-medium text-gray-800">{{ p.clientName }}</td>
+          <td class="py-3 px-4 font-medium text-gray-800">
+            <button
+              type="button"
+              (click)="openClientInClients(p)"
+              class="text-left text-blue-700 hover:text-blue-900 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded"
+              [attr.title]="'Ver ficha de ' + p.clientName"
+            >
+              {{ p.clientName }}
+            </button>
+          </td>
           <td class="py-3 px-4 text-gray-700 font-mono">{{ formatIdentifier(p.paymentIdentifier) }}</td>
           
           <td class="py-3 px-4">
@@ -275,7 +284,7 @@
         </tr>
       </tbody>
 
-      <tfoot class="font-bold text-gray-700 border-t border-gray-200 bg-gray-50 relative md:sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      <tfoot class="font-bold text-gray-700 border-t border-gray-200 bg-gray-50 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <tr>
           <td colspan="4" class="p-4 text-left align-middle bg-gray-50">
             <div class="flex items-center gap-2">
@@ -316,7 +325,7 @@
   class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
   (click)="closeClientModal()"
 >
-  <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
+  <div class="absolute inset-0 bg-slate-900/40"></div>
   <div class="relative w-full max-w-6xl max-h-[92vh] overflow-visible animate-fade-in-down"
        (click)="$event.stopPropagation()">
 
@@ -523,6 +532,16 @@
             <span class="bg-amber-100/90 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold shrink-0">Al día</span>
           </div>
 
+          <div *ngIf="hasSelectedPlannedPayment" class="bg-violet-50/90 border border-violet-200/80 px-3.5 py-2.5 rounded-xl flex items-center justify-between gap-3 animate-fade-in shadow-2xs mb-3">
+            <div class="flex items-center gap-2">
+              <app-icon name="calendar" class="w-4 h-4 text-violet-600 shrink-0"></app-icon>
+              <span class="text-xs font-bold text-violet-900 leading-tight">Pago planificado pendiente</span>
+            </div>
+            <span class="bg-violet-100 text-violet-800 border border-violet-300 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold shrink-0">
+              $ {{ selectedPlannedPaymentAmount | number:'1.2-2' }}
+            </span>
+          </div>
+
           <!-- Banner de Recargo Pendiente en Modal -->
           <div *ngIf="selectedPendingSurcharge > 0 && !isPreviousBalanceSelected" class="bg-amber-50/90 border border-amber-200/80 p-3 rounded-xl flex items-center justify-between gap-3 animate-fade-in shadow-2xs">
             <div>
@@ -664,92 +683,6 @@
 
         </div>
 
-        <!-- Increase Queue Overlay inside modal -->
-        <div *ngIf="showIncreaseOverlay" class="absolute inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-gray-200 flex flex-col animate-fade-in-up">
-            
-            <div [ngClass]="increaseQueue.length > 1 ? 'bg-purple-600' : 'bg-gray-900'" class="text-white px-6 py-4 flex items-center justify-between">
-              <div class="flex items-center gap-2.5">
-                <app-icon name="trending-up" class="h-5 w-5"></app-icon>
-                <h3 class="font-bold text-sm sm:text-base tracking-tight">
-                  {{ increaseQueue.length > 1 ? 'Actualización Múltiple' : 'Actualización de Abono' }}
-                </h3>
-              </div>
-              <span *ngIf="increaseQueue.length > 1" class="bg-white/20 text-[11px] px-2.5 py-0.5 rounded-full font-semibold border border-white/30">
-                Etapa {{ currentIncreaseStep + 1 }} de {{ increaseQueue.length }}
-              </span>
-            </div>
-            
-            <div class="p-6 space-y-5 flex-1 overflow-y-auto">
-              <p class="text-gray-600 text-xs sm:text-sm font-medium">{{ increasePromptReason }}</p>
-
-              <div class="grid grid-cols-2 gap-4 p-4 rounded-xl border"
-                   [ngClass]="increaseQueue.length > 1 ? 'bg-purple-50/50 border-purple-100' : 'bg-gray-50/80 border-gray-200'">
-                <div>
-                  <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Abono Base</p>
-                  <p class="text-lg font-bold text-gray-900 tabular-nums">${{ selectedClientRentAmount | number:'1.2-2' }}</p>
-                </div>
-                <div>
-                  <p class="text-[10px] font-bold uppercase tracking-wider mb-1"
-                     [ngClass]="increaseQueue.length > 1 ? 'text-purple-600' : 'text-indigo-600'">Nuevo Abono ($)</p>
-                  <div class="relative">
-                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
-                    <input type="number" 
-                          [(ngModel)]="projectedNewRent" 
-                          (blur)="onProjectedRentBlur()"
-                          (keydown.enter)="blurInput($event)"
-                          class="w-full pl-7 pr-2 py-1.5 border border-gray-200 rounded-xl text-base font-bold transition-all bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 tabular-nums shadow-2xs"
-                          [ngClass]="increaseQueue.length > 1 ? 'border-purple-200 text-purple-700 focus:border-purple-500' : 'border-gray-200 text-indigo-700'">
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Porcentaje de aumento a aplicar:</label>
-                <div class="relative w-2/3">
-                  <input type="number" 
-                        [(ngModel)]="increasePercentage" 
-                        (blur)="onIncreasePercentageBlur()"
-                        (keydown.enter)="blurInput($event)"
-                        class="w-full pl-3.5 pr-8 py-2 border border-gray-200 rounded-xl text-base font-bold text-gray-800 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-2xs tabular-nums"
-                        placeholder="Ej: 20">
-                  <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
-                </div>
-              </div>
-
-              <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200/80 text-xs text-gray-700 flex items-center gap-3">
-                <app-icon name="calendar" class="h-5 w-5 text-gray-400 shrink-0"></app-icon>
-                <div>
-                  <span class="block text-gray-400 font-medium">Próxima fecha de aumento pasaría al:</span>
-                  <strong class="text-gray-900 capitalize text-sm">{{ projectedNextIncreaseDate | date:'MMMM yyyy' }}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div class="px-6 py-4 border-t border-gray-100 flex justify-between items-center bg-gray-50/80">
-              <button (click)="goBackFromIncrease()" class="px-3.5 py-2 text-xs font-semibold text-gray-500 hover:text-gray-800 flex items-center gap-1.5 transition-colors bg-white border border-gray-200 rounded-xl shadow-2xs">
-                <app-icon name="arrow-left" class="w-3.5 h-3.5"></app-icon> Atrás
-              </button>
-
-              <div class="flex gap-2">
-                <button (click)="skipIncrease()" class="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-2xs">
-                  Omitir
-                </button>
-                <button *ngIf="currentIncreaseStep < increaseQueue.length - 1" 
-                        (click)="confirmIncrease()" 
-                        class="px-4 py-2 text-xs font-semibold bg-purple-600 rounded-xl text-white hover:bg-purple-700 transition-colors shadow-sm">
-                  Siguiente Etapa
-                </button>
-                <button *ngIf="currentIncreaseStep === increaseQueue.length - 1" 
-                        (click)="confirmIncrease()" 
-                        class="px-4 py-2 text-xs font-semibold bg-gray-900 rounded-xl text-white hover:bg-gray-800 transition-colors shadow-sm">
-                  Confirmar y Pagar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- Footer Buttons -->
         <div class="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50/80 border-t border-gray-100 shrink-0">
           <button
@@ -774,6 +707,28 @@
   </div>
   </div>
 </div>
+
+<app-payment-increase-modal
+  *ngIf="showIncreaseOverlay"
+  [reason]="increasePromptReason"
+  [clientName]="getClientNameById(selectedClientId)"
+  [stage]="currentIncreaseStep + 1"
+  [stageTotal]="increaseQueue.length"
+  [stageLabel]="currentPendingIncrease?.label || ''"
+  [currentRent]="selectedClientRentAmount"
+  [projectedRent]="projectedNewRent"
+  [percentage]="increasePercentage"
+  [projectedNextIncreaseDate]="projectedNextIncreaseDate"
+  [showBack]="increaseQueue.length > 1"
+  [confirmLabel]="currentIncreaseStep < increaseQueue.length - 1 ? 'Siguiente etapa' : 'Confirmar y pagar'"
+  (projectedRentChange)="projectedNewRent = $event"
+  (percentageChange)="increasePercentage = $event"
+  (projectedRentBlur)="onProjectedRentBlur()"
+  (percentageBlur)="onIncreasePercentageBlur()"
+  (back)="goBackFromIncrease()"
+  (skip)="skipIncrease()"
+  (confirm)="confirmIncrease()"
+></app-payment-increase-modal>
 
 <div *ngIf="showReceiptModal"
      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"

@@ -25,6 +25,7 @@ export class OfflineBannerComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    void this.syncService.init();
     this.subs.push(
       this.offlineService.isOnline$.subscribe((v: boolean) => this.isOnline = v),
       this.syncService.pendingCount$.subscribe((v: number) => this.pendingCount = v),

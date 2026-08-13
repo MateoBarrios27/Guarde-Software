@@ -371,5 +371,10 @@ namespace GuardeSoftwareAPI.Services.communication
         {
             return await _communicationDao.GetClientsForSelectorAsync();
         }
+
+        public async Task<string?> GetDispatchContentAsync(int dispatchId)
+        {
+            return await _communicationDao.GetDispatchContentAsync(dispatchId);
+        }
     }
 }

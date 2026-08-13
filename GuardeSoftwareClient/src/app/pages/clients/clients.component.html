@@ -80,7 +80,7 @@
       </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden md:overflow-visible">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible">
       <div class="p-4 space-y-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3
@@ -88,7 +88,7 @@
           >
             <app-icon name="user" class="h-5 w-5"></app-icon> Lista de Clientes
             <span class="text-sm font-normal bg-gray-100 px-2 py-0.5 rounded-md"
-              >{{ totalClientes }} resultados</span
+              >{{ isLoading ? 'Cargando...' : totalClientes + ' resultados' }}</span
             >
           </h3>
           <div class="flex items-center gap-2 self-start sm:self-auto">
@@ -375,6 +375,10 @@
               </option>
             </select>
           </div> -->
+          <div *ngIf="isLoading; else clientsRange" class="text-sm text-gray-500">
+            Cargando clientes...
+          </div>
+          <ng-template #clientsRange>
           <div class="text-sm text-gray-600">
             Mostrando
             {{
@@ -391,13 +395,14 @@
             }}
             de {{ totalClientes }} clientes
           </div>
+          </ng-template>
         </div>
       </div>
 
-      <div class="relative w-full overflow-x-auto overscroll-x-contain md:overflow-visible" aria-label="Tabla de clientes">
-        <table class="min-w-[980px] w-full text-sm border-separate border-spacing-0">
+      <div class="relative w-full min-w-0 overflow-visible" aria-label="Tabla de clientes">
+        <table class="min-w-[1180px] w-full text-sm border-separate border-spacing-0">
           
-          <thead class="text-xs text-gray-700 bg-gray-50 relative md:sticky top-0 z-20 shadow-sm">
+          <thead class="text-xs text-gray-700 bg-gray-50 sticky top-0 z-20 shadow-sm">
             <tr>
               
               <th class="p-4 text-left font-medium cursor-pointer border-b border-gray-200 bg-gray-50" (click)="handleSort('FullName')">
@@ -503,10 +508,8 @@
                 </td>
                 <td class="p-4"><div class="skeleton-pulse h-3 w-24 rounded-md"></div></td>
                 <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md"></div></td>
-                <td class="p-4"><div class="skeleton-pulse h-3 w-16 rounded-md"></div></td>
-                <td class="p-4"><div class="skeleton-pulse h-3 w-16 rounded-md mx-auto"></div></td>
-                <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md ml-auto"></div></td>
-                <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md ml-auto"></div></td>
+                <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md"></div></td>
+                <td class="p-4"><div class="skeleton-pulse h-3 w-16 rounded-md ml-auto"></div></td>
                 <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md ml-auto"></div></td>
                 <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md ml-auto"></div></td>
                 <td class="p-4">
@@ -522,6 +525,7 @@
             <!-- Data rows -->
             <tr
               *ngFor="let cliente of clientes | paginate: { itemsPerPage: itemsPerPageClientes, currentPage: currentPageClientes, totalItems: totalClientes }; trackBy: trackByClientId"
+              [hidden]="isLoading"
               id="client-row-{{cliente.id}}"
               class="border-b hover:bg-gray-50 transition-colors client-row"
               [class.has-color]="!!cliente.color"
@@ -671,34 +675,43 @@
 
             </tr>
           </tbody>
-          <tfoot class="font-bold text-gray-700 bg-gray-50 relative md:sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <tfoot *ngIf="!isLoading" class="font-bold text-gray-700 bg-gray-50 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             <tr>
-              <td colspan="3" class="p-4 text-right align-middle border-t border-gray-200 bg-gray-50">
+              <td colspan="3" class="px-4 py-2 text-right align-middle border-t border-gray-200 bg-gray-50">
                 <span class="text-xs uppercase tracking-wider text-gray-500 font-bold">
                   Totales Columna:
                 </span>
               </td>
               
-              <td class="p-4 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50" 
+              <td class="px-4 py-2 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50"
                   [ngClass]="totals.previousBalance >= 0 ? 'text-green-600' : 'text-red-600'">
                  <div class="text-base font-bold">$ {{ totals.previousBalance | number:'1.2-2' }}</div>
               </td>
 
-              <td class="p-4 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50" 
+              <td class="px-4 py-2 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50"
                   [ngClass]="totals.interestAmount > 0 ? 'text-red-600' : 'text-gray-500'">
                  <div class="text-base font-bold">$ {{ totals.interestAmount | number:'1.2-2' }}</div>
               </td>
               
-              <td class="p-4 text-right text-blue-700 whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50">
+              <td class="px-4 py-2 text-right text-blue-700 whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50">
                  <div class="text-base font-bold">$ {{ totals.currentRent | number:'1.2-2' }}</div>
               </td>
               
-              <td class="p-4 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50" 
+              <td class="px-4 py-2 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50"
                   [ngClass]="totals.balance >= 0 ? 'text-green-600' : 'text-red-600'">
                  <div class="text-base font-bold">$ {{ totals.balance | number:'1.2-2' }}</div>
               </td>
               
               <td class="border-t border-gray-200 bg-gray-50"></td>
+            </tr>
+            <tr>
+              <td colspan="5" class="bg-gray-50"></td>
+              <td class="px-4 pb-1 text-right text-xs leading-tight font-medium text-gray-500 whitespace-nowrap bg-gray-50">
+                <span title="Abono + suma de paymentIdentifier de clientes activos - 0,02">
+                  ≈ $ {{ totals.currentRentWithActivePaymentIdentifiers | number:'1.2-2' }}
+                </span>
+              </td>
+              <td colspan="2" class="bg-gray-50"></td>
             </tr>
           </tfoot>
 
@@ -728,17 +741,21 @@
 
 <!-- </div> -->
 
-<app-create-client-modal 
-  *ngIf="showNewClientModal"
-  [clientData]="clientToEdit" 
-  [isReactivation]="isReactivationMode" 
-  (closeModal)="closeNewClientModal()"
-  (saveSuccess)="onClientSaveSuccess()">
-</app-create-client-modal>
+@defer (when showNewClientModal) {
+  <app-create-client-modal
+    *ngIf="showNewClientModal"
+    [clientData]="clientToEdit"
+    [isReactivation]="isReactivationMode"
+    (closeModal)="closeNewClientModal()"
+    (saveSuccess)="onClientSaveSuccess()">
+  </app-create-client-modal>
+}
 
-<app-client-detail-modal
-  *ngIf="showDetailClientModal"
-  [client]="clientToView"
-  (closeModal)="closeDetailClientModal()"
-  (dataUpdated)="onClientDataUpdated($event)"  >
-</app-client-detail-modal>
+@defer (when showDetailClientModal) {
+  <app-client-detail-modal
+    *ngIf="showDetailClientModal"
+    [client]="clientToView"
+    (closeModal)="closeDetailClientModal()"
+    (dataUpdated)="onClientDataUpdated($event)">
+  </app-client-detail-modal>
+}

@@ -13,6 +13,14 @@ namespace GuardeSoftwareAPI.Dtos.Statistics
         public decimal TotalAdvancePayments { get; set; }
         public decimal TotalIvaFacturaA { get; set; }
         public decimal TotalIvaFacturaB { get; set; }
+        public decimal TotalObligacionDelPeriodo { get; set; }
+        public decimal TotalAplicadoAlPeriodo { get; set; }
+        public decimal TotalPendienteDelPeriodo { get; set; }
+        public decimal TotalCobradoParaMesesFuturos { get; set; }
+        public decimal TotalCubiertoAntesDelPeriodo { get; set; }
+        public int TotalEspacios { get; set; }
+        public decimal PorcentajeOcupacion { get; set; }
+        public decimal AbonoPromedioPorEspacio { get; set; }
         public List<WarehouseRevenueDto>? WarehouseRevenues { get; set; }
     }
 }

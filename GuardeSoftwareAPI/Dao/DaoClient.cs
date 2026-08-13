@@ -34,6 +34,7 @@ namespace GuardeSoftwareAPI.Dao
                     c.notes,
                     c.billing_type_id,
                     c.increase_frequency_months,
+                    c.is_six_month_promotion,
                     c.initial_amount,
                     r.increase_anchor_date AS IncreaseAnchorDate,
                     r.pending_surcharge AS PendingSurcharge,
@@ -42,7 +43,9 @@ namespace GuardeSoftwareAPI.Dao
                     ISNULL(step1.UI_PreviousBalance, 0) AS PreviousBalance,
                     ISNULL(step1.UI_InterestAmount, 0) AS interest_amount,
                     ISNULL(db.MonthYearDB, '') AS last_generated_month_year,
-                    nextPayment.NextPaymentDay AS next_payment_day
+                    nextPayment.NextPaymentDay AS next_payment_day,
+                    ISNULL(plannedPayment.PlannedAmount, 0) AS planned_payment_amount,
+                    ISNULL(plannedPayment.HasPlannedPayment, 0) AS has_planned_payment
                 FROM clients c
                 LEFT JOIN rentals r
                     ON c.client_id = r.client_id
@@ -57,6 +60,52 @@ namespace GuardeSoftwareAPI.Dao
                              CASE WHEN rah.end_date IS NULL THEN 1 ELSE 0 END DESC,
                              rah.rental_amount_history_id DESC
                 ) currentRental
+
+                OUTER APPLY (
+                    SELECT
+                        PlannedAmount = SUM(remaining.RentAmount),
+                        HasPlannedPayment = CASE
+                            WHEN SUM(CASE
+                                WHEN monthInfo.MonthStart > DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                                     AND remaining.RentAmount > 0
+                                THEN 1 ELSE 0 END) > 0
+                            THEN CAST(1 AS bit) ELSE CAST(0 AS bit)
+                        END
+                    FROM client_month_balances cmb
+                    CROSS APPLY (
+                        SELECT MonthStart = DATEFROMPARTS(
+                            CONVERT(int, RIGHT(cmb.month_year, 4)),
+                            CONVERT(int, LEFT(cmb.month_year, 2)),
+                            1)
+                    ) monthInfo
+                    CROSS APPLY (
+                        SELECT RentPaid = CASE
+                            WHEN (ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0)
+                                  - ISNULL(cmb.previous_balance, 0) - ISNULL(cmb.interests, 0)) > 0
+                            THEN (ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0)
+                                  - ISNULL(cmb.previous_balance, 0) - ISNULL(cmb.interests, 0))
+                            ELSE 0
+                        END
+                    ) applied
+                    CROSS APPLY (
+                        SELECT RentAmount = CASE
+                            WHEN ISNULL(cmb.monthly_debits, 0) > applied.RentPaid
+                            THEN ISNULL(cmb.monthly_debits, 0) - applied.RentPaid
+                            ELSE 0
+                        END
+                    ) remaining
+                    WHERE cmb.rental_id = r.rental_id
+                      AND monthInfo.MonthStart >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                      AND EXISTS (
+                          SELECT 1
+                          FROM account_movements am
+                          WHERE am.rental_id = cmb.rental_id
+                            AND am.movement_type = 'DEBITO'
+                            AND am.payment_id IS NULL
+                            AND am.concept LIKE 'Alquiler %'
+                            AND DATEFROMPARTS(YEAR(am.movement_date), MONTH(am.movement_date), 1) = monthInfo.MonthStart
+                      )
+                ) plannedPayment
                 
                 -- BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO (Para fecha de próximo pago correcta)
                 OUTER APPLY (
@@ -169,7 +218,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<DataTable> GetClientById(int id)
         {
-            string query = "SELECT client_id, payment_identifier,full_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes, billing_type_id, increase_frequency_months, initial_amount FROM clients WHERE client_id = @client_id";
+            string query = "SELECT client_id, payment_identifier,full_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes, billing_type_id, increase_frequency_months, is_six_month_promotion, initial_amount FROM clients WHERE client_id = @client_id";
             SqlParameter[] parameters = { new("@client_id", SqlDbType.Int) { Value = id } };
             return await accessDB.GetTableAsync("clients", query, parameters);
         }
@@ -254,14 +303,15 @@ namespace GuardeSoftwareAPI.Dao
                 new("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
                 new("@billing_type_id", SqlDbType.Int) { Value = (object?)client.BillingTypeId ?? DBNull.Value },
                 new("@increase_frequency_months", SqlDbType.Int) { Value = client.IncreaseFrequencyMonths },
+                new("@is_six_month_promotion", SqlDbType.Bit) { Value = client.IsSixMonthPromotion },
                 new("@initial_amount", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)client.InitialAmount ?? DBNull.Value },
                 new("@receive_communications", SqlDbType.Bit) { Value = client.ReceiveCommunications }
             ];
 
             string query = @"
-                INSERT INTO clients(payment_identifier, full_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes, billing_type_id, increase_frequency_months, initial_amount, receive_communications)
+                INSERT INTO clients(payment_identifier, full_name, registration_date, dni, cuit, preferred_payment_method_id, iva_condition, notes, billing_type_id, increase_frequency_months, is_six_month_promotion, initial_amount, receive_communications)
                 OUTPUT INSERTED.client_id
-                VALUES(@payment_identifier, @full_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes, @billing_type_id, @increase_frequency_months, @initial_amount, @receive_communications);";
+                VALUES(@payment_identifier, @full_name, @registration_date, @dni, @cuit, @preferred_payment_method_id, @iva_condition, @notes, @billing_type_id, @increase_frequency_months, @is_six_month_promotion, @initial_amount, @receive_communications);";
 
             using var command = new SqlCommand(query, connection, transaction);
             command.Parameters.AddRange(parameters);
@@ -287,7 +337,7 @@ namespace GuardeSoftwareAPI.Dao
                     c.client_id, c.payment_identifier, c.full_name, c.registration_date,
                     c.dni, c.cuit, c.iva_condition, c.notes, c.receive_communications,
                     c.color, c.comment, c.comment_updated_at,
-                    c.initial_amount, c.increase_frequency_months,
+                    c.initial_amount, c.increase_frequency_months, c.is_six_month_promotion,
                     ad.street, ad.city, ad.province,
                     pm.name AS preferred_payment_method,
                     bt.billing_type_id, bt.name AS billing_type,
@@ -1108,6 +1158,7 @@ namespace GuardeSoftwareAPI.Dao
                             Active = Convert.ToBoolean(reader["active"]),
                             BillingTypeId = reader["billing_type_id"] != DBNull.Value ? Convert.ToInt32(reader["billing_type_id"]) : null,
                             IncreaseFrequencyMonths = Convert.ToInt32(reader["increase_frequency_months"]),
+                            IsSixMonthPromotion = reader["is_six_month_promotion"] != DBNull.Value && Convert.ToBoolean(reader["is_six_month_promotion"]),
                             InitialAmount = reader["initial_amount"] != DBNull.Value ? Convert.ToDecimal(reader["initial_amount"]) : null,
                             ReceiveCommunications = reader["receive_communications"] != DBNull.Value && Convert.ToBoolean(reader["receive_communications"]),
                             Color = reader["color"] != DBNull.Value ? reader["color"].ToString() : null,
@@ -1180,6 +1231,7 @@ namespace GuardeSoftwareAPI.Dao
                     notes = @notes,
                     billing_type_id = @billing_type_id,
                     increase_frequency_months = @increase_frequency_months,
+                    is_six_month_promotion = @is_six_month_promotion,
                     initial_amount = @initial_amount,
                     receive_communications = @ReceiveCommunications
                     
@@ -1197,6 +1249,7 @@ namespace GuardeSoftwareAPI.Dao
                 new("@notes", SqlDbType.VarChar) { Value = (object?)client.Notes?.Trim() ?? DBNull.Value },
                 new("@billing_type_id", SqlDbType.Int) { Value = (object?)client.BillingTypeId ?? DBNull.Value },
                 new("@increase_frequency_months", SqlDbType.Int) { Value = client.IncreaseFrequencyMonths },
+                new("@is_six_month_promotion", SqlDbType.Bit) { Value = client.IsSixMonthPromotion },
                 new("@initial_amount", SqlDbType.Decimal) { Precision = 10, Scale = 2, Value = (object?)client.InitialAmount ?? DBNull.Value },
                 new("@client_id", SqlDbType.Int) { Value = client.Id },
                 new("@ReceiveCommunications", SqlDbType.Bit) { Value = client.ReceiveCommunications }

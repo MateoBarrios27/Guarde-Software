@@ -83,6 +83,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   smtpConfigs = signal<any[]>([]);
 
   showRecipientModal = signal(false);
+  previewContent = signal<string | null>(null);
+  previewClientName = signal('');
   allClients = signal<ClientSelectorItem[]>([]); 
   filteredClients = signal<ClientSelectorItem[]>([]); 
   recipientSearchTerm = signal('');
@@ -114,6 +116,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     // Iniciar conexión SignalR y escuchar actualizaciones
+    this.ensureQuillStylesheet();
     this.commService.startSignalRConnection();
     this.signalRSubscription = this.commService.onCommunicationUpdated$.subscribe((id) => {
       // Recargar listado en segundo plano
@@ -136,6 +139,17 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     this.loadClientsForSelector();
     this.generateMonthFilters();
   }
+
+  private ensureQuillStylesheet(): void {
+    const stylesheetId = 'quill-snow-styles';
+    if (document.getElementById(stylesheetId)) return;
+
+    const link = document.createElement('link');
+    link.id = stylesheetId;
+    link.rel = 'stylesheet';
+    link.href = 'assets/quill/quill.snow.css';
+    document.head.appendChild(link);
+  }
 
   ngOnDestroy(): void {
     if (this.signalRSubscription) {
@@ -739,9 +753,32 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     this.openModal('retry', comm);
   }
 
+  viewDispatchContent(dispatchId: number, clientName: string): void {
+    this.commService.getDispatchContent(dispatchId).subscribe({
+      next: ({ content }) => {
+        this.previewClientName.set(clientName);
+        this.previewContent.set(content);
+      },
+      error: () => {
+        this.showToast(
+          'No se pudo abrir el contenido',
+          'Intentá nuevamente en unos segundos.',
+          'alert-triangle',
+          'error',
+        );
+      },
+    });
+  }
+
+  closeContentPreview(): void {
+    this.previewContent.set(null);
+    this.previewClientName.set('');
+  }
+
   getFailedDispatches(comm: ComunicacionDto): CommunicationDispatchDto[] {
     if (!comm.dispatches || comm.dispatches.length === 0) {
       return comm.recipients.map((name, idx) => ({
+        dispatchId: -(idx + 1),
         clientId: -(idx + 1),
         clientName: name,
         channel: comm.channel,

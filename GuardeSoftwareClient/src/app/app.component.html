@@ -6,9 +6,11 @@
     (closeSidebar)="closeSidebar()">
   </app-sidebar>
 
-  <div class="flex-1 flex flex-col transition-all duration-300 ease-in-out ml-0 lg:ml-64 min-w-0">
+  <div class="flex-1 flex flex-col transition-all duration-300 ease-in-out ml-0 lg:ml-64 min-w-0 min-h-0">
     
-    <app-offline-banner></app-offline-banner>
+    @defer (on timer(3000ms)) {
+      <app-offline-banner></app-offline-banner>
+    }
 
     <header class="flex h-16 items-center gap-4 border-b bg-white px-6 shadow-sm flex-shrink-0">
       <button (click)="toggleSidebar()" class="text-gray-600 hover:text-gray-900 lg:hidden">
@@ -18,7 +20,7 @@
       <h1 class="text-lg font-semibold text-gray-900">{{ pageTitle }}</h1>
     </header>
 
-    <main id="main-scroll" class="flex-1 overflow-y-auto overflow-x-hidden p-6 pt-0 pb-0" cdkScrollable>
+    <main id="main-scroll" class="flex-1 min-w-0 min-h-0 overflow-auto p-6 pt-0 pb-0">
       <router-outlet></router-outlet>
     </main>
   </div>
@@ -35,5 +37,9 @@
   <router-outlet></router-outlet>
 </ng-template>
 
-<!-- Cartel de advertencia del sistema (disponible en toda la app) -->
-<app-system-alert-modal></app-system-alert-modal>
+<!-- Cartel de advertencia del sistema (disponible en rutas autenticadas). -->
+@if (!isLoginRoute && authService.isLoggedIn()) {
+  @defer (on timer(3000ms)) {
+    <app-system-alert-modal></app-system-alert-modal>
+  }
+}

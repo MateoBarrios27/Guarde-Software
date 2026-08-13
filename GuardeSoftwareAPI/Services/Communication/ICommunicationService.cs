@@ -13,5 +13,6 @@ namespace GuardeSoftwareAPI.Services.communication
         Task<List<ClientCommunicationDto>> GetCommunicationsByClientIdAsync(int clientId);
         Task<List<ClientRecipientDto>> GetClientsForSelectorAsync();
         Task<CommunicationDto> RetrySelectedFailedCommunicationAsync(int communicationId, List<int> selectedClientIds);
+        Task<string?> GetDispatchContentAsync(int dispatchId);
     }
 }

@@ -1,4 +1,6 @@
 export const environment = {
   production: true,
-  apiUrl: 'http://200.58.127.32/api'
+  // Nginx proxies /api and /hubs to the backend. Same-origin requests avoid
+  // the CORS preflight that previously preceded every authenticated call.
+  apiUrl: '/api'
 };

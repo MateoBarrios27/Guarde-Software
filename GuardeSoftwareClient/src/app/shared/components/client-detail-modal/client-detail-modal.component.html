@@ -208,13 +208,20 @@
           </div>
           
           <div *ngIf="activeTab === 'movimientos' && !isLoadingHistory && !historyError" class="space-y-4 animate-fade-in">
-            <div class="flex justify-between items-center">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 class="text-lg font-semibold text-gray-800">
                 Historial de Movimientos
               </h3>
-              <button *ngIf="client.paymentStatus !== 'Baja'" (click)="openNewMovementModal()" class="px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                <app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Movimiento
-              </button>
+              <div *ngIf="client.paymentStatus !== 'Baja'" class="flex flex-wrap items-center gap-2">
+                <button type="button" (click)="openPaymentPlanningModal()" class="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-semibold text-violet-700 hover:bg-violet-100">
+                  <app-icon name="calendar" class="h-4 w-4"></app-icon>
+                  Planificar pago
+                </button>
+                <button type="button" (click)="openNewMovementModal()" class="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700">
+                  <app-icon name="plus" class="h-4 w-4"></app-icon>
+                  Nuevo Movimiento
+                </button>
+              </div>
             </div>
             
             <div>
@@ -306,6 +313,13 @@
                       <div class="mt-1.5 text-xs text-gray-600 leading-relaxed bg-gray-50/80 p-2.5 rounded-lg border border-gray-100/80 break-words">
                         {{ com.snippet || 'Sin detalle disponible.' }}
                       </div>
+                      <button *ngIf="com.hasContent" 
+                              (click)="viewDispatchContent(com.id); $event.stopPropagation()"
+                              class="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50 mt-1"
+                              title="Ver contenido enviado">
+                        <app-icon name="eye" class="w-4 h-4"></app-icon>
+                        <span class="text-xs ml-1">Ver contenido</span>
+                      </button>
                     </div>
                   </li>
                 </ul>
@@ -723,3 +737,132 @@
   (saveSuccess)="onMovementSaveSuccess()"
 >
 </app-create-movement-modal>
+
+<div *ngIf="showPaymentPlanningModal && client" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4" (click)="closePaymentPlanningModal()">
+  <section class="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl" (click)="$event.stopPropagation()">
+    <header class="flex items-start justify-between border-b border-gray-100 px-6 py-5">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-wider text-violet-600">Próximo cobro</p>
+        <h3 class="mt-1 text-xl font-bold text-gray-900">Planificar pago</h3>
+        <p class="mt-1 text-sm text-gray-500">{{ client.fullName }}</p>
+      </div>
+      <button type="button" (click)="closePaymentPlanningModal()" class="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+        <app-icon name="x" class="h-5 w-5"></app-icon>
+      </button>
+    </header>
+
+    <div class="max-h-[65vh] overflow-y-auto px-6 py-5">
+      <ng-container *ngIf="paymentPlanningStep === 'setup'">
+        <label for="payment-plan-months" class="block text-sm font-semibold text-gray-800">¿Cuántos meses se van a cobrar?</label>
+        <p class="mt-1 text-sm text-gray-500">Se generará un débito por cada mes seleccionado.</p>
+        <div class="mt-4 flex items-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+          <button type="button" (click)="paymentPlanningMonths = paymentPlanningMonths > 1 ? paymentPlanningMonths - 1 : 1" class="px-5 py-3 text-xl font-semibold text-gray-500 hover:bg-gray-100">−</button>
+          <input id="payment-plan-months" type="number" min="1" max="24" [(ngModel)]="paymentPlanningMonths" class="w-full border-0 bg-transparent py-3 text-center text-xl font-bold text-gray-900 focus:ring-0" />
+          <button type="button" (click)="paymentPlanningMonths = paymentPlanningMonths < 24 ? paymentPlanningMonths + 1 : 24" class="px-5 py-3 text-xl font-semibold text-gray-500 hover:bg-gray-100">+</button>
+        </div>
+
+        <label *ngIf="client.isSixMonthPromotion" class="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-violet-100 bg-violet-50 p-4">
+          <input type="checkbox" [(ngModel)]="chargeHalfSixthMonth" class="mt-0.5 h-4 w-4 rounded border-violet-300 text-violet-600 focus:ring-violet-500" />
+          <span>
+            <span class="block text-sm font-semibold text-violet-900">Cobrar la mitad del sexto mes</span>
+            <span class="mt-0.5 block text-xs leading-5 text-violet-700">Promoción de 6 meses detectada. Esta opción está activada por defecto.</span>
+          </span>
+        </label>
+
+        <div *ngIf="paymentPlanningMonths >= 6" class="mt-5 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+          <app-icon name="lock" class="mt-0.5 h-5 w-5 flex-none"></app-icon>
+          <p><strong>Abono congelado:</strong> no se aplicarán aumentos ni se generará un mes adicional fuera del período elegido.</p>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="paymentPlanningStep === 'summary' && paymentPlanningContext">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wide text-gray-400">Período</p>
+            <p class="mt-1 text-sm font-semibold text-gray-800">{{ paymentPlanningBreakdown[0].label }} — {{ paymentPlanningBreakdown[paymentPlanningBreakdown.length - 1].label }}</p>
+          </div>
+          <span *ngIf="paymentPlanningContext.isPriceLocked" class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Abono congelado</span>
+        </div>
+
+        <label *ngIf="paymentPlanningContext.hasSixMonthPromotion" class="mt-4 flex cursor-pointer items-center gap-3 rounded-xl border border-violet-100 bg-violet-50 p-3">
+          <input type="checkbox" [(ngModel)]="chargeHalfSixthMonth" (ngModelChange)="updatePaymentPlanningBreakdown()" class="h-4 w-4 rounded border-violet-300 text-violet-600 focus:ring-violet-500" />
+          <span class="text-sm font-semibold text-violet-900">Cobrar la mitad del sexto mes</span>
+        </label>
+
+        <div class="mt-4 overflow-hidden rounded-xl border border-gray-200">
+          <div *ngFor="let month of paymentPlanningBreakdown; let last = last" class="flex items-center justify-between px-4 py-3" [class.border-b]="!last">
+            <div>
+              <span class="text-sm font-semibold text-gray-800 capitalize">{{ month.label }}</span>
+              <span *ngIf="month.isHalfPromotion" class="ml-2 rounded bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-700">50% promo</span>
+            </div>
+            <span class="text-sm font-bold text-gray-900">$ {{ month.amount | number:'1.2-2' }}</span>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center justify-between rounded-xl bg-gray-900 px-5 py-4 text-white">
+          <span class="text-sm font-semibold">Total a cobrar</span>
+          <span class="text-2xl font-bold">$ {{ paymentPlanningTotal | number:'1.2-2' }}</span>
+        </div>
+      </ng-container>
+    </div>
+
+    <footer class="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-6 py-4">
+      <button *ngIf="paymentPlanningStep !== 'setup'" type="button" (click)="backPaymentPlanningStep()" class="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-900">Atrás</button>
+      <span *ngIf="paymentPlanningStep === 'setup'"></span>
+      <button *ngIf="paymentPlanningStep === 'setup'" type="button" (click)="preparePaymentPlan()" [disabled]="isLoadingPaymentPlan || paymentPlanningMonths < 1 || paymentPlanningMonths > 24" class="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">
+        {{ isLoadingPaymentPlan ? 'Calculando…' : 'Continuar' }}
+      </button>
+      <button *ngIf="paymentPlanningStep === 'increase'" type="button" (click)="confirmPlanningIncrease()" class="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-violet-700">{{ currentPlanningIncreaseIndex + 1 < (paymentPlanningContext?.increases?.length || 0) ? 'Siguiente etapa' : 'Ver resumen' }}</button>
+      <button *ngIf="paymentPlanningStep === 'summary'" type="button" (click)="savePaymentPlan()" [disabled]="isSavingPaymentPlan" class="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opabled:cursor-not-allowed disabled:opacity-50">{{ isSavingPaymentPlan ? 'Generando débitos…' : 'Confirmar planificación' }}</button>
+    </footer>
+  </section>
+
+</div>
+
+<app-payment-increase-modal
+  *ngIf="showPaymentPlanningModal && client && paymentPlanningStep === 'increase' && currentPlanningIncrease"
+  [reason]="'El aumento programado para ' + currentPlanningIncrease.label + ' debe definirse antes de confirmar el plan.'"
+  [clientName]="client.fullName"
+  [stage]="currentPlanningIncreaseIndex + 1"
+  [stageTotal]="paymentPlanningContext?.increases?.length || 1"
+  [stageLabel]="currentPlanningIncrease.label"
+  [currentRent]="currentPlanningBaseRent"
+  [projectedRent]="planningProjectedRent"
+  [percentage]="planningIncreasePercentage"
+  [projectedNextIncreaseDate]="planningProjectedNextIncreaseDate"
+  [showBack]="true"
+  [skipLabel]="'Mantener abono'"
+  [confirmLabel]="currentPlanningIncreaseIndex + 1 < (paymentPlanningContext?.increases?.length || 0) ? 'Siguiente etapa' : 'Ver resumen'"
+  (projectedRentChange)="planningProjectedRent = $event"
+  (percentageChange)="planningIncreasePercentage = $event; calculatePlanningProjectedRent()"
+  (projectedRentBlur)="onPlanningProjectedRentBlur()"
+  (back)="backPaymentPlanningStep()"
+  (skip)="skipPlanningIncrease()"
+  (confirm)="confirmPlanningIncrease()"
+></app-payment-increase-modal>
+
+<!-- Content Preview Modal (inside client detail) -->
+<div *ngIf="previewContent" 
+     class="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4"
+     (click)="closeContentPreview()">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
+       (click)="$event.stopPropagation()">
+    <div class="flex items-center justify-between p-4 border-b">
+      <div class="flex items-center gap-2">
+        <app-icon name="eye" class="w-5 h-5 text-indigo-600"></app-icon>
+        <h3 class="font-semibold text-gray-900">Contenido enviado</h3>
+      </div>
+      <button (click)="closeContentPreview()" 
+              class="p-1 rounded-lg hover:bg-gray-100 transition">
+        <app-icon name="x" class="w-5 h-5 text-gray-500"></app-icon>
+      </button>
+    </div>
+      <div class="flex-1 overflow-auto p-4 sm:p-6 bg-gray-50/50 rounded-b-xl">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 h-full min-h-[60vh]">
+          <iframe [srcdoc]="previewContent" 
+                  class="w-full h-full min-h-[60vh] border-0 rounded-lg"
+                  sandbox="allow-same-origin"
+                  title="Vista previa del contenido enviado"></iframe>
+        </div>
+      </div>
+    </div>
+</div>

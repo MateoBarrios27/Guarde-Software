@@ -155,9 +155,17 @@ namespace GuardeSoftwareAPI.Dao
             return rowsAffected > 0;
         }
 
+        public async Task<bool> DeleteAccountMovementByIdAsync(int movementId, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = "DELETE FROM account_movements WHERE movement_id = @movement_id";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@movement_id", SqlDbType.Int) { Value = movementId });
+            return await command.ExecuteNonQueryAsync() > 0;
+        }
+
         public async Task<bool> IsDebitAlreadyCreatedAsync(int rentalId, string concept, SqlConnection conn, SqlTransaction trans)
         {
-            string query = "SELECT COUNT(1) FROM account_movements WHERE rental_id = @rental_id AND movement_type = 'DEBITO' AND concept = @concept";
+            string query = "SELECT COUNT(1) FROM account_movements WHERE rental_id = @rental_id AND movement_type = 'DEBITO' AND concept LIKE @concept + '%'";
             using var cmd = new SqlCommand(query, conn, trans);
             cmd.Parameters.AddWithValue("@rental_id", rentalId);
             cmd.Parameters.AddWithValue("@concept", concept);

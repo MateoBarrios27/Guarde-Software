@@ -18,5 +18,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement
 		Task<bool> DeleteAccountMovementAsync(int movementId);
 		Task<AccountMovement> CreateManualMovementAsync(CreateAccountMovementDTO dto);
 		Task<bool> IsDebitAlreadyCreatedAsync(int rentalId, string concept, SqlConnection conn, SqlTransaction trans);
+        Task<PaymentPlanningContextDto> GetPaymentPlanningContextAsync(int clientId, int months);
+        Task<PlannedPaymentResultDto> PlanClientPaymentAsync(PlanClientPaymentDto dto);
     }
 }

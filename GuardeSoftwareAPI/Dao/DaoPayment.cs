@@ -120,6 +120,7 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT 
                     am.movement_id,
                     ISNULL(p.payment_id, 0) AS payment_id,
+                    COALESCE(p.client_id, c_rent.client_id) AS client_id,
                     ISNULL(c_pay.full_name, c_rent.full_name) AS full_name,
                     ISNULL(c_pay.payment_identifier, c_rent.payment_identifier) AS payment_identifier,
                     ISNULL(c_pay.preferred_payment_method_id, c_rent.preferred_payment_method_id) AS preferred_payment_method_id,

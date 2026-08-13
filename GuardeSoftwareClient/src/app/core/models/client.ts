@@ -18,5 +18,8 @@ export interface Client{
     lastGeneratedMonthYear?: string;
     nextPaymentDay?: Date | string | null;
     nextIncreaseDay?: Date | string | null;
+    plannedPaymentAmount?: number;
+    hasPlannedPayment?: boolean;
+    isSixMonthPromotion?: boolean;
 }
 

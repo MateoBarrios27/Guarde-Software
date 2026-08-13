@@ -20,6 +20,9 @@ export interface CachedClient {
   monthsUnpaid?: number;
   increaseAnchorDate?: string;
   increaseFrequencyMonths?: number;
+  isSixMonthPromotion?: boolean;
+  plannedPaymentAmount?: number;
+  hasPlannedPayment?: boolean;
 }
 
 export interface CachedPaymentMethod {

@@ -114,14 +114,16 @@ namespace GuardeSoftwareAPI.Dao
                     ISNULL(d.status, CASE WHEN comm.status IN ('Failed', 'Finished w/ Errors') THEN 'Fallido' ELSE 'Pendiente' END) AS Status,
                     ISNULL(d.provider_response, CASE WHEN comm.status = 'Failed' THEN ISNULL(comm.error_message, 'Error en el envío') ELSE '' END) AS ErrorMessage,
                     ISNULL(FORMAT(d.dispatch_date, 'yyyy-MM-dd HH:mm'), '') AS DispatchDate,
-                    ISNULL(cr.is_selected_for_retry, 1) AS IsSelected
+                    ISNULL(cr.is_selected_for_retry, 1) AS IsSelected,
+                    ISNULL(d.dispatch_id, 0) AS DispatchId,
+                    CASE WHEN d.sent_content IS NOT NULL THEN 1 ELSE 0 END AS HasContent
                 FROM communication_recipients cr
                 JOIN clients c ON cr.client_id = c.client_id
                 JOIN communications comm ON cr.communication_id = comm.communication_id
                 LEFT JOIN communication_channel_content ccc ON comm.communication_id = ccc.communication_id
                 LEFT JOIN communication_channels ch ON ccc.channel_id = ch.channel_id
                 LEFT JOIN (
-                    SELECT comm_channel_content_id, client_id, status, provider_response, dispatch_date,
+                    SELECT dispatch_id, comm_channel_content_id, client_id, status, provider_response, dispatch_date, sent_content,
                            ROW_NUMBER() OVER (PARTITION BY comm_channel_content_id, client_id ORDER BY dispatch_id DESC) AS rn
                     FROM dispatches
                 ) d ON ccc.comm_channel_content_id = d.comm_channel_content_id AND cr.client_id = d.client_id AND d.rn = 1
@@ -134,13 +136,15 @@ namespace GuardeSoftwareAPI.Dao
             {
                 list.Add(new CommunicationDispatchDto
                 {
+                    DispatchId = Convert.ToInt32(row["DispatchId"]),
                     ClientId = Convert.ToInt32(row["ClientId"]),
                     ClientName = row["ClientName"]?.ToString() ?? "",
                     Channel = row["Channel"]?.ToString() ?? "",
                     Status = row["Status"]?.ToString() ?? "",
                     ErrorMessage = row["ErrorMessage"]?.ToString() ?? "",
                     DispatchDate = row["DispatchDate"]?.ToString() ?? "",
-                    IsSelected = row["IsSelected"] is not DBNull && Convert.ToBoolean(row["IsSelected"])
+                    IsSelected = row["IsSelected"] is not DBNull && Convert.ToBoolean(row["IsSelected"]),
+                    HasContent = Convert.ToBoolean(row["HasContent"])
                 });
             }
             return list;
@@ -455,11 +459,11 @@ namespace GuardeSoftwareAPI.Dao
         }
 
         // Loggear intento de envío
-        public async Task LogSendAttemptAsync(int idCommChannelContent, int idCliente, string status, string response)
+        public async Task LogSendAttemptAsync(int idCommChannelContent, int idCliente, string status, string response, string? sentContent = null)
         {
             string query = @"
-                INSERT INTO dispatches (comm_channel_content_id, client_id, dispatch_date, status, provider_response)
-                VALUES (@IdCommChannelContent, @IdCliente, GETDATE(), @Status, @Response)";
+                INSERT INTO dispatches (comm_channel_content_id, client_id, dispatch_date, status, provider_response, sent_content)
+                VALUES (@IdCommChannelContent, @IdCliente, GETDATE(), @Status, @Response, @SentContent)";
 
             if (!string.IsNullOrEmpty(response) && response.Length > 500)
             {
@@ -471,7 +475,8 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@IdCommChannelContent", idCommChannelContent),
                 new SqlParameter("@IdCliente", idCliente),
                 new SqlParameter("@Status", status), 
-                new SqlParameter("@Response", response ?? "")
+                new SqlParameter("@Response", response ?? ""),
+                new SqlParameter("@SentContent", (object?)sentContent ?? DBNull.Value)
             };
             await _accessDB.ExecuteCommandAsync(query, parameters);
         }
@@ -489,7 +494,8 @@ namespace GuardeSoftwareAPI.Dao
                     d.dispatch_date AS Date,
                     LOWER(ch.name) AS Type, 
                     ccc.subject AS Subject,
-                    ccc.content AS RawContent
+                    ISNULL(d.sent_content, ccc.content) AS RawContent,
+                    CASE WHEN d.sent_content IS NOT NULL THEN 1 ELSE 0 END AS HasContent
                 FROM dispatches d
                 JOIN communication_channel_content ccc ON d.comm_channel_content_id = ccc.comm_channel_content_id
                 JOIN communication_channels ch ON ccc.channel_id = ch.channel_id
@@ -515,10 +521,22 @@ namespace GuardeSoftwareAPI.Dao
                     Date = Convert.ToDateTime(row["Date"]),
                     Type = row["Type"]?.ToString() ?? "system",
                     Subject = row["Subject"] is DBNull ? "" : row["Subject"].ToString(),
-                    Snippet = snippet
+                    Snippet = snippet,
+                    HasContent = Convert.ToBoolean(row["HasContent"])
                 });
             }
             return communications;
+        }
+
+        #endregion
+
+        #region 4.1 Contenido de Dispatch Individual
+
+        public async Task<string?> GetDispatchContentAsync(int dispatchId)
+        {
+            string query = "SELECT sent_content FROM dispatches WHERE dispatch_id = @Id";
+            var result = await _accessDB.ExecuteScalarAsync(query, new[] { new SqlParameter("@Id", dispatchId) });
+            return result != null && result != DBNull.Value ? result.ToString() : null;
         }
 
         #endregion

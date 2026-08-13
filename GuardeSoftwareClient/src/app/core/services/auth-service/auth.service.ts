@@ -3,7 +3,6 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs';
 import { environment } from '../../../../environments/environments';
-import Swal from '../../../shared/services/ui-alert.service';
 import { WorkspaceRouteReuseStrategy } from '../../routing/workspace-route-reuse.strategy';
 
 interface LoginRequest {
@@ -107,7 +106,7 @@ export class AuthService {
     }, remainingTime);
   }
 
-  public triggerExpirationAlert() {
+  public async triggerExpirationAlert(): Promise<void> {
     if (this.isShowingAlert) return;
 
     if (!this.getToken()) return;
@@ -120,16 +119,16 @@ export class AuthService {
       return;
     }
 
-    Swal.fire({
+    const { default: Swal } = await import('../../../shared/services/ui-alert.service');
+    await Swal.fire({
       title: 'Sesión expirada',
       text: 'Tu sesión ha expirado por inactividad o límite de tiempo. Por favor, inicia sesión nuevamente.',
       icon: 'warning',
       confirmButtonText: 'Aceptar',
       confirmButtonColor: '#3085d6',
       allowOutsideClick: false
-    }).then(() => {
-      this.isShowingAlert = false;
-      this.router.navigate(['/login']);
     });
+    this.isShowingAlert = false;
+    await this.router.navigate(['/login']);
   }
 }

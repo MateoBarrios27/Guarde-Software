@@ -88,7 +88,7 @@ export class UiAlertService {
 
   private static applyTheme(options: SweetAlertOptions): SweetAlertOptions {
     const isToast = Boolean(options.toast);
-    const hasCustomClass = Boolean(options.customClass);
+    const defaultCustomClass = UiAlertService.getCustomClass(isToast, options.confirmButtonColor);
 
     return {
       ...options,
@@ -98,10 +98,46 @@ export class UiAlertService {
       reverseButtons: options.reverseButtons ?? true,
       showClass: options.showClass ?? { popup: 'guarde-alert-pop-in' },
       hideClass: options.hideClass ?? { popup: 'guarde-alert-pop-out' },
-      customClass: hasCustomClass
-        ? options.customClass
-        : UiAlertService.getCustomClass(isToast, options.confirmButtonColor),
+      customClass: UiAlertService.mergeCustomClass(defaultCustomClass, options.customClass),
     };
+  }
+
+  private static mergeCustomClass(
+    base: SweetAlertCustomClass,
+    custom?: SweetAlertCustomClass,
+  ): SweetAlertCustomClass {
+    const keys: Array<keyof SweetAlertCustomClass> = [
+      'container',
+      'popup',
+      'title',
+      'closeButton',
+      'icon',
+      'image',
+      'htmlContainer',
+      'input',
+      'inputLabel',
+      'validationMessage',
+      'actions',
+      'confirmButton',
+      'denyButton',
+      'cancelButton',
+      'loader',
+      'footer',
+      'timerProgressBar',
+    ];
+
+    const classList = (value?: string | readonly string[]): string[] => {
+      if (!value) return [];
+      return Array.isArray(value) ? [...value] : [value];
+    };
+
+    const merged: SweetAlertCustomClass = {};
+    for (const key of keys) {
+      const value = [...classList(base[key]), ...classList(custom?.[key])].join(' ');
+      if (value) merged[key] = value;
+    }
+
+    return merged;
   }
 
   private static getCustomClass(
@@ -126,7 +162,7 @@ export class UiAlertService {
     };
   }
 
-  private static getConfirmButtonVariant(color?: string): 'primary' | 'danger' | 'success' {
+  private static getConfirmButtonVariant(color?: string): 'primary' | 'danger' {
     const normalizedColor = color?.toLowerCase() ?? '';
 
     if (
@@ -138,14 +174,8 @@ export class UiAlertService {
       return 'danger';
     }
 
-    if (
-      normalizedColor.includes('10b981') ||
-      normalizedColor.includes('green') ||
-      normalizedColor.includes('emerald')
-    ) {
-      return 'success';
-    }
-
+    // Los estados exitosos se expresan en el ícono. La acción de confirmar
+    // mantiene el azul primario, salvo que sea una operación destructiva.
     return 'primary';
   }
 }

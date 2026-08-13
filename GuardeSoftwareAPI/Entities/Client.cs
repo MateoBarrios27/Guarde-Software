@@ -13,6 +13,7 @@ namespace GuardeSoftwareAPI.Entities
         public string? IvaCondition { get; set; } = string.Empty;
         public int? BillingTypeId { get; set; }
         public int IncreaseFrequencyMonths { get; set; }
+        public bool IsSixMonthPromotion { get; set; }
         public decimal? InitialAmount { get; set; }
         public bool ReceiveCommunications { get; set; } = true;
         public bool? Active { get; set; }
@@ -24,6 +25,8 @@ namespace GuardeSoftwareAPI.Entities
         public decimal? InterestAmount { get; set; }
         public string? LastGeneratedMonthYear { get; set; }
         public DateTime? NextPaymentDay { get; set; }
+        public decimal? PlannedPaymentAmount { get; set; }
+        public bool HasPlannedPayment { get; set; }
         public string? Color { get; set; }
         public string? Comment { get; set; }
         public DateTime? CommentUpdatedAt { get; set; }

@@ -1,4 +1,5 @@
 export interface CommunicationDispatchDto {
+  dispatchId: number;
   clientId: number;
   clientName: string;
   channel: string;
@@ -6,6 +7,7 @@ export interface CommunicationDispatchDto {
   errorMessage: string;
   dispatchDate: string;
   isSelected?: boolean;
+  hasContent?: boolean;
 }
 
 export interface ComunicacionDto {

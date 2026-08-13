@@ -13,5 +13,13 @@ export interface MonthlyStatisticsDTO {
   totalAdvancePayments: number;
   totalIvaFacturaA: number;
   totalIvaFacturaB: number;
+  totalObligacionDelPeriodo: number;
+  totalAplicadoAlPeriodo: number;
+  totalPendienteDelPeriodo: number;
+  totalCobradoParaMesesFuturos: number;
+  totalCubiertoAntesDelPeriodo: number;
+  totalEspacios: number;
+  porcentajeOcupacion: number;
+  abonoPromedioPorEspacio: number;
   warehouseRevenues?: WarehouseRevenueDTO[];
 }

@@ -631,7 +631,9 @@ namespace GuardeSoftwareAPI.Dao
                             ContractedM3 = reader["contracted_m3"] != DBNull.Value ? Convert.ToDecimal(reader["contracted_m3"]) : null,
                             MonthsUnpaid = Convert.ToInt32(reader["months_unpaid"]),
                             Active = Convert.ToBoolean(reader["active"]),
-                            PriceLockEndDate = reader["price_lock_end_date"] != DBNull.Value ? Convert.ToDateTime(reader["price_lock_end_date"]) : null
+                            PriceLockEndDate = reader["price_lock_end_date"] != DBNull.Value ? Convert.ToDateTime(reader["price_lock_end_date"]) : null,
+                            IncreaseAnchorDate = reader["increase_anchor_date"] != DBNull.Value ? Convert.ToDateTime(reader["increase_anchor_date"]) : null,
+                            PendingSurcharge = reader["pending_surcharge"] != DBNull.Value ? Convert.ToDecimal(reader["pending_surcharge"]) : 0m
                         };
                     }
                 }

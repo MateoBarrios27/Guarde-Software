@@ -1,0 +1,139 @@
+<div class="fixed inset-0 z-[220] flex items-center justify-center bg-slate-950/55 p-4 sm:p-6" role="presentation" (click)="$event.stopPropagation()">
+  <section
+    class="flex max-h-[90vh] w-full max-w-[34rem] flex-col overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.28)]"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="title"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="shrink-0 border-b border-slate-100 px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-violet-700">
+              <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+                <app-icon name="trending-up" class="h-3.5 w-3.5"></app-icon>
+              </span>
+              Ajuste de abono
+            </span>
+            <span *ngIf="hasMultipleStages" class="rounded-full border border-violet-100 bg-violet-50 px-2.5 py-1 text-[11px] font-bold text-violet-700">
+              Etapa {{ stage }} de {{ stageTotal }}
+            </span>
+          </div>
+          <h2 class="mt-3 text-xl font-bold tracking-tight text-slate-900 sm:text-[1.4rem]">{{ title }}</h2>
+          <p *ngIf="clientName" class="mt-1 truncate text-sm text-slate-500">{{ clientName }}</p>
+          <p *ngIf="stageLabel" class="mt-1 text-xs font-semibold capitalize text-slate-400">{{ stageLabel }}</p>
+        </div>
+      </div>
+    </header>
+
+    <div class="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6">
+      <div class="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-amber-600 shadow-sm ring-1 ring-amber-100">
+          <app-icon name="alert-triangle" class="h-4 w-4"></app-icon>
+        </span>
+        <div class="min-w-0">
+          <p class="text-sm font-bold text-amber-950">Hay un aumento dentro del período</p>
+          <p class="mt-1 text-xs leading-5 text-amber-800">{{ reason }}</p>
+        </div>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+          <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Abono anterior</p>
+          <p class="mt-3 text-xl font-bold tabular-nums text-slate-900">$ {{ currentRent | number:'1.2-2' }}</p>
+          <p class="mt-1 text-xs text-slate-500">Base de esta etapa</p>
+        </div>
+
+        <div class="rounded-2xl border border-violet-200 bg-violet-50/70 p-4">
+          <label class="block text-[10px] font-bold uppercase tracking-[0.14em] text-violet-700" for="increase-projected-rent">
+            Nuevo abono
+          </label>
+          <div class="relative mt-2.5">
+            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-violet-400">$</span>
+            <input
+              id="increase-projected-rent"
+              type="number"
+              min="0"
+              step="0.01"
+              [ngModel]="projectedRent"
+              (ngModelChange)="emitProjectedRent($event)"
+              (blur)="projectedRentBlur.emit()"
+              (keydown.enter)="blurInput($event)"
+              class="w-full rounded-xl border border-violet-200 bg-white py-2.5 pl-7 pr-2 text-base font-bold tabular-nums text-violet-800 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"
+              aria-label="Nuevo abono proyectado"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="mb-2 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500" for="increase-percentage">
+          Porcentaje de aumento
+        </label>
+        <div class="relative">
+          <input
+            id="increase-percentage"
+            type="number"
+            min="0"
+            step="0.01"
+            [ngModel]="percentage"
+            (ngModelChange)="emitPercentage($event)"
+            (blur)="percentageBlur.emit()"
+            (keydown.enter)="blurInput($event)"
+            class="w-full rounded-xl border border-slate-200 bg-white py-3 pl-3.5 pr-10 text-base font-bold tabular-nums text-slate-900 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"
+            placeholder="Ej.: 20"
+            aria-label="Porcentaje de aumento"
+          />
+          <span class="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
+        </div>
+      </div>
+
+      <div *ngIf="projectedNextIncreaseDate" class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-violet-600 shadow-sm ring-1 ring-slate-100">
+          <app-icon name="calendar" class="h-4 w-4"></app-icon>
+        </span>
+        <div>
+          <p class="text-xs font-medium text-slate-500">La próxima fecha de aumento pasaría a ser</p>
+          <p class="mt-1 text-sm font-bold capitalize text-slate-900">{{ projectedNextIncreaseDate | date:'MMMM yyyy' }}</p>
+        </div>
+      </div>
+    </div>
+
+    <footer
+      class="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+    >
+      <button
+        *ngIf="showBack"
+        type="button"
+        (click)="back.emit()"
+        class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
+      >
+        <app-icon name="arrow-left" class="h-3.5 w-3.5"></app-icon>
+        Atrás
+      </button>
+      <span *ngIf="!showBack" aria-hidden="true"></span>
+
+      <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+        <button
+          *ngIf="showSkip"
+          type="button"
+          [disabled]="loading"
+          (click)="skip.emit()"
+          class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {{ skipLabel }}
+        </button>
+        <button
+          type="button"
+          [disabled]="confirmIsDisabled"
+          (click)="confirm.emit()"
+          class="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-xs font-bold text-white shadow-[0_10px_22px_rgba(124,58,237,0.2)] transition hover:bg-violet-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span *ngIf="loading" class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+          {{ loading ? 'Guardando…' : confirmLabel }}
+        </button>
+      </div>
+    </footer>
+  </section>
+</div>

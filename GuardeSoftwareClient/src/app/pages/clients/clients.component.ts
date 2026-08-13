@@ -15,7 +15,6 @@ import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO';
 import { Subject, Observable, firstValueFrom } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { ClientDetailModalComponent } from "../../shared/components/client-detail-modal/client-detail-modal.component";
-import Swal from '../../shared/services/ui-alert.service';
 import { ClientStatisticsDto } from '../../core/dtos/statistics/ClientStatisticsDto';
 import { StatisticsService } from '../../core/services/statics-service/statics-service.service';
 import { ɵɵDir } from "@angular/cdk/scrolling";
@@ -40,8 +39,9 @@ import { IndexedDbService } from '../../core/services/offline-service/indexed-db
     NgxPaginationModule,
     CreateClientModalComponent,
     ClientDetailModalComponent
-],
+  ],
   templateUrl: './clients.component.html',
+  styleUrl: './clients.component.css',
   host: {
     class: 'block w-full min-w-0'
   },
@@ -53,7 +53,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public activeTab: 'clientes' | 'pagos' = 'clientes';
   public clientes: TableClient[] = [];
   public totalClientes = 0;
-  public isLoading = false;
+  public isLoading = true;
   public estadisticas: ClientStatisticsDto = {
     total: 0,
     alDia: 0,
@@ -116,7 +116,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     previousBalance: 0,
     interestAmount: 0,
     currentRent: 0,
-    balance: 0
+    balance: 0,
+    currentRentWithActivePaymentIdentifiers: 0
   };
 
   @ViewChild('topAnchor') topAnchor!: ElementRef;
@@ -124,6 +125,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   
   pointingUp: boolean = false; 
   private scrollObserver!: IntersectionObserver;
+  private supportingDataLoadScheduled = false;
+  private clientIdToOpenFromQuery: number | null = null;
 
   constructor(
     private clientService: ClientService, 
@@ -177,15 +180,52 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       if (searchTerm) {
         this.searchClientes = searchTerm;
       }
+
+      const clientId = Number(params['clientId'] ?? 0);
+      this.clientIdToOpenFromQuery = clientId > 0 ? clientId : null;
+      this.openClientFromQueryParam();
       
-      this.loadClients();
+      void this.loadClients().finally(() => {
+        this.scheduleSupportingDataLoad();
+        this.openClientFromQueryParam();
+      });
     });
 
     this.loadStatistics();
-    this.warehouseService.getWarehouses().subscribe(data => { this.warehouses = data; this.cdr.markForCheck(); });
-    this.billingTypeService.getBillingTypes().subscribe(data => { this.billingTypes = data; this.cdr.markForCheck(); });
-    this.paymentMethodService.getPaymentMethods().subscribe(data => { this.paymentMethods = data; this.cdr.markForCheck(); });
-    this.lockerTypeService.getLockerTypes().subscribe(data => { this.lockerTypes = data; this.cdr.markForCheck(); });
+  }
+
+  private openClientFromQueryParam(): void {
+    const clientId = this.clientIdToOpenFromQuery;
+    if (!clientId) return;
+
+    // Consumimos el parámetro antes de abrir el detalle para que el cliente
+    // pueda volver a seleccionarse si se navega nuevamente desde Finanzas.
+    this.clientIdToOpenFromQuery = null;
+    this.openDetailClientModal(clientId);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { clientId: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
+  }
+
+  private scheduleSupportingDataLoad(): void {
+    if (this.supportingDataLoadScheduled) return;
+    this.supportingDataLoadScheduled = true;
+
+    const load = () => {
+      this.warehouseService.getWarehouses().subscribe(data => { this.warehouses = data; this.cdr.markForCheck(); });
+      this.billingTypeService.getBillingTypes().subscribe(data => { this.billingTypes = data; this.cdr.markForCheck(); });
+      this.paymentMethodService.getPaymentMethods().subscribe(data => { this.paymentMethods = data; this.cdr.markForCheck(); });
+      this.lockerTypeService.getLockerTypes().subscribe(data => { this.lockerTypes = data; this.cdr.markForCheck(); });
+    };
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(load, { timeout: 2500 });
+    } else {
+      setTimeout(load, 500);
+    }
   }
 
   public quickFiltersList = [
@@ -351,6 +391,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
    async loadClients(): Promise<void> {
     this.isLoading = true;
+    this.cdr.markForCheck();
 
     if (!this.offlineService.isOnline) {
       // Load from IndexedDB cache
@@ -444,8 +485,11 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       previousBalance: 0,
       interestAmount: 0,
       currentRent: 0,
-      balance: 0
+      balance: 0,
+      currentRentWithActivePaymentIdentifiers: 0
     };
+
+    let activePaymentIdentifiersTotal = 0;
 
     // Recorremos el array 'clientes' que es el que se muestra en la tabla
     this.clientes.forEach(cliente => {
@@ -453,7 +497,14 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.totals.interestAmount += Number(cliente.interestAmount) || 0;
       this.totals.currentRent += Number(cliente.currentRent) || 0;
       this.totals.balance += Number(cliente.balance) || 0;
+
+      if (cliente.active !== false && cliente.status !== 'Baja') {
+        activePaymentIdentifiersTotal += Number(cliente.paymentIdentifier) || 0;
+      }
     });
+
+    this.totals.currentRentWithActivePaymentIdentifiers =
+      this.totals.currentRent + activePaymentIdentifiersTotal - 0.02;
   }
 
   trackByClientId(index: number, cliente: TableClient): number {
@@ -681,7 +732,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.clientToView = null;
   }
 
-  public openDeactivateClientModal(cliente: TableClient): void {
+  public async openDeactivateClientModal(cliente: TableClient): Promise<void> {
     let warningText = "El cliente será marcado como 'Dado de Baja'. Se finalizará su alquiler actual.";
     let iconType: 'warning' | 'info' = 'warning';
 
@@ -699,6 +750,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         warningText += "\n\nNota: El cliente tiene saldo a favor.";
     }
 
+    const { default: Swal } = await import('../../shared/services/ui-alert.service');
     Swal.fire({
       title: '¿Confirmar Baja?',
       text: warningText,
@@ -744,7 +796,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  public onReactivateClient(cliente: TableClient): void {
+  public async onReactivateClient(cliente: TableClient): Promise<void> {
+    const { default: Swal } = await import('../../shared/services/ui-alert.service');
     Swal.fire({
       title: '¿Reactivar Cliente?',
       html: `
@@ -756,7 +809,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       `,
       icon: 'info',
       showCancelButton: true,
-      confirmButtonColor: '#10b981', 
+      confirmButtonColor: '#2563eb',
       cancelButtonColor: '#6B7280',
       confirmButtonText: 'Sí, configurar reactivación',
       cancelButtonText: 'Cancelar',
@@ -941,7 +994,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.cdr.markForCheck();
     this.clientService.updateClientColor(cliente.id, cliente.color).subscribe({
-      error: () => Swal.fire('Error', 'No se pudo guardar el color del cliente', 'error')
+      error: () => { void this.showClientError('No se pudo guardar el color del cliente'); }
     });
   }
 
@@ -983,8 +1036,13 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       cliente.commentUpdatedAt = new Date();
     }
     this.clientService.updateClientComment(cliente.id, cliente.comment).subscribe({
-      error: () => Swal.fire('Error', 'No se pudo guardar el comentario del cliente', 'error')
+      error: () => { void this.showClientError('No se pudo guardar el comentario del cliente'); }
     });
+  }
+
+  private async showClientError(message: string): Promise<void> {
+    const { default: Swal } = await import('../../shared/services/ui-alert.service');
+    await Swal.fire('Error', message, 'error');
   }
 
   getFormattedUpdatedDate(date?: Date | string | null, fallbackItem?: any): string {

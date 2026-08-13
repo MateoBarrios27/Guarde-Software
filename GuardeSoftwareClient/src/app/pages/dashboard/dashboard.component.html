@@ -185,7 +185,7 @@
      (keydown.escape)="closePaymentModal()"
      (click)="closePaymentModal()"
      tabindex="-1">
-  <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
+  <div class="absolute inset-0 bg-slate-900/40"></div>
   <div class="relative w-full max-w-3xl max-h-[92vh] overflow-visible animate-fade-in-down"
        (click)="$event.stopPropagation()">
 
@@ -457,69 +457,6 @@
 
     </div>
 
-    <!-- Increase Queue Overlay inside modal -->
-    <div *ngIf="showIncreaseOverlay" class="absolute inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-200 flex flex-col animate-fade-in-up">
-        
-        <div class="bg-blue-600 text-white px-6 py-4 flex items-center gap-2.5">
-          <app-icon name="trending-up" class="h-5 w-5"></app-icon>
-          <h3 class="font-bold text-sm sm:text-base tracking-tight">Actualización de Abono</h3>
-        </div>
-        
-        <div class="p-6 space-y-5 flex-1 overflow-y-auto">
-          <p class="text-gray-600 text-xs sm:text-sm font-medium">{{ increasePromptReason }}</p>
-
-          <div class="grid grid-cols-2 gap-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-            <div>
-              <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Abono Actual</p>
-              <p class="text-lg font-bold text-gray-900 tabular-nums">${{ selectedCurrentRent | number:'1.2-2' }}</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Nuevo Abono ($)</p>
-              <div class="relative">
-                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
-                <input type="number" 
-                       [(ngModel)]="projectedNewRent" 
-                       (blur)="onProjectedRentBlur()"
-                       (keydown.enter)="blurInput($event)"
-                       class="w-full pl-7 pr-2 py-1.5 border border-blue-200 rounded-xl text-base font-bold text-blue-700 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all bg-white shadow-2xs tabular-nums">
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Porcentaje de aumento a aplicar:</label>
-            <div class="relative w-2/3">
-              <input type="number" 
-                     [(ngModel)]="increasePercentage" 
-                     (blur)="onIncreasePercentageBlur()"
-                     (keydown.enter)="blurInput($event)"
-                     class="w-full pl-3.5 pr-8 py-2 border border-blue-200 rounded-xl text-base font-bold text-gray-800 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-2xs tabular-nums" 
-                     placeholder="Ej: 20">
-              <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
-            </div>
-          </div>
-
-          <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200/80 text-xs text-gray-700 flex items-center gap-3">
-            <app-icon name="calendar" class="h-5 w-5 text-gray-400 shrink-0"></app-icon>
-            <div>
-              <span class="block text-gray-400 font-medium">Próxima fecha de aumento pasaría al:</span>
-              <strong class="text-gray-900 capitalize text-sm">{{ projectedNextIncreaseDate | date:'MMMM yyyy' }}</strong>
-            </div>
-          </div>
-        </div>
-
-        <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/80 flex justify-end gap-3">
-          <button (click)="skipIncrease()" class="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-2xs">
-            Omitir por ahora
-          </button>
-          <button (click)="confirmIncrease()" class="px-5 py-2 text-xs font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-sm transition-colors">
-            Confirmar Aumento
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- Footer Buttons -->
     <div class="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50/80 border-t border-gray-100 shrink-0">
       <button type="button"
@@ -538,6 +475,23 @@
   </div>
   </div>
 </div>
+
+<app-payment-increase-modal
+  *ngIf="showIncreaseOverlay"
+  [reason]="increasePromptReason"
+  [clientName]="selectedClientName"
+  [currentRent]="selectedCurrentRent"
+  [projectedRent]="projectedNewRent"
+  [percentage]="increasePercentage"
+  [projectedNextIncreaseDate]="projectedNextIncreaseDate"
+  confirmLabel="Confirmar aumento"
+  (projectedRentChange)="projectedNewRent = $event"
+  (percentageChange)="increasePercentage = $event"
+  (projectedRentBlur)="onProjectedRentBlur()"
+  (percentageBlur)="onIncreasePercentageBlur()"
+  (skip)="skipIncrease()"
+  (confirm)="confirmIncrease()"
+></app-payment-increase-modal>
 
 <div *ngIf="showReceiptModal"
      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"

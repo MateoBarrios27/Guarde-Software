@@ -10,6 +10,7 @@ using GuardeSoftwareAPI.Dtos.AccountMovement;
 using GuardeSoftwareAPI.Services.clientMonthBalance;
 using Microsoft.Extensions.DependencyInjection;
 using GuardeSoftwareAPI.Services.payment;
+using GuardeSoftwareAPI.Services.rentalAmountHistory;
 
 namespace GuardeSoftwareAPI.Services.accountMovement {
 
@@ -21,8 +22,9 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
         private readonly AccessDB accessDB;
         private readonly IClientMonthBalanceService _clientMonthBalanceService;
         private readonly IServiceProvider _serviceProvider;
+        private readonly IRentalAmountHistoryService _rentalAmountHistoryService;
 
-        public AccountMovementService(AccessDB _accessDB, ILogger<AccountMovementService> logger, IClientMonthBalanceService clientMonthBalanceService, IServiceProvider serviceProvider)
+        public AccountMovementService(AccessDB _accessDB, ILogger<AccountMovementService> logger, IClientMonthBalanceService clientMonthBalanceService, IServiceProvider serviceProvider, IRentalAmountHistoryService rentalAmountHistoryService)
         {
             _daoAccountMovement = new DaoAccountMovement(_accessDB);
             _daoRental = new DaoRental(_accessDB);
@@ -30,6 +32,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             accessDB = _accessDB;
             _clientMonthBalanceService = clientMonthBalanceService;
             _serviceProvider = serviceProvider;
+            _rentalAmountHistoryService = rentalAmountHistoryService;
         }
 
         public async Task<List<AccountMovement>> GetAccountMovementList()
@@ -285,6 +288,10 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             DataRow row = movTable.Rows[0];
             int? paymentId = row["payment_id"] != DBNull.Value ? (int)row["payment_id"] : null;
             string movementType = row["movement_type"].ToString();
+            string concept = row["concept"]?.ToString() ?? string.Empty;
+            bool isPlannedRentDebit = movementType.Equals("DEBITO", StringComparison.OrdinalIgnoreCase)
+                && !paymentId.HasValue
+                && concept.EndsWith("(Planificado)", StringComparison.OrdinalIgnoreCase);
             
             // ¡NUEVO! Rescatamos a qué alquiler pertenece para recalcular después
             int rentalId = Convert.ToInt32(row["rental_id"]);
@@ -298,20 +305,33 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                 return await paymentService.DeletePaymentAsync(movementId);
             }
 
-            // 3. Borramos el movimiento
+            // 3. Borramos y reconstruimos dentro de una sola transacción. Así el
+            // historial de abonos y los balances nunca quedan en estados distintos.
             _logger.LogInformation($"Eliminando movimiento ID {movementId}.");
-            bool deleted = await _daoAccountMovement.DeleteAccountMovementByIdAsync(movementId);
-
-            // 4. ¡LA CASCADA CONTABLE!
-            if (deleted)
+            using var connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+            try
             {
-                _logger.LogInformation($"Reconstruyendo la cuenta corriente del alquiler ID {rentalId} tras la eliminación del movimiento.");
-                
-                // Al ejecutarse esto, la fila de ClientMonthBalance se recalculará sin el movimiento que acabamos de borrar
-                await _clientMonthBalanceService.RebuildForRentalAsync(rentalId);
-            }
+                bool deleted = await _daoAccountMovement.DeleteAccountMovementByIdAsync(movementId, connection, transaction);
+                if (!deleted)
+                {
+                    await transaction.RollbackAsync();
+                    return false;
+                }
 
-            return deleted;
+                if (isPlannedRentDebit)
+                    await _rentalAmountHistoryService.RemoveOrphanedPlannedHistoriesTransactionAsync(rentalId, connection, transaction);
+                await _rentalAmountHistoryService.NormalizeRentalAmountHistoryTransactionAsync(rentalId, connection, transaction);
+                await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rentalId, connection, transaction);
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
 
@@ -370,6 +390,292 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
         public async Task<bool> IsDebitAlreadyCreatedAsync(int rentalId, string concept, SqlConnection conn, SqlTransaction trans)
         {
             return await _daoAccountMovement.IsDebitAlreadyCreatedAsync(rentalId, concept, conn, trans);
+        }
+
+        public async Task<PaymentPlanningContextDto> GetPaymentPlanningContextAsync(int clientId, int months)
+        {
+            ValidatePaymentPlan(clientId, months);
+
+            using var connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            var rental = await _daoRental.GetActiveRentalByClientIdTransactionAsync(clientId, connection, transaction)
+                ?? throw new InvalidOperationException("No se encontró un alquiler activo para este cliente.");
+
+            var context = await BuildPlanningContextAsync(clientId, rental, months, connection, transaction);
+            await transaction.CommitAsync();
+            return context;
+        }
+
+        public async Task<PlannedPaymentResultDto> PlanClientPaymentAsync(PlanClientPaymentDto dto)
+        {
+            if (dto == null) throw new ArgumentNullException(nameof(dto));
+            ValidatePaymentPlan(dto.ClientId, dto.Months);
+
+            using var connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                await AcquirePaymentPlanningLockAsync(dto.ClientId, connection, transaction);
+
+                var rental = await _daoRental.GetActiveRentalByClientIdTransactionAsync(dto.ClientId, connection, transaction)
+                    ?? throw new InvalidOperationException("No se encontró un alquiler activo para este cliente.");
+                var context = await BuildPlanningContextAsync(dto.ClientId, rental, dto.Months, connection, transaction);
+
+                var suppliedIncreases = dto.AppliedIncreases ?? [];
+                if (context.IsPriceLocked && suppliedIncreases.Count > 0)
+                    throw new InvalidOperationException("Un período de seis meses o más mantiene el abono sin aumentos.");
+
+                if (!context.IsPriceLocked)
+                    ValidateAppliedIncreases(context.Increases, suppliedIncreases);
+
+                var appliedByMonth = suppliedIncreases.ToDictionary(x => x.Year * 100 + x.Month);
+                var currentRent = context.BaseRent;
+                var result = new PlannedPaymentResultDto
+                {
+                    StartDate = context.StartDate,
+                    EndDate = context.EndDate,
+                    IsPriceLocked = context.IsPriceLocked
+                };
+
+                for (var index = 0; index < dto.Months; index++)
+                {
+                    var monthDate = context.StartDate.AddMonths(index);
+                    var monthKey = monthDate.Year * 100 + monthDate.Month;
+
+                    if (!context.IsPriceLocked && appliedByMonth.TryGetValue(monthKey, out var increase))
+                    {
+                        var latestHistory = await _rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(rental.Id, connection, transaction)
+                            ?? throw new InvalidOperationException("El alquiler no posee un historial de abono válido.");
+                        await _rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(
+                            latestHistory.Id, rental.Id, increase.NewRentAmount, monthDate, connection, transaction);
+                        currentRent = increase.NewRentAmount;
+                    }
+
+                    var isHalfPromotion = context.HasSixMonthPromotion && dto.ChargeHalfSixthMonth && index == 5;
+                    var amount = isHalfPromotion ? decimal.Round(currentRent / 2m, 2, MidpointRounding.AwayFromZero) : currentRent;
+                    var concept = BuildPlannedRentConcept(monthDate);
+
+                    if (await _daoAccountMovement.IsDebitAlreadyCreatedAsync(rental.Id, BuildRentConcept(monthDate), connection, transaction))
+                        throw new InvalidOperationException($"Ya existe el débito de {FormatMonthLabel(monthDate)}. Actualizá los datos e intentá nuevamente.");
+
+                    await _daoAccountMovement.CreateAccountMovementTransactionAsync(new AccountMovement
+                    {
+                        RentalId = rental.Id,
+                        MovementDate = monthDate,
+                        MovementType = "DEBITO",
+                        Concept = concept,
+                        Amount = amount,
+                        PaymentId = null
+                    }, connection, transaction);
+
+                    result.Months.Add(new PaymentPlanningMonthDto
+                    {
+                        Year = monthDate.Year,
+                        Month = monthDate.Month,
+                        Label = FormatMonthLabel(monthDate),
+                        Amount = amount,
+                        IsHalfPromotion = isHalfPromotion
+                    });
+                }
+
+                if (context.IsPriceLocked)
+                {
+                    // El precio queda congelado durante todos los débitos generados.
+                    // El próximo aumento debe quedar exactamente en el mes siguiente
+                    // al último débito del período planificado.
+                    var nextIncreaseAfterPlan = context.EndDate.AddMonths(1);
+                    await _daoRental.UpdatePriceLockEndDateTransactionAsync(rental.Id, nextIncreaseAfterPlan, connection, transaction);
+                    await _daoRental.UpdateIncreaseAnchorDateTransactionAsync(rental.Id, nextIncreaseAfterPlan, connection, transaction);
+                }
+                else if (context.Increases.Count > 0 && rental.IncreaseAnchorDate.HasValue)
+                {
+                    var step = Math.Max(1, context.IncreaseFrequencyMonths - 1);
+                    var nextAnchor = new DateTime(rental.IncreaseAnchorDate.Value.Year, rental.IncreaseAnchorDate.Value.Month, 1);
+                    while (nextAnchor < context.StartDate)
+                        nextAnchor = nextAnchor.AddMonths(step);
+                    foreach (var _ in context.Increases)
+                        nextAnchor = nextAnchor.AddMonths(step);
+                    await _daoRental.UpdateIncreaseAnchorDateTransactionAsync(rental.Id, nextAnchor, connection, transaction);
+                }
+
+                // La planificación puede crear o actualizar tramos futuros. Antes
+                // de reconstruir saldos dejamos la cadena de abonos sin duplicados
+                // y con end_date alineado al siguiente start_date.
+                await _rentalAmountHistoryService.NormalizeRentalAmountHistoryTransactionAsync(rental.Id, connection, transaction);
+                await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rental.Id, connection, transaction);
+                await transaction.CommitAsync();
+
+                result.CreatedDebits = result.Months.Count;
+                result.TotalAmount = result.Months.Sum(x => x.Amount);
+                return result;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        private async Task<PaymentPlanningContextDto> BuildPlanningContextAsync(
+            int clientId,
+            Rental rental,
+            int months,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            var startDate = await GetNextRentDebitMonthAsync(rental.Id, rental.StartDate, connection, transaction);
+            var baseRent = await GetRentAmountForMonthAsync(rental.Id, startDate, connection, transaction);
+            if (baseRent <= 0)
+                throw new InvalidOperationException("El cliente no posee un abono válido para el período a planificar.");
+
+            var frequency = await GetIncreaseFrequencyAsync(clientId, connection, transaction);
+            var hasSixMonthPromotion = await GetSixMonthPromotionAsync(clientId, connection, transaction);
+            var context = new PaymentPlanningContextDto
+            {
+                ClientId = clientId,
+                Months = months,
+                StartDate = startDate,
+                EndDate = startDate.AddMonths(months - 1),
+                BaseRent = baseRent,
+                IncreaseFrequencyMonths = frequency,
+                IncreaseAnchorDate = rental.IncreaseAnchorDate,
+                HasSixMonthPromotion = hasSixMonthPromotion,
+                IsPriceLocked = months >= 6
+            };
+
+            if (context.IsPriceLocked || !rental.IncreaseAnchorDate.HasValue)
+                return context;
+
+            var step = Math.Max(1, frequency - 1);
+            var anchor = new DateTime(rental.IncreaseAnchorDate.Value.Year, rental.IncreaseAnchorDate.Value.Month, 1);
+            while (anchor < startDate)
+                anchor = anchor.AddMonths(step);
+
+            for (var index = 0; index < months; index++)
+            {
+                var monthDate = startDate.AddMonths(index);
+                if (monthDate >= anchor)
+                {
+                    context.Increases.Add(new PaymentPlanningIncreaseDto
+                    {
+                        Year = monthDate.Year,
+                        Month = monthDate.Month,
+                        Label = FormatMonthLabel(monthDate)
+                    });
+                    anchor = anchor.AddMonths(step);
+                }
+            }
+
+            return context;
+        }
+
+        private static void ValidatePaymentPlan(int clientId, int months)
+        {
+            if (clientId <= 0) throw new ArgumentException("El cliente es inválido.");
+            if (months < 1 || months > 24) throw new ArgumentException("La cantidad de meses debe estar entre 1 y 24.");
+        }
+
+        private static void ValidateAppliedIncreases(
+            IReadOnlyCollection<PaymentPlanningIncreaseDto> expected,
+            IReadOnlyCollection<PlannedPaymentIncreaseDto> supplied)
+        {
+            var expectedKeys = expected.Select(x => x.Year * 100 + x.Month).OrderBy(x => x).ToArray();
+            var suppliedKeys = supplied.Select(x => x.Year * 100 + x.Month).OrderBy(x => x).ToArray();
+            if (!expectedKeys.SequenceEqual(suppliedKeys))
+                throw new InvalidOperationException("Los aumentos informados no coinciden con el período planificado. Actualizá la vista previa.");
+            if (supplied.Any(x => x.Percentage < 0 || x.NewRentAmount <= 0))
+                throw new InvalidOperationException("Los montos y porcentajes de aumento deben ser válidos.");
+        }
+
+        private static async Task AcquirePaymentPlanningLockAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            using var command = new SqlCommand("sp_getapplock", connection, transaction) { CommandType = CommandType.StoredProcedure };
+            // Debe coincidir con PaymentService para serializar planificación y pago real.
+            command.Parameters.AddWithValue("@Resource", $"payment-client:{clientId}");
+            command.Parameters.AddWithValue("@LockMode", "Exclusive");
+            command.Parameters.AddWithValue("@LockOwner", "Transaction");
+            command.Parameters.AddWithValue("@LockTimeout", 15000);
+            var returnValue = command.Parameters.Add("@RETURN_VALUE", SqlDbType.Int);
+            returnValue.Direction = ParameterDirection.ReturnValue;
+            await command.ExecuteNonQueryAsync();
+            if (Convert.ToInt32(returnValue.Value) < 0)
+                throw new InvalidOperationException("No se pudo bloquear la cuenta del cliente para planificar el pago. Intentá nuevamente.");
+        }
+
+        private static async Task<int> GetIncreaseFrequencyAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = "SELECT increase_frequency_months FROM clients WHERE client_id = @client_id";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId });
+            var value = await command.ExecuteScalarAsync();
+            return value == null || value == DBNull.Value ? 4 : Math.Max(1, Convert.ToInt32(value));
+        }
+
+        private static async Task<bool> GetSixMonthPromotionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = "SELECT is_six_month_promotion FROM clients WHERE client_id = @client_id";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId });
+            var value = await command.ExecuteScalarAsync();
+            return value != null && value != DBNull.Value && Convert.ToBoolean(value);
+        }
+
+        private static async Task<DateTime> GetNextRentDebitMonthAsync(int rentalId, DateTime rentalStart, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = @"
+                SELECT MAX(DATEFROMPARTS(YEAR(movement_date), MONTH(movement_date), 1))
+                FROM account_movements
+                WHERE rental_id = @rental_id
+                  AND movement_type = 'DEBITO'
+                  AND concept LIKE 'Alquiler %';";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+            var value = await command.ExecuteScalarAsync();
+            var currentMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            var firstPossibleMonth = new DateTime(rentalStart.Year, rentalStart.Month, 1) > currentMonth
+                ? new DateTime(rentalStart.Year, rentalStart.Month, 1)
+                : currentMonth;
+            if (value == null || value == DBNull.Value) return firstPossibleMonth;
+            var nextMonth = Convert.ToDateTime(value).AddMonths(1);
+            return nextMonth > firstPossibleMonth ? nextMonth : firstPossibleMonth;
+        }
+
+        private static async Task<decimal> GetRentAmountForMonthAsync(int rentalId, DateTime month, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = @"
+                SELECT TOP 1 amount
+                FROM rental_amount_history
+                WHERE rental_id = @rental_id
+                  AND start_date < DATEADD(month, 1, @month)
+                  AND (end_date IS NULL OR end_date >= @month)
+                ORDER BY start_date DESC, rental_amount_history_id DESC;";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+            command.Parameters.Add(new SqlParameter("@month", SqlDbType.Date) { Value = month });
+            var value = await command.ExecuteScalarAsync();
+            return value == null || value == DBNull.Value ? 0m : Convert.ToDecimal(value);
+        }
+
+        private static string BuildRentConcept(DateTime month)
+        {
+            var culture = new CultureInfo("es-AR");
+            var monthName = culture.TextInfo.ToTitleCase(culture.DateTimeFormat.GetMonthName(month.Month));
+            return $"Alquiler {monthName} {month.Year}";
+        }
+
+        private static string BuildPlannedRentConcept(DateTime month)
+        {
+            return $"{BuildRentConcept(month)} (Planificado)";
+        }
+
+        private static string FormatMonthLabel(DateTime month)
+        {
+            var culture = new CultureInfo("es-AR");
+            return $"{culture.DateTimeFormat.GetMonthName(month.Month)} {month.Year}";
         }
     }
 }

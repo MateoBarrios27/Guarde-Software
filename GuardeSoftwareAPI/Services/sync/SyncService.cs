@@ -44,6 +44,7 @@ namespace GuardeSoftwareAPI.Services.sync
                     c.active                            AS Active,
                     c.preferred_payment_method_id       AS PreferredPaymentMethodId,
                     c.increase_frequency_months         AS IncreaseFrequencyMonths,
+                    c.is_six_month_promotion             AS IsSixMonthPromotion,
                     r.rental_id                         AS RentalId,
                     r.increase_anchor_date              AS IncreaseAnchorDate,
 
@@ -76,6 +77,9 @@ namespace GuardeSoftwareAPI.Services.sync
                         ELSE CAST(step1.LastBalanceDate AS VARCHAR(10))
                     END AS NextPaymentDay,
 
+                    ISNULL(plannedPayment.PlannedAmount, 0) AS PlannedPaymentAmount,
+                    ISNULL(plannedPayment.HasPlannedPayment, 0) AS HasPlannedPayment,
+
                     -- Status
                     CASE
                         WHEN c.active = 0 THEN 'Baja'
@@ -92,6 +96,52 @@ namespace GuardeSoftwareAPI.Services.sync
                     ORDER BY r_sub.start_date DESC, r_sub.rental_id DESC
                 ) r
                 LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
+
+                OUTER APPLY (
+                    SELECT
+                        PlannedAmount = SUM(remaining.RentAmount),
+                        HasPlannedPayment = CASE
+                            WHEN SUM(CASE
+                                WHEN monthInfo.MonthStart > DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                                     AND remaining.RentAmount > 0
+                                THEN 1 ELSE 0 END) > 0
+                            THEN CAST(1 AS bit) ELSE CAST(0 AS bit)
+                        END
+                    FROM client_month_balances cmb
+                    CROSS APPLY (
+                        SELECT MonthStart = DATEFROMPARTS(
+                            CONVERT(int, RIGHT(cmb.month_year, 4)),
+                            CONVERT(int, LEFT(cmb.month_year, 2)),
+                            1)
+                    ) monthInfo
+                    CROSS APPLY (
+                        SELECT RentPaid = CASE
+                            WHEN (ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0)
+                                  - ISNULL(cmb.previous_balance, 0) - ISNULL(cmb.interests, 0)) > 0
+                            THEN (ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0)
+                                  - ISNULL(cmb.previous_balance, 0) - ISNULL(cmb.interests, 0))
+                            ELSE 0
+                        END
+                    ) applied
+                    CROSS APPLY (
+                        SELECT RentAmount = CASE
+                            WHEN ISNULL(cmb.monthly_debits, 0) > applied.RentPaid
+                            THEN ISNULL(cmb.monthly_debits, 0) - applied.RentPaid
+                            ELSE 0
+                        END
+                    ) remaining
+                    WHERE cmb.rental_id = r.rental_id
+                      AND monthInfo.MonthStart >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                      AND EXISTS (
+                          SELECT 1
+                          FROM account_movements am
+                          WHERE am.rental_id = cmb.rental_id
+                            AND am.movement_type = 'DEBITO'
+                            AND am.payment_id IS NULL
+                            AND am.concept LIKE 'Alquiler %'
+                            AND DATEFROMPARTS(YEAR(am.movement_date), MONTH(am.movement_date), 1) = monthInfo.MonthStart
+                      )
+                ) plannedPayment
 
                 -- Last generated month (most recent)
                 OUTER APPLY (
@@ -215,6 +265,9 @@ namespace GuardeSoftwareAPI.Services.sync
                     MonthsUnpaid = row["MonthsUnpaid"] != DBNull.Value ? Convert.ToInt32(row["MonthsUnpaid"]) : null,
                     IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? Convert.ToDateTime(row["IncreaseAnchorDate"]).ToString("yyyy-MM-dd") : null,
                     IncreaseFrequencyMonths = row["IncreaseFrequencyMonths"] != DBNull.Value ? Convert.ToInt32(row["IncreaseFrequencyMonths"]) : null,
+                    IsSixMonthPromotion = row["IsSixMonthPromotion"] != DBNull.Value && Convert.ToBoolean(row["IsSixMonthPromotion"]),
+                    PlannedPaymentAmount = row["PlannedPaymentAmount"] != DBNull.Value ? Convert.ToDecimal(row["PlannedPaymentAmount"]) : 0m,
+                    HasPlannedPayment = row["HasPlannedPayment"] != DBNull.Value && Convert.ToBoolean(row["HasPlannedPayment"]),
                 });
             }
 

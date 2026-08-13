@@ -91,6 +91,7 @@ export class SystemAlertModalComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.alertService.startConnection();
     this.subscription = this.alertService.activeAlert$.subscribe(alert => {
       if (alert) {
         this.alert = alert;
@@ -120,5 +121,6 @@ export class SystemAlertModalComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
+    this.alertService.stopConnection();
   }
 }

@@ -24,6 +24,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         //Legacy data
         public bool IsLegacyClient { get; set; } = false;
         public bool IsLegacy6MonthPromo { get; set; } = false;
+        public bool IsSixMonthPromotion { get; set; } = false;
         public decimal? LegacyInitialAmount { get; set; } 
         public DateTime? LegacyNextIncreaseDate { get; set; } 
         public int PrepaidMonths { get; set; } = 0;

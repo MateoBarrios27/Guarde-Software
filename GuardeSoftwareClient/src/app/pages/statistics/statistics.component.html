@@ -1,255 +1,373 @@
 <section class="statistics-page">
-  <!-- Barra de contexto: la vista no queda encerrada en una tarjeta adicional -->
-  <header class="flex flex-col gap-4 border-b border-gray-200/80 bg-white px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between lg:px-6">
-      <div class="flex min-w-0 items-center gap-3.5">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
-          <app-icon name="trending-up" class="h-5 w-5"></app-icon>
+  <header class="analytics-header">
+    <div class="analytics-shell analytics-header__inner">
+      <div class="analytics-title">
+        <div class="analytics-title__icon" aria-hidden="true">
+          <app-icon name="trending-up" class="h-6 w-6"></app-icon>
         </div>
-        <div class="min-w-0">
-          <div class="flex flex-wrap items-center gap-2">
-            <h1 class="text-base font-bold tracking-tight text-gray-900 sm:text-lg">Estadísticas financieras</h1>
-            <span class="rounded-full border border-blue-200/70 bg-blue-100/70 px-2 py-0.5 text-[10px] font-bold capitalize text-blue-700">
-              {{ monthName }}
-            </span>
-          </div>
-          <p class="mt-0.5 text-xs font-medium text-gray-500">Resumen de ingresos, saldos y ocupación del período.</p>
+        <div>
+          <div class="analytics-eyebrow">Panorama financiero</div>
+          <h1>Estadísticas de {{ monthName }}</h1>
+          <p>Una lectura simple de cobranzas, ocupación y rendimiento del negocio.</p>
         </div>
       </div>
 
-      <div class="flex w-full items-center rounded-lg border border-gray-200 bg-gray-50/80 p-1 shadow-sm lg:w-auto">
+      <nav class="period-picker" aria-label="Seleccionar período">
         <button
           type="button"
           (click)="prevMonth()"
           [disabled]="isLoading"
           aria-label="Ver mes anterior"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-white hover:text-gray-900 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+          class="period-picker__button"
         >
-          <app-icon name="chevron-left" class="h-4 w-4"></app-icon>
+          <app-icon name="chevron-left" class="h-5 w-5"></app-icon>
         </button>
-        <div class="min-w-0 flex-1 px-4 text-center lg:min-w-[170px]">
-          <p class="truncate text-xs font-bold capitalize text-gray-800">{{ monthName }}</p>
-          <p class="text-[9px] font-bold uppercase tracking-wider text-gray-400">Período seleccionado</p>
+        <div class="period-picker__label">
+          <span>{{ monthName }}</span>
+          <small>Período seleccionado</small>
         </div>
         <button
           type="button"
           (click)="nextMonth()"
           [disabled]="isLoading || isCurrentMonth"
           aria-label="Ver mes siguiente"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-white hover:text-gray-900 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+          class="period-picker__button"
         >
-          <app-icon name="chevron-right" class="h-4 w-4"></app-icon>
+          <app-icon name="chevron-right" class="h-5 w-5"></app-icon>
         </button>
-      </div>
+      </nav>
+    </div>
   </header>
 
-    <!-- Skeleton de carga: mantiene la estructura y evita saltos de layout -->
-  <div *ngIf="isLoading" class="statistics-content space-y-4" aria-live="polite" aria-busy="true">
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div *ngFor="let item of [1, 2, 3, 4]" class="h-28 animate-pulse rounded-xl border border-gray-100 bg-gray-100/70"></div>
-      </div>
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div class="h-64 animate-pulse rounded-xl bg-gray-100/70 lg:col-span-2"></div>
-        <div class="h-64 animate-pulse rounded-xl bg-gray-100/70"></div>
-      </div>
-      <p class="sr-only">Cargando estadísticas</p>
-  </div>
-
-    <!-- Estado de error alineado con el tratamiento de estados de los modales -->
-  <div *ngIf="!isLoading && hasError" class="statistics-content">
-      <div class="flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-red-200 bg-red-50/50 px-6 py-12 text-center">
-        <div class="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-red-100 bg-white text-red-500 shadow-sm">
-          <app-icon name="alert-triangle" class="h-5 w-5"></app-icon>
-        </div>
-        <h2 class="text-sm font-bold text-gray-900">No pudimos cargar las estadísticas</h2>
-        <p class="mt-1 max-w-sm text-xs leading-5 text-gray-500">Revisá la conexión e intentá nuevamente. El período seleccionado no se modificó.</p>
-        <button
-          type="button"
-          (click)="loadStats()"
-          class="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-        >
-          <app-icon name="RefreshCw" class="h-3.5 w-3.5"></app-icon>
-          Reintentar
-        </button>
-      </div>
+  <div *ngIf="isLoading" class="analytics-shell analytics-content" aria-live="polite" aria-busy="true">
+    <div class="skeleton-intro skeleton-block"></div>
+    <div class="summary-grid">
+      <div *ngFor="let item of [1, 2, 3, 4]" class="skeleton-card skeleton-block"></div>
     </div>
-
-  <div *ngIf="!isLoading && !hasError" class="statistics-content">
-      <!-- Indicadores principales -->
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article class="metric-card metric-card--primary">
-          <div class="metric-icon bg-blue-50 text-blue-600 ring-blue-100">
-            <app-icon name="dollar-circle" class="h-4 w-4"></app-icon>
-          </div>
-          <div class="min-w-0">
-            <p class="metric-label text-blue-600">Ingresos recibidos</p>
-            <p class="metric-value">{{ stats.totalPagado | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
-            <p class="metric-caption">Pagos reales del mes</p>
-          </div>
-        </article>
-
-        <article class="metric-card">
-          <div class="metric-icon bg-gray-100 text-gray-600 ring-gray-200">
-            <app-icon name="receipt" class="h-4 w-4"></app-icon>
-          </div>
-          <div class="min-w-0">
-            <p class="metric-label">Abonos</p>
-            <p class="metric-value">{{ stats.totalAlquileres | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
-            <p class="metric-caption">Alquileres facturados</p>
-          </div>
-        </article>
-
-        <article class="metric-card">
-          <div class="metric-icon bg-purple-50 text-purple-600 ring-purple-100">
-            <app-icon name="percent" class="h-4 w-4"></app-icon>
-          </div>
-          <div class="min-w-0">
-            <p class="metric-label text-purple-600">Intereses</p>
-            <p class="metric-value">{{ stats.totalIntereses | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
-            <p class="metric-caption">Intereses aplicados</p>
-          </div>
-        </article>
-
-        <article class="metric-card">
-          <div class="metric-icon bg-amber-50 text-amber-600 ring-amber-100">
-            <app-icon name="clock" class="h-4 w-4"></app-icon>
-          </div>
-          <div class="min-w-0">
-            <p class="metric-label text-amber-600">Saldo anterior</p>
-            <p class="metric-value">{{ stats.deudaTotalDelMes | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
-            <p class="metric-caption">De meses anteriores</p>
-          </div>
-        </article>
-      </div>
-
-      <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <!-- Recaudación por depósito -->
-        <section class="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm xl:col-span-2">
-          <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-            <div class="flex items-center gap-3">
-              <div class="flex h-8 w-8 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
-                <app-icon name="warehouse" class="h-4 w-4"></app-icon>
-              </div>
-              <div>
-                <h2 class="text-sm font-bold tracking-tight text-gray-900">Recaudación por depósito</h2>
-                <p class="text-[11px] font-medium capitalize text-gray-400">Detalle de {{ monthName }}</p>
-              </div>
-            </div>
-            <span class="rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">
-              {{ stats.warehouseRevenues?.length || 0 }} depósitos
-            </span>
-          </div>
-
-          <div *ngIf="stats.warehouseRevenues?.length; else emptyWarehouses" class="divide-y divide-gray-100 px-5">
-            <div
-              *ngFor="let depo of stats.warehouseRevenues; trackBy: trackWarehouse"
-              class="group flex items-center gap-4 py-4"
-            >
-              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-500 transition-colors group-hover:border-blue-100 group-hover:bg-blue-50 group-hover:text-blue-600">
-                <app-icon name="building" class="h-4 w-4"></app-icon>
-              </div>
-              <div class="min-w-0 flex-1">
-                <h3 class="truncate text-xs font-bold text-gray-800">{{ depo.name }}</h3>
-                <p class="mt-0.5 text-[10px] font-medium text-gray-400">Ingresos acreditados en el período</p>
-              </div>
-              <p class="shrink-0 text-sm font-bold tabular-nums text-gray-900 sm:text-base">
-                {{ depo.revenue | currency:'ARS':'symbol-narrow':'1.0-0' }}
-              </p>
-            </div>
-          </div>
-
-          <ng-template #emptyWarehouses>
-            <div class="flex min-h-52 flex-col items-center justify-center px-6 py-10 text-center">
-              <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-400">
-                <app-icon name="warehouse" class="h-4 w-4"></app-icon>
-              </div>
-              <p class="text-xs font-bold text-gray-700">Sin recaudación por depósito</p>
-              <p class="mt-1 text-[11px] text-gray-400">No hay movimientos registrados para este período.</p>
-            </div>
-          </ng-template>
-        </section>
-
-        <!-- Estado actual -->
-        <section class="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm">
-          <div class="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
-            <div class="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 shadow-sm">
-              <app-icon name="scales" class="h-4 w-4"></app-icon>
-            </div>
-            <div>
-              <h2 class="text-sm font-bold tracking-tight text-gray-900">Estado actual</h2>
-              <p class="text-[11px] font-medium text-gray-400">Foto general del negocio</p>
-            </div>
-          </div>
-
-          <div class="space-y-3 p-4">
-            <div class="rounded-xl border border-emerald-200/60 bg-emerald-50/60 p-4">
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Saldo de clientes activos</p>
-                  <p class="mt-1 text-xl font-bold tabular-nums tracking-tight text-emerald-800">
-                    {{ stats.balanceGlobalActual | currency:'ARS':'symbol-narrow':'1.0-0' }}
-                  </p>
-                </div>
-                <app-icon name="wallet" class="h-4 w-4 shrink-0 text-emerald-500"></app-icon>
-              </div>
-            </div>
-
-            <div class="rounded-xl border border-gray-200 bg-white p-4">
-              <div class="flex items-end justify-between gap-3">
-                <div>
-                  <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Espacios ocupados</p>
-                  <p class="mt-1 text-xl font-bold tabular-nums tracking-tight text-gray-900">{{ stats.totalEspaciosOcupados }}</p>
-                </div>
-                <span class="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-bold text-gray-500">espacios</span>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <!-- Datos complementarios -->
-      <section class="mt-4 overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm">
-        <div class="border-b border-gray-100 px-5 py-4">
-          <h2 class="text-sm font-bold tracking-tight text-gray-900">Información complementaria</h2>
-          <p class="mt-0.5 text-[11px] font-medium text-gray-400">Adelantos e impuestos discriminados del período.</p>
-        </div>
-
-        <div class="grid grid-cols-1 divide-y divide-gray-100 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-          <div class="flex items-center gap-3 p-5">
-            <div class="metric-icon bg-blue-50 text-blue-600 ring-blue-100">
-              <app-icon name="clock-clockwise" class="h-4 w-4"></app-icon>
-            </div>
-            <div class="min-w-0">
-              <p class="metric-label text-blue-600">Pagos adelantados</p>
-              <p class="text-base font-bold tabular-nums text-gray-900">{{ stats.totalAdvancePayments | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
-              <p class="metric-caption">Saldo a favor generado</p>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-3 p-5">
-            <div class="metric-icon bg-amber-50 text-amber-600 ring-amber-100">
-              <app-icon name="file-text" class="h-4 w-4"></app-icon>
-            </div>
-            <div class="min-w-0">
-              <p class="metric-label text-amber-600">IVA Factura A</p>
-              <p class="text-base font-bold tabular-nums text-gray-900">{{ stats.totalIvaFacturaA | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
-              <p class="metric-caption">Impuesto generado</p>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-3 p-5">
-            <div class="metric-icon bg-violet-50 text-violet-600 ring-violet-100">
-              <app-icon name="file-text" class="h-4 w-4"></app-icon>
-            </div>
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-1.5">
-                <p class="metric-label text-violet-600">IVA Factura B</p>
-                <span class="text-[9px] font-bold text-gray-400">Total IVA {{ totalIva | currency:'ARS':'symbol-narrow':'1.0-0' }}</span>
-              </div>
-              <p class="text-base font-bold tabular-nums text-gray-900">{{ stats.totalIvaFacturaB | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
-              <p class="metric-caption">Impuesto generado</p>
-            </div>
-          </div>
-        </div>
-      </section>
+    <div class="analysis-grid">
+      <div class="skeleton-chart skeleton-block analysis-card--wide"></div>
+      <div class="skeleton-chart skeleton-block"></div>
+    </div>
+    <p class="sr-only">Cargando estadísticas</p>
   </div>
+
+  <div *ngIf="!isLoading && hasError" class="analytics-shell analytics-content">
+    <section class="error-state">
+      <div class="error-state__icon">
+        <app-icon name="alert-triangle" class="h-6 w-6"></app-icon>
+      </div>
+      <h2>No pudimos cargar las estadísticas</h2>
+      <p>Revisá la conexión e intentá nuevamente. El período seleccionado se conserva.</p>
+      <button type="button" (click)="loadStats()" class="primary-button">
+        <app-icon name="rotate-ccw" class="h-4 w-4"></app-icon>
+        Reintentar
+      </button>
+    </section>
+  </div>
+
+  <main *ngIf="!isLoading && !hasError" class="analytics-shell analytics-content">
+    <section class="section-heading section-heading--intro">
+      <div>
+        <span class="section-kicker">Resumen del mes</span>
+        <h2>Lo más importante, primero</h2>
+        <p>Estos cuatro valores explican cuánto entró, cuánto se cubrió y cuánto sigue pendiente.</p>
+      </div>
+      <div class="definition-note">
+        <app-icon name="info" class="h-4 w-4"></app-icon>
+        <span>Los pagos se asignan cronológicamente: primero cancelan lo más antiguo y luego los meses siguientes.</span>
+      </div>
+    </section>
+
+    <section class="summary-grid" aria-label="Indicadores principales">
+      <article class="summary-card summary-card--blue">
+        <div class="summary-card__topline">
+          <span class="summary-card__icon"><app-icon name="dollar-circle" class="h-5 w-5"></app-icon></span>
+          <span class="summary-card__tag">Dinero ingresado</span>
+        </div>
+        <p class="summary-card__label">Cobrado en {{ monthName }}</p>
+        <p class="summary-card__value">{{ stats.totalPagado | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+        <p class="summary-card__help">Suma de los pagos registrados dentro del mes.</p>
+      </article>
+
+      <article class="summary-card">
+        <div class="summary-card__topline">
+          <span class="summary-card__icon summary-card__icon--slate"><app-icon name="receipt" class="h-5 w-5"></app-icon></span>
+          <span class="summary-card__tag">Cuenta del período</span>
+        </div>
+        <p class="summary-card__label">Total a cubrir</p>
+        <p class="summary-card__value">{{ totalEstadoCobranza | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+        <p class="summary-card__help">Incluye abono, intereses y saldos anteriores.</p>
+      </article>
+
+      <article class="summary-card summary-card--amber">
+        <div class="summary-card__topline">
+          <span class="summary-card__icon summary-card__icon--amber"><app-icon name="clock" class="h-5 w-5"></app-icon></span>
+          <span class="summary-card__tag">Por cobrar</span>
+        </div>
+        <p class="summary-card__label">Todavía falta pagar</p>
+        <p class="summary-card__value">{{ stats.totalPendienteDelPeriodo | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+        <p class="summary-card__help">Saldo abierto de los clientes para este período.</p>
+      </article>
+
+      <article class="summary-card summary-card--teal">
+        <div class="summary-card__topline">
+          <span class="summary-card__icon summary-card__icon--teal"><app-icon name="calendar" class="h-5 w-5"></app-icon></span>
+          <span class="summary-card__tag">Adelantado</span>
+        </div>
+        <p class="summary-card__label">Pagado antes de comenzar</p>
+        <p class="summary-card__value">{{ stats.totalCubiertoAntesDelPeriodo | currency:'ARS':'symbol-narrow':'1.0-0' }}</p>
+        <p class="summary-card__help">Dinero de este período recibido en meses anteriores.</p>
+      </article>
+    </section>
+
+    <section class="analysis-grid analysis-grid--cash">
+      <article class="analysis-card analysis-card--wide">
+        <header class="card-heading">
+          <div>
+            <span class="section-kicker">Estado de cobranza</span>
+            <h2>¿Cuánto del período ya está cubierto?</h2>
+            <p>Separación entre lo adelantado, lo pagado desde el inicio y lo que todavía falta.</p>
+          </div>
+          <span class="status-pill" [class.status-pill--warning]="porcentajePendientePeriodo > 0">
+            {{ porcentajeCobradoPeriodo | number:'1.0-1' }}% cubierto
+          </span>
+        </header>
+
+        <div class="donut-layout">
+          <div class="donut-chart" [style.background]="collectionDonutStyle" role="img" [attr.aria-label]="porcentajeCobradoPeriodo + '% del período cubierto'">
+            <div class="donut-chart__center">
+              <strong>{{ porcentajeCobradoPeriodo | number:'1.0-1' }}%</strong>
+              <span>cubierto</span>
+            </div>
+          </div>
+
+          <div class="chart-legend">
+            <div class="legend-row">
+              <span class="legend-row__dot legend-row__dot--blue"></span>
+              <div class="legend-row__copy">
+                <strong>Pagado antes del mes</strong>
+                <small>Ya estaba cubierto cuando comenzó el período.</small>
+              </div>
+              <div class="legend-row__value">
+                <strong>{{ stats.totalCubiertoAntesDelPeriodo | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+                <small>{{ porcentajeCubiertoAntes | number:'1.0-1' }}%</small>
+              </div>
+            </div>
+
+            <div class="legend-row">
+              <span class="legend-row__dot legend-row__dot--sky"></span>
+              <div class="legend-row__copy">
+                <strong>{{ isCurrentMonth ? 'Pagado desde que comenzó' : 'Pagado durante o después' }}</strong>
+                <small>Importes aplicados al período que no fueron adelantados.</small>
+              </div>
+              <div class="legend-row__value">
+                <strong>{{ cubiertoDesdeInicioPeriodo | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+                <small>{{ porcentajeCubiertoDesdeInicio | number:'1.0-1' }}%</small>
+              </div>
+            </div>
+
+            <div class="legend-row">
+              <span class="legend-row__dot legend-row__dot--gray"></span>
+              <div class="legend-row__copy">
+                <strong>Pendiente</strong>
+                <small>Importe que todavía no fue cubierto.</small>
+              </div>
+              <div class="legend-row__value">
+                <strong>{{ stats.totalPendienteDelPeriodo | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+                <small>{{ porcentajePendientePeriodo | number:'1.0-1' }}%</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="analysis-card">
+        <header class="card-heading">
+          <div>
+            <span class="section-kicker">Destino de la cobranza</span>
+            <h2>¿Qué cubre lo cobrado este mes?</h2>
+            <p>Del dinero ingresado en {{ monthName }}, cuánto quedó aplicado a meses futuros.</p>
+          </div>
+        </header>
+
+        <div class="future-highlight">
+          <span>Para meses siguientes</span>
+          <strong>{{ stats.totalCobradoParaMesesFuturos | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+          <small>{{ porcentajeCobradoParaFuturo | number:'1.0-1' }}% de todo lo cobrado</small>
+        </div>
+
+        <div class="stacked-bar" role="img" [attr.aria-label]="porcentajeCobradoParaFuturo + '% de la cobranza se aplicó a meses futuros'">
+          <span class="stacked-bar__current" [style.width.%]="porcentajeCobradoNoFuturo"></span>
+          <span class="stacked-bar__future" [style.width.%]="porcentajeCobradoParaFuturo"></span>
+        </div>
+
+        <div class="destination-list">
+          <div>
+            <span><i class="destination-dot destination-dot--current"></i>Mes actual o deuda anterior</span>
+            <strong>{{ cobradoParaPeriodoActualOPasado | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+          </div>
+          <div>
+            <span><i class="destination-dot destination-dot--future"></i>Meses siguientes</span>
+            <strong>{{ stats.totalCobradoParaMesesFuturos | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="section-heading">
+      <div>
+        <span class="section-kicker">Capacidad del negocio</span>
+        <h2>Ocupación actual</h2>
+        <p>La ocupación es una foto de hoy; no cambia al navegar por períodos históricos.</p>
+      </div>
+    </section>
+
+    <section class="analysis-grid analysis-grid--occupancy">
+      <article class="analysis-card occupancy-overview">
+        <div class="occupancy-overview__chart">
+          <div class="donut-chart donut-chart--teal" [style.background]="occupancyDonutStyle" role="img" [attr.aria-label]="stats.porcentajeOcupacion + '% de ocupación'">
+            <div class="donut-chart__center">
+              <strong>{{ stats.porcentajeOcupacion | number:'1.0-1' }}%</strong>
+              <span>ocupado</span>
+            </div>
+          </div>
+          <div>
+            <span class="section-kicker">Ocupación general</span>
+            <h3>{{ stats.totalEspaciosOcupados }} de {{ stats.totalEspacios }} espacios</h3>
+            <p>{{ stats.totalEspacios - stats.totalEspaciosOcupados }} espacios disponibles actualmente.</p>
+          </div>
+        </div>
+
+        <div class="average-card">
+          <div class="average-card__icon"><app-icon name="scales" class="h-5 w-5"></app-icon></div>
+          <div>
+            <span>Abono promedio por espacio contratado</span>
+            <strong>{{ stats.abonoPromedioPorEspacio | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+            <small>Abonos del período ÷ espacios contratados en ese período.</small>
+          </div>
+        </div>
+      </article>
+
+      <article class="analysis-card analysis-card--wide">
+        <header class="card-heading">
+          <div>
+            <span class="section-kicker">Detalle por depósito</span>
+            <h2>Ocupación de cada ubicación</h2>
+            <p>Compará rápidamente dónde queda capacidad disponible.</p>
+          </div>
+          <span class="neutral-pill">{{ occupancyWarehouses.length }} depósitos</span>
+        </header>
+
+        <div *ngIf="occupancyWarehouses.length; else emptyWarehouses" class="warehouse-list">
+          <div *ngFor="let warehouse of occupancyWarehouses; trackBy: trackWarehouse" class="warehouse-row">
+            <div class="warehouse-row__heading">
+              <div>
+                <strong>{{ warehouse.name }}</strong>
+                <small>{{ warehouse.address || 'Sin dirección registrada' }}</small>
+              </div>
+              <div class="warehouse-row__numbers">
+                <strong>{{ warehouse.occupancyPercentage | number:'1.0-1' }}%</strong>
+                <small>{{ warehouse.occupiedSpaces }} de {{ warehouse.totalSpaces }}</small>
+              </div>
+            </div>
+            <div class="progress-track">
+              <span class="progress-track__fill" [style.width.%]="warehouse.occupancyPercentage"></span>
+            </div>
+          </div>
+        </div>
+
+        <ng-template #emptyWarehouses>
+          <div class="empty-state">
+            <app-icon name="warehouse" class="h-7 w-7"></app-icon>
+            <strong>Sin depósitos para mostrar</strong>
+            <span>No hay espacios activos registrados.</span>
+          </div>
+        </ng-template>
+      </article>
+    </section>
+
+    <section class="analysis-card revenue-card">
+      <header class="card-heading">
+        <div>
+          <span class="section-kicker">Recaudación por depósito</span>
+          <h2>Cómo se distribuyó el ingreso de {{ monthName }}</h2>
+          <p>Si un alquiler ocupa más de un depósito, el ingreso se reparte proporcionalmente por espacio asignado.</p>
+        </div>
+        <strong class="card-heading__total">{{ stats.totalPagado | currency:'ARS':'symbol-narrow':'1.0-0' }} <small>cobrado</small></strong>
+      </header>
+
+      <div *ngIf="revenueWarehouses.length" class="revenue-list">
+        <div *ngFor="let warehouse of revenueWarehouses; trackBy: trackWarehouse" class="revenue-row">
+          <div class="revenue-row__label">
+            <span>{{ warehouse.name }}</span>
+            <strong>{{ warehouse.revenue | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+          </div>
+          <div class="revenue-track">
+            <span [style.width.%]="warehouseRevenuePercentage(warehouse.revenue)"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-heading">
+      <div>
+        <span class="section-kicker">Detalle contable</span>
+        <h2>Números complementarios</h2>
+        <p>Información de apoyo para quienes necesitan revisar la composición del período.</p>
+      </div>
+    </section>
+
+    <section class="detail-grid">
+      <article class="detail-card">
+        <span class="detail-card__icon detail-card__icon--blue"><app-icon name="receipt" class="h-5 w-5"></app-icon></span>
+        <div>
+          <span>Abonos del período</span>
+          <strong>{{ stats.totalObligacionDelPeriodo | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+          <small>Cargos mensuales generados.</small>
+        </div>
+      </article>
+
+      <article class="detail-card">
+        <span class="detail-card__icon detail-card__icon--violet"><app-icon name="percent" class="h-5 w-5"></app-icon></span>
+        <div>
+          <span>Intereses</span>
+          <strong>{{ stats.totalIntereses | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+          <small>Intereses por mora aplicados.</small>
+        </div>
+      </article>
+
+      <article class="detail-card">
+        <span class="detail-card__icon detail-card__icon--amber"><app-icon name="clock-clockwise" class="h-5 w-5"></app-icon></span>
+        <div>
+          <span>Saldo de meses anteriores</span>
+          <strong>{{ stats.deudaTotalDelMes | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+          <small>Deuda trasladada al período.</small>
+        </div>
+      </article>
+
+      <article class="detail-card">
+        <span class="detail-card__icon detail-card__icon--teal"><app-icon name="wallet" class="h-5 w-5"></app-icon></span>
+        <div>
+          <span>Total aplicado</span>
+          <strong>{{ stats.totalAplicadoAlPeriodo | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+          <small>Pagos y adelantos aplicados a la cuenta.</small>
+        </div>
+      </article>
+    </section>
+
+    <section class="tax-card">
+      <header>
+        <div>
+          <span class="section-kicker">Información fiscal</span>
+          <h2>IVA estimado del período</h2>
+          <p>Discriminación sobre movimientos no registrados como efectivo.</p>
+        </div>
+        <strong>{{ totalIva | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+      </header>
+      <div class="tax-card__breakdown">
+        <div><span>IVA Factura A</span><strong>{{ stats.totalIvaFacturaA | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong></div>
+        <div><span>IVA Factura B</span><strong>{{ stats.totalIvaFacturaB | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong></div>
+      </div>
+    </section>
+  </main>
 </section>

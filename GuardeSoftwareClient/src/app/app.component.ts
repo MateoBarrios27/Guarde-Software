@@ -1,14 +1,11 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, NavigationEnd, ActivatedRoute, RouterOutlet } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs/operators';
 import { SidebarComponent } from './shared/components/sidebar/sidebar.component';
-import { ScrollingModule } from '@angular/cdk/scrolling';
-import { AlertService } from './core/services/alert-service/alert.service';
 import { SystemAlertModalComponent } from './shared/components/system-alert-modal/system-alert-modal.component';
 import { AuthService } from './core/services/auth-service/auth.service';
 import { OfflineBannerComponent } from './shared/components/offline-banner/offline-banner.component';
-import { SyncService } from './core/services/offline-service/sync.service';
 
 @Component({
   selector: 'app-root',
@@ -17,13 +14,12 @@ import { SyncService } from './core/services/offline-service/sync.service';
     CommonModule,
     RouterOutlet,
     SidebarComponent,
-    ScrollingModule,
     SystemAlertModalComponent,
     OfflineBannerComponent
   ],
   templateUrl: './app.component.html',
 })
-export class AppComponent implements OnInit, OnDestroy {
+export class AppComponent implements OnInit {
   isSidebarOpen = false;
   pageTitle = '';
   isLoginRoute = false;
@@ -31,16 +27,10 @@ export class AppComponent implements OnInit, OnDestroy {
   constructor(
     private router: Router,
     private activatedRoute: ActivatedRoute,
-    private alertService: AlertService,
-    public authService: AuthService,
-    private syncService: SyncService
+    public authService: AuthService
   ) {}
 
-  ngOnInit() {
-    // Initialize offline/sync service
-    this.syncService.init();
-
-    // Escuchar cambios de ruta para actualizar el título
+  ngOnInit(): void {
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd),
       map(() => {
@@ -61,23 +51,14 @@ export class AppComponent implements OnInit, OnDestroy {
       .subscribe((event: NavigationEnd) => {
         const url = event.urlAfterRedirects || event.url;
         this.isLoginRoute = url.startsWith('/login');
-
-        // Iniciar SignalR cuando el usuario ya está en una ruta autenticada
-        if (!this.isLoginRoute && this.authService.isLoggedIn()) {
-          this.alertService.startConnection();
-        }
       });
   }
 
-  toggleSidebar() {
+  toggleSidebar(): void {
     this.isSidebarOpen = !this.isSidebarOpen;
   }
 
-  closeSidebar() {
+  closeSidebar(): void {
     this.isSidebarOpen = false;
-  }
-
-  ngOnDestroy() {
-    this.alertService.stopConnection();
   }
 }

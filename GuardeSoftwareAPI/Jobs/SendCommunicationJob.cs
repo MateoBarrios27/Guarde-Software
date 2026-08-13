@@ -131,12 +131,14 @@ namespace GuardeSoftwareAPI.Jobs
                         }
 
                         MimeMessage message;
+                        string? emailContent = null;
 
                         if (isAccountStatement)
                         {
                             var financialData = await _communicationDao.GetClientFinancialData(recipient.ClientId, isNextMonth);
                             
                             string dynamicHtml = GenerateAccountStatementHtml(recipient.Name, financialData, isNextMonth);
+                            emailContent = dynamicHtml;
                             
                             DateTime targetDate = isNextMonth ? DateTime.Now.AddMonths(1) : DateTime.Now;
                             var tempChannel = new ChannelForSendingDto 
@@ -148,12 +150,12 @@ namespace GuardeSoftwareAPI.Jobs
                         }
                         else 
                         {
-                            // Lógica normal
+                            emailContent = channel.Content;
                             message = CreateEmailMessage(channel, recipient, effectiveSettings, attachments);
                         }
 
                         string response = await smtp.SendAsync(message);
-                        await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Exitoso", response);
+                        await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Exitoso", response, emailContent);
                     }
                     catch (Exception ex)
                     {

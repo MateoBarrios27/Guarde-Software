@@ -227,11 +227,11 @@
 
   
   <!-- Tabla -->
-  <div class="relative w-full mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden md:overflow-visible">
-    <div class="w-full overflow-x-auto overscroll-x-contain md:overflow-visible" aria-label="Tabla de bauleras">
-    <table class="min-w-[900px] w-full">
+  <div class="relative w-full mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible">
+    <div class="w-full min-w-0 overflow-visible" aria-label="Tabla de bauleras">
+    <table class="min-w-[1050px] w-full">
       
-      <thead class="bg-gray-50 relative md:sticky top-0 z-20 shadow-sm text-gray-600 uppercase text-xs">
+      <thead class="bg-gray-50 sticky top-0 z-20 shadow-sm text-gray-600 uppercase text-xs">
         <tr class="border-b">
           <th class="px-4 py-3 text-left font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('identifier')">
             <div class="flex items-center gap-1 group">
@@ -354,7 +354,7 @@
             </td>
         </tr>
       </tbody>
-      <tfoot class="relative md:sticky bottom-0 z-20 bg-gray-50 font-bold text-gray-700 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      <tfoot class="sticky bottom-0 z-20 bg-gray-50 font-bold text-gray-700 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <tr>
           <td colspan="7" class="border-t border-gray-200 px-4 py-3 text-right text-xs uppercase tracking-wider text-gray-500 bg-gray-50">
             {{ filteredLockers.length }} bauleras visibles

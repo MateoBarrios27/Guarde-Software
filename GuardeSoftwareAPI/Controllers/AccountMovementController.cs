@@ -131,5 +131,44 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, new { message = "Error interno al crear el movimiento." });
             }
         }
+
+        [HttpGet("payment-plan/context/{clientId:int}")]
+        public async Task<IActionResult> GetPaymentPlanningContext(int clientId, [FromQuery] int months)
+        {
+            try
+            {
+                return Ok(await _accountMovementService.GetPaymentPlanningContextAsync(clientId, months));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("payment-plan")]
+        public async Task<IActionResult> PlanClientPayment([FromBody] PlanClientPaymentDto dto)
+        {
+            try
+            {
+                return Ok(await _accountMovementService.PlanClientPaymentAsync(dto));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al planificar el pago del cliente {ClientId}.", dto?.ClientId);
+                return StatusCode(500, new { message = "No se pudo planificar el pago." });
+            }
+        }
     }
 }

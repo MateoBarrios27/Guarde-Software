@@ -432,7 +432,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
         legacyStartDate: this.formatDateToYYYYMMDD(data.registrationDate), 
         legacyInitialAmount: data.initialAmount,
         legacyNextIncreaseDate: this.formatDateToYYYYMM(data.nextIncreaseDay),
-        isLegacy6MonthPromo: data.increaseFrequencyMonths === 6,
+        isLegacy6MonthPromo: data.isSixMonthPromotion ?? data.increaseFrequencyMonths === 6,
         occupiedSpaces: data.occupiedSpaces || 0,
         receiveCommunications: data.receiveCommunications ?? true,
       });
@@ -626,6 +626,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     prepaidMonths: isLegacy ? Number(formValue.prepaidMonths) : 0,
     isLegacyClient: isLegacy,
     isLegacy6MonthPromo: formValue.isLegacy6MonthPromo,
+    isSixMonthPromotion: !!formValue.isLegacy6MonthPromo,
     legacyInitialAmount: isLegacy ? formValue.legacyInitialAmount : null,
     legacyNextIncreaseDate: nextIncreaseDate || undefined,
 

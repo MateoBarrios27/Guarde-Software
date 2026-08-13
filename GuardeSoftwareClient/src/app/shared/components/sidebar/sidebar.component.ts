@@ -1,9 +1,8 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { IconComponent } from '../icon/icon.component';
 import { AuthService } from '../../../core/services/auth-service/auth.service';
-import Swal from '../../services/ui-alert.service';
 
 interface MenuItem {
   path: string;
@@ -19,16 +18,25 @@ interface MenuItem {
   templateUrl: './sidebar.component.html',
   styleUrls: ['./sidebar.component.css'],
 })
-export class SidebarComponent {
-
-  constructor( public authService: AuthService, private router: Router){}
+export class SidebarComponent implements OnInit {
+  constructor(public authService: AuthService, private router: Router) {}
 
   userName = '';
   firstName = '';
   lastName = '';
-  
+
   @Input() isOpen = false;
   @Output() closeSidebar = new EventEmitter<void>();
+
+  menuItems: MenuItem[] = [
+    { path: '/clients', title: 'Clientes', icon: 'user' },
+    { path: '/finances', title: 'Finanzas', icon: 'dollar-sign' },
+    { path: '/communications', title: 'Comunicaciones', icon: 'message-circle' },
+    { path: '/lockers', title: 'Bauleras', icon: 'package' },
+    { path: '/statistics', title: 'Estadísticas', icon: 'file-text' },
+    { path: '/settings', title: 'Configuración', icon: 'settings' },
+    { path: '/cash', title: 'Caja', icon: 'dollar', adminOnly: true },
+  ];
 
   ngOnInit(): void {
     this.userName = localStorage.getItem('userName') ?? '';
@@ -41,26 +49,17 @@ export class SidebarComponent {
     return name ? name.charAt(0).toUpperCase() : 'U';
   }
 
-  menuItems: MenuItem[] = [
-    // { path: '/dashboard', title: 'Panel Principal', icon: 'layout-dashboard' },
-    { path: '/clients', title: 'Clientes', icon: 'user' },
-    { path: '/finances', title: 'Finanzas', icon: 'dollar-sign' },
-    { path: '/communications', title: 'Comunicaciones', icon: 'message-circle' },
-    { path: '/lockers', title: 'Bauleras', icon: 'package' },
-    { path: '/statistics', title: 'Estadísticas', icon: 'file-text' },
-    // { path: '/reports', title: 'Reportes', icon: 'file-text' },
-    { path: '/settings', title: 'Configuración', icon: 'settings' },
-    { path: '/cash', title: 'Caja', icon: 'dollar', adminOnly: true },
-  ];
-
-  onLinkClick() {
+  onLinkClick(): void {
     if (window.innerWidth < 1024) {
       this.closeSidebar.emit();
     }
   }
 
-  logout() {
-    Swal.fire({
+  async logout(): Promise<void> {
+    // SweetAlert is only needed after the user presses Logout, so keep it out
+    // of the critical JavaScript required to paint the Clients route.
+    const { default: Swal } = await import('../../services/ui-alert.service');
+    const result = await Swal.fire({
       title: '¿Cerrar sesión?',
       text: 'Tu sesión actual se cerrará',
       icon: 'warning',
@@ -70,13 +69,11 @@ export class SidebarComponent {
       reverseButtons: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.authService.logout();
-        this.router.navigate(['/login']);
-      }
     });
-  }
 
-  
+    if (result.isConfirmed) {
+      this.authService.logout();
+      await this.router.navigate(['/login']);
+    }
+  }
 }

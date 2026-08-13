@@ -5,6 +5,11 @@ import { Observable } from 'rxjs';
 import { AccountMovement } from '../../models/account-movement';
 import { AccountMovementDTO } from '../../dtos/accountMovement/account-movement.dto';
 import { CreateAccountMovementDTO } from '../../dtos/accountMovement/create-account-movement.dto';
+import {
+  PaymentPlanningContext,
+  PlanClientPaymentRequest,
+  PlannedPaymentResult
+} from '../../dtos/accountMovement/payment-planning.dto';
 
 @Injectable({
   providedIn: 'root'
@@ -32,5 +37,16 @@ export class AccountMovementService {
 
   deleteMovement(movementId: number): Observable<void> {
     return this.httpCliente.delete<void>(`${this.url}/AccountMovement/${movementId}`);
+  }
+
+  getPaymentPlanningContext(clientId: number, months: number): Observable<PaymentPlanningContext> {
+    return this.httpCliente.get<PaymentPlanningContext>(
+      `${this.url}/AccountMovement/payment-plan/context/${clientId}`,
+      { params: { months: months.toString() } }
+    );
+  }
+
+  planClientPayment(dto: PlanClientPaymentRequest): Observable<PlannedPaymentResult> {
+    return this.httpCliente.post<PlannedPaymentResult>(`${this.url}/AccountMovement/payment-plan`, dto);
   }
 }

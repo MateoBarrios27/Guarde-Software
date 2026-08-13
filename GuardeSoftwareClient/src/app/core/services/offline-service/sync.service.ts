@@ -29,6 +29,8 @@ export class SyncService {
 
   private autoRefreshSub?: Subscription;
   private wasOffline = false;
+  private initialized = false;
+  private readonly snapshotMaxAgeMs = 5 * 60 * 1000;
 
   constructor(
     private http: HttpClient,
@@ -36,8 +38,11 @@ export class SyncService {
     private idb: IndexedDbService
   ) {}
 
-  /** Call once from AppComponent.ngOnInit */
+  /** Initialize once when the deferred offline controls become available. */
   async init(): Promise<void> {
+    if (this.initialized) return;
+    this.initialized = true;
+
     // Remember the initial state so reconnecting after an offline reload also
     // triggers the normal refresh/sync flow.
     this.wasOffline = !this.offlineService.isOnline;
@@ -45,9 +50,11 @@ export class SyncService {
     // IndexedDB is an enhancement for offline mode. It must never prevent the
     // Angular shell from starting if the browser blocks storage or the DB is
     // temporarily unavailable.
+    let snapshotTimestamp: string | null = null;
     try {
       await this.refreshPendingCount();
       const ts = await this.idb.getSnapshotTimestamp();
+      snapshotTimestamp = ts;
       this._lastSnapshotAt.next(ts);
     } catch {
       this._pendingCount.next(0);
@@ -72,9 +79,15 @@ export class SyncService {
     });
 
     // Do initial snapshot if online
-    if (this.offlineService.isOnline) {
+    if (this.offlineService.isOnline && this.isSnapshotStale(snapshotTimestamp)) {
       this.refreshSnapshot(); // fire and forget
     }
+  }
+
+  private isSnapshotStale(timestamp: string | null): boolean {
+    if (!timestamp) return true;
+    const generatedAt = new Date(timestamp).getTime();
+    return Number.isNaN(generatedAt) || Date.now() - generatedAt >= this.snapshotMaxAgeMs;
   }
 
   async refreshSnapshot(): Promise<boolean> {

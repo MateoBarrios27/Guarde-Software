@@ -162,7 +162,11 @@ namespace GuardeSoftwareAPI.Services.payment
                 decimal newRent = baseRent;
 
                 // --- LÓGICA DE AUMENTO Y CONGELAMIENTO ---
-                bool isPriceLocked = dto.IsAdvancePayment && monthsToCover >= 6;
+                // Un pago de 6+ meses congela el precio. También respetamos un congelamiento
+                // ya creado al planificar previamente esos débitos, aunque el pago se cargue después.
+                bool hasActivePlannedPriceLock = rental.PriceLockEndDate.HasValue
+                    && rental.PriceLockEndDate.Value.Date > dto.Date.Date;
+                bool isPriceLocked = (dto.IsAdvancePayment && monthsToCover >= 6) || hasActivePlannedPriceLock;
                 if (isPriceLocked)
                 {
                     DateTime lockEndDate = dto.Date.Date.AddMonths(monthsToCover);
@@ -470,6 +474,7 @@ namespace GuardeSoftwareAPI.Services.payment
         // E. LIMPIEZA Y RECONSTRUCCIÓN (SIEMPRE EJECUTAR)
         await daoRental.ResetPendingSurchargeTransactionAsync(rental.Id, connection, transaction);
         await daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
+        await rentalAmountHistoryService.NormalizeRentalAmountHistoryTransactionAsync(rental.Id, connection, transaction);
         await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rental.Id, connection, transaction);
 
         await transaction.CommitAsync();
@@ -648,6 +653,7 @@ namespace GuardeSoftwareAPI.Services.payment
 				{
 					PaymentId = Convert.ToInt32(row["payment_id"]),
 					MovementId = Convert.ToInt32(row["movement_id"]),
+					ClientId = row["client_id"] != DBNull.Value ? Convert.ToInt32(row["client_id"]) : null,
 					ClientName = row["full_name"]?.ToString() ?? string.Empty,
 					PaymentIdentifier = row["payment_identifier"]?.ToString() ?? string.Empty,
 					Amount = Convert.ToDecimal(row["amount"]),
@@ -717,9 +723,30 @@ namespace GuardeSoftwareAPI.Services.payment
 
                 if (rentalId.HasValue)
                 {
-                    // Le pasamos la fecha segura de cobertura, no la fecha en la que apretó el botón de pagar
-                    await RestoreLatestRentChangeIfNeededAsync(rentalId.Value, safeDateToRollback, connection, transaction);
+                    // El pago puede haber efectivizado meses que ya estaban
+                    // planificados. El borrado elimina los movimientos ligados
+                    // al pago, pero los débitos planificados que quedaron sin
+                    // payment_id siguen definiendo el próximo aumento.
+                    bool preservePlannedIncreaseAnchor = await HasPendingPlannedDebitsAsync(
+                        rentalId.Value,
+                        connection,
+                        transaction);
 
+                    // Le pasamos la fecha segura de cobertura, no la fecha en la que apretó el botón de pagar
+                    await rentalAmountHistoryService.NormalizeRentalAmountHistoryTransactionAsync(rentalId.Value, connection, transaction);
+                    await RestoreLatestRentChangeIfNeededAsync(
+                        rentalId.Value,
+                        safeDateToRollback,
+                        connection,
+                        transaction,
+                        preservePlannedIncreaseAnchor);
+                    await RestorePriceLockAndIncreaseAnchorIfNeededAsync(
+                        rentalId.Value,
+                        paymentDate ?? safeDateToRollback,
+                        connection,
+                        transaction);
+
+                    await rentalAmountHistoryService.NormalizeRentalAmountHistoryTransactionAsync(rentalId.Value, connection, transaction);
                     await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rentalId.Value, connection, transaction);
                 }
 
@@ -733,7 +760,97 @@ namespace GuardeSoftwareAPI.Services.payment
             }
         }
 
-        private async Task RestoreLatestRentChangeIfNeededAsync(int rentalId, DateTime minCoverageDate, SqlConnection connection, SqlTransaction transaction)
+        private static async Task RestorePriceLockAndIncreaseAnchorIfNeededAsync(
+            int rentalId,
+            DateTime paymentDate,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            if (paymentDate == DateTime.MinValue)
+                return;
+
+            const string rentalStateQuery = @"
+                SELECT
+                    r.price_lock_end_date,
+                    r.increase_anchor_date,
+                    c.increase_frequency_months
+                FROM rentals r
+                INNER JOIN clients c ON c.client_id = r.client_id
+                WHERE r.rental_id = @rental_id";
+
+            DateTime? priceLockEndDate = null;
+            DateTime? currentAnchor = null;
+            int frequencyMonths = 0;
+
+            using (var stateCommand = new SqlCommand(rentalStateQuery, connection, transaction))
+            {
+                stateCommand.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+                using var reader = await stateCommand.ExecuteReaderAsync();
+                if (!await reader.ReadAsync()) return;
+
+                priceLockEndDate = reader.IsDBNull(0) ? null : reader.GetDateTime(0);
+                currentAnchor = reader.IsDBNull(1) ? null : reader.GetDateTime(1);
+                frequencyMonths = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
+            }
+
+            // Si todavía quedan débitos de una planificación, el congelamiento
+            // pertenece a esa planificación y no al pago que se está borrando.
+            // En ese caso no se debe restaurar la fecha anterior todavía.
+            if (await HasPendingPlannedDebitsAsync(rentalId, connection, transaction))
+                return;
+
+            // Solo revertimos un congelamiento que seguÃ­a vigente al momento
+            // del pago eliminado. Los congelamientos ya vencidos no se tocan.
+            if (!priceLockEndDate.HasValue || priceLockEndDate.Value.Date <= paymentDate.Date)
+                return;
+
+            DateTime? restoredAnchor = currentAnchor;
+            if (frequencyMonths > 1)
+            {
+                const string latestHistoryQuery = @"
+                    SELECT TOP 1 start_date
+                    FROM rental_amount_history
+                    WHERE rental_id = @rental_id
+                    ORDER BY start_date DESC, rental_amount_history_id DESC";
+
+                DateTime? latestHistoryStart = null;
+                using (var historyCommand = new SqlCommand(latestHistoryQuery, connection, transaction))
+                {
+                    historyCommand.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+                    var value = await historyCommand.ExecuteScalarAsync();
+                    if (value != null && value != DBNull.Value)
+                        latestHistoryStart = Convert.ToDateTime(value);
+                }
+
+                if (latestHistoryStart.HasValue)
+                {
+                    var stepMonths = Math.Max(1, frequencyMonths - 1);
+                    var historyStart = new DateTime(latestHistoryStart.Value.Year, latestHistoryStart.Value.Month, 1);
+                    restoredAnchor = historyStart.AddMonths(stepMonths);
+                }
+            }
+
+            const string restoreQuery = @"
+                UPDATE rentals
+                SET price_lock_end_date = NULL,
+                    increase_anchor_date = @increase_anchor_date
+                WHERE rental_id = @rental_id";
+
+            using var restoreCommand = new SqlCommand(restoreQuery, connection, transaction);
+            restoreCommand.Parameters.Add(new SqlParameter("@increase_anchor_date", SqlDbType.Date)
+            {
+                Value = (object?)restoredAnchor ?? DBNull.Value
+            });
+            restoreCommand.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+            await restoreCommand.ExecuteNonQueryAsync();
+        }
+
+        private async Task RestoreLatestRentChangeIfNeededAsync(
+            int rentalId,
+            DateTime minCoverageDate,
+            SqlConnection connection,
+            SqlTransaction transaction,
+            bool preserveIncreaseAnchor)
         {
             // 1. Obtener la frecuencia de aumento
             int frequencyMonths = 0;
@@ -795,6 +912,14 @@ namespace GuardeSoftwareAPI.Services.payment
                 // FIX CRÍTICO: Si no hay historial, o el historial es MÁS VIEJO que la base de nuestro pago, frenamos.
                 if (historyId == 0 || startDate.Date < normalizedMinDate) break;
 
+                // Las planificaciones mantienen sus propios débitos futuros. Si
+                // el pago se elimina después, esos tramos siguen siendo válidos
+                // y no deben desaparecer junto con el historial generado por el
+                // pago que se está revirtiendo.
+                if (startDate.Date > new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1)
+                    && await HasPlannedDebitForHistoryRangeAsync(rentalId, startDate, connection, transaction))
+                    break;
+
                 // Extrema seguridad: nunca borramos el primer historial del contrato (la base)
                 int historyCount = 0;
                 const string countQuery = "SELECT COUNT(1) FROM rental_amount_history WHERE rental_id = @rental_id";
@@ -814,7 +939,7 @@ namespace GuardeSoftwareAPI.Services.payment
                 }
 
                 // B. Retrocedemos el ancla exactamente 1 escalón por historial borrado
-                if (currentAnchor.HasValue)
+                if (!preserveIncreaseAnchor && currentAnchor.HasValue)
                 {
                     currentAnchor = currentAnchor.Value.AddMonths(-stepMonths);
                     const string updateAnchorQuery = "UPDATE rentals SET increase_anchor_date = @newAnchor WHERE rental_id = @rental_id";
@@ -851,6 +976,56 @@ namespace GuardeSoftwareAPI.Services.payment
                     await cmdReopen.ExecuteNonQueryAsync();
                 }
             }
+        }
+
+        private static async Task<bool> HasPlannedDebitForHistoryRangeAsync(
+            int rentalId,
+            DateTime historyStart,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            const string query = @"
+                SELECT CASE WHEN EXISTS (
+                    SELECT 1
+                    FROM account_movements am
+                    WHERE am.rental_id = @rental_id
+                      AND am.movement_type = 'DEBITO'
+                      AND am.payment_id IS NULL
+                      AND am.concept LIKE 'Alquiler %'
+                      AND DATEFROMPARTS(YEAR(am.movement_date), MONTH(am.movement_date), 1) > DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                      AND DATEFROMPARTS(YEAR(am.movement_date), MONTH(am.movement_date), 1) >= DATEFROMPARTS(YEAR(@history_start), MONTH(@history_start), 1)
+                      AND DATEFROMPARTS(YEAR(am.movement_date), MONTH(am.movement_date), 1) < COALESCE((
+                          SELECT MIN(DATEFROMPARTS(YEAR(next_history.start_date), MONTH(next_history.start_date), 1))
+                          FROM rental_amount_history next_history
+                          WHERE next_history.rental_id = @rental_id
+                            AND next_history.start_date > @history_start
+                      ), DATEFROMPARTS(9999, 12, 1))
+                ) THEN 1 ELSE 0 END";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+            command.Parameters.Add(new SqlParameter("@history_start", SqlDbType.DateTime) { Value = historyStart });
+            return Convert.ToInt32(await command.ExecuteScalarAsync()) == 1;
+        }
+
+        private static async Task<bool> HasPendingPlannedDebitsAsync(
+            int rentalId,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            const string query = @"
+                SELECT CASE WHEN EXISTS (
+                    SELECT 1
+                    FROM account_movements
+                    WHERE rental_id = @rental_id
+                      AND movement_type = 'DEBITO'
+                      AND payment_id IS NULL
+                      AND concept LIKE 'Alquiler %'
+                      AND DATEFROMPARTS(YEAR(movement_date), MONTH(movement_date), 1) > DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                ) THEN 1 ELSE 0 END";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+            return Convert.ToInt32(await command.ExecuteScalarAsync()) == 1;
         }
 
 		private decimal RoundToNearest1000(decimal amount)

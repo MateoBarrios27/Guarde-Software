@@ -21,6 +21,9 @@ namespace GuardeSoftwareAPI.Dtos.Sync
         public int? MonthsUnpaid { get; set; }
         public string? IncreaseAnchorDate { get; set; }
         public int? IncreaseFrequencyMonths { get; set; }
+        public bool IsSixMonthPromotion { get; set; }
+        public decimal? PlannedPaymentAmount { get; set; }
+        public bool HasPlannedPayment { get; set; }
     }
 
     public class SyncPaymentMethodDto

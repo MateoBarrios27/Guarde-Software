@@ -20,7 +20,10 @@ import { CreateLockerDTO } from '../../core/dtos/locker/CreateLockerDTO';
   standalone: true,
   imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent],
   templateUrl: './lockers.component.html',
-  styleUrls: ['./lockers.component.css']
+  styleUrls: ['./lockers.component.css'],
+  host: {
+    class: 'block w-full min-w-0'
+  }
 })
 export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   lockers: Locker[] = [];

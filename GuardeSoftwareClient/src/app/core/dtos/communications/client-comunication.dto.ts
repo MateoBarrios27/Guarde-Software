@@ -4,4 +4,5 @@ export interface ClientCommunicationDTO {
   type: string; // 'email', 'whatsapp', 'system'
   subject: string;
   snippet: string;
+  hasContent?: boolean;
 }

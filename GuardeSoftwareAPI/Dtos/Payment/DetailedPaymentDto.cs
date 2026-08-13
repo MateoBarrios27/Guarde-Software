@@ -6,6 +6,7 @@ namespace GuardeSoftwareAPI.Dtos.Payment
     {
         public int PaymentId { get; set; }  
         public int MovementId { get; set; }                  
+        public int? ClientId { get; set; }
         public string ClientName { get; set; } = string.Empty; 
         public string PaymentIdentifier { get; set; } = string.Empty; 
         public decimal Amount { get; set; }                    

@@ -41,6 +41,15 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpGet("dispatch/{dispatchId}/content")]
+        public async Task<IActionResult> GetDispatchContent(int dispatchId)
+        {
+            var content = await _communicationService.GetDispatchContentAsync(dispatchId);
+            if (content == null)
+                return NotFound(new { message = "No hay contenido guardado para este envío." });
+            return Ok(new { content });
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateCommunication([FromForm] UpsertCommunicationRequest request)
         {
