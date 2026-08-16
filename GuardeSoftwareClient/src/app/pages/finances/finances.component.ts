@@ -21,6 +21,7 @@ import { IndexedDbService } from '../../core/services/offline-service/indexed-db
 import { SyncService } from '../../core/services/offline-service/sync.service';
 import { v4 as uuidv4 } from 'uuid';
 import { Subscription } from 'rxjs';
+import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 import { PaymentCompletedNotice, PaymentPresenceService, PaymentPresenceUser } from '../../core/services/payment-presence/payment-presence.service';
 
 export interface DetailedPaymentView extends DetailedPaymentDTO {
@@ -65,7 +66,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
     public offlineService: OfflineService,
     private idb: IndexedDbService,
     private syncService: SyncService,
-    private paymentPresenceService: PaymentPresenceService
+    private paymentPresenceService: PaymentPresenceService,
+    private deleteConfirmation: DeleteConfirmationService
   ){}
 
   clients: Client[] = [];
@@ -91,7 +93,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
   filteredPayments: DetailedPaymentView[] = [];
   totals = {
     count: 0,
-    amount: 0
+    amount: 0,
+    amountWithPaymentIdentifiers: 0
   };
   searchPayment: string = '';
   sortField: string = 'paymentDate';
@@ -721,11 +724,16 @@ export class FinancesComponent implements OnInit, OnDestroy {
   calculateTotals(): void {
     this.totals = {
       count: this.filteredPayments.length,
-      amount: 0
+      amount: 0,
+      amountWithPaymentIdentifiers: 0
     };
 
     this.filteredPayments.forEach(p => {
-      this.totals.amount += Number(p.amount) || 0;
+      const amount = Number(p.amount) || 0;
+      const paymentIdentifier = p._paymentIdentifierNumber ?? 0;
+
+      this.totals.amount += amount;
+      this.totals.amountWithPaymentIdentifiers += amount + paymentIdentifier;
     });
   }
 
@@ -1487,34 +1495,27 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.calculateAdvancePayment();
   }
 
-  deletePayment(p: DetailedPaymentView): void {
-      const isGroup = p.isGrouped;
-      Swal.fire({
-        title: isGroup ? '¿Eliminar transacción completa?' : '¿Eliminar movimiento?',
-        text: isGroup 
-           ? 'Se borrará el pago principal y su bonificación/recargo asociado. Esta acción no se puede deshacer.'
-           : 'Esta acción borrará este registro contable. No se puede deshacer.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33', 
-        cancelButtonColor: '#9ca3af', 
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          this.paymentService.deletePayment(p.movementId).subscribe({
-            next: () => {
-              Swal.fire({ title: '¡Eliminado!', text: 'El registro ha sido borrado correctamente.', icon: 'success', confirmButtonColor: '#2563eb' });
-              this.loadPayments(); 
-              this.loadClients();
-            },
-            error: (err) => {
-              console.error('Error al eliminar pago:', err);
-              Swal.fire({ title: 'Error', text: 'Hubo un problema al intentar borrar el registro.', icon: 'error', confirmButtonColor: '#2563eb' });
-            }
-          });
-        }
-      });
+  async deletePayment(p: DetailedPaymentView): Promise<void> {
+    const isGroup = p.isGrouped;
+    const confirmed = await this.deleteConfirmation.confirm({
+      title: isGroup ? '¿Eliminar transacción completa?' : '¿Eliminar movimiento?',
+      message: isGroup
+        ? 'Se borrará el pago principal y su bonificación/recargo asociado. Esta acción no se puede deshacer.'
+        : 'Esta acción borrará este registro contable. No se puede deshacer.'
+    });
+    if (!confirmed) return;
+
+    this.paymentService.deletePayment(p.movementId).subscribe({
+      next: () => {
+        Swal.fire({ title: '¡Eliminado!', text: 'El registro ha sido borrado correctamente.', icon: 'success', confirmButtonColor: '#2563eb' });
+        this.loadPayments();
+        this.loadClients();
+      },
+      error: (err) => {
+        console.error('Error al eliminar pago:', err);
+        Swal.fire({ title: 'Error', text: 'Hubo un problema al intentar borrar el registro.', icon: 'error', confirmButtonColor: '#2563eb' });
+      }
+    });
   }
 
   blurInput(event: Event): void {
@@ -2568,5 +2569,12 @@ export class FinancesComponent implements OnInit, OnDestroy {
       this.selectedClientRentAmount = this.originalBaseRentCopy;
     }
   }
+  openSelectedClientDetails(): void {
+    if (this.selectedClientId > 0) {
+      this.clientService.getClientDetailById(this.selectedClientId).subscribe(client => {
+        const url = this.router.serializeUrl(this.router.createUrlTree(['/clients'], { queryParams: { clientId: client.id } }));
+        window.open(url, '_blank');
+      });
+    }
+  }
 }
-

@@ -6,6 +6,7 @@ import { SidebarComponent } from './shared/components/sidebar/sidebar.component'
 import { SystemAlertModalComponent } from './shared/components/system-alert-modal/system-alert-modal.component';
 import { AuthService } from './core/services/auth-service/auth.service';
 import { OfflineBannerComponent } from './shared/components/offline-banner/offline-banner.component';
+import { DeleteConfirmationModalComponent } from './shared/components/delete-confirmation-modal/delete-confirmation-modal.component';
 
 @Component({
   selector: 'app-root',
@@ -15,7 +16,8 @@ import { OfflineBannerComponent } from './shared/components/offline-banner/offli
     RouterOutlet,
     SidebarComponent,
     SystemAlertModalComponent,
-    OfflineBannerComponent
+    OfflineBannerComponent,
+    DeleteConfirmationModalComponent
   ],
   templateUrl: './app.component.html',
 })

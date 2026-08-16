@@ -22,9 +22,11 @@ import { CommunicationService } from '../../../core/services/communication-servi
 import { AccountMovementDTO } from '../../../core/dtos/accountMovement/account-movement.dto';
 import { ClientCommunicationDTO } from '../../../core/dtos/communications/client-comunication.dto';
 import { CreateMovementModalComponent } from '../create-movement-modal/create-movement-modal.component';
+import { CurrencyFormatDirective } from '../../directives/currency-format.directive';
 
 import { NgxPaginationModule } from 'ngx-pagination';
 import { TimeDurationPipe } from '../../pipes/time-duration.pipe';
+import { DeleteConfirmationService } from '../../services/delete-confirmation.service';
 import { ClientLockerHistory } from '../../../core/models/client-locker-history';
 import { ClientService, RentalAmountHistoryItem } from '../../../core/services/client-service/client.service';
 import { AuthService } from '../../../core/services/auth-service/auth.service';
@@ -59,7 +61,8 @@ const SPANISH_MONTHS = [
     CreateMovementModalComponent, 
     NgxPaginationModule,
     TimeDurationPipe,
-    FormsModule
+    FormsModule,
+    CurrencyFormatDirective
 ],
   templateUrl: './client-detail-modal.component.html',
 })
@@ -124,7 +127,8 @@ export class ClientDetailModalComponent implements OnChanges {
     private communicationService: CommunicationService,
     private clientService: ClientService,
     private authService: AuthService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private deleteConfirmation: DeleteConfirmationService
   ) {
     this.isAdmin = this.authService.isAdmin();
   }
@@ -206,30 +210,22 @@ export class ClientDetailModalComponent implements OnChanges {
   }
 
   // ── Tab "Bauleras" ──────────────────────────────────────────────────────────
-  deleteLockerHistory(histId: number): void {
+  async deleteLockerHistory(histId: number): Promise<void> {
     if (!this.client || !this.isAdmin) return;
-    Swal.fire({
-      title: '¿Eliminar historial?',
-      text: 'Esta acción borrará este registro del historial de la baulera. No se puede deshacer.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.clientService.deleteLockerHistory(this.client!.id, histId).subscribe({
-          next: () => {
-            this.historialBauleras = this.historialBauleras.filter(h => h.id !== histId);
-            this.cdr.markForCheck();
-            Swal.fire('Eliminado', 'El historial fue eliminado correctamente.', 'success');
-          },
-          error: (err) => {
-            console.error('Error al eliminar historial de baulera:', err);
-            Swal.fire('Error', 'No se pudo eliminar el historial. Es posible que no tenga permisos suficientes o haya ocurrido un error.', 'error');
-          }
-        });
+    const confirmed = await this.deleteConfirmation.confirm({
+      message: 'Esta acción borrará este registro del historial de la baulera. No se puede deshacer.'
+    });
+    if (!confirmed) return;
+
+    this.clientService.deleteLockerHistory(this.client.id, histId).subscribe({
+      next: () => {
+        this.historialBauleras = this.historialBauleras.filter(h => h.id !== histId);
+        this.cdr.markForCheck();
+        Swal.fire('Eliminado', 'El historial fue eliminado correctamente.', 'success');
+      },
+      error: () => {
+        console.error('Error al eliminar historial de baulera');
+        Swal.fire('Error', 'No se pudo eliminar el historial. Es posible que no tenga permisos suficientes o haya ocurrido un error.', 'error');
       }
     });
   }
@@ -330,7 +326,7 @@ export class ClientDetailModalComponent implements OnChanges {
     });
   }
 
-  deleteAbono(item: RentalAmountHistoryItem): void {
+  async deleteAbono(item: RentalAmountHistoryItem): Promise<void> {
     if (!this.client) return;
 
     if (item.status === 'past' && !this.isAdmin) {
@@ -354,30 +350,23 @@ export class ClientDetailModalComponent implements OnChanges {
     }
 
     const clientId = this.client.id;
-    Swal.fire({
+    const confirmed = await this.deleteConfirmation.confirm({
       title: '¿Eliminar tramo?',
-      text: `Se eliminará el tramo de $${item.amount.toLocaleString('es-AR')} y se recalcularán los balances.`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.clientService.deleteRentalAmountEntry(clientId, item.id).subscribe({
-          next: () => {
-            this.rentalAmountHistory = [];
-            this.loadRentalAmountHistory();
-            this.dataUpdated.emit(clientId);
-            this.cdr.markForCheck();
-            Swal.fire({ title: 'Eliminado', icon: 'success', timer: 1200, showConfirmButton: false });
-          },
-          error: (err) => {
-            this.cdr.markForCheck();
-            Swal.fire('Error', err.error?.message || 'No se pudo eliminar el tramo.', 'error');
-          }
-        });
+      message: `Se eliminará el tramo de $${item.amount.toLocaleString('es-AR')} y se recalcularán los balances.`
+    });
+    if (!confirmed) return;
+
+    this.clientService.deleteRentalAmountEntry(clientId, item.id).subscribe({
+      next: () => {
+        this.rentalAmountHistory = [];
+        this.loadRentalAmountHistory();
+        this.dataUpdated.emit(clientId);
+        this.cdr.markForCheck();
+        Swal.fire({ title: 'Eliminado', icon: 'success', timer: 1200, showConfirmButton: false });
+      },
+      error: (err) => {
+        this.cdr.markForCheck();
+        Swal.fire('Error', err.error?.message || 'No se pudo eliminar el tramo.', 'error');
       }
     });
   }
@@ -630,37 +619,29 @@ export class ClientDetailModalComponent implements OnChanges {
     }
   }
 
-  deleteMovement(movementId: number): void {
+  async deleteMovement(movementId: number): Promise<void> {
     if (!this.client) return;
     const clientId = this.client.id; 
 
-    Swal.fire({
-      title: '¿Estás seguro?',
-      text: "Esta acción no se puede revertir. ¿Deseas eliminar este movimiento?",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.isLoadingHistory = true; 
-        this.accountMovementService.deleteMovement(movementId).subscribe({
-          next: () => {
-            Swal.fire({ title: 'Eliminado', text: 'El movimiento ha sido eliminado.', icon: 'success', confirmButtonColor: '#2563eb' });
-            this.movementCurrentPage = 1;
-            this.loadHistoriales(clientId); 
-            this.dataUpdated.emit(clientId);
-            this.cdr.markForCheck();
-          },
-          error: (err) => {
-            this.isLoadingHistory = false;
-            this.cdr.markForCheck();
-            Swal.fire({ title: 'Error', text: 'No se pudo eliminar el movimiento. ' + (err.error?.message || ''), icon: 'error', confirmButtonColor: '#2563eb' });
-          },
-        });
-      }
+    const confirmed = await this.deleteConfirmation.confirm({
+      message: 'Esta acción no se puede revertir. Se eliminará este movimiento.'
+    });
+    if (!confirmed) return;
+
+    this.isLoadingHistory = true;
+    this.accountMovementService.deleteMovement(movementId).subscribe({
+      next: () => {
+        Swal.fire({ title: 'Eliminado', text: 'El movimiento ha sido eliminado.', icon: 'success', confirmButtonColor: '#2563eb' });
+        this.movementCurrentPage = 1;
+        this.loadHistoriales(clientId);
+        this.dataUpdated.emit(clientId);
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.isLoadingHistory = false;
+        this.cdr.markForCheck();
+        Swal.fire({ title: 'Error', text: 'No se pudo eliminar el movimiento. ' + (err.error?.message || ''), icon: 'error', confirmButtonColor: '#2563eb' });
+      },
     });
   }
 

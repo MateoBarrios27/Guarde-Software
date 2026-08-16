@@ -34,6 +34,7 @@ import { ɵɵDir } from "@angular/cdk/scrolling";
 import { AuthService } from '../../core/services/auth-service/auth.service';
 import { CreateAlertModalComponent } from '../../shared/components/create-alert-modal/create-alert-modal.component';
 import { SyncService } from '../../core/services/offline-service/sync.service';
+import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 
 @Component({
   selector: 'app-settings',
@@ -54,7 +55,8 @@ export class SettingsComponent implements OnInit {
     private communicationService: CommunicationService,
     private lockerTypeService: LockerTypeService,
     public authService: AuthService,
-    private syncService: SyncService
+    private syncService: SyncService,
+    private deleteConfirmation: DeleteConfirmationService
   ) {}
 
   activeSection: string = 'usuarios';
@@ -313,32 +315,24 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  deleteUser(id: number): void{
+  async deleteUser(id: number): Promise<void>{
     if (!id || id <= 0) {
       Swal.fire('Error', 'ID de usuario inválido.', 'error');
       return;
     }
 
-    Swal.fire({
-      title: '¿Estás seguro?',
-      text: '¿Deseas eliminar este usuario? Esta acción no se puede deshacer.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.userService.deleteUser(id).subscribe({
-          next: () => {
-            Swal.fire('Eliminado', 'El usuario ha sido eliminado.', 'success');
-            this.users = this.users.filter(u => u.id !== id);
-          },
-          error: (err) => {
-            Swal.fire('Error', 'No se pudo eliminar el usuario.', 'error');
-          }
-        });
+    const confirmed = await this.deleteConfirmation.confirm({
+      message: 'Esta acción eliminará este usuario y no se puede deshacer.'
+    });
+    if (!confirmed) return;
+
+    this.userService.deleteUser(id).subscribe({
+      next: () => {
+        Swal.fire('Eliminado', 'El usuario ha sido eliminado.', 'success');
+        this.users = this.users.filter(u => u.id !== id);
+      },
+      error: () => {
+        Swal.fire('Error', 'No se pudo eliminar el usuario.', 'error');
       }
     });
   }
@@ -488,33 +482,25 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  deletePaymentMethod(id: number){
+  async deletePaymentMethod(id: number): Promise<void>{
     if (!id) {
       console.log('id de medio de pago no valido.');
       return;
     }
 
-    Swal.fire({
-      title: '¿Estás seguro?',
-      text: '¿Deseas eliminar este método de pago?',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.paymentMethodService.deletePaymentMethod(id).subscribe({
-          next: () => {
-            Swal.fire('Eliminado', 'El método de pago ha sido eliminado.', 'success');
-            this.loadPaymentMethods();
-          },
-          error: (err) => {
-            console.log('error al eliminar el metodo de pago', err);
-            Swal.fire('Error', 'No se pudo eliminar el método de pago.', 'error');
-          }
-        });
+    const confirmed = await this.deleteConfirmation.confirm({
+      message: 'Esta acción eliminará este método de pago.'
+    });
+    if (!confirmed) return;
+
+    this.paymentMethodService.deletePaymentMethod(id).subscribe({
+      next: () => {
+        Swal.fire('Eliminado', 'El método de pago ha sido eliminado.', 'success');
+        this.loadPaymentMethods();
+      },
+      error: () => {
+        console.log('error al eliminar el metodo de pago');
+        Swal.fire('Error', 'No se pudo eliminar el método de pago.', 'error');
       }
     });
   }
@@ -582,29 +568,23 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  deleteBillingType(billingType: BillingType): void {
-    Swal.fire({
-      title: '¿Estás seguro?',
-      text: `¿Deseas eliminar el tipo de factura "${billingType.name}"? Esta acción no se puede revertir.`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.billingTypeService.deleteBillingType(billingType.id).subscribe({
-          next: () => {
-            Swal.fire('Eliminado', 'El tipo de factura ha sido eliminado.', 'success');
-            this.loadBillingTypes();
-          },
-          error: (err) => {
-            console.error('Error al eliminar tipo de factura', err);
-            const errorMsg = err.error?.message || 'No se pudo eliminar. Es posible que esté en uso por algún cliente.';
-            Swal.fire('Error', errorMsg, 'error');
-          }
-        });
+  async deleteBillingType(billingType: BillingType): Promise<void> {
+    const confirmed = await this.deleteConfirmation.confirm({
+      message: 'Esta acción eliminará el tipo de factura',
+      highlightedText: billingType.name,
+      messageSuffix: 'Esta acción no se puede revertir.'
+    });
+    if (!confirmed) return;
+
+    this.billingTypeService.deleteBillingType(billingType.id).subscribe({
+      next: () => {
+        Swal.fire('Eliminado', 'El tipo de factura ha sido eliminado.', 'success');
+        this.loadBillingTypes();
+      },
+      error: (err) => {
+        console.error('Error al eliminar tipo de factura', err);
+        const errorMsg = err.error?.message || 'No se pudo eliminar. Es posible que esté en uso por algún cliente.';
+        Swal.fire('Error', errorMsg, 'error');
       }
     });
   }
@@ -675,28 +655,20 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  deleteIncrease(increase: MonthlyIncreaseSetting): void {
-    Swal.fire({
-      title: '¿Estás seguro?',
-      text: `¿Deseas eliminar el aumento del ${increase.percentage}% para ${this.formatDateToMonthYear(increase.effectiveDate)}?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.monthlyIncreaseService.deleteSetting(increase.id).subscribe({
-          next: () => {
-            Swal.fire('Eliminado', 'El aumento ha sido eliminado.', 'success');
-            this.loadMonthlyIncreases();
-          },
-          error: (err) => {
-            console.error('Error al eliminar aumento', err);
-            Swal.fire('Error', 'No se pudo eliminar el aumento.', 'error');
-          }
-        });
+  async deleteIncrease(increase: MonthlyIncreaseSetting): Promise<void> {
+    const confirmed = await this.deleteConfirmation.confirm({
+      message: `Esta acción eliminará el aumento del ${increase.percentage}% para ${this.formatDateToMonthYear(increase.effectiveDate)}.`
+    });
+    if (!confirmed) return;
+
+    this.monthlyIncreaseService.deleteSetting(increase.id).subscribe({
+      next: () => {
+        Swal.fire('Eliminado', 'El aumento ha sido eliminado.', 'success');
+        this.loadMonthlyIncreases();
+      },
+      error: () => {
+        console.error('Error al eliminar aumento');
+        Swal.fire('Error', 'No se pudo eliminar el aumento.', 'error');
       }
     });
   }
@@ -883,37 +855,31 @@ export class SettingsComponent implements OnInit {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 
-  deleteConfig(id: number) {
-    Swal.fire({
-      title: '¿Eliminar servidor?',
-      text: 'Las comunicaciones futuras ya no podrán usar esta configuración.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#d33'
-    }).then(result => {
-      if (!result.isConfirmed) return;
+  async deleteConfig(id: number): Promise<void> {
+    const confirmed = await this.deleteConfirmation.confirm({
+      headerTitle: 'Confirmar Eliminación',
+      message: 'Las comunicaciones futuras ya no podrán usar esta configuración.'
+    });
+    if (!confirmed) return;
 
-      this.communicationService.deleteSmtpConfig(id).subscribe({
-        next: () => {
-          this.loadConfigs();
-          Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: 'success',
-            title: 'Servidor eliminado',
-            showConfirmButton: false,
-            timer: 2400,
-            timerProgressBar: true
-          });
-        },
-        error: () => Swal.fire({
-          icon: 'error',
-          title: 'No se pudo eliminar',
-          text: 'Intentá nuevamente en unos instantes.'
-        })
-      });
+    this.communicationService.deleteSmtpConfig(id).subscribe({
+      next: () => {
+        this.loadConfigs();
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'Servidor eliminado',
+          showConfirmButton: false,
+          timer: 2400,
+          timerProgressBar: true
+        });
+      },
+      error: () => Swal.fire({
+        icon: 'error',
+        title: 'No se pudo eliminar',
+        text: 'Intentá nuevamente en unos instantes.'
+      })
     });
   }
 
@@ -974,26 +940,22 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  deleteWarehouse(wh: Warehouse) {
-     Swal.fire({
-      title: '¿Estás seguro?',
-      text: `Eliminar depósito "${wh.name}".`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, eliminar',
-      confirmButtonColor: '#d33'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.warehouseService.deleteWarehouse(wh.id).subscribe({
-          next: () => {
-            Swal.fire('Eliminado', 'Depósito eliminado.', 'success');
-            this.loadWarehouses();
-          },
-          error: (err) => {
-            const msg = err.error?.message || 'Error al eliminar.';
-            Swal.fire('Error', msg, 'error');
-          }
-        });
+  async deleteWarehouse(wh: Warehouse): Promise<void> {
+    const confirmed = await this.deleteConfirmation.confirm({
+      message: 'Esta acción eliminará el depósito',
+      highlightedText: wh.name,
+      messageSuffix: '.'
+    });
+    if (!confirmed) return;
+
+    this.warehouseService.deleteWarehouse(wh.id).subscribe({
+      next: () => {
+        Swal.fire('Eliminado', 'Depósito eliminado.', 'success');
+        this.loadWarehouses();
+      },
+      error: (err) => {
+        const msg = err.error?.message || 'Error al eliminar.';
+        Swal.fire('Error', msg, 'error');
       }
     });
   }
@@ -1025,26 +987,22 @@ export class SettingsComponent implements OnInit {
     this.showEditLockerTypeModal = true;
   }
 
-  deleteLockerType(lt: LockerType) {
-    Swal.fire({
-      title: '¿Estás seguro?',
-      text: `Eliminar tipo de baulera "${lt.name}".`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, eliminar',
-      confirmButtonColor: '#d33'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.lockerTypeService.deleteLockerType(lt.id).subscribe({
-          next: () => {
-            Swal.fire('Eliminado', 'Tipo de baulera eliminado.', 'success');
-            this.loadLockerTypes();
-          },
-          error: (err) => {
-            const msg = err.error?.message || 'Error al eliminar.';
-            Swal.fire('Error', msg, 'error');
-          }
-        });
+  async deleteLockerType(lt: LockerType): Promise<void> {
+    const confirmed = await this.deleteConfirmation.confirm({
+      message: 'Esta acción eliminará el tipo de baulera',
+      highlightedText: lt.name,
+      messageSuffix: '.'
+    });
+    if (!confirmed) return;
+
+    this.lockerTypeService.deleteLockerType(lt.id).subscribe({
+      next: () => {
+        Swal.fire('Eliminado', 'Tipo de baulera eliminado.', 'success');
+        this.loadLockerTypes();
+      },
+      error: (err) => {
+        const msg = err.error?.message || 'Error al eliminar.';
+        Swal.fire('Error', msg, 'error');
       }
     });
   }

@@ -9,6 +9,7 @@ import { NgxPaginationModule } from 'ngx-pagination';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { LockerUpdateDTO } from '../../core/dtos/locker/LockerUpdateDTO';
 import Swal from '../../shared/services/ui-alert.service';
+import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 
 // --- NUEVAS IMPORTACIONES ---
 import { LockerType } from '../../core/models/locker-type';
@@ -79,9 +80,10 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   private scrollObserver!: IntersectionObserver;
 
   constructor(
-    private lockerService: LockerService, 
+    private lockerService: LockerService,
     private warehouseService: WarehouseService,
-    private lockerTypeService: LockerTypeService
+    private lockerTypeService: LockerTypeService,
+    private deleteConfirmation: DeleteConfirmationService
   ) {}
 
   ngOnInit(): void {
@@ -225,7 +227,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
   
-  deleteLocker(locker: Locker): void {
+  async deleteLocker(locker: Locker): Promise<void> {
     if (!locker.id) return;
 
     if(locker.status == 'OCUPADO') {
@@ -239,47 +241,38 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    Swal.fire({
-        title: '¿Seguro que quieres dar de baja la baulera?',
-        html: `<p class="text-gray-700">Deposito: <b>${this.getWarehouseName(locker.warehouseId)}</b></p>
-        <p class="text-gray-700">Identificador: <b>${locker.identifier}</b></p>`,
-        icon: 'question',
-        showCancelButton: true, 
-        confirmButtonText: 'Confirmar',
-        cancelButtonText: 'Cancelar',
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: 'bg-blue-600 text-white px-4 py-2 p-2 rounded-md hover:bg-blue-700 transition-all duration-150',
-          cancelButton: 'bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-all duration-150',
-          actions: 'flex justify-center gap-4 mt-4',
-          popup: 'rounded-xl shadow-lg'
-        }
-        }).then((result) => {
-          if (result.isConfirmed) {
-            this.lockerService.deleteLocker(locker.id).subscribe({
-              next: () => {
-                Swal.fire({
-                    title: 'Baulera eliminada',
-                    text: 'la baulera fue dada de baja correctamente.',
-                    icon: 'success',
-                    confirmButtonText: 'Aceptar',
-                    confirmButtonColor: '#2563eb'
-                  });
-                setTimeout(() => this.loadLockers(), 100)
-              },
-              error: (err) => {
-                console.error('Error deleting locker', err);
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Hubo un problema al dar de baja la baulera.',
-                    icon: 'error',
-                    confirmButtonText: 'Aceptar',
-                    confirmButtonColor: '#2563eb'
-                  });
-              }
-            });
-          }
+    const confirmed = await this.deleteConfirmation.confirm({
+      headerTitle: 'Confirmar Baja',
+      title: '¿Seguro que quieres dar de baja la baulera?',
+      message: 'Se dará de baja la baulera',
+      highlightedText: `${this.getWarehouseName(locker.warehouseId)} · ${locker.identifier}`,
+      messageSuffix: '.',
+      confirmText: 'Confirmar Baja'
+    });
+    if (!confirmed) return;
+
+    this.lockerService.deleteLocker(locker.id).subscribe({
+      next: () => {
+        Swal.fire({
+          title: 'Baulera eliminada',
+          text: 'La baulera fue dada de baja correctamente.',
+          icon: 'success',
+          confirmButtonText: 'Aceptar',
+          confirmButtonColor: '#2563eb'
         });
+        setTimeout(() => this.loadLockers(), 100);
+      },
+      error: (err) => {
+        console.error('Error deleting locker', err);
+        Swal.fire({
+          title: 'Error',
+          text: 'Hubo un problema al dar de baja la baulera.',
+          icon: 'error',
+          confirmButtonText: 'Aceptar',
+          confirmButtonColor: '#2563eb'
+        });
+      }
+    });
   }
 
   get ocupados(): number {

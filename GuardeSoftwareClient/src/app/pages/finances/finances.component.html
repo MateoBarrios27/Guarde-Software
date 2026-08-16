@@ -297,8 +297,16 @@
             </div>
           </td>
 
-          <td class="p-4 text-right whitespace-nowrap align-middle text-green-600 bg-gray-50">
-            <div class="text-base font-bold">${{ totals.amount | number:'1.2-2' }}</div>
+          <td
+            class="p-4 text-right whitespace-nowrap align-middle bg-gray-50"
+            [ngClass]="totals.amount < 0 ? 'text-red-600' : 'text-green-600'"
+          >
+            <div class="text-base font-bold">$ {{ totals.amount | number:'1.2-2' }}</div>
+            <div class="text-xs leading-tight font-medium text-gray-500">
+              <span title="Suma de montos + paymentIdentifier de cada pago">
+                ≈ $ {{ totals.amountWithPaymentIdentifiers | number:'1.2-2' }}
+              </span>
+            </div>
           </td>
 
           <td colspan="2" class="bg-gray-50"></td>
@@ -537,9 +545,18 @@
               <app-icon name="calendar" class="w-4 h-4 text-violet-600 shrink-0"></app-icon>
               <span class="text-xs font-bold text-violet-900 leading-tight">Pago planificado pendiente</span>
             </div>
-            <span class="bg-violet-100 text-violet-800 border border-violet-300 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold shrink-0">
-              $ {{ selectedPlannedPaymentAmount | number:'1.2-2' }}
-            </span>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="bg-violet-100 text-violet-800 border border-violet-300 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold">
+                $ {{ selectedPlannedPaymentAmount | number:'1.2-2' }}
+              </span>
+              <button
+                type="button"
+                (click)="openSelectedClientDetails()"
+                class="text-[10px] font-bold text-violet-700 hover:text-violet-950 underline underline-offset-2"
+              >
+                Ver detalles
+              </button>
+            </div>
           </div>
 
           <!-- Banner de Recargo Pendiente en Modal -->
@@ -670,9 +687,16 @@
             </div>
 
             <div class="sm:border-l sm:pl-4 border-gray-200/60 flex flex-col justify-center">
-              <label class="flex items-center gap-2.5 cursor-pointer select-none w-fit mb-2">
-                <input type="checkbox" [(ngModel)]="paymentDto.isAdvancePayment" (change)="onAdvancePaymentToggle()" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded transition-all cursor-pointer" />
+              <label class="flex items-center gap-2.5 select-none w-fit mb-2" [class.cursor-pointer]="!hasSelectedPlannedPayment" [class.opacity-60]="hasSelectedPlannedPayment">
+                <input
+                  type="checkbox"
+                  [(ngModel)]="paymentDto.isAdvancePayment"
+                  (change)="onAdvancePaymentToggle()"
+                  [disabled]="hasSelectedPlannedPayment"
+                  class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded transition-all cursor-pointer disabled:cursor-not-allowed"
+                />
                 <span class="text-xs font-bold text-gray-700">Pago adelantado</span>
+                <span *ngIf="hasSelectedPlannedPayment" class="text-[10px] font-semibold text-violet-700">No disponible con pago planificado</span>
               </label>
               <div *ngIf="paymentDto.isAdvancePayment" class="flex items-center border border-gray-200 rounded-xl overflow-hidden bg-white w-fit shadow-2xs focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all animate-fade-in">
                 <span class="px-3 py-1.5 text-[11px] font-semibold text-gray-500 select-none bg-gray-50 border-r border-gray-200">Meses a cubrir</span>

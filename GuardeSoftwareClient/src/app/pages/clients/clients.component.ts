@@ -28,6 +28,8 @@ import { PaymentMethodService } from '../../core/services/paymentMethod-service/
 import { LockerTypeService } from '../../core/services/lockerType-service/locker-type.service';
 import { OfflineService } from '../../core/services/offline-service/offline.service';
 import { IndexedDbService } from '../../core/services/offline-service/indexed-db.service';
+import Swal from '../../shared/services/ui-alert.service';
+import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 
 @Component({
   selector: 'app-clients',
@@ -117,7 +119,9 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     interestAmount: 0,
     currentRent: 0,
     balance: 0,
-    currentRentWithActivePaymentIdentifiers: 0
+    activePaymentIdentifiers: 0,
+    currentRentWithActivePaymentIdentifiers: 0,
+    balanceWithActivePaymentIdentifiers: 0
   };
 
   @ViewChild('topAnchor') topAnchor!: ElementRef;
@@ -126,7 +130,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   pointingUp: boolean = false; 
   private scrollObserver!: IntersectionObserver;
   private supportingDataLoadScheduled = false;
-  private clientIdToOpenFromQuery: number | null = null;
+  private clientIdToPositionFromQuery: number | null = null;
+  private detailClientIdFromQuery: number | null = null;
 
   constructor(
     private clientService: ClientService, 
@@ -140,7 +145,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     public offlineService: OfflineService,
     private idb: IndexedDbService,
     private cdr: ChangeDetectorRef,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private deleteConfirmation: DeleteConfirmationService
   ) 
   {
     this.searchSubject.pipe(
@@ -182,32 +188,53 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       }
 
       const clientId = Number(params['clientId'] ?? 0);
-      this.clientIdToOpenFromQuery = clientId > 0 ? clientId : null;
-      this.openClientFromQueryParam();
+      const detailClientId = Number(params['detailClientId'] ?? 0);
+      this.clientIdToPositionFromQuery = clientId > 0 ? clientId : null;
+      this.detailClientIdFromQuery = detailClientId > 0 ? detailClientId : null;
+      this.handleClientNavigationQuery();
       
       void this.loadClients().finally(() => {
         this.scheduleSupportingDataLoad();
-        this.openClientFromQueryParam();
+        this.handleClientNavigationQuery();
       });
     });
 
     this.loadStatistics();
   }
 
-  private openClientFromQueryParam(): void {
-    const clientId = this.clientIdToOpenFromQuery;
-    if (!clientId) return;
+  private handleClientNavigationQuery(): void {
+    const positionClientId = this.clientIdToPositionFromQuery;
+    const detailClientId = this.detailClientIdFromQuery;
+    if (!positionClientId && !detailClientId) return;
 
-    // Consumimos el parámetro antes de abrir el detalle para que el cliente
-    // pueda volver a seleccionarse si se navega nuevamente desde Finanzas.
-    this.clientIdToOpenFromQuery = null;
-    this.openDetailClientModal(clientId);
+    this.clientIdToPositionFromQuery = null;
+    this.detailClientIdFromQuery = null;
+    if (detailClientId) {
+      this.openDetailClientModal(detailClientId);
+    } else if (positionClientId) {
+      this.positionClientInTable(positionClientId);
+    }
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { clientId: null },
+      queryParams: { clientId: null, detailClientId: null },
       queryParamsHandling: 'merge',
       replaceUrl: true
     });
+  }
+
+  private positionClientInTable(clientId: number): void {
+    const rowId = `client-row-${clientId}`;
+    const tryPosition = (attempt = 0): void => {
+      const row = document.getElementById(rowId);
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        row.classList.add('ring-2', 'ring-blue-400', 'bg-blue-50');
+        window.setTimeout(() => row.classList.remove('ring-2', 'ring-blue-400', 'bg-blue-50'), 2200);
+        return;
+      }
+      if (attempt < 8) window.setTimeout(() => tryPosition(attempt + 1), 100);
+    };
+    tryPosition();
   }
 
   private scheduleSupportingDataLoad(): void {
@@ -486,10 +513,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       interestAmount: 0,
       currentRent: 0,
       balance: 0,
-      currentRentWithActivePaymentIdentifiers: 0
+      activePaymentIdentifiers: 0,
+      currentRentWithActivePaymentIdentifiers: 0,
+      balanceWithActivePaymentIdentifiers: 0
     };
-
-    let activePaymentIdentifiersTotal = 0;
 
     // Recorremos el array 'clientes' que es el que se muestra en la tabla
     this.clientes.forEach(cliente => {
@@ -499,12 +526,14 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.totals.balance += Number(cliente.balance) || 0;
 
       if (cliente.active !== false && cliente.status !== 'Baja') {
-        activePaymentIdentifiersTotal += Number(cliente.paymentIdentifier) || 0;
+        this.totals.activePaymentIdentifiers += Number(cliente.paymentIdentifier) || 0;
       }
     });
 
     this.totals.currentRentWithActivePaymentIdentifiers =
-      this.totals.currentRent + activePaymentIdentifiersTotal - 0.02;
+      this.totals.currentRent + this.totals.activePaymentIdentifiers - 0.02;
+    this.totals.balanceWithActivePaymentIdentifiers =
+      this.totals.balance + this.totals.activePaymentIdentifiers;
   }
 
   trackByClientId(index: number, cliente: TableClient): number {
@@ -734,7 +763,6 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   public async openDeactivateClientModal(cliente: TableClient): Promise<void> {
     let warningText = "El cliente será marcado como 'Dado de Baja'. Se finalizará su alquiler actual.";
-    let iconType: 'warning' | 'info' = 'warning';
 
     if (cliente.lockers && cliente.lockers.length > 0 && cliente.lockers[0] !== '') {
        warningText += `\n\nLas siguientes bauleras serán liberadas y desasignadas: ${cliente.lockers.join(', ')}.`;
@@ -750,39 +778,33 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         warningText += "\n\nNota: El cliente tiene saldo a favor.";
     }
 
-    const { default: Swal } = await import('../../shared/services/ui-alert.service');
-    Swal.fire({
+    const confirmed = await this.deleteConfirmation.confirm({
+      headerTitle: 'Confirmar Baja',
       title: '¿Confirmar Baja?',
-      text: warningText,
-      icon: iconType,
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Sí, dar de baja',
-      cancelButtonText: 'Cancelar',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.isLoading = true;
-        this.clientService.deactivateClient(cliente.id).subscribe({
-          next: () => {
-            this.isLoading = false;
-            this.cdr.markForCheck();
-            Swal.fire(
-              '¡Dado de Baja!',
-              'El cliente ha sido desactivado exitosamente.',
-              'success'
-            );
-            this.loadClients();
-          },
-          error: (err) => {
-            this.isLoading = false;
-            this.cdr.markForCheck();
-            console.error('Error al dar de baja:', err);
-            const msg = err.error?.message || 'Ocurrió un error al intentar dar de baja.';
-            Swal.fire('Error', msg, 'error');
-          },
-        });
-      }
+      message: warningText.replace(/\s+/g, ' ').trim(),
+      confirmText: 'Sí, dar de baja'
+    });
+    if (!confirmed) return;
+
+    this.isLoading = true;
+    this.clientService.deactivateClient(cliente.id).subscribe({
+      next: () => {
+        this.isLoading = false;
+        this.cdr.markForCheck();
+        Swal.fire(
+          '¡Dado de Baja!',
+          'El cliente ha sido desactivado exitosamente.',
+          'success'
+        );
+        this.loadClients();
+      },
+      error: (err) => {
+        this.isLoading = false;
+        this.cdr.markForCheck();
+        console.error('Error al dar de baja:', err);
+        const msg = err.error?.message || 'Ocurrió un error al intentar dar de baja.';
+        Swal.fire('Error', msg, 'error');
+      },
     });
   }
 

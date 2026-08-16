@@ -1,0 +1,57 @@
+@if (confirmation(); as request) {
+  <div
+    class="delete-confirmation-backdrop fixed inset-0 z-[10000] flex items-center justify-center p-4"
+    (click)="cancel()"
+    (keydown.escape)="cancel()"
+    tabindex="-1"
+    role="presentation">
+    <section
+      class="delete-confirmation-shell relative flex w-full max-w-xl flex-col overflow-hidden"
+      (click)="$event.stopPropagation()"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-confirmation-title">
+      <header class="delete-confirmation-header flex items-center justify-between gap-4">
+        <div class="flex min-w-0 items-center gap-3.5">
+          <div class="delete-confirmation-heading-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border">
+            <app-icon name="Trash2" class="h-5 w-5"></app-icon>
+          </div>
+          <div class="min-w-0">
+            <p class="delete-confirmation-eyebrow">Confirmación de seguridad</p>
+            <h2 id="delete-confirmation-title" class="delete-confirmation-header-title">
+              {{ request.headerTitle }}
+            </h2>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="delete-confirmation-close"
+          (click)="cancel()"
+          aria-label="Cerrar modal">
+          <app-icon name="x" class="h-5 w-5"></app-icon>
+        </button>
+      </header>
+
+      <div class="delete-confirmation-content text-center">
+        <div class="delete-confirmation-icon mx-auto flex h-16 w-16 items-center justify-center rounded-full">
+          <app-icon name="Trash2" class="h-8 w-8"></app-icon>
+        </div>
+        <h3 class="delete-confirmation-title">{{ request.title }}</h3>
+        <p class="delete-confirmation-message">
+          {{ request.message }}
+          <strong *ngIf="request.highlightedText">“{{ request.highlightedText }}”</strong>
+          {{ request.messageSuffix }}
+        </p>
+        <div class="delete-confirmation-actions flex gap-4">
+          <button type="button" class="delete-confirmation-danger flex-1" (click)="accept()">
+            {{ request.confirmText }}
+          </button>
+          <button type="button" class="delete-confirmation-cancel flex-1" (click)="cancel()">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+}
+

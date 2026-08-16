@@ -11,6 +11,7 @@ import { CashFlowItem, FinancialAccount, MonthlySummary } from '../../core/model
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ScrollingModule } from '@angular/cdk/scrolling';
+import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 
 // --- Structure Historial (CTRL+Z) ---
 export type ActionType = 'ACCOUNT_EDIT' | 'ACCOUNT_CREATE' | 'ACCOUNT_DELETE' | 'ITEM_EDIT' | 'ITEM_CREATE' | 'ITEM_DELETE';
@@ -39,6 +40,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   private commentHoverTimer: any = null;
   private commentLeaveTimer: any = null;
   items: CashFlowItem[] = [];
+
+  // Toast para notificaciones en el modal de adelantos
+  advanceToast: { show: boolean; message: string; description: string } = { show: false, message: '', description: '' };
+  private advanceToastTimer: any = null;
 
   summary: MonthlySummary = {
     totalSystemIncome: 0,
@@ -111,7 +116,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(
     private cashService: CashService,
-    private cashSignalrService: CashSignalrService
+    private cashSignalrService: CashSignalrService,
+    private deleteConfirmation: DeleteConfirmationService
   ) {
     this.saveSubject.pipe(
       groupBy(item => item), 
@@ -609,37 +615,32 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  deleteItem(item: any): void {
-    Swal.fire({
-      title: '¿Eliminar concepto?',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      confirmButtonText: 'Sí, eliminar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        const oldState = JSON.parse(JSON.stringify(item)); 
-        const realIndex = this.items.indexOf(item);
-        
-        if (!item.id) {
-            if (realIndex !== -1) {
-              this.undoStack.push({ type: 'ITEM_DELETE', oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear }); 
-              this.items.splice(realIndex, 1);
-              this.filterItems(); 
-              this.calculateMonthlyTotals(); 
-            }
-            return;
-        }
+  async deleteItem(item: any): Promise<void> {
+    const confirmed = await this.deleteConfirmation.confirm({
+      message: 'Esta acción eliminará el concepto contable.'
+    });
+    if (!confirmed) return;
 
-        this.cashService.deleteItem(item.id).subscribe(() => {
-          if (realIndex !== -1) {
-            this.undoStack.push({ type: 'ITEM_DELETE', targetId: item.id, oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear }); 
-            this.saveUndoStack(); 
-            this.items.splice(realIndex, 1);
-            this.filterItems(); 
-            this.calculateMonthlyTotals(); 
-          }
-        });
+    const oldState = JSON.parse(JSON.stringify(item));
+    const realIndex = this.items.indexOf(item);
+
+    if (!item.id) {
+      if (realIndex !== -1) {
+        this.undoStack.push({ type: 'ITEM_DELETE', oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
+        this.items.splice(realIndex, 1);
+        this.filterItems();
+        this.calculateMonthlyTotals();
+      }
+      return;
+    }
+
+    this.cashService.deleteItem(item.id).subscribe(() => {
+      if (realIndex !== -1) {
+        this.undoStack.push({ type: 'ITEM_DELETE', targetId: item.id, oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
+        this.saveUndoStack();
+        this.items.splice(realIndex, 1);
+        this.filterItems();
+        this.calculateMonthlyTotals();
       }
     });
   }
@@ -868,24 +869,20 @@ filterItems(): void {
     });
   }
 
-  deleteAccount(account: FinancialAccount, index: number): void {
-    Swal.fire({
-      title: '¿Eliminar cuenta?',
-      text: `Se borrará "${account.name}" y su saldo actual.`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      confirmButtonText: 'Sí, eliminar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        const oldState = JSON.parse(JSON.stringify(account));
-        this.cashService.deleteAccount(account.id!).subscribe(() => {
-          this.undoStack.push({ type: 'ACCOUNT_DELETE', targetId: account.id, oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
-          this.saveUndoStack();
-          this.accounts.splice(index, 1);
-          this.calculateAccountTotals();
-        });
-      }
+  async deleteAccount(account: FinancialAccount, index: number): Promise<void> {
+    const confirmed = await this.deleteConfirmation.confirm({
+      message: 'Se borrará la cuenta',
+      highlightedText: account.name,
+      messageSuffix: 'y su saldo actual.'
+    });
+    if (!confirmed) return;
+
+    const oldState = JSON.parse(JSON.stringify(account));
+    this.cashService.deleteAccount(account.id!).subscribe(() => {
+      this.undoStack.push({ type: 'ACCOUNT_DELETE', targetId: account.id, oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
+      this.saveUndoStack();
+      this.accounts.splice(index, 1);
+      this.calculateAccountTotals();
     });
   }
 
@@ -1383,7 +1380,8 @@ private loadAdvancesAndOpenModal(item: CashFlowItem): void {
       id: adv.id || adv.Id,
       itemId: adv.itemId || adv.ItemId,
       date: adv.date || adv.Date,
-      amount: adv.amount || adv.Amount
+      amount: adv.amount || adv.Amount,
+      comment: adv.comment || adv.Comment || ''
     }));
     this.calculateAdvancesTotal();
     this.showAdvancesModal = true;
@@ -1471,9 +1469,17 @@ closeAdvancesModal(): void {
 
         this.newAdvance.amount = null as any;
         this.newAdvance.comment = '';
-        Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Adelanto registrado', showConfirmButton: false, timer: 2000 });
+        this.showAdvanceToast('Adelanto registrado', this.newAdvance.comment ? `Concepto: ${this.newAdvance.comment}` : 'Se guardó correctamente');
       }
     });
+  }
+
+  private showAdvanceToast(message: string, description: string): void {
+    if (this.advanceToastTimer) clearTimeout(this.advanceToastTimer);
+    this.advanceToast = { show: true, message, description };
+    this.advanceToastTimer = setTimeout(() => {
+      this.advanceToast = { ...this.advanceToast, show: false };
+    }, 3500);
   }
 
   deleteAdvance(id: number, index: number): void {

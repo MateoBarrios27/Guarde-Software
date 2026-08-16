@@ -711,7 +711,12 @@
                   ≈ $ {{ totals.currentRentWithActivePaymentIdentifiers | number:'1.2-2' }}
                 </span>
               </td>
-              <td colspan="2" class="bg-gray-50"></td>
+              <td class="px-4 pb-1 text-right text-xs leading-tight font-medium text-gray-500 whitespace-nowrap bg-gray-50">
+                <span title="Saldo + suma de paymentIdentifier de clientes activos">
+                  ≈ $ {{ totals.balanceWithActivePaymentIdentifiers | number:'1.2-2' }}
+                </span>
+              </td>
+              <td class="bg-gray-50"></td>
             </tr>
           </tfoot>
 

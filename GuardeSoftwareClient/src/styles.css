@@ -145,6 +145,89 @@ body {
   line-height: 4.25rem !important;
 }
 
+.guarde-alert-popup .guarde-alert-icon .swal2-icon-content {
+  display: flex !important;
+  width: 100% !important;
+  height: 100% !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 1rem !important;
+}
+
+.guarde-alert-status-icon {
+  display: block;
+  width: 3.9rem;
+  height: 3.9rem;
+  overflow: visible;
+}
+
+.guarde-alert-status-ring {
+  fill: none;
+  stroke-width: 4;
+}
+
+.guarde-alert-status-mark {
+  fill: none;
+  stroke-width: 4.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.guarde-alert-status-dot {
+  stroke: none;
+}
+
+.guarde-alert-status-icon--success .guarde-alert-status-ring {
+  stroke: rgba(5, 150, 105, 0.24);
+}
+
+.guarde-alert-status-icon--success .guarde-alert-status-mark {
+  stroke: #059669;
+  fill: none;
+}
+
+.guarde-alert-status-icon--success .guarde-alert-status-dot {
+  stroke: none;
+  fill: #059669;
+}
+
+.guarde-alert-status-icon--error .guarde-alert-status-mark {
+  stroke: #dc2626;
+  fill: none;
+}
+
+.guarde-alert-status-icon--error .guarde-alert-status-dot {
+  stroke: none;
+  fill: #dc2626;
+}
+
+.guarde-alert-status-icon--warning .guarde-alert-status-mark {
+  stroke: #d97706;
+  fill: none;
+}
+
+.guarde-alert-status-icon--warning .guarde-alert-status-dot {
+  stroke: none;
+  fill: #d97706;
+}
+
+.guarde-alert-status-icon--info .guarde-alert-status-ring,
+.guarde-alert-status-icon--question .guarde-alert-status-ring {
+  stroke: rgba(37, 99, 235, 0.24);
+}
+
+.guarde-alert-status-icon--info .guarde-alert-status-mark,
+.guarde-alert-status-icon--question .guarde-alert-status-mark {
+  stroke: #2563eb;
+  fill: none;
+}
+
+.guarde-alert-status-icon--info .guarde-alert-status-dot,
+.guarde-alert-status-icon--question .guarde-alert-status-dot {
+  stroke: none;
+  fill: #2563eb;
+}
+
 .guarde-alert-popup .swal2-icon.swal2-success {
   color: #059669;
   background: #ecfdf5;
@@ -309,6 +392,11 @@ body {
   border-radius: 0.65rem !important;
   font-size: 1rem !important;
   line-height: 2.1rem !important;
+}
+
+.guarde-alert-toast .guarde-alert-status-icon {
+  width: 1.55rem;
+  height: 1.55rem;
 }
 
 .guarde-alert-toast .guarde-alert-title {

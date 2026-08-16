@@ -90,7 +90,6 @@
 <section
   class="communications-modal-shell relative z-[110] flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden transform transition-all duration-300 ease-in-out sm:max-h-[calc(100vh-3rem)]"
   [class.communications-modal-history-shell]="currentModal() === 'history'"
-  [class.communications-modal-accent-danger]="currentModal() === 'delete-confirm'"
   [class.communications-modal-accent-success]="currentModal() === 'send-confirm'"
   [class.communications-modal-accent-warning]="currentModal() === 'retry'"
   (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="communications-modal-title">
@@ -107,7 +106,6 @@
             @case ('add') { Agregar Nuevo Comunicado }
             @case ('edit') { Editar Comunicado }
             @case ('view') { Detalles del Comunicado }
-            @case ('delete-confirm') { Confirmar Eliminación }
             @case ('send-confirm') { Confirmar Envío }
             @case ('retry') { Reintentar Envíos Fallidos }
             @case ('history') { Historial de Comunicados }
@@ -138,18 +136,16 @@
         <div 
           class="flex items-center space-x-2 p-3 border rounded-lg transition duration-150"
           [ngClass]="{
-            'opacity-50 bg-gray-100 border-gray-200 cursor-not-allowed': channel.name === 'WhatsApp' && formData().isAccountStatement,
-            'bg-gray-50 border-gray-300 cursor-pointer hover:bg-gray-100': !(channel.name === 'WhatsApp' && formData().isAccountStatement)
+            'bg-blue-50 border-blue-300 ring-1 ring-blue-200': formData().channels.includes(channel.name),
+            'bg-gray-50 border-gray-300 cursor-pointer hover:bg-gray-100': !formData().channels.includes(channel.name)
           }"
           (click)="toggleChannel(channel.name)">
           <input 
             type="checkbox" 
             [id]="'channel-' + channel.name" 
             [checked]="formData().channels.includes(channel.name)" 
-            [disabled]="channel.name === 'WhatsApp' && formData().isAccountStatement"
             class="rounded text-blue-600 focus:ring-blue-500 pointer-events-none"/> 
-          <label class="flex items-center gap-2 text-sm font-medium text-gray-900"
-                 [ngClass]="(channel.name === 'WhatsApp' && formData().isAccountStatement) ? 'cursor-not-allowed' : 'cursor-pointer'">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-900 cursor-pointer">
             <app-icon [name]="channel.icon" [ngClass]="channel.name === 'Email' ? 'text-blue-600' : 'text-green-600'"></app-icon>
             <span>{{ channel.spanishLabel }}</span>
           </label>
@@ -162,7 +158,10 @@
     <div>
       <div class="flex justify-between items-center mb-1">
         <label class="block text-sm font-medium text-gray-700">Destinatarios *</label>
-        <span class="text-xs text-blue-600 font-semibold" *ngIf="selectedCount() > 0">
+        <span class="text-xs text-blue-600 font-semibold" *ngIf="formData().sendToAllEmails">
+          Todos los emails de la base de datos
+        </span>
+        <span class="text-xs text-blue-600 font-semibold" *ngIf="!formData().sendToAllEmails && selectedCount() > 0">
           {{ selectedCount() }} clientes seleccionados
         </span>
       </div>
@@ -170,8 +169,11 @@
       <div (click)="openRecipientSelector()" 
            class="w-full p-3 border border-gray-300 rounded-lg cursor-pointer bg-white hover:bg-gray-50 transition flex justify-between items-center group">
           <div class="flex-1 overflow-hidden">
-              <span *ngIf="selectedCount() === 0" class="text-gray-400 text-sm">Haz clic para seleccionar clientes...</span>
-              <div *ngIf="selectedCount() > 0" class="flex flex-col">
+              <span *ngIf="formData().sendToAllEmails" class="font-medium text-emerald-700 text-sm">
+                Se enviará un email a todas las direcciones registradas en la base de datos.
+              </span>
+              <span *ngIf="!formData().sendToAllEmails && selectedCount() === 0" class="text-gray-400 text-sm">Haz clic para seleccionar clientes...</span>
+              <div *ngIf="!formData().sendToAllEmails && selectedCount() > 0" class="flex flex-col">
                   <span class="font-medium text-gray-900 text-sm truncate">{{ selectedSummary() }}</span>
               </div>
           </div>
@@ -179,25 +181,37 @@
       </div>
       
       <div class="flex justify-between items-center mt-2">
-        <p class="text-xs text-gray-500">Puedes seleccionar grupos completos y excluir personas específicas.</p>
+        <p *ngIf="!formData().sendToAllEmails" class="text-xs text-gray-500">Puedes seleccionar grupos completos y excluir personas específicas.</p>
+        <p *ngIf="formData().sendToAllEmails" class="text-xs text-emerald-700">Se enviará a todas las direcciones de la tabla emails, sin mostrar la lista individual.</p>
         
         <button type="button" 
                 (click)="sendTestCommunication()" 
-                [disabled]="!isFormValid()"
+                [disabled]="!isFormValid() || (!formData().channels.includes('Email') && !(formData().isAccountStatement && formData().channels.includes('WhatsApp')))"
                 class="text-xs font-semibold bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-md hover:bg-indigo-100 flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-100">
           <app-icon name="send" class="w-3.5 h-3.5 mr-1.5"></app-icon>
           Enviar Prueba
         </button>
       </div>
+      <p *ngIf="formData().channels.includes('WhatsApp') && formData().isAccountStatement" class="text-xs text-emerald-700 mt-1">
+        El estado de cuenta se enviará a todos los teléfonos activos del cliente marcados como WhatsApp. Los clientes sin esos números quedarán informados como fallidos.
+      </p>
+      <p *ngIf="formData().channels.includes('WhatsApp') && !formData().isAccountStatement" class="text-xs text-emerald-700 mt-1">
+        Los comunicados generales usan el primer teléfono activo del cliente marcado como WhatsApp.
+      </p>
+      <p *ngIf="formData().channels.includes('WhatsApp') && !formData().isAccountStatement" class="text-xs text-indigo-600 mt-1">
+        La opción “Enviar Prueba” sólo prueba el Email; WhatsApp se omite para no enviar a números reales.
+      </p>
+      <p *ngIf="formData().channels.includes('WhatsApp') && formData().isAccountStatement" class="text-xs text-indigo-600 mt-1">
+        La prueba de WhatsApp se enviará al número 1160244908. Si hay Email, ese canal seguirá usando el destinatario de prueba.
+      </p>
     </div>
 
     <div class="space-y-4 pt-2 border-t border-dashed">
       
-      @if (!formData().channels.includes('WhatsApp')) {
       <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-center justify-between">
         <div>
             <span class="block font-bold text-blue-900 text-sm">¿Es un Estado de Cuenta?</span>
-            <span class="block text-xs text-blue-600 mt-0.5">El contenido se generará automáticamente con los saldos.</span>
+            <span class="block text-xs text-blue-600 mt-0.5">Se genera automáticamente con los saldos; por WhatsApp llegará en texto limpio.</span>
         </div>
         
         <label class="relative inline-flex items-center cursor-pointer">
@@ -218,15 +232,30 @@
           </label>
         </div>
         }
-      } 
-
       
 
       <div class="relative">
         <label class="block text-sm font-medium text-gray-700 mb-1">
           {{ formData().isAccountStatement ? 'Contenido (Automático)' : 'Contenido *' }}
         </label>
-        
+
+        @if (formData().channels.includes('Email') && !formData().isAccountStatement) {
+        <div class="mb-2 flex flex-wrap justify-end gap-2">
+          <button type="button"
+                  (click)="loadIcbcTemplate()"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100">
+            <app-icon name="file-text" class="h-3.5 w-3.5"></app-icon>
+            Cargar plantilla ICBC
+          </button>
+          <button type="button"
+                  (click)="loadIcbcTemplate2()"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100">
+            <app-icon name="file-text" class="h-3.5 w-3.5"></app-icon>
+            Cargar plantilla 2 ICBC
+          </button>
+        </div>
+        }
+
         <div *ngIf="formData().isAccountStatement" 
              class="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex items-center justify-center rounded-lg border border-gray-200 mt-6">
           <div class="bg-white px-4 py-2 rounded-lg shadow-sm border border-blue-100 flex items-center gap-2">
@@ -236,8 +265,11 @@
         </div>
 
         <div [class.opacity-40]="formData().isAccountStatement">
+          <p *ngIf="formData().isAccountStatement && formData().channels.includes('WhatsApp')" class="text-xs text-gray-500 mb-2">
+            💡 Se enviará el mismo estado de cuenta en dos formatos: HTML para Email y un resumen limpio para WhatsApp.
+          </p>
           @if (formData().channels.includes('Email')) {
-            <p *ngIf="formData().channels.includes('WhatsApp')" class="text-xs text-gray-500 mb-2">
+            <p *ngIf="formData().channels.includes('WhatsApp') && !formData().isAccountStatement" class="text-xs text-gray-500 mb-2">
               💡 Escribe el contenido del email. Se enviará una versión de solo texto a WhatsApp.
             </p>
             <quill-editor 
@@ -444,6 +476,7 @@
               <tr>
                 <th class="px-3 py-2 text-left font-semibold text-gray-600">Destinatario</th>
                 <th class="px-3 py-2 text-left font-semibold text-gray-600">Canal</th>
+                <th class="px-3 py-2 text-left font-semibold text-gray-600">Teléfono</th>
                 <th class="px-3 py-2 text-left font-semibold text-gray-600">Estado</th>
                 <th class="px-3 py-2 text-left font-semibold text-gray-600">Motivo / Respuesta</th>
                 <th class="px-3 py-2 text-center font-semibold text-gray-600">Ver</th>
@@ -454,6 +487,7 @@
               <tr [ngClass]="disp.status === 'Exitoso' ? 'bg-white' : 'bg-red-50/40'">
                 <td class="px-3 py-2 font-medium text-gray-900">{{ disp.clientName }}</td>
                 <td class="px-3 py-2 text-gray-600">{{ disp.channel }}</td>
+                <td class="px-3 py-2 text-gray-600 font-mono text-[11px]">{{ disp.recipientPhone || '-' }}</td>
                 <td class="px-3 py-2">
                   <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
                         [ngClass]="disp.status === 'Exitoso' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
@@ -477,12 +511,17 @@
       </div>
       } @else {
       <div class="border-t pt-3">
+        @if (selectedCommunication()!.sendToAllEmails) {
+        <h4 class="text-sm font-medium text-emerald-700 mb-2">Destinatarios:</h4>
+        <p class="text-sm text-slate-600">Todos los emails de la base de datos.</p>
+        } @else {
         <h4 class="text-sm font-medium text-gray-700 mb-2">Destinatarios ({{ selectedCommunication()!.recipients.length }}):</h4>
         <div class="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
           @for (dest of selectedCommunication()!.recipients; track dest) {
           <span class="inline-flex items-center text-xs font-medium bg-gray-200 text-gray-800 px-2.5 py-0.5 rounded-full">{{ dest }}</span>
           }
         </div>
+        }
       </div>
       }
       
@@ -574,33 +613,18 @@
   </div>
   }
 
-  @if (currentModal() === 'delete-confirm' && selectedCommunication()) {
-    <div class="communications-modal-content communications-confirmation-content space-y-6 text-center">
-      <div class="communications-confirmation-icon text-red-500 mx-auto text-5xl flex items-center justify-center h-16 w-16 bg-red-100 rounded-full">
-        <app-icon name="Trash2"></app-icon>
-      </div>
-      <h3 class="text-xl font-bold text-gray-900">¿Estás seguro?</h3>
-      <p class="text-gray-600">
-        Esta acción eliminará el comunicado "<strong>{{ selectedCommunication()!.title }}</strong>" de forma permanente.
-      </p>
-      <div class="flex gap-4">
-        <button (click)="handleDeleteCommunication(selectedCommunication()!.id)" class="communications-danger-action flex-1 flex justify-center items-center px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-md transition duration-200">
-          Confirmar Eliminación
-        </button>
-        <button (click)="closeModal()" class="communications-cancel-action flex-1 px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200">
-          Cancelar
-        </button>
-      </div>
-    </div>
-  }
-
   @if (currentModal() === 'send-confirm' && selectedCommunication()) {
   <div class="communications-modal-content space-y-4">
     <div class="bg-blue-50 p-4 rounded-lg space-y-2 border border-blue-200">
       <h4 class="text-sm font-semibold text-gray-700">Resumen del comunicado:</h4>
       <p class="text-sm"><strong>Título:</strong> {{ selectedCommunication()!.title }}</p>
       <p class="text-sm"><strong>Canal:</strong> {{ selectedCommunication()!.channel }}</p>
-      <p class="text-sm"><strong>Destinatarios:</strong> {{ selectedCommunication()!.recipients.length }} destinatario(s)
+      <p class="text-sm"><strong>Destinatarios:</strong>
+        @if (selectedCommunication()!.sendToAllEmails) {
+          Todos los emails de la base de datos
+        } @else {
+          {{ selectedCommunication()!.recipients.length }} destinatario(s)
+        }
       </p>
     </div>
 
@@ -789,7 +813,13 @@
 
       <div class="flex items-center gap-1 text-xs text-gray-500">
         <app-icon name="user" class="h-3.5 w-3.5"></app-icon>
-        <span>{{ comm.recipients.length }} destinatario(s)</span>
+        <span>
+          @if (comm.sendToAllEmails) {
+            Todos los emails
+          } @else {
+            {{ comm.recipients.length }} destinatario(s)
+          }
+        </span>
       </div>
     </div>
 
@@ -830,7 +860,7 @@
       }
 
       @if (comm.status !== 'Procesando') {
-      <button (click)="openModal('delete-confirm', comm)" title="Eliminar comunicado"
+       <button (click)="confirmDeleteCommunication(comm)" title="Eliminar comunicado"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-red-600 hover:bg-red-100 transition">
         <app-icon name="Trash2" class="h-4 w-4"></app-icon>
       </button>
@@ -841,9 +871,9 @@
 
 <!-- Content Preview Modal -->
 <div *ngIf="previewContent()"
-     class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4"
+     class="fixed inset-0 bg-black/50 z-[140] flex items-center justify-center p-4"
      (click)="closeContentPreview()">
-  <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
+  <div class="relative z-[150] bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
        (click)="$event.stopPropagation()">
     <div class="flex items-center justify-between p-4 border-b">
       <div class="flex items-center gap-2">
@@ -873,7 +903,7 @@
         <div class="communications-recipient-header p-4 flex justify-between items-center shrink-0">
             <div>
                 <h2 class="text-xl font-bold text-slate-900">Seleccionar Destinatarios</h2>
-                <p class="text-slate-500 text-sm">Usa los filtros para selección masiva o selecciona individualmente.</p>
+                <p class="text-slate-500 text-sm">Selecciona clientes individualmente o usa una selección masiva por email.</p>
             </div>
             <button (click)="showRecipientModal.set(false)" class="text-slate-400 hover:text-slate-700 transition p-2 rounded-full hover:bg-slate-100">
                 <app-icon name="x" class="h-6 w-6"></app-icon>
@@ -913,11 +943,40 @@
 
                 <div class="h-px bg-gray-200 my-2"></div>
 
-                <button (click)="applyFilter('Ninguno')" class="flex items-center justify-center w-full py-2 text-sm text-gray-500 hover:bg-gray-200 rounded transition" title="Desmarca todos los clientes">
+                <button (click)="applyFilter('Ninguno')" class="flex items-center justify-center w-full py-2 text-sm text-gray-500 hover:bg-gray-200 rounded transition" [title]="modalSendToAllEmails() ? 'Volver a la selección individual' : 'Desmarca todos los clientes'">
                     Desmarcar todo
+                </button>
+
+                <button (click)="selectAllEmailRecipients()"
+                        class="selector-btn transition-all duration-200"
+                        [ngClass]="modalSendToAllEmails() ? 'border-emerald-600 bg-emerald-50 font-semibold text-emerald-800 shadow-sm' : 'border-emerald-200 hover:bg-emerald-50 text-emerald-700 bg-white'">
+                    <div class="w-8 h-8 rounded flex items-center justify-center mr-3 transition-colors"
+                         [ngClass]="modalSendToAllEmails() ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-600'">
+                        <app-icon name="Mail" class="h-4 w-4"></app-icon>
+                    </div>
+                    <div class="text-left">
+                        <div class="font-bold text-sm">Todos los emails</div>
+                        <div class="text-[10px] font-medium opacity-75">Toda la base de datos</div>
+                    </div>
                 </button>
             </div>
 
+            @if (modalSendToAllEmails()) {
+            <div class="flex-1 flex items-center justify-center bg-slate-50 p-6">
+                <div class="w-full max-w-xl rounded-2xl border border-emerald-200 bg-white p-8 text-center shadow-sm">
+                    <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                        <app-icon name="Mail" class="h-7 w-7"></app-icon>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-900">Envío a todos los emails de la base de datos</h3>
+                    <p class="mt-3 text-sm leading-6 text-slate-600">
+                        Al confirmar, se enviará un mail a cada dirección registrada en la tabla de emails.
+                    </p>
+                    <p class="mt-2 text-xs leading-5 text-slate-500">
+                        No se aplicará la lista de clientes ni filtros de estado. Para volver a la selección individual, presioná “Desmarcar todo”.
+                    </p>
+                </div>
+            </div>
+            } @else {
             <div class="flex-1 flex flex-col bg-white">
                 <div class="communications-recipient-toolbar p-3 border-b border-gray-100 sticky top-0 bg-white z-10 flex gap-3">
                     <div class="relative flex-1">
@@ -992,6 +1051,7 @@
                     <span>{{ modalSelectedCount() }} seleccionados</span>
                 </div>
             </div>
+            }
         </div>
 
         <div class="communications-recipient-footer p-4 border-t bg-white flex justify-end gap-3 shrink-0">
@@ -1000,7 +1060,11 @@
             </button>
             <button (click)="confirmSelection()" class="communications-submit-action px-6 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-md transition flex items-center gap-2">
                 <app-icon name="check" class="h-4 w-4"></app-icon>
-                Confirmar Selección ({{ modalSelectedCount() }})
+                @if (modalSendToAllEmails()) {
+                  Confirmar envío masivo
+                } @else {
+                  Confirmar Selección ({{ modalSelectedCount() }})
+                }
             </button>
         </div>
     </div>

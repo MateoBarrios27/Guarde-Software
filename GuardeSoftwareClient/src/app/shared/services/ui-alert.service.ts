@@ -90,8 +90,11 @@ export class UiAlertService {
     const isToast = Boolean(options.toast);
     const defaultCustomClass = UiAlertService.getCustomClass(isToast, options.confirmButtonColor);
 
+    const themedIconHtml = options.iconHtml ?? UiAlertService.getStatusIconHtml(options.icon);
+
     return {
       ...options,
+      iconHtml: themedIconHtml,
       confirmButtonText: options.confirmButtonText ?? 'Aceptar',
       cancelButtonText: options.cancelButtonText ?? 'Cancelar',
       buttonsStyling: options.buttonsStyling ?? false,
@@ -177,6 +180,43 @@ export class UiAlertService {
     // Los estados exitosos se expresan en el ícono. La acción de confirmar
     // mantiene el azul primario, salvo que sea una operación destructiva.
     return 'primary';
+  }
+
+  private static getStatusIconHtml(icon?: SweetAlertIcon): string | undefined {
+    const svgOpen = (variant: string) =>
+      `<svg class="guarde-alert-status-icon guarde-alert-status-icon--${variant}" viewBox="0 0 64 64" aria-hidden="true" focusable="false">`;
+    const svgClose = '</svg>';
+
+    switch (icon) {
+      case 'success':
+        return `${svgOpen('success')}
+          <circle class="guarde-alert-status-ring" cx="32" cy="32" r="27"></circle>
+          <polyline class="guarde-alert-status-mark" points="16,33 27.5,44 48,21"></polyline>
+        ${svgClose}`;
+      case 'error':
+        return `${svgOpen('error')}
+          <path class="guarde-alert-status-mark" d="M14 14 50 50M50 14 14 50"></path>
+        ${svgClose}`;
+      case 'warning':
+        return `${svgOpen('warning')}
+          <path class="guarde-alert-status-mark" d="M32 14.5V38"></path>
+          <circle class="guarde-alert-status-dot" cx="32" cy="49" r="3.5"></circle>
+        ${svgClose}`;
+      case 'info':
+        return `${svgOpen('info')}
+          <circle class="guarde-alert-status-ring" cx="32" cy="32" r="27"></circle>
+          <path class="guarde-alert-status-mark" d="M32 28V46"></path>
+          <circle class="guarde-alert-status-dot" cx="32" cy="19" r="3"></circle>
+        ${svgClose}`;
+      case 'question':
+        return `${svgOpen('question')}
+          <circle class="guarde-alert-status-ring" cx="32" cy="32" r="27"></circle>
+          <path class="guarde-alert-status-mark" d="M23 25.5a9 9 0 1 1 14.6 7c-3.8 2.8-5.6 4.7-5.6 8"></path>
+          <circle class="guarde-alert-status-dot" cx="32" cy="48.5" r="3"></circle>
+        ${svgClose}`;
+      default:
+        return undefined;
+    }
   }
 }
 
