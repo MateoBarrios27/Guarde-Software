@@ -44,6 +44,11 @@ namespace GuardeSoftwareAPI.Services.communication
         /// </summary>
         public async Task<CommunicationDto> CreateCommunicationAsync(UpsertCommunicationRequest request, int userId)
         {
+            if (request.SendToAllEmails && !request.Channels.Contains("Email", StringComparer.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("La selección de todos los emails requiere el canal Email.");
+            }
+
             // Use your AccessDB method to get a connection
             using (SqlConnection connection = accessDB.GetConnectionClose())
             {
@@ -72,8 +77,15 @@ namespace GuardeSoftwareAPI.Services.communication
                             await _communicationDao.InsertCommunicationChannelAsync(newId, channel, request, connection, transaction);
                         }
 
-                        // Step 3: Insert all recipients
-                        await _communicationDao.InsertCommunicationRecipientsAsync(newId, request.Recipients, connection, transaction);
+                        // Step 3: Insert the selected recipient scope
+                        if (request.SendToAllEmails)
+                        {
+                            await _communicationDao.InsertAllEmailRecipientsAsync(newId, connection, transaction);
+                        }
+                        else
+                        {
+                            await _communicationDao.InsertCommunicationRecipientsAsync(newId, request.Recipients, connection, transaction);
+                        }
 
                         if (request.Attachments != null && request.Attachments.Count > 0)
                         {
@@ -155,6 +167,11 @@ namespace GuardeSoftwareAPI.Services.communication
         //Requiere logica de guardar archivos adjuntos
         public async Task<CommunicationDto> UpdateCommunicationAsync(int communicationId, UpsertCommunicationRequest request, int userId)
         {
+            if (request.SendToAllEmails && !request.Channels.Contains("Email", StringComparer.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("La selección de todos los emails requiere el canal Email.");
+            }
+
             using (SqlConnection connection = accessDB.GetConnectionClose())
             {
                 await connection.OpenAsync();
@@ -197,7 +214,8 @@ namespace GuardeSoftwareAPI.Services.communication
                                 status = @Status,
                                 smtp_configuration_id = @SmtpConfigId,
                                 is_account_statement = @IsAccountStatement,
-                                is_next_month_statement = @IsNextMonthStatement
+                                is_next_month_statement = @IsNextMonthStatement,
+                                send_to_all_emails = @SendToAllEmails
                             WHERE communication_id = @Id";
                         
                         using (var cmdUpdate = new SqlCommand(updateQuery, connection, transaction))
@@ -209,6 +227,7 @@ namespace GuardeSoftwareAPI.Services.communication
                             cmdUpdate.Parameters.AddWithValue("@SmtpConfigId", (object)request.SmtpConfigId ?? DBNull.Value);
                             cmdUpdate.Parameters.AddWithValue("@IsAccountStatement", request.IsAccountStatement);
                             cmdUpdate.Parameters.AddWithValue("@IsNextMonthStatement", request.IsNextMonthStatement);
+                            cmdUpdate.Parameters.AddWithValue("@SendToAllEmails", request.SendToAllEmails);
                             await cmdUpdate.ExecuteNonQueryAsync();
                         }
 
@@ -249,7 +268,14 @@ namespace GuardeSoftwareAPI.Services.communication
                             await cmdDel.ExecuteNonQueryAsync();
                         }
                         
-                        await _communicationDao.InsertCommunicationRecipientsAsync(communicationId, request.Recipients, connection, transaction);
+                        if (request.SendToAllEmails)
+                        {
+                            await _communicationDao.InsertAllEmailRecipientsAsync(communicationId, connection, transaction);
+                        }
+                        else
+                        {
+                            await _communicationDao.InsertCommunicationRecipientsAsync(communicationId, request.Recipients, connection, transaction);
+                        }
 
                         // D. Manejo de Adjuntos (Opcional: Agregar nuevos)
                         if (request.Attachments != null && request.Attachments.Count > 0)

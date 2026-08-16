@@ -66,6 +66,7 @@ export class CommunicationService {
     formData.append('type', request.type);
     formData.append('isAccountStatement', request.isAccountStatement ? 'true' : 'false');
     formData.append('isNextMonthStatement', request.isNextMonthStatement ? 'true' : 'false');
+    formData.append('sendToAllEmails', request.sendToAllEmails ? 'true' : 'false');
     
     if (request.isTestMode !== undefined) formData.append('isTestMode', request.isTestMode ? 'true' : 'false');
     if (request.testEmailAddress) formData.append('testEmailAddress', request.testEmailAddress);

@@ -33,6 +33,7 @@ namespace GuardeSoftwareAPI.Dao
                 c.smtp_configuration_id AS SmtpConfigId,
                 c.is_account_statement,
                 c.is_next_month_statement,
+                c.send_to_all_emails,
                 c.error_message AS ErrorMessage,
 
                 (SELECT STRING_AGG(chan.name, ' + ') 
@@ -40,12 +41,15 @@ namespace GuardeSoftwareAPI.Dao
                  JOIN communication_channels chan ON ccc.channel_id = chan.channel_id
                  WHERE ccc.communication_id = c.communication_id) AS Channel,
                 
-                ISNULL(
-                    (SELECT STRING_AGG(cl.full_name, ',')
-                     FROM communication_recipients cr
-                     JOIN clients cl ON cr.client_id = cl.client_id
-                     WHERE cr.communication_id = c.communication_id), 
-                '') AS RecipientsCsv
+                CASE
+                    WHEN c.send_to_all_emails = 1 THEN 'Todos los emails de la base de datos'
+                    ELSE ISNULL(
+                        (SELECT STRING_AGG(cl.full_name, ',')
+                         FROM communication_recipients cr
+                         JOIN clients cl ON cr.client_id = cl.client_id
+                         WHERE cr.communication_id = c.communication_id),
+                    '')
+                END AS RecipientsCsv
             FROM 
                 communications c
         ";
@@ -99,6 +103,7 @@ namespace GuardeSoftwareAPI.Dao
                              : recipientsCsv.Split(',').ToList(),
                 IsAccountStatement = row["is_account_statement"] is not DBNull && Convert.ToBoolean(row["is_account_statement"]),
                 IsNextMonthStatement = row["is_next_month_statement"] is not DBNull && Convert.ToBoolean(row["is_next_month_statement"]),
+                SendToAllEmails = row["send_to_all_emails"] is not DBNull && Convert.ToBoolean(row["send_to_all_emails"]),
                 ErrorMessage = row["ErrorMessage"] is DBNull ? null : row["ErrorMessage"].ToString()
             };
         }
@@ -114,6 +119,7 @@ namespace GuardeSoftwareAPI.Dao
                     ISNULL(d.status, CASE WHEN comm.status IN ('Failed', 'Finished w/ Errors') THEN 'Fallido' ELSE 'Pendiente' END) AS Status,
                     ISNULL(d.provider_response, CASE WHEN comm.status = 'Failed' THEN ISNULL(comm.error_message, 'Error en el envío') ELSE '' END) AS ErrorMessage,
                     ISNULL(FORMAT(d.dispatch_date, 'yyyy-MM-dd HH:mm'), '') AS DispatchDate,
+                    d.recipient_phone AS RecipientPhone,
                     ISNULL(cr.is_selected_for_retry, 1) AS IsSelected,
                     ISNULL(d.dispatch_id, 0) AS DispatchId,
                     CASE WHEN d.sent_content IS NOT NULL THEN 1 ELSE 0 END AS HasContent
@@ -123,8 +129,8 @@ namespace GuardeSoftwareAPI.Dao
                 LEFT JOIN communication_channel_content ccc ON comm.communication_id = ccc.communication_id
                 LEFT JOIN communication_channels ch ON ccc.channel_id = ch.channel_id
                 LEFT JOIN (
-                    SELECT dispatch_id, comm_channel_content_id, client_id, status, provider_response, dispatch_date, sent_content,
-                           ROW_NUMBER() OVER (PARTITION BY comm_channel_content_id, client_id ORDER BY dispatch_id DESC) AS rn
+                    SELECT dispatch_id, comm_channel_content_id, client_id, status, provider_response, dispatch_date, sent_content, recipient_phone,
+                           ROW_NUMBER() OVER (PARTITION BY comm_channel_content_id, client_id, recipient_phone ORDER BY dispatch_id DESC) AS rn
                     FROM dispatches
                 ) d ON ccc.comm_channel_content_id = d.comm_channel_content_id AND cr.client_id = d.client_id AND d.rn = 1
                 WHERE cr.communication_id = @Id
@@ -143,6 +149,7 @@ namespace GuardeSoftwareAPI.Dao
                     Status = row["Status"]?.ToString() ?? "",
                     ErrorMessage = row["ErrorMessage"]?.ToString() ?? "",
                     DispatchDate = row["DispatchDate"]?.ToString() ?? "",
+                    RecipientPhone = row["RecipientPhone"] is DBNull ? null : row["RecipientPhone"]?.ToString(),
                     IsSelected = row["IsSelected"] is not DBNull && Convert.ToBoolean(row["IsSelected"]),
                     HasContent = Convert.ToBoolean(row["HasContent"])
                 });
@@ -157,9 +164,9 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<int> InsertCommunicationAsync(UpsertCommunicationRequest request, int userId, DateTime? scheduledAt, string status, SqlConnection connection, SqlTransaction transaction)
         {
             string query = @"
-                INSERT INTO communications (creator_user_id, title, creation_date, scheduled_date, status, smtp_configuration_id, is_account_statement, is_next_month_statement)
+                INSERT INTO communications (creator_user_id, title, creation_date, scheduled_date, status, smtp_configuration_id, is_account_statement, is_next_month_statement, send_to_all_emails)
                 OUTPUT INSERTED.communication_id
-                VALUES (@CreatorUserId, @Title, GETDATE(), @ScheduledDate, @Status, @SmtpConfigId, @IsAccountStatement, @IsNextMonthStatement);";
+                VALUES (@CreatorUserId, @Title, GETDATE(), @ScheduledDate, @Status, @SmtpConfigId, @IsAccountStatement, @IsNextMonthStatement, @SendToAllEmails);";
 
             using (SqlCommand command = new(query, connection, transaction))
             {
@@ -170,6 +177,7 @@ namespace GuardeSoftwareAPI.Dao
                 command.Parameters.AddWithValue("@SmtpConfigId", (object)request.SmtpConfigId ?? DBNull.Value);
                 command.Parameters.AddWithValue("@IsAccountStatement", request.IsAccountStatement);
                 command.Parameters.AddWithValue("@IsNextMonthStatement", request.IsNextMonthStatement);
+                command.Parameters.AddWithValue("@SendToAllEmails", request.SendToAllEmails);
 
                 object result = await command.ExecuteScalarAsync();
                 return Convert.ToInt32(result);
@@ -240,6 +248,23 @@ namespace GuardeSoftwareAPI.Dao
                 command.Parameters.AddWithValue("@ClientNames", joinedNames);
                 await command.ExecuteNonQueryAsync();
             }
+            return true;
+        }
+
+        public async Task<bool> InsertAllEmailRecipientsAsync(int communicationId, SqlConnection connection, SqlTransaction transaction)
+        {
+            string query = @"
+                INSERT INTO communication_recipients (communication_id, client_id)
+                SELECT DISTINCT @CommunicationId, e.client_id
+                FROM emails e
+                WHERE NULLIF(LTRIM(RTRIM(e.address)), '') IS NOT NULL";
+
+            using (SqlCommand command = new(query, connection, transaction))
+            {
+                command.Parameters.AddWithValue("@CommunicationId", communicationId);
+                await command.ExecuteNonQueryAsync();
+            }
+
             return true;
         }
 
@@ -331,63 +356,243 @@ namespace GuardeSoftwareAPI.Dao
         }
 
         // Obtener Destinatarios (CON LOGICA DE REINTENTO)
-        public async Task<List<RecipientForSendingDto>> GetRecipientsForSendingAsync(int communicationId)
+        public async Task<List<RecipientForSendingDto>> GetRecipientsForSendingAsync(int communicationId, int commChannelContentId)
         {
             var recipients = new List<RecipientForSendingDto>();
             
-            // Esta query excluye a los clientes que ya tienen un registro 'Exitoso' en la tabla dispatches
-            // para esta comunicación. Esto permite que el Job funcione como "Enviar Todo" y "Reintentar Fallidos".
+            // El reintento se controla por canal. Si Email fue exitoso pero WhatsApp falló
+            // (o viceversa), el segundo canal todavía debe poder procesarse.
             string query = @"
                 SELECT DISTINCT
                     c.client_id AS Id,
                     c.full_name AS Name,
-                    ISNULL((SELECT STRING_AGG(e.address, ';') 
+                    ISNULL((SELECT STRING_AGG(NULLIF(LTRIM(RTRIM(e.address)), ''), ';')
                     FROM emails e 
                     WHERE e.client_id = c.client_id AND e.active = 1), '') AS Email,
-                    (SELECT TOP 1 p.number 
+                    (SELECT TOP 1 p.number
                      FROM phones p 
-                     WHERE p.client_id = c.client_id AND p.whatsapp = 1 AND p.active = 1) AS Phone
+                     WHERE p.client_id = c.client_id AND p.whatsapp = 1 AND p.active = 1
+                     ORDER BY p.phone_id) AS Phone,
+                    (SELECT STRING_AGG(p.number, ';')
+                     FROM phones p
+                     WHERE p.client_id = c.client_id
+                       AND p.whatsapp = 1
+                       AND p.active = 1
+                       AND (
+                           channel.name <> 'WhatsApp'
+                           OR ISNULL(comm.is_account_statement, 0) <> 1
+                           OR NOT EXISTS (
+                               SELECT 1
+                               FROM dispatches d
+                               WHERE d.comm_channel_content_id = @CommChannelContentId
+                                 AND d.client_id = c.client_id
+                                 AND d.status = 'Exitoso'
+                                 AND d.recipient_phone = LTRIM(RTRIM(p.number))
+                           )
+                       )) AS WhatsAppPhones
                 FROM clients c
                 JOIN communication_recipients cr ON c.client_id = cr.client_id
+                JOIN communications comm ON comm.communication_id = cr.communication_id
+                JOIN communication_channel_content ccc
+                    ON ccc.comm_channel_content_id = @CommChannelContentId
+                   AND ccc.communication_id = comm.communication_id
+                JOIN communication_channels channel ON channel.channel_id = ccc.channel_id
                 WHERE cr.communication_id = @Id AND cr.is_selected_for_retry = 1 AND c.active = 1 AND c.receive_communications = 1
-                AND c.client_id NOT IN (
-                    SELECT client_id FROM dispatches 
-                    WHERE comm_channel_content_id IN (
-                        SELECT comm_channel_content_id 
-                        FROM communication_channel_content 
-                        WHERE communication_id = @Id
+                AND (
+                    (
+                        channel.name = 'WhatsApp'
+                        AND ISNULL(comm.is_account_statement, 0) = 1
+                        AND (
+                            NOT EXISTS (
+                                SELECT 1
+                                FROM phones p
+                                WHERE p.client_id = c.client_id
+                                  AND p.whatsapp = 1
+                                  AND p.active = 1
+                            )
+                            OR EXISTS (
+                                SELECT 1
+                                FROM phones p
+                                WHERE p.client_id = c.client_id
+                                  AND p.whatsapp = 1
+                                  AND p.active = 1
+                                  AND NOT EXISTS (
+                                      SELECT 1
+                                      FROM dispatches d
+                                      WHERE d.comm_channel_content_id = @CommChannelContentId
+                                        AND d.client_id = c.client_id
+                                        AND d.status = 'Exitoso'
+                                        AND d.recipient_phone = LTRIM(RTRIM(p.number))
+                                  )
+                            )
+                        )
                     )
-                    AND status = 'Exitoso'
+                    OR (
+                        (channel.name <> 'WhatsApp' OR ISNULL(comm.is_account_statement, 0) <> 1)
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM dispatches d
+                            WHERE d.comm_channel_content_id = @CommChannelContentId
+                              AND d.client_id = c.client_id
+                              AND d.status = 'Exitoso'
+                        )
+                    )
                 )";
             
-            var parameters = new[] { new SqlParameter("@Id", communicationId) };
+            var parameters = new[]
+            {
+                new SqlParameter("@Id", communicationId),
+                new SqlParameter("@CommChannelContentId", commChannelContentId)
+            };
             DataTable table = await _accessDB.GetTableAsync("Recipients", query, parameters);
 
             foreach (DataRow row in table.Rows)
             {
+                var whatsappPhones = row["WhatsAppPhones"] is DBNull
+                    ? new List<string>()
+                    : (row["WhatsAppPhones"].ToString() ?? string.Empty)
+                        .Split(';', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(phone => phone.Trim())
+                        .Where(phone => phone.Length > 0)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
                 recipients.Add(new RecipientForSendingDto
                 {
                     ClientId = Convert.ToInt32(row["Id"]),
                     Name = row["Name"].ToString() ?? "",
                     Email = row["Email"] is DBNull ? null : row["Email"].ToString(),
-                    Phone = row["Phone"] is DBNull ? null : row["Phone"].ToString()
+                    Phone = row["Phone"] is DBNull ? null : row["Phone"].ToString(),
+                    WhatsAppPhones = whatsappPhones
                 });
             }
             return recipients;
         }
 
+        public async Task<List<RecipientForSendingDto>> GetAllEmailRecipientsForSendingAsync(int communicationId, int commChannelContentId)
+        {
+            var recipients = new List<RecipientForSendingDto>();
+
+            // No se filtra por emails.active, clients.active ni receive_communications:
+            // esta modalidad representa todos los registros cargados en emails.
+            string query = @"
+                SELECT
+                    e.client_id AS Id,
+                    ISNULL(c.full_name, '') AS Name,
+                    STRING_AGG(NULLIF(LTRIM(RTRIM(e.address)), ''), ';') AS Email
+                FROM emails e
+                JOIN clients c ON c.client_id = e.client_id
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM communications comm
+                    WHERE comm.communication_id = @Id
+                      AND comm.send_to_all_emails = 1
+                )
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM dispatches d
+                    WHERE d.comm_channel_content_id = @CommChannelContentId
+                      AND d.client_id = e.client_id
+                      AND d.status = 'Exitoso'
+                )
+                GROUP BY e.client_id, c.full_name";
+
+            var parameters = new[]
+            {
+                new SqlParameter("@Id", communicationId),
+                new SqlParameter("@CommChannelContentId", commChannelContentId)
+            };
+            DataTable table = await _accessDB.GetTableAsync("AllEmailRecipients", query, parameters);
+
+            foreach (DataRow row in table.Rows)
+            {
+                string email = row["Email"] is DBNull ? string.Empty : row["Email"].ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(email)) continue;
+
+                recipients.Add(new RecipientForSendingDto
+                {
+                    ClientId = Convert.ToInt32(row["Id"]),
+                    Name = row["Name"].ToString() ?? string.Empty,
+                    Email = email
+                });
+            }
+
+            return recipients;
+        }
+
+        public async Task<bool> IsSendToAllEmailsAsync(int communicationId)
+        {
+            const string query = @"
+                SELECT ISNULL(send_to_all_emails, 0) AS SendToAllEmails
+                FROM communications
+                WHERE communication_id = @Id";
+
+            var table = await _accessDB.GetTableAsync(
+                "CommunicationEmailScope",
+                query,
+                new[] { new SqlParameter("@Id", communicationId) });
+
+            return table.Rows.Count > 0
+                && table.Rows[0]["SendToAllEmails"] is not DBNull
+                && Convert.ToBoolean(table.Rows[0]["SendToAllEmails"]);
+        }
+
         public async Task UpdateRecipientsRetrySelectionAsync(int communicationId, List<int> selectedClientIds)
         {
             string resetQuery = @"
-                UPDATE cr SET is_selected_for_retry = 0
+                UPDATE cr
+                SET is_selected_for_retry = CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM communication_channel_content ccc
+                        JOIN communication_channels channel ON channel.channel_id = ccc.channel_id
+                        WHERE ccc.communication_id = cr.communication_id
+                          AND (
+                              (
+                                  channel.name = 'WhatsApp'
+                                  AND ISNULL(comm.is_account_statement, 0) = 1
+                                  AND (
+                                      NOT EXISTS (
+                                          SELECT 1
+                                          FROM phones p
+                                          WHERE p.client_id = cr.client_id
+                                            AND p.whatsapp = 1
+                                            AND p.active = 1
+                                      )
+                                      OR EXISTS (
+                                          SELECT 1
+                                          FROM phones p
+                                          WHERE p.client_id = cr.client_id
+                                            AND p.whatsapp = 1
+                                            AND p.active = 1
+                                            AND NOT EXISTS (
+                                                SELECT 1
+                                                FROM dispatches d
+                                                WHERE d.comm_channel_content_id = ccc.comm_channel_content_id
+                                                  AND d.client_id = cr.client_id
+                                                  AND d.status = 'Exitoso'
+                                                  AND d.recipient_phone = LTRIM(RTRIM(p.number))
+                                            )
+                                      )
+                                  )
+                              )
+                              OR (
+                                  (channel.name <> 'WhatsApp' OR ISNULL(comm.is_account_statement, 0) <> 1)
+                                  AND NOT EXISTS (
+                                      SELECT 1
+                                      FROM dispatches d
+                                      WHERE d.comm_channel_content_id = ccc.comm_channel_content_id
+                                        AND d.client_id = cr.client_id
+                                        AND d.status = 'Exitoso'
+                                  )
+                              )
+                          )
+                    ) THEN 1
+                    ELSE 0
+                END
                 FROM communication_recipients cr
-                WHERE cr.communication_id = @Id
-                AND cr.client_id NOT IN (
-                    SELECT client_id FROM dispatches 
-                    WHERE comm_channel_content_id IN (
-                        SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id
-                    ) AND status = 'Exitoso'
-                );";
+                JOIN communications comm ON comm.communication_id = cr.communication_id
+                WHERE cr.communication_id = @Id;";
             await _accessDB.ExecuteCommandAsync(resetQuery, new[] { new SqlParameter("@Id", communicationId) });
 
             if (selectedClientIds != null && selectedClientIds.Count > 0)
@@ -399,20 +604,6 @@ namespace GuardeSoftwareAPI.Dao
                     WHERE cr.communication_id = @Id
                     AND cr.client_id IN ({joinedIds});";
                 await _accessDB.ExecuteCommandAsync(enableQuery, new[] { new SqlParameter("@Id", communicationId) });
-            }
-            else
-            {
-                string enableAllQuery = @"
-                    UPDATE cr SET is_selected_for_retry = 1
-                    FROM communication_recipients cr
-                    WHERE cr.communication_id = @Id
-                    AND cr.client_id NOT IN (
-                        SELECT client_id FROM dispatches 
-                        WHERE comm_channel_content_id IN (
-                            SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id
-                        ) AND status = 'Exitoso'
-                    );";
-                await _accessDB.ExecuteCommandAsync(enableAllQuery, new[] { new SqlParameter("@Id", communicationId) });
             }
         }
 
@@ -459,11 +650,17 @@ namespace GuardeSoftwareAPI.Dao
         }
 
         // Loggear intento de envío
-        public async Task LogSendAttemptAsync(int idCommChannelContent, int idCliente, string status, string response, string? sentContent = null)
+        public async Task LogSendAttemptAsync(
+            int idCommChannelContent,
+            int idCliente,
+            string status,
+            string response,
+            string? sentContent = null,
+            string? recipientPhone = null)
         {
             string query = @"
-                INSERT INTO dispatches (comm_channel_content_id, client_id, dispatch_date, status, provider_response, sent_content)
-                VALUES (@IdCommChannelContent, @IdCliente, GETDATE(), @Status, @Response, @SentContent)";
+                INSERT INTO dispatches (comm_channel_content_id, client_id, dispatch_date, status, provider_response, sent_content, recipient_phone)
+                VALUES (@IdCommChannelContent, @IdCliente, GETDATE(), @Status, @Response, @SentContent, @RecipientPhone)";
 
             if (!string.IsNullOrEmpty(response) && response.Length > 500)
             {
@@ -476,7 +673,8 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@IdCliente", idCliente),
                 new SqlParameter("@Status", status), 
                 new SqlParameter("@Response", response ?? ""),
-                new SqlParameter("@SentContent", (object?)sentContent ?? DBNull.Value)
+                new SqlParameter("@SentContent", (object?)sentContent ?? DBNull.Value),
+                new SqlParameter("@RecipientPhone", (object?)recipientPhone ?? DBNull.Value)
             };
             await _accessDB.ExecuteCommandAsync(query, parameters);
         }
@@ -626,7 +824,9 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT 
                     c.client_id AS Id,
                     c.full_name AS FullName,
-                    (SELECT TOP 1 address FROM emails WHERE client_id = c.client_id AND active = 1) AS Email,
+                    ISNULL((SELECT STRING_AGG(NULLIF(LTRIM(RTRIM(address)), ''), ';')
+                            FROM emails
+                            WHERE client_id = c.client_id AND active = 1), '') AS Email,
                     c.payment_identifier AS PaymentIdentifier,
                     
                     ISNULL((
@@ -966,6 +1166,20 @@ namespace GuardeSoftwareAPI.Dao
             string q = "SELECT is_account_statement FROM communications WHERE communication_id = @Id";
             var res = await _accessDB.ExecuteScalarAsync(q, [new SqlParameter("@Id", communicationId)]);
             return res != null && Convert.ToBoolean(res);
+        }
+
+        public async Task<bool> IsTestCommunicationAsync(int communicationId)
+        {
+            const string q = @"
+                SELECT CASE
+                    WHEN LEFT(LTRIM(RTRIM(title)), 8) = '[PRUEBA]' THEN 1
+                    ELSE 0
+                END
+                FROM communications
+                WHERE communication_id = @Id";
+
+            var res = await _accessDB.ExecuteScalarAsync(q, [new SqlParameter("@Id", communicationId)]);
+            return res != null && res != DBNull.Value && Convert.ToBoolean(res);
         }
     }
 }

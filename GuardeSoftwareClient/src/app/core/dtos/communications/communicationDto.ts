@@ -6,6 +6,7 @@ export interface CommunicationDispatchDto {
   status: string;
   errorMessage: string;
   dispatchDate: string;
+  recipientPhone?: string | null;
   isSelected?: boolean;
   hasContent?: boolean;
 }
@@ -23,6 +24,7 @@ export interface ComunicacionDto {
   smtpConfigId?: number | null;
   isAccountStatement: boolean;
   isNextMonthStatement: boolean;
+  sendToAllEmails: boolean;
   errorMessage?: string | null;
   dispatches?: CommunicationDispatchDto[];
 }
@@ -40,4 +42,5 @@ export interface UpsertComunicacionRequest {
   smtpConfigId?: number | null;
   isAccountStatement: boolean;
   isNextMonthStatement: boolean;
+  sendToAllEmails: boolean;
 }

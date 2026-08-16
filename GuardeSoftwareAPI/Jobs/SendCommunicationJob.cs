@@ -8,6 +8,7 @@ using System.Text;
 using GuardeSoftwareAPI.Dtos.Client;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Globalization;
 using Microsoft.AspNetCore.SignalR;
 using GuardeSoftwareAPI.Hubs;
 namespace GuardeSoftwareAPI.Jobs
@@ -15,6 +16,9 @@ namespace GuardeSoftwareAPI.Jobs
     [DisallowConcurrentExecution]
     public class SendCommunicationJob : IJob
     {
+        private const string AccountStatementTestPhone = "1160244908";
+        private const string DefaultTestEmailAddress = "fsgbrunofranco@gmail.com";
+
         private readonly CommunicationDao _communicationDao;
         private readonly IConfiguration _config;
         private readonly ILogger<SendCommunicationJob> _logger;
@@ -35,33 +39,94 @@ namespace GuardeSoftwareAPI.Jobs
         public async Task Execute(IJobExecutionContext context)
         {
             int comunicadoId = context.JobDetail.JobDataMap.GetInt("CommunicationId");
-            bool isTestMode = context.JobDetail.JobDataMap.ContainsKey("IsTestMode") && context.JobDetail.JobDataMap.GetBooleanValue("IsTestMode");
+            bool isTestMode = ReadBooleanJobData(context, "IsTestMode");
             string testEmail = context.JobDetail.JobDataMap.GetString("TestEmailAddress") ?? "";
-
-            _logger.LogInformation("Starting communication job for ID: {ComunicadoId}. TestMode: {IsTestMode}", comunicadoId, isTestMode);
 
             var errorLog = new StringBuilder();
             
             try
             {
+                bool isMarkedAsTest = await _communicationDao.IsTestCommunicationAsync(comunicadoId);
+                isTestMode = isTestMode || isMarkedAsTest;
+                if (isTestMode)
+                {
+                    testEmail = DefaultTestEmailAddress;
+                }
+
+                _logger.LogInformation(
+                    "Starting communication job for ID: {ComunicadoId}. TestMode: {IsTestMode}. MarkedAsTest: {MarkedAsTest}",
+                    comunicadoId,
+                    isTestMode,
+                    isMarkedAsTest);
+
+                if (isTestMode)
+                {
+                    _logger.LogWarning(
+                        "Communication {ComunicadoId} is a test. Email will be redirected to {TestEmail} and account-statement WhatsApp will be redirected to {TestPhone}.",
+                        comunicadoId,
+                        testEmail,
+                        AccountStatementTestPhone);
+                }
+
                 await _communicationDao.UpdateCommunicationStatusAndErrorAsync(comunicadoId, "Procesando", null);
                 await _hubContext.Clients.All.SendAsync("CommunicationUpdated", comunicadoId);
 
                 var channels = await _communicationDao.GetChannelsForSendingAsync(comunicadoId);
-                var recipients = await _communicationDao.GetRecipientsForSendingAsync(comunicadoId);
+                bool sendToAllEmails = await _communicationDao.IsSendToAllEmailsAsync(comunicadoId);
 
-                _logger.LogInformation("Found {RecipientCount} recipients and {ChannelCount} channels.", recipients.Count, channels.Count);
+                _logger.LogInformation("Found {ChannelCount} channels for communication {ComunicadoId}.", channels.Count, comunicadoId);
 
                 var emailChannel = channels.FirstOrDefault(c => c.ChannelName == "Email");
                 if (emailChannel != null)
                 {
-                    await ProcessEmailChannel(emailChannel, recipients, errorLog, comunicadoId, isTestMode, testEmail);
+                    var emailRecipients = sendToAllEmails
+                        ? await _communicationDao.GetAllEmailRecipientsForSendingAsync(comunicadoId, emailChannel.CommChannelContentId)
+                        : await _communicationDao.GetRecipientsForSendingAsync(comunicadoId, emailChannel.CommChannelContentId);
+
+                    if (isTestMode && sendToAllEmails && emailRecipients.Count > 1)
+                    {
+                        emailRecipients = emailRecipients.Take(1).ToList();
+                    }
+
+                    _logger.LogInformation("Found {RecipientCount} email recipients for communication {ComunicadoId}.", emailRecipients.Count, comunicadoId);
+                    await ProcessEmailChannel(emailChannel, emailRecipients, errorLog, comunicadoId, isTestMode, testEmail);
                 }
 
                 var whatsappChannel = channels.FirstOrDefault(c => c.ChannelName == "WhatsApp");
                 if (whatsappChannel != null)
                 {
-                    await ProcessWhatsAppChannel(whatsappChannel, recipients, errorLog, comunicadoId);
+                    if (sendToAllEmails)
+                    {
+                        const string unsupportedWhatsAppScope = "La selección de todos los emails sólo permite el envío por Email.";
+                        _logger.LogWarning("Communication {ComunicadoId}: {Message}", comunicadoId, unsupportedWhatsAppScope);
+                        errorLog.AppendLine(unsupportedWhatsAppScope);
+                    }
+                    else
+                    {
+                        bool isAccountStatement = await _communicationDao.IsAccountStatementAsync(comunicadoId);
+                        if (isTestMode && !isAccountStatement)
+                        {
+                            _logger.LogInformation("Test communication {ComunicadoId}: WhatsApp delivery skipped to avoid sending to real client numbers.", comunicadoId);
+                        }
+                        else
+                        {
+                            var whatsappRecipients = await _communicationDao.GetRecipientsForSendingAsync(comunicadoId, whatsappChannel.CommChannelContentId);
+                            _logger.LogInformation("Found {RecipientCount} WhatsApp recipients for communication {ComunicadoId}.", whatsappRecipients.Count, comunicadoId);
+
+                            if (isTestMode && isAccountStatement)
+                            {
+                                foreach (var recipient in whatsappRecipients)
+                                {
+                                    recipient.WhatsAppPhones = [AccountStatementTestPhone];
+                                    recipient.Phone = AccountStatementTestPhone;
+                                }
+
+                                _logger.LogInformation("Test account statement {ComunicadoId}: WhatsApp delivery redirected to {TestPhone}.", comunicadoId, AccountStatementTestPhone);
+                            }
+
+                            await ProcessWhatsAppChannel(whatsappChannel, whatsappRecipients, errorLog, comunicadoId);
+                        }
+                    }
                 }
 
                 string finalStatus = errorLog.Length > 0 ? "Finished w/ Errors" : "Finished";
@@ -83,8 +148,29 @@ namespace GuardeSoftwareAPI.Jobs
             }
         }
 
+        private static bool ReadBooleanJobData(IJobExecutionContext context, string key)
+        {
+            if (!context.JobDetail.JobDataMap.TryGetValue(key, out var value) || value is null)
+            {
+                return false;
+            }
+
+            if (value is bool booleanValue)
+            {
+                return booleanValue;
+            }
+
+            return bool.TryParse(value.ToString(), out var parsedValue) && parsedValue;
+        }
+
         private async Task ProcessEmailChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog, int communicationId, bool isTestMode, string testEmail)
         {
+            if (recipients.Count == 0)
+            {
+                errorLog.AppendLine("No hay emails registrados para enviar este comunicado.");
+                return;
+            }
+
             var dbSmtp = await _communicationDao.GetSmtpSettingsAsync(communicationId);
             bool isAccountStatement = await _communicationDao.IsAccountStatementAsync(communicationId);
             bool isNextMonth = await _communicationDao.IsNextMonthStatementAsync(communicationId);
@@ -125,9 +211,11 @@ namespace GuardeSoftwareAPI.Jobs
                 {
                     try 
                     {
-                        if (isTestMode && !string.IsNullOrEmpty(testEmail))
+                        if (isTestMode)
                         {
-                            recipient.Email = testEmail;
+                            recipient.Email = string.IsNullOrWhiteSpace(testEmail)
+                                ? DefaultTestEmailAddress
+                                : testEmail;
                         }
 
                         MimeMessage message;
@@ -150,8 +238,16 @@ namespace GuardeSoftwareAPI.Jobs
                         }
                         else 
                         {
-                            emailContent = channel.Content;
-                            message = CreateEmailMessage(channel, recipient, effectiveSettings, attachments);
+                            string personalizedContent = ReplaceCommunicationPlaceholders(channel.Content, recipient.Name);
+                            emailContent = personalizedContent;
+                            var personalizedChannel = new ChannelForSendingDto
+                            {
+                                CommChannelContentId = channel.CommChannelContentId,
+                                ChannelName = channel.ChannelName,
+                                Subject = channel.Subject,
+                                Content = personalizedContent
+                            };
+                            message = CreateEmailMessage(personalizedChannel, recipient, effectiveSettings, attachments);
                         }
 
                         string response = await smtp.SendAsync(message);
@@ -224,7 +320,10 @@ namespace GuardeSoftwareAPI.Jobs
             message.Subject = channel.Subject;
 
             var builder = new BodyBuilder();
-            builder.HtmlBody = channel.Content;
+            // Aplicar los placeholders en el último punto antes de enviar el mensaje.
+            // Esto cubre también los caminos de prueba o reintento que construyan el
+            // ChannelForSendingDto sin pasar previamente por la personalización.
+            builder.HtmlBody = ReplaceCommunicationPlaceholders(channel.Content, recipient.Name);
 
             // Adjuntar archivos si existen
             if (attachments != null && attachments.Count > 0)
@@ -249,16 +348,17 @@ namespace GuardeSoftwareAPI.Jobs
             
             string headerTag = isNextMonth ? $"<b style='color: blue;'>PROYECCIÓN PRÓXIMO MES - {monthYear}</b><br><br>" : "";
 
-            string recargo = data.Surcharge.ToString("N2");
-            string saldoAnterior = data.PreviousBalance.ToString("N2");
-            string saldoActual = data.CurrentBalance.ToString("N2");
+            string recargo = FormatStatementAmount(data.Surcharge);
+            string saldoAnterior = FormatStatementAmount(data.PreviousBalance);
+            string saldoActual = FormatStatementAmount(data.CurrentBalance);
 
             return $@"
             <html>
                 <head></head>
                 <body>
                     
-                    <p><b style='color: black;'> Estimado/a: {clientName}</b></p> 
+                    <p><b style='color: black;'> Estimado/a: {clientName}</b></p>
+                    {headerTag}
                     <p>Le recordamos que el pago de la cuota correspondiente al mes {monthYear} es hasta el día 10/{monthYear}. Vencido dicho plazo el importe mensual tendrá un recargo del 10%, sin excepción.</p>
                     
                     <b style='color: green;'> ""No pierda su beneficio por pago puntual"", por atrasos reiterados su abono será ajustado a los valores actuales""</b></p>
@@ -312,13 +412,90 @@ namespace GuardeSoftwareAPI.Jobs
             </html>";
         }
 
-        private async Task SendWhatsAppViaWahaAsync(string phone, string messageText)
-        {
-            string wahaUrl = "http://127.0.0.1:3000/api/sendText"; 
+        private static readonly CultureInfo StatementCulture = CultureInfo.GetCultureInfo("es-AR");
 
-            using (var client = new HttpClient())
+        private static string FormatStatementAmount(decimal amount)
+        {
+            return amount.ToString("N2", StatementCulture);
+        }
+
+        private string GenerateAccountStatementWhatsAppText(
+    string clientName,
+    ClientFinancialDto data,
+    bool isNextMonth)
+{
+    DateTime targetDate = isNextMonth
+        ? DateTime.Now.AddMonths(1)
+        : DateTime.Now;
+
+    string monthYear = targetDate.ToString("MM/yyyy", StatementCulture);
+    string dueDate = new DateTime(targetDate.Year, targetDate.Month, 10)
+        .ToString("dd/MM/yyyy", StatementCulture);
+
+    string title = isNextMonth
+        ? $"Proyección de cuenta | {monthYear}"
+        : $"Estado de cuenta | {monthYear}";
+
+    return $"""
+Hola {clientName},
+
+{title}
+
+Saldo anterior: $ {FormatStatementAmount(data.PreviousBalance)}
+Recargo por pago fuera de término: $ {FormatStatementAmount(data.Surcharge)}
+Total a abonar: $ {FormatStatementAmount(data.CurrentBalance)}
+
+La cuota vence el {dueDate}. Luego de esa fecha se aplicará un recargo del 10%.
+
+Para conservar el acceso al espacio alquilado, la cuenta deberá mantenerse al día. Los ajustes de valor se realizarán con la frecuencia establecida en el contrato.
+
+Forma de pago: la acordada en el contrato de locación.
+
+Guardelo Que Quiera
+Francisco Borges 4280, Munro
+
+Horarios de atención:
+Lunes a viernes, de 09:00 a 16:00
+Administración hasta las 15:30
+
+Sábados, de 09:00 a 13:00
+Administración hasta las 12:30
+
+Teléfonos:
+011 4730-2192
+011 4762-0599
+
+www.guardeloquequiera.com.ar
+
+Saludos,
+Administración
+""";
+}
+
+        private async Task<string> SendWhatsAppViaWahaAsync(string phone, string messageText)
+        {
+            string wahaUrl = _config["WAHASettings:Endpoint"]
+                ?? _config["WAHASettings:Url"]
+                ?? "http://127.0.0.1:3000/api/sendText";
+            string session = _config["WAHASettings:Session"] ?? "default";
+
+            if (!Uri.TryCreate(wahaUrl, UriKind.Absolute, out var endpoint))
             {
-                client.DefaultRequestHeaders.Add("X-Api-Key", _config["WAHASettings:ApiKey"]);
+                throw new InvalidOperationException("La URL de WAHA no es válida. Revisá WAHASettings:Endpoint.");
+            }
+
+            int timeoutSeconds = int.TryParse(_config["WAHASettings:TimeoutSeconds"], out var configuredTimeout)
+                && configuredTimeout > 0
+                ? configuredTimeout
+                : 30;
+
+            using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(timeoutSeconds) })
+            {
+                string? apiKey = _config["WAHASettings:ApiKey"];
+                if (!string.IsNullOrWhiteSpace(apiKey))
+                {
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("X-Api-Key", apiKey);
+                }
                 
                 client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
@@ -326,7 +503,7 @@ namespace GuardeSoftwareAPI.Jobs
                 {
                     chatId = phone, 
                     text = messageText,
-                    session = "default" 
+                    session
                 };
 
                 var json = JsonSerializer.Serialize(payload);
@@ -335,13 +512,17 @@ namespace GuardeSoftwareAPI.Jobs
 
                 try 
                 {
-                    var response = await client.PostAsync(wahaUrl, content);
+                    var response = await client.PostAsync(endpoint, content);
+                    var responseBody = await response.Content.ReadAsStringAsync();
                     
                     if (!response.IsSuccessStatusCode)
                     {
-                        var errorBody = await response.Content.ReadAsStringAsync();
-                        throw new Exception($"WAHA HTTP {response.StatusCode}: {errorBody}");
+                        throw new Exception($"WAHA HTTP {(int)response.StatusCode} ({response.StatusCode}): {responseBody}");
                     }
+
+                    return string.IsNullOrWhiteSpace(responseBody)
+                        ? $"WAHA HTTP {(int)response.StatusCode}"
+                        : responseBody;
                 }
                 catch (HttpRequestException ex)
                 {
@@ -350,7 +531,7 @@ namespace GuardeSoftwareAPI.Jobs
             }
         }
 
-        private string FormatPhoneForWhatsApp(string phone)
+        private string? FormatPhoneForWhatsApp(string phone)
         {
             if (string.IsNullOrWhiteSpace(phone)) return null;
 
@@ -417,49 +598,156 @@ namespace GuardeSoftwareAPI.Jobs
         private string StripHtmlForWhatsApp(string input)
         {
             if (string.IsNullOrWhiteSpace(input)) return string.Empty;
-            
-            string text = input.Replace("<br>", "\n").Replace("<br/>", "\n").Replace("</p>", "\n");
-            
-            text = Regex.Replace(text, "<.*?>", string.Empty);
+
+            string text = Regex.Replace(input, @"<\s*br\s*/?\s*>", "\n", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"<\s*li[^>]*>", "• ", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"</\s*(p|div|li|h[1-6]|tr|table)\s*>", "\n", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, "<.*?>", string.Empty, RegexOptions.Singleline);
 
             text = System.Net.WebUtility.HtmlDecode(text);
-            
-            return text.Trim();
+            text = text.Replace("\r\n", "\n").Replace("\r", "\n");
+            text = Regex.Replace(text, @"[ \t]+\n", "\n");
+            text = Regex.Replace(text, @"\n{3,}", "\n\n");
+
+            return string.Join("\n", text
+                .Split('\n')
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0))
+                .Trim();
+        }
+
+        private static string ReplaceCommunicationPlaceholders(string input, string clientName)
+        {
+            if (string.IsNullOrEmpty(input)) return input;
+
+            string encodedClientName = System.Net.WebUtility.HtmlEncode(clientName ?? string.Empty);
+
+            return input
+                .Replace("{data[0]}", encodedClientName, StringComparison.OrdinalIgnoreCase)
+                .Replace("{{clientName}}", encodedClientName, StringComparison.OrdinalIgnoreCase)
+                .Replace("{clientName}", encodedClientName, StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task ProcessWhatsAppChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog, int communicationId)
         {
             bool isAccountStatement = await _communicationDao.IsAccountStatementAsync(communicationId);
 
-            if (isAccountStatement)
+            if (bool.TryParse(_config["WAHASettings:Enabled"], out var enabled) && !enabled)
             {
-                _logger.LogInformation("El comunicado {Id} es un Estado de Cuenta. Se omite el envío por WhatsApp.", communicationId);
-                return; 
+                const string disabledMessage = "El envío por WhatsApp está deshabilitado en la configuración.";
+                errorLog.AppendLine(disabledMessage);
+                foreach (var recipient in recipients)
+                {
+                    await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", disabledMessage);
+                }
+                return;
             }
+
+            bool isNextMonth = isAccountStatement && await _communicationDao.IsNextMonthStatementAsync(communicationId);
+            int delayMilliseconds = int.TryParse(_config["WAHASettings:DelayMilliseconds"], out var configuredDelay)
+                && configuredDelay >= 0
+                ? configuredDelay
+                : 3000;
 
             foreach (var recipient in recipients)
             {
-                try 
+                var phoneNumbers = new List<string>();
+                if (isAccountStatement)
                 {
-                    if (string.IsNullOrWhiteSpace(recipient.Phone))
+                    phoneNumbers.AddRange(recipient.WhatsAppPhones);
+                }
+                else if (!string.IsNullOrWhiteSpace(recipient.Phone))
+                {
+                    phoneNumbers.Add(recipient.Phone!);
+                }
+
+                if (phoneNumbers.Count == 0)
+                {
+                    const string noPhoneMessage = "Sin número de WhatsApp habilitado";
+                    await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", noPhoneMessage);
+                    errorLog.AppendLine($"WhatsApp para {recipient.Name}: {noPhoneMessage}");
+                    continue;
+                }
+
+                string messageToSend;
+                try
+                {
+                    if (isAccountStatement)
                     {
-                        await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Failed", "Sin número de teléfono");
-                        continue;
+                        var financialData = await _communicationDao.GetClientFinancialData(recipient.ClientId, isNextMonth);
+                        messageToSend = GenerateAccountStatementWhatsAppText(recipient.Name, financialData, isNextMonth);
+                    }
+                    else
+                    {
+                        string personalizedContent = ReplaceCommunicationPlaceholders(channel.Content, recipient.Name);
+                        messageToSend = StripHtmlForWhatsApp(personalizedContent);
                     }
 
-                    string formattedPhone = FormatPhoneForWhatsApp(recipient.Phone);
-                    
-                    string messageToSend = StripHtmlForWhatsApp(channel.Content); 
-
-                    await SendWhatsAppViaWahaAsync(formattedPhone, messageToSend);
-                    await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Exitoso", "Enviado vía WAHA");
-                    
-                    await Task.Delay(3000); 
+                    if (string.IsNullOrWhiteSpace(messageToSend))
+                    {
+                        const string emptyMessage = "El contenido de WhatsApp está vacío";
+                        await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", emptyMessage);
+                        errorLog.AppendLine($"WhatsApp para {recipient.Name}: {emptyMessage}");
+                        continue;
+                    }
                 }
                 catch (Exception ex)
                 {
-                    await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Failed", ex.Message);
-                    errorLog.AppendLine($"Error WAHA para {recipient.Name}: {ex.Message}");
+                    await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", ex.Message);
+                    errorLog.AppendLine($"Error generando WhatsApp para {recipient.Name}: {ex.Message}");
+                    continue;
+                }
+
+                var sentPhones = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var phone in phoneNumbers)
+                {
+                    string rawPhone = phone.Trim();
+                    string? formattedPhone = FormatPhoneForWhatsApp(rawPhone);
+
+                    if (string.IsNullOrWhiteSpace(formattedPhone))
+                    {
+                        const string invalidPhoneMessage = "El número de WhatsApp no es válido";
+                        await _communicationDao.LogSendAttemptAsync(
+                            channel.CommChannelContentId,
+                            recipient.ClientId,
+                            "Fallido",
+                            invalidPhoneMessage,
+                            recipientPhone: rawPhone);
+                        errorLog.AppendLine($"WhatsApp para {recipient.Name} ({rawPhone}): {invalidPhoneMessage}");
+                        continue;
+                    }
+
+                    if (!sentPhones.Add(formattedPhone))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        string providerResponse = await SendWhatsAppViaWahaAsync(formattedPhone, messageToSend);
+                        await _communicationDao.LogSendAttemptAsync(
+                            channel.CommChannelContentId,
+                            recipient.ClientId,
+                            "Exitoso",
+                            providerResponse,
+                            messageToSend,
+                            rawPhone);
+
+                        if (delayMilliseconds > 0)
+                        {
+                            await Task.Delay(delayMilliseconds);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        await _communicationDao.LogSendAttemptAsync(
+                            channel.CommChannelContentId,
+                            recipient.ClientId,
+                            "Fallido",
+                            ex.Message,
+                            recipientPhone: rawPhone);
+                        errorLog.AppendLine($"Error WAHA para {recipient.Name} ({rawPhone}): {ex.Message}");
+                    }
                 }
             }
         }
