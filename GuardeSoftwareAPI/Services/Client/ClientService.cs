@@ -497,7 +497,7 @@ namespace GuardeSoftwareAPI.Services.client
                 ActivityLog activityLog = new()
                 {
                     UserId = dto.UserID,
-                    LogDate = dto.StartDate,
+                    LogDate = TimeHelper.GetArgentinaTime(),
                     Action = "CREATE",
                     TableName = "clients",
                     RecordId = newClientId,
@@ -580,6 +580,7 @@ namespace GuardeSoftwareAPI.Services.client
             int rentalId = Convert.ToInt32(rentalTable.Rows[0]["rental_id"]);
 
             var newStartDate = new DateTime(year, month, 1);
+            int newHistoryId = 0;
 
             using var connection = accessDB.GetConnectionClose();
             await connection.OpenAsync();
@@ -605,13 +606,14 @@ namespace GuardeSoftwareAPI.Services.client
                 // Insert new entry
                 string insertQuery = @"
                     INSERT INTO rental_amount_history (rental_id, amount, start_date)
+                    OUTPUT INSERTED.rental_amount_history_id
                     VALUES (@RentalId, @Amount, @StartDate)";
                 using (var cmd = new Microsoft.Data.SqlClient.SqlCommand(insertQuery, connection, transaction))
                 {
                     cmd.Parameters.AddWithValue("@RentalId", rentalId);
                     cmd.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@Amount", System.Data.SqlDbType.Decimal) { Precision = 18, Scale = 2, Value = amount });
                     cmd.Parameters.AddWithValue("@StartDate", newStartDate);
-                    await cmd.ExecuteNonQueryAsync();
+                    newHistoryId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
                 }
 
                 await rentalAmountHistoryService.NormalizeRentalAmountHistoryTransactionAsync(rentalId, connection, transaction);
@@ -625,6 +627,14 @@ namespace GuardeSoftwareAPI.Services.client
 
             // Rebuild balances
             await _clientMonthBalanceService.RebuildForRentalAsync(rentalId);
+
+            await activityLogService.TryCreateActivityLogAsync(new ActivityLog
+            {
+                Action = "CREATE",
+                TableName = "rental_amount_history",
+                RecordId = newHistoryId,
+                NewValue = JsonSerializer.Serialize(new { Id = newHistoryId, rentalId, amount, StartDate = newStartDate })
+            });
         }
 
         public async Task UpdateClientRentalAmountEntryAsync(int clientId, int histId, decimal amount, int year, int month)
@@ -648,6 +658,8 @@ namespace GuardeSoftwareAPI.Services.client
             var verifyTable = await accessDB.GetTableAsync("verify", verifyQuery, verifyParams);
             if (verifyTable.Rows.Count == 0) throw new InvalidOperationException("Tramo no encontrado o no pertenece al cliente.");
             int rentalId = Convert.ToInt32(verifyTable.Rows[0]["rental_id"]);
+            RentalAmountHistoryItemDto? previousHistory = (await GetClientRentalAmountHistoryAsync(clientId))
+                .FirstOrDefault(history => history.Id == histId);
 
             var newStartDate = new DateTime(year, month, 1);
 
@@ -713,6 +725,15 @@ namespace GuardeSoftwareAPI.Services.client
             }
 
             await _clientMonthBalanceService.RebuildForRentalAsync(rentalId);
+
+            await activityLogService.TryCreateActivityLogAsync(new ActivityLog
+            {
+                Action = "UPDATE",
+                TableName = "rental_amount_history",
+                RecordId = histId,
+                OldValue = previousHistory == null ? null : JsonSerializer.Serialize(previousHistory),
+                NewValue = JsonSerializer.Serialize(new { Id = histId, rentalId, amount, StartDate = newStartDate })
+            });
         }
 
         public async Task DeleteClientRentalAmountEntryAsync(int clientId, int histId)
@@ -735,6 +756,8 @@ namespace GuardeSoftwareAPI.Services.client
             var verifyTable = await accessDB.GetTableAsync("verify", verifyQuery, verifyParams);
             if (verifyTable.Rows.Count == 0) throw new InvalidOperationException("Tramo no encontrado o no pertenece al cliente.");
             int rentalId = Convert.ToInt32(verifyTable.Rows[0]["rental_id"]);
+            RentalAmountHistoryItemDto? previousHistory = (await GetClientRentalAmountHistoryAsync(clientId))
+                .FirstOrDefault(history => history.Id == histId);
 
             using var connection = accessDB.GetConnectionClose();
             await connection.OpenAsync();
@@ -777,6 +800,15 @@ namespace GuardeSoftwareAPI.Services.client
             }
 
             await _clientMonthBalanceService.RebuildForRentalAsync(rentalId);
+
+            await activityLogService.TryCreateActivityLogAsync(new ActivityLog
+            {
+                Action = "DELETE",
+                TableName = "rental_amount_history",
+                RecordId = histId,
+                OldValue = previousHistory == null ? null : JsonSerializer.Serialize(previousHistory),
+                NewValue = JsonSerializer.Serialize(new { Deleted = true, rentalId })
+            });
         }
 
         public async Task<GetClientDetailDTO> GetClientDetailByIdAsync(int id)
@@ -1127,6 +1159,7 @@ namespace GuardeSoftwareAPI.Services.client
                             Action = "UPDATE",
                             TableName = "clients",
                             RecordId = id,
+                            OldValue = JsonSerializer.Serialize(existingClient),
                             NewValue = JsonSerializer.Serialize(dto)
                         };
                         await activityLogService.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
@@ -1174,6 +1207,15 @@ namespace GuardeSoftwareAPI.Services.client
                         }
 
                         await daoClient.DeactivateClientTransactionAsync(clientId, connection, transaction);
+
+                        await activityLogService.CreateActivityLogTransactionAsync(new ActivityLog
+                        {
+                            Action = "DELETE",
+                            TableName = "clients",
+                            RecordId = clientId,
+                            OldValue = JsonSerializer.Serialize(new { Active = true }),
+                            NewValue = JsonSerializer.Serialize(new { Active = false })
+                        }, connection, transaction);
 
                         await transaction.CommitAsync();
                         return true;
@@ -1388,19 +1430,52 @@ namespace GuardeSoftwareAPI.Services.client
         public async Task<bool> UpdateClientColorAsync(int clientId, string? color)
         {
             if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
-            return await daoClient.UpdateClientColorAsync(clientId, color);
+            bool updated = await daoClient.UpdateClientColorAsync(clientId, color);
+            if (updated)
+            {
+                await activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                {
+                    Action = "UPDATE",
+                    TableName = "clients",
+                    RecordId = clientId,
+                    NewValue = JsonSerializer.Serialize(new { Field = "color", Value = color })
+                });
+            }
+            return updated;
         }
 
         public async Task<bool> UpdateClientCommentAsync(int clientId, string? comment)
         {
             if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
-            return await daoClient.UpdateClientCommentAsync(clientId, comment);
+            bool updated = await daoClient.UpdateClientCommentAsync(clientId, comment);
+            if (updated)
+            {
+                await activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                {
+                    Action = "UPDATE",
+                    TableName = "clients",
+                    RecordId = clientId,
+                    NewValue = JsonSerializer.Serialize(new { Field = "comment", Value = comment })
+                });
+            }
+            return updated;
         }
 
         public async Task<bool> UpdateClientNotesAsync(int clientId, string? notes)
         {
             if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
-            return await daoClient.UpdateClientNotesAsync(clientId, notes);
+            bool updated = await daoClient.UpdateClientNotesAsync(clientId, notes);
+            if (updated)
+            {
+                await activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                {
+                    Action = "UPDATE",
+                    TableName = "clients",
+                    RecordId = clientId,
+                    NewValue = JsonSerializer.Serialize(new { Field = "notes", Value = notes })
+                });
+            }
+            return updated;
         }
 
         public async Task<decimal> GetNextPaymentIdentifierAsync()

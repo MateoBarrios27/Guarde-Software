@@ -5,6 +5,8 @@ using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.IdentityModel.Tokens;
 using GuardeSoftwareAPI.Dtos.PaymentMethod;
+using GuardeSoftwareAPI.Services.activityLog;
+using System.Text.Json;
 
 namespace GuardeSoftwareAPI.Services.paymentMethod
 {
@@ -12,9 +14,12 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 	public class PaymentMethodService : IPaymentMethodService
 	{
 		readonly DaoPaymentMethod _daoPaymentMethod;
-		public PaymentMethodService(AccessDB accessDB)
+		private readonly IActivityLogService _activityLogService;
+
+		public PaymentMethodService(AccessDB accessDB, IActivityLogService activityLogService)
 		{
 			_daoPaymentMethod = new DaoPaymentMethod(accessDB);
+			_activityLogService = activityLogService;
 		}
 
 		public async Task<List<PaymentMethod>> GetPaymentMethodsList()
@@ -75,13 +80,35 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 			if (paymentMethod == null) throw new ArgumentNullException(nameof(paymentMethod), "Payment method cannot be null.");
 			if (string.IsNullOrWhiteSpace(paymentMethod.Name)) throw new ArgumentException("Payment method name cannot be empty.");
 			if (await _daoPaymentMethod.CheckIfPaymentMethodExists(paymentMethod.Name)) throw new ArgumentException("A payment method with the same name already exists.");
-			return await _daoPaymentMethod.CreatePaymentMethod(paymentMethod);
+			PaymentMethod created = await _daoPaymentMethod.CreatePaymentMethod(paymentMethod);
+			await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+			{
+				Action = "CREATE",
+				TableName = "payment_methods",
+				RecordId = created.Id,
+				NewValue = JsonSerializer.Serialize(new { created.Id, created.Name, created.Commission })
+			});
+			return created;
 		}
 
 		public async Task<bool> DeletePaymentMethod(int paymentMethodId)
 		{
 			if (paymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
-			if (await _daoPaymentMethod.DeletePaymentMethod(paymentMethodId)) return true;
+			PaymentMethod? previous = null;
+			try { previous = await GetPaymentMethodById(paymentMethodId); } catch (ArgumentException) { }
+
+			if (await _daoPaymentMethod.DeletePaymentMethod(paymentMethodId))
+			{
+				await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+				{
+					Action = "DELETE",
+					TableName = "payment_methods",
+					RecordId = paymentMethodId,
+					OldValue = previous == null ? null : JsonSerializer.Serialize(new { previous.Id, previous.Name, previous.Commission }),
+					NewValue = JsonSerializer.Serialize(new { Active = false })
+				});
+				return true;
+			}
 			else return false;
 		}
 
@@ -90,7 +117,21 @@ namespace GuardeSoftwareAPI.Services.paymentMethod
 			if (paymentMethodId <= 0) throw new ArgumentException("Invalid payment method ID.");
 			if (dto.Name != null && string.IsNullOrWhiteSpace(dto.Name)) throw new ArgumentException("Payment method name cannot be empty.");
 			if (dto.Commission < 0m) throw new ArgumentException("Comission cannot be negative.");
-			if (await _daoPaymentMethod.UpdatePaymentMethod(paymentMethodId, dto)) return true;
+			PaymentMethod? previous = null;
+			try { previous = await GetPaymentMethodById(paymentMethodId); } catch (ArgumentException) { }
+
+			if (await _daoPaymentMethod.UpdatePaymentMethod(paymentMethodId, dto))
+			{
+				await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+				{
+					Action = "UPDATE",
+					TableName = "payment_methods",
+					RecordId = paymentMethodId,
+					OldValue = previous == null ? null : JsonSerializer.Serialize(new { previous.Id, previous.Name, previous.Commission }),
+					NewValue = JsonSerializer.Serialize(new { Id = paymentMethodId, dto.Name, dto.Commission })
+				});
+				return true;
+			}
 			else return false;
 		}
 	}

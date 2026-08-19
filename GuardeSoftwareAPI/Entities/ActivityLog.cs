@@ -10,5 +10,9 @@ namespace GuardeSoftwareAPI.Entities
         public int RecordId { get; set; }      
         public string? OldValue { get; set; } = string.Empty;  
         public string? NewValue { get; set; } = string.Empty; // JSON representation of the old and new values
+
+        // Campos de consulta; no se persisten en activity_log.
+        public string UserName { get; set; } = string.Empty;
+        public string UserDisplayName { get; set; } = string.Empty;
     }
 }

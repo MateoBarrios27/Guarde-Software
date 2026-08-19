@@ -1,0 +1,137 @@
+<section class="activity-log-shell flex min-h-[34rem] flex-col overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)]">
+  <header class="border-b border-slate-100 bg-gradient-to-br from-slate-50 via-white to-blue-50/60 px-5 py-5 sm:px-7">
+    <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+      <div class="flex items-start gap-3">
+        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600">
+          <app-icon name="clock" class="h-5 w-5"></app-icon>
+        </div>
+        <div>
+          <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">Auditoría del sistema</p>
+          <h2 class="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Registro de actividad</h2>
+          <p class="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500">Consultá quién realizó cada alta, modificación, baja o inicio de sesión.</p>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-blue-100 bg-white/80 px-3 py-2 text-left shadow-sm xl:text-right">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Registros encontrados</p>
+        <p class="mt-0.5 text-lg font-bold text-slate-800">{{ totalCount | number }}</p>
+      </div>
+    </div>
+
+    <div class="activity-quick-filters mt-5 flex gap-2 overflow-x-auto pb-1" aria-label="Filtrar por área">
+      <button type="button" (click)="selectArea('')" [class.activity-chip-active]="!selectedArea" class="activity-chip shrink-0">Todas las áreas</button>
+      <button *ngFor="let area of areas" type="button" (click)="selectArea(area.value)" [class.activity-chip-active]="selectedArea === area.value" class="activity-chip shrink-0">{{ area.label }}</button>
+    </div>
+  </header>
+
+  <div class="border-b border-slate-100 bg-white px-5 py-4 sm:px-7">
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <label class="activity-field xl:col-span-2">
+        <span>Buscar</span>
+        <input [(ngModel)]="search" name="activitySearch" type="search" placeholder="Usuario, acción o registro…" (keyup.enter)="applyFilters()" />
+      </label>
+
+      <label class="activity-field">
+        <span>Acción</span>
+        <select [(ngModel)]="selectedAction" name="activityAction">
+          <option value="">Todas</option>
+          <option *ngFor="let action of actions" [value]="action.value">{{ action.label }}</option>
+        </select>
+      </label>
+
+      <label class="activity-field">
+        <span>Usuario</span>
+        <select [(ngModel)]="selectedUserId" name="activityUser">
+          <option value="">Todos</option>
+          <option *ngFor="let user of users" [ngValue]="user.id">{{ user.displayName }} ({{ user.userName }})</option>
+        </select>
+      </label>
+
+      <label class="activity-field">
+        <span>Desde</span>
+        <input [(ngModel)]="fromDate" name="activityFromDate" type="date" />
+      </label>
+
+      <label class="activity-field">
+        <span>Hasta</span>
+        <input [(ngModel)]="toDate" name="activityToDate" type="date" />
+      </label>
+    </div>
+
+    <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+      <button type="button" (click)="clearFilters()" class="activity-secondary-button">
+        <app-icon name="x" class="h-4 w-4"></app-icon>
+        Limpiar
+      </button>
+      <button type="button" (click)="applyFilters()" class="activity-primary-button">
+        <app-icon name="search" class="h-4 w-4"></app-icon>
+        Aplicar filtros
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="errorMessage" class="mx-5 mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 sm:mx-7" role="alert">
+    {{ errorMessage }}
+  </div>
+
+  <div class="min-h-0 flex-1 overflow-x-auto overflow-y-hidden px-0 sm:px-2">
+    <table class="activity-table min-w-[900px] w-full text-left">
+      <thead>
+        <tr>
+          <th>Fecha y hora</th>
+          <th>Usuario</th>
+          <th>Área</th>
+          <th>Acción</th>
+          <th>Registro</th>
+          <th>Detalle</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngIf="isLoading">
+          <td colspan="6" class="px-5 py-14 text-center text-sm text-slate-500">
+            <span class="inline-flex items-center gap-2"><span class="activity-spinner"></span> Cargando actividad…</span>
+          </td>
+        </tr>
+        <tr *ngIf="!isLoading && activities.length === 0">
+          <td colspan="6" class="px-5 py-14 text-center text-sm text-slate-500">No hay actividades para los filtros seleccionados.</td>
+        </tr>
+        <tr *ngFor="let activity of activities; trackBy: trackByActivityId" class="activity-row">
+          <td class="whitespace-nowrap font-medium text-slate-700">{{ activity.logDate | date:'dd/MM/yyyy HH:mm' }}</td>
+          <td>
+            <div class="flex min-w-40 items-center gap-2.5">
+              <span class="activity-avatar">{{ (displayUser(activity) || 'U').charAt(0).toUpperCase() }}</span>
+              <div class="min-w-0">
+                <p class="truncate font-semibold text-slate-800">{{ displayUser(activity) }}</p>
+                <p class="truncate text-xs text-slate-400">{{ activity.userName || ('ID ' + activity.userId) }}</p>
+              </div>
+            </div>
+          </td>
+          <td><span class="activity-area-label">{{ areaLabel(activity.tableName) }}</span></td>
+          <td><span [class]="actionClass(activity.action)">{{ actionLabel(activity.action) }}</span></td>
+          <td class="font-mono text-xs text-slate-500">#{{ activity.recordId }}</td>
+          <td class="max-w-[24rem] text-xs leading-5 text-slate-500">
+            <p *ngIf="activity.oldValue" class="truncate"><span class="font-bold text-slate-400">Antes:</span> {{ snapshotPreview(activity.oldValue) }}</p>
+            <p *ngIf="activity.newValue" class="truncate"><span class="font-bold text-slate-400">Después:</span> {{ snapshotPreview(activity.newValue) }}</p>
+            <span *ngIf="!activity.oldValue && !activity.newValue" class="text-slate-400">Sin detalle adicional</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer class="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+    <div class="flex items-center gap-2 text-xs font-medium text-slate-500">
+      <span>Filas por página</span>
+      <select [(ngModel)]="pageSize" name="activityPageSize" (ngModelChange)="onPageSizeChange()" class="activity-page-size">
+        <option *ngFor="let size of pageSizes" [ngValue]="size">{{ size }}</option>
+      </select>
+      <span *ngIf="totalPages > 0">Página {{ pageNumber }} de {{ totalPages }}</span>
+    </div>
+
+    <nav *ngIf="totalPages > 1" class="flex items-center gap-1" aria-label="Paginación de actividad">
+      <button type="button" (click)="goToPage(pageNumber - 1)" [disabled]="pageNumber === 1 || isLoading" class="activity-page-button" aria-label="Página anterior">‹</button>
+      <button *ngFor="let page of visiblePages" type="button" (click)="goToPage(page)" [class.activity-page-button-active]="page === pageNumber" class="activity-page-button">{{ page }}</button>
+      <button type="button" (click)="goToPage(pageNumber + 1)" [disabled]="pageNumber === totalPages || isLoading" class="activity-page-button" aria-label="Página siguiente">›</button>
+    </nav>
+  </footer>
+</section>

@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using GuardeSoftwareAPI.Dtos.Communication;
 using GuardeSoftwareAPI.Services.communication;
+using GuardeSoftwareAPI.Services.activityLog;
+using GuardeSoftwareAPI.Entities;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
-// using System.Security.Claims; // To get the real user ID
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -12,11 +14,13 @@ namespace GuardeSoftwareAPI.Controllers
     public class CommunicationsController : ControllerBase
     {
         private readonly ICommunicationService _communicationService;
+        private readonly IActivityLogService _activityLogService;
         private readonly ILogger<CommunicationsController> _logger;
 
-        public CommunicationsController(ICommunicationService communicationService, ILogger<CommunicationsController> logger)
+        public CommunicationsController(ICommunicationService communicationService, IActivityLogService activityLogService, ILogger<CommunicationsController> logger)
         {
             _communicationService = communicationService;
+            _activityLogService = activityLogService;
             _logger = logger;
         }
 
@@ -55,14 +59,16 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                // Get the user ID from the authenticated token
-                // var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                // int userId = int.Parse(userIdString);
+                int userId = await GetCurrentUserIdAsync();
+                var newCommunication = await _communicationService.CreateCommunicationAsync(request, userId);
 
-                // Using 1 as a placeholder for user ID
-                int placeholderUserId = 1;
-
-                var newCommunication = await _communicationService.CreateCommunicationAsync(request, placeholderUserId);
+                await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                {
+                    Action = "CREATE",
+                    TableName = "communications",
+                    RecordId = newCommunication.Id,
+                    NewValue = JsonSerializer.Serialize(CreateCommunicationSnapshot(newCommunication))
+                });
 
                 // Return a 201 Created status with the new object
                 return CreatedAtAction(nameof(GetCommunicationById), new { id = newCommunication.Id }, newCommunication);
@@ -78,11 +84,18 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                // Get user ID from claims
-                // var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-                int placeholderUserId = 1; // Use placeholder
-                
-                var updatedComm = await _communicationService.UpdateCommunicationAsync(id, request, placeholderUserId);
+                int userId = await GetCurrentUserIdAsync();
+                var previousComm = await _communicationService.GetCommunicationById(id);
+                var updatedComm = await _communicationService.UpdateCommunicationAsync(id, request, userId);
+
+                await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                {
+                    Action = "UPDATE",
+                    TableName = "communications",
+                    RecordId = id,
+                    OldValue = JsonSerializer.Serialize(CreateCommunicationSnapshot(previousComm)),
+                    NewValue = JsonSerializer.Serialize(CreateCommunicationSnapshot(updatedComm))
+                });
                 return Ok(updatedComm);
             }
             catch (Exception ex)
@@ -97,9 +110,18 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
+                var previousComm = await _communicationService.GetCommunicationById(id);
                 bool success = await _communicationService.DeleteCommunicationAsync(id);
                 if (success)
                 {
+                    await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                    {
+                        Action = "DELETE",
+                        TableName = "communications",
+                        RecordId = id,
+                        OldValue = JsonSerializer.Serialize(CreateCommunicationSnapshot(previousComm)),
+                        NewValue = JsonSerializer.Serialize(new { Deleted = true })
+                    });
                     return NoContent(); // 204 No Content is standard for successful delete
                 }
                 else
@@ -120,6 +142,13 @@ namespace GuardeSoftwareAPI.Controllers
             try
             {
                 var updatedComm = await _communicationService.SendDraftNowAsync(id);
+                await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                {
+                    Action = "UPDATE",
+                    TableName = "communications",
+                    RecordId = id,
+                    NewValue = JsonSerializer.Serialize(new { Operation = "SEND_NOW", updatedComm.Status, updatedComm.SendDate, updatedComm.SendTime })
+                });
                 return Ok(updatedComm); // Returns the updated DTO
             }
             catch (Exception ex)
@@ -154,7 +183,17 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                var updatedComm = await _communicationService.RetrySelectedFailedCommunicationAsync(id, new List<int>());
+                var updatedComm = await _communicationService.RetrySelectedFailedCommunicationAsync(
+                    id,
+                    new List<int>(),
+                    null);
+                await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                {
+                    Action = "UPDATE",
+                    TableName = "communications",
+                    RecordId = id,
+                    NewValue = JsonSerializer.Serialize(new { Operation = "RETRY", updatedComm.Status, updatedComm.SendDate, updatedComm.SendTime })
+                });
                 return Ok(updatedComm);
             }
             catch (Exception ex)
@@ -169,7 +208,25 @@ namespace GuardeSoftwareAPI.Controllers
         {
             try
             {
-                var updatedComm = await _communicationService.RetrySelectedFailedCommunicationAsync(id, request?.SelectedClientIds ?? new List<int>());
+                var updatedComm = await _communicationService.RetrySelectedFailedCommunicationAsync(
+                    id,
+                    request?.SelectedClientIds ?? new List<int>(),
+                    request?.SelectedExternalRecipientIds ?? new List<int>());
+                await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                {
+                    Action = "UPDATE",
+                    TableName = "communications",
+                    RecordId = id,
+                    NewValue = JsonSerializer.Serialize(new
+                    {
+                        Operation = "RETRY_SELECTED",
+                        updatedComm.Status,
+                        updatedComm.SendDate,
+                        updatedComm.SendTime,
+                        SelectedCount = (request?.SelectedClientIds?.Count ?? 0)
+                            + (request?.SelectedExternalRecipientIds?.Count ?? 0)
+                    })
+                });
                 return Ok(updatedComm);
             }
             catch (Exception ex)
@@ -177,6 +234,32 @@ namespace GuardeSoftwareAPI.Controllers
                 _logger.LogError(ex, "Error reintentando seleccionados del comunicado {Id}", id);
                 return StatusCode(500, new { message = ex.Message });
             }
+        }
+
+        private async Task<int> GetCurrentUserIdAsync()
+        {
+            int? userId = await _activityLogService.GetCurrentUserIdAsync();
+            if (!userId.HasValue)
+                throw new UnauthorizedAccessException("No se pudo identificar al usuario autenticado.");
+
+            return userId.Value;
+        }
+
+        private static object CreateCommunicationSnapshot(CommunicationDto communication)
+        {
+            return new
+            {
+                communication.Id,
+                communication.Title,
+                communication.Status,
+                communication.Channel,
+                communication.SmtpConfigId,
+                communication.IsAccountStatement,
+                communication.IsNextMonthStatement,
+                communication.SendToAllEmails,
+                RecipientCount = communication.Recipients?.Count ?? 0,
+                AttachmentCount = communication.Dispatches?.Count ?? 0
+            };
         }
 
         [HttpGet("recipients-list")]

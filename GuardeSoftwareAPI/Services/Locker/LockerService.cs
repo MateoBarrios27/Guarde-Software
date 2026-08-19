@@ -5,6 +5,8 @@ using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Dtos.Locker;
+using GuardeSoftwareAPI.Services.activityLog;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Services.locker
@@ -14,11 +16,13 @@ namespace GuardeSoftwareAPI.Services.locker
     {
 		private readonly DaoLocker daoLocker;
 		private readonly AccessDB _accessDB;
+		private readonly IActivityLogService _activityLogService;
 
-		public LockerService(AccessDB accessDB)
+		public LockerService(AccessDB accessDB, IActivityLogService activityLogService)
 		{
 			daoLocker = new DaoLocker(accessDB);
 			_accessDB = accessDB;
+			_activityLogService = activityLogService;
 		}
 
 		public async Task<List<Locker>> GetLockersList() {
@@ -97,7 +101,24 @@ namespace GuardeSoftwareAPI.Services.locker
             if (locker.IsFreeSpace)
                 locker.Status = "DISPONIBLE";
 
-            return await daoLocker.CreateLocker(locker);
+			Locker created = await daoLocker.CreateLocker(locker);
+			await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+			{
+				Action = "CREATE",
+				TableName = "lockers",
+				RecordId = created.Id,
+				NewValue = JsonSerializer.Serialize(new
+				{
+					created.Id,
+					created.WarehouseId,
+					created.LockerTypeId,
+					created.Identifier,
+					created.Features,
+					created.Status,
+					created.IsFreeSpace
+				})
+			});
+			return created;
         }
 
         public async Task<bool> SetRentalTransactionAsync(int rentalId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction)
@@ -143,8 +164,20 @@ namespace GuardeSoftwareAPI.Services.locker
             if (id <= 0)
                 throw new ArgumentException("Invalid Locker Id.");
 
-            if (await daoLocker.DeleteLocker(id)) return true;
-            else return false;
+			Locker? previous = (await GetLockerListById(id)).FirstOrDefault();
+			if (await daoLocker.DeleteLocker(id))
+			{
+				await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+				{
+					Action = "DELETE",
+					TableName = "lockers",
+					RecordId = id,
+					OldValue = previous == null ? null : JsonSerializer.Serialize(previous),
+					NewValue = JsonSerializer.Serialize(new { Active = false })
+				});
+				return true;
+			}
+			else return false;
         }
 
         public async Task<bool> IsLockerAvailableAsync(int lockerId, SqlConnection connection, SqlTransaction transaction)
@@ -186,7 +219,20 @@ namespace GuardeSoftwareAPI.Services.locker
                 IsFreeSpace = dto.IsFreeSpace
             };
 
-            return await ProcessLockerUnassignmentIfAvailableAsync(Id, dto.Status, Locker);  
+			Locker? previous = (await GetLockerListById(Id)).FirstOrDefault();
+			bool updated = await ProcessLockerUnassignmentIfAvailableAsync(Id, dto.Status, Locker);
+			if (updated)
+			{
+				await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+				{
+					Action = "UPDATE",
+					TableName = "lockers",
+					RecordId = Id,
+					OldValue = previous == null ? null : JsonSerializer.Serialize(previous),
+					NewValue = JsonSerializer.Serialize(Locker)
+				});
+			}
+			return updated;
         }
 
         public async Task<bool> UpdateLockerStatus(int lockerId, UpdateLockerStatusDto dto)
@@ -195,7 +241,20 @@ namespace GuardeSoftwareAPI.Services.locker
             if (string.IsNullOrWhiteSpace(dto.Status)) throw new ArgumentException("Status is required.");
 
 
-            return await ProcessLockerUnassignmentIfAvailableAsync(lockerId, dto.Status, null);
+			Locker? previous = (await GetLockerListById(lockerId)).FirstOrDefault();
+			bool updated = await ProcessLockerUnassignmentIfAvailableAsync(lockerId, dto.Status, null);
+			if (updated)
+			{
+				await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+				{
+					Action = "UPDATE",
+					TableName = "lockers",
+					RecordId = lockerId,
+					OldValue = previous == null ? null : JsonSerializer.Serialize(previous),
+					NewValue = JsonSerializer.Serialize(new { Id = lockerId, Status = dto.Status })
+				});
+			}
+			return updated;
         }
 
         private async Task<bool> ProcessLockerUnassignmentIfAvailableAsync(int lockerId, string newStatus, Locker? fullLockerUpdate)

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Data;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dao;
+using GuardeSoftwareAPI.Services.activityLog;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace GuardeSoftwareAPI.Services.lockerType
@@ -11,10 +13,12 @@ namespace GuardeSoftwareAPI.Services.lockerType
     public class LockerTypeService : ILockerTypeService
     {
         private readonly DaoLockerType daoLockerType;
+        private readonly IActivityLogService _activityLogService;
 
-        public LockerTypeService(AccessDB accessDB)
+        public LockerTypeService(AccessDB accessDB, IActivityLogService activityLogService)
         {
             daoLockerType = new DaoLockerType(accessDB);
+            _activityLogService = activityLogService;
         }
 
         public async Task<List<LockerType>> GetLockerTypesList()
@@ -69,7 +73,15 @@ namespace GuardeSoftwareAPI.Services.lockerType
             if (await daoLockerType.CheckIfLockerTypeNameExistsAsync(lockerType.Name))
                 throw new ArgumentException("Locker type name already exists.");
 
-            return await daoLockerType.CreateLockerType(lockerType);
+            LockerType created = await daoLockerType.CreateLockerType(lockerType);
+            await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+            {
+                Action = "CREATE",
+                TableName = "locker_types",
+                RecordId = created.Id,
+                NewValue = JsonSerializer.Serialize(new { created.Id, created.Name, created.M3 })
+            });
+            return created;
         }
 
         public async Task<bool> UpdateLockerType(LockerType lockerType)
@@ -88,7 +100,22 @@ namespace GuardeSoftwareAPI.Services.lockerType
             if (await daoLockerType.CheckIfLockerTypeNameExistsAsync(lockerType.Name, lockerType.Id))
                 throw new ArgumentException("Locker type name already exists.");
 
-            return await daoLockerType.UpdateLockerType(lockerType);
+            LockerType? previous = null;
+            try { previous = (await GetLockerTypeListById(lockerType.Id)).FirstOrDefault(); } catch (ArgumentException) { }
+
+            bool updated = await daoLockerType.UpdateLockerType(lockerType);
+            if (updated)
+            {
+                await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                {
+                    Action = "UPDATE",
+                    TableName = "locker_types",
+                    RecordId = lockerType.Id,
+                    OldValue = previous == null ? null : JsonSerializer.Serialize(previous),
+                    NewValue = JsonSerializer.Serialize(new { lockerType.Id, lockerType.Name, lockerType.M3 })
+                });
+            }
+            return updated;
         }
 
         public async Task<bool> DeleteLockerType(int id)
@@ -96,7 +123,22 @@ namespace GuardeSoftwareAPI.Services.lockerType
             if (id <= 0)
                 throw new ArgumentException("Invalid locker type ID.");
 
-            return await daoLockerType.DeleteLockerType(id);
+            LockerType? previous = null;
+            try { previous = (await GetLockerTypeListById(id)).FirstOrDefault(); } catch (ArgumentException) { }
+
+            bool deleted = await daoLockerType.DeleteLockerType(id);
+            if (deleted)
+            {
+                await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                {
+                    Action = "DELETE",
+                    TableName = "locker_types",
+                    RecordId = id,
+                    OldValue = previous == null ? null : JsonSerializer.Serialize(previous),
+                    NewValue = JsonSerializer.Serialize(new { Active = false })
+                });
+            }
+            return deleted;
         }
     }
 }

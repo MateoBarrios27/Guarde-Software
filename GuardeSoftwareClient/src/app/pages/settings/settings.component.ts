@@ -35,11 +35,17 @@ import { AuthService } from '../../core/services/auth-service/auth.service';
 import { CreateAlertModalComponent } from '../../shared/components/create-alert-modal/create-alert-modal.component';
 import { SyncService } from '../../core/services/offline-service/sync.service';
 import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
+import { ActivityLogPanelComponent } from '../../shared/components/activity-log-panel/activity-log-panel.component';
+import {
+  MassCommunicationRecipient,
+  UpsertMassCommunicationRecipient
+} from '../../core/models/mass-communication-recipient';
+import { MassCommunicationRecipientService } from '../../core/services/mass-communication-recipient-service/mass-communication-recipient.service';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, CreateAlertModalComponent],
+  imports: [CommonModule, FormsModule, IconComponent, CreateAlertModalComponent, ActivityLogPanelComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css'
 })
@@ -56,7 +62,8 @@ export class SettingsComponent implements OnInit {
     private lockerTypeService: LockerTypeService,
     public authService: AuthService,
     private syncService: SyncService,
-    private deleteConfirmation: DeleteConfirmationService
+    private deleteConfirmation: DeleteConfirmationService,
+    private massRecipientService: MassCommunicationRecipientService
   ) {}
 
   activeSection: string = 'usuarios';
@@ -149,6 +156,16 @@ export class SettingsComponent implements OnInit {
     bccEmail: 'estadodecuenta@abono.com.ar' // Default value
   });
 
+  // --- Receptores externos para comunicados masivos ---
+  massRecipients: MassCommunicationRecipient[] = [];
+  showMassRecipientModal = false;
+  editingMassRecipientId: number | null = null;
+  massRecipientForm: UpsertMassCommunicationRecipient = {
+    name: '',
+    email: '',
+    phone: ''
+  };
+
   // --- LockerTypes properties ---
   lockerTypes: LockerType[] = [];
   newLockerType: CreateLockerTypeDto = { name: '', m3: 0 };
@@ -179,6 +196,7 @@ export class SettingsComponent implements OnInit {
     this.loadBillingTypes();
     this.loadMonthlyIncreases();
     this.loadConfigs();
+    this.loadMassRecipients();
     this.loadWarehouses();
     this.loadLockerTypes();
   }
@@ -255,12 +273,14 @@ export class SettingsComponent implements OnInit {
   // --- Navegación ---
   configSections = [
     { id: 'usuarios', title: 'Usuarios', icon: '👤', adminOnly: true },
+    { id: 'activity-log', title: 'Registro de actividad', icon: '🕘', adminOnly: true },
     { id: 'medios-pago', title: 'Medios de Pago', icon: '💳' },
     { id: 'facturacion', title: 'Facturación', icon: '📄' },
     { id: 'locker-types', title: 'Tipos de Bauleras', icon: '🗄️' },
     { id: 'depositos', title: 'Depósitos', icon: '🏢' },
     // { id: 'aumentos', title: 'Aumentos Mensuales', icon: '📈' },
     { id: 'smtp', title: 'Configuración de Mails', icon: '✉️' },
+    { id: 'mass-recipients', title: 'Receptores de comunicados', icon: '👥' },
     { id: 'offline', title: ' Modo Offline', icon: '💾' }
     // { id: 'datos', title: 'Datos', icon: '🗄️' }
   ];
@@ -880,6 +900,110 @@ export class SettingsComponent implements OnInit {
         title: 'No se pudo eliminar',
         text: 'Intentá nuevamente en unos instantes.'
       })
+    });
+  }
+
+  // --- Receptores externos para comunicados masivos ---
+  loadMassRecipients(): void {
+    this.massRecipientService.getAll().subscribe({
+      next: (data) => this.massRecipients = data,
+      error: (err) => {
+        console.error('Error al cargar receptores de comunicados', err);
+        Swal.fire('Error', 'No se pudieron cargar los receptores de comunicados.', 'error');
+      }
+    });
+  }
+
+  openMassRecipientModal(recipient?: MassCommunicationRecipient): void {
+    if (recipient) {
+      this.editingMassRecipientId = recipient.id;
+      this.massRecipientForm = {
+        name: recipient.name ?? '',
+        email: recipient.email ?? '',
+        phone: recipient.phone ?? ''
+      };
+    } else {
+      this.editingMassRecipientId = null;
+      this.massRecipientForm = {
+        name: '',
+        email: '',
+        phone: ''
+      };
+    }
+
+    this.showMassRecipientModal = true;
+  }
+
+  closeMassRecipientModal(): void {
+    this.showMassRecipientModal = false;
+  }
+
+  saveMassRecipient(): void {
+    const dto: UpsertMassCommunicationRecipient = {
+      name: this.massRecipientForm.name?.trim() ?? '',
+      email: this.massRecipientForm.email?.trim() ?? '',
+      phone: this.massRecipientForm.phone?.trim() ?? ''
+    };
+
+    if (dto.email && !this.isValidEmail(dto.email)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Email inválido',
+        text: 'Revisá la dirección de correo ingresada antes de continuar.'
+      });
+      return;
+    }
+
+    const request = this.editingMassRecipientId
+      ? this.massRecipientService.update(this.editingMassRecipientId, dto)
+      : this.massRecipientService.create(dto);
+
+    request.subscribe({
+      next: () => {
+        const wasEditing = this.editingMassRecipientId !== null;
+        this.loadMassRecipients();
+        this.closeMassRecipientModal();
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: wasEditing ? 'Receptor actualizado' : 'Receptor agregado',
+          showConfirmButton: false,
+          timer: 2400,
+          timerProgressBar: true
+        });
+      },
+      error: (err) => {
+        console.error('Error al guardar receptor de comunicados', err);
+        Swal.fire('Error', 'No se pudo guardar el receptor.', 'error');
+      }
+    });
+  }
+
+  async deleteMassRecipient(id: number): Promise<void> {
+    const confirmed = await this.deleteConfirmation.confirm({
+      headerTitle: 'Eliminar receptor',
+      message: 'El contacto dejará de participar en los próximos comunicados masivos.'
+    });
+    if (!confirmed) return;
+
+    this.massRecipientService.delete(id).subscribe({
+      next: () => {
+        this.massRecipients = this.massRecipients.filter(recipient => recipient.id !== id);
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'Receptor eliminado',
+          showConfirmButton: false,
+          timer: 2200,
+          timerProgressBar: true
+        });
+      },
+      error: (err) => {
+        console.error('Error al eliminar receptor de comunicados', err);
+        Swal.fire('Error', 'No se pudo eliminar el receptor.', 'error');
+      }
     });
   }
 

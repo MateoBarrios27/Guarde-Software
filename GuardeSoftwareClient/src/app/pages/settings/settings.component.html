@@ -92,6 +92,9 @@
         </div>
       </div>
 
+      <!-- Registro de actividad: sólo visible para administradores -->
+      <app-activity-log-panel *ngIf="activeSection === 'activity-log'"></app-activity-log-panel>
+
       <!-- Sección SMTP -->
       <div *ngIf="activeSection === 'smtp'" class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 flex flex-col overflow-hidden">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 p-5 gap-3">
@@ -99,10 +102,20 @@
             <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Servidores de Correo (SMTP)</h3>
             <p class="text-xs text-gray-500 mt-1">Gestiona las cuentas para el envío de comunicados</p>
           </div>
-          <button class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 border border-transparent text-white text-sm font-medium hover:bg-blue-700 transition-all shadow-sm"
-          (click)="openModal()">
-            <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Servidor
-          </button>
+          <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <button
+              type="button"
+              class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-white border border-blue-200 text-blue-700 text-sm font-medium hover:bg-blue-50 transition-all"
+              (click)="setActive('mass-recipients')"
+            >
+              <app-icon name="users" class="w-4 h-4"></app-icon>
+              Receptores
+            </button>
+            <button class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 border border-transparent text-white text-sm font-medium hover:bg-blue-700 transition-all shadow-sm"
+            (click)="openModal()">
+              <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Servidor
+            </button>
+          </div>
         </div>
         <div class="p-5 grid gap-4 md:grid-cols-2 lg:grid-cols-2">
           @for (smtp of smtpConfigs(); track smtp.id) {
@@ -221,6 +234,204 @@
             <div class="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
               <button type="button" (click)="closeModal()" class="smtp-secondary-action">Cancelar</button>
               <button type="submit" class="smtp-primary-action"><app-icon name="check" class="h-4 w-4"></app-icon>{{ currentConfig().id ? 'Guardar cambios' : 'Crear servidor' }}</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <!-- Receptores externos de comunicados masivos -->
+      <div *ngIf="activeSection === 'mass-recipients'" class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 flex flex-col overflow-hidden h-full">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 p-5 gap-3">
+          <div>
+            <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Receptores de comunicados</h3>
+            <p class="text-xs text-gray-500 mt-1">Contactos externos para campañas generales como la comunicación de ICBC</p>
+          </div>
+          <button
+            type="button"
+            class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 border border-transparent text-white text-sm font-medium hover:bg-blue-700 transition-all shadow-sm"
+            (click)="openMassRecipientModal()"
+          >
+            <app-icon name="plus" class="w-4 h-4"></app-icon>
+            Nuevo receptor
+          </button>
+        </div>
+
+        <div class="p-5">
+          <div class="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 flex items-start gap-3">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
+              <app-icon name="info" class="h-4 w-4"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-slate-800">Cómo se utilizan estos contactos</p>
+              <p class="mt-1 text-xs leading-relaxed text-slate-600">
+                Los receptores que tengan email participan automáticamente en la opción
+                <strong>“Todos los emails”</strong> de los comunicados masivos.
+                El teléfono queda guardado para futuras comunicaciones por WhatsApp.
+                 La copia oculta se toma del servidor SMTP seleccionado para el comunicado cuando la opción
+                 <strong>“Copia oculta”</strong> está habilitada.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto overflow-y-hidden flex-1 w-full custom-scrollbar">
+          <table class="w-full min-w-[680px] text-sm text-left border-collapse bg-white">
+            <thead class="text-[10px] text-gray-400 uppercase tracking-widest bg-[#f8f9fa] border-y border-gray-100 sticky top-0 z-20">
+              <tr>
+                <th class="px-5 py-3.5 font-semibold">Nombre</th>
+                <th class="px-5 py-3.5 font-semibold">Email</th>
+                <th class="px-5 py-3.5 font-semibold">Teléfono</th>
+                <th class="px-5 py-3.5 font-semibold text-right w-32">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              @for (recipient of massRecipients; track recipient.id) {
+                <tr class="hover:bg-gray-50/60 transition-colors group">
+                  <td class="px-5 py-3.5 align-middle font-medium text-gray-900">
+                    {{ recipient.name || 'Sin nombre' }}
+                  </td>
+                  <td class="px-5 py-3.5 align-middle text-gray-600">
+                    <span *ngIf="recipient.email; else noRecipientEmail">{{ recipient.email }}</span>
+                    <ng-template #noRecipientEmail>
+                      <span class="text-gray-400 italic">Sin email</span>
+                    </ng-template>
+                  </td>
+                  <td class="px-5 py-3.5 align-middle text-gray-600">
+                    <span *ngIf="recipient.phone; else noRecipientPhone">{{ recipient.phone }}</span>
+                    <ng-template #noRecipientPhone>
+                      <span class="text-gray-400 italic">Sin teléfono</span>
+                    </ng-template>
+                  </td>
+                  <td class="px-5 py-3.5 align-middle">
+                    <div class="flex items-center justify-end gap-1.5 opacity-100 lg:opacity-40 lg:group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        class="p-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded-lg text-gray-500 hover:text-gray-700 transition-all shadow-sm"
+                        title="Editar receptor"
+                        (click)="openMassRecipientModal(recipient)"
+                      >
+                        <app-icon name="edit" class="w-4 h-4"></app-icon>
+                      </button>
+                      <button
+                        type="button"
+                        class="p-1.5 bg-red-50 border border-red-100 hover:border-red-200 rounded-lg text-red-600 transition-all shadow-sm"
+                        title="Eliminar receptor"
+                        (click)="deleteMassRecipient(recipient.id)"
+                      >
+                        <app-icon name="Trash2" class="w-4 h-4"></app-icon>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="4" class="px-5 py-14 text-center">
+                    <div class="flex flex-col items-center justify-center text-gray-400">
+                      <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 text-gray-400">
+                        <app-icon name="users" class="h-6 w-6"></app-icon>
+                      </div>
+                      <p class="mt-3 text-sm font-semibold text-gray-600">Todavía no hay receptores cargados</p>
+                      <p class="mt-1 text-xs text-gray-400">Agregá un contacto para incluirlo en futuros comunicados masivos.</p>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal de receptor externo -->
+      <div
+        *ngIf="showMassRecipientModal"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm sm:p-6"
+        (click)="closeMassRecipientModal()"
+        (keydown.escape)="closeMassRecipientModal()"
+        tabindex="-1"
+        role="presentation"
+      >
+        <section
+          class="w-full max-w-xl overflow-hidden rounded-[1.5rem] border border-white/70 bg-white shadow-[0_30px_90px_-28px_rgba(15,23,42,0.62)]"
+          (click)="$event.stopPropagation()"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mass-recipient-modal-title"
+        >
+          <div class="relative overflow-hidden border-b border-slate-100 bg-gradient-to-br from-slate-50 via-white to-blue-50/80 px-5 py-5 sm:px-7 sm:py-6">
+            <div class="absolute -right-12 -top-16 h-40 w-40 rounded-full bg-blue-200/30 blur-3xl"></div>
+            <div class="relative flex items-start justify-between gap-4">
+              <div class="flex items-start gap-3.5">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+                  <app-icon name="users" class="h-5 w-5"></app-icon>
+                </div>
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">Agenda de comunicados</p>
+                  <h2 id="mass-recipient-modal-title" class="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                    {{ editingMassRecipientId ? 'Editar receptor' : 'Nuevo receptor' }}
+                  </h2>
+                  <p class="mt-1 max-w-lg text-sm leading-relaxed text-slate-500">
+                    Todos los datos son opcionales. Solo se utilizarán los canales que estén cargados.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                (click)="closeMassRecipientModal()"
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-xl leading-none text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                aria-label="Cerrar modal"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          <form #massRecipientFormElement="ngForm" novalidate (ngSubmit)="saveMassRecipient()">
+            <div class="grid gap-5 p-5 sm:p-7">
+              <label class="block">
+                <span class="block text-xs font-bold uppercase tracking-widest text-slate-500">Nombre</span>
+                <input
+                  type="text"
+                  name="massRecipientName"
+                  autocomplete="name"
+                  [(ngModel)]="massRecipientForm.name"
+                  class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  placeholder="Ej. Natalia Pedro"
+                />
+              </label>
+
+              <label class="block">
+                <span class="block text-xs font-bold uppercase tracking-widest text-slate-500">Email</span>
+                <input
+                  type="email"
+                  name="massRecipientEmail"
+                  autocomplete="email"
+                  [(ngModel)]="massRecipientForm.email"
+                  class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  placeholder="contacto@dominio.com"
+                />
+                <span class="mt-1.5 block text-xs text-slate-400">Se incluirá en los comunicados masivos por email.</span>
+              </label>
+
+              <label class="block">
+                <span class="block text-xs font-bold uppercase tracking-widest text-slate-500">Teléfono</span>
+                <input
+                  type="tel"
+                  name="massRecipientPhone"
+                  autocomplete="tel"
+                  [(ngModel)]="massRecipientForm.phone"
+                  class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  placeholder="11 1234-5678"
+                />
+                <span class="mt-1.5 block text-xs text-slate-400">Queda disponible para futuras comunicaciones telefónicas o WhatsApp.</span>
+              </label>
+            </div>
+
+            <div class="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
+              <button type="button" (click)="closeMassRecipientModal()" class="smtp-secondary-action">Cancelar</button>
+              <button type="submit" class="smtp-primary-action">
+                <app-icon name="check" class="h-4 w-4"></app-icon>
+                {{ editingMassRecipientId ? 'Guardar cambios' : 'Agregar receptor' }}
+              </button>
             </div>
           </form>
         </section>

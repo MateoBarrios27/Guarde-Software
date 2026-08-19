@@ -1,20 +1,30 @@
-﻿using System;
+using GuardeSoftwareAPI.Dtos.ActivityLog;
+using GuardeSoftwareAPI.Dtos.Common;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
 
-namespace GuardeSoftwareAPI.Services.activityLog {
+namespace GuardeSoftwareAPI.Services.activityLog
+{
+    public interface IActivityLogService
+    {
+        Task<List<ActivityLog>> GetActivityLogList();
 
-	public interface IActivityLogService
-	{
-		Task<List<ActivityLog>> GetActivityLogList();
+        Task<PaginatedResultDto<ActivityLog>> GetActivityLogPageAsync(ActivityLogFilterDto filter);
 
-		Task<List<ActivityLog>> GetActivityLoglistByUserId(int id);
+        Task<List<ActivityLogUserDto>> GetActivityLogUsersAsync();
 
-		Task<bool> CreateActivityLog(ActivityLog activitylog);
+        Task<int?> GetCurrentUserIdAsync();
 
-		Task<bool> DeleteActivityLog(int id);
+        Task<bool> IsCurrentUserAdminAsync();
 
-		Task<bool> CreateActivityLogTransactionAsync(ActivityLog activityLog, SqlConnection connection, SqlTransaction transaction);
+        Task<List<ActivityLog>> GetActivityLoglistByUserId(int id);
 
+        Task<bool> CreateActivityLog(ActivityLog activitylog);
+
+        Task<bool> TryCreateActivityLogAsync(ActivityLog activityLog);
+
+        Task<bool> DeleteActivityLog(int id);
+
+        Task<bool> CreateActivityLogTransactionAsync(ActivityLog activityLog, SqlConnection connection, SqlTransaction transaction);
     }
 }

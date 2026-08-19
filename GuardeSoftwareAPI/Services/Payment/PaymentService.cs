@@ -12,6 +12,8 @@ using GuardeSoftwareAPI.Services.clientMonthBalance;
 using GuardeSoftwareAPI.Hubs;
 using Microsoft.Data.SqlClient;
 using System.Globalization;
+using GuardeSoftwareAPI.Services.activityLog;
+using System.Text.Json;
 
 namespace GuardeSoftwareAPI.Services.payment
 {
@@ -30,8 +32,9 @@ namespace GuardeSoftwareAPI.Services.payment
         private readonly IClientMonthBalanceService _clientMonthBalanceService;
         private readonly IPaymentStateService _paymentStateService;
         private readonly PaymentPresenceRegistry _paymentPresenceRegistry;
+        private readonly IActivityLogService _activityLogService;
 
-		public PaymentService(AccessDB _accessDB, IAccountMovementService _accountMovementService, ILogger<PaymentService> logger, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, IPaymentMethodService _paymentMethodService, IClientMonthBalanceService clientMonthBalanceService, IPaymentStateService paymentStateService, PaymentPresenceRegistry paymentPresenceRegistry)
+		public PaymentService(AccessDB _accessDB, IAccountMovementService _accountMovementService, ILogger<PaymentService> logger, IRentalService _rentalService, IRentalAmountHistoryService _rentalAmountHistoryService, IPaymentMethodService _paymentMethodService, IClientMonthBalanceService clientMonthBalanceService, IPaymentStateService paymentStateService, PaymentPresenceRegistry paymentPresenceRegistry, IActivityLogService activityLogService)
 		{
 			this._daoPayment = new DaoPayment(_accessDB);
 			this.accountMovementService = _accountMovementService;
@@ -45,6 +48,7 @@ namespace GuardeSoftwareAPI.Services.payment
              _clientMonthBalanceService = clientMonthBalanceService;
              _paymentStateService = paymentStateService;
              _paymentPresenceRegistry = paymentPresenceRegistry;
+             _activityLogService = activityLogService;
 		}
 
 		public async Task<List<Payment>> GetPaymentsList()
@@ -479,6 +483,25 @@ namespace GuardeSoftwareAPI.Services.payment
 
         await transaction.CommitAsync();
 
+        await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+        {
+            Action = "CREATE",
+            TableName = "payments",
+            RecordId = paymentId,
+            NewValue = JsonSerializer.Serialize(new
+            {
+                PaymentId = paymentId,
+                dto.ClientId,
+                dto.PaymentMethodId,
+                dto.Amount,
+                dto.Date,
+                dto.Concept,
+                dto.IsAdvancePayment,
+                dto.AdvanceMonths,
+                dto.CommissionAmount
+            })
+        });
+
         _paymentPresenceRegistry.RecordPayment(new PaymentCompletedNotice
         {
             ClientId = dto.ClientId,
@@ -751,6 +774,21 @@ namespace GuardeSoftwareAPI.Services.payment
                 }
 
                 await transaction.CommitAsync();
+
+                await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                {
+                    Action = "DELETE",
+                    TableName = "payments",
+                    RecordId = paymentId ?? movementId,
+                    OldValue = JsonSerializer.Serialize(new
+                    {
+                        PaymentId = paymentId,
+                        MovementId = movementId,
+                        RentalId = rentalId,
+                        PaymentDate = paymentDate
+                    }),
+                    NewValue = JsonSerializer.Serialize(new { Deleted = true })
+                });
                 return true;
             }
             catch

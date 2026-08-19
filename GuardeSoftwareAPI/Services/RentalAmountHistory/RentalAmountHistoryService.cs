@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Data;
 using System.Threading.Tasks;
+using GuardeSoftwareAPI.Services.activityLog;
+using System.Text.Json;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
 using Microsoft.Data.SqlClient;
@@ -12,9 +14,12 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 	public class RentalAmountHistoryService : IRentalAmountHistoryService
 	{
 		readonly DaoRentalAmountHistory _daoRentalAmountHistory;
-		public RentalAmountHistoryService(AccessDB accessDB)
+		private readonly IActivityLogService _activityLogService;
+
+		public RentalAmountHistoryService(AccessDB accessDB, IActivityLogService activityLogService)
 		{
 			_daoRentalAmountHistory = new DaoRentalAmountHistory(accessDB);
+			_activityLogService = activityLogService;
 		}
 
 		public async Task<List<RentalAmountHistory>> GetRentalAmountHistoriesList()
@@ -69,7 +74,15 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
 			if (rentalAmountHistory.RentalId <= 0) throw new ArgumentException("Invalid rental ID.");
 			if (rentalAmountHistory.Amount < 0) throw new ArgumentException("Amount must be greater than zero.");
 			if (rentalAmountHistory.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
-			return await _daoRentalAmountHistory.CreateRentalAmountHistory(rentalAmountHistory);
+			RentalAmountHistory created = await _daoRentalAmountHistory.CreateRentalAmountHistory(rentalAmountHistory);
+			await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+			{
+				Action = "CREATE",
+				TableName = "rental_amount_history",
+				RecordId = created.Id,
+				NewValue = JsonSerializer.Serialize(new { created.Id, created.RentalId, created.Amount, created.StartDate, created.EndDate })
+			});
+			return created;
 		}
 
         public async Task<int> CreateRentalAmountHistoryAsync(RentalAmountHistory rentalAmountHistory)
@@ -79,7 +92,15 @@ namespace GuardeSoftwareAPI.Services.rentalAmountHistory
             if (rentalAmountHistory.Amount < 0) throw new ArgumentException("Amount must be greater than zero.");
             if (rentalAmountHistory.StartDate == DateTime.MinValue) throw new ArgumentException("Invalid start date.");
 
-            return await _daoRentalAmountHistory.CreateRentalAmountHistoryAsync(rentalAmountHistory);
+			int historyId = await _daoRentalAmountHistory.CreateRentalAmountHistoryAsync(rentalAmountHistory);
+			await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+			{
+				Action = "CREATE",
+				TableName = "rental_amount_history",
+				RecordId = historyId,
+				NewValue = JsonSerializer.Serialize(new { Id = historyId, rentalAmountHistory.RentalId, rentalAmountHistory.Amount, rentalAmountHistory.StartDate, rentalAmountHistory.EndDate })
+			});
+			return historyId;
         }
 
 

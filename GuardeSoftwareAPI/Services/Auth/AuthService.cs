@@ -2,6 +2,8 @@ using GuardeSoftwareAPI.Auth;
 using GuardeSoftwareAPI.Auth.Dto;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Services.activityLog;
+using GuardeSoftwareAPI.Utils;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 
@@ -15,19 +17,22 @@ namespace GuardeSoftwareAPI.Services.auth
         private readonly JwtOptions _jwtOptions;
 
         private readonly DaoUser _daoUser;
+        private readonly IActivityLogService _activityLogService;
 
         public AuthService(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
             IJwtTokenGenerator jwtTokenGenerator,
             IOptions<JwtOptions> jwtOptions,
-            DaoUser daoUser)
+            DaoUser daoUser,
+            IActivityLogService activityLogService)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _jwtTokenGenerator = jwtTokenGenerator;
             _jwtOptions = jwtOptions.Value;
             _daoUser = daoUser;
+            _activityLogService = activityLogService;
         }
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterRequestDto dto)
@@ -58,7 +63,7 @@ namespace GuardeSoftwareAPI.Services.auth
 
             // 4) JWT
             var roles = await _userManager.GetRolesAsync(identityUser);
-            var token = _jwtTokenGenerator.GenerateToken(identityUser, roles);
+            var token = _jwtTokenGenerator.GenerateToken(identityUser, roles, businessUser.Id, businessUser.UserTypeId);
 
             return new AuthResponseDto
             {
@@ -97,7 +102,21 @@ namespace GuardeSoftwareAPI.Services.auth
             };
 
             var roles = await _userManager.GetRolesAsync(identityUser);
-            var token = _jwtTokenGenerator.GenerateToken(identityUser, roles);
+            var token = _jwtTokenGenerator.GenerateToken(identityUser, roles, businessUser.Id, businessUser.UserTypeId);
+
+            await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+            {
+                UserId = businessUser.Id,
+                LogDate = TimeHelper.GetArgentinaTime(),
+                Action = "LOGIN",
+                TableName = "auth",
+                RecordId = businessUser.Id,
+                NewValue = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    UserName = businessUser.UserName,
+                    Result = "success"
+                })
+            });
 
             return new AuthResponseDto
             {
