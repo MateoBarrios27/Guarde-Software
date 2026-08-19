@@ -3,6 +3,7 @@ namespace GuardeSoftwareAPI.Dtos.Communication
     public class RecipientForSendingDto
     {
         public int ClientId { get; set; }
+        public int? ExternalRecipientId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string? Email { get; set; }
         public string? Phone { get; set; } // Kept for non-account WhatsApp communications.

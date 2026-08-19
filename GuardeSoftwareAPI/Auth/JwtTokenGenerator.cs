@@ -15,13 +15,15 @@ namespace GuardeSoftwareAPI.Auth
             _options = options.Value;
         }
 
-        public string GenerateToken(ApplicationUser user, IList<string> roles)
+        public string GenerateToken(ApplicationUser user, IList<string> roles, int businessUserId, int businessUserTypeId)
         {
             var claims = new List<Claim>
             {
                 new(JwtRegisteredClaimNames.Sub, user.Id),
                 new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-                new("username", user.UserName ?? string.Empty)
+                new("username", user.UserName ?? string.Empty),
+                new("businessUserId", businessUserId.ToString()),
+                new("businessUserTypeId", businessUserTypeId.ToString())
             };
 
             foreach (var role in roles)

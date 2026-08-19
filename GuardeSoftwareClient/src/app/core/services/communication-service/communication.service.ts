@@ -114,8 +114,15 @@ export class CommunicationService {
     return this.http.post<ComunicacionDto>(`${this.url}/Communications/${id}/retry`, {});
   }
 
-  retrySelectedCommunication(id: number, selectedClientIds: number[]): Observable<ComunicacionDto> {
-    return this.http.post<ComunicacionDto>(`${this.url}/Communications/${id}/retry-selected`, { selectedClientIds });
+  retrySelectedCommunication(
+    id: number,
+    selectedClientIds: number[],
+    selectedExternalRecipientIds: number[] = []
+  ): Observable<ComunicacionDto> {
+    return this.http.post<ComunicacionDto>(
+      this.url + '/Communications/' + id + '/retry-selected',
+      { selectedClientIds, selectedExternalRecipientIds }
+    );
   }
 
   getAllSmtpConfigs(): Observable<SmtpConfig[]> {

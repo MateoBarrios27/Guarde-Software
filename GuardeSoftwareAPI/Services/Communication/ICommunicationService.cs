@@ -12,7 +12,10 @@ namespace GuardeSoftwareAPI.Services.communication
         Task<CommunicationDto> UpdateCommunicationAsync(int communicationId, UpsertCommunicationRequest request, int userId);
         Task<List<ClientCommunicationDto>> GetCommunicationsByClientIdAsync(int clientId);
         Task<List<ClientRecipientDto>> GetClientsForSelectorAsync();
-        Task<CommunicationDto> RetrySelectedFailedCommunicationAsync(int communicationId, List<int> selectedClientIds);
+        Task<CommunicationDto> RetrySelectedFailedCommunicationAsync(
+            int communicationId,
+            List<int> selectedClientIds,
+            List<int>? selectedExternalRecipientIds = null);
         Task<string?> GetDispatchContentAsync(int dispatchId);
     }
 }

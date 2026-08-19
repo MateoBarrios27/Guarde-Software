@@ -1,6 +1,8 @@
 export interface CommunicationDispatchDto {
   dispatchId: number;
   clientId: number;
+  externalRecipientId?: number | null;
+  isExternalRecipient?: boolean;
   clientName: string;
   channel: string;
   status: string;

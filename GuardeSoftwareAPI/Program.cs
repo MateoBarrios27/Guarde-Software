@@ -37,6 +37,7 @@ using System.Globalization;
 using GuardeSoftwareAPI.Services.cash;
 using GuardeSoftwareAPI.Services.clientMonthBalance;
 using GuardeSoftwareAPI.Services.sync;
+using GuardeSoftwareAPI.Services.massCommunicationRecipient;
 
 
 
@@ -45,6 +46,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -147,6 +149,7 @@ builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IClientIncreaseRegimenService, ClientIncreaseRegimenService>();
 builder.Services.AddScoped<ICommunicationService, CommunicationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IMassCommunicationRecipientService, MassCommunicationRecipientService>();
 builder.Services.AddScoped<IIncreaseRegimenService, IncreaseRegimenService>();
 builder.Services.AddScoped<ILockerService, LockerService>();
 builder.Services.AddScoped<ILockerTypeService, LockerTypeService>();

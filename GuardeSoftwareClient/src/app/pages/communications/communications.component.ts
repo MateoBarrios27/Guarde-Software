@@ -97,7 +97,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
 
   selectedSummary = computed(() => {
       if (this.formData().sendToAllEmails) {
-        return 'Todos los emails de la base de datos';
+        return 'Todos los emails de clientes y receptores externos';
       }
 
       const recipients = this.formData().recipients;
@@ -129,8 +129,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
 <p style="color: #b91c1c;"><strong>CONTACTO ICBC:</strong> Natalia Pedro 113478-9917</p>
 <p style="color: #6b7280;">Saludos</p>
 <p style="color: #6b7280;">La Administración</p>
-<p><a href="https://www.guardeloquequiera.com.ar/">guardeloquequiera.com.ar</a></p>
-<p style="color: #6b7280;">011-4762-0599 / 011-4730-2192</p>
+<p><a href="https://www.guardeloquequiera.net/">guardeloquequiera.net</a></p>
 <p style="color: #15803d;">WhatsApp 115-780-0251</p>`;
 
   private readonly icbcTemplate2 = `
@@ -197,7 +196,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
                     "
                 >
 
-                    <!-- Encabezado -->
+                    <!-- Encabezado textual -->
                     <tr>
                         <td
                             style="
@@ -577,27 +576,6 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
                                 font-size: 13px;
                                 line-height: 21px;
                             ">
-                                <a
-                                    href="tel:+541147620599"
-                                    style="color: #d9e3ea; text-decoration: none;"
-                                >
-                                    11 4762-0599
-                                </a>
-                                &nbsp;·&nbsp;
-                                <a
-                                    href="tel:+541147302192"
-                                    style="color: #d9e3ea; text-decoration: none;"
-                                >
-                                    11 4730-2192
-                                </a>
-                            </p>
-
-                            <p style="
-                                margin: 0 0 8px;
-                                color: #d9e3ea;
-                                font-size: 13px;
-                                line-height: 21px;
-                            ">
                                 WhatsApp:
                                 <a
                                     href="https://wa.me/5491157800251"
@@ -619,7 +597,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
                                 line-height: 21px;
                             ">
                                 <a
-                                    href="https://www.guardeloquequiera.com.ar/"
+                                    href="https://www.guardeloquequiera.net/"
                                     target="_blank"
                                     style="
                                         color: #ffffff;
@@ -627,7 +605,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
                                         text-decoration: underline;
                                     "
                                 >
-                                    www.guardeloquequiera.com.ar
+                                    www.guardeloquequiera.net
                                 </a>
                             </p>
                         </td>
@@ -1448,15 +1426,25 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     const selected = failed.filter(d => d.isSelected !== false);
     
     if (selected.length === 0) {
-      this.showToast('Advertencia', 'Debes seleccionar al menos un cliente para reintentar.', 'alert-triangle', 'error');
+      this.showToast('Advertencia', 'Debés seleccionar al menos un destinatario para reintentar.', 'alert-triangle', 'error');
       return;
     }
 
-    const selectedClientIds = selected.map(d => d.clientId).filter(id => id > 0);
+    const selectedClientIds = selected
+      .filter(d => !d.isExternalRecipient)
+      .map(d => d.clientId)
+      .filter(id => id > 0);
+    const selectedExternalRecipientIds = selected
+      .map(d => d.externalRecipientId)
+      .filter((id): id is number => typeof id === 'number' && id > 0);
     
-    this.commService.retrySelectedCommunication(comm.id, selectedClientIds).subscribe({
+    this.commService.retrySelectedCommunication(
+      comm.id,
+      selectedClientIds,
+      selectedExternalRecipientIds
+    ).subscribe({
       next: (res) => {
-        this.showToast('Reintento Programado', `Se enviará a ${selected.length} clientes seleccionados.`, 'check', 'success');
+        this.showToast('Reintento Programado', 'Se enviará a ' + selected.length + ' destinatarios seleccionados.', 'check', 'success');
         this.closeModal();
         this.loadCommunications();
       },

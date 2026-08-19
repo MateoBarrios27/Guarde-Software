@@ -159,7 +159,7 @@
       <div class="flex justify-between items-center mb-1">
         <label class="block text-sm font-medium text-gray-700">Destinatarios *</label>
         <span class="text-xs text-blue-600 font-semibold" *ngIf="formData().sendToAllEmails">
-          Todos los emails de la base de datos
+          Todos los emails de clientes y receptores externos
         </span>
         <span class="text-xs text-blue-600 font-semibold" *ngIf="!formData().sendToAllEmails && selectedCount() > 0">
           {{ selectedCount() }} clientes seleccionados
@@ -170,7 +170,7 @@
            class="w-full p-3 border border-gray-300 rounded-lg cursor-pointer bg-white hover:bg-gray-50 transition flex justify-between items-center group">
           <div class="flex-1 overflow-hidden">
               <span *ngIf="formData().sendToAllEmails" class="font-medium text-emerald-700 text-sm">
-                Se enviará un email a todas las direcciones registradas en la base de datos.
+                Se enviará un email a todas las direcciones registradas de clientes y receptores externos.
               </span>
               <span *ngIf="!formData().sendToAllEmails && selectedCount() === 0" class="text-gray-400 text-sm">Haz clic para seleccionar clientes...</span>
               <div *ngIf="!formData().sendToAllEmails && selectedCount() > 0" class="flex flex-col">
@@ -182,7 +182,7 @@
       
       <div class="flex justify-between items-center mt-2">
         <p *ngIf="!formData().sendToAllEmails" class="text-xs text-gray-500">Puedes seleccionar grupos completos y excluir personas específicas.</p>
-        <p *ngIf="formData().sendToAllEmails" class="text-xs text-emerald-700">Se enviará a todas las direcciones de la tabla emails, sin mostrar la lista individual.</p>
+        <p *ngIf="formData().sendToAllEmails" class="text-xs text-emerald-700">Se incluirán las direcciones de la tabla emails y de Receptores de comunicados, sin mostrar la lista individual.</p>
         
         <button type="button" 
                 (click)="sendTestCommunication()" 
@@ -513,7 +513,7 @@
       <div class="border-t pt-3">
         @if (selectedCommunication()!.sendToAllEmails) {
         <h4 class="text-sm font-medium text-emerald-700 mb-2">Destinatarios:</h4>
-        <p class="text-sm text-slate-600">Todos los emails de la base de datos.</p>
+        <p class="text-sm text-slate-600">Todos los emails de clientes y receptores externos.</p>
         } @else {
         <h4 class="text-sm font-medium text-gray-700 mb-2">Destinatarios ({{ selectedCommunication()!.recipients.length }}):</h4>
         <div class="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
@@ -558,8 +558,8 @@
 
     <div class="space-y-2">
       <div class="flex items-center justify-between">
-        <h4 class="text-sm font-semibold text-gray-800">
-          Selecciona los clientes y canales a reintentar:
+          <h4 class="text-sm font-semibold text-gray-800">
+            Seleccioná los destinatarios y canales a reintentar:
         </h4>
         <div class="flex gap-2">
           <button (click)="toggleAllRetrySelection(true)" class="text-xs text-blue-600 hover:text-blue-800 font-medium underline">
@@ -585,7 +585,12 @@
             <input type="checkbox" [(ngModel)]="disp.isSelected" class="mt-0.5 h-4 w-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500">
             <div class="flex-1 min-w-0">
               <div class="flex justify-between items-center mb-1">
-                <span class="font-bold text-gray-900 text-sm">{{ disp.clientName }}</span>
+                <span class="font-bold text-gray-900 text-sm">
+                  {{ disp.clientName }}
+                  <span *ngIf="disp.isExternalRecipient" class="ml-1 inline-flex rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">
+                    Externo
+                  </span>
+                </span>
                 <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-medium">{{ disp.channel }}</span>
               </div>
               <div class="text-xs text-red-700 bg-red-50 p-1.5 rounded border border-red-100 font-mono flex items-center gap-1.5">
@@ -621,7 +626,7 @@
       <p class="text-sm"><strong>Canal:</strong> {{ selectedCommunication()!.channel }}</p>
       <p class="text-sm"><strong>Destinatarios:</strong>
         @if (selectedCommunication()!.sendToAllEmails) {
-          Todos los emails de la base de datos
+          Todos los emails de clientes y receptores externos
         } @else {
           {{ selectedCommunication()!.recipients.length }} destinatario(s)
         }
@@ -815,7 +820,7 @@
         <app-icon name="user" class="h-3.5 w-3.5"></app-icon>
         <span>
           @if (comm.sendToAllEmails) {
-            Todos los emails
+            Emails de clientes y receptores
           } @else {
             {{ comm.recipients.length }} destinatario(s)
           }
@@ -956,7 +961,7 @@
                     </div>
                     <div class="text-left">
                         <div class="font-bold text-sm">Todos los emails</div>
-                        <div class="text-[10px] font-medium opacity-75">Toda la base de datos</div>
+            <div class="text-[10px] font-medium opacity-75">Clientes y receptores externos</div>
                     </div>
                 </button>
             </div>
@@ -967,9 +972,9 @@
                     <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                         <app-icon name="Mail" class="h-7 w-7"></app-icon>
                     </div>
-                    <h3 class="text-lg font-bold text-slate-900">Envío a todos los emails de la base de datos</h3>
+                    <h3 class="text-lg font-bold text-slate-900">Envío masivo a clientes y receptores externos</h3>
                     <p class="mt-3 text-sm leading-6 text-slate-600">
-                        Al confirmar, se enviará un mail a cada dirección registrada en la tabla de emails.
+                        Al confirmar, se enviará un mail a cada dirección registrada en las tablas de clientes y receptores externos.
                     </p>
                     <p class="mt-2 text-xs leading-5 text-slate-500">
                         No se aplicará la lista de clientes ni filtros de estado. Para volver a la selección individual, presioná “Desmarcar todo”.

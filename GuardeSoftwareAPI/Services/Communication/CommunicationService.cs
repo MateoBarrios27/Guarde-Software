@@ -369,9 +369,15 @@ namespace GuardeSoftwareAPI.Services.communication
             throw new Exception("Failed to update status for sending.");
         }
 
-        public async Task<CommunicationDto> RetrySelectedFailedCommunicationAsync(int communicationId, List<int> selectedClientIds)
+        public async Task<CommunicationDto> RetrySelectedFailedCommunicationAsync(
+            int communicationId,
+            List<int> selectedClientIds,
+            List<int>? selectedExternalRecipientIds = null)
         {
-            await _communicationDao.UpdateRecipientsRetrySelectionAsync(communicationId, selectedClientIds);
+            await _communicationDao.UpdateRecipientsRetrySelectionAsync(
+                communicationId,
+                selectedClientIds,
+                selectedExternalRecipientIds);
             return await SendDraftNowAsync(communicationId);
         }
         

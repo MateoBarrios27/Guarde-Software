@@ -18,6 +18,9 @@ namespace GuardeSoftwareAPI.Jobs
     {
         private const string AccountStatementTestPhone = "1160244908";
         private const string DefaultTestEmailAddress = "fsgbrunofranco@gmail.com";
+        private static readonly Regex LegacyBrandLogoImageRegex = new(
+            @"<img\b[^>]*guardeloquequiera-logo(?:\.jpg)?[^>]*>",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         private readonly CommunicationDao _communicationDao;
         private readonly IConfiguration _config;
@@ -238,7 +241,8 @@ namespace GuardeSoftwareAPI.Jobs
                         }
                         else 
                         {
-                            string personalizedContent = ReplaceCommunicationPlaceholders(channel.Content, recipient.Name);
+                            string personalizedContent = RemoveLegacyBrandLogo(
+                                ReplaceCommunicationPlaceholders(channel.Content, recipient.Name));
                             emailContent = personalizedContent;
                             var personalizedChannel = new ChannelForSendingDto
                             {
@@ -251,13 +255,27 @@ namespace GuardeSoftwareAPI.Jobs
                         }
 
                         string response = await smtp.SendAsync(message);
-                        await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Exitoso", response, emailContent);
+                        await LogEmailAttemptAsync(
+                            channel.CommChannelContentId,
+                            recipient,
+                            "Exitoso",
+                            response,
+                            emailContent);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to send email to client ID: {ClientId}", recipient.ClientId);
+                        _logger.LogWarning(
+                            ex,
+                            "Failed to send email to {RecipientName} (client ID: {ClientId}, external ID: {ExternalRecipientId})",
+                            recipient.Name,
+                            recipient.ClientId,
+                            recipient.ExternalRecipientId);
                         errorLog.AppendLine($"Email to {recipient.Email} failed: {ex.Message}");
-                        await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", ex.Message);
+                        await LogEmailAttemptAsync(
+                            channel.CommChannelContentId,
+                            recipient,
+                            "Fallido",
+                            ex.Message);
                     }
                 }
             }
@@ -268,7 +286,11 @@ namespace GuardeSoftwareAPI.Jobs
                 
                 foreach (var recipient in recipients)
                 {
-                    await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", "SMTP Connection Error");
+                    await LogEmailAttemptAsync(
+                        channel.CommChannelContentId,
+                        recipient,
+                        "Fallido",
+                        "SMTP Connection Error");
                 }
             }
             finally
@@ -323,7 +345,8 @@ namespace GuardeSoftwareAPI.Jobs
             // Aplicar los placeholders en el último punto antes de enviar el mensaje.
             // Esto cubre también los caminos de prueba o reintento que construyan el
             // ChannelForSendingDto sin pasar previamente por la personalización.
-            builder.HtmlBody = ReplaceCommunicationPlaceholders(channel.Content, recipient.Name);
+            builder.HtmlBody = RemoveLegacyBrandLogo(
+                ReplaceCommunicationPlaceholders(channel.Content, recipient.Name));
 
             // Adjuntar archivos si existen
             if (attachments != null && attachments.Count > 0)
@@ -339,6 +362,32 @@ namespace GuardeSoftwareAPI.Jobs
 
             message.Body = builder.ToMessageBody();
             return message;
+        }
+
+        private async Task LogEmailAttemptAsync(
+            int commChannelContentId,
+            RecipientForSendingDto recipient,
+            string status,
+            string response,
+            string? sentContent = null)
+        {
+            if (recipient.ExternalRecipientId.HasValue)
+            {
+                await _communicationDao.LogMassRecipientSendAttemptAsync(
+                    commChannelContentId,
+                    recipient.ExternalRecipientId.Value,
+                    status,
+                    response,
+                    sentContent);
+                return;
+            }
+
+            await _communicationDao.LogSendAttemptAsync(
+                commChannelContentId,
+                recipient.ClientId,
+                status,
+                response,
+                sentContent);
         }
 
         private string GenerateAccountStatementHtml(string clientName, ClientFinancialDto data, bool isNextMonth)
@@ -626,6 +675,15 @@ Administración
                 .Replace("{data[0]}", encodedClientName, StringComparison.OrdinalIgnoreCase)
                 .Replace("{{clientName}}", encodedClientName, StringComparison.OrdinalIgnoreCase)
                 .Replace("{clientName}", encodedClientName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string RemoveLegacyBrandLogo(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return input;
+
+            // Evita que un comunicado antiguo guardado en la base vuelva a enviar
+            // el logo aunque todavía conserve una URL HTTP o una referencia CID.
+            return LegacyBrandLogoImageRegex.Replace(input, string.Empty);
         }
 
         private async Task ProcessWhatsAppChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog, int communicationId)

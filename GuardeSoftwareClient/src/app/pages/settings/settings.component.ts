@@ -41,11 +41,12 @@ import {
   UpsertMassCommunicationRecipient
 } from '../../core/models/mass-communication-recipient';
 import { MassCommunicationRecipientService } from '../../core/services/mass-communication-recipient-service/mass-communication-recipient.service';
+import { ToastNotificationComponent } from '../../shared/components/toast-notification/toast-notification.component';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, CreateAlertModalComponent, ActivityLogPanelComponent],
+  imports: [CommonModule, FormsModule, IconComponent, CreateAlertModalComponent, ActivityLogPanelComponent, ToastNotificationComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css'
 })
@@ -68,6 +69,9 @@ export class SettingsComponent implements OnInit {
 
   activeSection: string = 'usuarios';
   isCreateAlertOpen: boolean = false;
+  showToast = false;
+  toastMessage = '';
+  toastType: 'success' | 'error' = 'success';
 
   openCreateAlertModal() {
     this.isCreateAlertOpen = true;
@@ -75,6 +79,16 @@ export class SettingsComponent implements OnInit {
 
   closeCreateAlertModal() {
     this.isCreateAlertOpen = false;
+  }
+
+  private showToastNotification(message: string, type: 'success' | 'error'): void {
+    this.toastMessage = message;
+    this.toastType = type;
+    this.showToast = true;
+
+    setTimeout(() => {
+      this.showToast = false;
+    }, 3000);
   }
 
   users : User[] = [];
@@ -909,7 +923,7 @@ export class SettingsComponent implements OnInit {
       next: (data) => this.massRecipients = data,
       error: (err) => {
         console.error('Error al cargar receptores de comunicados', err);
-        Swal.fire('Error', 'No se pudieron cargar los receptores de comunicados.', 'error');
+        this.showToastNotification('No se pudieron cargar los receptores de comunicados.', 'error');
       }
     });
   }
@@ -946,11 +960,7 @@ export class SettingsComponent implements OnInit {
     };
 
     if (dto.email && !this.isValidEmail(dto.email)) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Email inválido',
-        text: 'Revisá la dirección de correo ingresada antes de continuar.'
-      });
+      this.showToastNotification('Revisá la dirección de correo ingresada antes de continuar.', 'error');
       return;
     }
 
@@ -963,19 +973,14 @@ export class SettingsComponent implements OnInit {
         const wasEditing = this.editingMassRecipientId !== null;
         this.loadMassRecipients();
         this.closeMassRecipientModal();
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'success',
-          title: wasEditing ? 'Receptor actualizado' : 'Receptor agregado',
-          showConfirmButton: false,
-          timer: 2400,
-          timerProgressBar: true
-        });
+        this.showToastNotification(
+          wasEditing ? 'Receptor actualizado' : 'Receptor agregado',
+          'success'
+        );
       },
       error: (err) => {
         console.error('Error al guardar receptor de comunicados', err);
-        Swal.fire('Error', 'No se pudo guardar el receptor.', 'error');
+        this.showToastNotification('No se pudo guardar el receptor.', 'error');
       }
     });
   }
@@ -990,19 +995,11 @@ export class SettingsComponent implements OnInit {
     this.massRecipientService.delete(id).subscribe({
       next: () => {
         this.massRecipients = this.massRecipients.filter(recipient => recipient.id !== id);
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'success',
-          title: 'Receptor eliminado',
-          showConfirmButton: false,
-          timer: 2200,
-          timerProgressBar: true
-        });
+        this.showToastNotification('Receptor eliminado', 'success');
       },
       error: (err) => {
         console.error('Error al eliminar receptor de comunicados', err);
-        Swal.fire('Error', 'No se pudo eliminar el receptor.', 'error');
+        this.showToastNotification('No se pudo eliminar el receptor.', 'error');
       }
     });
   }

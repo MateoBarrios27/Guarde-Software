@@ -41,5 +41,6 @@ public class UpsertCommunicationRequest
 public class RetryCommunicationRequest
 {
     public List<int> SelectedClientIds { get; set; } = [];
+    public List<int> SelectedExternalRecipientIds { get; set; } = [];
 }
 

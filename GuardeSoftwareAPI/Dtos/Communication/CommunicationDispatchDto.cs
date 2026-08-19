@@ -4,6 +4,8 @@ namespace GuardeSoftwareAPI.Dtos.Communication
     {
         public int DispatchId { get; set; }
         public int ClientId { get; set; }
+        public int? ExternalRecipientId { get; set; }
+        public bool IsExternalRecipient { get; set; }
         public string ClientName { get; set; } = string.Empty;
         public string Channel { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
