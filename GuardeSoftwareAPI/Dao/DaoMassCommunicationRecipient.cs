@@ -16,7 +16,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<List<MassCommunicationRecipient>> GetActiveAsync()
         {
             const string query = @"
-                SELECT recipient_id, name, email, phone, active, created_at, updated_at
+                SELECT recipient_id, name, email, phone, recipient_type, active, created_at, updated_at
                 FROM mass_communication_recipients
                 WHERE active = 1
                 ORDER BY
@@ -31,7 +31,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<MassCommunicationRecipient?> GetByIdAsync(int id, bool includeInactive = false)
         {
             string query = @"
-                SELECT recipient_id, name, email, phone, active, created_at, updated_at
+                SELECT recipient_id, name, email, phone, recipient_type, active, created_at, updated_at
                 FROM mass_communication_recipients
                 WHERE recipient_id = @Id";
 
@@ -51,9 +51,9 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<MassCommunicationRecipient> CreateAsync(MassCommunicationRecipient recipient)
         {
             const string query = @"
-                INSERT INTO mass_communication_recipients (name, email, phone)
+                INSERT INTO mass_communication_recipients (name, email, phone, recipient_type)
                 OUTPUT INSERTED.recipient_id
-                VALUES (@Name, @Email, @Phone)";
+                VALUES (@Name, @Email, @Phone, @Type)";
 
             var parameters = BuildParameters(recipient);
             object result = await _accessDB.ExecuteScalarAsync(query, parameters);
@@ -70,6 +70,7 @@ namespace GuardeSoftwareAPI.Dao
                 SET name = @Name,
                     email = @Email,
                     phone = @Phone,
+                    recipient_type = @Type,
                     updated_at = GETDATE()
                 WHERE recipient_id = @Id AND active = 1";
 
@@ -99,7 +100,8 @@ namespace GuardeSoftwareAPI.Dao
             {
                 new("@Name", SqlDbType.NVarChar, 150) { Value = (object?)recipient.Name ?? DBNull.Value },
                 new("@Email", SqlDbType.NVarChar, 255) { Value = (object?)recipient.Email ?? DBNull.Value },
-                new("@Phone", SqlDbType.NVarChar, 50) { Value = (object?)recipient.Phone ?? DBNull.Value }
+                new("@Phone", SqlDbType.NVarChar, 50) { Value = (object?)recipient.Phone ?? DBNull.Value },
+                new("@Type", SqlDbType.NVarChar, 100) { Value = (object?)recipient.Type ?? DBNull.Value }
             };
 
             if (id.HasValue)
@@ -118,6 +120,7 @@ namespace GuardeSoftwareAPI.Dao
                 Name = row["name"] is DBNull ? null : row["name"]?.ToString(),
                 Email = row["email"] is DBNull ? null : row["email"]?.ToString(),
                 Phone = row["phone"] is DBNull ? null : row["phone"]?.ToString(),
+                Type = row["recipient_type"] is DBNull ? null : row["recipient_type"]?.ToString(),
                 Active = row["active"] is not DBNull && Convert.ToBoolean(row["active"]),
                 CreatedAt = row["created_at"] is DBNull
                     ? DateTime.MinValue

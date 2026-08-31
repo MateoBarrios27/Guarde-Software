@@ -13,6 +13,13 @@ export interface CommunicationDispatchDto {
   hasContent?: boolean;
 }
 
+export interface CommunicationExternalRecipientDto {
+  id: number;
+  name: string | null;
+  email: string | null;
+  type: string | null;
+}
+
 export interface ComunicacionDto {
   id: number;
   title: string;
@@ -27,6 +34,7 @@ export interface ComunicacionDto {
   isAccountStatement: boolean;
   isNextMonthStatement: boolean;
   sendToAllEmails: boolean;
+  externalRecipients: CommunicationExternalRecipientDto[];
   errorMessage?: string | null;
   dispatches?: CommunicationDispatchDto[];
 }
@@ -45,4 +53,5 @@ export interface UpsertComunicacionRequest {
   isAccountStatement: boolean;
   isNextMonthStatement: boolean;
   sendToAllEmails: boolean;
+  externalRecipientIds: number[];
 }

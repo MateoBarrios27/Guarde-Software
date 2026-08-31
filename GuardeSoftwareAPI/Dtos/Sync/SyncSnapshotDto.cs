@@ -17,6 +17,7 @@ namespace GuardeSoftwareAPI.Dtos.Sync
         // New enriched fields
         public string? NextPaymentDay { get; set; }
         public string? Status { get; set; }
+        public string? DepartureStatus { get; set; }
         public int? RentalId { get; set; }
         public int? MonthsUnpaid { get; set; }
         public string? IncreaseAnchorDate { get; set; }
@@ -68,6 +69,7 @@ namespace GuardeSoftwareAPI.Dtos.Sync
         public bool SkipFutureProjection { get; set; } = true; // Offline payments skip complex projections by default
         public string? SurchargeAction { get; set; }
         public decimal? SurchargeAmount { get; set; }
+        public bool SurchargeAmountWasOverridden { get; set; }
         public string? ExpectedPaymentStateToken { get; set; }
     }
 

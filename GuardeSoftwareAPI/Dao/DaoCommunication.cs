@@ -35,6 +35,19 @@ namespace GuardeSoftwareAPI.Dao
                 c.is_next_month_statement,
                 c.send_to_all_emails,
                 c.error_message AS ErrorMessage,
+                ISNULL((
+                    SELECT
+                        r.recipient_id AS Id,
+                        r.name AS Name,
+                        r.email AS Email,
+                        r.recipient_type AS Type
+                    FROM communication_mass_recipients cmr
+                    JOIN mass_communication_recipients r
+                        ON r.recipient_id = cmr.recipient_id
+                    WHERE cmr.communication_id = c.communication_id
+                    ORDER BY ISNULL(r.name, ''), r.recipient_id
+                    FOR JSON PATH, INCLUDE_NULL_VALUES
+                ), '[]') AS ExternalRecipientsJson,
 
                 (SELECT STRING_AGG(chan.name, ' + ') 
                  FROM communication_channel_content ccc
@@ -104,8 +117,23 @@ namespace GuardeSoftwareAPI.Dao
                 IsAccountStatement = row["is_account_statement"] is not DBNull && Convert.ToBoolean(row["is_account_statement"]),
                 IsNextMonthStatement = row["is_next_month_statement"] is not DBNull && Convert.ToBoolean(row["is_next_month_statement"]),
                 SendToAllEmails = row["send_to_all_emails"] is not DBNull && Convert.ToBoolean(row["send_to_all_emails"]),
+                ExternalRecipients = DeserializeExternalRecipients(row["ExternalRecipientsJson"]),
                 ErrorMessage = row["ErrorMessage"] is DBNull ? null : row["ErrorMessage"].ToString()
             };
+        }
+
+        private static List<CommunicationExternalRecipientDto> DeserializeExternalRecipients(object value)
+        {
+            string json = value is DBNull ? "[]" : value?.ToString() ?? "[]";
+
+            try
+            {
+                return JsonSerializer.Deserialize<List<CommunicationExternalRecipientDto>>(json) ?? [];
+            }
+            catch (JsonException)
+            {
+                return [];
+            }
         }
 
         public async Task<List<CommunicationDispatchDto>> GetDispatchesByCommunicationIdAsync(int communicationId)
@@ -153,8 +181,10 @@ namespace GuardeSoftwareAPI.Dao
                 FROM mass_communication_recipients r
                 JOIN communications comm
                     ON comm.communication_id = @Id
-                   AND comm.send_to_all_emails = 1
                    AND ISNULL(comm.is_account_statement, 0) = 0
+                LEFT JOIN communication_mass_recipients cmr
+                    ON cmr.communication_id = comm.communication_id
+                   AND cmr.recipient_id = r.recipient_id
                 LEFT JOIN communication_channel_content ccc
                     ON ccc.communication_id = comm.communication_id
                    AND EXISTS (
@@ -173,8 +203,13 @@ namespace GuardeSoftwareAPI.Dao
                     AND d.rn = 1
                 WHERE (
                     (
-                        r.active = 1
+                        comm.send_to_all_emails = 1
+                        AND r.active = 1
                         AND NULLIF(LTRIM(RTRIM(r.email)), '') IS NOT NULL
+                    )
+                    OR (
+                        comm.send_to_all_emails = 0
+                        AND cmr.recipient_id IS NOT NULL
                     )
                     OR EXISTS (
                         SELECT 1
@@ -324,12 +359,46 @@ namespace GuardeSoftwareAPI.Dao
             return true;
         }
 
+        public async Task<int> InsertCommunicationMassRecipientsAsync(
+            int communicationId,
+            List<int> recipientIds,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            var normalizedIds = (recipientIds ?? [])
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+            if (normalizedIds.Count == 0)
+            {
+                return 0;
+            }
+
+            const string query = @"
+                INSERT INTO communication_mass_recipients (communication_id, recipient_id)
+                SELECT @CommunicationId, r.recipient_id
+                FROM mass_communication_recipients r
+                WHERE r.active = 1
+                  AND NULLIF(LTRIM(RTRIM(r.email)), '') IS NOT NULL
+                  AND r.recipient_id IN (
+                      SELECT TRY_CONVERT(INT, value)
+                      FROM STRING_SPLIT(@RecipientIds, ',')
+                  );";
+
+            using SqlCommand command = new(query, connection, transaction);
+            command.Parameters.AddWithValue("@CommunicationId", communicationId);
+            command.Parameters.AddWithValue("@RecipientIds", string.Join(",", normalizedIds));
+            return await command.ExecuteNonQueryAsync();
+        }
+
         public async Task<bool> DeleteCommunicationAsync(int communicationId)
         {
             // Borrado en cascada manual por seguridad
             string query = @"
                 DELETE FROM dispatches WHERE comm_channel_content_id IN (SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id);
                 DELETE FROM mass_recipient_dispatches WHERE comm_channel_content_id IN (SELECT comm_channel_content_id FROM communication_channel_content WHERE communication_id = @Id);
+                DELETE FROM communication_mass_recipients WHERE communication_id = @Id;
                 DELETE FROM communication_recipients WHERE communication_id = @Id;
                 DELETE FROM communication_attachments WHERE communication_id = @Id; -- Borra adjuntos
                 DELETE FROM communication_channel_content WHERE communication_id = @Id;
@@ -523,6 +592,74 @@ namespace GuardeSoftwareAPI.Dao
                     WhatsAppPhones = whatsappPhones
                 });
             }
+            return recipients;
+        }
+
+        public async Task<List<RecipientForSendingDto>> GetSelectedExternalEmailRecipientsForSendingAsync(
+            int communicationId,
+            int commChannelContentId)
+        {
+            var recipients = new List<RecipientForSendingDto>();
+            const string query = @"
+                SELECT
+                    0 AS Id,
+                    ISNULL(NULLIF(LTRIM(RTRIM(r.name)), ''), '') AS Name,
+                    NULLIF(LTRIM(RTRIM(r.email)), '') AS Email,
+                    r.recipient_id AS ExternalRecipientId
+                FROM communication_mass_recipients cmr
+                JOIN mass_communication_recipients r
+                    ON r.recipient_id = cmr.recipient_id
+                JOIN communications comm
+                    ON comm.communication_id = cmr.communication_id
+                JOIN communication_channel_content ccc
+                    ON ccc.communication_id = comm.communication_id
+                   AND ccc.comm_channel_content_id = @CommChannelContentId
+                JOIN communication_channels channel
+                    ON channel.channel_id = ccc.channel_id
+                   AND channel.name = 'Email'
+                WHERE cmr.communication_id = @Id
+                  AND comm.send_to_all_emails = 0
+                  AND ISNULL(comm.is_account_statement, 0) = 0
+                  AND r.active = 1
+                  AND NULLIF(LTRIM(RTRIM(r.email)), '') IS NOT NULL
+                  AND ISNULL((
+                      SELECT TOP 1 d.is_selected_for_retry
+                      FROM mass_recipient_dispatches d
+                      WHERE d.comm_channel_content_id = @CommChannelContentId
+                        AND d.recipient_id = r.recipient_id
+                      ORDER BY d.dispatch_id DESC
+                  ), 1) = 1
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM mass_recipient_dispatches d
+                      WHERE d.comm_channel_content_id = @CommChannelContentId
+                        AND d.recipient_id = r.recipient_id
+                        AND d.status = 'Exitoso'
+                  )
+                ORDER BY ISNULL(r.name, ''), r.recipient_id;";
+
+            var parameters = new[]
+            {
+                new SqlParameter("@Id", communicationId),
+                new SqlParameter("@CommChannelContentId", commChannelContentId)
+            };
+            DataTable table = await _accessDB.GetTableAsync("SelectedExternalEmailRecipients", query, parameters);
+
+            foreach (DataRow row in table.Rows)
+            {
+                string email = row["Email"] is DBNull ? string.Empty : row["Email"].ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(email)) continue;
+
+                string name = row["Name"] is DBNull ? string.Empty : row["Name"].ToString() ?? string.Empty;
+                recipients.Add(new RecipientForSendingDto
+                {
+                    ClientId = 0,
+                    ExternalRecipientId = Convert.ToInt32(row["ExternalRecipientId"]),
+                    Name = string.IsNullOrWhiteSpace(name) ? "cliente" : name,
+                    Email = email
+                });
+            }
+
             return recipients;
         }
 
@@ -1149,8 +1286,20 @@ namespace GuardeSoftwareAPI.Dao
                         Raw_PrevBal = ISNULL((
                             SELECT SUM(
                                 CASE
-                                    WHEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0) > 0
-                                    THEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0)
+                                    WHEN ISNULL(cmb2.monthly_debits, 0) > CASE
+                                        WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             > ISNULL(cmb2.previous_balance, 0) + ISNULL(cmb2.interests, 0)
+                                        THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             - ISNULL(cmb2.previous_balance, 0) - ISNULL(cmb2.interests, 0)
+                                        ELSE 0
+                                    END
+                                    THEN ISNULL(cmb2.monthly_debits, 0) - CASE
+                                        WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             > ISNULL(cmb2.previous_balance, 0) + ISNULL(cmb2.interests, 0)
+                                        THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             - ISNULL(cmb2.previous_balance, 0) - ISNULL(cmb2.interests, 0)
+                                        ELSE 0
+                                    END
                                     ELSE 0
                                 END
                             )
@@ -1159,7 +1308,19 @@ namespace GuardeSoftwareAPI.Dao
                         ), 0),
                         
                         Raw_Interest = ISNULL((
-                            SELECT SUM(ISNULL(cmb2.interests, 0))
+                            SELECT SUM(CASE
+                                WHEN ISNULL(cmb2.interests, 0) > CASE
+                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
+                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
+                                    ELSE 0
+                                END
+                                THEN ISNULL(cmb2.interests, 0) - CASE
+                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
+                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
+                                    ELSE 0
+                                END
+                                ELSE 0
+                            END)
                             FROM client_month_balances cmb2
                             WHERE cmb2.rental_id = r.rental_id AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
                         ), 0),
@@ -1180,7 +1341,7 @@ namespace GuardeSoftwareAPI.Dao
                 OUTER APPLY (
                     SELECT
                         UI_CurrentRent = db.RentDB,
-                        UI_InterestAmount = calc3.UnpaidInts,
+                        UI_InterestAmount = rawData.Raw_Interest,
                         UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                         UI_PreviousBalance = CASE 
                             WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)

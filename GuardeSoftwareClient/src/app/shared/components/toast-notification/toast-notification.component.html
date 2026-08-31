@@ -1,0 +1,16 @@
+<div
+  *ngIf="visible"
+  class="fixed top-5 right-5 z-[10000] flex items-center p-4 rounded-lg shadow-lg text-white animate-fade-in-out"
+  [ngClass]="{
+    'bg-green-500': type === 'success',
+    'bg-red-500': type === 'error'
+  }"
+  role="status"
+  aria-live="polite"
+>
+  <app-icon
+    [name]="type === 'success' ? 'check-circle' : 'alert-triangle'"
+    class="h-5 w-5 mr-3"
+  ></app-icon>
+  <span>{{ message }}</span>
+</div>

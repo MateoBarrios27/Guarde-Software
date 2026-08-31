@@ -83,6 +83,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
   selectedClientBalance: number | 0 = 0;
   selectedClientPreviousBalance: number | 0 = 0;
   selectedClientRentAmount: number | 0 = 0;
+  selectedClientDepartureStatus: string | null = null;
   selectedPreferredPaymentId: number = 1;
   
 
@@ -139,6 +140,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
   public selectedPlannedPaymentAmount = 0;
   public hasSelectedPlannedPayment = false;
   public customScenarioCInterest: number | null = null;
+  public surchargeAmountWasOverridden = false;
   private paymentAmountManuallyEdited = false;
   otherPaymentViewers: PaymentPresenceUser[] = [];
   paymentCollision: PaymentCompletedNotice | null = null;
@@ -336,6 +338,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
             lastGeneratedMonthYear: c.lastGeneratedMonthYear,
             color: c.color,
             active: c.active,
+            departureStatus: c.departureStatus ?? null,
             preferredPaymentMethod: c.preferredPaymentMethodId ?? 0,
             // Enriched offline fields — keep dates as ISO strings for compatibility
             nextPaymentDay: c.nextPaymentDay ?? undefined,
@@ -768,6 +771,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.selectedClientBalance = 0;
     this.selectedClientPreviousBalance = 0;
     this.selectedClientRentAmount = 0;
+    this.selectedClientDepartureStatus = null;
     this.selectedClientIncreaseAnchorDate = null;
     this.selectedClientLastMonth = '';
     this.selectedClientNextPaymentDay = null;
@@ -828,6 +832,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.searchClient = '';
     this.selectedClientId = 0;
     this.selectedClientIdentifier = 0;
+    this.selectedClientDepartureStatus = null;
     this.showIncreaseOverlay = false;
     this.currentIncreaseFlow = 'none';
     this.otherPaymentViewers = [];
@@ -1214,6 +1219,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.selectedClientBalance = Number(client.balance ?? 0);
     this.selectedClientPreviousBalance = Number(client.previousBalance ?? 0);
     this.selectedClientRentAmount = Number(client.currentRent ?? 0);
+    this.selectedClientDepartureStatus = client.departureStatus ?? null;
     this.selectedClientIncreaseAnchorDate = client.increaseAnchorDate;
     this.selectedClientNextPaymentDay = client.nextPaymentDay ?? null;
     this.selectedClientNextIncreaseDay = client.nextIncreaseDay ?? client.increaseAnchorDate ?? null;
@@ -1226,11 +1232,14 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.selectedSurchargeAction = 'next_payment';
     this.applyScenarioCInterest = true;
     this.customScenarioCInterest = null;
+    this.surchargeAmountWasOverridden = false;
     
     this.selectedClientFrequency = client.increaseFrequencyMonths || 4; 
     
     this.increaseResolved = false;
     this.increasePercentage = 0;
+    this.paymentDto.appliedIncreases = [];
+    this.paymentDto.skipFutureProjection = false;
     this.paymentDto.increasePercentage = 0;
     this.showIncreaseOverlay = false;
     this.currentIncreaseFlow = 'none';
@@ -1350,6 +1359,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
       }
     }).then((result) => {
       if (result.isConfirmed && result.value !== undefined) {
+        this.surchargeAmountWasOverridden = true;
         if (scenario === 'C') {
           this.customScenarioCInterest = result.value;
         } else {
@@ -1700,6 +1710,13 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.confirmedIncreases = [];
     this.hasIncreaseInPeriod = false;
 
+    if ((this.selectedClientDepartureStatus ?? '').trim().toUpperCase() === 'SE_VA') {
+      this.paymentDto.appliedIncreases = [];
+      this.paymentDto.skipFutureProjection = true;
+      this.increaseResolved = true;
+      return;
+    }
+
     if (this.isPreviousBalanceSelected) return;
 
     if (!this.selectedClientIncreaseAnchorDate) return;
@@ -2042,7 +2059,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
                 <span>Recargo por mora pendiente (${formatARS(this.selectedPendingSurcharge)})</span>
                 <button type="button" id="swal-edit-interest-btn-b" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Modificar monto</button>
               </h4>
-              <p class="text-xs text-amber-700 mt-0.5">El cliente registra un recargo por pago fuera de término. Seleccioná cómo aplicarlo:</p>
+              <p class="text-xs text-amber-700 mt-0.5">Monto previo al pago. Al confirmar, el servidor lo recalcula según qué intereses queden realmente impagos. Seleccioná cómo aplicarlo:</p>
             </div>
             <span class="bg-amber-100/90 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día > 10</span>
           </div>
@@ -2071,7 +2088,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
                 <span>Aplicar intereses por mora (${formatARS(interestAmt)})</span>
                 <button type="button" id="swal-edit-interest-btn-c" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Modificar monto</button>
               </h4>
-              <p class="text-xs text-amber-700 mt-0.5">Fecha posterior al día 10. Cálculo: 10% de base imponible (${formatARS(baseImp)}).</p>
+              <p class="text-xs text-amber-700 mt-0.5">Fecha posterior al día 10. Estimación: 10% de base imponible (${formatARS(baseImp)}); se ajusta con la cascada real al confirmar.</p>
             </div>
             <label class="flex items-center gap-2 cursor-pointer shrink-0 pt-1">
               <input type="checkbox" id="swal-apply-scenario-c" ${this.applyScenarioCInterest ? 'checked' : ''} class="rounded text-amber-600 focus:ring-amber-500 w-4 h-4">
@@ -2380,7 +2397,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
           ? `Recargo por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)`
           : (calc.isDiscount ? `Bonificación por pago en ${this.getNamePaymentMethodById(this.paymentDto.paymentMethodId)} (${calc.selectedCommission}%)` : ''),
       surchargeAction: action,
-      surchargeAmount: amount
+      surchargeAmount: amount,
+      surchargeAmountWasOverridden: this.surchargeAmountWasOverridden
     };
 
     const targetReturnUrl = this.returnToUrl;
@@ -2407,6 +2425,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
         skipFutureProjection: true,
         surchargeAction: payloadToSave.surchargeAction,
         surchargeAmount: payloadToSave.surchargeAmount,
+        surchargeAmountWasOverridden: payloadToSave.surchargeAmountWasOverridden,
         expectedPaymentStateToken: payloadToSave.expectedPaymentStateToken
       });
 
@@ -2423,11 +2442,16 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
     // --- ONLINE MODE: Send to API as usual ---
     this.paymentService.CreatePayment(payloadToSave).subscribe({
-      next: () => {
+      next: (response: any) => {
         this.isSubmittingPayment = false;
+        const registeredConcept = response?.concept || payloadToSave.concept || 'SERVICIO DE BAULERAS';
+        const recalculatedSurcharge = Number(response?.surchargeAmount ?? 0);
+        const successText = response?.surchargeAction === 'next_payment' && recalculatedSurcharge > 0
+          ? `El pago se registró correctamente. Se registró un débito de intereses de ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(recalculatedSurcharge)} para el próximo mes. ¿Deseas generar el recibo de pago?`
+          : 'El pago se registró correctamente. ¿Deseas generar el recibo de pago?';
         Swal.fire({
           title: '¡Pago registrado!',
-          text: 'El pago se registró correctamente. ¿Deseas generar el recibo de pago?',
+          text: successText,
           icon: 'success',
           showCancelButton: true,
           confirmButtonColor: '#2563eb',
@@ -2449,7 +2473,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
               paymentIdentifier: this.getClientIdentifierById(payloadToSave.clientId),
               amount: payloadToSave.amount,
               paymentDate: payloadToSave.date,
-              concept: payloadToSave.concept || 'SERVICIO DE BAULERAS'
+              concept: registeredConcept
             });
           } else {
             if (targetReturnUrl) {

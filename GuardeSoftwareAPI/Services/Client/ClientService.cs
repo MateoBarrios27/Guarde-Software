@@ -85,6 +85,7 @@ namespace GuardeSoftwareAPI.Services.client
                     Dni = row["dni"]?.ToString() ?? string.Empty,
                     Cuit = row["cuit"]?.ToString() ?? string.Empty,
                     PreferredPaymentMethodId = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : 0,
+                    DepartureStatus = row.Table.Columns.Contains("departure_status") && row["departure_status"] != DBNull.Value ? row["departure_status"].ToString() : null,
                     Balance = row["balance"] != DBNull.Value ? Convert.ToDecimal(row["balance"]) : 0m,
                     PreviousBalance = row.Table.Columns.Contains("PreviousBalance") && row["PreviousBalance"] != DBNull.Value ? Convert.ToDecimal(row["PreviousBalance"]) : 0m,
                     CurrentRent = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m,
@@ -121,6 +122,7 @@ namespace GuardeSoftwareAPI.Services.client
                     Dni = row["dni"]?.ToString() ?? string.Empty,
                     Cuit = row["cuit"]?.ToString() ?? string.Empty,
                     PreferredPaymentMethodId = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : 0,
+                    DepartureStatus = row.Table.Columns.Contains("departure_status") && row["departure_status"] != DBNull.Value ? row["departure_status"].ToString() : null,
                     IsSixMonthPromotion = row.Table.Columns.Contains("is_six_month_promotion") && row["is_six_month_promotion"] != DBNull.Value && Convert.ToBoolean(row["is_six_month_promotion"]),
                     PreviousBalance = row.Table.Columns.Contains("PreviousBalance") && row["PreviousBalance"] != DBNull.Value ? Convert.ToDecimal(row["PreviousBalance"]) : 0m,
                 };
@@ -866,7 +868,8 @@ namespace GuardeSoftwareAPI.Services.client
                 ReceiveCommunications = Convert.ToBoolean(row["receive_communications"]),
                 Color = row["color"] != DBNull.Value ? row["color"].ToString() : null,
                 Comment = row["comment"] != DBNull.Value ? row["comment"].ToString() : null,
-                CommentUpdatedAt = row["comment_updated_at"] != DBNull.Value ? Convert.ToDateTime(row["comment_updated_at"]) : null
+                CommentUpdatedAt = row["comment_updated_at"] != DBNull.Value ? Convert.ToDateTime(row["comment_updated_at"]) : null,
+                DepartureStatus = row["departure_status"] != DBNull.Value ? row["departure_status"]?.ToString() : null
             };
 
             // Contact Information
@@ -1442,6 +1445,296 @@ namespace GuardeSoftwareAPI.Services.client
                 });
             }
             return updated;
+        }
+
+        public async Task ApplyDepartureActionAsync(int clientId, ClientDepartureActionDto request)
+        {
+            if (clientId <= 0) throw new ArgumentException("ID de cliente inválido.");
+            ArgumentNullException.ThrowIfNull(request);
+
+            string action = request.Action?.Trim().ToUpperInvariant() ?? string.Empty;
+            if (action is not ("SE_VA" or "SE_QUEDA" or "DAR_DE_BAJA"))
+                throw new ArgumentException("La acción de salida del cliente no es válida.");
+
+            string? surchargeAction = request.PendingSurchargeAction?.Trim().ToLowerInvariant();
+            if (surchargeAction is not (null or "forgive" or "immediate"))
+                throw new ArgumentException("La acción del recargo pendiente no es válida.");
+
+            using var connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                var rentalData = await GetActiveRentalDepartureDataAsync(clientId, connection, transaction);
+                if (rentalData.ClientExists == false)
+                    throw new KeyNotFoundException("No se encontró el cliente.");
+
+                DateTime? departureDate = request.DepartureDate?.Date;
+                if (request.ChargeProportional)
+                {
+                    if (!departureDate.HasValue)
+                        throw new ArgumentException("La fecha de salida es obligatoria para calcular el proporcional.");
+
+                    DateTime nextMonth = new DateTime(rentalData.Today.Year, rentalData.Today.Month, 1).AddMonths(1);
+                    if (departureDate.Value.Year != nextMonth.Year || departureDate.Value.Month != nextMonth.Month)
+                        throw new ArgumentException("La fecha de salida debe pertenecer al mes siguiente.");
+                }
+
+                if (action == "SE_QUEDA")
+                {
+                    if (!rentalData.ActiveRentalId.HasValue)
+                        throw new InvalidOperationException("El cliente no tiene un alquiler activo para volver a ocupar sus bauleras.");
+
+                    await UpdateClientDepartureStatusAsync(clientId, null, connection, transaction);
+                    await SetAssignedLockerStatusAsync(rentalData.ActiveRentalId.Value, "OCUPADO", connection, transaction);
+                }
+                else
+                {
+                    if (rentalData.ActiveRentalId.HasValue)
+                    {
+                        // Un proporcional del mes siguiente reemplaza al débito mensual completo.
+                        if (request.RemoveNextMonthDebit || request.ChargeProportional)
+                        {
+                            await RemoveNextMonthDebitAsync(rentalData.ActiveRentalId.Value, rentalData.Today, connection, transaction);
+                        }
+
+                        if (request.ChargeProportional && rentalData.CurrentRent > 0m && departureDate.HasValue)
+                        {
+                            await ApplyDepartureProportionalDebitAsync(
+                                rentalData.ActiveRentalId.Value,
+                                rentalData.CurrentRent,
+                                departureDate.Value,
+                                rentalData.Today,
+                                connection,
+                                transaction);
+                        }
+
+                        if (rentalData.PendingSurcharge > 0m && surchargeAction == "forgive")
+                        {
+                            await ResetPendingSurchargeAsync(rentalData.ActiveRentalId.Value, connection, transaction);
+                        }
+                        else if (rentalData.PendingSurcharge > 0m && surchargeAction == "immediate")
+                        {
+                            await ChargePendingSurchargeImmediatelyAsync(rentalData.ActiveRentalId.Value, rentalData.PendingSurcharge, rentalData.Today, connection, transaction);
+                        }
+
+                        if (action == "SE_VA")
+                        {
+                            await UpdateClientDepartureStatusAsync(clientId, "SE_VA", connection, transaction);
+                            await SetAssignedLockerStatusAsync(rentalData.ActiveRentalId.Value, "POR LIBERARSE", connection, transaction);
+                        }
+                        else
+                        {
+                            var lockerIds = await lockerService.GetLockerIdsByRentalIdTransactionAsync(rentalData.ActiveRentalId.Value, connection, transaction);
+                            if (lockerIds != null && lockerIds.Count > 0)
+                            {
+                                await lockerService.UnassignLockersFromRentalTransactionAsync(rentalData.ActiveRentalId.Value, lockerIds, connection, transaction);
+                                await daoClient.CloseLockerHistoryTransactionAsync(clientId, lockerIds, connection, transaction);
+                                await rentalService.UpdateContractedM3TransactionAsync(rentalData.ActiveRentalId.Value, 0m, connection, transaction);
+                            }
+
+                            await rentalAmountHistoryService.CloseOpenHistoriesByRentalIdTransactionAsync(rentalData.ActiveRentalId.Value, rentalData.Today, connection, transaction);
+                            await rentalService.EndActiveRentalByClientIdTransactionAsync(clientId, rentalData.Today, connection, transaction);
+                            await UpdateClientDepartureStatusAsync(clientId, null, connection, transaction);
+                        }
+
+                        await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rentalData.ActiveRentalId.Value, connection, transaction);
+                    }
+                    else if (action == "SE_VA")
+                    {
+                        throw new InvalidOperationException("El cliente no tiene un alquiler activo para marcarlo como SE VA.");
+                    }
+                    else
+                    {
+                        await UpdateClientDepartureStatusAsync(clientId, null, connection, transaction);
+                    }
+
+                    if (action == "DAR_DE_BAJA")
+                    {
+                        await daoClient.DeactivateClientTransactionAsync(clientId, connection, transaction);
+                    }
+                }
+
+                await activityLogService.CreateActivityLogTransactionAsync(new ActivityLog
+                {
+                    Action = action == "SE_QUEDA" ? "CLIENT_STAYS" : action == "SE_VA" ? "CLIENT_DEPARTURE" : "DELETE",
+                    TableName = "clients",
+                    RecordId = clientId,
+                    OldValue = JsonSerializer.Serialize(new { DepartureStatus = rentalData.DepartureStatus, Active = rentalData.IsActive }),
+                    NewValue = JsonSerializer.Serialize(new { DepartureStatus = action == "SE_VA" ? "SE_VA" : (string?)null, Active = action != "DAR_DE_BAJA" })
+                }, connection, transaction);
+
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        private sealed class ActiveRentalDepartureData
+        {
+            public bool ClientExists { get; init; }
+            public bool IsActive { get; init; }
+            public string? DepartureStatus { get; init; }
+            public int? ActiveRentalId { get; init; }
+            public decimal CurrentRent { get; init; }
+            public decimal PendingSurcharge { get; init; }
+            public DateTime Today { get; init; }
+        }
+
+        private async Task<ActiveRentalDepartureData> GetActiveRentalDepartureDataAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = @"
+                SELECT TOP 1
+                    c.active,
+                    c.departure_status,
+                    r.rental_id,
+                    ISNULL(rah.amount, 0) AS current_rent,
+                    ISNULL(r.pending_surcharge, 0) AS pending_surcharge
+                FROM clients c
+                OUTER APPLY (
+                    SELECT TOP 1 r1.*
+                    FROM rentals r1
+                    WHERE r1.client_id = c.client_id AND r1.active = 1
+                    ORDER BY r1.start_date DESC, r1.rental_id DESC
+                ) r
+                OUTER APPLY (
+                    SELECT TOP 1 h.amount
+                    FROM rental_amount_history h
+                    WHERE h.rental_id = r.rental_id
+                      AND h.start_date <= DATEADD(hour, -3, GETUTCDATE())
+                    ORDER BY h.start_date DESC, h.rental_amount_history_id DESC
+                ) rah
+                WHERE c.client_id = @client_id AND c.is_deleted = 0;";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId });
+            using var reader = await command.ExecuteReaderAsync();
+            if (!await reader.ReadAsync()) return new ActiveRentalDepartureData { ClientExists = false };
+
+            return new ActiveRentalDepartureData
+            {
+                ClientExists = true,
+                IsActive = !reader.IsDBNull(0) && reader.GetBoolean(0),
+                DepartureStatus = reader.IsDBNull(1) ? null : reader.GetString(1),
+                ActiveRentalId = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                CurrentRent = reader.IsDBNull(3) ? 0m : reader.GetDecimal(3),
+                PendingSurcharge = reader.IsDBNull(4) ? 0m : reader.GetDecimal(4),
+                Today = TimeHelper.GetArgentinaTime().Date
+            };
+        }
+
+        private static async Task UpdateClientDepartureStatusAsync(int clientId, string? status, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = "UPDATE clients SET departure_status = @status WHERE client_id = @client_id";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@status", SqlDbType.VarChar, 20) { Value = (object?)status ?? DBNull.Value });
+            command.Parameters.Add(new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId });
+            await command.ExecuteNonQueryAsync();
+        }
+
+        private static async Task SetAssignedLockerStatusAsync(int rentalId, string status, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = "UPDATE lockers SET status = @status WHERE rental_id = @rental_id AND active = 1";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@status", SqlDbType.VarChar, 50) { Value = status });
+            command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+            await command.ExecuteNonQueryAsync();
+        }
+
+        private static async Task RemoveNextMonthDebitAsync(int rentalId, DateTime today, SqlConnection connection, SqlTransaction transaction)
+        {
+            DateTime nextMonth = new DateTime(today.Year, today.Month, 1).AddMonths(1);
+            var culture = new CultureInfo("es-AR");
+            string monthTitle = culture.TextInfo.ToTitleCase(culture.DateTimeFormat.GetMonthName(nextMonth.Month));
+            string conceptPrefix = $"Alquiler {monthTitle} {nextMonth.Year}";
+
+            const string query = @"
+                DELETE FROM account_movements
+                WHERE rental_id = @rental_id
+                  AND movement_type = 'DEBITO'
+                  AND @today < @next_month
+                  AND LTRIM(RTRIM(ISNULL(concept, ''))) COLLATE Latin1_General_100_CI_AI LIKE @concept_prefix + '%';";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+            command.Parameters.Add(new SqlParameter("@today", SqlDbType.Date) { Value = today });
+            command.Parameters.Add(new SqlParameter("@next_month", SqlDbType.Date) { Value = nextMonth });
+            command.Parameters.Add(new SqlParameter("@concept_prefix", SqlDbType.NVarChar, 200) { Value = conceptPrefix });
+            await command.ExecuteNonQueryAsync();
+        }
+
+        private async Task ApplyDepartureProportionalDebitAsync(
+            int rentalId,
+            decimal currentRent,
+            DateTime departureDate,
+            DateTime movementDate,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            int daysInMonth = DateTime.DaysInMonth(departureDate.Year, departureDate.Month);
+            int daysToCharge = departureDate.Day;
+            decimal amount = RoundToNearest1000(currentRent / daysInMonth * daysToCharge);
+            if (amount <= 0m) return;
+
+            var culture = new CultureInfo("es-AR");
+            string monthTitle = culture.TextInfo.ToTitleCase(culture.DateTimeFormat.GetMonthName(departureDate.Month));
+
+            // Si la operación se confirma nuevamente, reemplazar el proporcional
+            // automático anterior evita duplicar el cargo del mes siguiente.
+            const string deletePreviousQuery = @"
+                DELETE FROM account_movements
+                WHERE rental_id = @rental_id
+                  AND movement_type = 'DEBITO'
+                  AND payment_id IS NULL
+                  AND LTRIM(RTRIM(ISNULL(concept, ''))) COLLATE Latin1_General_100_CI_AI
+                      LIKE @concept_prefix + '%';";
+            using (var deleteCommand = new SqlCommand(deletePreviousQuery, connection, transaction))
+            {
+                deleteCommand.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+                deleteCommand.Parameters.Add(new SqlParameter("@concept_prefix", SqlDbType.NVarChar, 200)
+                {
+                    Value = $"Alquiler {monthTitle} {departureDate.Year} (Proporcional salida"
+                });
+                await deleteCommand.ExecuteNonQueryAsync();
+            }
+
+            await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
+            {
+                RentalId = rentalId,
+                MovementDate = movementDate,
+                MovementType = "DEBITO",
+                Concept = $"Alquiler {monthTitle} {departureDate.Year} (Proporcional salida {daysToCharge} días)",
+                Amount = amount,
+                PaymentId = null
+            }, connection, transaction);
+        }
+
+        private static async Task ResetPendingSurchargeAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = @"UPDATE rentals SET pending_surcharge = 0, pending_surcharge_rent_base = NULL, pending_surcharge_period = NULL WHERE rental_id = @rental_id";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+            await command.ExecuteNonQueryAsync();
+        }
+
+        private async Task ChargePendingSurchargeImmediatelyAsync(int rentalId, decimal amount, DateTime today, SqlConnection connection, SqlTransaction transaction)
+        {
+            if (amount <= 0m) return;
+            var culture = new CultureInfo("es-AR");
+            string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(culture.DateTimeFormat.GetMonthName(today.Month));
+            await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
+            {
+                RentalId = rentalId,
+                MovementDate = today,
+                MovementType = "DEBITO",
+                Concept = $"Interés por mora de {monthTitle} {today.Year} (cobrado en el acto por baja)",
+                Amount = amount,
+                PaymentId = null
+            }, connection, transaction);
+            await ResetPendingSurchargeAsync(rentalId, connection, transaction);
         }
 
         public async Task<bool> UpdateClientCommentAsync(int clientId, string? comment)

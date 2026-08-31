@@ -36,6 +36,7 @@ import {
   PaymentPlanningMonth
 } from '../../../core/dtos/accountMovement/payment-planning.dto';
 import { buildPaymentPlanningBreakdown, roundPlannedRent } from '../../utils/payment-planning.util';
+import { buildCommunicationPreviewDocument } from '../../utils/communication-preview.util';
 
 export interface IClientCommunication {
   id: number;
@@ -152,7 +153,7 @@ export class ClientDetailModalComponent implements OnChanges {
   viewDispatchContent(dispatchId: number): void {
     this.communicationService.getDispatchContent(dispatchId).subscribe({
       next: (res) => {
-        this.previewContent = res.content;
+        this.previewContent = buildCommunicationPreviewDocument(res.content);
         this.cdr.markForCheck();
       },
       error: () => {

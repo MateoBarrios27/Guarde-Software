@@ -9,6 +9,7 @@ export interface Client{
     cuit: string;
     preferredPaymentMethod: number;
     ivaCondition: string;
+    departureStatus?: string | null;
     balance?: number;
     previousBalance?: number;
     currentRent?: number;

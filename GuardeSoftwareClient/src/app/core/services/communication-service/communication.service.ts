@@ -82,6 +82,10 @@ export class CommunicationService {
     if (request.recipients) {
         request.recipients.forEach((r: string, index: number) => formData.append(`recipients[${index}]`, r));
     }
+    if (request.externalRecipientIds) {
+        request.externalRecipientIds.forEach((id: number, index: number) =>
+          formData.append(`externalRecipientIds[${index}]`, id.toString()));
+    }
 
     // Archivos
     if (files) {

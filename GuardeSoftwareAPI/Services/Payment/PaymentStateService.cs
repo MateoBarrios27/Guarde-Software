@@ -120,6 +120,8 @@ namespace GuardeSoftwareAPI.Services.payment
                     months_unpaid,
                     increase_anchor_date,
                     pending_surcharge,
+                    pending_surcharge_rent_base,
+                    pending_surcharge_period,
                     price_lock_end_date,
                     active
                 FROM rentals";

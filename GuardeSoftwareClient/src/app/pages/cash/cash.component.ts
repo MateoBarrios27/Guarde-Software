@@ -7,6 +7,7 @@ import Swal from '../../shared/services/ui-alert.service';
 import { IconComponent } from "../../shared/components/icon/icon.component";
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { CashFlowItem, FinancialAccount, MonthlySummary } from '../../core/models/cash';
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
@@ -14,12 +15,23 @@ import { ScrollingModule } from '@angular/cdk/scrolling';
 import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 
 // --- Structure Historial (CTRL+Z) ---
-export type ActionType = 'ACCOUNT_EDIT' | 'ACCOUNT_CREATE' | 'ACCOUNT_DELETE' | 'ITEM_EDIT' | 'ITEM_CREATE' | 'ITEM_DELETE';
+export type ActionType =
+  | 'ACCOUNT_EDIT'
+  | 'ACCOUNT_CREATE'
+  | 'ACCOUNT_DELETE'
+  | 'ITEM_EDIT'
+  | 'ITEM_CREATE'
+  | 'ITEM_DELETE'
+  | 'IVA_CREATE'
+  | 'IVA_DELETE'
+  | 'ADVANCE_CREATE'
+  | 'ADVANCE_DELETE';
 
 export interface UndoAction {
   type: ActionType;
   targetId?: number; 
   oldState?: any;
+  newState?: any;
   anchorMonth: number;
   anchorYear: number;
 }
@@ -40,10 +52,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   private commentHoverTimer: any = null;
   private commentLeaveTimer: any = null;
   items: CashFlowItem[] = [];
-
-  // Toast para notificaciones en el modal de adelantos
-  advanceToast: { show: boolean; message: string; description: string } = { show: false, message: '', description: '' };
-  private advanceToastTimer: any = null;
 
   summary: MonthlySummary = {
     totalSystemIncome: 0,
@@ -94,8 +102,9 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   isScrolledDown: boolean = false;
   private scrollObserver!: IntersectionObserver;
 
-  // --- VARIABLES SISTEMA CTRL+Z ---
+  // --- VARIABLES SISTEMA CTRL+Z / CTRL+Y ---
   public undoStack: UndoAction[] = [];
+  public redoStack: UndoAction[] = [];
   private capturedAccountState: string = '';
   private capturedItemState: string = '';
 
@@ -117,7 +126,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   constructor(
     private cashService: CashService,
     private cashSignalrService: CashSignalrService,
-    private deleteConfirmation: DeleteConfirmationService
+    private deleteConfirmation: DeleteConfirmationService,
+    private router: Router
   ) {
     this.saveSubject.pipe(
       groupBy(item => item), 
@@ -156,19 +166,37 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     return sum;
   }
-  private saveUndoStack(): void {
+  private saveHistory(): void {
     sessionStorage.setItem('cash_undo_stack', JSON.stringify(this.undoStack));
+    sessionStorage.setItem('cash_redo_stack', JSON.stringify(this.redoStack));
   }
 
-  private loadUndoStack(): void {
-    const saved = sessionStorage.getItem('cash_undo_stack');
-    if (saved) {
-      this.undoStack = JSON.parse(saved);
+  private loadHistory(): void {
+    const savedUndo = sessionStorage.getItem('cash_undo_stack');
+    const savedRedo = sessionStorage.getItem('cash_redo_stack');
+
+    if (savedUndo) {
+      this.undoStack = JSON.parse(savedUndo);
+    }
+
+    if (savedRedo) {
+      this.redoStack = JSON.parse(savedRedo);
     }
   }
 
+  private recordHistoryAction(action: UndoAction): void {
+    this.undoStack.push(action);
+    this.redoStack = [];
+    this.saveHistory();
+  }
+
   @HostListener('window:keydown', ['$event'])
-  handleKeyDown(event: KeyboardEvent) {
+  handleKeyDown(event: KeyboardEvent): void {
+    // Las pantallas principales se conservan en caché al navegar. El listener
+    // de Caja sigue existiendo en ese estado, pero no debe actuar fuera de
+    // /cash.
+    if (!this.isCashRouteActive()) return;
+
     if (event.key === 'Escape') {
       if (this.showAdvancesModal) {
         this.closeAdvancesModal();
@@ -182,14 +210,42 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.isHistoricalView) return; // Desactivar Ctrl+Z si está en modo reporte
 
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
-      const activeElement = document.activeElement as HTMLElement;
-      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
-        return;
-      }
+    if (event.altKey || this.isEditableTarget(event)) return;
+
+    const hasModifier = event.ctrlKey || event.metaKey;
+    if (!hasModifier) return;
+
+    const key = event.key.toLowerCase();
+    const isUndoShortcut = key === 'z' && !event.shiftKey;
+    const isRedoShortcut = (key === 'y' && !event.shiftKey) || (key === 'z' && event.shiftKey);
+
+    if (isUndoShortcut && this.undoStack.length > 0) {
       event.preventDefault();
       this.undoLastAction();
+      return;
     }
+
+    if (isRedoShortcut && this.redoStack.length > 0) {
+      event.preventDefault();
+      this.redoLastAction();
+    }
+  }
+
+  private isCashRouteActive(): boolean {
+    const currentUrl = this.router.url.split(/[?#]/, 1)[0];
+    return currentUrl === '/cash' || currentUrl.startsWith('/cash/');
+  }
+
+  private isEditableTarget(event: KeyboardEvent): boolean {
+    return this.isEditableElement(event.target) || this.isEditableElement(document.activeElement);
+  }
+
+  private isEditableElement(element: EventTarget | null): boolean {
+    const htmlElement = element as HTMLElement | null;
+    if (!htmlElement?.tagName) return false;
+
+    return ['INPUT', 'TEXTAREA', 'SELECT'].includes(htmlElement.tagName)
+      || htmlElement.isContentEditable;
   }
 
   // --- CAPTURADORES DE ESTADOS ---
@@ -201,14 +257,14 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.capturedAccountState) return;
     const oldState = JSON.parse(this.capturedAccountState);
     if (oldState.name !== acc.name || oldState.color !== acc.color || oldState.balance !== acc.balance) {
-      this.undoStack.push({ 
+      this.recordHistoryAction({
         type: 'ACCOUNT_EDIT', 
         targetId: acc.id,
         oldState,
+        newState: JSON.parse(JSON.stringify(acc)),
         anchorMonth: this.selectedMonth,
         anchorYear: this.selectedYear
       });
-      this.saveUndoStack();
     }
     this.capturedAccountState = '';
   }
@@ -221,110 +277,408 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.capturedItemState) return;
     const oldState = JSON.parse(this.capturedItemState);
     if (JSON.stringify(oldState) !== JSON.stringify(item)) {
-      this.undoStack.push({ 
+      this.recordHistoryAction({
         type: 'ITEM_EDIT', 
         targetId: item.id, 
         oldState,
+        newState: JSON.parse(JSON.stringify(item)),
         anchorMonth: this.selectedMonth,
         anchorYear: this.selectedYear
       });
-      this.saveUndoStack(); 
     }
     this.capturedItemState = '';
   }
 
-  // --- EJECUCIÓN DEL DESHACER ---
-  undoLastAction() {
+  // --- EJECUCIÓN DEL DESHACER / REHACER ---
+  undoLastAction(): void {
     if (this.undoStack.length === 0) return;
-    const action = this.undoStack.pop()!;
-    this.saveUndoStack();
 
+    const action = this.undoStack[this.undoStack.length - 1];
+    this.captureCurrentStateForRedo(action);
+    this.undoStack.pop();
+    this.redoStack.push(action);
+    this.saveHistory();
+    this.applyHistoryAction(action, 'undo');
+  }
+
+  redoLastAction(): void {
+    if (this.redoStack.length === 0) return;
+
+    const action = this.redoStack.pop()!;
+    this.undoStack.push(action);
+    this.saveHistory();
+    this.applyHistoryAction(action, 'redo');
+  }
+
+  private captureCurrentStateForRedo(action: UndoAction): void {
+    if (action.newState) return;
+    if (action.anchorMonth !== this.selectedMonth || action.anchorYear !== this.selectedYear) return;
+
+    if (action.type === 'ACCOUNT_EDIT' || action.type === 'ACCOUNT_CREATE') {
+      const account = this.accounts.find(item => item.id === action.targetId);
+      if (account) action.newState = JSON.parse(JSON.stringify(account));
+      return;
+    }
+
+    if (action.type === 'ITEM_EDIT') {
+      const item = this.items.find(currentItem => currentItem.id === action.targetId);
+      if (item) action.newState = JSON.parse(JSON.stringify(item));
+      return;
+    }
+
+    if (action.type === 'IVA_CREATE') {
+      const ivaCompra = this.ivaCompras.find(currentIva => currentIva.id === action.targetId);
+      if (ivaCompra) action.newState = JSON.parse(JSON.stringify(ivaCompra));
+      return;
+    }
+
+    if (action.type === 'ADVANCE_CREATE') {
+      const advance = this.advances.find(currentAdvance => currentAdvance.id === action.targetId);
+      if (advance) action.newState = JSON.parse(JSON.stringify(advance));
+    }
+  }
+
+  private applyHistoryAction(action: UndoAction, direction: 'undo' | 'redo'): void {
+    const isUndo = direction === 'undo';
     const m = action.anchorMonth;
     const y = action.anchorYear;
     const isCurrentMonth = (m === this.selectedMonth && y === this.selectedYear);
 
     switch (action.type) {
-      case 'ACCOUNT_EDIT':
-        this.cashService.updateAccountName(action.targetId!, action.oldState.name).subscribe();
-        this.cashService.updateAccountColor(action.targetId!, action.oldState.color).subscribe();
-        this.cashService.updateAccountBalance(action.targetId!, action.oldState.balance, m, y).subscribe();
-        
+      case 'ACCOUNT_EDIT': {
+        const state = isUndo ? action.oldState : action.newState;
+        if (!state) return;
+
+        this.cashService.updateAccountName(action.targetId!, state.name).subscribe();
+        this.cashService.updateAccountColor(action.targetId!, state.color).subscribe();
+        this.cashService.updateAccountBalance(action.targetId!, state.balance, m, y).subscribe();
+
         if (isCurrentMonth) {
           const acc = this.accounts.find(a => a.id === action.targetId);
-          if (acc) Object.assign(acc, action.oldState);
+          if (acc) Object.assign(acc, state);
           this.calculateAccountTotals();
         }
-        this.showUndoToast(`Cuenta revertida al estado de ${this.getMonthNameByNum(m)}`);
+        this.showHistoryToast(direction, `Cuenta ${isUndo ? 'revertida' : 'restaurada'} al estado de ${this.getMonthNameByNum(m)}`);
         break;
+      }
 
-      case 'ACCOUNT_CREATE':
-        this.cashService.deleteAccount(action.targetId!).subscribe();
-        if (isCurrentMonth) {
-          this.accounts = this.accounts.filter(a => a.id !== action.targetId);
-          this.calculateAccountTotals();
+      case 'ACCOUNT_CREATE': {
+        if (isUndo) {
+          this.cashService.deleteAccount(action.targetId!).subscribe({
+            next: () => {
+              if (isCurrentMonth) {
+                this.accounts = this.accounts.filter(a => a.id !== action.targetId);
+                this.calculateAccountTotals();
+              }
+              this.showHistoryToast(direction, 'Creación de cuenta deshecha');
+            }
+          });
+          break;
         }
-        this.showUndoToast('Creación de cuenta desecha');
-        break;
 
-      case 'ACCOUNT_DELETE':
-        const accToRestore = { ...action.oldState };
-        delete accToRestore.id;
-        this.cashService.createAccount(accToRestore, m, y).subscribe({
+        if (!action.newState) return;
+        const accountToRestore = { ...action.newState };
+        delete accountToRestore.id;
+
+        this.cashService.createAccount(accountToRestore, m, y).subscribe({
           next: (newId) => {
-            action.oldState.id = newId;
+            action.targetId = newId;
+            action.newState = { ...accountToRestore, id: newId };
+            this.saveHistory();
+
             if (isCurrentMonth) {
-              this.accounts.push(action.oldState);
+              this.accounts.push(action.newState);
               this.accounts.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
               this.calculateAccountTotals();
             }
-            this.showUndoToast(`Cuenta restaurada en ${this.getMonthNameByNum(m)}`);
+            this.showHistoryToast(direction, 'Creación de cuenta rehecha');
           }
         });
         break;
+      }
 
-      case 'ITEM_EDIT':
-        const restoredItem = { ...action.oldState, id: action.targetId };
-        this.saveItemGlobal(restoredItem, m, y); 
-        
+      case 'ACCOUNT_DELETE': {
+        if (isUndo) {
+          const accToRestore = { ...action.oldState };
+          delete accToRestore.id;
+
+          this.cashService.createAccount(accToRestore, m, y).subscribe({
+            next: (newId) => {
+              action.targetId = newId;
+              action.oldState = { ...accToRestore, id: newId };
+              this.saveHistory();
+
+              if (isCurrentMonth) {
+                this.accounts.push(action.oldState);
+                this.accounts.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+                this.calculateAccountTotals();
+              }
+              this.showHistoryToast(direction, `Cuenta restaurada en ${this.getMonthNameByNum(m)}`);
+            }
+          });
+          break;
+        }
+
+        this.cashService.deleteAccount(action.targetId!).subscribe({
+          next: () => {
+            if (isCurrentMonth) {
+              this.accounts = this.accounts.filter(a => a.id !== action.targetId);
+              this.calculateAccountTotals();
+            }
+            this.showHistoryToast(direction, 'Eliminación de cuenta rehecha');
+          }
+        });
+        break;
+      }
+
+      case 'ITEM_EDIT': {
+        const state = isUndo ? action.oldState : action.newState;
+        if (!state) return;
+
+        const restoredItem = { ...state, id: action.targetId };
+        this.saveItemGlobal(restoredItem, m, y);
+
         if (isCurrentMonth) {
           const itemMem = this.items.find(i => i.id === action.targetId);
           if (itemMem) {
-             Object.assign(itemMem, action.oldState);
-             this.items = [...this.items]; 
-             this.filterItems();
-             this.calculateMonthlyTotals();
+            Object.assign(itemMem, state);
+            this.items = [...this.items];
+            this.filterItems();
+            this.calculateMonthlyTotals();
           }
         }
-        this.showUndoToast(`Gasto revertido en ${this.getMonthNameByNum(m)}`);
+        this.showHistoryToast(direction, `Gasto ${isUndo ? 'revertido' : 'restaurado'} en ${this.getMonthNameByNum(m)}`);
         break;
+      }
 
-      case 'ITEM_DELETE':
-        const itemToRestore = { ...action.oldState };
-        itemToRestore.id = 0; 
-        const payload: CashFlowItem = {
-          ...itemToRestore,
-          depo: itemToRestore.depo || 0,
-          casa: itemToRestore.casa || 0,
-          retiros: itemToRestore.retiros || 0,
-          extras: itemToRestore.extras || 0,
-          iaia: itemToRestore.iaia || 0
-        };
-
-        this.cashService.upsertItem(payload, m, y).subscribe({
-          next: (newId) => {
-            action.oldState.id = newId; 
-            if (isCurrentMonth) {
-              this.items.push(action.oldState);
-              this.items = [...this.items];
-              this.sortItems();
-              this.filterItems();
-              this.calculateMonthlyTotals();
+      case 'IVA_CREATE': {
+        if (isUndo) {
+          this.cashService.deleteIvaCompra(action.targetId!).subscribe({
+            next: () => {
+              if (isCurrentMonth) this.removeIvaCompraLocally(action.targetId!);
+              this.showHistoryToast(direction, 'Alta de compra de IVA deshecha');
             }
-            this.showUndoToast(`Gasto restaurado en ${this.getMonthNameByNum(m)}`);
+          });
+          break;
+        }
+
+        if (!action.newState) return;
+        const ivaToCreate = { ...action.newState };
+        delete ivaToCreate.id;
+
+        this.cashService.addIvaCompra(ivaToCreate).subscribe({
+          next: (newId) => {
+            action.targetId = newId;
+            action.newState = { ...ivaToCreate, id: newId };
+            if (isCurrentMonth) this.addIvaCompraLocally(action.newState);
+            this.saveHistory();
+            this.showHistoryToast(direction, 'Alta de compra de IVA rehecha');
           }
         });
         break;
+      }
+
+      case 'IVA_DELETE': {
+        if (isUndo) {
+          if (!action.oldState) return;
+          const ivaToRestore = { ...action.oldState };
+          delete ivaToRestore.id;
+
+          this.cashService.addIvaCompra(ivaToRestore).subscribe({
+            next: (newId) => {
+              action.targetId = newId;
+              action.oldState = { ...ivaToRestore, id: newId };
+              if (isCurrentMonth) this.addIvaCompraLocally(action.oldState);
+              this.saveHistory();
+              this.showHistoryToast(direction, 'Compra de IVA restaurada');
+            }
+          });
+          break;
+        }
+
+        this.cashService.deleteIvaCompra(action.targetId!).subscribe({
+          next: () => {
+            if (isCurrentMonth) this.removeIvaCompraLocally(action.targetId!);
+            this.showHistoryToast(direction, 'Eliminación de compra de IVA rehecha');
+          }
+        });
+        break;
+      }
+
+      case 'ADVANCE_CREATE': {
+        if (isUndo) {
+          this.cashService.deleteAdvance(action.targetId!).subscribe({
+            next: () => {
+              this.syncAdvanceLocally(action.newState, false);
+              this.showHistoryToast(direction, 'Alta de adelanto deshecha');
+            }
+          });
+          break;
+        }
+
+        if (!action.newState) return;
+        const advanceToCreate = { ...action.newState };
+        delete advanceToCreate.id;
+
+        this.cashService.addAdvance(advanceToCreate.itemId, advanceToCreate).subscribe({
+          next: (newId) => {
+            action.targetId = newId;
+            action.newState = { ...advanceToCreate, id: newId };
+            this.syncAdvanceLocally(action.newState, true);
+            this.saveHistory();
+            this.showHistoryToast(direction, 'Alta de adelanto rehecha');
+          }
+        });
+        break;
+      }
+
+      case 'ADVANCE_DELETE': {
+        if (isUndo) {
+          if (!action.oldState) return;
+          const advanceToRestore = { ...action.oldState };
+          delete advanceToRestore.id;
+
+          this.cashService.addAdvance(advanceToRestore.itemId, advanceToRestore).subscribe({
+            next: (newId) => {
+              action.targetId = newId;
+              action.oldState = { ...advanceToRestore, id: newId };
+              this.syncAdvanceLocally(action.oldState, true);
+              this.saveHistory();
+              this.showHistoryToast(direction, 'Adelanto restaurado');
+            }
+          });
+          break;
+        }
+
+        this.cashService.deleteAdvance(action.targetId!).subscribe({
+          next: () => {
+            this.syncAdvanceLocally(action.oldState, false);
+            this.showHistoryToast(direction, 'Eliminación de adelanto rehecha');
+          }
+        });
+        break;
+      }
+
+      case 'ITEM_DELETE': {
+        if (isUndo) {
+          const itemToRestore = { ...action.oldState, id: 0 };
+          const payload: CashFlowItem = {
+            ...itemToRestore,
+            depo: itemToRestore.depo || 0,
+            casa: itemToRestore.casa || 0,
+            retiros: itemToRestore.retiros || 0,
+            extras: itemToRestore.extras || 0,
+            iaia: itemToRestore.iaia || 0
+          };
+
+          this.cashService.upsertItem(payload, m, y).subscribe({
+            next: (newId) => {
+              action.targetId = newId;
+              action.oldState = { ...action.oldState, id: newId };
+              this.saveHistory();
+
+              if (isCurrentMonth) {
+                this.items.push(action.oldState);
+                this.items = [...this.items];
+                this.sortItems();
+                this.filterItems();
+                this.calculateMonthlyTotals();
+              }
+              this.showHistoryToast(direction, `Gasto restaurado en ${this.getMonthNameByNum(m)}`);
+            }
+          });
+          break;
+        }
+
+        this.cashService.deleteItem(action.targetId!).subscribe({
+          next: () => {
+            if (isCurrentMonth) {
+              const itemIndex = this.items.findIndex(item => item.id === action.targetId);
+              if (itemIndex !== -1) this.items.splice(itemIndex, 1);
+              this.filterItems();
+              this.calculateMonthlyTotals();
+              this.calculateTableTotals();
+            }
+            this.showHistoryToast(direction, 'Eliminación de gasto rehecha');
+          }
+        });
+        break;
+      }
     }
+  }
+
+  private addIvaCompraLocally(ivaCompra: any): void {
+    const id = ivaCompra?.id ?? ivaCompra?.Id;
+    const existingIndex = this.ivaCompras.findIndex(currentIva =>
+      Number(currentIva.id ?? currentIva.Id) === Number(id)
+    );
+
+    if (existingIndex === -1) {
+      this.ivaCompras.unshift({ ...ivaCompra, id });
+    } else {
+      this.ivaCompras[existingIndex] = { ...ivaCompra, id };
+    }
+
+    this.calculateTotalIvaCompras();
+  }
+
+  private removeIvaCompraLocally(id: number): void {
+    const existingIndex = this.ivaCompras.findIndex(currentIva =>
+      Number(currentIva.id ?? currentIva.Id) === Number(id)
+    );
+
+    if (existingIndex !== -1) {
+      this.ivaCompras.splice(existingIndex, 1);
+      this.calculateTotalIvaCompras();
+    }
+  }
+
+  private syncAdvanceLocally(advance: any, exists: boolean): void {
+    if (!advance) return;
+
+    const advanceId = Number(advance.id ?? advance.Id);
+    const itemId = Number(advance.itemId ?? advance.ItemId);
+    const amount = Number(advance.amount ?? advance.Amount) || 0;
+    const isSelectedItem = Number(this.selectedItemForAdvances?.id) === itemId;
+
+    if (isSelectedItem) {
+      const existingIndex = this.advances.findIndex(currentAdvance =>
+        Number(currentAdvance.id ?? currentAdvance.Id) === advanceId
+      );
+
+      if (exists) {
+        const normalizedAdvance = { ...advance, id: advanceId, itemId };
+        if (existingIndex === -1) {
+          this.advances.unshift(normalizedAdvance);
+        } else {
+          this.advances[existingIndex] = normalizedAdvance;
+        }
+      } else if (existingIndex !== -1) {
+        this.advances.splice(existingIndex, 1);
+      }
+
+      this.calculateAdvancesTotal();
+    }
+
+    const item = this.items.find(currentItem => Number(currentItem.id) === itemId);
+    const total = isSelectedItem
+      ? this.advancesTotalAmount
+      : Math.max(0, (Number(item?.totalAdvances) || 0) + (exists ? amount : -amount));
+
+    if (item) {
+      item.totalAdvances = total;
+      item.hasAdvances = total > 0;
+      item.isPaid = this.isAdvancesComplete(item);
+    }
+
+    if (isSelectedItem && this.selectedItemForAdvances && this.selectedItemForAdvances !== item) {
+      this.selectedItemForAdvances.totalAdvances = total;
+      this.selectedItemForAdvances.hasAdvances = total > 0;
+      this.selectedItemForAdvances.isPaid = this.isAdvancesComplete(this.selectedItemForAdvances);
+    }
+
+    this.calculateMonthlyTotals();
+    this.calculateTableTotals();
   }
 
   private saveItemGlobal(item: CashFlowItem, month: number, year: number): void {
@@ -344,8 +698,9 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     return date.toLocaleString('es-ES', { month: 'long' });
   }
 
-  private showUndoToast(msg: string) {
-    Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Deshecho (Ctrl+Z)', text: msg, showConfirmButton: false, timer: 3500 });
+  private showHistoryToast(direction: 'undo' | 'redo', msg: string): void {
+    const title = direction === 'undo' ? 'Deshecho (Ctrl+Z)' : 'Rehecho (Ctrl+Y)';
+    Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title, text: msg, showConfirmButton: false, timer: 3500 });
   }
 
   ngAfterViewInit() {
@@ -389,7 +744,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedYear = today.getFullYear();
     }
 
-    this.loadUndoStack();
+    this.loadHistory();
     this.loadData();
 
     // Iniciar SignalR y escuchar eventos
@@ -557,14 +912,36 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     this.onItemChange(item);
   }
 
-  clearItemField(item: CashFlowItem, field: keyof CashFlowItem): void {
+  async clearItemField(item: CashFlowItem, field: keyof CashFlowItem): Promise<void> {
+    const fieldLabels: Partial<Record<keyof CashFlowItem, string>> = {
+      depo: 'Depósito',
+      casa: 'Casa',
+      retiros: 'Retiros',
+      iaia: 'Ingresos adicionales'
+    };
+    const confirmed = await this.deleteConfirmation.confirm({
+      title: '¿Vaciar este monto?',
+      message: 'Se eliminará el monto cargado en',
+      highlightedText: fieldLabels[field] || 'esta columna',
+      messageSuffix: '.'
+    });
+    if (!confirmed) return;
+
     this.captureItem(item);
     (item as any)[field] = null;
     this.checkItemChange(item);
     this.onItemChange(item);
   }
 
-  clearAccountBalance(account: FinancialAccount): void {
+  async clearAccountBalance(account: FinancialAccount): Promise<void> {
+    const confirmed = await this.deleteConfirmation.confirm({
+      title: '¿Vaciar saldo?',
+      message: 'Se eliminará el saldo actual de la cuenta',
+      highlightedText: account.name,
+      messageSuffix: '.'
+    });
+    if (!confirmed) return;
+
     this.captureAccount(account);
     account.balance = 0;
     this.checkAccountChange(account);
@@ -626,7 +1003,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (!item.id) {
       if (realIndex !== -1) {
-        this.undoStack.push({ type: 'ITEM_DELETE', oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
+        this.recordHistoryAction({ type: 'ITEM_DELETE', oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
         this.items.splice(realIndex, 1);
         this.filterItems();
         this.calculateMonthlyTotals();
@@ -636,8 +1013,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.cashService.deleteItem(item.id).subscribe(() => {
       if (realIndex !== -1) {
-        this.undoStack.push({ type: 'ITEM_DELETE', targetId: item.id, oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
-        this.saveUndoStack();
+        this.recordHistoryAction({ type: 'ITEM_DELETE', targetId: item.id, oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
         this.items.splice(realIndex, 1);
         this.filterItems();
         this.calculateMonthlyTotals();
@@ -859,8 +1235,13 @@ filterItems(): void {
       if (result.isConfirmed) {
         this.cashService.createAccount(result.value, this.selectedMonth, this.selectedYear).subscribe(id => {
           const newAcc = { ...result.value, id };
-          this.undoStack.push({ type: 'ACCOUNT_CREATE', targetId: newAcc.id, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
-          this.saveUndoStack();
+          this.recordHistoryAction({
+            type: 'ACCOUNT_CREATE',
+            targetId: newAcc.id,
+            newState: JSON.parse(JSON.stringify(newAcc)),
+            anchorMonth: this.selectedMonth,
+            anchorYear: this.selectedYear
+          });
           this.accounts.push(newAcc);
           this.calculateAccountTotals(); 
           Swal.fire('Creada', 'La cuenta ha sido agregada.', 'success');
@@ -879,8 +1260,7 @@ filterItems(): void {
 
     const oldState = JSON.parse(JSON.stringify(account));
     this.cashService.deleteAccount(account.id!).subscribe(() => {
-      this.undoStack.push({ type: 'ACCOUNT_DELETE', targetId: account.id, oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
-      this.saveUndoStack();
+      this.recordHistoryAction({ type: 'ACCOUNT_DELETE', targetId: account.id, oldState, anchorMonth: this.selectedMonth, anchorYear: this.selectedYear });
       this.accounts.splice(index, 1);
       this.calculateAccountTotals();
     });
@@ -1131,7 +1511,15 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
     this.calculateAccountTotals();
   }
 
-  deleteComment(item: CashFlowItem): void {
+  async deleteComment(item: CashFlowItem): Promise<void> {
+    const confirmed = await this.deleteConfirmation.confirm({
+      title: '¿Borrar nota?',
+      message: 'Se eliminará la nota del concepto',
+      highlightedText: item.description || 'este concepto',
+      messageSuffix: '.'
+    });
+    if (!confirmed) return;
+
     this.captureItem(item);
     item.comment = '';
     item.commentUpdatedAt = new Date();
@@ -1265,19 +1653,91 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
 
     this.cashService.addIvaCompra(payload).subscribe({
       next: (newId) => {
-        this.ivaCompras.unshift({ ...payload, id: newId });
+        const createdIvaCompra = { ...payload, id: newId };
+        this.ivaCompras.unshift(createdIvaCompra);
+        this.recordHistoryAction({
+          type: 'IVA_CREATE',
+          targetId: newId,
+          newState: JSON.parse(JSON.stringify(createdIvaCompra)),
+          anchorMonth: this.selectedMonth,
+          anchorYear: this.selectedYear
+        });
         this.calculateTotalIvaCompras();
         this.newIvaCompra.amount = null as any;
         this.newIvaCompra.comment = '';
-        Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Agregado', showConfirmButton: false, timer: 2000 });
+        Swal.fire({
+          toast: true,
+          position: 'bottom-end',
+          icon: 'success',
+          title: 'Factura agregada',
+          text: 'La compra de IVA se registró correctamente.',
+          showConfirmButton: false,
+          timer: 2600,
+          timerProgressBar: true
+        });
+      },
+      error: (err) => {
+        console.error('Error al agregar compra de IVA:', err);
+        Swal.fire({
+          title: 'No se pudo agregar la factura',
+          text: err.error?.message || 'Revisá los datos e intentá nuevamente.',
+          icon: 'error'
+        });
       }
     });
   }
 
-  deleteIvaCompra(id: number, index: number) {
-    this.cashService.deleteIvaCompra(id).subscribe(() => {
-      this.ivaCompras.splice(index, 1);
-      this.calculateTotalIvaCompras();
+  async deleteIvaCompra(id: number, index: number): Promise<void> {
+    const ivaCompra = this.ivaCompras[index];
+    const amount = Number(ivaCompra?.amount) || 0;
+    const amountLabel = amount.toLocaleString('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      maximumFractionDigits: 2
+    });
+    const detail = ivaCompra?.comment?.trim() || amountLabel;
+    const oldState = ivaCompra ? JSON.parse(JSON.stringify(ivaCompra)) : null;
+    const confirmed = await this.deleteConfirmation.confirm({
+      title: '¿Eliminar factura de IVA?',
+      message: 'Esta acción eliminará la compra de IVA',
+      highlightedText: detail,
+      messageSuffix: 'de forma permanente.'
+    });
+
+    if (!confirmed) return;
+
+    this.cashService.deleteIvaCompra(id).subscribe({
+      next: () => {
+        this.ivaCompras.splice(index, 1);
+        if (oldState) {
+          this.recordHistoryAction({
+            type: 'IVA_DELETE',
+            targetId: id,
+            oldState,
+            anchorMonth: this.selectedMonth,
+            anchorYear: this.selectedYear
+          });
+        }
+        this.calculateTotalIvaCompras();
+        Swal.fire({
+          toast: true,
+          position: 'bottom-end',
+          icon: 'success',
+          title: 'Factura eliminada',
+          text: 'La compra de IVA se eliminó correctamente.',
+          showConfirmButton: false,
+          timer: 2600,
+          timerProgressBar: true
+        });
+      },
+      error: (err) => {
+        console.error('Error al eliminar compra de IVA:', err);
+        Swal.fire({
+          title: 'No se pudo eliminar la factura',
+          text: err.error?.message || 'Intentá nuevamente en unos instantes.',
+          icon: 'error'
+        });
+      }
     });
   }
 
@@ -1457,7 +1917,16 @@ closeAdvancesModal(): void {
 
     this.cashService.addAdvance(this.selectedItemForAdvances!.id!, payload).subscribe({
       next: (newId) => {
-        this.advances.unshift({ ...payload, id: newId });
+        const advanceComment = this.newAdvance.comment?.trim();
+        const createdAdvance = { ...payload, id: newId };
+        this.advances.unshift(createdAdvance);
+        this.recordHistoryAction({
+          type: 'ADVANCE_CREATE',
+          targetId: newId,
+          newState: JSON.parse(JSON.stringify(createdAdvance)),
+          anchorMonth: this.selectedMonth,
+          anchorYear: this.selectedYear
+        });
         this.calculateAdvancesTotal();
 
         // Actualizar el item en la tabla principal
@@ -1469,30 +1938,86 @@ closeAdvancesModal(): void {
 
         this.newAdvance.amount = null as any;
         this.newAdvance.comment = '';
-        this.showAdvanceToast('Adelanto registrado', this.newAdvance.comment ? `Concepto: ${this.newAdvance.comment}` : 'Se guardó correctamente');
+        Swal.fire({
+          toast: true,
+          position: 'bottom-end',
+          icon: 'success',
+          title: 'Adelanto registrado',
+          text: advanceComment ? `Concepto: ${advanceComment}` : 'Se guardó correctamente.',
+          showConfirmButton: false,
+          timer: 2600,
+          timerProgressBar: true
+        });
+      },
+      error: (err) => {
+        console.error('Error al registrar adelanto:', err);
+        Swal.fire({
+          title: 'No se pudo registrar el adelanto',
+          text: err.error?.message || 'Revisá los datos e intentá nuevamente.',
+          icon: 'error'
+        });
       }
     });
   }
 
-  private showAdvanceToast(message: string, description: string): void {
-    if (this.advanceToastTimer) clearTimeout(this.advanceToastTimer);
-    this.advanceToast = { show: true, message, description };
-    this.advanceToastTimer = setTimeout(() => {
-      this.advanceToast = { ...this.advanceToast, show: false };
-    }, 3500);
-  }
+  async deleteAdvance(id: number, index: number): Promise<void> {
+    const advance = this.advances[index];
+    const amount = Number(advance?.amount) || 0;
+    const amountLabel = amount.toLocaleString('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      maximumFractionDigits: 2
+    });
+    const detail = advance?.comment?.trim() || amountLabel;
+    const oldState = advance ? JSON.parse(JSON.stringify(advance)) : null;
+    const confirmed = await this.deleteConfirmation.confirm({
+      title: '¿Eliminar pago parcial?',
+      message: 'Esta acción eliminará el adelanto',
+      highlightedText: detail,
+      messageSuffix: 'de forma permanente.'
+    });
 
-  deleteAdvance(id: number, index: number): void {
-    this.cashService.deleteAdvance(id).subscribe(() => {
-      this.advances.splice(index, 1);
-      this.calculateAdvancesTotal();
+    if (!confirmed) return;
 
-      // Actualizar el item en la tabla principal
-      this.selectedItemForAdvances!.totalAdvances = this.advancesTotalAmount;
-      this.selectedItemForAdvances!.hasAdvances = this.advances.length > 0;
-      this.selectedItemForAdvances!.isPaid = this.isAdvancesComplete(this.selectedItemForAdvances!);
-      this.calculateMonthlyTotals();
-      this.calculateTableTotals();
+    this.cashService.deleteAdvance(id).subscribe({
+      next: () => {
+        this.advances.splice(index, 1);
+        if (oldState) {
+          this.recordHistoryAction({
+            type: 'ADVANCE_DELETE',
+            targetId: id,
+            oldState,
+            anchorMonth: this.selectedMonth,
+            anchorYear: this.selectedYear
+          });
+        }
+        this.calculateAdvancesTotal();
+
+        // Actualizar el item en la tabla principal
+        this.selectedItemForAdvances!.totalAdvances = this.advancesTotalAmount;
+        this.selectedItemForAdvances!.hasAdvances = this.advances.length > 0;
+        this.selectedItemForAdvances!.isPaid = this.isAdvancesComplete(this.selectedItemForAdvances!);
+        this.calculateMonthlyTotals();
+        this.calculateTableTotals();
+        Swal.fire({
+          toast: true,
+          position: 'bottom-end',
+          icon: 'success',
+          title: 'Adelanto eliminado',
+          text: 'El pago parcial se eliminó correctamente.',
+          showConfirmButton: false,
+          timer: 2600,
+          timerProgressBar: true
+        });
+      },
+      error: (err) => {
+        console.error('Error al eliminar adelanto:', err);
+        Swal.fire({
+          title: 'No se pudo eliminar el adelanto',
+          text: err.error?.message || 'Intentá nuevamente en unos instantes.',
+          icon: 'error'
+        });
+      }
     });
   }
 }

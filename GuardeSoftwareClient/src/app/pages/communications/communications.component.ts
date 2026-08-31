@@ -1,13 +1,20 @@
 import { Component, signal, computed, ChangeDetectionStrategy, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from "../../shared/components/icon/icon.component";
 import { CommunicationService } from '../../core/services/communication-service/communication.service';
 import { ComunicacionDto, CommunicationDispatchDto, UpsertComunicacionRequest } from '../../core/dtos/communications/communicationDto';
 import { ClientService } from '../../core/services/client-service/client.service';
+import { MassCommunicationRecipientService } from '../../core/services/mass-communication-recipient-service/mass-communication-recipient.service';
+import { MassCommunicationRecipient } from '../../core/models/mass-communication-recipient';
 import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 import { catchError, debounceTime, distinctUntilChanged, of, Subject, switchMap, Subscription } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
+import {
+  buildCommunicationPreviewDocument,
+  buildCommunicationPreviewText
+} from '../../shared/utils/communication-preview.util';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 interface Channel {
@@ -26,6 +33,7 @@ interface FormDataState {
   sendTime: string;
   channels: ('Email' | 'WhatsApp')[];
   recipients: string[];
+  externalRecipientIds: number[];
   type: 'programar' | 'borrador' | 'enviar_ahora';
   isAccountStatement: boolean;
   isNextMonthStatement: boolean;
@@ -55,6 +63,18 @@ interface ClientSelectorItem {
   paymentIdentifier?: number | null;
 }
 
+interface ExternalRecipientSelectorItem extends MassCommunicationRecipient {
+  displayName: string;
+  typeKey: string;
+  selected: boolean;
+}
+
+interface RecipientTypeOption {
+  value: string;
+  label: string;
+  count: number;
+}
+
 interface MonthFilter {
   label: string;
   year: number;
@@ -65,6 +85,10 @@ const COMMUNICATION_CHANNELS: Channel[] = [
   { id: 1, name: 'Email', spanishLabel: 'Email', icon: 'Mail' },
   { id: 2, name: 'WhatsApp', spanishLabel: 'WhatsApp', icon: 'whatsapp' }
 ];
+
+const INMOBILIARIAS_TEMPLATE_MARKER = 'GUARDE_TEMPLATE:INMOBILIARIAS_V1';
+const INMOBILIARIAS_TEMPLATE_URL = 'assets/email-templates/inmobiliarias/inmobiliarias.html';
+const UNTYPED_RECIPIENT_TYPE = '__sin_rubro__';
 
 @Component({
   selector: 'communications',
@@ -82,17 +106,61 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   isSearchFocused = signal(false);
   private searchSubject = new Subject<string>();
   selectedFiles = signal<File[]>([]);
+  isLoadingInmobiliariasTemplate = signal(false);
   smtpConfigs = signal<any[]>([]);
 
   showRecipientModal = signal(false);
-  previewContent = signal<string | null>(null);
+  previewContent = signal<SafeHtml | null>(null);
   previewClientName = signal('');
   allClients = signal<ClientSelectorItem[]>([]); 
   filteredClients = signal<ClientSelectorItem[]>([]); 
   recipientSearchTerm = signal('');
+  allExternalRecipients = signal<ExternalRecipientSelectorItem[]>([]);
+  filteredExternalRecipients = signal<ExternalRecipientSelectorItem[]>([]);
+  externalRecipientSearchTerm = signal('');
+  selectedExternalRecipientType = signal('');
+  recipientSelectorMode = signal<'clients' | 'external'>('clients');
+  isLoadingExternalRecipients = signal(false);
+  externalRecipientsLoadError = signal(false);
   
-  selectedCount = computed(() => this.formData().sendToAllEmails ? 0 : this.formData().recipients.length);
-  modalSelectedCount = computed(() => this.allClients().filter(c => c.selected).length);
+  selectedCount = computed(() => this.formData().sendToAllEmails
+    ? 0
+    : this.formData().recipients.length + this.formData().externalRecipientIds.length);
+  isInmobiliariasTemplate = computed(() =>
+    this.formData().content.includes(INMOBILIARIAS_TEMPLATE_MARKER)
+  );
+  selectedExternalCount = computed(() => this.allExternalRecipients().filter(r => r.selected).length);
+  modalSelectedCount = computed(() =>
+    this.allClients().filter(c => c.selected).length + this.selectedExternalCount());
+  recipientTypeOptions = computed<RecipientTypeOption[]>(() => {
+    const grouped = new Map<string, RecipientTypeOption>();
+
+    for (const recipient of this.allExternalRecipients()) {
+      const existing = grouped.get(recipient.typeKey);
+      if (existing) {
+        existing.count += 1;
+        continue;
+      }
+
+      grouped.set(recipient.typeKey, {
+        value: recipient.typeKey,
+        label: recipient.typeKey === UNTYPED_RECIPIENT_TYPE
+          ? 'Sin rubro'
+          : (recipient.type?.trim() || 'Sin rubro'),
+        count: 1
+      });
+    }
+
+    return [...grouped.values()].sort((a, b) => {
+      if (a.value === UNTYPED_RECIPIENT_TYPE) return 1;
+      if (b.value === UNTYPED_RECIPIENT_TYPE) return -1;
+      return a.label.localeCompare(b.label, 'es', { sensitivity: 'base' });
+    });
+  });
+  allVisibleExternalRecipientsSelected = computed(() => {
+    const visible = this.filteredExternalRecipients();
+    return visible.length > 0 && visible.every(recipient => recipient.selected);
+  });
   currentSort = signal<'name' | 'status' | 'payment_identifier'>('name');
 
   selectedSummary = computed(() => {
@@ -100,7 +168,12 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
         return 'Todos los emails de clientes y receptores externos';
       }
 
-      const recipients = this.formData().recipients;
+      const data = this.formData();
+      const externalNames = data.externalRecipientIds.map(id => {
+        const recipient = this.allExternalRecipients().find(item => item.id === id);
+        return recipient?.displayName || recipient?.email || `Receptor #${id}`;
+      });
+      const recipients = [...data.recipients, ...externalNames];
       const count = recipients.length;
       
       if (count === 0) return '';
@@ -116,8 +189,10 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   private signalRSubscription?: Subscription;
 
   constructor(
+    private http: HttpClient,
     private commService: CommunicationService, 
     private clientService: ClientService,
+    private massRecipientService: MassCommunicationRecipientService,
     private sanitizer: DomSanitizer,
     private deleteConfirmation: DeleteConfirmationService
   ) {}
@@ -672,6 +747,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     this.setupSearchDebounce();  
     this.loadSmtpConfigs();
     this.loadClientsForSelector();
+    this.loadExternalRecipientsForSelector();
     this.generateMonthFilters();
   }
 
@@ -775,7 +851,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     sendDate: '',
     sendTime: '',
     channels: [],
-    recipients: [],
+    recipients: [],
+    externalRecipientIds: [],
     type: 'enviar_ahora',
     smtpConfigId: null,
     isAccountStatement: false,
@@ -871,12 +948,15 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     const contentIsValid = data.isAccountStatement || !isContentEmpty;
     const recipientsAreValid = data.sendToAllEmails
       ? data.channels.includes('Email')
-      : data.recipients.length > 0;
+      : data.recipients.length > 0 || data.externalRecipientIds.length > 0;
+    const externalRecipientsAreValid = data.externalRecipientIds.length === 0
+      || (!data.isAccountStatement && data.channels.includes('Email'));
 
     let baseValid = data.title.trim().length > 0 && 
                     contentIsValid && 
                     data.channels.length > 0 && 
-                    recipientsAreValid;
+                    recipientsAreValid &&
+                    externalRecipientsAreValid;
     
     if (data.type === 'programar') {
       return baseValid && data.sendDate.length > 0 && data.sendTime.length > 0;
@@ -897,6 +977,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       sendTime: '',
       channels: [],
       recipients: [],
+      externalRecipientIds: [],
       type: 'enviar_ahora',
       smtpConfigId: defaultSmtp,
       isAccountStatement: false,
@@ -950,6 +1031,9 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
         sendTime: isResend ? '' : (communication.sendTime || ''),
         channels: channelsArray,
         recipients: communication.sendToAllEmails ? [] : [...communication.recipients],
+        externalRecipientIds: communication.sendToAllEmails
+          ? []
+          : (communication.externalRecipients || []).map(recipient => recipient.id),
         
         type: isResend ? 'enviar_ahora' : formType,
         
@@ -971,6 +1055,17 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
           this.selectedCommunication.set(fullComm);
         },
         error: (err) => console.error('Error cargando detalle del comunicado', err)
+      });
+    }
+
+    // El listado puede llegar antes de que se actualicen sus receptores
+    // externos (o puede provenir de una versión anterior de la API). Para la
+    // confirmación de envío usamos siempre el detalle actual del comunicado,
+    // que incluye la relación communication_mass_recipients.
+    if (communication && modalType === 'send-confirm') {
+      this.commService.getCommunicationById(communication.id).subscribe({
+        next: (fullComm) => this.selectedCommunication.set(fullComm),
+        error: (err) => console.error('Error cargando destinatarios del comunicado', err)
       });
     }
 
@@ -1139,6 +1234,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       sendTime: finalType === 'schedule' ? finalSendTime : null,
       channels: data.channels,
       recipients: data.recipients,
+      externalRecipientIds: data.externalRecipientIds,
       smtpConfigId: data.smtpConfigId,
       isAccountStatement: data.isAccountStatement,
       isNextMonthStatement: data.isNextMonthStatement,
@@ -1199,6 +1295,16 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
 
     const currentChannels = this.formData().channels;
     const isAdding = !currentChannels.includes(channelName);
+
+    if (channelName === 'Email' && !isAdding && this.formData().externalRecipientIds.length > 0) {
+      this.showToast(
+        'El rubro requiere Email',
+        'Quitá los receptores externos seleccionados antes de desactivar el canal Email.',
+        'mail',
+        'error'
+      );
+      return;
+    }
     
     const newChannels = isAdding
       ? [...currentChannels, channelName]
@@ -1264,15 +1370,9 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     return { icons: [] };
   }
 
-  getCommunicationPreview(content: string, channel: string): string {
-  if (!content) return '';
-
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = content;
-  const text = tempDiv.textContent || tempDiv.innerText || '';
-
-  return text.length > 150 ? text.substring(0, 150) + '...' : text;
-}
+  getCommunicationPreview(content: string, _channel: string): string {
+    return buildCommunicationPreviewText(content);
+  }
 
   updateFormField<K extends keyof FormDataState>(field: K, value: FormDataState[K]) {
     this.formData.update(currentData => {
@@ -1282,12 +1382,20 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       };
       if (field === 'isAccountStatement' && value === true) {
         updated.title = 'ESTADO DE CUENTA';
+        updated.externalRecipientIds = [];
+        updated.sendToAllEmails = false;
         // El estado se puede entregar por ambos canales. Conservamos WhatsApp
         // si ya estaba elegido y agregamos Email como canal predeterminado.
         updated.channels = Array.from(new Set([...updated.channels, 'Email']));
       }
       return updated;
     });
+
+    if (field === 'isAccountStatement' && value === true) {
+      this.allExternalRecipients.update(recipients =>
+        recipients.map(recipient => ({ ...recipient, selected: false })));
+      this.filterExternalRecipients();
+    }
   }
 
   loadIcbcTemplate(): void {
@@ -1307,6 +1415,52 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     );
   }
 
+  loadInmobiliariasTemplate(): void {
+    if (this.isLoadingInmobiliariasTemplate()) return;
+
+    this.isLoadingInmobiliariasTemplate.set(true);
+    this.http.get(INMOBILIARIAS_TEMPLATE_URL, { responseType: 'text' }).subscribe({
+      next: (template) => {
+        if (!template.includes(INMOBILIARIAS_TEMPLATE_MARKER)) {
+          this.isLoadingInmobiliariasTemplate.set(false);
+          this.showToast(
+            'Plantilla no disponible',
+            'El archivo de la Plantilla Inmobiliarias no es válido.',
+            'alert-circle',
+            'error'
+          );
+          return;
+        }
+
+        this.formData.update(data => ({
+          ...data,
+          title: 'PUBLICIDAD | Una solución de guardado para tu inmobiliaria y tus clientes',
+          channels: data.channels.includes('Email')
+            ? data.channels
+            : [...data.channels, 'Email'],
+          content: template
+        }));
+        this.isLoadingInmobiliariasTemplate.set(false);
+        this.showToast(
+          'Plantilla Inmobiliarias cargada',
+          'Elegí las inmobiliarias destinatarias o enviá una prueba antes del envío final.',
+          'mail',
+          'success'
+        );
+      },
+      error: (error) => {
+        console.error('No se pudo cargar la Plantilla Inmobiliarias', error);
+        this.isLoadingInmobiliariasTemplate.set(false);
+        this.showToast(
+          'Error al cargar la plantilla',
+          'No se pudo abrir la Plantilla Inmobiliarias.',
+          'alert-circle',
+          'error'
+        );
+      }
+    });
+  }
+
   loadIcbcTemplate2(): void {
     const currentChannels = this.formData().channels;
     const channels: FormDataState['channels'] = currentChannels.includes('Email')
@@ -1324,9 +1478,21 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     );
   }
 
-  getSanitizedHtmlContent(): SafeHtml {
-    const html = this.selectedCommunication()?.content || '';
-    return this.sanitizer.bypassSecurityTrustHtml(html);
+  getCommunicationPreviewDocument(): SafeHtml {
+    return this.buildTrustedPreviewDocument(this.selectedCommunication()?.content);
+  }
+
+  getFormContentPreviewDocument(): SafeHtml {
+    return this.buildTrustedPreviewDocument(this.formData().content);
+  }
+
+  private buildTrustedPreviewDocument(content: string | null | undefined): SafeHtml {
+    // srcdoc necesita un valor confiable para conservar los estilos de email.
+    // El iframe permanece sin allow-scripts ni allow-forms, por lo que el
+    // contenido se muestra aislado y no puede ejecutar acciones en la app.
+    return this.sanitizer.bypassSecurityTrustHtml(
+      buildCommunicationPreviewDocument(content)
+    );
   }
 
   loadSmtpConfigs(): void {
@@ -1361,7 +1527,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     this.commService.getDispatchContent(dispatchId).subscribe({
       next: ({ content }) => {
         this.previewClientName.set(clientName);
-        this.previewContent.set(content);
+        this.previewContent.set(this.buildTrustedPreviewDocument(content));
       },
       error: () => {
         this.showToast(
@@ -1417,6 +1583,12 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
 
   getFailedCount(dispatches: CommunicationDispatchDto[]): number {
     return dispatches.filter(d => d.status !== 'Exitoso').length;
+  }
+
+  getCommunicationRecipientCount(communication: ComunicacionDto): number {
+    return communication.sendToAllEmails
+      ? 0
+      : communication.recipients.length + (communication.externalRecipients?.length || 0);
   }
 
   confirmRetrySelected(): void {
@@ -1490,20 +1662,158 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadExternalRecipientsForSelector(): void {
+    this.isLoadingExternalRecipients.set(true);
+    this.externalRecipientsLoadError.set(false);
+
+    this.massRecipientService.getAll().subscribe({
+      next: recipients => {
+        const selectedIds = new Set(this.formData().externalRecipientIds);
+        const mapped = recipients
+          .filter(recipient => recipient.active && !!recipient.email?.trim())
+          .map(recipient => {
+            const trimmedType = recipient.type?.trim() || null;
+            return {
+              ...recipient,
+              type: trimmedType,
+              typeKey: this.getRecipientTypeKey(trimmedType),
+              displayName: recipient.name?.trim() || recipient.email?.trim() || `Receptor #${recipient.id}`,
+              selected: selectedIds.has(recipient.id)
+            } satisfies ExternalRecipientSelectorItem;
+          });
+
+        this.allExternalRecipients.set(mapped);
+        this.isLoadingExternalRecipients.set(false);
+        this.filterExternalRecipients();
+      },
+      error: error => {
+        console.error('Error cargando receptores externos', error);
+        this.allExternalRecipients.set([]);
+        this.filteredExternalRecipients.set([]);
+        this.isLoadingExternalRecipients.set(false);
+        this.externalRecipientsLoadError.set(true);
+      }
+    });
+  }
+
+  private getRecipientTypeKey(type: string | null | undefined): string {
+    const normalized = type?.trim().toLocaleLowerCase('es-AR');
+    return normalized || UNTYPED_RECIPIENT_TYPE;
+  }
+
+  showClientRecipientSelector(): void {
+    if (this.modalSendToAllEmails()) {
+      this.modalSendToAllEmails.set(false);
+      this.activeQuickFilter.set(null);
+    }
+    this.recipientSelectorMode.set('clients');
+    this.filterList();
+  }
+
+  showExternalRecipientSelector(): void {
+    if (this.formData().isAccountStatement) {
+      this.showToast(
+        'Sólo clientes',
+        'Los estados de cuenta no pueden enviarse a receptores externos.',
+        'alert-circle',
+        'error'
+      );
+      return;
+    }
+
+    if (this.modalSendToAllEmails()) {
+      this.modalSendToAllEmails.set(false);
+      this.activeQuickFilter.set(null);
+    }
+    this.recipientSelectorMode.set('external');
+    this.filterExternalRecipients();
+  }
+
+  onExternalRecipientSearch(term: string): void {
+    this.externalRecipientSearchTerm.set(term);
+    this.filterExternalRecipients();
+  }
+
+  onExternalRecipientTypeChange(typeKey: string): void {
+    this.selectedExternalRecipientType.set(typeKey || '');
+    this.filterExternalRecipients();
+
+    // Elegir un rubro representa una selección de audiencia, no sólo un
+    // filtro visual. Se marcan todos los contactos activos con email de ese
+    // rubro y se conservan las selecciones previas para poder combinar rubros.
+    if (typeKey) {
+      this.allExternalRecipients.update(recipients => recipients.map(recipient =>
+        recipient.typeKey === typeKey
+          ? { ...recipient, selected: true }
+          : recipient));
+      this.filterExternalRecipients();
+    }
+  }
+
+  filterExternalRecipients(): void {
+    const typeKey = this.selectedExternalRecipientType();
+    const term = this.externalRecipientSearchTerm().trim().toLocaleLowerCase('es-AR');
+    let recipients = this.allExternalRecipients();
+
+    if (typeKey) {
+      recipients = recipients.filter(recipient => recipient.typeKey === typeKey);
+    }
+
+    if (term) {
+      recipients = recipients.filter(recipient =>
+        recipient.displayName.toLocaleLowerCase('es-AR').includes(term)
+        || !!recipient.email?.toLocaleLowerCase('es-AR').includes(term)
+        || !!recipient.type?.toLocaleLowerCase('es-AR').includes(term));
+    }
+
+    this.filteredExternalRecipients.set([...recipients].sort((a, b) =>
+      a.displayName.localeCompare(b.displayName, 'es', { sensitivity: 'base' })));
+  }
+
+  toggleExternalRecipientSelection(id: number): void {
+    this.allExternalRecipients.update(recipients => recipients.map(recipient =>
+      recipient.id === id ? { ...recipient, selected: !recipient.selected } : recipient));
+    this.filterExternalRecipients();
+  }
+
+  toggleVisibleExternalRecipientsSelection(): void {
+    const visibleIds = new Set(this.filteredExternalRecipients().map(recipient => recipient.id));
+    if (visibleIds.size === 0) return;
+
+    const shouldSelect = !this.allVisibleExternalRecipientsSelected();
+    this.allExternalRecipients.update(recipients => recipients.map(recipient =>
+      visibleIds.has(recipient.id) ? { ...recipient, selected: shouldSelect } : recipient));
+    this.filterExternalRecipients();
+  }
+
   openRecipientSelector(): void {
-    const currentRecipients = this.formData().recipients;
-    const sendToAllEmails = this.formData().sendToAllEmails;
+    const data = this.formData();
+    const currentRecipients = new Set(data.recipients);
+    const currentExternalRecipientIds = new Set(data.externalRecipientIds);
+    const sendToAllEmails = data.sendToAllEmails;
     this.modalSendToAllEmails.set(sendToAllEmails);
     this.activeQuickFilter.set(sendToAllEmails ? 'TodosLosEmails' : null);
+    this.recipientSearchTerm.set('');
+    this.externalRecipientSearchTerm.set('');
 
-    if (!sendToAllEmails && currentRecipients.length > 0) {
-        this.allClients.update(list => list.map(c => ({
-            ...c,
-            selected: currentRecipients.includes(c.fullName)
-        })));
-    }
-    
+    this.allClients.update(clients => clients.map(client => ({
+      ...client,
+      selected: !sendToAllEmails && currentRecipients.has(client.fullName)
+    })));
+    this.allExternalRecipients.update(recipients => recipients.map(recipient => ({
+      ...recipient,
+      selected: !sendToAllEmails && currentExternalRecipientIds.has(recipient.id)
+    })));
+
+    const selectedExternalRecipients = this.allExternalRecipients().filter(recipient => recipient.selected);
+    const selectedTypeKeys = new Set(selectedExternalRecipients.map(recipient => recipient.typeKey));
+    this.selectedExternalRecipientType.set(selectedTypeKeys.size === 1 ? [...selectedTypeKeys][0] : '');
+    this.recipientSelectorMode.set(
+      !sendToAllEmails && currentRecipients.size === 0 && currentExternalRecipientIds.size > 0
+        ? 'external'
+        : 'clients');
     this.filterList();
+    this.filterExternalRecipients();
     this.showRecipientModal.set(true);
   }
 
@@ -1511,6 +1821,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       if (this.modalSendToAllEmails()) {
           this.modalSendToAllEmails.set(false);
       }
+      this.recipientSelectorMode.set('clients');
 
       if (type === 'MesImpago' && filterLabel) {
           if (this.activeQuickFilter() === filterLabel) {
@@ -1530,6 +1841,9 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
           this.activeQuickFilter.set('Todos');
       } else if (type === 'Ninguno') {
           this.activeQuickFilter.set(null);
+          this.allExternalRecipients.update(recipients =>
+            recipients.map(recipient => ({ ...recipient, selected: false })));
+          this.filterExternalRecipients();
       }
 
       this.allClients.update(list => list.map(c => {
@@ -1562,8 +1876,19 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   }
 
   selectAllEmailRecipients(): void {
+      if (this.formData().isAccountStatement) {
+          this.showToast(
+            'Sólo clientes',
+            'Los estados de cuenta requieren una selección de clientes.',
+            'alert-circle',
+            'error'
+          );
+          return;
+      }
+
       this.activeQuickFilter.set('TodosLosEmails');
       this.modalSendToAllEmails.set(true);
+      this.recipientSelectorMode.set('clients');
       this.recipientSearchTerm.set('');
       this.filteredClients.set([]);
   }
@@ -1671,6 +1996,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
               ...data,
               channels: ['Email'],
               recipients: [],
+              externalRecipientIds: [],
               sendToAllEmails: true
           }));
           this.showRecipientModal.set(false);
@@ -1680,10 +2006,27 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       const selectedNames = this.allClients()
           .filter(c => c.selected)
           .map(c => c.fullName);
+      const selectedExternalRecipientIds = this.allExternalRecipients()
+          .filter(recipient => recipient.selected)
+          .map(recipient => recipient.id);
+
+      if (selectedNames.length === 0 && selectedExternalRecipientIds.length === 0) {
+          this.showToast(
+            'Sin destinatarios',
+            'Seleccioná al menos un cliente o un receptor externo.',
+            'alert-circle',
+            'error'
+          );
+          return;
+      }
       
       this.formData.update(data => ({
           ...data,
+          channels: selectedExternalRecipientIds.length > 0 && !data.channels.includes('Email')
+            ? [...data.channels, 'Email']
+            : data.channels,
           recipients: selectedNames,
+          externalRecipientIds: data.isAccountStatement ? [] : selectedExternalRecipientIds,
           sendToAllEmails: false
       }));
       this.showRecipientModal.set(false);

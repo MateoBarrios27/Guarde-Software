@@ -197,6 +197,32 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpPost("{id}/departure-action")]
+        public async Task<IActionResult> ApplyDepartureAction(int id, [FromBody] ClientDepartureActionDto request)
+        {
+            try
+            {
+                await _clientService.ApplyDepartureActionAsync(id, request);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Error al aplicar la acción del cliente: {ex.Message}" });
+            }
+        }
+
         [HttpPut("{id}/reactivate")]
         public async Task<IActionResult> ReactivateClient(int id, [FromBody] CreateClientDTO dto)
         {

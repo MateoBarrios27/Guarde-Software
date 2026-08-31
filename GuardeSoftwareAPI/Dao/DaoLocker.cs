@@ -123,6 +123,14 @@ namespace GuardeSoftwareAPI.Dao
                     // Insertar en rental_lockers (si no existe ya)
                     string insertQuery = @"
                         IF NOT EXISTS (SELECT 1 FROM rental_lockers WHERE rental_id = @rental_id AND locker_id = @locker_id)
+                           AND EXISTS (
+                               SELECT 1
+                               FROM lockers
+                               WHERE locker_id = @locker_id
+                                 AND active = 1
+                                 AND is_free_space = 1
+                                 AND status <> 'OCUPADO'
+                           )
                             INSERT INTO rental_lockers (rental_id, locker_id) VALUES (@rental_id, @locker_id)";
                     SqlParameter[] parameters = [
                         new SqlParameter("@rental_id", SqlDbType.Int){ Value = rentalId },
@@ -242,7 +250,8 @@ namespace GuardeSoftwareAPI.Dao
             // Bauleras normales: disponible si status = 'DISPONIBLE'
             const string query = @"
                 SELECT COUNT(1) FROM lockers 
-                WHERE locker_id = @locker_id 
+                WHERE locker_id = @locker_id
+                  AND active = 1
                   AND (
                       (is_free_space = 1 AND status != 'OCUPADO')
                       OR
@@ -432,6 +441,14 @@ namespace GuardeSoftwareAPI.Dao
                     // Espacio libre: insertar en rental_lockers
                     string insertQuery = @"
                         IF NOT EXISTS (SELECT 1 FROM rental_lockers WHERE rental_id = @rental_id AND locker_id = @locker_id)
+                           AND EXISTS (
+                               SELECT 1
+                               FROM lockers
+                               WHERE locker_id = @locker_id
+                                 AND active = 1
+                                 AND is_free_space = 1
+                                 AND status <> 'OCUPADO'
+                           )
                         BEGIN
                             INSERT INTO rental_lockers (rental_id, locker_id) VALUES (@rental_id, @locker_id);
                             SELECT 1;

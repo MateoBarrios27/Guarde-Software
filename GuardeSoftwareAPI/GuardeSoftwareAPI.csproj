@@ -29,4 +29,10 @@
     <TrimmerRootAssembly Include="System.Net.NetworkInformation" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="EmailTemplates\**\*"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -311,30 +311,63 @@ namespace GuardeSoftwareAPI.Dao
                 ),
                 LastMonthBalance AS (
                     SELECT 
-                        rental_id, 
-                        (balance - paid - advanced_payment) AS Debt,
-                        ISNULL(interests, 0) AS interests,          
-                        ISNULL(monthly_debits, 0) AS monthly_debits,
-                        -- Débito mensual impago: pagos cubren saldo anterior primero, luego débitos
+                        cmb.rental_id,
+                        (cmb.balance - cmb.paid - cmb.advanced_payment) AS Debt,
+                        ISNULL(cmb.interests, 0) AS interests,
+                        ISNULL(cmb.monthly_debits, 0) AS monthly_debits,
+                        -- Cascada: saldo anterior -> intereses -> alquiler del mes.
                         CASE 
-                            WHEN ISNULL(monthly_debits, 0) = 0 THEN 0
-                            WHEN (ISNULL(paid, 0) + ISNULL(advanced_payment, 0)) <= ISNULL(previous_balance, 0) 
-                                THEN ISNULL(monthly_debits, 0)
-                            WHEN (ISNULL(paid, 0) + ISNULL(advanced_payment, 0) - ISNULL(previous_balance, 0)) >= ISNULL(monthly_debits, 0) 
-                                THEN 0
-                            ELSE ISNULL(monthly_debits, 0) - (ISNULL(paid, 0) + ISNULL(advanced_payment, 0) - ISNULL(previous_balance, 0))
+                            WHEN ISNULL(cmb.monthly_debits, 0) > applied.AppliedToRent
+                                THEN ISNULL(cmb.monthly_debits, 0) - applied.AppliedToRent
+                            ELSE 0
                         END AS UnpaidMonthlyDebits,
-                        ROW_NUMBER() OVER(PARTITION BY rental_id ORDER BY id DESC) as rn
-                    FROM client_month_balances
-                    WHERE month_year <= FORMAT(GETDATE(), 'MM/yyyy')
+                        ROW_NUMBER() OVER(
+                            PARTITION BY cmb.rental_id
+                            ORDER BY monthInfo.MonthValue DESC, cmb.id DESC
+                        ) as rn
+                    FROM client_month_balances cmb
+                    CROSS APPLY (
+                        SELECT MonthValue = TRY_CONVERT(int, RIGHT(cmb.month_year, 4)) * 100
+                                          + TRY_CONVERT(int, LEFT(cmb.month_year, 2))
+                    ) monthInfo
+                    CROSS APPLY (
+                        SELECT AppliedAfterPrevious = CASE
+                            WHEN ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0) > ISNULL(cmb.previous_balance, 0)
+                                THEN ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0) - ISNULL(cmb.previous_balance, 0)
+                            ELSE 0
+                        END
+                    ) afterPrevious
+                    CROSS APPLY (
+                        SELECT AppliedToRent = CASE
+                            WHEN afterPrevious.AppliedAfterPrevious > ISNULL(cmb.interests, 0)
+                                THEN afterPrevious.AppliedAfterPrevious - ISNULL(cmb.interests, 0)
+                            ELSE 0
+                        END
+                    ) applied
+                    WHERE monthInfo.MonthValue <= YEAR(GETDATE()) * 100 + MONTH(GETDATE())
                 ),
                 UnpaidInterests AS (
                     SELECT 
-                        rental_id,
-                        ISNULL(SUM(ISNULL(interests, 0)), 0) AS TotalUnpaidInterests
-                    FROM client_month_balances
-                    WHERE (balance - paid - advanced_payment) > 0
-                    GROUP BY rental_id
+                        cmb.rental_id,
+                        ISNULL(SUM(CASE
+                            WHEN ISNULL(cmb.interests, 0) > applied.AppliedAfterPrevious
+                                THEN ISNULL(cmb.interests, 0) - applied.AppliedAfterPrevious
+                            ELSE 0
+                        END), 0) AS TotalUnpaidInterests
+                    FROM client_month_balances cmb
+                    CROSS APPLY (
+                        SELECT MonthValue = TRY_CONVERT(int, RIGHT(cmb.month_year, 4)) * 100
+                                          + TRY_CONVERT(int, LEFT(cmb.month_year, 2))
+                    ) monthInfo
+                    CROSS APPLY (
+                        SELECT AppliedAfterPrevious = CASE
+                            WHEN ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0) > ISNULL(cmb.previous_balance, 0)
+                                THEN ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0) - ISNULL(cmb.previous_balance, 0)
+                            ELSE 0
+                        END
+                    ) applied
+                    WHERE monthInfo.MonthValue <= YEAR(GETDATE()) * 100 + MONTH(GETDATE())
+                    GROUP BY cmb.rental_id
                 )
                 SELECT 
                     r.rental_id,
@@ -363,19 +396,31 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.GetTableAsync("all_active_rentals", query);
         }
 
-        public async Task IncrementUnpaidMonthsAndSaveInterestAsync(int rentalId, decimal interestAmount)
+        public async Task IncrementUnpaidMonthsAndSaveInterestAsync(
+            int rentalId,
+            decimal interestAmount,
+            decimal lateRentBase,
+            DateTime surchargePeriod)
         {
-            // El día 10 solo aumentamos el contador de mora y guardamos el recargo en la "bolsa de espera"
+            // Al comenzar el día 11 guardamos tanto el recargo como la porción del alquiler
+            // que efectivamente quedó vencida. Esa base no desaparece por un pago posterior.
             string query = @"
                 UPDATE rentals 
-                SET months_unpaid = months_unpaid + 1,
-                    pending_surcharge = pending_surcharge + @amount 
+                SET months_unpaid = months_unpaid + CASE
+                        WHEN pending_surcharge_period = @surcharge_period THEN 0
+                        ELSE 1
+                    END,
+                    pending_surcharge = @amount,
+                    pending_surcharge_rent_base = @late_rent_base,
+                    pending_surcharge_period = @surcharge_period
                 WHERE rental_id = @rental_id;";
 
             var parameters = new SqlParameter[]
             {
                 new("@rental_id", rentalId),
-                new("@amount", interestAmount)
+                new("@amount", interestAmount),
+                new("@late_rent_base", lateRentBase),
+                new("@surcharge_period", new DateTime(surchargePeriod.Year, surchargePeriod.Month, 1))
             };
             
             await accessDB.ExecuteCommandAsync(query, parameters);
@@ -390,16 +435,22 @@ namespace GuardeSoftwareAPI.Dao
                 INSERT INTO account_movements (rental_id, movement_date, movement_type, concept, amount)
                 SELECT 
                     rental_id, 
-                    GETDATE(), 
+                    DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1),
                     'DEBITO', 
-                    'Interés por mora - ' + FORMAT(GETDATE(), 'MMMM yyyy'),
+                    'Interés por mora de ' + FORMAT(
+                        COALESCE(pending_surcharge_period, DATEADD(month, -1, GETDATE())),
+                        'MMMM yyyy',
+                        'es-AR'
+                    ),
                     pending_surcharge
                 FROM rentals
                 WHERE pending_surcharge > 0 AND active = 1;
 
                 -- 2. Vaciamos la bolsa a todos
                 UPDATE rentals
-                SET pending_surcharge = 0
+                SET pending_surcharge = 0,
+                    pending_surcharge_rent_base = NULL,
+                    pending_surcharge_period = NULL
                 WHERE pending_surcharge > 0 AND active = 1;
 
                 COMMIT TRANSACTION;
@@ -437,6 +488,7 @@ namespace GuardeSoftwareAPI.Dao
                     r.rental_id,
                     r.client_id,
                     r.increase_anchor_date AS IncreaseAnchorDate,
+                    c.increase_frequency_months AS IncreaseFrequencyMonths,
                     c.full_name AS client_name,
                     c.payment_identifier, 
                     c.preferred_payment_method_id,
@@ -447,6 +499,7 @@ namespace GuardeSoftwareAPI.Dao
                     ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS CurrentRent,
                     ISNULL(ll.LockerIdentifiers, '') AS locker_identifiers,
                     ISNULL(step1.UI_InterestAmount, 0) AS InterestAmount,
+                    latest_cmb.MonthYearDB AS LastGeneratedMonthYear,
                     step1.LastBalanceDate AS NextPaymentDay
                 FROM rentals r
                 INNER JOIN clients c ON r.client_id = c.client_id
@@ -478,7 +531,19 @@ namespace GuardeSoftwareAPI.Dao
                 OUTER APPLY (
                     SELECT 
                         Raw_Interest = ISNULL((
-                            SELECT SUM(ISNULL(cmb2.interests, 0))
+                            SELECT SUM(CASE
+                                WHEN ISNULL(cmb2.interests, 0) > CASE
+                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
+                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
+                                    ELSE 0
+                                END
+                                THEN ISNULL(cmb2.interests, 0) - CASE
+                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
+                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
+                                    ELSE 0
+                                END
+                                ELSE 0
+                            END)
                             FROM client_month_balances cmb2
                             WHERE cmb2.rental_id = r.rental_id AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
                         ), 0)
@@ -546,7 +611,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<Rental?> GetRentalByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
         {
             // CORRECCIÓN: Se agregó 'increase_anchor_date' a la consulta SQL
-            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active, price_lock_end_date, occupied_spaces, increase_anchor_date, pending_surcharge FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
+            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active, price_lock_end_date, occupied_spaces, increase_anchor_date, pending_surcharge, pending_surcharge_rent_base, pending_surcharge_period FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
             SqlParameter[] parameters = [new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId }];
 
             Rental rental = null;
@@ -571,7 +636,9 @@ namespace GuardeSoftwareAPI.Dao
                             PriceLockEndDate = reader.IsDBNull(reader.GetOrdinal("price_lock_end_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("price_lock_end_date")),
                             OccupiedSpaces = reader.IsDBNull(reader.GetOrdinal("occupied_spaces")) ? 0 : reader.GetInt32(reader.GetOrdinal("occupied_spaces")),
                             IncreaseAnchorDate = reader.IsDBNull(reader.GetOrdinal("increase_anchor_date")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("increase_anchor_date")),
-                            PendingSurcharge = reader.IsDBNull(reader.GetOrdinal("pending_surcharge")) ? 0 : reader.GetDecimal(reader.GetOrdinal("pending_surcharge"))
+                            PendingSurcharge = reader.IsDBNull(reader.GetOrdinal("pending_surcharge")) ? 0 : reader.GetDecimal(reader.GetOrdinal("pending_surcharge")),
+                            PendingSurchargeRentBase = reader.IsDBNull(reader.GetOrdinal("pending_surcharge_rent_base")) ? null : reader.GetDecimal(reader.GetOrdinal("pending_surcharge_rent_base")),
+                            PendingSurchargePeriod = reader.IsDBNull(reader.GetOrdinal("pending_surcharge_period")) ? null : reader.GetDateTime(reader.GetOrdinal("pending_surcharge_period"))
                         };
                     }
                 } 
@@ -587,9 +654,37 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task ResetPendingSurchargeTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
         {
-            string query = "UPDATE rentals SET pending_surcharge = 0 WHERE rental_id = @rental_id;";
+            string query = @"
+                UPDATE rentals
+                SET pending_surcharge = 0,
+                    pending_surcharge_rent_base = NULL,
+                    pending_surcharge_period = NULL
+                WHERE rental_id = @rental_id;";
             using var command = new SqlCommand(query, connection, transaction);
             command.Parameters.AddWithValue("@rental_id", rentalId);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        public async Task SetPendingSurchargeTransactionAsync(
+            int rentalId,
+            decimal amount,
+            decimal lateRentBase,
+            DateTime surchargePeriod,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            const string query = @"
+                UPDATE rentals
+                SET pending_surcharge = @amount,
+                    pending_surcharge_rent_base = @late_rent_base,
+                    pending_surcharge_period = @surcharge_period
+                WHERE rental_id = @rental_id;";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@amount", SqlDbType.Decimal) { Precision = 18, Scale = 2, Value = amount });
+            command.Parameters.Add(new SqlParameter("@late_rent_base", SqlDbType.Decimal) { Precision = 18, Scale = 2, Value = lateRentBase });
+            command.Parameters.Add(new SqlParameter("@surcharge_period", SqlDbType.Date) { Value = new DateTime(surchargePeriod.Year, surchargePeriod.Month, 1) });
+            command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
             await command.ExecuteNonQueryAsync();
         }
 
@@ -633,7 +728,9 @@ namespace GuardeSoftwareAPI.Dao
                             Active = Convert.ToBoolean(reader["active"]),
                             PriceLockEndDate = reader["price_lock_end_date"] != DBNull.Value ? Convert.ToDateTime(reader["price_lock_end_date"]) : null,
                             IncreaseAnchorDate = reader["increase_anchor_date"] != DBNull.Value ? Convert.ToDateTime(reader["increase_anchor_date"]) : null,
-                            PendingSurcharge = reader["pending_surcharge"] != DBNull.Value ? Convert.ToDecimal(reader["pending_surcharge"]) : 0m
+                            PendingSurcharge = reader["pending_surcharge"] != DBNull.Value ? Convert.ToDecimal(reader["pending_surcharge"]) : 0m,
+                            PendingSurchargeRentBase = reader["pending_surcharge_rent_base"] != DBNull.Value ? Convert.ToDecimal(reader["pending_surcharge_rent_base"]) : null,
+                            PendingSurchargePeriod = reader["pending_surcharge_period"] != DBNull.Value ? Convert.ToDateTime(reader["pending_surcharge_period"]) : null
                         };
                     }
                 }

@@ -131,6 +131,16 @@ export class ClientService {
     return this.httpClient.delete<void>(`${this.url}/Client/${id}`);
   }
 
+  public applyDepartureAction(id: number, request: {
+    action: 'SE_VA' | 'SE_QUEDA' | 'DAR_DE_BAJA';
+    chargeProportional: boolean;
+    removeNextMonthDebit: boolean;
+    departureDate?: string;
+    pendingSurchargeAction?: 'forgive' | 'immediate';
+  }): Observable<void> {
+    return this.httpClient.post<void>(`${this.url}/Client/${id}/departure-action`, request);
+  }
+
   reactivateClient(id: number, dto: any): Observable<any> {
     return this.httpClient.put(`${this.url}/Client/${id}/reactivate`, dto);
   }

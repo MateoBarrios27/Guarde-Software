@@ -51,4 +51,5 @@ export interface ClientDetailDTO{
     color?: string;
     comment?: string;
     commentUpdatedAt?: Date | string | null;
+    departureStatus?: string | null;
 }

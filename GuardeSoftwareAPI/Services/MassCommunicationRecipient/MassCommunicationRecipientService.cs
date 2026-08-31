@@ -57,6 +57,7 @@ namespace GuardeSoftwareAPI.Services.massCommunicationRecipient
             string? name = Normalize(dto.Name);
             string? email = Normalize(dto.Email);
             string? phone = Normalize(dto.Phone);
+            string? type = Normalize(dto.Type);
 
             if (name?.Length > 150)
             {
@@ -78,11 +79,17 @@ namespace GuardeSoftwareAPI.Services.massCommunicationRecipient
                 throw new ArgumentException("El teléfono no puede superar los 50 caracteres.");
             }
 
+            if (type?.Length > 100)
+            {
+                throw new ArgumentException("El tipo o rubro no puede superar los 100 caracteres.");
+            }
+
             return new MassCommunicationRecipient
             {
                 Name = name,
                 Email = email,
-                Phone = phone
+                Phone = phone,
+                Type = type
             };
         }
 
@@ -107,6 +114,7 @@ namespace GuardeSoftwareAPI.Services.massCommunicationRecipient
                 Name = recipient.Name,
                 Email = recipient.Email,
                 Phone = recipient.Phone,
+                Type = recipient.Type,
                 Active = recipient.Active,
                 CreatedAt = recipient.CreatedAt,
                 UpdatedAt = recipient.UpdatedAt

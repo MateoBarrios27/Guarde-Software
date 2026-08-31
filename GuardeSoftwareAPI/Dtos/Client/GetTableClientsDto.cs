@@ -9,7 +9,9 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public decimal PreviousBalance { get; set; }
         public decimal InterestAmount { get; set; }    
         public decimal CurrentRent { get; set; }
-        public string Status { get; set; } = string.Empty; // 'Al Día', 'Pendiente', 'Moroso', 'Baja'
+        public decimal PendingSurcharge { get; set; }
+        public string Status { get; set; } = string.Empty; // 'Al Día', 'Pendiente', 'Moroso', 'Baja', 'SE VA'
+        public string? DepartureStatus { get; set; }
         public List<string>? Lockers { get; set; } = null;
         public List<WarehouseLockerItem>? WarehouseLockers { get; set; } = null;
         public DateTime? NextPaymentDay { get; set; }

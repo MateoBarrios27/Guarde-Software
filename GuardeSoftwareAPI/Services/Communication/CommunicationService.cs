@@ -44,10 +44,7 @@ namespace GuardeSoftwareAPI.Services.communication
         /// </summary>
         public async Task<CommunicationDto> CreateCommunicationAsync(UpsertCommunicationRequest request, int userId)
         {
-            if (request.SendToAllEmails && !request.Channels.Contains("Email", StringComparer.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("La selección de todos los emails requiere el canal Email.");
-            }
+            NormalizeAndValidateRecipientScope(request);
 
             // Use your AccessDB method to get a connection
             using (SqlConnection connection = accessDB.GetConnectionClose())
@@ -85,6 +82,17 @@ namespace GuardeSoftwareAPI.Services.communication
                         else
                         {
                             await _communicationDao.InsertCommunicationRecipientsAsync(newId, request.Recipients, connection, transaction);
+                            int insertedExternalRecipients = await _communicationDao.InsertCommunicationMassRecipientsAsync(
+                                newId,
+                                request.ExternalRecipientIds,
+                                connection,
+                                transaction);
+
+                            if (insertedExternalRecipients != request.ExternalRecipientIds.Count)
+                            {
+                                throw new InvalidOperationException(
+                                    "Uno o más receptores externos seleccionados ya no están activos o no tienen email.");
+                            }
                         }
 
                         if (request.Attachments != null && request.Attachments.Count > 0)
@@ -144,6 +152,47 @@ namespace GuardeSoftwareAPI.Services.communication
             } // Connection is automatically closed by 'using'
         }
 
+        private static void NormalizeAndValidateRecipientScope(UpsertCommunicationRequest request)
+        {
+            request.Recipients ??= [];
+            request.Channels ??= [];
+            request.ExternalRecipientIds = (request.ExternalRecipientIds ?? [])
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+            bool hasEmailChannel = request.Channels.Contains("Email", StringComparer.OrdinalIgnoreCase);
+
+            if (request.SendToAllEmails)
+            {
+                if (!hasEmailChannel)
+                {
+                    throw new InvalidOperationException("La selección de todos los emails requiere el canal Email.");
+                }
+
+                request.ExternalRecipientIds = [];
+                return;
+            }
+
+            if (request.ExternalRecipientIds.Count > 0)
+            {
+                if (!hasEmailChannel)
+                {
+                    throw new InvalidOperationException("Los receptores externos por rubro sólo pueden recibir el comunicado por Email.");
+                }
+
+                if (request.IsAccountStatement)
+                {
+                    throw new InvalidOperationException("Los estados de cuenta sólo pueden enviarse a clientes.");
+                }
+            }
+
+            if (request.Recipients.Count == 0 && request.ExternalRecipientIds.Count == 0)
+            {
+                throw new InvalidOperationException("Debés seleccionar al menos un destinatario.");
+            }
+        }
+
         private async Task ScheduleJobAsync(int communicationId, DateTime runTime, bool isTestMode = false, string? testEmail = null)
         {
             var scheduler = await _schedulerFactory.GetScheduler();
@@ -167,10 +216,7 @@ namespace GuardeSoftwareAPI.Services.communication
         //Requiere logica de guardar archivos adjuntos
         public async Task<CommunicationDto> UpdateCommunicationAsync(int communicationId, UpsertCommunicationRequest request, int userId)
         {
-            if (request.SendToAllEmails && !request.Channels.Contains("Email", StringComparer.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("La selección de todos los emails requiere el canal Email.");
-            }
+            NormalizeAndValidateRecipientScope(request);
 
             using (SqlConnection connection = accessDB.GetConnectionClose())
             {
@@ -267,6 +313,13 @@ namespace GuardeSoftwareAPI.Services.communication
                             cmdDel.Parameters.AddWithValue("@Id", communicationId);
                             await cmdDel.ExecuteNonQueryAsync();
                         }
+
+                        string deleteExternalRecipients = "DELETE FROM communication_mass_recipients WHERE communication_id = @Id";
+                        using (var cmdDelExternal = new SqlCommand(deleteExternalRecipients, connection, transaction))
+                        {
+                            cmdDelExternal.Parameters.AddWithValue("@Id", communicationId);
+                            await cmdDelExternal.ExecuteNonQueryAsync();
+                        }
                         
                         if (request.SendToAllEmails)
                         {
@@ -275,6 +328,17 @@ namespace GuardeSoftwareAPI.Services.communication
                         else
                         {
                             await _communicationDao.InsertCommunicationRecipientsAsync(communicationId, request.Recipients, connection, transaction);
+                            int insertedExternalRecipients = await _communicationDao.InsertCommunicationMassRecipientsAsync(
+                                communicationId,
+                                request.ExternalRecipientIds,
+                                connection,
+                                transaction);
+
+                            if (insertedExternalRecipients != request.ExternalRecipientIds.Count)
+                            {
+                                throw new InvalidOperationException(
+                                    "Uno o más receptores externos seleccionados ya no están activos o no tienen email.");
+                            }
                         }
 
                         // D. Manejo de Adjuntos (Opcional: Agregar nuevos)

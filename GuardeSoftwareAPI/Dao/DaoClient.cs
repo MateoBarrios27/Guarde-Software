@@ -32,6 +32,7 @@ namespace GuardeSoftwareAPI.Dao
                     c.preferred_payment_method_id,
                     c.iva_condition,
                     c.notes,
+                    c.departure_status,
                     c.billing_type_id,
                     c.increase_frequency_months,
                     c.is_six_month_promotion,
@@ -123,7 +124,12 @@ namespace GuardeSoftwareAPI.Dao
                         Id = cmb.id,
                         PrevBalDB = ISNULL(cmb.previous_balance, 0),
                         IntsDB = ISNULL(cmb.interests, 0),
-                        RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(currentRental.CurrentRent, 0) ELSE cmb.monthly_debits END,
+                        -- Un mes con solo intereses no debe heredar el abono vigente como débito.
+                        RentDB = CASE
+                            WHEN ISNULL(cmb.monthly_debits, 0) = 0 AND ISNULL(cmb.interests, 0) > 0 THEN 0
+                            WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(currentRental.CurrentRent, 0)
+                            ELSE cmb.monthly_debits
+                        END,
                         PaidDB = ISNULL(cmb.paid, 0),
                         AdvPayDB = ISNULL(cmb.advanced_payment, 0),
                         MonthYearDB = cmb.month_year
@@ -152,8 +158,20 @@ namespace GuardeSoftwareAPI.Dao
                         Raw_PrevBal = ISNULL((
                             SELECT SUM(
                                 CASE
-                                    WHEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0) > 0
-                                    THEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0)
+                                    WHEN ISNULL(cmb2.monthly_debits, 0) > CASE
+                                        WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             > ISNULL(cmb2.previous_balance, 0) + ISNULL(cmb2.interests, 0)
+                                        THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             - ISNULL(cmb2.previous_balance, 0) - ISNULL(cmb2.interests, 0)
+                                        ELSE 0
+                                    END
+                                    THEN ISNULL(cmb2.monthly_debits, 0) - CASE
+                                        WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             > ISNULL(cmb2.previous_balance, 0) + ISNULL(cmb2.interests, 0)
+                                        THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             - ISNULL(cmb2.previous_balance, 0) - ISNULL(cmb2.interests, 0)
+                                        ELSE 0
+                                    END
                                     ELSE 0
                                 END
                             )
@@ -162,7 +180,19 @@ namespace GuardeSoftwareAPI.Dao
                         ), 0),
                         
                         Raw_Interest = ISNULL((
-                            SELECT SUM(ISNULL(cmb2.interests, 0))
+                            SELECT SUM(CASE
+                                WHEN ISNULL(cmb2.interests, 0) > CASE
+                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
+                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
+                                    ELSE 0
+                                END
+                                THEN ISNULL(cmb2.interests, 0) - CASE
+                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
+                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
+                                    ELSE 0
+                                END
+                                ELSE 0
+                            END)
                             FROM client_month_balances cmb2
                             WHERE cmb2.rental_id = r.rental_id AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
                         ), 0),
@@ -193,7 +223,7 @@ namespace GuardeSoftwareAPI.Dao
                               AND (rah.end_date IS NULL OR rah.end_date >= DATEFROMPARTS(YEAR(nextPayment.NextPaymentDay), MONTH(nextPayment.NextPaymentDay), 1))
                             ORDER BY rah.start_date DESC, rah.rental_amount_history_id DESC
                         ), ISNULL(currentRental.CurrentRent, 0)),
-                        UI_InterestAmount = calc3.UnpaidInts,
+                        UI_InterestAmount = rawData.Raw_Interest,
                         UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                         UI_PreviousBalance = CASE 
                             WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
@@ -218,7 +248,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<DataTable> GetClientById(int id)
         {
-            string query = "SELECT client_id, payment_identifier,full_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes, billing_type_id, increase_frequency_months, is_six_month_promotion, initial_amount FROM clients WHERE client_id = @client_id";
+            string query = "SELECT client_id, payment_identifier,full_name,registration_date,dni,cuit,preferred_payment_method_id,iva_condition, notes, departure_status, billing_type_id, increase_frequency_months, is_six_month_promotion, initial_amount FROM clients WHERE client_id = @client_id";
             SqlParameter[] parameters = { new("@client_id", SqlDbType.Int) { Value = id } };
             return await accessDB.GetTableAsync("clients", query, parameters);
         }
@@ -337,6 +367,7 @@ namespace GuardeSoftwareAPI.Dao
                     c.client_id, c.payment_identifier, c.full_name, c.registration_date,
                     c.dni, c.cuit, c.iva_condition, c.notes, c.receive_communications,
                     c.color, c.comment, c.comment_updated_at,
+                    c.departure_status AS departure_status,
                     c.initial_amount, c.increase_frequency_months, c.is_six_month_promotion,
                     ad.street, ad.city, ad.province,
                     pm.name AS preferred_payment_method,
@@ -398,7 +429,12 @@ namespace GuardeSoftwareAPI.Dao
                         Id = cmb.id,
                         PrevBalDB = ISNULL(cmb.previous_balance, 0),
                         IntsDB = ISNULL(cmb.interests, 0),
-                        RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
+                        -- Un mes con solo intereses no debe heredar el abono vigente como débito.
+                        RentDB = CASE
+                            WHEN ISNULL(cmb.monthly_debits, 0) = 0 AND ISNULL(cmb.interests, 0) > 0 THEN 0
+                            WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0)
+                            ELSE cmb.monthly_debits
+                        END,
                         PaidDB = ISNULL(cmb.paid, 0),
                         AdvPayDB = ISNULL(cmb.advanced_payment, 0),
                         MonthYearDB = cmb.month_year
@@ -414,8 +450,20 @@ namespace GuardeSoftwareAPI.Dao
                         Raw_PrevBal = ISNULL((
                             SELECT SUM(
                                 CASE
-                                    WHEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0) > 0
-                                    THEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0)
+                                    WHEN ISNULL(cmb2.monthly_debits, 0) > CASE
+                                        WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             > ISNULL(cmb2.previous_balance, 0) + ISNULL(cmb2.interests, 0)
+                                        THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             - ISNULL(cmb2.previous_balance, 0) - ISNULL(cmb2.interests, 0)
+                                        ELSE 0
+                                    END
+                                    THEN ISNULL(cmb2.monthly_debits, 0) - CASE
+                                        WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             > ISNULL(cmb2.previous_balance, 0) + ISNULL(cmb2.interests, 0)
+                                        THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             - ISNULL(cmb2.previous_balance, 0) - ISNULL(cmb2.interests, 0)
+                                        ELSE 0
+                                    END
                                     ELSE 0
                                 END
                             )
@@ -424,7 +472,19 @@ namespace GuardeSoftwareAPI.Dao
                         ), 0),
                         
                         Raw_Interest = ISNULL((
-                            SELECT SUM(ISNULL(cmb2.interests, 0))
+                            SELECT SUM(CASE
+                                WHEN ISNULL(cmb2.interests, 0) > CASE
+                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
+                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
+                                    ELSE 0
+                                END
+                                THEN ISNULL(cmb2.interests, 0) - CASE
+                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
+                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
+                                    ELSE 0
+                                END
+                                ELSE 0
+                            END)
                             FROM client_month_balances cmb2
                             WHERE cmb2.rental_id = r.rental_id AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
                         ), 0),
@@ -461,7 +521,7 @@ namespace GuardeSoftwareAPI.Dao
                                 ), ISNULL(cr.CurrentRent, 0))
                             ELSE ISNULL(cr.CurrentRent, 0)
                         END,
-                        UI_InterestAmount = calc3.UnpaidInts,
+                        UI_InterestAmount = rawData.Raw_Interest,
                         UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                         UI_PreviousBalance = CASE 
                             WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
@@ -793,6 +853,8 @@ namespace GuardeSoftwareAPI.Dao
                         locker_sub.lockers as Lockers,
                         locker_sub.lockers_json as WarehouseLockersJson,
                         c.active AS Active,
+                        c.departure_status AS DepartureStatus,
+                        ISNULL(r.pending_surcharge, 0) AS PendingSurcharge,
                         c.color AS Color,
                         c.comment AS Comment,
                         c.comment_updated_at AS CommentUpdatedAt,
@@ -819,6 +881,7 @@ namespace GuardeSoftwareAPI.Dao
                         
                         CASE
                             WHEN c.active = 0 THEN 'Baja'
+                            WHEN c.departure_status = 'SE_VA' THEN 'SE VA'
                             WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso'
                             WHEN ISNULL(step1.UI_Balance, 0) >= 0 THEN 'Al día' 
                             ELSE 'Pendiente'
@@ -854,7 +917,12 @@ namespace GuardeSoftwareAPI.Dao
                             Id = cmb.id,
                             PrevBalDB = ISNULL(cmb.previous_balance, 0),
                             IntsDB = ISNULL(cmb.interests, 0),
-                            RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
+                            -- Un mes con solo intereses no debe heredar el abono vigente como débito.
+                            RentDB = CASE
+                                WHEN ISNULL(cmb.monthly_debits, 0) = 0 AND ISNULL(cmb.interests, 0) > 0 THEN 0
+                                WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0)
+                                ELSE cmb.monthly_debits
+                            END,
                             PaidDB = ISNULL(cmb.paid, 0),
                             AdvPayDB = ISNULL(cmb.advanced_payment, 0),
                             MonthYearDB = cmb.month_year
@@ -893,8 +961,20 @@ namespace GuardeSoftwareAPI.Dao
                             Raw_PrevBal = ISNULL((
                                 SELECT SUM(
                                     CASE
-                                        WHEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0) > 0
-                                        THEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0)
+                                        WHEN ISNULL(cmb2.monthly_debits, 0) > CASE
+                                            WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                                 > ISNULL(cmb2.previous_balance, 0) + ISNULL(cmb2.interests, 0)
+                                            THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                                 - ISNULL(cmb2.previous_balance, 0) - ISNULL(cmb2.interests, 0)
+                                            ELSE 0
+                                        END
+                                        THEN ISNULL(cmb2.monthly_debits, 0) - CASE
+                                            WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                                 > ISNULL(cmb2.previous_balance, 0) + ISNULL(cmb2.interests, 0)
+                                            THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                                 - ISNULL(cmb2.previous_balance, 0) - ISNULL(cmb2.interests, 0)
+                                            ELSE 0
+                                        END
                                         ELSE 0
                                     END
                                 )
@@ -903,7 +983,19 @@ namespace GuardeSoftwareAPI.Dao
                             ), 0),
                             
                             Raw_Interest = ISNULL((
-                                SELECT SUM(ISNULL(cmb2.interests, 0))
+                                SELECT SUM(CASE
+                                    WHEN ISNULL(cmb2.interests, 0) > CASE
+                                        WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
+                                        THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
+                                        ELSE 0
+                                    END
+                                    THEN ISNULL(cmb2.interests, 0) - CASE
+                                        WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
+                                        THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
+                                        ELSE 0
+                                    END
+                                    ELSE 0
+                                END)
                                 FROM client_month_balances cmb2
                                 WHERE cmb2.rental_id = r.rental_id AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
                             ), 0),
@@ -934,7 +1026,7 @@ namespace GuardeSoftwareAPI.Dao
                                   AND (rah.end_date IS NULL OR rah.end_date >= DATEFROMPARTS(YEAR(nextPayment.NextPaymentDay), MONTH(nextPayment.NextPaymentDay), 1))
                                 ORDER BY rah.start_date DESC, rah.rental_amount_history_id DESC
                             ), ISNULL(cr.CurrentRent, 0)),
-                            UI_InterestAmount = calc3.UnpaidInts,
+                            UI_InterestAmount = rawData.Raw_Interest,
                             UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                             UI_PreviousBalance = CASE 
                                 WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
@@ -1060,9 +1152,11 @@ namespace GuardeSoftwareAPI.Dao
                     PaymentIdentifier = row["PaymentIdentifier"] != DBNull.Value ? Convert.ToDecimal(row["PaymentIdentifier"]) : null,
                     FullName = row["FullName"]?.ToString() ?? string.Empty,
                     Status = row["Status"]?.ToString() ?? "Pendiente",
+                    DepartureStatus = row["DepartureStatus"] != DBNull.Value ? row["DepartureStatus"].ToString() : null,
                     PreviousBalance = row["PreviousBalance"] != DBNull.Value ? Convert.ToDecimal(row["PreviousBalance"]) : 0m,
                     InterestAmount = row["InterestAmount"] != DBNull.Value ? Convert.ToDecimal(row["InterestAmount"]) : 0m,
                     CurrentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0m,
+                    PendingSurcharge = row["PendingSurcharge"] != DBNull.Value ? Convert.ToDecimal(row["PendingSurcharge"]) : 0m,
                     Balance = row["Balance"] != DBNull.Value ? Convert.ToDecimal(row["Balance"]) : 0m,
                     NextPaymentDay = row["NextPaymentDay"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDay"]) : null,
                     DeactivationDate = row["DeactivationDate"] != DBNull.Value ? Convert.ToDateTime(row["DeactivationDate"]) : null,

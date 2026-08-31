@@ -267,11 +267,13 @@ namespace GuardeSoftwareAPI.Services.locker
             int? existingRentalId = existing["rental_id"] != DBNull.Value ? Convert.ToInt32(existing["rental_id"]) : null;
             bool isFreeSpace = existing["is_free_space"] != DBNull.Value && Convert.ToBoolean(existing["is_free_space"]);
 
-            // Espacios libres: al ponerlos OCUPADO manualmente, eliminar todas sus asignaciones en rental_lockers.
-            // Bauleras normales: si se pone DISPONIBLE y tenía rental_id, desasignar.
-            bool needsUnassignment = isFreeSpace
-                ? newStatus.Equals("OCUPADO", StringComparison.OrdinalIgnoreCase)
-                : (existingRentalId.HasValue && newStatus.Equals("DISPONIBLE", StringComparison.OrdinalIgnoreCase));
+            // Un espacio libre puede tener varios clientes asignados. Marcarlo como
+            // OCUPADO sólo debe impedir nuevas asignaciones; no debe eliminar las
+            // filas existentes de rental_lockers ni cerrar su historial.
+            // Las bauleras normales sí se desasignan al volver a DISPONIBLE.
+            bool needsUnassignment = !isFreeSpace
+                && existingRentalId.HasValue
+                && newStatus.Equals("DISPONIBLE", StringComparison.OrdinalIgnoreCase);
 
             if (needsUnassignment)
             {
@@ -280,62 +282,32 @@ namespace GuardeSoftwareAPI.Services.locker
                 using var transaction = connection.BeginTransaction();
                 try
                 {
-                    if (isFreeSpace)
+                    // Baulera normal: comportamiento original.
+                    if (fullLockerUpdate != null)
                     {
-                        // Obtener todos los rentals asignados a este espacio libre
-                        var rentalIds = await GetRentalIdsForFreeSpaceAsync(lockerId, connection, transaction);
-
-                        // Eliminar todas las asignaciones del espacio libre en rental_lockers
-                        await daoLocker.UnassignFreeSpaceFromRentalTransactionAsync(0, [lockerId], connection, transaction);
-                        // Nota: pasamos 0 como rentalId para forzar eliminación de TODAS las asignaciones
-                        // (la implementación de UnassignFreeSpaceFromRentalTransactionAsync con rentalId=0 elimina por locker_id solamente)
-
-                        var daoClient = new DaoClient(_accessDB);
-                        var daoRental = new DaoRental(_accessDB);
-                        foreach (var rentalId in rentalIds)
-                        {
-                            DataTable rentalDt = await daoRental.GetRentalById(rentalId);
-                            if (rentalDt.Rows.Count > 0)
-                            {
-                                int clientId = Convert.ToInt32(rentalDt.Rows[0]["client_id"]);
-                                await daoClient.CloseLockerHistoryTransactionAsync(clientId, [lockerId], connection, transaction);
-                            }
-                        }
-
-                        if (fullLockerUpdate != null)
-                            await daoLocker.UpdateLockerTransactionAsync(fullLockerUpdate, false, connection, transaction);
-                        else
-                            await daoLocker.UpdateLockerStatus(lockerId, "OCUPADO");
+                        fullLockerUpdate.Status = "DISPONIBLE";
+                        await daoLocker.UpdateLockerTransactionAsync(fullLockerUpdate, true, connection, transaction);
                     }
                     else
                     {
-                        // Baulera normal: comportamiento original
-                        if (fullLockerUpdate != null)
-                        {
-                            fullLockerUpdate.Status = "DISPONIBLE";
-                            await daoLocker.UpdateLockerTransactionAsync(fullLockerUpdate, true, connection, transaction);
-                        }
-                        else
-                        {
-                            await daoLocker.UnassignLockersFromRentalTransactionAsync(existingRentalId!.Value, [lockerId], connection, transaction);
-                        }
-
-                        var daoRental = new DaoRental(_accessDB);
-                        var daoClient = new DaoClient(_accessDB);
-                        DataTable rentalDt = await daoRental.GetRentalById(existingRentalId!.Value);
-                        if (rentalDt.Rows.Count > 0)
-                        {
-                            int clientId = Convert.ToInt32(rentalDt.Rows[0]["client_id"]);
-                            await daoClient.CloseLockerHistoryTransactionAsync(clientId, [lockerId], connection, transaction);
-                        }
-
-                        var remainingLockerIds = await daoLocker.GetLockerIdsByRentalIdTransactionAsync(existingRentalId!.Value, connection, transaction);
-                        decimal newContractedM3 = await daoLocker.CalculateTotalM3ForLockersAsync(remainingLockerIds, connection, transaction);
-                        await daoRental.UpdateContractedM3TransactionAsync(existingRentalId!.Value, newContractedM3, connection, transaction);
-
-                        var cmbService = new GuardeSoftwareAPI.Services.clientMonthBalance.ClientMonthBalanceService(_accessDB);
-                        await cmbService.RebuildForRentalTransactionAsync(existingRentalId!.Value, connection, transaction);
+                        await daoLocker.UnassignLockersFromRentalTransactionAsync(existingRentalId!.Value, [lockerId], connection, transaction);
                     }
+
+                    var daoRental = new DaoRental(_accessDB);
+                    var daoClient = new DaoClient(_accessDB);
+                    DataTable rentalDt = await daoRental.GetRentalById(existingRentalId!.Value);
+                    if (rentalDt.Rows.Count > 0)
+                    {
+                        int clientId = Convert.ToInt32(rentalDt.Rows[0]["client_id"]);
+                        await daoClient.CloseLockerHistoryTransactionAsync(clientId, [lockerId], connection, transaction);
+                    }
+
+                    var remainingLockerIds = await daoLocker.GetLockerIdsByRentalIdTransactionAsync(existingRentalId!.Value, connection, transaction);
+                    decimal newContractedM3 = await daoLocker.CalculateTotalM3ForLockersAsync(remainingLockerIds, connection, transaction);
+                    await daoRental.UpdateContractedM3TransactionAsync(existingRentalId!.Value, newContractedM3, connection, transaction);
+
+                    var cmbService = new GuardeSoftwareAPI.Services.clientMonthBalance.ClientMonthBalanceService(_accessDB);
+                    await cmbService.RebuildForRentalTransactionAsync(existingRentalId!.Value, connection, transaction);
 
                     await transaction.CommitAsync();
                     return true;
@@ -357,18 +329,6 @@ namespace GuardeSoftwareAPI.Services.locker
                     return await daoLocker.UpdateLockerStatus(lockerId, newStatus);
                 }
             }
-        }
-
-        private async Task<List<int>> GetRentalIdsForFreeSpaceAsync(int lockerId, SqlConnection connection, SqlTransaction transaction)
-        {
-            var ids = new List<int>();
-            const string query = "SELECT rental_id FROM rental_lockers WHERE locker_id = @locker_id";
-            using var cmd = new SqlCommand(query, connection, transaction);
-            cmd.Parameters.Add(new SqlParameter("@locker_id", SqlDbType.Int) { Value = lockerId });
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-                ids.Add(reader.GetInt32(0));
-            return ids;
         }
 
         public async Task<List<int>> GetLockerIdsByRentalIdTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)

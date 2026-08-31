@@ -55,5 +55,6 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public string? Color { get; set; }
         public string? Comment { get; set; }
         public DateTime? CommentUpdatedAt { get; set; }
+        public string? DepartureStatus { get; set; }
     }
 }

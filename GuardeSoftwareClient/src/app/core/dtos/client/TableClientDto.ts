@@ -8,7 +8,9 @@ export interface TableClient {
   previousBalance: number; 
   interestAmount: number;   
   currentRent: number;    
+  pendingSurcharge?: number;
   status: string; 
+  departureStatus?: string | null;
   lockers: string[] | null;
   warehouseLockers?: WarehouseLockerItem[];
   nextPaymentDay?: Date | string | null;

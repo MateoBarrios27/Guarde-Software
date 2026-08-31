@@ -257,7 +257,9 @@ namespace GuardeSoftwareAPI.Controllers
                 communication.IsAccountStatement,
                 communication.IsNextMonthStatement,
                 communication.SendToAllEmails,
-                RecipientCount = communication.Recipients?.Count ?? 0,
+                RecipientCount = (communication.Recipients?.Count ?? 0)
+                    + (communication.ExternalRecipients?.Count ?? 0),
+                ExternalRecipientCount = communication.ExternalRecipients?.Count ?? 0,
                 AttachmentCount = communication.Dispatches?.Count ?? 0
             };
         }

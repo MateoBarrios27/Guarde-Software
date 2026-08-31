@@ -16,6 +16,7 @@ export interface CachedClient {
   // Enriched fields
   nextPaymentDay?: string;
   status?: string;
+  departureStatus?: string;
   rentalId?: number;
   monthsUnpaid?: number;
   increaseAnchorDate?: string;
@@ -54,6 +55,7 @@ export interface PendingPayment {
   skipFutureProjection: boolean;
   surchargeAction?: string;
   surchargeAmount?: number;
+  surchargeAmountWasOverridden?: boolean;
   expectedPaymentStateToken?: string | null;
   createdAt: string;         // ISO string - when queued
   status: 'pending' | 'syncing' | 'failed';

@@ -63,7 +63,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // popover filters
   public showTagsPopover = false;
-  public statusList: string[] = ['DISPONIBLE', 'OCUPADO', 'MANTENIMIENTO'];
+  public statusList: string[] = ['DISPONIBLE', 'OCUPADO', 'POR LIBERARSE', 'MANTENIMIENTO'];
   public selectedWarehouseIds: number[] = [];
   public selectedStatuses: string[] = [];
   public selectedLockerTypeIds: number[] = [];
@@ -343,8 +343,10 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
         return 2;
       case 'OCUPADO':
         return 3;
-      default:
+      case 'POR LIBERARSE':
         return 4;
+      default:
+        return 5;
     }
   }
 
@@ -367,6 +369,8 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
         return 'bg-red-100 text-red-800';
       case 'MANTENIMIENTO':
         return 'bg-yellow-100 text-yellow-800';
+      case 'POR LIBERARSE':
+        return 'bg-yellow-200 text-yellow-900 border border-yellow-300';
       default:
         return 'bg-gray-100 text-gray-800';
     }

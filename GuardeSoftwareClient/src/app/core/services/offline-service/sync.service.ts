@@ -149,6 +149,7 @@ export class SyncService {
           skipFutureProjection: p.skipFutureProjection,
           surchargeAction: p.surchargeAction,
           surchargeAmount: p.surchargeAmount,
+          surchargeAmountWasOverridden: p.surchargeAmountWasOverridden,
           expectedPaymentStateToken: p.expectedPaymentStateToken
         }))
       };

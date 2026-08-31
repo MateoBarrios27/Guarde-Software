@@ -82,11 +82,25 @@ namespace GuardeSoftwareAPI.Jobs
                 var emailChannel = channels.FirstOrDefault(c => c.ChannelName == "Email");
                 if (emailChannel != null)
                 {
-                    var emailRecipients = sendToAllEmails
-                        ? await _communicationDao.GetAllEmailRecipientsForSendingAsync(comunicadoId, emailChannel.CommChannelContentId)
-                        : await _communicationDao.GetRecipientsForSendingAsync(comunicadoId, emailChannel.CommChannelContentId);
+                    List<RecipientForSendingDto> emailRecipients;
+                    if (sendToAllEmails)
+                    {
+                        emailRecipients = await _communicationDao.GetAllEmailRecipientsForSendingAsync(
+                            comunicadoId,
+                            emailChannel.CommChannelContentId);
+                    }
+                    else
+                    {
+                        emailRecipients = await _communicationDao.GetRecipientsForSendingAsync(
+                            comunicadoId,
+                            emailChannel.CommChannelContentId);
+                        emailRecipients.AddRange(
+                            await _communicationDao.GetSelectedExternalEmailRecipientsForSendingAsync(
+                                comunicadoId,
+                                emailChannel.CommChannelContentId));
+                    }
 
-                    if (isTestMode && sendToAllEmails && emailRecipients.Count > 1)
+                    if (isTestMode && emailRecipients.Count > 1)
                     {
                         emailRecipients = emailRecipients.Take(1).ToList();
                     }
@@ -347,6 +361,11 @@ namespace GuardeSoftwareAPI.Jobs
             // ChannelForSendingDto sin pasar previamente por la personalización.
             builder.HtmlBody = RemoveLegacyBrandLogo(
                 ReplaceCommunicationPlaceholders(channel.Content, recipient.Name));
+
+            EmailTemplateInlineResources.AddReferencedResources(
+                builder,
+                builder.HtmlBody,
+                AppContext.BaseDirectory);
 
             // Adjuntar archivos si existen
             if (attachments != null && attachments.Count > 0)

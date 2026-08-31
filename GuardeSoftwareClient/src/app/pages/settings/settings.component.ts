@@ -177,7 +177,8 @@ export class SettingsComponent implements OnInit {
   massRecipientForm: UpsertMassCommunicationRecipient = {
     name: '',
     email: '',
-    phone: ''
+    phone: '',
+    type: ''
   };
 
   // --- LockerTypes properties ---
@@ -934,14 +935,16 @@ export class SettingsComponent implements OnInit {
       this.massRecipientForm = {
         name: recipient.name ?? '',
         email: recipient.email ?? '',
-        phone: recipient.phone ?? ''
+        phone: recipient.phone ?? '',
+        type: recipient.type ?? ''
       };
     } else {
       this.editingMassRecipientId = null;
       this.massRecipientForm = {
         name: '',
         email: '',
-        phone: ''
+        phone: '',
+        type: ''
       };
     }
 
@@ -956,7 +959,8 @@ export class SettingsComponent implements OnInit {
     const dto: UpsertMassCommunicationRecipient = {
       name: this.massRecipientForm.name?.trim() ?? '',
       email: this.massRecipientForm.email?.trim() ?? '',
-      phone: this.massRecipientForm.phone?.trim() ?? ''
+      phone: this.massRecipientForm.phone?.trim() ?? '',
+      type: this.massRecipientForm.type?.trim() ?? ''
     };
 
     if (dto.email && !this.isValidEmail(dto.email)) {

@@ -33,9 +33,17 @@
           }}</span>
         </div>
         <div>
-          <h2 class="text-xl font-bold transition-colors" [style.color]="client.color || '#111827'">
-            {{ client.fullName }}
-          </h2>
+          <div class="flex items-center gap-2">
+            <h2 class="text-xl font-bold transition-colors" [style.color]="client.color || '#111827'">
+              {{ client.fullName }}
+            </h2>
+            <span
+              *ngIf="client.departureStatus === 'SE_VA'"
+              class="inline-flex items-center rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none text-red-600 border border-red-100"
+            >
+              SE VA
+            </span>
+          </div>
           <p class="text-gray-500 text-sm">
             Cliente N° {{ client.paymentIdentifier | number : "1.2-2" }}
           </p>
@@ -460,10 +468,10 @@
                   <div class="col-span-3 sm:col-span-1">
                     <label class="block text-xs font-medium text-gray-600 mb-1">Monto ($)</label>
                     <input
-                      type="number"
+                      type="text"
+                      appCurrencyFormat
                       [(ngModel)]="abonoFormAmount"
                       placeholder="Ej: 120000"
-                      min="0"
                       class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none"
                     />
                   </div>
@@ -842,9 +850,9 @@
 
 <!-- Content Preview Modal (inside client detail) -->
 <div *ngIf="previewContent" 
-     class="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4"
+     class="fixed inset-0 bg-black/50 z-[140] flex items-center justify-center p-4"
      (click)="closeContentPreview()">
-  <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
+  <div class="relative z-[150] bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
        (click)="$event.stopPropagation()">
     <div class="flex items-center justify-between p-4 border-b">
       <div class="flex items-center gap-2">
@@ -857,9 +865,9 @@
       </button>
     </div>
       <div class="flex-1 overflow-auto p-4 sm:p-6 bg-gray-50/50 rounded-b-xl">
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 h-full min-h-[60vh]">
-          <iframe [srcdoc]="previewContent" 
-                  class="w-full h-full min-h-[60vh] border-0 rounded-lg"
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 h-full min-h-[60vh] overflow-hidden">
+          <iframe [srcdoc]="previewContent"
+                  class="block w-full h-full min-h-[60vh] border-0 rounded-lg"
                   sandbox="allow-same-origin"
                   title="Vista previa del contenido enviado"></iframe>
         </div>

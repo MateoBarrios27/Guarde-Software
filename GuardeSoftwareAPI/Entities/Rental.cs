@@ -14,5 +14,7 @@ namespace GuardeSoftwareAPI.Entities
         public decimal? CurrentAmount { get; set; }
         public bool? Active { get; set; }
         public decimal? PendingSurcharge { get; set; }
+        public decimal? PendingSurchargeRentBase { get; set; }
+        public DateTime? PendingSurchargePeriod { get; set; }
     }
 }

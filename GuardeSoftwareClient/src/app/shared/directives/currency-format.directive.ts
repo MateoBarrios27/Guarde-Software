@@ -20,7 +20,12 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
 
   writeValue(value: any): void {
     if (value !== undefined && value !== null && value !== '') {
-      this.el.nativeElement.value = this.formatNumber(Number(value));
+      const numberValue = typeof value === 'number'
+        ? value
+        : this.parseAndFormat(String(value)).numberValue;
+      this.el.nativeElement.value = numberValue !== null && !isNaN(numberValue)
+        ? this.formatNumber(numberValue)
+        : '';
     } else {
       this.el.nativeElement.value = '';
     }
@@ -35,44 +40,13 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
   }
 
   @HostListener('input', ['$event'])
-  onInput(event: any) {
-    const input = event.target;
-    let val = input.value;
-    let cursorPosition = input.selectionStart;
-    const originalLength = val.length;
-
-    const isNegative = val.startsWith('-');
-
-    val = val.replace(/[^0-9,]/g, '');
-    let parts = val.split(',');
-    if (parts.length > 2) {
-      parts.pop(); 
-      val = parts.join(',');
-    }
-
-    if (parts.length === 2 && parts[1].length > 2) {
-      parts[1] = parts[1].substring(0, 2);
-    }
-
-    let integerPart = parts[0];
-    if (integerPart) {
-      integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    }
-
-    let formattedStr = integerPart;
-    if (parts.length > 1) {
-      formattedStr += ',' + parts[1];
-    } else if (val.endsWith(',')) {
-      formattedStr += ',';
-    }
-
-    if (isNegative) {
-      if (formattedStr !== '') {
-        formattedStr = '-' + formattedStr;
-      } else {
-        formattedStr = '-'; 
-      }
-    }
+  onInput(event: any): void {
+    const input = event.target as HTMLInputElement;
+    const originalValue = input.value;
+    const originalLength = originalValue.length;
+    let cursorPosition = input.selectionStart ?? originalLength;
+    const parsed = this.parseAndFormat(originalValue);
+    const formattedStr = parsed.formatted;
 
     this.el.nativeElement.value = formattedStr;
 
@@ -85,37 +59,91 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
       input.setSelectionRange(cursorPosition, cursorPosition);
     }, 0);
 
-    const cleanValue = formattedStr.replace(/\./g, '').replace(',', '.');
-    const numberValue = parseFloat(cleanValue);
-
-    if (!isNaN(numberValue)) {
-      this.onChange(numberValue);
-    } else {
-      this.onChange(null);
-    }
+    this.onChange(parsed.numberValue);
   }
   
   @HostListener('blur')
   onBlur() {
     this.onTouched();
     const val = this.el.nativeElement.value;
-    
-    if (val === '-') {
-      this.onChange(null);
-      this.el.nativeElement.value = '';
-      return;
-    }
 
-    const cleanValue = val.replace(/\./g, '').replace(',', '.');
-    const numberValue = parseFloat(cleanValue);
-
-    if (!isNaN(numberValue)) {
-      this.onChange(numberValue);
-      this.el.nativeElement.value = this.formatNumber(numberValue);
+    const parsed = this.parseAndFormat(val);
+    if (parsed.numberValue !== null && !isNaN(parsed.numberValue)) {
+      this.onChange(parsed.numberValue);
+      this.el.nativeElement.value = this.formatNumber(parsed.numberValue);
     } else {
       this.onChange(null);
       this.el.nativeElement.value = '';
     }
+  }
+
+  private parseAndFormat(rawValue: string): { formatted: string; numberValue: number | null } {
+    const isNegative = rawValue.trim().startsWith('-');
+    const value = rawValue.replace(/[^0-9.,]/g, '');
+    const decimalSeparator = this.detectDecimalSeparator(value);
+    const hasDecimalSeparator = decimalSeparator !== null;
+
+    let integerPart = value;
+    let fractionPart = '';
+
+    if (decimalSeparator) {
+      const decimalIndex = value.lastIndexOf(decimalSeparator);
+      integerPart = value.substring(0, decimalIndex);
+      fractionPart = value.substring(decimalIndex + 1).replace(/[.,]/g, '').substring(0, 2);
+    }
+
+    const integerDigits = integerPart.replace(/[.,]/g, '');
+    const hasDigits = /\d/.test(integerDigits + fractionPart);
+    const displayInteger = integerDigits || (fractionPart ? '0' : '');
+    const groupedInteger = displayInteger.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+    let formatted = groupedInteger;
+    if (hasDecimalSeparator) {
+      formatted += ',' + fractionPart;
+    }
+
+    if (isNegative) {
+      formatted = formatted ? '-' + formatted : '-';
+    }
+
+    if (!hasDigits) {
+      return { formatted, numberValue: null };
+    }
+
+    const numberValue = Number(`${integerDigits || '0'}${fractionPart ? `.${fractionPart}` : ''}`);
+    return {
+      formatted,
+      numberValue: isNegative ? -numberValue : numberValue
+    };
+  }
+
+  private detectDecimalSeparator(value: string): ',' | '.' | null {
+    const commaIndex = value.lastIndexOf(',');
+    const dotIndex = value.lastIndexOf('.');
+
+    if (commaIndex === -1 && dotIndex === -1) return null;
+    if (commaIndex !== -1 && dotIndex !== -1) {
+      return commaIndex > dotIndex ? ',' : '.';
+    }
+    if (commaIndex !== -1) return ',';
+
+    const dotParts = value.split('.');
+    if (dotParts.length > 2) {
+      const isThousandsGrouping = dotParts.slice(1).every(part => part.length === 3);
+      return isThousandsGrouping ? null : '.';
+    }
+
+    const digitsAfter = value.length - dotIndex - 1;
+    if (digitsAfter === 3) {
+      const digitsBefore = value.substring(0, dotIndex).replace(/\D/g, '').length;
+      return digitsBefore > 3 ? '.' : null;
+    }
+
+    // Más de tres dígitos después de un punto normalmente significa que el
+    // usuario siguió escribiendo sobre el separador de miles ya formateado
+    // (por ejemplo, 1.2345). Se conserva como agrupador para no convertir
+    // accidentalmente 12.345 en 12,34 al continuar tipeando.
+    return digitsAfter <= 2 ? '.' : null;
   }
 
   private formatNumber(value: number): string {

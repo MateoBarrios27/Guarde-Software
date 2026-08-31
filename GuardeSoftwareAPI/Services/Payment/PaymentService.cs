@@ -146,7 +146,7 @@ namespace GuardeSoftwareAPI.Services.payment
                 }
 
                 if (string.IsNullOrWhiteSpace(dto.ExpectedPaymentStateToken)
-                    && await IsRecentDuplicateByConceptAsync(dto, connection, transaction))
+                    && await IsRecentDuplicatePaymentAsync(dto, connection, transaction))
                 {
                     throw new PaymentConflictException(await BuildConflictDetailsAsync(dto, connection, transaction, duplicateAttempt: true));
                 }
@@ -160,24 +160,29 @@ namespace GuardeSoftwareAPI.Services.payment
                 var rental = await rentalService.GetRentalByClientIdTransactionAsync(dto.ClientId, connection, transaction);
                 if (rental == null) throw new Exception("El cliente no tiene alquiler activo");
 
+                bool isClientMarkedAsLeaving = await IsClientMarkedAsLeavingAsync(
+                    dto.ClientId,
+                    connection,
+                    transaction);
+
                 int monthsToCover = (dto.IsAdvancePayment && dto.AdvanceMonths.HasValue && dto.AdvanceMonths.Value > 0) ? dto.AdvanceMonths.Value : 1;
                 
                 decimal baseRent = (decimal)rental.CurrentAmount;
-                decimal newRent = baseRent;
 
                 // --- LÓGICA DE AUMENTO Y CONGELAMIENTO ---
                 // Un pago de 6+ meses congela el precio. También respetamos un congelamiento
                 // ya creado al planificar previamente esos débitos, aunque el pago se cargue después.
                 bool hasActivePlannedPriceLock = rental.PriceLockEndDate.HasValue
                     && rental.PriceLockEndDate.Value.Date > dto.Date.Date;
-                bool isPriceLocked = (dto.IsAdvancePayment && monthsToCover >= 6) || hasActivePlannedPriceLock;
+                bool isPriceLocked = !isClientMarkedAsLeaving
+                    && ((dto.IsAdvancePayment && monthsToCover >= 6) || hasActivePlannedPriceLock);
                 if (isPriceLocked)
                 {
                     DateTime lockEndDate = dto.Date.Date.AddMonths(monthsToCover);
                     if (!rental.PriceLockEndDate.HasValue || lockEndDate > rental.PriceLockEndDate.Value.Date)
                         await daoRental.UpdatePriceLockEndDateTransactionAsync(rental.Id, lockEndDate, connection, transaction);
                 }
-                else if (dto.AppliedIncreases != null && dto.AppliedIncreases.Any())
+                else if (!isClientMarkedAsLeaving && dto.AppliedIncreases != null && dto.AppliedIncreases.Any())
                 {
                     // Procesamos la cola de aumentos en orden cronológico
                     foreach(var inc in dto.AppliedIncreases.OrderBy(x => x.Year).ThenBy(x => x.Month))
@@ -262,10 +267,18 @@ namespace GuardeSoftwareAPI.Services.payment
                     }
                 }
 
+                string? surchargeAction = dto.SurchargeAction ?? (rental.PendingSurcharge > 0 ? "next_payment" : null);
+                dto.SurchargeAction = surchargeAction;
+                decimal reservedImmediateSurcharge = surchargeAction == "immediate"
+                    ? Math.Max(0m, dto.SurchargeAmount ?? rental.PendingSurcharge ?? 0m)
+                    : 0m;
+                decimal paymentAvailableForDebt = Math.Max(
+                    0m,
+                    dto.Amount - (dto.CommissionAmount ?? 0m) - reservedImmediateSurcharge);
                 // ==============================================================================
                 // FIX: CORRECCIÓN RETROACTIVA DE MESES YA EMITIDOS (Comparando solo Año y Mes)
                 // ==============================================================================
-                if (dto.NewRentAmount.HasValue && dto.NewRentAmount.Value > baseRent)
+                if (!isClientMarkedAsLeaving && dto.NewRentAmount.HasValue && dto.NewRentAmount.Value > baseRent)
                 {
                     DateTime effectiveDate = rental.IncreaseAnchorDate ?? dto.Date;
                     int effectiveMonthValue = effectiveDate.Year * 100 + effectiveDate.Month;
@@ -302,6 +315,15 @@ namespace GuardeSoftwareAPI.Services.payment
                         }
                     }
                 }
+
+                var latePaymentProjection = ProjectLatePayment(
+                    existingMonths,
+                    dto.Date,
+                    paymentAvailableForDebt,
+                    !isClientMarkedAsLeaving && dto.NewRentAmount.HasValue && dto.NewRentAmount.Value > baseRent
+                        ? dto.NewRentAmount.Value
+                        : baseRent);
+                moneyInHand = paymentAvailableForDebt;
 
                 decimal rolledOverDebt = 0;
 
@@ -348,20 +370,25 @@ namespace GuardeSoftwareAPI.Services.payment
                 }
 
                 // ==============================================================================
-                // --- 4. GENERAMOS EL FUTURO (Adelantos o Proyección de Próximo Pago)
+                // --- 4. GENERAMOS EL FUTURO (Adelantos o Proyección del Próximo Pago)
                 // ==============================================================================
                 string lastMonthStr = existingMonths.Last().MonthYear;
                 DateTime lastGeneratedDate = DateTime.ParseExact(lastMonthStr, "MM/yyyy", null);
                 decimal lastMonthDebt = rolledOverDebt;
 
+                // El flujo histórico genera el próximo débito cuando el último mes fue tocado.
+                // SkipFutureProjection queda reservado para los casos en que la interfaz
+                // decide explícitamente no proyectar (por ejemplo, al omitir un aumento).
                 var lastExistingMonth = existingMonths.Last();
                 bool lastMonthWasTouched = (lastExistingMonth.Paid + lastExistingMonth.AdvancedPayment) > 0;
+                bool shouldProjectFuture = !isClientMarkedAsLeaving
+                    && lastMonthWasTouched
+                    && !dto.SkipFutureProjection
+                    && !isPriceLocked;
 
-                // FIX: El futuro se deja de proyectar ÚNICAMENTE si el precio está congelado (6 meses o más)
-                // Usamos la variable isPriceLocked que ya tenés definida arriba.
-                bool shouldProjectFuture = lastMonthWasTouched && !dto.SkipFutureProjection && !isPriceLocked;
-
-                if (moneyInHand > 0 || shouldProjectFuture)
+                // Un cliente marcado como SE VA no debe recibir un alquiler futuro
+                // por registrar un pago, aunque el pago deje saldo a favor.
+                if (!isClientMarkedAsLeaving && (moneyInHand > 0 || shouldProjectFuture))
                 {
                     while (true)
                     {
@@ -412,17 +439,13 @@ namespace GuardeSoftwareAPI.Services.payment
                         moneyInHand -= applied;
                         lastMonthDebt = totalOwedThisNewMonth - applied;
 
-                        // CONDICIONES DE CORTE DEL BUCLE:
+                        // Si se creó un mes sin aplicar saldo, ya quedó proyectado el siguiente
+                        // débito y no se debe continuar generando meses indefinidamente.
                         if (moneyInHand <= 0)
                         {
-                            // 1. Si acaba de generar un mes extra donde metió $0, significa que ya proyectó el mes impago. Cortamos.
-                            if (applied == 0) break;
-                            
-                            // 2. Si el usuario pidió omitir.
+                            if (applied <= 0) break;
                             if (dto.SkipFutureProjection) break;
-                            
-                            // 3. FIX CRÍTICO: Solo cortamos "en seco" (sin generar el mes vacío) SI pagó 6 o más meses (isPriceLocked).
-                            if (isPriceLocked) break; 
+                            if (isPriceLocked) break;
                         }
                     }
                 }
@@ -430,56 +453,82 @@ namespace GuardeSoftwareAPI.Services.payment
         // --- 5. EFECTIVIZACIÓN Y LIMPIEZA DE MORA ---
         // ==============================================================================
 
-        string surchargeAction = dto.SurchargeAction ?? (rental.PendingSurcharge > 0 ? "next_payment" : null);
-
         if (surchargeAction == "forgive")
         {
-            // No crear DEBITO de interés, solo limpiar pendiente de mora
+            dto.SurchargeAmount = 0m;
+            await daoRental.ResetPendingSurchargeTransactionAsync(rental.Id, connection, transaction);
         }
         else if (surchargeAction == "immediate" || surchargeAction == "next_payment")
         {
-            decimal finalPenalty = dto.SurchargeAmount ?? 0;
+            DateTime surchargePeriod = rental.PendingSurchargePeriod
+                ?? new DateTime(dto.Date.Year, dto.Date.Month, 1);
+            decimal lateRentBase = rental.PendingSurchargeRentBase
+                ?? latePaymentProjection.LateRentBase;
+            decimal recalculatedPenalty = RoundInterestToNearestHundredDown(
+                (lateRentBase + latePaymentProjection.UnpaidInterestsAfterPayment) * 0.10m);
+            decimal finalPenalty = dto.SurchargeAmountWasOverridden
+                ? Math.Max(0m, dto.SurchargeAmount ?? 0m)
+                : recalculatedPenalty;
+            dto.SurchargeAmount = finalPenalty;
 
-            if (finalPenalty <= 0 && rental.PendingSurcharge > 0)
+            if (finalPenalty > 0m)
             {
-                // Fallback: usar directamente el recargo que ya calculó y guardó el ApplyInterestsJob,
-                // asegurando que el monto sea siempre exactamente el mismo.
-                finalPenalty = rental.PendingSurcharge.Value;
-            }
-
-            if (finalPenalty > 0)
-            {
+                // Se conserva la lógica anterior: el recargo elegido para el próximo
+                // pago se registra ahora como débito del primer día del mes siguiente.
+                // Así queda visible en account_movements inmediatamente y el job del día
+                // 1 no tiene que esperar ni volver a generarlo.
                 DateTime interestDate;
-                string concept;
-                string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(new CultureInfo("es-AR").DateTimeFormat.GetMonthName(dto.Date.Month));
+                string interestConcept;
+                string monthTitle = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(
+                    new CultureInfo("es-AR").DateTimeFormat.GetMonthName(surchargePeriod.Month));
 
-                if (surchargeAction == "immediate")
+                if (surchargeAction == "next_payment")
                 {
-                    interestDate = dto.Date;
-                    concept = $"Interés por mora de {monthTitle} {dto.Date.Year} (cobrado en el acto)";
+                    interestDate = new DateTime(dto.Date.Year, dto.Date.Month, 1).AddMonths(1);
+                    interestConcept = $"Interés por mora de {monthTitle} {surchargePeriod.Year}";
                 }
                 else
                 {
-                    interestDate = new DateTime(dto.Date.Year, dto.Date.Month, 1).AddMonths(1);
-                    concept = $"Interés por mora de {monthTitle} {dto.Date.Year}";
+                    interestDate = dto.Date;
+                    interestConcept = $"Interés por mora de {monthTitle} {surchargePeriod.Year} (cobrado en el acto)";
                 }
 
                 await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement {
                     RentalId = rental.Id, 
                     PaymentId = paymentId, 
-                    MovementDate = interestDate, 
+                    MovementDate = interestDate,
                     MovementType = "DEBITO", 
-                    Concept = concept, 
+                    Concept = interestConcept,
                     Amount = finalPenalty 
                 }, connection, transaction);
+
+                await daoRental.ResetPendingSurchargeTransactionAsync(rental.Id, connection, transaction);
+            }
+            else
+            {
+                await daoRental.ResetPendingSurchargeTransactionAsync(rental.Id, connection, transaction);
             }
         }
 
-        // E. LIMPIEZA Y RECONSTRUCCIÓN (SIEMPRE EJECUTAR)
-        await daoRental.ResetPendingSurchargeTransactionAsync(rental.Id, connection, transaction);
-        await daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
+        // E. RECONSTRUCCIÓN E IMPUTACIÓN DESCRIPTIVA
         await rentalAmountHistoryService.NormalizeRentalAmountHistoryTransactionAsync(rental.Id, connection, transaction);
         await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rental.Id, connection, transaction);
+
+        decimal remainingAccountDebt = await daoRental.GetBalanceByRentalIdTransactionAsync(rental.Id, connection, transaction);
+        if (remainingAccountDebt <= 0)
+        {
+            await daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
+        }
+
+        string smartConcept = await BuildSmartPaymentConceptAsync(
+            rental.Id,
+            paymentId,
+            connection,
+            transaction);
+        if (!string.IsNullOrWhiteSpace(smartConcept))
+        {
+            dto.Concept = smartConcept;
+        }
 
         await transaction.CommitAsync();
 
@@ -522,6 +571,30 @@ namespace GuardeSoftwareAPI.Services.payment
             }
         }
 
+        private static async Task<bool> IsClientMarkedAsLeavingAsync(
+            int clientId,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            const string query = @"
+                SELECT CASE
+                    WHEN UPPER(LTRIM(RTRIM(ISNULL(departure_status, '')))) = 'SE_VA' THEN 1
+                    ELSE 0
+                END
+                FROM clients
+                WHERE client_id = @client_id
+                  AND active = 1
+                  AND is_deleted = 0;";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId });
+
+            object? result = await command.ExecuteScalarAsync();
+            return result != null
+                && result != DBNull.Value
+                && Convert.ToInt32(result) == 1;
+        }
+
         private static async Task AcquireClientPaymentLockAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
         {
             const string query = @"
@@ -552,23 +625,17 @@ namespace GuardeSoftwareAPI.Services.payment
             }
         }
 
-        private async Task<bool> IsRecentDuplicateByConceptAsync(
+        private async Task<bool> IsRecentDuplicatePaymentAsync(
             CreatePaymentTransaction dto,
             SqlConnection connection,
             SqlTransaction transaction)
         {
-            if (string.IsNullOrWhiteSpace(dto.Concept))
-            {
-                return false;
-            }
-
             const string query = @"
                 SELECT TOP (1) 1
                 FROM payments p
                 INNER JOIN account_movements am ON am.payment_id = p.payment_id AND am.movement_type = 'CREDITO'
                 WHERE p.client_id = @clientId
                   AND p.amount = @amount
-                  AND UPPER(LTRIM(RTRIM(ISNULL(am.concept, '')))) = UPPER(LTRIM(RTRIM(@concept)))
                   AND ABS(DATEDIFF(MINUTE, p.payment_date, @paymentDate)) <= 1
                 ORDER BY p.payment_id DESC;";
 
@@ -580,7 +647,6 @@ namespace GuardeSoftwareAPI.Services.payment
                 Scale = 2,
                 Value = dto.Amount
             });
-            command.Parameters.Add(new SqlParameter("@concept", SqlDbType.NVarChar, 255) { Value = dto.Concept.Trim() });
             command.Parameters.Add(new SqlParameter("@paymentDate", SqlDbType.DateTime) { Value = dto.Date });
 
             return await command.ExecuteScalarAsync() != null;
@@ -611,7 +677,6 @@ namespace GuardeSoftwareAPI.Services.payment
                 INNER JOIN account_movements am ON am.payment_id = p.payment_id AND am.movement_type = 'CREDITO'
                 WHERE p.client_id = @clientId
                   AND p.amount = @amount
-                  AND UPPER(LTRIM(RTRIM(ISNULL(am.concept, '')))) = UPPER(LTRIM(RTRIM(@concept)))
                   AND ABS(DATEDIFF(MINUTE, p.payment_date, @paymentDate)) <= 1
                 ORDER BY p.payment_id DESC;";
 
@@ -628,7 +693,6 @@ namespace GuardeSoftwareAPI.Services.payment
                     Scale = 2,
                     Value = dto.Amount
                 });
-                command.Parameters.Add(new SqlParameter("@concept", SqlDbType.NVarChar, 255) { Value = dto.Concept?.Trim() ?? string.Empty });
                 command.Parameters.Add(new SqlParameter("@paymentDate", SqlDbType.DateTime) { Value = dto.Date });
                 using var reader = await command.ExecuteReaderAsync();
                 if (await reader.ReadAsync())
@@ -1044,6 +1108,267 @@ namespace GuardeSoftwareAPI.Services.payment
             command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
             command.Parameters.Add(new SqlParameter("@history_start", SqlDbType.DateTime) { Value = historyStart });
             return Convert.ToInt32(await command.ExecuteScalarAsync()) == 1;
+        }
+
+        private static LatePaymentProjection ProjectLatePayment(
+            IEnumerable<ClientMonthBalance> balances,
+            DateTime paymentDate,
+            decimal paymentAvailableForDebt,
+            decimal currentRentFallback)
+        {
+            var paymentMonth = new DateTime(paymentDate.Year, paymentDate.Month, 1);
+            var components = balances
+                .Select(balance => new
+                {
+                    Balance = balance,
+                    Month = DateTime.TryParseExact(
+                        balance.MonthYear,
+                        "MM/yyyy",
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.None,
+                        out var parsedMonth)
+                        ? parsedMonth
+                        : DateTime.MaxValue
+                })
+                .Where(item => item.Month <= paymentMonth)
+                .OrderBy(item => item.Month)
+                .ThenBy(item => item.Balance.Id)
+                .Select(item =>
+                {
+                    decimal totalApplied = item.Balance.Paid + item.Balance.AdvancedPayment;
+                    decimal appliedAfterPrevious = Math.Max(0m, totalApplied - item.Balance.PreviousBalance);
+                    decimal unpaidInterest = Math.Max(0m, item.Balance.Interests - appliedAfterPrevious);
+                    decimal appliedToRent = Math.Max(0m, appliedAfterPrevious - item.Balance.Interests);
+                    decimal unpaidRent = Math.Max(0m, item.Balance.MonthlyDebits - appliedToRent);
+
+                    return new LatePaymentComponent
+                    {
+                        Month = item.Month,
+                        UnpaidInterest = unpaidInterest,
+                        UnpaidRent = unpaidRent
+                    };
+                })
+                .ToList();
+
+            decimal lateRentBase = components
+                .Where(component => component.Month == paymentMonth)
+                .Select(component => component.UnpaidRent)
+                .LastOrDefault();
+
+            if (!components.Any(component => component.Month == paymentMonth))
+            {
+                lateRentBase = Math.Max(0m, currentRentFallback);
+            }
+
+            decimal remainingPayment = Math.Max(0m, paymentAvailableForDebt);
+            foreach (var component in components)
+            {
+                decimal appliedToInterest = Math.Min(remainingPayment, component.UnpaidInterest);
+                component.UnpaidInterest -= appliedToInterest;
+                remainingPayment -= appliedToInterest;
+
+                decimal appliedToRent = Math.Min(remainingPayment, component.UnpaidRent);
+                component.UnpaidRent -= appliedToRent;
+                remainingPayment -= appliedToRent;
+
+                if (remainingPayment <= 0)
+                {
+                    remainingPayment = 0;
+                }
+            }
+
+            return new LatePaymentProjection
+            {
+                LateRentBase = lateRentBase,
+                UnpaidInterestsAfterPayment = components.Sum(component => component.UnpaidInterest)
+            };
+        }
+
+        private static decimal RoundInterestToNearestHundredDown(decimal amount)
+        {
+            return amount <= 0m ? 0m : Math.Floor(amount / 100m) * 100m;
+        }
+
+        private static async Task<string> BuildSmartPaymentConceptAsync(
+            int rentalId,
+            int paymentId,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            const string selectQuery = @"
+                SELECT movement_id, movement_date, movement_type, concept, amount, payment_id
+                FROM account_movements
+                WHERE rental_id = @rental_id
+                ORDER BY movement_date, movement_id;";
+
+            var movements = new List<AccountMovement>();
+            using (var selectCommand = new SqlCommand(selectQuery, connection, transaction))
+            {
+                selectCommand.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+                using var reader = await selectCommand.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    movements.Add(new AccountMovement
+                    {
+                        Id = reader.GetInt32(0),
+                        MovementDate = reader.GetDateTime(1),
+                        MovementType = reader.GetString(2),
+                        Concept = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
+                        Amount = reader.GetDecimal(4),
+                        PaymentId = reader.IsDBNull(5) ? null : reader.GetInt32(5)
+                    });
+                }
+            }
+
+            var primaryCredit = movements
+                .Where(movement => movement.PaymentId == paymentId
+                    && string.Equals(movement.MovementType, "CREDITO", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(movement => movement.Id)
+                .FirstOrDefault();
+            if (primaryCredit == null)
+            {
+                return string.Empty;
+            }
+
+            var debitComponents = movements
+                .Where(movement => string.Equals(movement.MovementType, "DEBITO", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(movement => new DateTime(movement.MovementDate.Year, movement.MovementDate.Month, 1))
+                .ThenBy(movement => IsInterestMovement(movement.Concept) ? 0 : 1)
+                .ThenBy(movement => movement.MovementDate)
+                .ThenBy(movement => movement.Id)
+                .Select(movement => new DebitAllocationComponent
+                {
+                    Concept = string.IsNullOrWhiteSpace(movement.Concept) ? "Débito sin concepto" : movement.Concept.Trim(),
+                    Remaining = movement.Amount
+                })
+                .ToList();
+
+            var allocations = new List<PaymentConceptAllocation>();
+            decimal unusedPrimaryCredit = 0m;
+            foreach (var credit in movements
+                .Where(movement => string.Equals(movement.MovementType, "CREDITO", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(movement => movement.MovementDate)
+                .ThenBy(movement => movement.Id))
+            {
+                decimal creditRemaining = credit.Amount;
+                foreach (var debit in debitComponents.Where(component => component.Remaining > 0m))
+                {
+                    if (creditRemaining <= 0m) break;
+
+                    decimal outstandingBefore = debit.Remaining;
+                    decimal applied = Math.Min(creditRemaining, outstandingBefore);
+                    debit.Remaining -= applied;
+                    creditRemaining -= applied;
+
+                    if (credit.Id == primaryCredit.Id && applied > 0m)
+                    {
+                        allocations.Add(new PaymentConceptAllocation
+                        {
+                            Concept = debit.Concept,
+                            Amount = applied,
+                            IsPartial = applied < outstandingBefore
+                        });
+                    }
+                }
+
+                if (credit.Id == primaryCredit.Id)
+                {
+                    unusedPrimaryCredit = Math.Max(0m, creditRemaining);
+                }
+            }
+
+            string smartConcept = ComposeSmartPaymentConcept(allocations, unusedPrimaryCredit);
+            const string updateQuery = @"
+                UPDATE account_movements
+                SET concept = @concept
+                WHERE movement_id = @movement_id;";
+            using var updateCommand = new SqlCommand(updateQuery, connection, transaction);
+            updateCommand.Parameters.Add(new SqlParameter("@concept", SqlDbType.VarChar, 255) { Value = smartConcept });
+            updateCommand.Parameters.Add(new SqlParameter("@movement_id", SqlDbType.Int) { Value = primaryCredit.Id });
+            await updateCommand.ExecuteNonQueryAsync();
+
+            return smartConcept;
+        }
+
+        private static bool IsInterestMovement(string? concept)
+        {
+            return !string.IsNullOrWhiteSpace(concept)
+                && concept.StartsWith("Interés por mora", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ComposeSmartPaymentConcept(
+            IReadOnlyCollection<PaymentConceptAllocation> allocations,
+            decimal unusedCredit)
+        {
+            var culture = new CultureInfo("es-AR");
+            var fragments = allocations
+                .Select(allocation => $"{allocation.Concept}: $ {allocation.Amount.ToString("N2", culture)}{(allocation.IsPartial ? " (parcial)" : string.Empty)}")
+                .ToList();
+
+            if (unusedCredit > 0m)
+            {
+                fragments.Add($"Saldo a favor: $ {unusedCredit.ToString("N2", culture)}");
+            }
+
+            if (fragments.Count == 0)
+            {
+                return "Pago recibido sin deuda pendiente para imputar";
+            }
+
+            const string prefix = "Pago aplicado a ";
+            var selected = new List<string>();
+            foreach (var fragment in fragments)
+            {
+                string candidate = prefix + string.Join("; ", selected.Append(fragment));
+                if (candidate.Length > 255)
+                {
+                    if (selected.Count == 0)
+                    {
+                        selected.Add(fragment[..Math.Min(fragment.Length, 255 - prefix.Length)]);
+                    }
+                    break;
+                }
+                selected.Add(fragment);
+            }
+
+            int omitted = fragments.Count - selected.Count;
+            string result = prefix + string.Join("; ", selected);
+            if (omitted > 0)
+            {
+                string suffix = $"; +{omitted} concepto{(omitted == 1 ? string.Empty : "s")}";
+                if (result.Length + suffix.Length <= 255)
+                {
+                    result += suffix;
+                }
+            }
+
+            return result.Length <= 255 ? result : result[..255];
+        }
+
+        private sealed class LatePaymentProjection
+        {
+            public decimal LateRentBase { get; init; }
+            public decimal UnpaidInterestsAfterPayment { get; init; }
+        }
+
+        private sealed class LatePaymentComponent
+        {
+            public DateTime Month { get; init; }
+            public decimal UnpaidInterest { get; set; }
+            public decimal UnpaidRent { get; set; }
+        }
+
+        private sealed class DebitAllocationComponent
+        {
+            public string Concept { get; init; } = string.Empty;
+            public decimal Remaining { get; set; }
+        }
+
+        private sealed class PaymentConceptAllocation
+        {
+            public string Concept { get; init; } = string.Empty;
+            public decimal Amount { get; init; }
+            public bool IsPartial { get; init; }
         }
 
         private static async Task<bool> HasPendingPlannedDebitsAsync(

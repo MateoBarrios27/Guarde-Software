@@ -17,6 +17,7 @@ namespace GuardeSoftwareAPI.Entities
         public decimal? InitialAmount { get; set; }
         public bool ReceiveCommunications { get; set; } = true;
         public bool? Active { get; set; }
+        public string? DepartureStatus { get; set; }
         public decimal? Balance {get; set;}
         public decimal? PreviousBalance { get; set; }
         public decimal? CurrentRent { get; set; }

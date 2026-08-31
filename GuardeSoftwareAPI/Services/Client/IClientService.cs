@@ -17,6 +17,7 @@ namespace GuardeSoftwareAPI.Services.client
         Task<List<string>> SearchClientNamesAsync(string query);
         Task<bool> UpdateClientAsync(int id, CreateClientDTO dto);
         Task<bool> DeactivateClientAsync(int clientId);
+        Task ApplyDepartureActionAsync(int clientId, ClientDepartureActionDto request);
         Task ReactivateClientAsync(int clientId, CreateClientDTO dto);
         Task<decimal> GetNextPaymentIdentifierAsync();
         Task<bool> CheckPaymentIdentifierExistsAsync(decimal identifier, int? excludeClientId = null);

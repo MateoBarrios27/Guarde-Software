@@ -15,8 +15,17 @@ public class CommunicationDto
     public bool IsAccountStatement { get; set; }
     public bool IsNextMonthStatement { get; set; }
     public bool SendToAllEmails { get; set; }
+    public List<CommunicationExternalRecipientDto> ExternalRecipients { get; set; } = [];
     public string? ErrorMessage { get; set; }
     public List<CommunicationDispatchDto> Dispatches { get; set; } = [];
+}
+
+public class CommunicationExternalRecipientDto
+{
+    public int Id { get; set; }
+    public string? Name { get; set; }
+    public string? Email { get; set; }
+    public string? Type { get; set; }
 }
     
 public class UpsertCommunicationRequest
@@ -34,6 +43,7 @@ public class UpsertCommunicationRequest
     public bool IsAccountStatement { get; set; }
     public bool IsNextMonthStatement { get; set; }
     public bool SendToAllEmails { get; set; }
+    public List<int> ExternalRecipientIds { get; set; } = [];
     public bool IsTestMode { get; set; }
     public string? TestEmailAddress { get; set; }
 }

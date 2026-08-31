@@ -42,6 +42,7 @@ namespace GuardeSoftwareAPI.Services.sync
                     c.payment_identifier                AS PaymentIdentifier,
                     c.color                             AS Color,
                     c.active                            AS Active,
+                    c.departure_status                 AS DepartureStatus,
                     c.preferred_payment_method_id       AS PreferredPaymentMethodId,
                     c.increase_frequency_months         AS IncreaseFrequencyMonths,
                     c.is_six_month_promotion             AS IsSixMonthPromotion,
@@ -83,6 +84,7 @@ namespace GuardeSoftwareAPI.Services.sync
                     -- Status
                     CASE
                         WHEN c.active = 0 THEN 'Baja'
+                        WHEN c.departure_status = 'SE_VA' THEN 'SE VA'
                         WHEN (SELECT SUM(ISNULL(r2.months_unpaid, 0)) FROM rentals r2 WHERE r2.client_id = c.client_id AND r2.active = 1) >= 1 THEN 'Moroso'
                         WHEN ISNULL(step1.UI_Balance, 0) >= 0 THEN 'Al día'
                         ELSE 'Pendiente'
@@ -159,7 +161,12 @@ namespace GuardeSoftwareAPI.Services.sync
                         Id = cmb.id,
                         PrevBalDB = ISNULL(cmb.previous_balance, 0),
                         IntsDB = ISNULL(cmb.interests, 0),
-                        RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
+                        -- Un mes con solo intereses no debe heredar el abono vigente como débito.
+                        RentDB = CASE
+                            WHEN ISNULL(cmb.monthly_debits, 0) = 0 AND ISNULL(cmb.interests, 0) > 0 THEN 0
+                            WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0)
+                            ELSE cmb.monthly_debits
+                        END,
                         PaidDB = ISNULL(cmb.paid, 0),
                         AdvPayDB = ISNULL(cmb.advanced_payment, 0),
                         MonthYearDB = cmb.month_year
@@ -175,8 +182,20 @@ namespace GuardeSoftwareAPI.Services.sync
                         Raw_PrevBal = ISNULL((
                             SELECT SUM(
                                 CASE
-                                    WHEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0) > 0
-                                    THEN ISNULL(cmb2.monthly_debits, 0) - ISNULL(cmb2.paid, 0) - ISNULL(cmb2.advanced_payment, 0)
+                                    WHEN ISNULL(cmb2.monthly_debits, 0) > CASE
+                                        WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             > ISNULL(cmb2.previous_balance, 0) + ISNULL(cmb2.interests, 0)
+                                        THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             - ISNULL(cmb2.previous_balance, 0) - ISNULL(cmb2.interests, 0)
+                                        ELSE 0
+                                    END
+                                    THEN ISNULL(cmb2.monthly_debits, 0) - CASE
+                                        WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             > ISNULL(cmb2.previous_balance, 0) + ISNULL(cmb2.interests, 0)
+                                        THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
+                                             - ISNULL(cmb2.previous_balance, 0) - ISNULL(cmb2.interests, 0)
+                                        ELSE 0
+                                    END
                                     ELSE 0
                                 END
                             )
@@ -184,7 +203,19 @@ namespace GuardeSoftwareAPI.Services.sync
                             WHERE cmb2.rental_id = r.rental_id AND cmb2.id < db.Id
                         ), 0),
                         Raw_Interest = ISNULL((
-                            SELECT SUM(ISNULL(cmb2.interests, 0))
+                            SELECT SUM(CASE
+                                WHEN ISNULL(cmb2.interests, 0) > CASE
+                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
+                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
+                                    ELSE 0
+                                END
+                                THEN ISNULL(cmb2.interests, 0) - CASE
+                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
+                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
+                                    ELSE 0
+                                END
+                                ELSE 0
+                            END)
                             FROM client_month_balances cmb2
                             WHERE cmb2.rental_id = r.rental_id AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
                         ), 0),
@@ -220,7 +251,7 @@ namespace GuardeSoftwareAPI.Services.sync
                                 ), ISNULL(cr.CurrentRent, 0))
                             ELSE ISNULL(cr.CurrentRent, 0)
                         END,
-                        UI_InterestAmount = calc3.UnpaidInts,
+                        UI_InterestAmount = rawData.Raw_Interest,
                         UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
                         UI_PreviousBalance = CASE
                             WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
@@ -261,6 +292,7 @@ namespace GuardeSoftwareAPI.Services.sync
                     // New enriched fields
                     NextPaymentDay = row["NextPaymentDay"]?.ToString(),
                     Status = row["Status"]?.ToString(),
+                    DepartureStatus = row["DepartureStatus"] != DBNull.Value ? row["DepartureStatus"]?.ToString() : null,
                     RentalId = row["RentalId"] != DBNull.Value ? Convert.ToInt32(row["RentalId"]) : null,
                     MonthsUnpaid = row["MonthsUnpaid"] != DBNull.Value ? Convert.ToInt32(row["MonthsUnpaid"]) : null,
                     IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? Convert.ToDateTime(row["IncreaseAnchorDate"]).ToString("yyyy-MM-dd") : null,
@@ -330,6 +362,7 @@ namespace GuardeSoftwareAPI.Services.sync
                         SkipFutureProjection = offlinePayment.SkipFutureProjection,
                         SurchargeAction = offlinePayment.SurchargeAction,
                         SurchargeAmount = offlinePayment.SurchargeAmount,
+                        SurchargeAmountWasOverridden = offlinePayment.SurchargeAmountWasOverridden,
                         ExpectedPaymentStateToken = offlinePayment.ExpectedPaymentStateToken,
                         AppliedIncreases = new List<PaymentIncreaseDto>()
                     };

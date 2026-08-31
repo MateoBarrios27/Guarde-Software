@@ -56,12 +56,8 @@ namespace GuardeSoftwareAPI.Services.clientMonthBalance
             if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.", nameof(rentalId));
 
             var movements = await GetMovementsAsync(rentalId, connection, transaction);
-            var histories = await GetRentalAmountHistoryAsync(rentalId, connection, transaction);
-
             var debitBuckets = BuildDebitBuckets(movements);
             var credits = BuildCredits(movements);
-
-            ProjectFutureMonthsIfNeeded(debitBuckets, credits, histories);
 
             var rebuiltRows = ApplyCreditsChronologically(debitBuckets, credits);
             await ReplaceBalancesAsync(rentalId, rebuiltRows, connection, transaction);
@@ -159,46 +155,6 @@ namespace GuardeSoftwareAPI.Services.clientMonthBalance
             return result;
         }
 
-        private static void ProjectFutureMonthsIfNeeded(
-            SortedDictionary<DateTime, ClientMonthBalance> debitBuckets,
-            List<CreditLedger> credits,
-            List<RentalAmountHistory> histories)
-        {
-            var totalCredits = credits.Sum(c => c.Remaining);
-            if (totalCredits <= 0 || histories.Count == 0) return;
-
-            decimal totalCharges = debitBuckets.Values.Sum(b => b.MonthlyDebits + b.Interests);
-            DateTime cursor = debitBuckets.Count > 0
-                ? debitBuckets.Keys.Max()
-                : credits.Min(c => c.CreditMonth);
-
-            while (totalCharges < totalCredits)
-            {
-                cursor = cursor.AddMonths(1);
-                var rentAmount = ResolveRentAmountForMonth(cursor, histories);
-                if (rentAmount <= 0) break;
-
-                if (!debitBuckets.ContainsKey(cursor))
-                {
-                    debitBuckets[cursor] = new ClientMonthBalance
-                    {
-                        MonthYear = cursor.ToString("MM/yyyy"),
-                        PreviousBalance = 0m,
-                        Interests = 0m,
-                        MonthlyDebits = rentAmount,
-                        Paid = 0m,
-                        AdvancedPayment = 0m
-                    };
-                }
-                else
-                {
-                    debitBuckets[cursor].MonthlyDebits += rentAmount;
-                }
-
-                totalCharges += rentAmount;
-            }
-        }
-
         private static DateTime ResolveMonthStart(AccountMovement movement)
         {
             if (!string.IsNullOrWhiteSpace(movement.Concept))
@@ -222,18 +178,6 @@ namespace GuardeSoftwareAPI.Services.clientMonthBalance
         {
             var normalized = Normalize(concept ?? string.Empty);
             return normalized.Contains("interes por mora", StringComparison.Ordinal);
-        }
-
-        private static decimal ResolveRentAmountForMonth(DateTime monthStart, IEnumerable<RentalAmountHistory> histories)
-        {
-            var targetDate = monthStart.Date;
-            var history = histories
-                .Where(h => h.StartDate.Date <= targetDate && (!h.EndDate.HasValue || h.EndDate.Value.Date >= targetDate))
-                .OrderByDescending(h => h.StartDate)
-                .ThenByDescending(h => h.Id)
-                .FirstOrDefault();
-
-            return history?.Amount ?? 0m;
         }
 
         private static bool TryMapSpanishMonth(string normalizedMonth, out int monthNumber)
@@ -301,34 +245,6 @@ namespace GuardeSoftwareAPI.Services.clientMonthBalance
             }
 
             return movements;
-        }
-
-        private async Task<List<RentalAmountHistory>> GetRentalAmountHistoryAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
-        {
-            const string query = @"
-                SELECT rental_amount_history_id, rental_id, amount, start_date, end_date
-                FROM rental_amount_history
-                WHERE rental_id = @rental_id
-                ORDER BY start_date ASC, rental_amount_history_id ASC;";
-
-            var histories = new List<RentalAmountHistory>();
-            using var command = new SqlCommand(query, connection, transaction);
-            command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
-
-            using var reader = await command.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                histories.Add(new RentalAmountHistory
-                {
-                    Id = reader.GetInt32(0),
-                    RentalId = reader.GetInt32(1),
-                    Amount = reader.GetDecimal(2),
-                    StartDate = reader.GetDateTime(3),
-                    EndDate = reader.IsDBNull(4) ? null : reader.GetDateTime(4)
-                });
-            }
-
-            return histories;
         }
 
         private async Task ReplaceBalancesAsync(

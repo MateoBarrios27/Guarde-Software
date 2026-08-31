@@ -139,6 +139,8 @@ namespace GuardeSoftwareAPI.Services.rental
 						: string.Empty,
 					PreferredPayment = row["preferred_payment_method_id"] != DBNull.Value ? (int)row["preferred_payment_method_id"] : null,
 					IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? (DateTime?)row["IncreaseAnchorDate"] : null,
+					IncreaseFrequencyMonths = row.Table.Columns.Contains("IncreaseFrequencyMonths") && row["IncreaseFrequencyMonths"] != DBNull.Value ? Convert.ToInt32(row["IncreaseFrequencyMonths"]) : 4,
+					LastGeneratedMonthYear = row.Table.Columns.Contains("LastGeneratedMonthYear") && row["LastGeneratedMonthYear"] != DBNull.Value ? row["LastGeneratedMonthYear"].ToString() : null,
 					PendingSurcharge = row["PendingSurcharge"] != DBNull.Value ? Convert.ToDecimal(row["PendingSurcharge"]) : null,
 					InterestAmount = row.Table.Columns.Contains("InterestAmount") && row["InterestAmount"] != DBNull.Value ? Convert.ToDecimal(row["InterestAmount"]) : null,
 					NextPaymentDay = row.Table.Columns.Contains("NextPaymentDay") && row["NextPaymentDay"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDay"]) : null

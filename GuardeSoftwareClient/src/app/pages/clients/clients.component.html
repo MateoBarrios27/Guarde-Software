@@ -1,17 +1,8 @@
-<div
-  *ngIf="showToast"
-  class="fixed top-5 right-5 z-50 flex items-center p-4 rounded-lg shadow-lg text-white animate-fade-in-out"
-  [ngClass]="{
-    'bg-green-500': toastType === 'success',
-    'bg-red-500': toastType === 'error'
-  }"
->
-  <app-icon
-    [name]="toastType === 'success' ? 'check-circle' : 'alert-triangle'"
-    class="h-5 w-5 mr-3"
-  ></app-icon>
-  <span>{{ toastMessage }}</span>
-</div>
+<app-toast-notification
+  [visible]="showToast"
+  [message]="toastMessage"
+  [type]="toastType"
+></app-toast-notification>
 
 <div #topAnchor class="absolute top-0 w-full h-[600px] -z-10 opacity-0 pointer-events-none"></div>
 
@@ -80,7 +71,7 @@
       </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible min-w-[1180px]">
       <div class="p-4 space-y-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3
@@ -528,16 +519,16 @@
               [hidden]="isLoading"
               id="client-row-{{cliente.id}}"
               class="border-b hover:bg-gray-50 transition-colors client-row"
-              [class.has-color]="!!cliente.color"
-              [style.--client-color]="cliente.color"
-              [style.--client-color-light]="cliente._colorLight"
-              [style.backgroundColor]="cliente._bgColor"
+              [class.has-color]="!!cliente.color || isClientLeaving(cliente)"
+              [style.--client-color]="isClientLeaving(cliente) ? '#dc2626' : cliente.color"
+              [style.--client-color-light]="isClientLeaving(cliente) ? '#fca5a5' : cliente._colorLight"
+              [style.backgroundColor]="isClientLeaving(cliente) ? '#fef2f2' : cliente._bgColor"
             >
               <td class="py-2 px-4 relative">
                 <div class="flex items-center gap-3">
                   <div class="relative w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all shadow-sm cursor-pointer border border-black/10"
-                       [style.backgroundColor]="cliente.color || '#dbeafe'"
-                       [style.color]="cliente.color ? '#ffffff' : '#1e40af'"
+                       [style.backgroundColor]="isClientLeaving(cliente) ? '#dc2626' : (cliente.color || '#dbeafe')"
+                       [style.color]="isClientLeaving(cliente) || cliente.color ? '#ffffff' : '#1e40af'"
                   >
                     <input type="color"
                            (click)="$event.stopPropagation()"
@@ -552,6 +543,10 @@
                       <span *ngIf="cliente.paymentIdentifier" class="inline-flex items-center font-medium text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md border border-gray-300">
                         N° {{ cliente.paymentIdentifier | number : "1.2-2" }}
                       </span>
+                      <span *ngIf="isClientLeaving(cliente)"
+                            class="inline-flex items-center rounded bg-red-50 px-1.5 py-0.5 text-[9px] font-bold leading-none text-red-600 border border-red-100">
+                        SE VA
+                      </span>
                       <button (click)="toggleComment(cliente); $event.stopPropagation()"
                               (mouseenter)="onCommentMouseEnter(cliente)"
                               (mouseleave)="onCommentMouseLeave(cliente)"
@@ -564,7 +559,12 @@
                            class="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-sm inline-block">
                       </div>
                     </div>
-                    <span class="font-semibold transition-colors" [style.color]="cliente.color || '#111827'">{{ cliente.fullName }}</span>  
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="font-semibold transition-colors"
+                            [style.color]="isClientLeaving(cliente) ? '#dc2626' : (cliente.color || '#111827')">
+                        {{ cliente.fullName }}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -648,7 +648,7 @@
                 $ {{ cliente.balance || 0 | number:'1.2-2' }}
               </td>
 
-              <td class="p-4">
+              <td class="p-4 relative">
                 <div class="flex items-center justify-center gap-2">
 
                   <button *ngIf="cliente.status !== 'Baja'" (click)="goToPayment(cliente.id)" class="p-1 hover:text-green-600 flex items-center justify-center" title="Registrar Pago">
@@ -663,13 +663,135 @@
                     <app-icon name="edit" class="h-4 w-4 inline-block text-black hover:text-blue-800"></app-icon>
                   </button>
 
-                  <button *ngIf="cliente.status !== 'Baja'" (click)="openDeactivateClientModal(cliente)" class="p-1 hover:text-red-600 flex items-center justify-center" title="Dar de Baja">
+                  <button *ngIf="cliente.status !== 'Baja'"
+                          type="button"
+                          data-departure-trigger
+                          (click)="toggleDeparturePopover(cliente); $event.stopPropagation()"
+                          class="p-1 hover:text-red-600 flex items-center justify-center"
+                          title="Situación del cliente">
                     <app-icon name="Trash2" class="h-4 w-4 text-black hover:text-red-600"></app-icon>
                   </button>
 
                   <button *ngIf="cliente.status === 'Baja'" (click)="onReactivateClient(cliente)" class="p-1 hover:text-green-600 flex items-center justify-center" title="Reactivar Cliente">
                     <app-icon name="rotate-ccw" class="h-4 w-4 text-black hover:text-green-600"></app-icon>
                   </button>
+                </div>
+
+                <div *ngIf="activeDepartureClient?.id === cliente.id"
+                     data-departure-popover
+                     (click)="$event.stopPropagation()"
+                     class="absolute right-2 bottom-12 z-50 w-80 max-w-[calc(100vw-1.5rem)] rounded-xl border border-gray-200 bg-white p-3 text-left shadow-2xl">
+                  <div class="flex items-start justify-between gap-3 border-b border-gray-100 pb-2">
+                    <div class="min-w-0">
+                      <p class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Situación del cliente</p>
+                      <p class="mt-0.5 truncate text-sm font-semibold text-gray-800">{{ cliente.fullName }}</p>
+                    </div>
+                    <button type="button"
+                            (click)="closeDeparturePopover()"
+                            class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                            title="Cerrar">
+                      <app-icon name="x" class="h-3.5 w-3.5"></app-icon>
+                    </button>
+                  </div>
+
+                  <div class="mt-3 flex gap-1.5">
+                    <button *ngIf="!isClientLeaving(cliente)"
+                            type="button"
+                            (click)="selectDepartureAction('SE_VA')"
+                            class="flex-1 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors"
+                            [ngClass]="departureAction === 'SE_VA' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'">
+                      SE VA
+                    </button>
+                    <button *ngIf="isClientLeaving(cliente)"
+                            type="button"
+                            (click)="selectDepartureAction('SE_QUEDA')"
+                            class="flex-1 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors"
+                            [ngClass]="departureAction === 'SE_QUEDA' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'">
+                      SE QUEDA
+                    </button>
+                    <button type="button"
+                            (click)="selectDepartureAction('DAR_DE_BAJA')"
+                            class="flex-1 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors"
+                            [ngClass]="departureAction === 'DAR_DE_BAJA' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                      DAR DE BAJA
+                    </button>
+                  </div>
+
+                  <ng-container *ngIf="departureAction !== 'SE_QUEDA'">
+                    <p class="mt-3 rounded-lg bg-amber-50 p-2 text-[11px] leading-snug text-amber-800">
+                      {{ departureAction === 'SE_VA'
+                        ? 'Las bauleras quedarán en POR LIBERARSE y se mostrarán en amarillo.'
+                        : 'Se finalizará el alquiler y se liberarán las bauleras.' }}
+                    </p>
+
+                    <label class="mt-3 flex items-start gap-2 text-xs text-gray-700">
+                      <input type="checkbox"
+                             class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                             [checked]="departureChargeProportional"
+                             (change)="onDepartureProportionalChange($event)" />
+                      <span>Cobrar proporcional por la ocupación del mes siguiente.</span>
+                    </label>
+
+                    <div *ngIf="departureChargeProportional" class="mt-2 rounded-lg border border-blue-100 bg-blue-50 p-2.5">
+                      <label class="block text-[11px] font-semibold text-blue-900" for="departure-date-{{cliente.id}}">Fecha en que se va</label>
+                      <input [id]="'departure-date-' + cliente.id"
+                             type="date"
+                             [(ngModel)]="departureDate"
+                             [min]="getNextMonthDateInputMin()"
+                             [max]="getNextMonthDateInputMax()"
+                             class="mt-1 w-full rounded-md border border-blue-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      <p class="mt-1.5 text-[10px] leading-snug text-blue-800">
+                        Se cobrarán {{ getDepartureProportionalDays() }} días:
+                        <strong>≈ {{ getDepartureProportionalAmount(cliente) | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>.
+                        El débito completo del mes siguiente se reemplaza por este proporcional.
+                      </p>
+                    </div>
+
+                    <label class="mt-3 flex items-start gap-2 text-xs text-gray-700">
+                      <input type="checkbox"
+                             [(ngModel)]="departureRemoveNextMonthDebit"
+                             [disabled]="departureChargeProportional"
+                             class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50" />
+                      <span>
+                        Quitar débito completo del mes siguiente si ya está generado.
+                        <small *ngIf="departureChargeProportional" class="block text-[10px] text-gray-500">Se activa automáticamente al usar proporcional.</small>
+                      </span>
+                    </label>
+
+                    <div *ngIf="(cliente.pendingSurcharge || 0) > 0" class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+                      <p class="text-[11px] font-semibold text-amber-900">Recargo pendiente: {{ cliente.pendingSurcharge | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</p>
+                      <p class="mt-0.5 text-[10px] text-amber-800">Elegí qué hacer con él.</p>
+                      <label class="mt-2 flex items-center gap-2 text-[11px] text-gray-700">
+                        <input type="radio" name="departure-surcharge-{{cliente.id}}" value="forgive" [(ngModel)]="departurePendingSurchargeAction" />
+                        Perdonar recargo
+                      </label>
+                      <label class="mt-1 flex items-center gap-2 text-[11px] text-gray-700">
+                        <input type="radio" name="departure-surcharge-{{cliente.id}}" value="immediate" [(ngModel)]="departurePendingSurchargeAction" />
+                        Debitarlo instantáneamente
+                      </label>
+                    </div>
+
+                    <p *ngIf="departureFormError" class="mt-2 text-[11px] font-medium text-red-600">{{ departureFormError }}</p>
+                    <button type="button"
+                            [disabled]="departureSubmitting"
+                            (click)="applyDepartureFromPopover($event)"
+                            class="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+                      {{ departureSubmitting ? 'Guardando...' : (departureAction === 'DAR_DE_BAJA' ? 'Confirmar baja' : 'Confirmar SE VA') }}
+                    </button>
+                  </ng-container>
+
+                  <ng-container *ngIf="departureAction === 'SE_QUEDA'">
+                    <p class="mt-3 rounded-lg bg-emerald-50 p-2 text-[11px] leading-snug text-emerald-800">
+                      El cliente seguirá activo y sus bauleras volverán a OCUPADO.
+                    </p>
+                    <p *ngIf="departureFormError" class="mt-2 text-[11px] font-medium text-red-600">{{ departureFormError }}</p>
+                    <button type="button"
+                            [disabled]="departureSubmitting"
+                            (click)="applyDepartureFromPopover($event)"
+                            class="mt-3 w-full rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">
+                      {{ departureSubmitting ? 'Guardando...' : 'Confirmar SE QUEDA' }}
+                    </button>
+                  </ng-container>
                 </div>
               </td>
 
@@ -712,7 +834,7 @@
                 </span>
               </td>
               <td class="px-4 pb-1 text-right text-xs leading-tight font-medium text-gray-500 whitespace-nowrap bg-gray-50">
-                <span title="Saldo + suma de paymentIdentifier de clientes activos">
+                <span title="Saldo - suma de paymentIdentifier de clientes activos">
                   ≈ $ {{ totals.balanceWithActivePaymentIdentifiers | number:'1.2-2' }}
                 </span>
               </td>

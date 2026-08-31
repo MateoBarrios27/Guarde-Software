@@ -11,7 +11,9 @@ export interface PendingRentalDTO{
     isPending: boolean;
     lockerIdentifiers: string;
     preferredPayment: number;
-    increaseAnchorDate: number;
+    increaseAnchorDate?: Date | string | null;
+    increaseFrequencyMonths?: number;
+    lastGeneratedMonthYear?: string | null;
     pendingSurcharge: number;
     interestAmount?: number;
     nextPaymentDay?: Date | string | null;

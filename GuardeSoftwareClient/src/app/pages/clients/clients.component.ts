@@ -29,7 +29,7 @@ import { LockerTypeService } from '../../core/services/lockerType-service/locker
 import { OfflineService } from '../../core/services/offline-service/offline.service';
 import { IndexedDbService } from '../../core/services/offline-service/indexed-db.service';
 import Swal from '../../shared/services/ui-alert.service';
-import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
+import { ToastNotificationComponent } from '../../shared/components/toast-notification/toast-notification.component';
 
 @Component({
   selector: 'app-clients',
@@ -40,7 +40,8 @@ import { DeleteConfirmationService } from '../../shared/services/delete-confirma
     IconComponent,
     NgxPaginationModule,
     CreateClientModalComponent,
-    ClientDetailModalComponent
+    ClientDetailModalComponent,
+    ToastNotificationComponent
   ],
   templateUrl: './clients.component.html',
   styleUrl: './clients.component.css',
@@ -111,6 +112,15 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public selectedLockerTypeIds: number[] = [];
   public showTagsPopover = false;
 
+  public activeDepartureClient: TableClient | null = null;
+  public departureAction: 'SE_VA' | 'SE_QUEDA' | 'DAR_DE_BAJA' = 'SE_VA';
+  public departureChargeProportional = false;
+  public departureRemoveNextMonthDebit = false;
+  public departureDate = '';
+  public departurePendingSurchargeAction: 'forgive' | 'immediate' = 'forgive';
+  public departureFormError = '';
+  public departureSubmitting = false;
+
   @ViewChild('tagsPopoverRef') tagsPopoverRef!: ElementRef;
   @ViewChild('tagsButtonRef') tagsButtonRef!: ElementRef;
 
@@ -145,8 +155,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     public offlineService: OfflineService,
     private idb: IndexedDbService,
     private cdr: ChangeDetectorRef,
-    private ngZone: NgZone,
-    private deleteConfirmation: DeleteConfirmationService
+    private ngZone: NgZone
   ) 
   {
     this.searchSubject.pipe(
@@ -160,12 +169,174 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
-    if (!this.showTagsPopover) return;
-    const clickedInsidePopover = this.tagsPopoverRef && this.tagsPopoverRef.nativeElement.contains(event.target);
-    const clickedInsideButton = this.tagsButtonRef && this.tagsButtonRef.nativeElement.contains(event.target);
-    if (!clickedInsidePopover && !clickedInsideButton) {
-      this.showTagsPopover = false;
+    const target = event.target as HTMLElement;
+
+    if (this.showTagsPopover) {
+      const clickedInsidePopover = this.tagsPopoverRef && this.tagsPopoverRef.nativeElement.contains(target);
+      const clickedInsideButton = this.tagsButtonRef && this.tagsButtonRef.nativeElement.contains(target);
+      if (!clickedInsidePopover && !clickedInsideButton) {
+        this.showTagsPopover = false;
+      }
     }
+
+    if (this.activeDepartureClient && !target.closest('[data-departure-popover], [data-departure-trigger]')) {
+      this.closeDeparturePopover();
+    }
+    if (this.showTagsPopover || this.activeDepartureClient) {
+      this.cdr.markForCheck();
+    }
+  }
+
+  public isClientLeaving(cliente: TableClient): boolean {
+    return cliente.departureStatus === 'SE_VA' || cliente.status === 'SE VA';
+  }
+
+  public toggleDeparturePopover(cliente: TableClient): void {
+    if (this.activeDepartureClient?.id === cliente.id) {
+      this.closeDeparturePopover();
+      return;
+    }
+
+    this.activeDepartureClient = cliente;
+    this.departureAction = this.isClientLeaving(cliente) ? 'SE_QUEDA' : 'SE_VA';
+    this.departureChargeProportional = false;
+    this.departureRemoveNextMonthDebit = false;
+    // La fecha debe ser elegida explícitamente cuando se activa el proporcional.
+    this.departureDate = '';
+    this.departurePendingSurchargeAction = 'forgive';
+    this.departureFormError = '';
+    this.departureSubmitting = false;
+    this.cdr.markForCheck();
+  }
+
+  public closeDeparturePopover(): void {
+    this.activeDepartureClient = null;
+    this.departureFormError = '';
+    this.departureSubmitting = false;
+    this.cdr.markForCheck();
+  }
+
+  public selectDepartureAction(action: 'SE_VA' | 'SE_QUEDA' | 'DAR_DE_BAJA'): void {
+    this.departureAction = action;
+    this.departureFormError = '';
+    if (action === 'SE_QUEDA') {
+      this.departureChargeProportional = false;
+      this.departureRemoveNextMonthDebit = false;
+    }
+    this.cdr.markForCheck();
+  }
+
+  public onDepartureProportionalChange(event: Event): void {
+    this.departureChargeProportional = (event.target as HTMLInputElement).checked;
+    this.departureFormError = '';
+    if (this.departureChargeProportional) {
+      // El proporcional reemplaza al débito mensual completo del mes siguiente.
+      this.departureRemoveNextMonthDebit = true;
+    }
+    this.cdr.markForCheck();
+  }
+
+  public getNextMonthDateInputMin(): string {
+    const today = new Date();
+    return this.toDateInputValue(new Date(today.getFullYear(), today.getMonth() + 1, 1));
+  }
+
+  public getNextMonthDateInputMax(): string {
+    const today = new Date();
+    return this.toDateInputValue(new Date(today.getFullYear(), today.getMonth() + 2, 0));
+  }
+
+  public getDepartureProportionalDays(): number {
+    const date = this.parseDateInput(this.departureDate);
+    return date ? date.getDate() : 0;
+  }
+
+  public getDepartureProportionalAmount(cliente: TableClient): number {
+    const departureDate = this.parseDateInput(this.departureDate);
+    if (!departureDate || !cliente.currentRent) return 0;
+
+    const daysInMonth = new Date(departureDate.getFullYear(), departureDate.getMonth() + 1, 0).getDate();
+    const rawAmount = (Number(cliente.currentRent) / daysInMonth) * departureDate.getDate();
+    return Math.round(rawAmount / 1000) * 1000;
+  }
+
+  public applyDepartureFromPopover(event: Event): void {
+    event.stopPropagation();
+    const cliente = this.activeDepartureClient;
+    if (!cliente || this.departureSubmitting) return;
+
+    if (this.departureAction !== 'SE_QUEDA' && this.departureChargeProportional) {
+      const selectedDate = this.parseDateInput(this.departureDate);
+      const minDate = this.parseDateInput(this.getNextMonthDateInputMin());
+      const maxDate = this.parseDateInput(this.getNextMonthDateInputMax());
+      if (!selectedDate || !minDate || !maxDate || selectedDate < minDate || selectedDate > maxDate) {
+        this.departureFormError = 'Elegí una fecha válida dentro del mes siguiente.';
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+
+    const action = this.departureAction;
+    const departureDate = this.departureChargeProportional ? this.departureDate : undefined;
+    this.submitDepartureAction(
+      cliente,
+      action,
+      this.departureChargeProportional,
+      this.departureRemoveNextMonthDebit,
+      this.departurePendingSurchargeAction,
+      departureDate
+    );
+  }
+
+  private toDateInputValue(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private parseDateInput(value: string): Date | null {
+    if (!value) return null;
+    const [year, month, day] = value.split('-').map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+  }
+
+  private submitDepartureAction(
+    cliente: TableClient,
+    action: 'SE_VA' | 'SE_QUEDA' | 'DAR_DE_BAJA',
+    chargeProportional: boolean,
+    removeNextMonthDebit: boolean,
+    pendingSurchargeAction?: 'forgive' | 'immediate',
+    departureDate?: string
+  ): void {
+    this.departureSubmitting = true;
+    this.departureFormError = '';
+    this.cdr.markForCheck();
+    this.clientService.applyDepartureAction(cliente.id, {
+      action,
+      chargeProportional,
+      removeNextMonthDebit,
+      departureDate,
+      pendingSurchargeAction
+    }).subscribe({
+      next: () => {
+        this.departureSubmitting = false;
+        this.closeDeparturePopover();
+        const successText = action === 'SE_VA'
+          ? 'El cliente quedó marcado como SE VA y sus bauleras quedaron POR LIBERARSE.'
+          : action === 'SE_QUEDA'
+            ? 'El cliente quedó como SE QUEDA y sus bauleras volvieron a OCUPADO.'
+            : 'El cliente fue dado de baja y sus bauleras fueron liberadas.';
+        this.showToastNotification(successText, 'success');
+        this.loadClients();
+      },
+      error: (err) => {
+        this.departureSubmitting = false;
+        this.departureFormError = err.error?.message || 'Ocurrió un error al actualizar la situación del cliente.';
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   goToPayment(clientId: number) {
@@ -433,6 +604,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         currentRent: c.currentRent ?? 0,
         previousBalance: c.previousBalance ?? 0,
         pendingSurcharge: c.pendingSurcharge ?? 0,
+        departureStatus: c.departureStatus ?? null,
         interestAmount: c.interestAmount ?? 0,
         lastGeneratedMonthYear: c.lastGeneratedMonthYear,
         color: c.color,
@@ -533,7 +705,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.totals.currentRentWithActivePaymentIdentifiers =
       this.totals.currentRent + this.totals.activePaymentIdentifiers - 0.02;
     this.totals.balanceWithActivePaymentIdentifiers =
-      this.totals.balance + this.totals.activePaymentIdentifiers;
+      this.totals.balance - this.totals.activePaymentIdentifiers;
   }
 
   trackByClientId(index: number, cliente: TableClient): number {
@@ -759,53 +931,6 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   closeDetailClientModal(): void {
     this.showDetailClientModal = false;
     this.clientToView = null;
-  }
-
-  public async openDeactivateClientModal(cliente: TableClient): Promise<void> {
-    let warningText = "El cliente será marcado como 'Dado de Baja'. Se finalizará su alquiler actual.";
-
-    if (cliente.lockers && cliente.lockers.length > 0 && cliente.lockers[0] !== '') {
-       warningText += `\n\nLas siguientes bauleras serán liberadas y desasignadas: ${cliente.lockers.join(', ')}.`;
-    }
-
-    if (cliente.balance > 0) {
-       const deuda = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(cliente.balance);
-       warningText = `¡ATENCIÓN! El cliente tiene una deuda de ${deuda}.\n\n¿Estás seguro de darlo de baja sin saldar la deuda?`;
-       if (cliente.lockers && cliente.lockers.length > 0 && cliente.lockers[0] !== '') {
-          warningText += `\n\nAdemás, las siguientes bauleras serán liberadas y desasignadas: ${cliente.lockers.join(', ')}.`;
-       }
-    } else if (cliente.balance < 0) {
-        warningText += "\n\nNota: El cliente tiene saldo a favor.";
-    }
-
-    const confirmed = await this.deleteConfirmation.confirm({
-      headerTitle: 'Confirmar Baja',
-      title: '¿Confirmar Baja?',
-      message: warningText.replace(/\s+/g, ' ').trim(),
-      confirmText: 'Sí, dar de baja'
-    });
-    if (!confirmed) return;
-
-    this.isLoading = true;
-    this.clientService.deactivateClient(cliente.id).subscribe({
-      next: () => {
-        this.isLoading = false;
-        this.cdr.markForCheck();
-        Swal.fire(
-          '¡Dado de Baja!',
-          'El cliente ha sido desactivado exitosamente.',
-          'success'
-        );
-        this.loadClients();
-      },
-      error: (err) => {
-        this.isLoading = false;
-        this.cdr.markForCheck();
-        console.error('Error al dar de baja:', err);
-        const msg = err.error?.message || 'Ocurrió un error al intentar dar de baja.';
-        Swal.fire('Error', msg, 'error');
-      },
-    });
   }
 
   loadStatistics(): void {

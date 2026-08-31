@@ -133,7 +133,13 @@ namespace GuardeSoftwareAPI.Controllers
                 {
                     await NotifyPaymentCompletedAsync(dto, actor);
 
-                    return Ok(new { Message = "Payment and account movement created successfully." });
+                    return Ok(new
+                    {
+                        Message = "Payment and account movement created successfully.",
+                        Concept = dto.Concept,
+                        SurchargeAmount = dto.SurchargeAmount,
+                        SurchargeAction = dto.SurchargeAction
+                    });
                 }
 
                 return BadRequest("Could not create payment transaction.");

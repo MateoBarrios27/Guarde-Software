@@ -28,7 +28,6 @@ public class ApplyInterestsJob : IJob
             foreach (DataRow row in allRentals.Rows)
             {
                 var rentalId = Convert.ToInt32(row["rental_id"]);
-                var balance = Convert.ToDecimal(row["balance"]);
                 var monthsUnpaid = Convert.ToInt32(row["months_unpaid"]);
                 var currentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0;
                 
@@ -37,33 +36,33 @@ public class ApplyInterestsJob : IJob
                 var unpaidMonthlyDebits = row["UnpaidMonthlyDebits"] != DBNull.Value ? Convert.ToDecimal(row["UnpaidMonthlyDebits"]) : 0;
                 
                 var preferredMethod = row["PreferredPaymentMethod"].ToString();
-                var hasNextMonthBalance = row["HasNextMonthBalance"] != DBNull.Value && Convert.ToInt32(row["HasNextMonthBalance"]) == 1;
+                // La existencia de un mes futuro no cancela una mora del mes actual.
+                // La base solo incluye la porción vencida del alquiler actual y los intereses impagos.
+                decimal lateRentBase = monthlyDebits > 0 ? unpaidMonthlyDebits : currentRent;
+                decimal taxableBase = lateRentBase + currentInterests;
 
-                if (balance > 0 && !hasNextMonthBalance)
+                if (taxableBase > 0)
                 {
                     var newMonthsUnpaid = monthsUnpaid + 1;
                     _logger.LogWarning("Cliente del alquiler ID {rentalId} está en mora...", rentalId);
 
                     // Si existe registro CMB con débitos, usamos la porción impaga (descontando pagos parciales).
                     // Si no hay CMB aún, usamos la cuota actual como fallback.
-                    decimal cuotaBase = monthlyDebits > 0 ? unpaidMonthlyDebits : currentRent;
-                    decimal baseImponible = cuotaBase + currentInterests;
-
-                    var interestAmount = baseImponible * 0.10m;
+                    var interestAmount = taxableBase * 0.10m;
                     
                     var roundedInterest = RoundInterestToNearestHundredDown(interestAmount);
 
-                    await _daoRental.IncrementUnpaidMonthsAndSaveInterestAsync(rentalId, roundedInterest);
-                    _logger.LogInformation("Interés de ${amount} aplicado al alquiler ID {rentalId}. (Base Imponible: ${baseImponible}, Método Preferido: {method})", roundedInterest, rentalId, baseImponible, preferredMethod);
+                    await _daoRental.IncrementUnpaidMonthsAndSaveInterestAsync(
+                        rentalId,
+                        roundedInterest,
+                        lateRentBase,
+                        DateTime.Today);
+                    _logger.LogInformation("Interés de ${amount} aplicado al alquiler ID {rentalId}. (Base Imponible: ${baseImponible}, Método Preferido: {method})", roundedInterest, rentalId, taxableBase, preferredMethod);
 
                     if (newMonthsUnpaid >= TERMINATION_THRESHOLD)
                     {
                         _logger.LogError("¡ACCIÓN CRÍTICA! El alquiler ID {rentalId} ha alcanzado {newMonthsUnpaid} meses de mora.", rentalId, newMonthsUnpaid);
                     }
-                }
-                else if (balance > 0 && hasNextMonthBalance)
-                {
-                    _logger.LogInformation("Alquiler ID {rentalId}: ya tiene débito del próximo mes generado, el mes actual se considera pago. No se aplica interés.", rentalId);
                 }
             }
             _logger.LogInformation("Job de Gestión de Mora finalizado con éxito.");
