@@ -1,7 +1,6 @@
 @if (confirmation(); as request) {
   <div
     class="delete-confirmation-backdrop fixed inset-0 z-[10000] flex items-center justify-center p-4"
-    (click)="cancel()"
     (keydown.escape)="cancel()"
     tabindex="-1"
     role="presentation">
@@ -54,4 +53,3 @@
     </section>
   </div>
 }
-

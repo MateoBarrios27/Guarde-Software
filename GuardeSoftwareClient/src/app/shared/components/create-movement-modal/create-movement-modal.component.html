@@ -1,6 +1,5 @@
 <div
   class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-  (click)="closeModal.emit()"
 >
   <form
     [formGroup]="newMovementForm"
@@ -81,13 +80,43 @@
         </div>
       </div>
       <div>
-        <label class="block text-sm text-gray-600 mb-1 font-medium">Concepto *</label>
-        <textarea
-          formControlName="concept"
-          placeholder="Ej: Ajuste manual, cobro de seguro, etc."
-          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none resize-none"
-          rows="3"
-        ></textarea>
+        <div class="relative">
+          <label class="block text-sm text-gray-600 mb-1 font-medium">Concepto *</label>
+          <textarea
+            id="movement-concept"
+            formControlName="concept"
+            placeholder="Ej: Ajuste manual, cobro de seguro, etc."
+            aria-label="Concepto del movimiento"
+            aria-autocomplete="list"
+            [attr.aria-expanded]="showConceptSuggestions"
+            aria-controls="movement-concept-suggestions"
+            (focus)="openConceptSuggestions()"
+            (click)="openConceptSuggestions()"
+            (blur)="scheduleCloseConceptSuggestions()"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none resize-none"
+            rows="3"
+          ></textarea>
+
+          <div
+            *ngIf="showConceptSuggestions"
+            id="movement-concept-suggestions"
+            role="listbox"
+            aria-label="Sugerencias de concepto"
+            class="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg"
+          >
+            <button
+              *ngFor="let suggestion of conceptSuggestions"
+              type="button"
+              role="option"
+              (mousedown)="$event.preventDefault()"
+              (click)="selectConceptSuggestion(suggestion)"
+              class="block w-full border-b border-gray-100 px-3 py-2 text-left text-sm text-gray-700 transition-colors last:border-b-0 hover:bg-blue-50 hover:text-blue-700 focus:bg-blue-50 focus:text-blue-700 focus:outline-none"
+            >
+              {{ suggestion }}
+            </button>
+          </div>
+        </div>
+
         <div *ngIf="newMovementForm.controls['concept'].invalid && newMovementForm.controls['concept'].touched" class="text-red-500 text-xs mt-1">
           El concepto es requerido.
         </div>

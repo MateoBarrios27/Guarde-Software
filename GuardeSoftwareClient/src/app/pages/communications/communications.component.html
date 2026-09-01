@@ -86,7 +86,7 @@
 </div>
 
 @if (currentModal() !== 'none') {
-<div class="communications-modal-backdrop fixed inset-0 z-[100] flex items-center justify-center p-4" (click)="closeModal()" (keydown.escape)="closeModal()" tabindex="-1" role="presentation">
+<div class="communications-modal-backdrop fixed inset-0 z-[100] flex items-center justify-center p-4" (keydown.escape)="closeModal()" tabindex="-1" role="presentation">
 <section
   class="communications-modal-shell relative z-[110] flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden transform transition-all duration-300 ease-in-out sm:max-h-[calc(100vh-3rem)]"
   [class.communications-modal-history-shell]="currentModal() === 'history'"
@@ -904,8 +904,7 @@
 
 <!-- Content Preview Modal -->
 <div *ngIf="previewContent()"
-     class="fixed inset-0 bg-black/50 z-[140] flex items-center justify-center p-4"
-     (click)="closeContentPreview()">
+     class="fixed inset-0 bg-black/50 z-[140] flex items-center justify-center p-4">
   <div class="relative z-[150] bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
        (click)="$event.stopPropagation()">
     <div class="flex items-center justify-between p-4 border-b">

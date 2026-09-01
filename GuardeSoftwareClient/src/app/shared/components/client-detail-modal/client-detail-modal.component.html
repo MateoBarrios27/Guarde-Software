@@ -746,7 +746,7 @@
 >
 </app-create-movement-modal>
 
-<div *ngIf="showPaymentPlanningModal && client" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4" (click)="closePaymentPlanningModal()">
+<div *ngIf="showPaymentPlanningModal && client" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4">
   <section class="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl" (click)="$event.stopPropagation()">
     <header class="flex items-start justify-between border-b border-gray-100 px-6 py-5">
       <div>
@@ -850,8 +850,7 @@
 
 <!-- Content Preview Modal (inside client detail) -->
 <div *ngIf="previewContent" 
-     class="fixed inset-0 bg-black/50 z-[140] flex items-center justify-center p-4"
-     (click)="closeContentPreview()">
+     class="fixed inset-0 bg-black/50 z-[140] flex items-center justify-center p-4">
   <div class="relative z-[150] bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
        (click)="$event.stopPropagation()">
     <div class="flex items-center justify-between p-4 border-b">

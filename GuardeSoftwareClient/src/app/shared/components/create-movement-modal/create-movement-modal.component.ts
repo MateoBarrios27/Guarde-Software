@@ -21,6 +21,12 @@ export class CreateMovementModalComponent implements OnInit {
 
   newMovementForm!: FormGroup;
   isLoading = false;
+  showConceptSuggestions = false;
+
+  private readonly spanishMonths = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+  ];
 
   // --- VARIABLES PARA LA FECHA MANUAL ---
   manualDateEnabled = false;
@@ -41,6 +47,37 @@ export class CreateMovementModalComponent implements OnInit {
       amount: [null, [Validators.required, Validators.min(0.01)]],
       concept: ['', [Validators.required, Validators.maxLength(255)]],
     });
+  }
+
+  get conceptSuggestions(): string[] {
+    const now = new Date();
+    const month = this.spanishMonths[now.getMonth()];
+    const formattedMonth = month.charAt(0).toUpperCase() + month.slice(1);
+
+    return [
+      `Interés por mora de ${formattedMonth} ${now.getFullYear()}`,
+      `Alquiler ${formattedMonth} ${now.getFullYear()}`,
+      'Proporcional'
+    ];
+  }
+
+  openConceptSuggestions(): void {
+    this.showConceptSuggestions = true;
+  }
+
+  scheduleCloseConceptSuggestions(): void {
+    // El blur ocurre antes del click de una opción. El pequeño retraso permite
+    // que la opción pueda seleccionarse sin que el desplegable desaparezca.
+    setTimeout(() => {
+      this.showConceptSuggestions = false;
+    }, 120);
+  }
+
+  selectConceptSuggestion(suggestion: string): void {
+    const conceptControl = this.newMovementForm.get('concept');
+    conceptControl?.setValue(suggestion);
+    conceptControl?.markAsDirty();
+    this.showConceptSuggestions = false;
   }
 
   // --- MÉTODO PARA ALTERNAR EL CALENDARIO ---

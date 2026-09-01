@@ -1481,6 +1481,21 @@ namespace GuardeSoftwareAPI.Services.client
                         throw new ArgumentException("La fecha de salida debe pertenecer al mes siguiente.");
                 }
 
+                // La tabla y el popover muestran el importe que corresponde al mes
+                // de salida (incluyendo un aumento ya programado). No usar solamente
+                // el importe vigente hoy, porque puede dejar un débito proporcional
+                // distinto al importe que el usuario confirmó.
+                decimal proportionalRent = rentalData.CurrentRent;
+                if (request.ChargeProportional && rentalData.ActiveRentalId.HasValue && departureDate.HasValue)
+                {
+                    proportionalRent = await GetRentalAmountForMonthAsync(
+                        rentalData.ActiveRentalId.Value,
+                        departureDate.Value,
+                        rentalData.CurrentRent,
+                        connection,
+                        transaction);
+                }
+
                 if (action == "SE_QUEDA")
                 {
                     if (!rentalData.ActiveRentalId.HasValue)
@@ -1499,11 +1514,11 @@ namespace GuardeSoftwareAPI.Services.client
                             await RemoveNextMonthDebitAsync(rentalData.ActiveRentalId.Value, rentalData.Today, connection, transaction);
                         }
 
-                        if (request.ChargeProportional && rentalData.CurrentRent > 0m && departureDate.HasValue)
+                        if (request.ChargeProportional && proportionalRent > 0m && departureDate.HasValue)
                         {
                             await ApplyDepartureProportionalDebitAsync(
                                 rentalData.ActiveRentalId.Value,
-                                rentalData.CurrentRent,
+                                proportionalRent,
                                 departureDate.Value,
                                 rentalData.Today,
                                 connection,
@@ -1625,6 +1640,35 @@ namespace GuardeSoftwareAPI.Services.client
                 PendingSurcharge = reader.IsDBNull(4) ? 0m : reader.GetDecimal(4),
                 Today = TimeHelper.GetArgentinaTime().Date
             };
+        }
+
+        private static async Task<decimal> GetRentalAmountForMonthAsync(
+            int rentalId,
+            DateTime effectiveDate,
+            decimal fallbackAmount,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            DateTime monthStart = new DateTime(effectiveDate.Year, effectiveDate.Month, 1);
+            DateTime nextMonthStart = monthStart.AddMonths(1);
+
+            const string query = @"
+                SELECT TOP 1 amount
+                FROM rental_amount_history
+                WHERE rental_id = @rental_id
+                  AND start_date < @next_month_start
+                  AND (end_date IS NULL OR end_date >= @month_start)
+                ORDER BY start_date DESC, rental_amount_history_id DESC;";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+            command.Parameters.Add(new SqlParameter("@month_start", SqlDbType.Date) { Value = monthStart });
+            command.Parameters.Add(new SqlParameter("@next_month_start", SqlDbType.Date) { Value = nextMonthStart });
+
+            object? result = await command.ExecuteScalarAsync();
+            return result is null || result == DBNull.Value
+                ? fallbackAmount
+                : Convert.ToDecimal(result, CultureInfo.InvariantCulture);
         }
 
         private static async Task UpdateClientDepartureStatusAsync(int clientId, string? status, SqlConnection connection, SqlTransaction transaction)

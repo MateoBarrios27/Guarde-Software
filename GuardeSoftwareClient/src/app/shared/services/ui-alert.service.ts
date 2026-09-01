@@ -94,6 +94,7 @@ export class UiAlertService {
 
     return {
       ...options,
+      allowOutsideClick: false,
       iconHtml: themedIconHtml,
       confirmButtonText: options.confirmButtonText ?? 'Aceptar',
       cancelButtonText: options.cancelButtonText ?? 'Cancelar',
