@@ -162,7 +162,7 @@
       </div>
 
       <!-- Modal SMTP -->
-      <div *ngIf="isModalOpen()" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm sm:p-6" (click)="closeModal()" (keyup.enter)="closeModal()" (keydown.escape)="closeModal()" tabindex="-1" role="presentation">
+      <div *ngIf="isModalOpen()" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm sm:p-6" (keyup.enter)="closeModal()" (keydown.escape)="closeModal()" tabindex="-1" role="presentation">
         <section class="smtp-modal-shell flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-[0_30px_90px_-28px_rgba(15,23,42,0.62)] sm:max-h-[calc(100vh-3rem)]" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="smtp-modal-title">
           <div class="relative overflow-hidden border-b border-slate-100 bg-gradient-to-br from-slate-50 via-white to-blue-50/80 px-5 py-5 sm:px-7 sm:py-6">
             <div class="absolute -right-12 -top-16 h-40 w-40 rounded-full bg-blue-200/30 blur-3xl"></div>
@@ -360,7 +360,6 @@
       <div
         *ngIf="showMassRecipientModal"
         class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm sm:p-6"
-        (click)="closeMassRecipientModal()"
         (keydown.escape)="closeMassRecipientModal()"
         tabindex="-1"
         role="presentation"

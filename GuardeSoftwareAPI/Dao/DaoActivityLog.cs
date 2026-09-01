@@ -47,7 +47,11 @@ namespace GuardeSoftwareAPI.Dao
             const string searchParameter = "@search";
 
             string whereClause = $@"
-                WHERE ({areaParameter} IS NULL OR al.table_name = {areaParameter})
+                WHERE (
+                        {areaParameter} IS NULL
+                        OR ({areaParameter} = 'users' AND al.table_name IN ('users', 'auth'))
+                        OR al.table_name = {areaParameter}
+                  )
                   AND ({actionParameter} IS NULL OR al.action = {actionParameter})
                   AND ({userIdParameter} IS NULL OR al.user_id = {userIdParameter})
                   AND ({fromDateParameter} IS NULL OR al.log_date >= {fromDateParameter})
@@ -135,7 +139,11 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<DataTable> GetActivityLogsByUserId(int userId)
         {
 
-            string query = "SELECT activity_log_id, user_id, log_date, action, table_name, record_id, old_value, new_value FROM activity_log WHERE user_id = @user_id";
+            string query = @"
+                SELECT activity_log_id, user_id, log_date, action, table_name, record_id, old_value, new_value
+                FROM activity_log
+                WHERE user_id = @user_id
+                ORDER BY log_date DESC, activity_log_id DESC";
 
             SqlParameter[] parameters = new SqlParameter[] {
 

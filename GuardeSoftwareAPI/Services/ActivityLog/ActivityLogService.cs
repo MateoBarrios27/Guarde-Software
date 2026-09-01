@@ -22,6 +22,7 @@ namespace GuardeSoftwareAPI.Services.activityLog
             "warehouses",
             "locker_types",
             "rental_amount_history",
+            "users",
             "auth"
         };
 

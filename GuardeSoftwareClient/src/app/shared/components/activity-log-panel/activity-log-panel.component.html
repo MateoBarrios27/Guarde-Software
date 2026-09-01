@@ -28,7 +28,7 @@
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
       <label class="activity-field xl:col-span-2">
         <span>Buscar</span>
-        <input [(ngModel)]="search" name="activitySearch" type="search" placeholder="Usuario, acción o registro…" (keyup.enter)="applyFilters()" />
+        <input [(ngModel)]="search" name="activitySearch" type="search" placeholder="Usuario, acción o área…" (keyup.enter)="applyFilters()" />
       </label>
 
       <label class="activity-field">
@@ -75,15 +75,15 @@
   </div>
 
   <div class="min-h-0 flex-1 overflow-x-auto overflow-y-hidden px-0 sm:px-2">
-    <table class="activity-table min-w-[900px] w-full text-left">
+    <table class="activity-table min-w-[980px] w-full text-left">
       <thead>
         <tr>
           <th>Fecha y hora</th>
           <th>Usuario</th>
           <th>Área</th>
           <th>Acción</th>
-          <th>Registro</th>
-          <th>Detalle</th>
+          <th>Resumen</th>
+          <th class="text-right">Detalle</th>
         </tr>
       </thead>
       <tbody>
@@ -108,11 +108,18 @@
           </td>
           <td><span class="activity-area-label">{{ areaLabel(activity.tableName) }}</span></td>
           <td><span [class]="actionClass(activity.action)">{{ actionLabel(activity.action) }}</span></td>
-          <td class="font-mono text-xs text-slate-500">#{{ activity.recordId }}</td>
-          <td class="max-w-[24rem] text-xs leading-5 text-slate-500">
-            <p *ngIf="activity.oldValue" class="truncate"><span class="font-bold text-slate-400">Antes:</span> {{ snapshotPreview(activity.oldValue) }}</p>
-            <p *ngIf="activity.newValue" class="truncate"><span class="font-bold text-slate-400">Después:</span> {{ snapshotPreview(activity.newValue) }}</p>
-            <span *ngIf="!activity.oldValue && !activity.newValue" class="text-slate-400">Sin detalle adicional</span>
+          <td class="max-w-[30rem] text-sm leading-5 text-slate-600">
+            <p class="activity-summary">{{ activitySummary(activity) }}</p>
+          </td>
+          <td class="text-right">
+            <button
+              type="button"
+              class="activity-detail-button"
+              [attr.aria-label]="'Ver detalle de ' + activitySummary(activity)"
+              (click)="openDetails(activity)">
+              <app-icon name="file-text" class="h-4 w-4"></app-icon>
+              <span>Ver detalle</span>
+            </button>
           </td>
         </tr>
       </tbody>
@@ -135,3 +142,65 @@
     </nav>
   </footer>
 </section>
+
+<div
+  *ngIf="selectedActivity as activity"
+  class="activity-detail-backdrop"
+  role="presentation"
+  tabindex="-1"
+  (click)="closeDetails()"
+  (keydown.escape)="closeDetails()">
+  <section
+    class="activity-detail-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="activity-detail-title"
+    (click)="$event.stopPropagation()">
+    <header class="activity-detail-header">
+      <div class="flex min-w-0 items-start gap-3">
+        <div class="activity-detail-icon">
+          <app-icon name="file-text" class="h-5 w-5"></app-icon>
+        </div>
+        <div class="min-w-0">
+          <p class="activity-detail-eyebrow">Detalle de actividad</p>
+          <h3 id="activity-detail-title" class="activity-detail-title">{{ activitySummary(activity) }}</h3>
+          <p class="activity-detail-meta">{{ displayUser(activity) }} · {{ activity.logDate | date:'dd/MM/yyyy HH:mm' }}</p>
+        </div>
+      </div>
+      <button type="button" class="activity-detail-close" aria-label="Cerrar detalle" (click)="closeDetails()">×</button>
+    </header>
+
+    <div class="activity-detail-body">
+      <div class="activity-detail-context">
+        <span class="activity-area-label">{{ areaLabel(activity.tableName) }}</span>
+        <span [class]="actionClass(activity.action)">{{ actionLabel(activity.action) }}</span>
+      </div>
+
+      <div class="activity-json-grid">
+        <article class="activity-json-card">
+          <div class="activity-json-card-header">
+            <div>
+              <p class="activity-json-label">Antes</p>
+              <p class="activity-json-description">Valor registrado antes de la acción</p>
+            </div>
+          </div>
+          <pre>{{ formatSnapshotJson(activity.oldValue) }}</pre>
+        </article>
+
+        <article class="activity-json-card activity-json-card-new">
+          <div class="activity-json-card-header">
+            <div>
+              <p class="activity-json-label">Después</p>
+              <p class="activity-json-description">Valor registrado después de la acción</p>
+            </div>
+          </div>
+          <pre>{{ formatSnapshotJson(activity.newValue) }}</pre>
+        </article>
+      </div>
+    </div>
+
+    <footer class="activity-detail-footer">
+      <button type="button" class="activity-secondary-button" (click)="closeDetails()">Cerrar</button>
+    </footer>
+  </section>
+</div>

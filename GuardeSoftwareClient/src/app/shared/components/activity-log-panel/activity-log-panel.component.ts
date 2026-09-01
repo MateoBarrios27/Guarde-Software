@@ -29,7 +29,7 @@ export class ActivityLogPanelComponent implements OnInit {
     { value: 'warehouses', label: 'Depósitos' },
     { value: 'locker_types', label: 'Tipos de bauleras' },
     { value: 'rental_amount_history', label: 'Abonos' },
-    { value: 'auth', label: 'Inicios de sesión' }
+    { value: 'users', label: 'Usuarios' }
   ];
 
   readonly actions = [
@@ -51,6 +51,7 @@ export class ActivityLogPanelComponent implements OnInit {
   pageSize = 25;
   isLoading = false;
   errorMessage = '';
+  selectedActivity: ActivityLog | null = null;
 
   selectedArea = '';
   selectedAction = '';
@@ -136,7 +137,7 @@ export class ActivityLogPanelComponent implements OnInit {
   }
 
   areaLabel(value: string): string {
-    const normalizedValue = value?.toLowerCase();
+    const normalizedValue = this.normalizeArea(value);
     return this.areas.find(area => area.value === normalizedValue)?.label ?? value;
   }
 
@@ -160,18 +161,67 @@ export class ActivityLogPanelComponent implements OnInit {
     return activity.userDisplayName || activity.userName || `Usuario #${activity.userId}`;
   }
 
-  snapshotPreview(snapshot?: string): string {
-    if (!snapshot) return '—';
+  activitySummary(activity: ActivityLog): string {
+    const area = this.normalizeArea(activity.tableName);
+    const action = activity.action?.toUpperCase() ?? '';
+
+    if (area === 'users' && action === 'LOGIN') {
+      return this.loginSummary(activity);
+    }
+
+    const newSnapshot = this.parseSnapshot(activity.newValue);
+    const oldSnapshot = this.parseSnapshot(activity.oldValue);
+    const snapshot = newSnapshot ?? oldSnapshot;
+    const definiteSubject = this.definiteSubject(area);
+
+    const field = this.snapshotValue(snapshot, ['Field', 'field']);
+    if (field !== undefined && (action === 'UPDATE' || action === 'CREATE')) {
+      const value = this.snapshotValue(snapshot, ['Value', 'value']);
+      const valueText = value === undefined ? '' : ` a ${this.formatValue(value)}`;
+      return `Se actualizó ${this.humanizeKey(String(field)).toLowerCase()} ${this.relativeSubject(area)}${valueText}.`;
+    }
+
+    let summary: string;
+    switch (action) {
+      case 'CREATE':
+        summary = `Se registró ${this.indefiniteSubject(area)}.`;
+        break;
+      case 'UPDATE':
+        summary = `Se modificó ${definiteSubject}.`;
+        break;
+      case 'DELETE':
+      case 'DEACTIVATE':
+        summary = `Se dio de baja ${this.objectSubject(area)}.`;
+        break;
+      case 'REACTIVATE':
+        summary = `Se reactivó ${definiteSubject}.`;
+        break;
+      default:
+        summary = `Se registró una actividad en ${this.areaLabel(activity.tableName).toLowerCase()}.`;
+        break;
+    }
+
+    const context = this.snapshotSummary(snapshot);
+    if (!context || action === 'DELETE' || action === 'DEACTIVATE') return summary;
+
+    return `${summary.slice(0, -1)} (${context}).`;
+  }
+
+  openDetails(activity: ActivityLog): void {
+    this.selectedActivity = activity;
+  }
+
+  closeDetails(): void {
+    this.selectedActivity = null;
+  }
+
+  formatSnapshotJson(snapshot?: string): string {
+    if (!snapshot) return 'Sin información registrada.';
 
     try {
-      const parsed = JSON.parse(snapshot) as Record<string, unknown>;
-      const entries = Object.entries(parsed)
-        .filter(([key]) => !['Id', 'id', 'UserID', 'userId'].includes(key))
-        .slice(0, 3)
-        .map(([key, value]) => `${this.humanizeKey(key)}: ${this.formatValue(value)}`);
-      return entries.length > 0 ? entries.join(' · ') : 'Ver detalle';
+      return JSON.stringify(JSON.parse(snapshot), null, 2);
     } catch {
-      return snapshot.length > 140 ? `${snapshot.slice(0, 140)}…` : snapshot;
+      return snapshot;
     }
   }
 
@@ -193,16 +243,177 @@ export class ActivityLogPanelComponent implements OnInit {
   }
 
   private humanizeKey(value: string): string {
-    return value
+    const normalizedValue = value.toLowerCase().replace(/_/g, '');
+    const knownLabels: Record<string, string> = {
+      fullname: 'Nombre completo',
+      name: 'Nombre',
+      amount: 'Monto',
+      commission: 'Comisión',
+      status: 'Estado',
+      operation: 'Operación',
+      channel: 'Canal',
+      senddate: 'Fecha de envío',
+      sendtime: 'Hora de envío',
+      startdate: 'Fecha de inicio',
+      enddate: 'Fecha de finalización',
+      address: 'Dirección',
+      identifier: 'Identificador',
+      recipientcount: 'Destinatarios',
+      attachmentcount: 'Adjuntos',
+      sendtoallemails: 'Todos los emails'
+    };
+
+    return knownLabels[normalizedValue] ?? value
       .replace(/([a-z])([A-Z])/g, '$1 $2')
       .replace(/_/g, ' ')
       .replace(/^./, character => character.toUpperCase());
+  }
+
+  private normalizeArea(value: string): string {
+    const normalizedValue = value?.trim().toLowerCase();
+    return normalizedValue === 'auth' ? 'users' : normalizedValue;
+  }
+
+  private loginSummary(activity: ActivityLog): string {
+    const snapshot = this.parseSnapshot(activity.newValue) ?? this.parseSnapshot(activity.oldValue);
+    const result = String(this.snapshotValue(snapshot, ['Result', 'result', 'Status', 'status']) ?? '').toLowerCase();
+
+    if (['success', 'successful', 'ok', 'exitoso', 'exitosamente'].includes(result)) {
+      return 'Inicio de sesión exitoso.';
+    }
+
+    if (['failed', 'failure', 'error', 'rejected', 'rechazado', 'fallido', 'locked_out'].includes(result)) {
+      return 'Inicio de sesión rechazado.';
+    }
+
+    return 'Inicio de sesión: resultado no informado.';
+  }
+
+  private parseSnapshot(snapshot?: string): Record<string, unknown> | null {
+    if (!snapshot) return null;
+
+    try {
+      const parsed: unknown = JSON.parse(snapshot);
+      return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private snapshotValue(snapshot: Record<string, unknown> | null, keys: string[]): unknown {
+    if (!snapshot) return undefined;
+
+    const matchingKey = Object.keys(snapshot).find(existingKey =>
+      keys.some(expectedKey => existingKey.toLowerCase() === expectedKey.toLowerCase()));
+
+    return matchingKey === undefined ? undefined : snapshot[matchingKey];
+  }
+
+  private snapshotSummary(snapshot: Record<string, unknown> | null): string {
+    if (!snapshot) return '';
+
+    const entries = Object.entries(snapshot)
+      .filter(([key, value]) => !this.isTechnicalSnapshotField(key, value))
+      .slice(0, 2)
+      .map(([key, value]) => `${this.humanizeKey(key)}: ${this.formatValue(value)}`);
+
+    return entries.join(' · ');
+  }
+
+  private isTechnicalSnapshotField(key: string, value: unknown): boolean {
+    const normalizedKey = key.toLowerCase();
+    return normalizedKey === 'id'
+      || normalizedKey.endsWith('id')
+      || normalizedKey.endsWith('_id')
+      || normalizedKey === 'deleted'
+      || value === null
+      || value === undefined
+      || value === '';
+  }
+
+  private indefiniteSubject(area: string): string {
+    const subjects: Record<string, string> = {
+      clients: 'un nuevo cliente',
+      payments: 'un nuevo pago',
+      lockers: 'una nueva baulera',
+      payment_methods: 'un nuevo medio de pago',
+      communications: 'una nueva comunicación',
+      warehouses: 'un nuevo depósito',
+      locker_types: 'un nuevo tipo de baulera',
+      rental_amount_history: 'un nuevo abono',
+      users: 'un nuevo usuario'
+    };
+
+    return subjects[area] ?? 'un nuevo registro';
+  }
+
+  private definiteSubject(area: string): string {
+    const subjects: Record<string, string> = {
+      clients: 'el cliente',
+      payments: 'el pago',
+      lockers: 'la baulera',
+      payment_methods: 'el medio de pago',
+      communications: 'la comunicación',
+      warehouses: 'el depósito',
+      locker_types: 'el tipo de baulera',
+      rental_amount_history: 'el abono',
+      users: 'el usuario'
+    };
+
+    return subjects[area] ?? 'el registro';
+  }
+
+  private objectSubject(area: string): string {
+    const subjects: Record<string, string> = {
+      clients: 'al cliente',
+      payments: 'al pago',
+      lockers: 'a la baulera',
+      payment_methods: 'al medio de pago',
+      communications: 'a la comunicación',
+      warehouses: 'al depósito',
+      locker_types: 'al tipo de baulera',
+      rental_amount_history: 'al abono',
+      users: 'al usuario'
+    };
+
+    return subjects[area] ?? 'al registro';
+  }
+
+  private relativeSubject(area: string): string {
+    const subjects: Record<string, string> = {
+      clients: 'del cliente',
+      payments: 'del pago',
+      lockers: 'de la baulera',
+      payment_methods: 'del medio de pago',
+      communications: 'de la comunicación',
+      warehouses: 'del depósito',
+      locker_types: 'del tipo de baulera',
+      rental_amount_history: 'del abono',
+      users: 'del usuario'
+    };
+
+    return subjects[area] ?? 'del registro';
   }
 
   private formatValue(value: unknown): string {
     if (value === null || value === undefined || value === '') return '—';
     if (typeof value === 'boolean') return value ? 'Sí' : 'No';
     if (typeof value === 'object') return '[detalle]';
-    return String(value);
+
+    const text = String(value);
+    const knownValues: Record<string, string> = {
+      send_now: 'envío inmediato',
+      retry: 'reintento',
+      retry_selected: 'reintento de seleccionados',
+      success: 'exitoso',
+      successful: 'exitoso',
+      failed: 'rechazado',
+      failure: 'rechazado',
+      rejected: 'rechazado'
+    };
+
+    return knownValues[text.toLowerCase()] ?? text;
   }
 }

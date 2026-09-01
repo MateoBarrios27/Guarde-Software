@@ -84,7 +84,18 @@ namespace GuardeSoftwareAPI.Services.auth
 
             var check = await _signInManager.CheckPasswordSignInAsync(identityUser, dto.Password, false);
             if (!check.Succeeded)
-                return null;
+            {
+                var failedUserTable = await _daoUser.GetUserByIdentityUserId(identityUser.Id);
+                if (failedUserTable.Rows.Count > 0)
+                {
+                    await LogLoginAttemptAsync(
+                        Convert.ToInt32(failedUserTable.Rows[0]["user_id"]),
+                        identityUser.UserName ?? dto.EmailOrUserName,
+                        "failed");
+                }
+
+               return null;
+            }
 
             var table = await _daoUser.GetUserByIdentityUserId(identityUser.Id);
             if (table.Rows.Count == 0)
@@ -104,19 +115,7 @@ namespace GuardeSoftwareAPI.Services.auth
             var roles = await _userManager.GetRolesAsync(identityUser);
             var token = _jwtTokenGenerator.GenerateToken(identityUser, roles, businessUser.Id, businessUser.UserTypeId);
 
-            await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
-            {
-                UserId = businessUser.Id,
-                LogDate = TimeHelper.GetArgentinaTime(),
-                Action = "LOGIN",
-                TableName = "auth",
-                RecordId = businessUser.Id,
-                NewValue = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    UserName = businessUser.UserName,
-                    Result = "success"
-                })
-            });
+            await LogLoginAttemptAsync(businessUser.Id, businessUser.UserName, "success");
 
             return new AuthResponseDto
             {
@@ -130,6 +129,23 @@ namespace GuardeSoftwareAPI.Services.auth
                 FirstName = businessUser.FirstName ?? "",
                 LastName  = businessUser.LastName  ?? "",
             };
+        }
+
+        private async Task LogLoginAttemptAsync(int businessUserId, string userName, string result)
+        {
+            await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+            {
+                UserId = businessUserId,
+                LogDate = TimeHelper.GetArgentinaTime(),
+                Action = "LOGIN",
+                TableName = "users",
+                RecordId = businessUserId,
+                NewValue = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    UserName = userName,
+                    Result = result
+                })
+            });
         }
 
     }
