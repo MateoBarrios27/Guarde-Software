@@ -501,8 +501,8 @@ namespace GuardeSoftwareAPI.Jobs
         .ToString("dd/MM/yyyy", StatementCulture);
 
     string title = isNextMonth
-        ? $"Proyección de cuenta | {monthYear}"
-        : $"Estado de cuenta | {monthYear}";
+        ? $"Proyección de cuenta {monthYear}"
+        : $"Estado de cuenta {monthYear}";
 
     return $"""
 Hola {clientName},
@@ -510,33 +510,13 @@ Hola {clientName},
 {title}
 
 Saldo anterior: $ {FormatStatementAmount(data.PreviousBalance)}
-Recargo por pago fuera de término: $ {FormatStatementAmount(data.Surcharge)}
-Total a abonar: $ {FormatStatementAmount(data.CurrentBalance)}
+Recargo: $ {FormatStatementAmount(data.Surcharge)}
+*Total a abonar: $ {FormatStatementAmount(data.CurrentBalance)}*
 
-La cuota vence el {dueDate}. Luego de esa fecha se aplicará un recargo del 10%.
-
-Para conservar el acceso al espacio alquilado, la cuenta deberá mantenerse al día. Los ajustes de valor se realizarán con la frecuencia establecida en el contrato.
-
-Forma de pago: la acordada en el contrato de locación.
-
-Guardelo Que Quiera
-Francisco Borges 4280, Munro
-
-Horarios de atención:
-Lunes a viernes, de 09:00 a 16:00
-Administración hasta las 15:30
-
-Sábados, de 09:00 a 13:00
-Administración hasta las 12:30
-
-Teléfonos:
-011 4730-2192
-011 4762-0599
-
-www.guardeloquequiera.com.ar
-
-Saludos,
-Administración
+La Administración
+WhatsApp 11-5780-0251
+Lunes a viernes de 09:00 a 16:00
+Sábados de 09:00 a 13:00
 """;
 }
 
