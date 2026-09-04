@@ -17,6 +17,9 @@ export interface CreateClientDTO{
     billingTypeId?: number;
     startDate: Date;
     amount: number;
+    useManualProportional?: boolean;
+    proportionalDays?: number;
+    proportionalAmount?: number;
     userID: number;
 
     //locker information

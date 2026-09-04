@@ -201,6 +201,9 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
 
       observaciones: [''],
       montoManual: [null,[Validators.required, Validators.min(0)]],
+      proportionalMode: ['automatic'],
+      proportionalDays: [this.getAutomaticProportionalDays()],
+      proportionalAmount: [null],
       contractedM3: [0],
       occupiedSpaces: [null],
 
@@ -328,7 +331,122 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
           this.newClientForm.get('prepaidMonths')?.setValue(0);
        }
        fields.forEach(field => this.newClientForm.get(field)?.updateValueAndValidity());
+       this.updateProportionalControls();
     });
+
+    this.newClientForm.get('proportionalMode')?.valueChanges.subscribe(() => {
+      this.updateProportionalControls();
+    });
+
+    this.newClientForm.get('proportionalDays')?.valueChanges.subscribe(() => {
+      if (this.shouldGenerateProportional && this.isManualProportional) {
+        this.recalculateManualProportionalAmount();
+      }
+    });
+
+    this.newClientForm.get('montoManual')?.valueChanges.subscribe(() => {
+      if (this.shouldGenerateProportional) {
+        this.recalculateManualProportionalAmount();
+      }
+    });
+
+    this.updateProportionalControls();
+  }
+
+  public get shouldGenerateProportional(): boolean {
+    if (!this.newClientForm || this.isEditMode || this.isReactivation) return false;
+    if (this.newClientForm.get('isLegacyClient')?.value) return false;
+
+    return this.getArgentinaToday().getDate() >= 10;
+  }
+
+  public get isManualProportional(): boolean {
+    return this.newClientForm?.get('proportionalMode')?.value === 'manual';
+  }
+
+  public get proportionalDaysInMonth(): number {
+    const today = this.getArgentinaToday();
+    return new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  }
+
+  public get automaticProportionalDays(): number {
+    return this.getAutomaticProportionalDays();
+  }
+
+  public get automaticProportionalAmount(): number {
+    return this.calculateProportionalAmount(this.automaticProportionalDays);
+  }
+
+  public setProportionalMode(mode: 'automatic' | 'manual'): void {
+    this.newClientForm.get('proportionalMode')?.setValue(mode);
+  }
+
+  private updateProportionalControls(): void {
+    const modeControl = this.newClientForm.get('proportionalMode');
+    const daysControl = this.newClientForm.get('proportionalDays');
+    const amountControl = this.newClientForm.get('proportionalAmount');
+    if (!modeControl || !daysControl || !amountControl) return;
+
+    if (!this.shouldGenerateProportional) {
+      modeControl.setValue('automatic', { emitEvent: false });
+      daysControl.clearValidators();
+      amountControl.clearValidators();
+      daysControl.setValue(this.getAutomaticProportionalDays(), { emitEvent: false });
+      amountControl.setValue(null, { emitEvent: false });
+    } else if (modeControl.value === 'manual') {
+      daysControl.setValidators([
+        Validators.required,
+        Validators.min(0),
+        Validators.max(this.proportionalDaysInMonth),
+        Validators.pattern(/^\d+$/),
+      ]);
+      amountControl.setValidators([Validators.required, Validators.min(0)]);
+
+      const currentDays = Number(daysControl.value);
+      if (!Number.isInteger(currentDays) || currentDays < 0 || currentDays > this.proportionalDaysInMonth) {
+        daysControl.setValue(this.getAutomaticProportionalDays(), { emitEvent: false });
+      }
+      this.recalculateManualProportionalAmount();
+    } else {
+      daysControl.clearValidators();
+      amountControl.clearValidators();
+      daysControl.setValue(this.getAutomaticProportionalDays(), { emitEvent: false });
+      amountControl.setValue(this.automaticProportionalAmount, { emitEvent: false });
+    }
+
+    daysControl.updateValueAndValidity({ emitEvent: false });
+    amountControl.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private recalculateManualProportionalAmount(): void {
+    const days = Number(this.newClientForm.get('proportionalDays')?.value);
+    const amount = Number.isFinite(days) ? this.calculateProportionalAmount(days) : null;
+    this.newClientForm.get('proportionalAmount')?.setValue(amount, { emitEvent: false });
+  }
+
+  private calculateProportionalAmount(days: number): number {
+    const monthlyAmount = Number(this.newClientForm?.get('montoManual')?.value);
+    if (!Number.isFinite(monthlyAmount) || monthlyAmount < 0 || !Number.isFinite(days)) return 0;
+
+    const rawAmount = (monthlyAmount / this.proportionalDaysInMonth) * days;
+    return Math.round(rawAmount / 1000) * 1000;
+  }
+
+  private getAutomaticProportionalDays(): number {
+    const today = this.getArgentinaToday();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    return daysInMonth - today.getDate();
+  }
+
+  private getArgentinaToday(): Date {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map(part => [part.type, Number(part.value)]));
+    return new Date(values['year'], values['month'] - 1, values['day']);
   }
 
   createPhoneGroup(): FormGroup {
@@ -616,6 +734,13 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     preferredPaymentMethodId: paymentMethodId,
     ivaCondition: formValue.condicionIVA || null,
     amount: formValue.montoManual,
+    useManualProportional: this.shouldGenerateProportional && formValue.proportionalMode === 'manual',
+    proportionalDays: this.shouldGenerateProportional && formValue.proportionalMode === 'manual'
+      ? Number(formValue.proportionalDays)
+      : undefined,
+    proportionalAmount: this.shouldGenerateProportional && formValue.proportionalMode === 'manual'
+      ? Number(formValue.proportionalAmount)
+      : undefined,
     userID: 1, 
 
     registrationDate:
@@ -758,6 +883,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
       legacyStartDate: 'Fecha de Ingreso',
       legacyInitialAmount: 'Monto Inicial',
       legacyNextIncreaseDate: 'Próx. Aumento',
+      proportionalDays: 'Días del proporcional',
+      proportionalAmount: 'Monto proporcional',
       warehouseId: 'Depósito',
       quantity: 'Cantidad',
       montoManual: 'Abono',

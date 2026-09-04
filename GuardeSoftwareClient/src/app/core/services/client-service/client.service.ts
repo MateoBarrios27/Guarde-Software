@@ -135,10 +135,18 @@ export class ClientService {
     action: 'SE_VA' | 'SE_QUEDA' | 'DAR_DE_BAJA';
     chargeProportional: boolean;
     removeNextMonthDebit: boolean;
+    restoreProportional: boolean;
     departureDate?: string;
     pendingSurchargeAction?: 'forgive' | 'immediate';
   }): Observable<void> {
     return this.httpClient.post<void>(`${this.url}/Client/${id}/departure-action`, request);
+  }
+
+  public getDepartureProportionalPreview(id: number, departureDate: string): Observable<ClientDepartureProportionalPreview> {
+    return this.httpClient.get<ClientDepartureProportionalPreview>(
+      `${this.url}/Client/${id}/departure-proportional-preview`,
+      { params: { departureDate } }
+    );
   }
 
   reactivateClient(id: number, dto: any): Observable<any> {
@@ -206,4 +214,11 @@ export interface RentalAmountHistoryItem {
   startDate: string;
   endDate?: string;
   status: 'active' | 'planned' | 'past';
+}
+
+export interface ClientDepartureProportionalPreview {
+  baseRent: number;
+  proportionalAmount: number;
+  daysToCharge: number;
+  daysInMonth: number;
 }

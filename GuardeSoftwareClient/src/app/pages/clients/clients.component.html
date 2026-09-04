@@ -737,12 +737,18 @@
                       <input [id]="'departure-date-' + cliente.id"
                              type="date"
                              [(ngModel)]="departureDate"
+                             (ngModelChange)="onDepartureDateChange($event)"
                              [min]="getNextMonthDateInputMin()"
                              [max]="getNextMonthDateInputMax()"
                              class="mt-1 w-full rounded-md border border-blue-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
                       <p class="mt-1.5 text-[10px] leading-snug text-blue-800">
                         Se cobrarán {{ getDepartureProportionalDays() }} días:
-                        <strong>≈ {{ getDepartureProportionalAmount(cliente) | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>.
+                        <ng-container *ngIf="departureProportionalPreview; else departureProportionalPending">
+                          <strong>≈ {{ getDepartureProportionalAmount(cliente) | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>.
+                        </ng-container>
+                        <ng-template #departureProportionalPending>
+                          <strong>{{ departureProportionalPreviewLoading ? 'Calculando…' : 'Elegí una fecha' }}</strong>.
+                        </ng-template>
                         El débito completo del mes siguiente se reemplaza por este proporcional.
                       </p>
                     </div>
@@ -784,6 +790,32 @@
                     <p class="mt-3 rounded-lg bg-emerald-50 p-2 text-[11px] leading-snug text-emerald-800">
                       El cliente seguirá activo y sus bauleras volverán a OCUPADO.
                     </p>
+                    <div class="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5">
+                      <p class="text-[11px] font-semibold text-emerald-900">
+                        ¿Qué hacemos con el cobro del mes siguiente?
+                        </p>
+                        <label class="mt-2 flex items-start gap-2 text-[11px] text-gray-700">
+                        <input type="radio"
+                               name="departure-restore-proportional-{{cliente.id}}"
+                               [checked]="departureRestoreProportional"
+                               (change)="departureRestoreProportional = true"
+                               class="mt-0.5 border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                        <span>
+                          Deshacer el proporcional y generar el débito mensual completo si los meses anteriores están pagos.
+                        </span>
+                      </label>
+                      <label class="mt-1 flex items-start gap-2 text-[11px] text-gray-700">
+                        <input type="radio"
+                               name="departure-restore-proportional-{{cliente.id}}"
+                               [checked]="!departureRestoreProportional"
+                               (change)="departureRestoreProportional = false"
+                               class="mt-0.5 border-gray-300 text-gray-600 focus:ring-gray-500" />
+                        <span>Conservar el proporcional, si existe.</span>
+                      </label>
+                      <p class="mt-1.5 text-[10px] leading-snug text-emerald-800">
+                        Si hay un mes anterior impago, se elimina solamente el proporcional. Si no, se genera automáticamente el débito completo correspondiente.
+                      </p>
+                    </div>
                     <p *ngIf="departureFormError" class="mt-2 text-[11px] font-medium text-red-600">{{ departureFormError }}</p>
                     <button type="button"
                             [disabled]="departureSubmitting"

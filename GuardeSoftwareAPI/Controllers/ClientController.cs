@@ -223,6 +223,35 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpGet("{id}/departure-proportional-preview")]
+        public async Task<IActionResult> GetDepartureProportionalPreview(int id, [FromQuery] DateTime? departureDate)
+        {
+            try
+            {
+                if (!departureDate.HasValue)
+                    return BadRequest(new { message = "La fecha de salida es obligatoria." });
+
+                var preview = await _clientService.GetDepartureProportionalPreviewAsync(id, departureDate.Value);
+                return Ok(preview);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Error al calcular el proporcional: {ex.Message}" });
+            }
+        }
+
         [HttpPut("{id}/reactivate")]
         public async Task<IActionResult> ReactivateClient(int id, [FromBody] CreateClientDTO dto)
         {

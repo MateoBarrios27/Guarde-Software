@@ -18,6 +18,7 @@ namespace GuardeSoftwareAPI.Services.client
         Task<bool> UpdateClientAsync(int id, CreateClientDTO dto);
         Task<bool> DeactivateClientAsync(int clientId);
         Task ApplyDepartureActionAsync(int clientId, ClientDepartureActionDto request);
+        Task<ClientDepartureProportionalPreviewDto> GetDepartureProportionalPreviewAsync(int clientId, DateTime departureDate);
         Task ReactivateClientAsync(int clientId, CreateClientDTO dto);
         Task<decimal> GetNextPaymentIdentifierAsync();
         Task<bool> CheckPaymentIdentifierExistsAsync(decimal identifier, int? excludeClientId = null);

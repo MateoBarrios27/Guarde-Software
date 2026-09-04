@@ -9,7 +9,7 @@ import { CreateClientModalComponent } from '../../shared/components/create-clien
 // --- Modelos y Servicios para la TABLA ---
 import { TableClient } from '../../core/dtos/client/TableClientDto';
 import { GetClientsRequest } from '../../core/dtos/client/GetClientsRequest';
-import { ClientService } from '../../core/services/client-service/client.service';
+import { ClientDepartureProportionalPreview, ClientService } from '../../core/services/client-service/client.service';
 import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO';
 
 import { Subject, Observable, firstValueFrom } from 'rxjs';
@@ -116,10 +116,14 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public departureAction: 'SE_VA' | 'SE_QUEDA' | 'DAR_DE_BAJA' = 'SE_VA';
   public departureChargeProportional = false;
   public departureRemoveNextMonthDebit = false;
+  public departureRestoreProportional = true;
   public departureDate = '';
   public departurePendingSurchargeAction: 'forgive' | 'immediate' = 'forgive';
   public departureFormError = '';
   public departureSubmitting = false;
+  public departureProportionalPreview: ClientDepartureProportionalPreview | null = null;
+  public departureProportionalPreviewLoading = false;
+  private departurePreviewRequestId = 0;
 
   @ViewChild('tagsPopoverRef') tagsPopoverRef!: ElementRef;
   @ViewChild('tagsButtonRef') tagsButtonRef!: ElementRef;
@@ -201,11 +205,13 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.departureAction = this.isClientLeaving(cliente) ? 'SE_QUEDA' : 'SE_VA';
     this.departureChargeProportional = false;
     this.departureRemoveNextMonthDebit = false;
+    this.departureRestoreProportional = true;
     // La fecha debe ser elegida explícitamente cuando se activa el proporcional.
     this.departureDate = '';
     this.departurePendingSurchargeAction = 'forgive';
     this.departureFormError = '';
     this.departureSubmitting = false;
+    this.clearDepartureProportionalPreview();
     this.cdr.markForCheck();
   }
 
@@ -213,15 +219,20 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.activeDepartureClient = null;
     this.departureFormError = '';
     this.departureSubmitting = false;
+    this.clearDepartureProportionalPreview();
     this.cdr.markForCheck();
   }
 
   public selectDepartureAction(action: 'SE_VA' | 'SE_QUEDA' | 'DAR_DE_BAJA'): void {
     this.departureAction = action;
     this.departureFormError = '';
+    this.clearDepartureProportionalPreview();
     if (action === 'SE_QUEDA') {
       this.departureChargeProportional = false;
       this.departureRemoveNextMonthDebit = false;
+      this.departureRestoreProportional = true;
+    } else {
+      this.departureRestoreProportional = false;
     }
     this.cdr.markForCheck();
   }
@@ -232,8 +243,21 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.departureChargeProportional) {
       // El proporcional reemplaza al débito mensual completo del mes siguiente.
       this.departureRemoveNextMonthDebit = true;
+      this.loadDepartureProportionalPreview();
+    } else {
+      this.clearDepartureProportionalPreview();
     }
     this.cdr.markForCheck();
+  }
+
+  public onDepartureDateChange(value: string): void {
+    this.departureDate = value;
+    this.departureFormError = '';
+    if (this.departureChargeProportional) {
+      this.loadDepartureProportionalPreview();
+    } else {
+      this.clearDepartureProportionalPreview();
+    }
   }
 
   public getNextMonthDateInputMin(): string {
@@ -252,12 +276,46 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   public getDepartureProportionalAmount(cliente: TableClient): number {
-    const departureDate = this.parseDateInput(this.departureDate);
-    if (!departureDate || !cliente.currentRent) return 0;
+    if (this.activeDepartureClient?.id !== cliente.id) return 0;
+    return this.departureProportionalPreview?.proportionalAmount ?? 0;
+  }
 
-    const daysInMonth = new Date(departureDate.getFullYear(), departureDate.getMonth() + 1, 0).getDate();
-    const rawAmount = (Number(cliente.currentRent) / daysInMonth) * departureDate.getDate();
-    return Math.round(rawAmount / 1000) * 1000;
+  private async loadDepartureProportionalPreview(): Promise<void> {
+    const cliente = this.activeDepartureClient;
+    const departureDate = this.departureDate;
+    if (!cliente || !this.departureChargeProportional || !departureDate) {
+      this.clearDepartureProportionalPreview();
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const requestId = ++this.departurePreviewRequestId;
+    this.departureProportionalPreview = null;
+    this.departureProportionalPreviewLoading = true;
+    this.cdr.markForCheck();
+
+    try {
+      const preview = await firstValueFrom(
+        this.clientService.getDepartureProportionalPreview(cliente.id, departureDate)
+      );
+      if (requestId !== this.departurePreviewRequestId) return;
+      this.departureProportionalPreview = preview;
+    } catch (error) {
+      if (requestId !== this.departurePreviewRequestId) return;
+      console.error('Error al calcular el proporcional de salida:', error);
+      this.departureFormError = 'No se pudo calcular el proporcional para esa fecha.';
+    } finally {
+      if (requestId === this.departurePreviewRequestId) {
+        this.departureProportionalPreviewLoading = false;
+        this.cdr.markForCheck();
+      }
+    }
+  }
+
+  private clearDepartureProportionalPreview(): void {
+    this.departurePreviewRequestId++;
+    this.departureProportionalPreview = null;
+    this.departureProportionalPreviewLoading = false;
   }
 
   public applyDepartureFromPopover(event: Event): void {
@@ -317,6 +375,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       action,
       chargeProportional,
       removeNextMonthDebit,
+      restoreProportional: action === 'SE_QUEDA' && this.departureRestoreProportional,
       departureDate,
       pendingSurchargeAction
     }).subscribe({

@@ -38,6 +38,9 @@ namespace GuardeSoftwareAPI.Dtos.Client
 
         //rentalAmountHistory
         public decimal Amount { get; set; }
+        public bool UseManualProportional { get; set; } = false;
+        public int? ProportionalDays { get; set; }
+        public decimal? ProportionalAmount { get; set; }
         //id of locker rental
         public List<int> LockerIds { get; set; } = [];
 
