@@ -4,7 +4,13 @@ import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from "../../shared/components/icon/icon.component";
 import { CommunicationService } from '../../core/services/communication-service/communication.service';
-import { ComunicacionDto, CommunicationDispatchDto, UpsertComunicacionRequest } from '../../core/dtos/communications/communicationDto';
+import {
+  ComunicacionDto,
+  CommunicationDispatchDto,
+  CommunicationExtensionMode,
+  CommunicationExtensionPreview,
+  UpsertComunicacionRequest
+} from '../../core/dtos/communications/communicationDto';
 import { ClientService } from '../../core/services/client-service/client.service';
 import { MassCommunicationRecipientService } from '../../core/services/mass-communication-recipient-service/mass-communication-recipient.service';
 import { MassCommunicationRecipient } from '../../core/models/mass-communication-recipient';
@@ -88,7 +94,12 @@ const COMMUNICATION_CHANNELS: Channel[] = [
 
 const INMOBILIARIAS_TEMPLATE_MARKER = 'GUARDE_TEMPLATE:INMOBILIARIAS_V1';
 const INMOBILIARIAS_TEMPLATE_URL = 'assets/email-templates/inmobiliarias/inmobiliarias.html';
+const LABORATORIOS_TEMPLATE_MARKER = 'GUARDE_TEMPLATE:LABORATORIOS_V1';
+const LABORATORIOS_TEMPLATE_URL = 'assets/email-templates/laboratorios/laboratorios.html';
+const VISITADORES_MEDICOS_TEMPLATE_MARKER = 'GUARDE_TEMPLATE:VISITADORES_MEDICOS_V1';
+const VISITADORES_MEDICOS_TEMPLATE_URL = 'assets/email-templates/visitadores-medicos/visitadores-medicos.html';
 const UNTYPED_RECIPIENT_TYPE = '__sin_rubro__';
+const DEFAULT_EXTENSION_RECIPIENT_TYPE = 'inmobiliaria';
 
 @Component({
   selector: 'communications',
@@ -107,6 +118,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   private searchSubject = new Subject<string>();
   selectedFiles = signal<File[]>([]);
   isLoadingInmobiliariasTemplate = signal(false);
+  isLoadingLaboratoriosTemplate = signal(false);
+  isLoadingVisitadoresMedicosTemplate = signal(false);
   smtpConfigs = signal<any[]>([]);
 
   showRecipientModal = signal(false);
@@ -126,9 +139,14 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   selectedCount = computed(() => this.formData().sendToAllEmails
     ? 0
     : this.formData().recipients.length + this.formData().externalRecipientIds.length);
-  isInmobiliariasTemplate = computed(() =>
-    this.formData().content.includes(INMOBILIARIAS_TEMPLATE_MARKER)
-  );
+  activeDesignedTemplateLabel = computed(() => {
+    const content = this.formData().content;
+    if (content.includes(INMOBILIARIAS_TEMPLATE_MARKER)) return 'Inmobiliarias';
+    if (content.includes(LABORATORIOS_TEMPLATE_MARKER)) return 'Laboratorios';
+    if (content.includes(VISITADORES_MEDICOS_TEMPLATE_MARKER)) return 'Visitadores médicos';
+    return '';
+  });
+  isDesignedMarketingTemplate = computed(() => this.activeDesignedTemplateLabel().length > 0);
   selectedExternalCount = computed(() => this.allExternalRecipients().filter(r => r.selected).length);
   modalSelectedCount = computed(() =>
     this.allClients().filter(c => c.selected).length + this.selectedExternalCount());
@@ -860,9 +878,14 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     sendToAllEmails: false
   });
   
-  currentModal = signal<'add' | 'edit' | 'view' | 'send-confirm' | 'retry' | 'history' | 'none'>('none');
+  currentModal = signal<'add' | 'edit' | 'view' | 'send-confirm' | 'retry' | 'extend' | 'history' | 'none'>('none');
   selectedCommunication = signal<ComunicacionDto | null>(null);
   transitioningCommunications = signal<Set<number>>(new Set());
+  extensionPreview = signal<CommunicationExtensionPreview | null>(null);
+  extensionRecipientType = signal(DEFAULT_EXTENSION_RECIPIENT_TYPE);
+  extensionMode = signal<CommunicationExtensionMode>('never-attempted');
+  isLoadingExtensionPreview = signal(false);
+  isExtendingCommunication = signal(false);
 
   // History Modal Signals
   historySearchTerm = signal<string>('');
@@ -1075,6 +1098,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   closeModal(): void {
     this.currentModal.set('none');
     this.selectedCommunication.set(null);
+    this.extensionPreview.set(null);
+    this.isLoadingExtensionPreview.set(false);
     this.historySearchTerm.set('');
     this.historyStatusFilter.set('ALL');
     this.historyChannelFilter.set('ALL');
@@ -1461,6 +1486,98 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadLaboratoriosTemplate(): void {
+    if (this.isLoadingLaboratoriosTemplate()) return;
+
+    this.isLoadingLaboratoriosTemplate.set(true);
+    this.http.get(LABORATORIOS_TEMPLATE_URL, { responseType: 'text' }).subscribe({
+      next: (template) => {
+        if (!template.includes(LABORATORIOS_TEMPLATE_MARKER)) {
+          this.isLoadingLaboratoriosTemplate.set(false);
+          this.showToast(
+            'Plantilla no disponible',
+            'El archivo de la Plantilla Laboratorios no es válido.',
+            'alert-circle',
+            'error'
+          );
+          return;
+        }
+
+        this.formData.update(data => ({
+          ...data,
+          title: 'PUBLICIDAD | Espacio flexible para materiales y equipamiento de tu laboratorio',
+          channels: data.channels.includes('Email')
+            ? data.channels
+            : [...data.channels, 'Email'],
+          content: template
+        }));
+        this.isLoadingLaboratoriosTemplate.set(false);
+        this.showToast(
+          'Plantilla Laboratorios cargada',
+          'Elegí los laboratorios destinatarios o enviá una prueba antes del envío final.',
+          'mail',
+          'success'
+        );
+      },
+      error: (error) => {
+        console.error('No se pudo cargar la Plantilla Laboratorios', error);
+        this.isLoadingLaboratoriosTemplate.set(false);
+        this.showToast(
+          'Error al cargar la plantilla',
+          'No se pudo abrir la Plantilla Laboratorios.',
+          'alert-circle',
+          'error'
+        );
+      }
+    });
+  }
+
+  loadVisitadoresMedicosTemplate(): void {
+    if (this.isLoadingVisitadoresMedicosTemplate()) return;
+
+    this.isLoadingVisitadoresMedicosTemplate.set(true);
+    this.http.get(VISITADORES_MEDICOS_TEMPLATE_URL, { responseType: 'text' }).subscribe({
+      next: (template) => {
+        if (!template.includes(VISITADORES_MEDICOS_TEMPLATE_MARKER)) {
+          this.isLoadingVisitadoresMedicosTemplate.set(false);
+          this.showToast(
+            'Plantilla no disponible',
+            'El archivo de la Plantilla Visitadores Médicos no es válido.',
+            'alert-circle',
+            'error'
+          );
+          return;
+        }
+
+        this.formData.update(data => ({
+          ...data,
+          title: 'PUBLICIDAD | Más espacio para organizar tu material de trabajo',
+          channels: data.channels.includes('Email')
+            ? data.channels
+            : [...data.channels, 'Email'],
+          content: template
+        }));
+        this.isLoadingVisitadoresMedicosTemplate.set(false);
+        this.showToast(
+          'Plantilla Visitadores Médicos cargada',
+          'Elegí los visitadores destinatarios o enviá una prueba antes del envío final.',
+          'mail',
+          'success'
+        );
+      },
+      error: (error) => {
+        console.error('No se pudo cargar la Plantilla Visitadores Médicos', error);
+        this.isLoadingVisitadoresMedicosTemplate.set(false);
+        this.showToast(
+          'Error al cargar la plantilla',
+          'No se pudo abrir la Plantilla Visitadores Médicos.',
+          'alert-circle',
+          'error'
+        );
+      }
+    });
+  }
+
   loadIcbcTemplate2(): void {
     const currentChannels = this.formData().channels;
     const channels: FormDataState['channels'] = currentChannels.includes('Email')
@@ -1523,6 +1640,111 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     this.openModal('retry', comm);
   }
 
+  openExtensionModal(comm: ComunicacionDto): void {
+    this.selectedCommunication.set(comm);
+    this.extensionRecipientType.set(DEFAULT_EXTENSION_RECIPIENT_TYPE);
+    this.extensionMode.set('never-attempted');
+    this.extensionPreview.set(null);
+    this.isExtendingCommunication.set(false);
+    this.currentModal.set('extend');
+    this.refreshExtensionPreview();
+  }
+
+  closeExtensionModal(): void {
+    if (this.isExtendingCommunication()) return;
+    this.closeModal();
+  }
+
+  onExtensionRecipientTypeChanged(recipientType: string): void {
+    this.extensionRecipientType.set(recipientType);
+    this.refreshExtensionPreview();
+  }
+
+  onExtensionModeChanged(mode: CommunicationExtensionMode): void {
+    this.extensionMode.set(mode);
+    this.refreshExtensionPreview();
+  }
+
+  refreshExtensionPreview(): void {
+    const communication = this.selectedCommunication();
+    const recipientType = this.extensionRecipientType().trim();
+    if (!communication || !recipientType) {
+      this.extensionPreview.set(null);
+      return;
+    }
+
+    this.isLoadingExtensionPreview.set(true);
+    this.commService.getCommunicationExtensionPreview(
+      communication.id,
+      recipientType,
+      this.extensionMode()
+    ).subscribe({
+      next: preview => {
+        this.extensionPreview.set(preview);
+        this.isLoadingExtensionPreview.set(false);
+      },
+      error: err => {
+        console.error('Error preparando la ampliación del comunicado', err);
+        this.extensionPreview.set(null);
+        this.isLoadingExtensionPreview.set(false);
+        this.showToast(
+          'No se puede ampliar el comunicado',
+          err?.error?.message || 'Revisá que sea una campaña externa de Email ya finalizada.',
+          'alert-triangle',
+          'error'
+        );
+      }
+    });
+  }
+
+  confirmExtendCommunication(): void {
+    const communication = this.selectedCommunication();
+    const preview = this.extensionPreview();
+    if (!communication || !preview || preview.selectedForSendCount === 0) {
+      this.showToast(
+        'Sin destinatarios nuevos',
+        'No hay receptores activos con email que cumplan el criterio seleccionado.',
+        'alert-triangle',
+        'error'
+      );
+      return;
+    }
+
+    this.isExtendingCommunication.set(true);
+    this.commService.extendCommunication(communication.id, {
+      recipientType: preview.recipientType,
+      mode: preview.mode
+    }).subscribe({
+      next: result => {
+        this.isExtendingCommunication.set(false);
+        this.showToast(
+          'Ampliación programada',
+          `Se enviará a ${result.selectedForSendCount} receptor(es) sin repetir entregas reales.`,
+          'check',
+          'success'
+        );
+        this.closeModal();
+        this.loadCommunications();
+      },
+      error: err => {
+        console.error('Error ampliando el comunicado', err);
+        this.isExtendingCommunication.set(false);
+        this.showToast(
+          'No se pudo ampliar',
+          err?.error?.message || 'Volvé a abrir la campaña y revisá el detalle.',
+          'alert-triangle',
+          'error'
+        );
+      }
+    });
+  }
+
+  canExtendCommunication(communication: ComunicacionDto): boolean {
+    return communication.status === 'Finished'
+      || communication.status === 'Finished w/ Errors'
+      || communication.status === 'Failed';
+  }
+
   viewDispatchContent(dispatchId: number, clientName: string): void {
     this.commService.getDispatchContent(dispatchId).subscribe({
       next: ({ content }) => {
@@ -1558,14 +1780,14 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
         isSelected: true
       }));
     }
-    return comm.dispatches.filter(d => d.status !== 'Exitoso');
+    return comm.dispatches.filter(d => !d.isTest && d.status !== 'Exitoso');
   }
 
   toggleAllRetrySelection(select: boolean): void {
     const comm = this.selectedCommunication();
     if (!comm || !comm.dispatches) return;
     comm.dispatches.forEach(d => {
-      if (d.status !== 'Exitoso') d.isSelected = select;
+      if (!d.isTest && d.status !== 'Exitoso') d.isSelected = select;
     });
     this.selectedCommunication.set({ ...comm });
   }
@@ -1578,11 +1800,15 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   }
 
   getSuccessCount(dispatches: CommunicationDispatchDto[]): number {
-    return dispatches.filter(d => d.status === 'Exitoso').length;
+    return dispatches.filter(d => !d.isTest && d.status === 'Exitoso').length;
   }
 
   getFailedCount(dispatches: CommunicationDispatchDto[]): number {
-    return dispatches.filter(d => d.status !== 'Exitoso').length;
+    return dispatches.filter(d => !d.isTest && d.status !== 'Exitoso').length;
+  }
+
+  getTestCount(dispatches: CommunicationDispatchDto[]): number {
+    return dispatches.filter(d => d.isTest).length;
   }
 
   getCommunicationRecipientCount(communication: ComunicacionDto): number {
@@ -1737,17 +1963,6 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   onExternalRecipientTypeChange(typeKey: string): void {
     this.selectedExternalRecipientType.set(typeKey || '');
     this.filterExternalRecipients();
-
-    // Elegir un rubro representa una selección de audiencia, no sólo un
-    // filtro visual. Se marcan todos los contactos activos con email de ese
-    // rubro y se conservan las selecciones previas para poder combinar rubros.
-    if (typeKey) {
-      this.allExternalRecipients.update(recipients => recipients.map(recipient =>
-        recipient.typeKey === typeKey
-          ? { ...recipient, selected: true }
-          : recipient));
-      this.filterExternalRecipients();
-    }
   }
 
   filterExternalRecipients(): void {

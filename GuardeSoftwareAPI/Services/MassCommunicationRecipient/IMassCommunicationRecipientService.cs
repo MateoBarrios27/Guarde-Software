@@ -9,5 +9,6 @@ namespace GuardeSoftwareAPI.Services.massCommunicationRecipient
         Task<MassCommunicationRecipientDto> CreateAsync(UpsertMassCommunicationRecipientDto dto);
         Task<MassCommunicationRecipientDto?> UpdateAsync(int id, UpsertMassCommunicationRecipientDto dto);
         Task<bool> DeleteAsync(int id);
+        Task<MassCommunicationRecipientImportResultDto> ImportAsync(MassCommunicationRecipientImportRequest request);
     }
 }

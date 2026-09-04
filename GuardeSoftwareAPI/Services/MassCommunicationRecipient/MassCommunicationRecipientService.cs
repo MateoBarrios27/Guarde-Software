@@ -8,6 +8,7 @@ namespace GuardeSoftwareAPI.Services.massCommunicationRecipient
     public class MassCommunicationRecipientService : IMassCommunicationRecipientService
     {
         private readonly DaoMassCommunicationRecipient _dao;
+        private readonly MassCommunicationRecipientImportParser _importParser = new();
 
         public MassCommunicationRecipientService(AccessDB accessDB)
         {
@@ -45,6 +46,131 @@ namespace GuardeSoftwareAPI.Services.massCommunicationRecipient
         {
             ValidateId(id);
             return await _dao.DeleteAsync(id);
+        }
+
+        public async Task<MassCommunicationRecipientImportResultDto> ImportAsync(
+            MassCommunicationRecipientImportRequest request)
+        {
+            if (request is null)
+            {
+                throw new ArgumentException("Los datos de importación son obligatorios.");
+            }
+
+            string recipientType = Normalize(request.Type) ?? "Inmobiliaria";
+            if (recipientType.Length > 100)
+            {
+                throw new ArgumentException("El tipo o rubro no puede superar los 100 caracteres.");
+            }
+
+            if (request.File is null)
+            {
+                throw new ArgumentException("Seleccioná un archivo CSV, TSV o XLSX.");
+            }
+
+            IReadOnlyList<MassCommunicationRecipientImportRecord> parsedRows =
+                await _importParser.ParseAsync(request.File);
+
+            var result = new MassCommunicationRecipientImportResultDto
+            {
+                DryRun = request.DryRun,
+                Type = recipientType,
+                TotalRows = parsedRows.Count
+            };
+
+            var validRows = new List<MassCommunicationRecipientImportRecord>();
+            var seenEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var issues = new List<MassCommunicationRecipientImportIssueDto>();
+
+            foreach (MassCommunicationRecipientImportRecord row in parsedRows)
+            {
+                string? name = Normalize(row.Name);
+                string? email = Normalize(row.Email);
+                string? phone = Normalize(row.Phone);
+                string emailKey = MassCommunicationRecipientImportParser.NormalizeEmail(email);
+
+                if (string.IsNullOrWhiteSpace(email))
+                {
+                    result.MissingEmailCount++;
+                    AddIssue(issues, row.RowNumber, name, email, "Falta el email.");
+                    continue;
+                }
+
+                if (!new EmailAddressAttribute().IsValid(email))
+                {
+                    result.InvalidCount++;
+                    AddIssue(issues, row.RowNumber, name, email, "El email no tiene un formato válido.");
+                    continue;
+                }
+
+                if (name?.Length > 150)
+                {
+                    result.InvalidCount++;
+                    AddIssue(issues, row.RowNumber, name, email, "El nombre supera los 150 caracteres.");
+                    continue;
+                }
+
+                if (phone?.Length > 50)
+                {
+                    result.InvalidCount++;
+                    AddIssue(issues, row.RowNumber, name, email, "El teléfono supera los 50 caracteres.");
+                    continue;
+                }
+
+                if (!seenEmails.Add(emailKey))
+                {
+                    result.DuplicateCount++;
+                    AddIssue(issues, row.RowNumber, name, email, "Email duplicado dentro del archivo.");
+                    continue;
+                }
+
+                validRows.Add(new MassCommunicationRecipientImportRecord
+                {
+                    RowNumber = row.RowNumber,
+                    Name = name,
+                    Email = email,
+                    Phone = phone,
+                    EmailKey = emailKey
+                });
+            }
+
+            result.ValidRows = validRows.Count;
+
+            if (validRows.Count > 0)
+            {
+                var databaseImport = await _dao.ImportAsync(
+                    validRows,
+                    recipientType,
+                    request.ReactivateInactive,
+                    request.DryRun);
+
+                result.NewCount = databaseImport.NewCount;
+                result.ExistingActiveCount = databaseImport.ExistingActiveCount;
+                result.ExistingInactiveCount = databaseImport.ExistingInactiveCount;
+                result.ReactivatedCount = databaseImport.ReactivatedCount;
+                result.UpdatedCount = databaseImport.UpdatedCount;
+                result.SkippedInactiveCount = databaseImport.SkippedInactiveCount;
+                result.ImportedCount = request.DryRun ? 0 : databaseImport.NewCount;
+            }
+
+            result.Issues = issues.Take(100).ToList();
+            result.HasMoreIssues = issues.Count > result.Issues.Count;
+            return result;
+        }
+
+        private static void AddIssue(
+            List<MassCommunicationRecipientImportIssueDto> issues,
+            int rowNumber,
+            string? name,
+            string? email,
+            string reason)
+        {
+            issues.Add(new MassCommunicationRecipientImportIssueDto
+            {
+                RowNumber = rowNumber,
+                Name = name,
+                Email = email,
+                Reason = reason
+            });
         }
 
         private static MassCommunicationRecipient NormalizeAndValidate(UpsertMassCommunicationRecipientDto dto)

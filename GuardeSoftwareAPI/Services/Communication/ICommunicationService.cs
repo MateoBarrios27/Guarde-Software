@@ -16,6 +16,14 @@ namespace GuardeSoftwareAPI.Services.communication
             int communicationId,
             List<int> selectedClientIds,
             List<int>? selectedExternalRecipientIds = null);
+        Task<CommunicationExtensionPreviewDto> GetCommunicationExtensionPreviewAsync(
+            int communicationId,
+            string recipientType,
+            string mode);
+        Task<CommunicationExtensionResultDto> ExtendCommunicationAsync(
+            int communicationId,
+            ExtendCommunicationRequest request,
+            int userId);
         Task<string?> GetDispatchContentAsync(int dispatchId);
     }
 }

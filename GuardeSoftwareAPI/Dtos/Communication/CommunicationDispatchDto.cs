@@ -12,6 +12,7 @@ namespace GuardeSoftwareAPI.Dtos.Communication
         public string ErrorMessage { get; set; } = string.Empty;
         public string DispatchDate { get; set; } = string.Empty;
         public string? RecipientPhone { get; set; }
+        public bool IsTest { get; set; }
         public bool IsSelected { get; set; } = true;
         public bool HasContent { get; set; }
     }

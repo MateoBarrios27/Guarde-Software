@@ -1,7 +1,14 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
-import { ComunicacionDto, UpsertComunicacionRequest } from './../../dtos/communications/communicationDto';
+import {
+  ComunicacionDto,
+  CommunicationExtensionMode,
+  CommunicationExtensionPreview,
+  CommunicationExtensionResult,
+  ExtendCommunicationRequest,
+  UpsertComunicacionRequest
+} from './../../dtos/communications/communicationDto';
 import { environment } from '../../../../environments/environments';
 import { IClientCommunication } from '../../../shared/components/client-detail-modal/client-detail-modal.component';
 import { SmtpConfig } from '../../models/smtp-config';
@@ -126,6 +133,31 @@ export class CommunicationService {
     return this.http.post<ComunicacionDto>(
       this.url + '/Communications/' + id + '/retry-selected',
       { selectedClientIds, selectedExternalRecipientIds }
+    );
+  }
+
+  getCommunicationExtensionPreview(
+    id: number,
+    recipientType: string,
+    mode: CommunicationExtensionMode
+  ): Observable<CommunicationExtensionPreview> {
+    const params = {
+      recipientType,
+      mode
+    };
+    return this.http.get<CommunicationExtensionPreview>(
+      `${this.url}/Communications/${id}/extension-preview`,
+      { params }
+    );
+  }
+
+  extendCommunication(
+    id: number,
+    request: ExtendCommunicationRequest
+  ): Observable<CommunicationExtensionResult> {
+    return this.http.post<CommunicationExtensionResult>(
+      `${this.url}/Communications/${id}/extend`,
+      request
     );
   }
 

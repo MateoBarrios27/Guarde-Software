@@ -9,8 +9,56 @@ export interface CommunicationDispatchDto {
   errorMessage: string;
   dispatchDate: string;
   recipientPhone?: string | null;
+  isTest?: boolean;
   isSelected?: boolean;
   hasContent?: boolean;
+}
+
+export type CommunicationExtensionMode = 'never-attempted' | 'without-success';
+
+export interface CommunicationExtensionRecipient {
+  id: number;
+  name: string;
+  email: string;
+  type: string | null;
+  isActive: boolean;
+  isAssociated: boolean;
+  hasRealAttempt: boolean;
+  hasRealSuccess: boolean;
+  lastStatus: string | null;
+  lastAttemptWasTest: boolean;
+}
+
+export interface CommunicationExtensionPreview {
+  communicationId: number;
+  title: string;
+  status: string;
+  recipientType: string;
+  mode: CommunicationExtensionMode;
+  totalInDirectory: number;
+  eligibleWithEmail: number;
+  alreadySuccessfulCount: number;
+  neverAttemptedCount: number;
+  previouslyAttemptedCount: number;
+  failedOrPendingCount: number;
+  alreadyAssociatedCount: number;
+  newToCommunicationCount: number;
+  selectedForSendCount: number;
+  inactiveOrWithoutEmailCount: number;
+  isTestCommunication: boolean;
+  candidateListTruncated: boolean;
+  recipients: CommunicationExtensionRecipient[];
+}
+
+export interface ExtendCommunicationRequest {
+  recipientType: string;
+  mode: CommunicationExtensionMode;
+}
+
+export interface CommunicationExtensionResult extends CommunicationExtensionPreview {
+  queued: boolean;
+  addedAssociationCount: number;
+  communication?: ComunicacionDto | null;
 }
 
 export interface CommunicationExternalRecipientDto {

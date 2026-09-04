@@ -122,5 +122,25 @@ namespace GuardeSoftwareAPI.Controllers
                 return StatusCode(500, new { message = "No se pudo eliminar el receptor." });
             }
         }
+
+        [HttpPost("import")]
+        [RequestSizeLimit(20 * 1024 * 1024)]
+        public async Task<ActionResult<MassCommunicationRecipientImportResultDto>> Import(
+            [FromForm] MassCommunicationRecipientImportRequest request)
+        {
+            try
+            {
+                return Ok(await _service.ImportAsync(request));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al importar receptores de comunicados masivos.");
+                return StatusCode(500, new { message = "No se pudieron importar los receptores." });
+            }
+        }
     }
 }

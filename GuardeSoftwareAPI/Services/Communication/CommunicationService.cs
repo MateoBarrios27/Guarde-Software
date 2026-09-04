@@ -1,6 +1,7 @@
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Jobs; // Assuming your Job is in a Jobs folder
 using Microsoft.Data.SqlClient;
+using System.Data;
 using Quartz;
 using GuardeSoftwareAPI.Dtos.Communication;
 using Microsoft.AspNetCore.SignalR;
@@ -443,6 +444,306 @@ namespace GuardeSoftwareAPI.Services.communication
                 selectedClientIds,
                 selectedExternalRecipientIds);
             return await SendDraftNowAsync(communicationId);
+        }
+
+        public async Task<CommunicationExtensionPreviewDto> GetCommunicationExtensionPreviewAsync(
+            int communicationId,
+            string recipientType,
+            string mode)
+        {
+            string normalizedType = NormalizeExtensionRecipientType(recipientType);
+            string normalizedMode = NormalizeExtensionMode(mode);
+            CommunicationExtensionSourceData? source =
+                await _communicationDao.GetCommunicationExtensionSourceDataAsync(
+                    communicationId,
+                    normalizedType);
+
+            ValidateExtensionSource(source);
+            return BuildExtensionPreview(source!, normalizedType, normalizedMode);
+        }
+
+        public async Task<CommunicationExtensionResultDto> ExtendCommunicationAsync(
+            int communicationId,
+            ExtendCommunicationRequest request,
+            int userId)
+        {
+            if (request is null)
+            {
+                throw new ArgumentException("Los datos para ampliar el comunicado son obligatorios.");
+            }
+
+            string normalizedType = NormalizeExtensionRecipientType(request.RecipientType);
+            string normalizedMode = NormalizeExtensionMode(request.Mode);
+
+            using SqlConnection connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using SqlTransaction transaction = (SqlTransaction)await connection.BeginTransactionAsync();
+
+            try
+            {
+                await AcquireCommunicationExtensionLockAsync(connection, transaction, communicationId);
+
+                CommunicationExtensionSourceData? source =
+                    await _communicationDao.GetCommunicationExtensionSourceDataAsync(
+                        communicationId,
+                        normalizedType,
+                        connection,
+                        transaction);
+
+                ValidateExtensionSource(source);
+                CommunicationExtensionPreviewDto preview =
+                    BuildExtensionPreview(source!, normalizedType, normalizedMode);
+
+                if (preview.SelectedForSendCount == 0)
+                {
+                    await transaction.CommitAsync();
+                    return ToExtensionResult(preview, queued: false, addedAssociationCount: 0, communication: null);
+                }
+
+                List<int> selectedRecipientIds = source!.Recipients
+                    .Where(recipient => IsSelectedForExtension(recipient, normalizedMode))
+                    .Select(recipient => recipient.Id)
+                    .ToList();
+
+                int addedAssociationCount = await _communicationDao.AddExternalRecipientsToCommunicationAsync(
+                    communicationId,
+                    source.EmailChannelContentId!.Value,
+                    selectedRecipientIds,
+                    connection,
+                    transaction);
+
+                await _communicationDao.SetExternalRecipientRetryScopeAsync(
+                    source.EmailChannelContentId.Value,
+                    selectedRecipientIds,
+                    connection,
+                    transaction);
+
+                DateTime scheduledDate = DateTime.Now.AddMinutes(1);
+                bool scheduled = await _communicationDao.ScheduleExternalCommunicationExtensionAsync(
+                    communicationId,
+                    scheduledDate,
+                    connection,
+                    transaction);
+
+                if (!scheduled)
+                {
+                    throw new InvalidOperationException(
+                        "El comunicado cambió de estado mientras se intentaba ampliarlo. Volvé a abrirlo y revisá el detalle.");
+                }
+
+                await transaction.CommitAsync();
+
+                await ScheduleJobAsync(communicationId, scheduledDate);
+                CommunicationDto communication = await _communicationDao.GetCommunicationByIdAsync(communicationId);
+                await _hubContext.Clients.All.SendAsync("CommunicationUpdated", communicationId);
+
+                return ToExtensionResult(
+                    preview,
+                    queued: true,
+                    addedAssociationCount,
+                    communication);
+            }
+            catch
+            {
+                try
+                {
+                    await transaction.RollbackAsync();
+                }
+                catch (Exception rollbackException)
+                {
+                    logger.LogWarning(
+                        rollbackException,
+                        "No se pudo revertir la ampliación del comunicado {CommunicationId}.",
+                        communicationId);
+                }
+
+                throw;
+            }
+        }
+
+        private static string NormalizeExtensionRecipientType(string? recipientType)
+        {
+            string normalized = recipientType?.Trim() ?? string.Empty;
+            if (normalized.Length == 0)
+            {
+                throw new ArgumentException("Seleccioná un rubro de receptores externos.");
+            }
+
+            if (normalized.Length > 100)
+            {
+                throw new ArgumentException("El rubro no puede superar los 100 caracteres.");
+            }
+
+            return normalized;
+        }
+
+        private static string NormalizeExtensionMode(string? mode)
+        {
+            string normalized = mode?.Trim().ToLowerInvariant() ?? string.Empty;
+            return normalized switch
+            {
+                CommunicationExtensionModes.NeverAttempted => normalized,
+                CommunicationExtensionModes.WithoutSuccessfulDelivery => normalized,
+                _ => throw new ArgumentException("El modo de ampliación seleccionado no es válido.")
+            };
+        }
+
+        private static void ValidateExtensionSource(CommunicationExtensionSourceData? source)
+        {
+            if (source is null)
+            {
+                throw new KeyNotFoundException("No se encontró el comunicado seleccionado.");
+            }
+
+            if (!source.Status.Equals("Finished", StringComparison.OrdinalIgnoreCase)
+                && !source.Status.Equals("Finished w/ Errors", StringComparison.OrdinalIgnoreCase)
+                && !source.Status.Equals("Failed", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Sólo se puede ampliar un comunicado que ya terminó de procesarse.");
+            }
+
+            if (source.SendToAllEmails)
+            {
+                throw new InvalidOperationException(
+                    "Este comunicado usa 'Todos los emails'. Para ampliar por rubro, utilizá un comunicado con receptores externos seleccionados.");
+            }
+
+            if (source.IsAccountStatement)
+            {
+                throw new InvalidOperationException(
+                    "Los estados de cuenta no se pueden ampliar con receptores externos.");
+            }
+
+            if (source.HasWhatsAppChannel)
+            {
+                throw new InvalidOperationException(
+                    "La ampliación por rubro sólo está disponible para comunicados de Email.");
+            }
+
+            if (source.ClientRecipientCount > 0)
+            {
+                throw new InvalidOperationException(
+                    "Este comunicado también tiene clientes seleccionados. Creá una campaña externa separada para evitar reenvíos fuera del rubro.");
+            }
+
+            if (!source.EmailChannelContentId.HasValue)
+            {
+                throw new InvalidOperationException("El comunicado no tiene contenido de Email para reutilizar.");
+            }
+
+            if (IsTestCommunicationTitle(source.Title))
+            {
+                throw new InvalidOperationException(
+                    "No se puede ampliar una campaña de prueba. Creá una campaña real antes de enviarla a los nuevos receptores.");
+            }
+        }
+
+        private static CommunicationExtensionPreviewDto BuildExtensionPreview(
+            CommunicationExtensionSourceData source,
+            string recipientType,
+            string mode)
+        {
+            List<CommunicationExtensionRecipientDto> eligibleRecipients = source.Recipients
+                .Where(recipient => recipient.IsActive && !string.IsNullOrWhiteSpace(recipient.Email))
+                .ToList();
+
+            List<CommunicationExtensionRecipientDto> selectedRecipients = eligibleRecipients
+                .Where(recipient => IsSelectedForExtension(recipient, mode))
+                .ToList();
+
+            return new CommunicationExtensionPreviewDto
+            {
+                CommunicationId = source.CommunicationId,
+                Title = source.Title,
+                Status = source.Status,
+                RecipientType = recipientType,
+                Mode = mode,
+                TotalInDirectory = source.Recipients.Count,
+                EligibleWithEmail = eligibleRecipients.Count,
+                AlreadySuccessfulCount = eligibleRecipients.Count(recipient => recipient.HasRealSuccess),
+                NeverAttemptedCount = eligibleRecipients.Count(recipient => !recipient.HasRealAttempt),
+                PreviouslyAttemptedCount = eligibleRecipients.Count(recipient => recipient.HasRealAttempt),
+                FailedOrPendingCount = eligibleRecipients.Count(recipient => recipient.HasRealAttempt && !recipient.HasRealSuccess),
+                AlreadyAssociatedCount = eligibleRecipients.Count(recipient => recipient.IsAssociated),
+                NewToCommunicationCount = eligibleRecipients.Count(recipient => !recipient.IsAssociated),
+                SelectedForSendCount = selectedRecipients.Count,
+                InactiveOrWithoutEmailCount = source.Recipients.Count - eligibleRecipients.Count,
+                IsTestCommunication = IsTestCommunicationTitle(source.Title),
+                CandidateListTruncated = selectedRecipients.Count > 200,
+                Recipients = selectedRecipients.Take(200).ToList()
+            };
+        }
+
+        private static bool IsSelectedForExtension(
+            CommunicationExtensionRecipientDto recipient,
+            string mode)
+        {
+            if (!recipient.IsActive || string.IsNullOrWhiteSpace(recipient.Email)) return false;
+
+            return mode == CommunicationExtensionModes.WithoutSuccessfulDelivery
+                ? !recipient.HasRealSuccess
+                : !recipient.HasRealAttempt;
+        }
+
+        private static bool IsTestCommunicationTitle(string? title)
+        {
+            return title?.TrimStart().StartsWith("[PRUEBA]", StringComparison.OrdinalIgnoreCase) == true;
+        }
+
+        private static CommunicationExtensionResultDto ToExtensionResult(
+            CommunicationExtensionPreviewDto preview,
+            bool queued,
+            int addedAssociationCount,
+            CommunicationDto? communication)
+        {
+            return new CommunicationExtensionResultDto
+            {
+                CommunicationId = preview.CommunicationId,
+                Title = preview.Title,
+                Status = preview.Status,
+                RecipientType = preview.RecipientType,
+                Mode = preview.Mode,
+                TotalInDirectory = preview.TotalInDirectory,
+                EligibleWithEmail = preview.EligibleWithEmail,
+                AlreadySuccessfulCount = preview.AlreadySuccessfulCount,
+                NeverAttemptedCount = preview.NeverAttemptedCount,
+                PreviouslyAttemptedCount = preview.PreviouslyAttemptedCount,
+                FailedOrPendingCount = preview.FailedOrPendingCount,
+                AlreadyAssociatedCount = preview.AlreadyAssociatedCount,
+                NewToCommunicationCount = preview.NewToCommunicationCount,
+                SelectedForSendCount = preview.SelectedForSendCount,
+                InactiveOrWithoutEmailCount = preview.InactiveOrWithoutEmailCount,
+                IsTestCommunication = preview.IsTestCommunication,
+                CandidateListTruncated = preview.CandidateListTruncated,
+                Recipients = preview.Recipients,
+                Queued = queued,
+                AddedAssociationCount = addedAssociationCount,
+                Communication = communication
+            };
+        }
+
+        private static async Task AcquireCommunicationExtensionLockAsync(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            int communicationId)
+        {
+            const string query = @"
+                DECLARE @LockResult INT;
+                EXEC @LockResult = sp_getapplock
+                    @Resource = @Resource,
+                    @LockMode = N'Exclusive',
+                    @LockOwner = N'Transaction',
+                    @LockTimeout = 10000;
+                IF @LockResult < 0
+                    THROW 51002, 'No se pudo obtener el bloqueo para ampliar el comunicado.', 1;";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@Resource", SqlDbType.NVarChar, 255)
+            {
+                Value = $"CommunicationExtension-{communicationId}"
+            });
+            await command.ExecuteNonQueryAsync();
         }
         
         public async Task<List<ClientCommunicationDto>> GetCommunicationsByClientIdAsync(int clientId)

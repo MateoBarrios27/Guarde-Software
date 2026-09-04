@@ -141,7 +141,7 @@ namespace GuardeSoftwareAPI.Jobs
                                 _logger.LogInformation("Test account statement {ComunicadoId}: WhatsApp delivery redirected to {TestPhone}.", comunicadoId, AccountStatementTestPhone);
                             }
 
-                            await ProcessWhatsAppChannel(whatsappChannel, whatsappRecipients, errorLog, comunicadoId);
+                            await ProcessWhatsAppChannel(whatsappChannel, whatsappRecipients, errorLog, comunicadoId, isTestMode);
                         }
                     }
                 }
@@ -274,7 +274,8 @@ namespace GuardeSoftwareAPI.Jobs
                             recipient,
                             "Exitoso",
                             response,
-                            emailContent);
+                            emailContent,
+                            isTestMode);
                     }
                     catch (Exception ex)
                     {
@@ -289,7 +290,8 @@ namespace GuardeSoftwareAPI.Jobs
                             channel.CommChannelContentId,
                             recipient,
                             "Fallido",
-                            ex.Message);
+                            ex.Message,
+                            isTest: isTestMode);
                     }
                 }
             }
@@ -304,7 +306,8 @@ namespace GuardeSoftwareAPI.Jobs
                         channel.CommChannelContentId,
                         recipient,
                         "Fallido",
-                        "SMTP Connection Error");
+                        "SMTP Connection Error",
+                        isTest: isTestMode);
                 }
             }
             finally
@@ -388,7 +391,8 @@ namespace GuardeSoftwareAPI.Jobs
             RecipientForSendingDto recipient,
             string status,
             string response,
-            string? sentContent = null)
+            string? sentContent = null,
+            bool isTest = false)
         {
             if (recipient.ExternalRecipientId.HasValue)
             {
@@ -397,7 +401,8 @@ namespace GuardeSoftwareAPI.Jobs
                     recipient.ExternalRecipientId.Value,
                     status,
                     response,
-                    sentContent);
+                    sentContent,
+                    isTest: isTest);
                 return;
             }
 
@@ -406,7 +411,8 @@ namespace GuardeSoftwareAPI.Jobs
                 recipient.ClientId,
                 status,
                 response,
-                sentContent);
+                sentContent,
+                isTest: isTest);
         }
 
         private string GenerateAccountStatementHtml(string clientName, ClientFinancialDto data, bool isNextMonth)
@@ -685,7 +691,12 @@ Sábados de 09:00 a 13:00
             return LegacyBrandLogoImageRegex.Replace(input, string.Empty);
         }
 
-        private async Task ProcessWhatsAppChannel(ChannelForSendingDto channel, List<RecipientForSendingDto> recipients, StringBuilder errorLog, int communicationId)
+        private async Task ProcessWhatsAppChannel(
+            ChannelForSendingDto channel,
+            List<RecipientForSendingDto> recipients,
+            StringBuilder errorLog,
+            int communicationId,
+            bool isTestMode)
         {
             bool isAccountStatement = await _communicationDao.IsAccountStatementAsync(communicationId);
 
@@ -695,7 +706,12 @@ Sábados de 09:00 a 13:00
                 errorLog.AppendLine(disabledMessage);
                 foreach (var recipient in recipients)
                 {
-                    await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", disabledMessage);
+                    await _communicationDao.LogSendAttemptAsync(
+                        channel.CommChannelContentId,
+                        recipient.ClientId,
+                        "Fallido",
+                        disabledMessage,
+                        isTest: isTestMode);
                 }
                 return;
             }
@@ -721,7 +737,12 @@ Sábados de 09:00 a 13:00
                 if (phoneNumbers.Count == 0)
                 {
                     const string noPhoneMessage = "Sin número de WhatsApp habilitado";
-                    await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", noPhoneMessage);
+                    await _communicationDao.LogSendAttemptAsync(
+                        channel.CommChannelContentId,
+                        recipient.ClientId,
+                        "Fallido",
+                        noPhoneMessage,
+                        isTest: isTestMode);
                     errorLog.AppendLine($"WhatsApp para {recipient.Name}: {noPhoneMessage}");
                     continue;
                 }
@@ -743,14 +764,24 @@ Sábados de 09:00 a 13:00
                     if (string.IsNullOrWhiteSpace(messageToSend))
                     {
                         const string emptyMessage = "El contenido de WhatsApp está vacío";
-                        await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", emptyMessage);
+                        await _communicationDao.LogSendAttemptAsync(
+                            channel.CommChannelContentId,
+                            recipient.ClientId,
+                            "Fallido",
+                            emptyMessage,
+                            isTest: isTestMode);
                         errorLog.AppendLine($"WhatsApp para {recipient.Name}: {emptyMessage}");
                         continue;
                     }
                 }
                 catch (Exception ex)
                 {
-                    await _communicationDao.LogSendAttemptAsync(channel.CommChannelContentId, recipient.ClientId, "Fallido", ex.Message);
+                    await _communicationDao.LogSendAttemptAsync(
+                        channel.CommChannelContentId,
+                        recipient.ClientId,
+                        "Fallido",
+                        ex.Message,
+                        isTest: isTestMode);
                     errorLog.AppendLine($"Error generando WhatsApp para {recipient.Name}: {ex.Message}");
                     continue;
                 }
@@ -769,7 +800,8 @@ Sábados de 09:00 a 13:00
                             recipient.ClientId,
                             "Fallido",
                             invalidPhoneMessage,
-                            recipientPhone: rawPhone);
+                            recipientPhone: rawPhone,
+                            isTest: isTestMode);
                         errorLog.AppendLine($"WhatsApp para {recipient.Name} ({rawPhone}): {invalidPhoneMessage}");
                         continue;
                     }
@@ -788,7 +820,8 @@ Sábados de 09:00 a 13:00
                             "Exitoso",
                             providerResponse,
                             messageToSend,
-                            rawPhone);
+                            rawPhone,
+                            isTestMode);
 
                         if (delayMilliseconds > 0)
                         {
@@ -802,7 +835,8 @@ Sábados de 09:00 a 13:00
                             recipient.ClientId,
                             "Fallido",
                             ex.Message,
-                            recipientPhone: rawPhone);
+                            recipientPhone: rawPhone,
+                            isTest: isTestMode);
                         errorLog.AppendLine($"Error WAHA para {recipient.Name} ({rawPhone}): {ex.Message}");
                     }
                 }

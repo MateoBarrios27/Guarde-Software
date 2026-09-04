@@ -236,6 +236,91 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpGet("{id}/extension-preview")]
+        public async Task<IActionResult> GetCommunicationExtensionPreview(
+            int id,
+            [FromQuery] string recipientType = "Inmobiliaria",
+            [FromQuery] string mode = CommunicationExtensionModes.NeverAttempted)
+        {
+            try
+            {
+                var preview = await _communicationService.GetCommunicationExtensionPreviewAsync(
+                    id,
+                    recipientType,
+                    mode);
+                return Ok(preview);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error preparando la ampliación del comunicado {Id}.", id);
+                return StatusCode(500, new { message = "No se pudo preparar la ampliación del comunicado." });
+            }
+        }
+
+        [HttpPost("{id}/extend")]
+        public async Task<IActionResult> ExtendCommunication(
+            int id,
+            [FromBody] ExtendCommunicationRequest request)
+        {
+            try
+            {
+                int userId = await GetCurrentUserIdAsync();
+                var result = await _communicationService.ExtendCommunicationAsync(id, request, userId);
+
+                if (result.Queued && result.Communication is not null)
+                {
+                    await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
+                    {
+                        Action = "UPDATE",
+                        TableName = "communications",
+                        RecordId = id,
+                        NewValue = JsonSerializer.Serialize(new
+                        {
+                            Operation = "EXTEND_EXTERNAL_RECIPIENTS",
+                            result.RecipientType,
+                            result.Mode,
+                            result.SelectedForSendCount,
+                            result.AddedAssociationCount,
+                            result.Communication.Status,
+                            result.Communication.SendDate,
+                            result.Communication.SendTime
+                        })
+                    });
+                }
+
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error ampliando el comunicado {Id}.", id);
+                return StatusCode(500, new { message = "No se pudo ampliar el comunicado." });
+            }
+        }
+
         private async Task<int> GetCurrentUserIdAsync()
         {
             int? userId = await _activityLogService.GetCurrentUserIdAsync();

@@ -15,3 +15,29 @@ export interface UpsertMassCommunicationRecipient {
   phone: string;
   type: string;
 }
+
+export interface MassCommunicationRecipientImportIssue {
+  rowNumber: number;
+  name: string | null;
+  email: string | null;
+  reason: string;
+}
+
+export interface MassCommunicationRecipientImportResult {
+  dryRun: boolean;
+  type: string;
+  totalRows: number;
+  validRows: number;
+  newCount: number;
+  existingActiveCount: number;
+  existingInactiveCount: number;
+  reactivatedCount: number;
+  updatedCount: number;
+  skippedInactiveCount: number;
+  duplicateCount: number;
+  invalidCount: number;
+  missingEmailCount: number;
+  importedCount: number;
+  hasMoreIssues: boolean;
+  issues: MassCommunicationRecipientImportIssue[];
+}

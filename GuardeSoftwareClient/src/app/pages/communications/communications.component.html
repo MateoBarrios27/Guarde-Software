@@ -108,6 +108,7 @@
             @case ('view') { Detalles del Comunicado }
             @case ('send-confirm') { Confirmar Envío }
             @case ('retry') { Reintentar Envíos Fallidos }
+            @case ('extend') { Ampliar comunicado }
             @case ('history') { Historial de Comunicados }
           }
         </h2>
@@ -255,6 +256,20 @@
             {{ isLoadingInmobiliariasTemplate() ? 'Cargando...' : 'Plantilla Inmobiliarias' }}
           </button>
           <button type="button"
+                  (click)="loadLaboratoriosTemplate()"
+                  [disabled]="isLoadingLaboratoriosTemplate()"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-cyan-200 bg-cyan-50 px-2.5 py-1.5 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:cursor-wait disabled:opacity-60">
+            <app-icon name="building" class="h-3.5 w-3.5"></app-icon>
+            {{ isLoadingLaboratoriosTemplate() ? 'Cargando...' : 'Plantilla Laboratorios' }}
+          </button>
+          <button type="button"
+                  (click)="loadVisitadoresMedicosTemplate()"
+                  [disabled]="isLoadingVisitadoresMedicosTemplate()"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-xs font-semibold text-teal-800 transition hover:bg-teal-100 disabled:cursor-wait disabled:opacity-60">
+            <app-icon name="user" class="h-3.5 w-3.5"></app-icon>
+            {{ isLoadingVisitadoresMedicosTemplate() ? 'Cargando...' : 'Plantilla Visitadores médicos' }}
+          </button>
+          <button type="button"
                   (click)="loadIcbcTemplate2()"
                   class="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100">
             <app-icon name="file-text" class="h-3.5 w-3.5"></app-icon>
@@ -279,16 +294,16 @@
             <p *ngIf="formData().channels.includes('WhatsApp') && !formData().isAccountStatement" class="text-xs text-gray-500 mb-2">
               💡 Escribe el contenido del email. Se enviará una versión de solo texto a WhatsApp.
             </p>
-            @if (isInmobiliariasTemplate()) {
+            @if (isDesignedMarketingTemplate()) {
               <div class="overflow-hidden rounded-lg border border-blue-200 bg-blue-50/40">
                 <div class="flex items-start gap-2 border-b border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
                   <app-icon name="check-circle" class="mt-0.5 h-4 w-4 shrink-0 text-blue-700"></app-icon>
-                  <span><strong>Plantilla Inmobiliarias lista.</strong> Esta vista conserva el diseño y las imágenes que recibirán los destinatarios.</span>
+                  <span><strong>Plantilla {{ activeDesignedTemplateLabel() }} lista.</strong> Esta vista conserva el diseño y las imágenes que recibirán los destinatarios.</span>
                 </div>
                 <iframe [srcdoc]="getFormContentPreviewDocument()"
                         class="block h-[32rem] w-full border-0 bg-white"
                         sandbox="allow-same-origin"
-                        title="Vista previa de la Plantilla Inmobiliarias"></iframe>
+                        [title]="'Vista previa de la Plantilla ' + activeDesignedTemplateLabel()"></iframe>
               </div>
             } @else {
               <quill-editor
@@ -490,6 +505,9 @@
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-medium">
               <app-icon name="x" class="h-3 w-3"></app-icon> {{ getFailedCount(selectedCommunication()!.dispatches!) }} fallidos
             </span>
+            <span *ngIf="getTestCount(selectedCommunication()!.dispatches!) > 0" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-medium">
+              <app-icon name="info" class="h-3 w-3"></app-icon> {{ getTestCount(selectedCommunication()!.dispatches!) }} de prueba
+            </span>
           </div>
         </div>
         <div class="border rounded-lg overflow-hidden max-h-52 overflow-y-auto shadow-inner bg-white">
@@ -506,14 +524,14 @@
             </thead>
             <tbody class="divide-y divide-gray-100 bg-white">
               @for (disp of selectedCommunication()!.dispatches; track $index) {
-              <tr [ngClass]="disp.status === 'Exitoso' ? 'bg-white' : 'bg-red-50/40'">
+              <tr [ngClass]="disp.isTest ? 'bg-yellow-50/70' : (disp.status === 'Exitoso' ? 'bg-white' : 'bg-red-50/40')">
                 <td class="px-3 py-2 font-medium text-gray-900">{{ disp.clientName }}</td>
                 <td class="px-3 py-2 text-gray-600">{{ disp.channel }}</td>
                 <td class="px-3 py-2 text-gray-600 font-mono text-[11px]">{{ disp.recipientPhone || '-' }}</td>
                 <td class="px-3 py-2">
                   <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-                        [ngClass]="disp.status === 'Exitoso' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
-                    {{ disp.status }}
+                        [ngClass]="disp.isTest ? 'bg-yellow-100 text-yellow-800' : (disp.status === 'Exitoso' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')">
+                    {{ disp.isTest ? 'Prueba · ' + disp.status : disp.status }}
                   </span>
                 </td>
                 <td class="px-3 py-2 text-gray-600 font-mono text-[11px] break-words max-w-xs">{{ disp.errorMessage || '-' }}</td>
@@ -543,7 +561,7 @@
           <span class="inline-flex items-center text-xs font-medium bg-gray-200 text-gray-800 px-2.5 py-0.5 rounded-full">{{ dest }}</span>
           }
           @for (recipient of (selectedCommunication()!.externalRecipients || []); track recipient.id) {
-          <span class="inline-flex items-center gap-1 text-xs font-medium bg-violet-100 text-violet-800 px-2.5 py-0.5 rounded-full">
+          <span class="inline-flex items-center gap-1 text-xs font-medium bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full">
             {{ recipient.name || recipient.email || ('Receptor #' + recipient.id) }}
             <span class="opacity-70">· {{ recipient.type || 'Sin rubro' }}</span>
           </span>
@@ -682,6 +700,145 @@
   </div>
   }
 
+  @if (currentModal() === 'extend' && selectedCommunication()) {
+  <div class="communications-modal-content space-y-4 animate-fade-in">
+    <div class="rounded-xl border border-blue-200 bg-blue-50/70 p-4">
+      <div class="flex items-start gap-3">
+        <app-icon name="user-plus" class="mt-0.5 h-5 w-5 shrink-0 text-blue-600"></app-icon>
+        <div>
+          <p class="text-sm font-bold text-slate-900">Sumar receptores por rubro</p>
+          <p class="mt-1 text-xs leading-relaxed text-slate-600">
+            Se conserva el texto y el asunto originales. La campaña vuelve a procesarse sólo para los receptores que cumplen el criterio elegido.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid gap-3 sm:grid-cols-2">
+      <label class="block">
+        <span class="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Rubro a incorporar</span>
+        <select
+          id="extension-recipient-type"
+          [ngModel]="extensionRecipientType()"
+          (ngModelChange)="onExtensionRecipientTypeChanged($event)"
+          [disabled]="isLoadingExtensionPreview() || isExtendingCommunication()"
+          class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100"
+        >
+          <option value="">Seleccioná un rubro</option>
+          @for (typeOption of recipientTypeOptions(); track typeOption.value) {
+          <option [value]="typeOption.value">{{ typeOption.label }} ({{ typeOption.count }})</option>
+          }
+        </select>
+      </label>
+      <label class="block">
+        <span class="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Criterio de envío</span>
+        <select
+          [ngModel]="extensionMode()"
+          (ngModelChange)="onExtensionModeChanged($event)"
+          [disabled]="isLoadingExtensionPreview() || isExtendingCommunication()"
+          class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100"
+        >
+          <option value="never-attempted">Sólo nunca intentados</option>
+          <option value="without-success">Todos sin entrega real</option>
+        </select>
+      </label>
+    </div>
+
+    <p class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
+      <strong>Sólo nunca intentados:</strong> recomendado para agregar los receptores que faltan sin tocar intentos anteriores.
+      <span class="mx-1 text-slate-400">·</span>
+      <strong>Todos sin entrega real:</strong> incluye nuevos y fallidos, pero excluye toda entrega real exitosa.
+    </p>
+
+    @if (isLoadingExtensionPreview()) {
+    <div class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white p-8 text-sm text-slate-500">
+      <app-icon name="refresh-cw" class="h-4 w-4 animate-spin"></app-icon>
+      Calculando destinatarios pendientes...
+    </div>
+    } @else {
+    @if (extensionPreview(); as extensionData) {
+    <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div class="rounded-xl border border-blue-100 bg-blue-50 p-3">
+        <span class="block text-[10px] font-bold uppercase tracking-wider text-blue-600">Se enviarán</span>
+        <strong class="mt-1 block text-2xl text-blue-900">{{ extensionData.selectedForSendCount }}</strong>
+      </div>
+      <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+        <span class="block text-[10px] font-bold uppercase tracking-wider text-emerald-600">Entregas reales</span>
+        <strong class="mt-1 block text-2xl text-emerald-900">{{ extensionData.alreadySuccessfulCount }}</strong>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <span class="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Nunca intentados</span>
+        <strong class="mt-1 block text-2xl text-slate-800">{{ extensionData.neverAttemptedCount }}</strong>
+      </div>
+      <div class="rounded-xl border border-amber-100 bg-amber-50 p-3">
+        <span class="block text-[10px] font-bold uppercase tracking-wider text-amber-600">Sin email / inactivos</span>
+        <strong class="mt-1 block text-2xl text-amber-900">{{ extensionData.inactiveOrWithoutEmailCount }}</strong>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+      <span>{{ extensionData.totalInDirectory }} en el rubro</span>
+      <span>{{ extensionData.alreadyAssociatedCount }} ya vinculados a la campaña</span>
+      <span>{{ extensionData.failedOrPendingCount }} con intento sin entrega real</span>
+    </div>
+
+    <div *ngIf="extensionData.isTestCommunication" class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+      <strong>Campaña de prueba detectada.</strong> No se habilita la ampliación de una campaña marcada como prueba.
+    </div>
+
+    <div *ngIf="extensionData.candidateListTruncated" class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs leading-relaxed text-blue-800">
+      Se muestran los primeros 200 candidatos. El envío se aplicará a los {{ extensionData.selectedForSendCount }} que cumplen el criterio.
+    </div>
+
+    <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+        Candidatos que se agregarán o reintentarán
+      </div>
+      <div class="max-h-52 overflow-y-auto">
+        @if (extensionData.recipients.length === 0) {
+        <p class="p-6 text-center text-sm text-slate-400">No hay receptores activos con email para este criterio.</p>
+        } @else {
+        <table class="min-w-full divide-y divide-slate-100 text-xs">
+          <tbody class="divide-y divide-slate-100">
+            @for (recipient of extensionData.recipients; track recipient.id) {
+            <tr>
+              <td class="px-3 py-2 font-semibold text-slate-800">{{ recipient.name || 'Sin nombre' }}</td>
+              <td class="px-3 py-2 text-slate-600">{{ recipient.email }}</td>
+              <td class="px-3 py-2 text-right">
+                <span *ngIf="recipient.isAssociated" class="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700">Ya vinculado</span>
+                <span *ngIf="!recipient.isAssociated" class="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Nuevo</span>
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+        }
+      </div>
+    </div>
+
+    <div class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:justify-end">
+      <button type="button" (click)="closeExtensionModal()" [disabled]="isExtendingCommunication()" class="communications-cancel-action px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition disabled:cursor-not-allowed disabled:opacity-50">
+        Cancelar
+      </button>
+      <button
+        type="button"
+        (click)="confirmExtendCommunication()"
+        [disabled]="isLoadingExtensionPreview() || isExtendingCommunication() || !extensionPreview() || extensionPreview()!.selectedForSendCount === 0"
+        class="communications-submit-action flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-sm font-bold text-white shadow-md transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <app-icon name="user-plus" class="h-4 w-4"></app-icon>
+        <span>{{ isExtendingCommunication() ? 'Programando...' : 'Agregar y programar envío' }}</span>
+      </button>
+    </div>
+    } @else {
+    <div class="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+      Indicá un rubro para calcular los receptores que faltan.
+    </div>
+    }
+    }
+  </div>
+  }
+
   @if (currentModal() === 'history') {
   <div class="communications-modal-content communications-history-content space-y-4 flex flex-col h-full">
     <!-- Barra de Herramientas -->
@@ -748,11 +905,16 @@
               <h4 class="text-sm font-medium text-gray-800 truncate" [title]="comm.title">{{ comm.title }}</h4>
             </div>
 
-            <div class="flex items-center gap-1 flex-shrink-0 border-l border-gray-100 pl-3">
-              <button (click)="openModal('view', comm)" title="Ver detalles" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
-                <app-icon name="eye" class="h-4 w-4"></app-icon>
-              </button>
-              @if (comm.status === 'Failed' || comm.status === 'Finished w/ Errors') {
+             <div class="flex items-center gap-1 flex-shrink-0 border-l border-gray-100 pl-3">
+               <button (click)="openModal('view', comm)" title="Ver detalles" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
+                 <app-icon name="eye" class="h-4 w-4"></app-icon>
+               </button>
+               @if (canExtendCommunication(comm)) {
+                 <button (click)="openExtensionModal(comm)" title="Ampliar destinatarios" class="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
+                   <app-icon name="user-plus" class="h-4 w-4"></app-icon>
+                 </button>
+               }
+               @if (comm.status === 'Failed' || comm.status === 'Finished w/ Errors') {
                 <button (click)="openRetryModal(comm)" title="Reintentar fallidos" class="p-1.5 text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-full transition">
                   <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
                 </button>
@@ -869,13 +1031,21 @@
       </button>
       }
 
+      @if (canExtendCommunication(comm)) {
+      <button (click)="openExtensionModal(comm)"
+              title="Ampliar destinatarios"
+              class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition">
+        <app-icon name="user-plus" class="h-4 w-4"></app-icon>
+      </button>
+      }
+
       @if (comm.status === 'Draft') {
       <button (click)="openModal('send-confirm', comm)" title="Enviar ahora"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-green-600 hover:bg-green-100 transition">
         <app-icon name="Send" class="h-4 w-4"></app-icon>
       </button>
       } 
-      
+
       @else if (comm.status === 'Failed' || comm.status === 'Finished w/ Errors') {
       <button (click)="openRetryModal(comm)" 
               title="Reintentar Envíos Fallidos"
@@ -989,9 +1159,9 @@
                 <button (click)="showExternalRecipientSelector()"
                         [disabled]="formData().isAccountStatement"
                         class="selector-btn transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
-                        [ngClass]="recipientSelectorMode() === 'external' && !modalSendToAllEmails() ? 'border-violet-600 bg-violet-50 font-semibold text-violet-900 shadow-sm' : 'border-violet-200 hover:bg-violet-50 text-violet-700 bg-white'">
+                        [ngClass]="recipientSelectorMode() === 'external' && !modalSendToAllEmails() ? 'border-blue-600 bg-blue-50 font-semibold text-blue-900 shadow-sm' : 'border-blue-200 hover:bg-blue-50 text-blue-700 bg-white'">
                     <div class="w-8 h-8 rounded flex items-center justify-center mr-3 transition-colors"
-                         [ngClass]="recipientSelectorMode() === 'external' && !modalSendToAllEmails() ? 'bg-violet-600 text-white' : 'bg-violet-100 text-violet-600'">
+                         [ngClass]="recipientSelectorMode() === 'external' && !modalSendToAllEmails() ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-600'">
                         <app-icon name="building" class="h-4 w-4"></app-icon>
                     </div>
                     <div class="min-w-0 text-left">
@@ -1047,14 +1217,14 @@
                         <select id="external-recipient-type"
                                 [ngModel]="selectedExternalRecipientType()"
                                 (ngModelChange)="onExternalRecipientTypeChange($event)"
-                                class="w-full rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-900 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200">
+                                class="w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
                             <option value="">Todos los rubros ({{ allExternalRecipients().length }})</option>
                                 @for (typeOption of recipientTypeOptions(); track typeOption.value) {
                               <option [value]="typeOption.value">{{ typeOption.label }} ({{ typeOption.count }})</option>
                             }
                         </select>
-                        <p class="mt-1 text-[11px] text-violet-600">
-                            Al elegir un rubro se marcan automáticamente sus contactos con email.
+                        <p class="mt-1 text-[11px] text-slate-500">
+                            El rubro sólo filtra la lista; seleccioná manualmente los contactos que quieras incluir.
                         </p>
                     </div>
 
@@ -1069,22 +1239,22 @@
                                    [ngModel]="externalRecipientSearchTerm()"
                                    (ngModelChange)="onExternalRecipientSearch($event)"
                                    placeholder="Buscar por nombre, email o rubro..."
-                                   class="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-10 pr-4 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400">
+                                   class="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-10 pr-4 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
                         </div>
                     </div>
 
                     <button type="button"
                             (click)="toggleVisibleExternalRecipientsSelection()"
                             [disabled]="isLoadingExternalRecipients() || externalRecipientsLoadError() || filteredExternalRecipients().length === 0"
-                            class="w-full self-end rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm font-bold text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 sm:col-start-2 sm:row-start-1 sm:w-auto sm:min-w-44">
+                            class="w-full self-end rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-bold text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 sm:col-start-2 sm:row-start-1 sm:w-auto sm:min-w-44">
                         {{ allVisibleExternalRecipientsSelected()
                             ? 'Desmarcar visibles'
-                            : (selectedExternalRecipientType() ? 'Seleccionar rubro' : 'Seleccionar visibles') }}
+                            : 'Seleccionar visibles' }}
                     </button>
                 </div>
 
                 <div class="flex-1 overflow-y-auto p-2">
-                    <div *ngIf="isLoadingExternalRecipients()" class="flex h-full flex-col items-center justify-center text-violet-600">
+                    <div *ngIf="isLoadingExternalRecipients()" class="flex h-full flex-col items-center justify-center text-blue-600">
                         <app-icon name="RefreshCw" class="mb-2 h-8 w-8 animate-spin"></app-icon>
                         <p class="text-sm font-medium">Cargando receptores de comunicados...</p>
                     </div>
@@ -1106,16 +1276,16 @@
                         <div *ngFor="let recipient of filteredExternalRecipients()"
                              (click)="toggleExternalRecipientSelection(recipient.id)"
                              class="group flex cursor-pointer select-none items-center rounded-lg border p-2 transition"
-                             [ngClass]="recipient.selected ? 'border-violet-200 bg-violet-50 shadow-sm' : 'border-transparent bg-white hover:bg-gray-50'">
+                             [ngClass]="recipient.selected ? 'border-blue-200 bg-blue-50 shadow-sm' : 'border-transparent bg-white hover:bg-gray-50'">
                             <div class="mr-3 flex h-6 w-6 items-center justify-center rounded border transition-colors"
-                                 [ngClass]="recipient.selected ? 'border-violet-600 bg-violet-600' : 'border-gray-300 bg-white'">
+                                 [ngClass]="recipient.selected ? 'border-blue-600 bg-blue-600' : 'border-gray-300 bg-white'">
                                 <app-icon *ngIf="recipient.selected" name="check" class="h-4 w-4 text-white"></app-icon>
                             </div>
 
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-start justify-between gap-3">
                                     <span class="truncate font-medium text-gray-900">{{ recipient.displayName }}</span>
-                                    <span class="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700">
+                                    <span class="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-700">
                                         {{ recipient.type || 'Sin rubro' }}
                                     </span>
                                 </div>

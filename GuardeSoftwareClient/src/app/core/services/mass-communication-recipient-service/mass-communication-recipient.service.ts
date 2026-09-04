@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environments';
 import {
   MassCommunicationRecipient,
+  MassCommunicationRecipientImportResult,
   UpsertMassCommunicationRecipient
 } from '../../models/mass-communication-recipient';
 
@@ -29,5 +30,23 @@ export class MassCommunicationRecipientService {
 
   delete(id: number): Observable<void> {
     return this.http.delete<void>(this.apiUrl + '/' + id);
+  }
+
+  import(
+    file: File,
+    type: string,
+    reactivateInactive: boolean,
+    dryRun: boolean
+  ): Observable<MassCommunicationRecipientImportResult> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('type', type);
+    formData.append('reactivateInactive', reactivateInactive ? 'true' : 'false');
+    formData.append('dryRun', dryRun ? 'true' : 'false');
+
+    return this.http.post<MassCommunicationRecipientImportResult>(
+      this.apiUrl + '/import',
+      formData
+    );
   }
 }
