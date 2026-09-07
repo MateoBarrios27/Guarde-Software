@@ -4,7 +4,7 @@
   <div
     *ngIf="client"
     (click)="$event.stopPropagation()"
-    class="flex flex-col max-h-[90vh] w-full max-w-6xl bg-gray-100 rounded-lg shadow-2xl"
+    class="flex min-w-0 flex-col max-h-[90vh] w-full max-w-6xl overflow-hidden bg-gray-100 rounded-lg shadow-2xl"
   >
     <header
       class="flex-shrink-0 relative bg-white text-gray-900 p-4 border-b"
@@ -61,7 +61,7 @@
       </div>
     </header>
 
-    <main class="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <main class="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="lg:col-span-1 space-y-6">
         <div class="bg-white rounded-lg shadow-sm border p-5">
            <h3 class="text-lg font-semibold text-gray-800 mb-4">Resumen</h3>
@@ -153,13 +153,14 @@
         </div>
       </div>
 
-      <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border">
+      <div class="lg:col-span-2 min-w-0 bg-white rounded-lg shadow-sm border">
         <div class="border-b border-gray-200">
-          <nav class="flex -mb-px" aria-label="Tabs">
+          <div class="min-w-0 overflow-x-auto">
+          <nav class="flex w-max min-w-full -mb-px" aria-label="Tabs">
             <button
               (click)="activeTab = 'movimientos'"
               [ngClass]="activeTab === 'movimientos' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-1.5"
+              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm font-medium sm:flex-1 sm:px-1"
             >
               <app-icon name="dollar-sign" class="h-4 w-4"></app-icon> Movimientos
             </button>
@@ -167,7 +168,7 @@
             <button
               (click)="activeTab = 'comunicaciones'"
               [ngClass]="activeTab === 'comunicaciones' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-1.5"
+              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm font-medium sm:flex-1 sm:px-1"
             >
               <app-icon name="message-circle" class="h-4 w-4"></app-icon> Comunicaciones
             </button>
@@ -175,7 +176,7 @@
             <button
               (click)="activeTab = 'bauleras'"
               [ngClass]="activeTab === 'bauleras' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-1.5"
+              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm font-medium sm:flex-1 sm:px-1"
             >
               <app-icon name="package" class="h-4 w-4"></app-icon> Bauleras
             </button>
@@ -183,7 +184,7 @@
             <button
               (click)="onTabAbono()"
               [ngClass]="activeTab === 'abono' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-1.5"
+              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm font-medium sm:flex-1 sm:px-1"
             >
               <app-icon name="trending-up" class="h-4 w-4"></app-icon> Abono
             </button>
@@ -191,11 +192,12 @@
             <button
               (click)="activeTab = 'detalles'"
               [ngClass]="activeTab === 'detalles' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="flex-1 py-4 px-1 text-center border-b-2 font-medium text-sm flex items-center justify-center gap-1.5"
+              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm font-medium sm:flex-1 sm:px-1"
             >
               <app-icon name="file-text" class="h-4 w-4"></app-icon> Detalles
             </button>
           </nav>
+          </div>
         </div>
 
         <div class="p-6 min-h-[400px] relative">
@@ -856,7 +858,7 @@
     <div class="flex items-center justify-between p-4 border-b">
       <div class="flex items-center gap-2">
         <app-icon name="eye" class="w-5 h-5 text-indigo-600"></app-icon>
-        <h3 class="font-semibold text-gray-900">Contenido enviado</h3>
+        <h3 class="font-semibold text-gray-900">Contenido enviado a {{ previewClientName }}</h3>
       </div>
       <button (click)="closeContentPreview()" 
               class="p-1 rounded-lg hover:bg-gray-100 transition">
@@ -864,9 +866,9 @@
       </button>
     </div>
       <div class="flex-1 overflow-auto p-4 sm:p-6 bg-gray-50/50 rounded-b-xl">
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 h-full min-h-[60vh] overflow-hidden">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 h-full min-h-[60vh]">
           <iframe [srcdoc]="previewContent"
-                  class="block w-full h-full min-h-[60vh] border-0 rounded-lg"
+                  class="w-full h-full min-h-[60vh] border-0 rounded-lg"
                   sandbox="allow-same-origin"
                   title="Vista previa del contenido enviado"></iframe>
         </div>

@@ -38,6 +38,7 @@ import { DeleteConfirmationService } from '../../shared/services/delete-confirma
 import { ActivityLogPanelComponent } from '../../shared/components/activity-log-panel/activity-log-panel.component';
 import {
   MassCommunicationRecipient,
+  MassCommunicationRecipientImportResult,
   UpsertMassCommunicationRecipient
 } from '../../core/models/mass-communication-recipient';
 import { MassCommunicationRecipientService } from '../../core/services/mass-communication-recipient-service/mass-communication-recipient.service';
@@ -180,6 +181,12 @@ export class SettingsComponent implements OnInit {
     phone: '',
     type: ''
   };
+  showMassRecipientImportModal = false;
+  massRecipientImportFile: File | null = null;
+  massRecipientImportType = 'Inmobiliaria';
+  massRecipientImportReactivateInactive = false;
+  massRecipientImportPreview: MassCommunicationRecipientImportResult | null = null;
+  isLoadingMassRecipientImport = false;
 
   // --- LockerTypes properties ---
   lockerTypes: LockerType[] = [];
@@ -293,7 +300,7 @@ export class SettingsComponent implements OnInit {
     { id: 'facturacion', title: 'Facturación', icon: '📄' },
     { id: 'locker-types', title: 'Tipos de Bauleras', icon: '🗄️' },
     { id: 'depositos', title: 'Depósitos', icon: '🏢' },
-    // { id: 'aumentos', title: 'Aumentos Mensuales', icon: '📈' },
+    { id: 'aumentos', title: 'Aumentos Mensuales', icon: '📈' },
     { id: 'smtp', title: 'Configuración de Mails', icon: '✉️' },
     { id: 'mass-recipients', title: 'Receptores de comunicados', icon: '👥' },
     { id: 'offline', title: ' Modo Offline', icon: '💾' }
@@ -1004,6 +1011,110 @@ export class SettingsComponent implements OnInit {
       error: (err) => {
         console.error('Error al eliminar receptor de comunicados', err);
         this.showToastNotification('No se pudo eliminar el receptor.', 'error');
+      }
+    });
+  }
+
+  openMassRecipientImportModal(): void {
+    this.massRecipientImportFile = null;
+    this.massRecipientImportType = 'Inmobiliaria';
+    this.massRecipientImportReactivateInactive = false;
+    this.massRecipientImportPreview = null;
+    this.isLoadingMassRecipientImport = false;
+    this.showMassRecipientImportModal = true;
+  }
+
+  closeMassRecipientImportModal(): void {
+    if (this.isLoadingMassRecipientImport) return;
+    this.showMassRecipientImportModal = false;
+    this.massRecipientImportFile = null;
+    this.massRecipientImportPreview = null;
+  }
+
+  onMassRecipientImportFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    if (!file) return;
+
+    const extension = file.name.toLowerCase().split('.').pop();
+    if (!extension || !['csv', 'tsv', 'xlsx'].includes(extension)) {
+      this.massRecipientImportFile = null;
+      this.massRecipientImportPreview = null;
+      this.showToastNotification('El archivo debe ser CSV, TSV o XLSX.', 'error');
+      return;
+    }
+
+    this.massRecipientImportFile = file;
+    this.massRecipientImportPreview = null;
+  }
+
+  previewMassRecipientImport(): void {
+    if (!this.massRecipientImportFile) {
+      this.showToastNotification('Seleccioná un archivo para continuar.', 'error');
+      return;
+    }
+
+    const recipientType = this.massRecipientImportType.trim();
+    if (!recipientType) {
+      this.showToastNotification('Indicá el rubro que tendrán los receptores.', 'error');
+      return;
+    }
+
+    this.isLoadingMassRecipientImport = true;
+    this.massRecipientService.import(
+      this.massRecipientImportFile,
+      recipientType,
+      this.massRecipientImportReactivateInactive,
+      true
+    ).subscribe({
+      next: result => {
+        this.massRecipientImportPreview = result;
+        this.isLoadingMassRecipientImport = false;
+      },
+      error: err => {
+        console.error('Error al previsualizar la importación de receptores', err);
+        this.isLoadingMassRecipientImport = false;
+        this.showToastNotification(
+          err?.error?.message || 'No se pudo analizar el archivo seleccionado.',
+          'error'
+        );
+      }
+    });
+  }
+
+  onMassRecipientImportOptionsChanged(): void {
+    if (this.massRecipientImportFile) {
+      this.previewMassRecipientImport();
+    }
+  }
+
+  confirmMassRecipientImport(): void {
+    const preview = this.massRecipientImportPreview;
+    if (!this.massRecipientImportFile || !preview || preview.validRows === 0) return;
+
+    this.isLoadingMassRecipientImport = true;
+    this.massRecipientService.import(
+      this.massRecipientImportFile,
+      this.massRecipientImportType.trim(),
+      this.massRecipientImportReactivateInactive,
+      false
+    ).subscribe({
+      next: result => {
+        this.isLoadingMassRecipientImport = false;
+        this.loadMassRecipients();
+        this.closeMassRecipientImportModal();
+        this.showToastNotification(
+          `Importación completada: ${result.importedCount} receptores nuevos.`,
+          'success'
+        );
+      },
+      error: err => {
+        console.error('Error al importar receptores de comunicados', err);
+        this.isLoadingMassRecipientImport = false;
+        this.showToastNotification(
+          err?.error?.message || 'No se pudo completar la importación.',
+          'error'
+        );
       }
     });
   }

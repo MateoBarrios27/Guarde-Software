@@ -9,6 +9,7 @@ import {
   ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { IconComponent } from '../icon/icon.component';
 import { PaymentIncreaseModalComponent } from '../payment-increase-modal/payment-increase-modal.component';
 import { ClientDetailDTO } from '../../../core/dtos/client/ClientDetailDTO';
@@ -72,7 +73,7 @@ export class ClientDetailModalComponent implements OnChanges {
   @Output() closeModal = new EventEmitter<void>();
   @Output() dataUpdated = new EventEmitter<number>();
 
-  previewContent: string | null = null;
+  previewContent: SafeHtml | null = null;
   previewClientName: string = '';
 
   public activeTab: 'movimientos' | 'comunicaciones' | 'detalles' | 'bauleras' | 'abono' =
@@ -128,6 +129,7 @@ export class ClientDetailModalComponent implements OnChanges {
     private communicationService: CommunicationService,
     private clientService: ClientService,
     private authService: AuthService,
+    private sanitizer: DomSanitizer,
     private cdr: ChangeDetectorRef,
     private deleteConfirmation: DeleteConfirmationService
   ) {
@@ -153,11 +155,13 @@ export class ClientDetailModalComponent implements OnChanges {
   viewDispatchContent(dispatchId: number): void {
     this.communicationService.getDispatchContent(dispatchId).subscribe({
       next: (res) => {
-        this.previewContent = buildCommunicationPreviewDocument(res.content);
+        this.previewClientName = this.client?.fullName || '';
+        this.previewContent = this.buildTrustedPreviewDocument(res.content);
         this.cdr.markForCheck();
       },
       error: () => {
         this.previewContent = null;
+        this.previewClientName = '';
         this.cdr.markForCheck();
       }
     });
@@ -165,6 +169,15 @@ export class ClientDetailModalComponent implements OnChanges {
 
   closeContentPreview(): void {
     this.previewContent = null;
+    this.previewClientName = '';
+  }
+
+  private buildTrustedPreviewDocument(content: string | null | undefined): SafeHtml {
+    // El iframe usa srcdoc para conservar el HTML enriquecido del comunicado.
+    // El contenido queda aislado en sandbox sin scripts ni formularios.
+    return this.sanitizer.bypassSecurityTrustHtml(
+      buildCommunicationPreviewDocument(content)
+    );
   }
 
   loadHistoriales(clientId: number): void {

@@ -542,8 +542,10 @@ namespace GuardeSoftwareAPI.Services.client
         {
             if (clientId <= 0) throw new ArgumentException("Invalid client ID.");
 
-            // Get active rental_id for the client
-            string rentalQuery = @"SELECT TOP 1 rental_id FROM rentals WHERE client_id = @clientId AND active = 1 ORDER BY rental_id DESC";
+            // Get the most recent rental_id for the client, including inactive rentals.
+            // A client marked as Baja keeps its rental amount history even after the
+            // rental is closed (active = 0).
+            string rentalQuery = @"SELECT TOP 1 rental_id FROM rentals WHERE client_id = @clientId ORDER BY rental_id DESC";
             var rentalParam = new[] { new Microsoft.Data.SqlClient.SqlParameter("@clientId", clientId) };
             var rentalTable = await accessDB.GetTableAsync("rentals", rentalQuery, rentalParam);
             if (rentalTable.Rows.Count == 0) return [];
