@@ -1,0 +1,78 @@
+<div class="receivables-overlay">
+  <section class="receivables-modal" role="dialog" aria-modal="true" aria-labelledby="receivables-title" [attr.aria-busy]="busy || loading" [cdkTrapFocus]="!confirmation.confirmation()" [cdkTrapFocusAutoCapture]="true">
+    <header class="modal-header">
+      <div><p class="eyebrow">CAJA · COBROS PERSONALES</p><h2 id="receivables-title">Cuentas a cobrar</h2><p class="subtitle">Acuerdos y pagos de todos los meses · Importes en pesos</p></div>
+      <button type="button" class="close-button" (click)="close()" [disabled]="busy" aria-label="Cerrar cuentas a cobrar">✕</button>
+    </header>
+    <div class="global-summary" *ngIf="!loadFailed">
+      <div><span>Saldo pendiente total</span><strong>$ {{ totalPending | number:'1.2-2' }}</strong></div>
+      <div><span>Total cobrado</span><strong class="collected">$ {{ totalCollected | number:'1.2-2' }}</strong></div>
+      <div><span>Cuentas registradas</span><strong>{{ accounts.length }}</strong></div>
+    </div>
+    <p *ngIf="error" role="alert" class="message error">{{ error }}</p>
+    <p *ngIf="notice" role="status" class="message success">{{ notice }}</p>
+    <div class="workspace">
+      <aside class="account-sidebar">
+        <div class="list-actions"><button type="button" class="primary" (click)="startEdit()" [disabled]="busy || loading || loadFailed">+ Nueva cuenta</button><button type="button" (click)="load()" [disabled]="busy || loading">Actualizar</button></div>
+        <label>Buscar persona o concepto<input type="search" [(ngModel)]="search" placeholder="Ej.: Juan, celular…" /></label>
+        <div class="filters" role="group" aria-label="Estado de las cuentas">
+          <button type="button" [class.active]="filter === 'pending'" (click)="filter = 'pending'">Pendientes</button>
+          <button type="button" [class.active]="filter === 'paid'" (click)="filter = 'paid'">Cobradas</button>
+          <button type="button" [class.active]="filter === 'all'" (click)="filter = 'all'">Todas</button>
+        </div>
+        <p *ngIf="loading" class="empty" role="status">Cargando cuentas…</p>
+        <div class="account-list" *ngIf="!loadFailed">
+          <button type="button" class="account-card" *ngFor="let account of visible" [class.selected]="selectedId === account.id && !editing" (click)="select(account)" [disabled]="busy || loading">
+            <div class="card-heading"><strong>{{ account.description }}</strong><span class="badge" [class.complete]="account.remainingAmount === 0">{{ account.remainingAmount === 0 ? 'Cobrada' : 'Pendiente' }}</span></div>
+            <div class="card-amount"><span>Falta cobrar</span><strong>$ {{ account.remainingAmount | number:'1.2-2' }}</strong></div>
+            <div class="progress-track" aria-hidden="true"><div [style.width.%]="progress(account)" [class.complete]="account.remainingAmount === 0"></div></div>
+            <small>{{ progress(account) | number:'1.0-1' }}% cobrado · Total $ {{ account.totalAmount | number:'1.2-2' }}</small>
+          </button>
+          <p *ngIf="!loading && !visible.length" class="empty">{{ accounts.length ? 'No hay cuentas que coincidan con estos filtros.' : 'Todavía no hay cuentas a cobrar. Creá la primera para registrar sus pagos.' }}</p>
+        </div>
+      </aside>
+      <main class="detail">
+        <form *ngIf="editing" (ngSubmit)="saveAccount()" #accountForm="ngForm">
+          <h3>{{ editingId === null ? 'Nueva cuenta a cobrar' : 'Editar cuenta' }}</h3>
+          <p class="hint">Registrá el monto total acordado. Después podrás anotar cada cobro, aunque los pagos tengan distintos importes.</p>
+          <fieldset [disabled]="busy || loading || loadFailed">
+            <label>Persona y concepto<input name="description" [(ngModel)]="form.description" required maxlength="500" placeholder="Ej.: Juan Pérez · Venta de celular en cuotas" /></label>
+            <div class="form-grid"><label>Fecha del acuerdo<input type="date" name="date" [(ngModel)]="form.date" required /></label><label>Total a cobrar ($)<input type="text" inputmode="decimal" appCurrencyFormat name="total" [(ngModel)]="form.totalAmount" required placeholder="0,00" /></label></div>
+            <label>Notas del acuerdo (opcional)<textarea name="notes" [(ngModel)]="form.notes" maxlength="1000" rows="3" placeholder="Ej.: 6 cuotas mensuales de $50.000"></textarea></label>
+            <div class="form-actions"><button type="button" (click)="editing = false">Cancelar</button><button type="submit" class="primary" [disabled]="accountForm.invalid || busy">{{ busy ? 'Guardando…' : 'Guardar cuenta' }}</button></div>
+          </fieldset>
+        </form>
+        <ng-container *ngIf="!editing">
+          <ng-container *ngIf="selected as account; else noSelection">
+            <div class="detail-heading"><h3>{{ account.description }}</h3><button type="button" (click)="startEdit(account)" [disabled]="busy || loading || loadFailed">Editar</button></div>
+            <p class="hint">Acuerdo del {{ account.date | date:'dd/MM/yyyy' }}</p>
+            <p *ngIf="account.notes" class="notes">{{ account.notes }}</p>
+            <div class="balance-grid">
+              <div><span>Total acordado</span><strong>$ {{ account.totalAmount | number:'1.2-2' }}</strong></div>
+              <div><span>Cobrado</span><strong class="collected">$ {{ account.paidAmount | number:'1.2-2' }}</strong></div>
+              <div><span>Falta cobrar</span><strong>$ {{ account.remainingAmount | number:'1.2-2' }}</strong></div>
+            </div>
+            <div class="progress-track large" role="progressbar" aria-label="Porcentaje cobrado" [attr.aria-valuenow]="progress(account)" aria-valuemin="0" aria-valuemax="100"><div [style.width.%]="progress(account)" [class.complete]="account.remainingAmount === 0"></div></div>
+            <p class="progress-label">{{ progress(account) | number:'1.0-1' }}% cobrado <span *ngIf="account.remainingAmount === 0">· Cuenta cobrada en su totalidad</span></p>
+            <form class="payment-form" *ngIf="account.remainingAmount > 0" (ngSubmit)="savePayment()" #paymentForm="ngForm">
+              <h4>Registrar pago</h4>
+              <fieldset [disabled]="busy || loading || loadFailed">
+                <div class="form-grid"><label>Fecha<input type="date" name="paymentDate" [(ngModel)]="payment.date" [min]="account.date.slice(0, 10)" required /></label><label>Importe ($)<input type="text" inputmode="decimal" appCurrencyFormat name="paymentAmount" [(ngModel)]="payment.amount" required placeholder="0,00" /></label></div>
+                <label>Comentario (opcional)<input name="paymentComment" [(ngModel)]="payment.comment" maxlength="500" placeholder="Ej.: Cuota 1 · transferencia" /></label>
+                <button type="submit" class="primary" [disabled]="paymentForm.invalid || busy">{{ busy ? 'Guardando…' : 'Registrar pago' }}</button>
+              </fieldset>
+            </form>
+            <div class="history-heading"><h4>Historial de pagos</h4><span>{{ account.payments.length }} pagos</span></div>
+            <div class="table-wrapper"><table><thead><tr><th>Fecha</th><th>Comentario</th><th class="amount">Importe</th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody>
+              <tr *ngFor="let item of account.payments"><td>{{ item.date | date:'dd/MM/yyyy' }}</td><td class="payment-comment">{{ item.comment || '—' }}</td><td class="amount">$ {{ item.amount | number:'1.2-2' }}</td><td><button type="button" class="danger-link" (click)="deletePayment(item)" [disabled]="busy || loading || loadFailed" [attr.aria-label]="'Eliminar pago del ' + (item.date | date:'dd/MM/yyyy')">Eliminar</button></td></tr>
+              <tr *ngIf="!account.payments.length"><td colspan="4" class="empty">Todavía no se registraron pagos.</td></tr>
+            </tbody></table></div>
+            <button type="button" class="danger-link delete-account" (click)="deleteAccount()" [disabled]="busy || loading || loadFailed || account.payments.length > 0" [title]="account.payments.length ? 'Para eliminar la cuenta, primero eliminá sus pagos.' : 'Eliminar cuenta'">Eliminar cuenta</button>
+          </ng-container>
+          <ng-template #noSelection><div class="empty selection-empty"><h3>Todo lo que falta cobrar, en un lugar</h3><p>Seleccioná una cuenta para ver su avance y registrar pagos, o creá un nuevo acuerdo.</p></div></ng-template>
+        </ng-container>
+      </main>
+    </div>
+    <footer>Este registro conserva las cuentas entre meses. Los pagos no modifican los saldos de efectivo o bancos.</footer>
+  </section>
+</div>

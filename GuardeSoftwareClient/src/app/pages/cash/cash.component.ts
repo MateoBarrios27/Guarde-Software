@@ -13,6 +13,7 @@ import { CurrencyFormatDirective } from '../../shared/directives/currency-format
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
+import { CashReceivablesComponent } from './receivables/cash-receivables.component';
 
 // --- Structure Historial (CTRL+Z) ---
 export type ActionType =
@@ -40,9 +41,10 @@ export interface UndoAction {
   selector: 'app-cash',
   templateUrl: './cash.component.html',
   styleUrls: ['./cash.component.css'],
-  imports: [IconComponent, CommonModule, FormsModule, CurrencyFormatDirective, DragDropModule, ScrollingModule]
+  imports: [IconComponent, CommonModule, FormsModule, CurrencyFormatDirective, DragDropModule, ScrollingModule, CashReceivablesComponent]
 })
 export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
+  showReceivablesModal = false;
   
   currentDate = new Date();
   selectedMonth = this.currentDate.getMonth() + 1;
@@ -196,6 +198,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     // de Caja sigue existiendo en ese estado, pero no debe actuar fuera de
     // /cash.
     if (!this.isCashRouteActive()) return;
+    if (this.showReceivablesModal) return;
 
     if (event.key === 'Escape') {
       if (this.showAdvancesModal) {
