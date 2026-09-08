@@ -1,17 +1,23 @@
 using System.Data;
 using GuardeSoftwareAPI.Dao;
 using Quartz;
+using GuardeSoftwareAPI.Services.notification;
 
 [DisallowConcurrentExecution]
 public class ApplyInterestsJob : IJob
 {
     private readonly ILogger<ApplyInterestsJob> _logger;
     private readonly DaoRental _daoRental;
+    private readonly INotificationService _notificationService;
 
-    public ApplyInterestsJob(ILogger<ApplyInterestsJob> logger, AccessDB accessDB)
+    public ApplyInterestsJob(
+        ILogger<ApplyInterestsJob> logger,
+        AccessDB accessDB,
+        INotificationService notificationService)
     {
         _logger = logger;
-        _daoRental = new DaoRental(accessDB); 
+        _daoRental = new DaoRental(accessDB);
+        _notificationService = notificationService;
     }
 
     public async Task Execute(IJobExecutionContext context)
@@ -24,6 +30,8 @@ public class ApplyInterestsJob : IJob
         {
             DataTable allRentals = await _daoRental.GetAllActiveRentalsWithStatusAsync();
             _logger.LogInformation("Procesando {count} alquileres activos.", allRentals.Rows.Count);
+            int affectedRentals = 0;
+            decimal totalInterests = 0;
 
             foreach (DataRow row in allRentals.Rows)
             {
@@ -57,6 +65,8 @@ public class ApplyInterestsJob : IJob
                         roundedInterest,
                         lateRentBase,
                         DateTime.Today);
+                    affectedRentals++;
+                    totalInterests += roundedInterest;
                     _logger.LogInformation("Interés de ${amount} aplicado al alquiler ID {rentalId}. (Base Imponible: ${baseImponible}, Método Preferido: {method})", roundedInterest, rentalId, taxableBase, preferredMethod);
 
                     if (newMonthsUnpaid >= TERMINATION_THRESHOLD)
@@ -64,6 +74,18 @@ public class ApplyInterestsJob : IJob
                         _logger.LogError("¡ACCIÓN CRÍTICA! El alquiler ID {rentalId} ha alcanzado {newMonthsUnpaid} meses de mora.", rentalId, newMonthsUnpaid);
                     }
                 }
+            }
+
+            if (affectedRentals > 0)
+            {
+                string period = DateTime.Today.ToString("MM/yyyy");
+                await _notificationService.CreateEventAsync(
+                    sourceType: "interests_applied",
+                    severity: "info",
+                    title: "Intereses aplicados",
+                    message: $"Se aplicaron intereses a {affectedRentals} alquileres por un total de {totalInterests:C0} para el período {period}.",
+                    actionUrl: "/finances",
+                    notificationKey: $"interests-applied:{DateTime.Today:yyyy-MM}");
             }
             _logger.LogInformation("Job de Gestión de Mora finalizado con éxito.");
         }

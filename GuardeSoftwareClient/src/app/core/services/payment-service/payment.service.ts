@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
 import { Payment } from '../../models/payment';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import { environment } from '../../../../environments/environments';
 import { CreatePaymentDTO } from '../../dtos/payment/CreatePaymentDTO';
 import { DetailedPaymentDTO } from '../../dtos/payment/DetailedPaymentDTO';
+import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
 
 @Injectable({
   providedIn: 'root'
@@ -12,7 +13,10 @@ import { DetailedPaymentDTO } from '../../dtos/payment/DetailedPaymentDTO';
 export class PaymentService {
 
   private url: string = environment.apiUrl
-  constructor(private httpCliente: HttpClient) { }
+  constructor(
+    private httpCliente: HttpClient,
+    private dataRefresh: DataRefreshService,
+  ) { }
 
   public getPayments(): Observable<Payment[]>{
         return this.httpCliente.get<Payment[]>(`${this.url}/Payment`);
@@ -27,7 +31,9 @@ export class PaymentService {
   }
 
   public CreatePayment(dto: CreatePaymentDTO): Observable<any>{
-    return this.httpCliente.post<any>(`${this.url}/Payment`, dto);
+    return this.httpCliente.post<any>(`${this.url}/Payment`, dto).pipe(
+      tap(() => this.dataRefresh.notify(['finances', 'clients'])),
+    );
   }
 
   public getDetailedPayment(): Observable<DetailedPaymentDTO[]>{
@@ -35,7 +41,9 @@ export class PaymentService {
   }
 
   deletePayment(paymentId: number): Observable<any> {
-    return this.httpCliente.delete(`${this.url}/Payment/${paymentId}`);
+    return this.httpCliente.delete(`${this.url}/Payment/${paymentId}`).pipe(
+      tap(() => this.dataRefresh.notify(['finances', 'clients'])),
+    );
   }
   
 }

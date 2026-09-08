@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { LockerType } from '../../models/locker-type';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import { environment } from '../../../../environments/environments';
+import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
 import { UpdateLockerTypeDto } from '../../dtos/lockerType/updateLockerTypeDto';
 import { CreateLockerTypeDto } from '../../dtos/lockerType/CreateLockerTypeDto';
 
@@ -12,7 +13,10 @@ import { CreateLockerTypeDto } from '../../dtos/lockerType/CreateLockerTypeDto';
 export class LockerTypeService {
 
   private url: string = environment.apiUrl
-  constructor(private httpCliente: HttpClient) { }
+  constructor(
+    private httpCliente: HttpClient,
+    private dataRefresh: DataRefreshService,
+  ) { }
 
   public getLockerTypes(): Observable<LockerType[]>{
         return this.httpCliente.get<LockerType[]>(`${this.url}/LockerType`);
@@ -24,14 +28,20 @@ export class LockerTypeService {
 
   //CAMBIAR A DTO
   public createLockerType(lockerType: CreateLockerTypeDto): Observable<LockerType>{
-      return this.httpCliente.post<LockerType>(`${this.url}/LockerType`,lockerType);
+      return this.httpCliente.post<LockerType>(`${this.url}/LockerType`,lockerType).pipe(
+        tap(() => this.dataRefresh.notify('catalog')),
+      );
   }
 
   public updateLockerType(id: number, lockerType: UpdateLockerTypeDto): Observable<boolean>{
-      return this.httpCliente.put<boolean>(`${this.url}/LockerType/${id}`,lockerType);
+      return this.httpCliente.put<boolean>(`${this.url}/LockerType/${id}`,lockerType).pipe(
+        tap(() => this.dataRefresh.notify('catalog')),
+      );
   }
 
   public deleteLockerType(id: number): Observable<boolean>{
-      return this.httpCliente.delete<boolean>(`${this.url}/LockerType/${id}`);
+      return this.httpCliente.delete<boolean>(`${this.url}/LockerType/${id}`).pipe(
+        tap(() => this.dataRefresh.notify('catalog')),
+      );
   }
 }

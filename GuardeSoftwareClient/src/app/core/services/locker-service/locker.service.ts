@@ -1,11 +1,12 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../../../environments/environments';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import { Locker } from '../../models/locker';
 import { LockerUpdateDTO } from '../../dtos/locker/LockerUpdateDTO';
 import { LockerUpdateStatusDTO } from '../../dtos/locker/LockerUpdateStatusDTO';
 import { CreateLockerDTO } from '../../dtos/locker/CreateLockerDTO';
+import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
 
 @Injectable({
   providedIn: 'root'
@@ -13,7 +14,10 @@ import { CreateLockerDTO } from '../../dtos/locker/CreateLockerDTO';
 export class LockerService {
 
   private url: string = environment.apiUrl
-  constructor(private httpCliente: HttpClient) { }
+  constructor(
+    private httpCliente: HttpClient,
+    private dataRefresh: DataRefreshService,
+  ) { }
 
   public getLockers(): Observable<Locker[]>{
     return this.httpCliente.get<Locker[]>(`${this.url}/Locker`);
@@ -24,18 +28,26 @@ export class LockerService {
   }
 
   public updateLocker(id: number, dto: LockerUpdateDTO): Observable<any>{
-     return this.httpCliente.put<any>(`${this.url}/Locker/${id}`, dto);
+     return this.httpCliente.put<any>(`${this.url}/Locker/${id}`, dto).pipe(
+       tap(() => this.dataRefresh.notify(['lockers', 'clients'])),
+     );
   }
 
   public updateLockerStatus(id: number, dto: LockerUpdateStatusDTO): Observable<any>{
-    return this.httpCliente.patch<any>(`${this.url}/Locker/${id}`, dto);
+    return this.httpCliente.patch<any>(`${this.url}/Locker/${id}`, dto).pipe(
+      tap(() => this.dataRefresh.notify(['lockers', 'clients'])),
+    );
   }
 
   public deleteLocker(id: number): Observable<any> {
-  return this.httpCliente.delete<any>(`${this.url}/Locker/${id}`);
+  return this.httpCliente.delete<any>(`${this.url}/Locker/${id}`).pipe(
+    tap(() => this.dataRefresh.notify(['lockers', 'clients'])),
+  );
   }
 
   public createLocker(createLockerDto: CreateLockerDTO): Observable<Locker> {
-    return this.httpCliente.post<Locker>(`${this.url}/locker`, createLockerDto);
+    return this.httpCliente.post<Locker>(`${this.url}/locker`, createLockerDto).pipe(
+      tap(() => this.dataRefresh.notify(['lockers', 'clients'])),
+    );
   }
 }

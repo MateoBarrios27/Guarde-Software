@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, Subject } from 'rxjs';
+import { Observable, Subject, tap } from 'rxjs';
 import {
   ComunicacionDto,
   CommunicationExtensionMode,
@@ -13,12 +13,14 @@ import { environment } from '../../../../environments/environments';
 import { IClientCommunication } from '../../../shared/components/client-detail-modal/client-detail-modal.component';
 import { SmtpConfig } from '../../models/smtp-config';
 import * as signalR from '@microsoft/signalr';
+import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class CommunicationService {
   private http = inject(HttpClient);
+  private dataRefresh = inject(DataRefreshService);
   private url: string = environment.apiUrl;
   
   private hubConnection: signalR.HubConnection | undefined;
@@ -46,6 +48,7 @@ export class CommunicationService {
     this.hubConnection.on('CommunicationUpdated', (communicationId: number) => {
       console.log(`[CommunicationService] Evento CommunicationUpdated recibido para ID: ${communicationId}`);
       this.communicationUpdatedSource.next(communicationId);
+      this.dataRefresh.notify('communications', null);
     });
   }
   
@@ -100,17 +103,23 @@ export class CommunicationService {
             formData.append('attachments', file, file.name);
         });
     }
-    return this.http.post<ComunicacionDto>(`${this.url}/Communications`, formData);
+    return this.http.post<ComunicacionDto>(`${this.url}/Communications`, formData).pipe(
+      tap(() => this.dataRefresh.notify('communications')),
+    );
   }
 
   // NOTA: Si el update también permite cambiar archivos, deberías convertirlo a FormData igual que el Create.
   // Por ahora lo dejo como JSON si solo editas texto/destinatarios.
   updateCommunication(id: number, request: UpsertComunicacionRequest): Observable<ComunicacionDto> {
-    return this.http.put<ComunicacionDto>(`${this.url}/Communications/${id}`, request);
+    return this.http.put<ComunicacionDto>(`${this.url}/Communications/${id}`, request).pipe(
+      tap(() => this.dataRefresh.notify('communications')),
+    );
   }
 
   deleteCommunication(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.url}/Communications/${id}`);
+    return this.http.delete<void>(`${this.url}/Communications/${id}`).pipe(
+      tap(() => this.dataRefresh.notify('communications')),
+    );
   }
 
   getCommunicationById(id: number): Observable<ComunicacionDto> {
@@ -118,11 +127,15 @@ export class CommunicationService {
   }
 
   sendDraftNow(id: number): Observable<ComunicacionDto> {
-    return this.http.post<ComunicacionDto>(`${this.url}/Communications/${id}/send`, {});
+    return this.http.post<ComunicacionDto>(`${this.url}/Communications/${id}/send`, {}).pipe(
+      tap(() => this.dataRefresh.notify('communications')),
+    );
   }
 
   retryCommunication(id: number): Observable<ComunicacionDto> {
-    return this.http.post<ComunicacionDto>(`${this.url}/Communications/${id}/retry`, {});
+    return this.http.post<ComunicacionDto>(`${this.url}/Communications/${id}/retry`, {}).pipe(
+      tap(() => this.dataRefresh.notify('communications')),
+    );
   }
 
   retrySelectedCommunication(
@@ -133,6 +146,8 @@ export class CommunicationService {
     return this.http.post<ComunicacionDto>(
       this.url + '/Communications/' + id + '/retry-selected',
       { selectedClientIds, selectedExternalRecipientIds }
+    ).pipe(
+      tap(() => this.dataRefresh.notify('communications')),
     );
   }
 
@@ -158,6 +173,8 @@ export class CommunicationService {
     return this.http.post<CommunicationExtensionResult>(
       `${this.url}/Communications/${id}/extend`,
       request
+    ).pipe(
+      tap(() => this.dataRefresh.notify('communications')),
     );
   }
 
@@ -166,15 +183,21 @@ export class CommunicationService {
   }
 
   createSmtpConfig(config: SmtpConfig): Observable<SmtpConfig> {
-    return this.http.post<SmtpConfig>(`${this.url}/SmtpConfigurations`, config);
+    return this.http.post<SmtpConfig>(`${this.url}/SmtpConfigurations`, config).pipe(
+      tap(() => this.dataRefresh.notify(['communications', 'catalog'])),
+    );
   }
 
   updateSmtpConfig(config: SmtpConfig): Observable<SmtpConfig> {
-    return this.http.put<SmtpConfig>(`${this.url}/SmtpConfigurations/${config.id}`, config);
+    return this.http.put<SmtpConfig>(`${this.url}/SmtpConfigurations/${config.id}`, config).pipe(
+      tap(() => this.dataRefresh.notify(['communications', 'catalog'])),
+    );
   }
 
   deleteSmtpConfig(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.url}/SmtpConfigurations/${id}`);
+    return this.http.delete<void>(`${this.url}/SmtpConfigurations/${id}`).pipe(
+      tap(() => this.dataRefresh.notify(['communications', 'catalog'])),
+    );
   }
 
   getClientsForSelector(): Observable<any[]> {

@@ -43,6 +43,7 @@ import {
 } from '../../core/models/mass-communication-recipient';
 import { MassCommunicationRecipientService } from '../../core/services/mass-communication-recipient-service/mass-communication-recipient.service';
 import { ToastNotificationComponent } from '../../shared/components/toast-notification/toast-notification.component';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-settings',
@@ -65,7 +66,8 @@ export class SettingsComponent implements OnInit {
     public authService: AuthService,
     private syncService: SyncService,
     private deleteConfirmation: DeleteConfirmationService,
-    private massRecipientService: MassCommunicationRecipientService
+    private massRecipientService: MassCommunicationRecipientService,
+    private route: ActivatedRoute
   ) {}
 
   activeSection: string = 'usuarios';
@@ -211,6 +213,13 @@ export class SettingsComponent implements OnInit {
     if (!this.configSections.some(s => s.id === this.activeSection)) {
       this.activeSection = this.configSections[0].id;
     }
+
+    this.route.queryParamMap.subscribe(params => {
+      const requestedSection = params.get('section');
+      if (requestedSection && this.configSections.some(section => section.id === requestedSection)) {
+        this.activeSection = requestedSection;
+      }
+    });
 
     this.loadUsers();
     this.loadPaymentMethods();

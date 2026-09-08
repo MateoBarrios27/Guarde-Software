@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 import { environment } from '../../../../environments/environments';
 import { MonthlyIncreaseSetting } from '../../models/monthly-increase-setting';
 import { CreateMonthlyIncreaseDto } from '../../dtos/monthlyIncrease/CreateMonthlyIncreaseDto';
 import { UpdateMonthlyIncreaseDto } from '../../dtos/monthlyIncrease/UpdateMonthlyIncreaseDto';
+import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
 
 @Injectable({
   providedIn: 'root'
@@ -14,7 +15,10 @@ export class MonthlyIncreaseService {
   // Asumimos un nuevo controlador en el backend
   private apiUrl = `${environment.apiUrl}/MonthlyIncrease`; 
 
-  constructor(private http: HttpClient) { }
+  constructor(
+    private http: HttpClient,
+    private dataRefresh: DataRefreshService,
+  ) { }
 
   // Mapear snake_case a camelCase si es necesario
   private mapSetting(setting: any): MonthlyIncreaseSetting {
@@ -34,15 +38,20 @@ export class MonthlyIncreaseService {
 
   createSetting(dto: CreateMonthlyIncreaseDto): Observable<MonthlyIncreaseSetting> {
     return this.http.post<any>(this.apiUrl, dto).pipe(
-      map(this.mapSetting)
+      map(this.mapSetting),
+      tap(() => this.dataRefresh.notify('catalog')),
     );
   }
 
   updateSetting(id: number, dto: UpdateMonthlyIncreaseDto): Observable<any> {
-    return this.http.put(`${this.apiUrl}/${id}`, dto);
+    return this.http.put(`${this.apiUrl}/${id}`, dto).pipe(
+      tap(() => this.dataRefresh.notify('catalog')),
+    );
   }
 
   deleteSetting(id: number): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/${id}`);
+    return this.http.delete(`${this.apiUrl}/${id}`).pipe(
+      tap(() => this.dataRefresh.notify('catalog')),
+    );
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../../../environments/environments';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, of, tap } from 'rxjs';
 import { Client } from '../../models/client';
 import { ClientDetailDTO } from '../../dtos/client/ClientDetailDTO';
 import { CreateClientDTO } from '../../dtos/client/CreateClientDTO';
@@ -10,6 +10,7 @@ import { TableClient } from '../../dtos/client/TableClientDto';
 import { GetClientsRequest } from '../../dtos/client/GetClientsRequest';
 import { PaginatedResult } from '../../dtos/common/PaginatedResultDto';
 import { ClientLockerHistory } from '../../models/client-locker-history';
+import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
 
 @Injectable({
   providedIn: 'root'
@@ -17,7 +18,10 @@ import { ClientLockerHistory } from '../../models/client-locker-history';
 export class ClientService {
 
   private url: string = environment.apiUrl
-  constructor(private httpClient: HttpClient) { }
+  constructor(
+    private httpClient: HttpClient,
+    private dataRefresh: DataRefreshService,
+  ) { }
 
   public getClients(): Observable<Client[]>{
     return this.httpClient.get<Client[]>(`${this.url}/Client`);
@@ -32,11 +36,15 @@ export class ClientService {
   }
 
   public CreateClient(dto: CreateClientDTO): Observable<CreateClientResponseDTO> {
-    return this.httpClient.post<any>(`${this.url}/Client`, dto);
+    return this.httpClient.post<any>(`${this.url}/Client`, dto).pipe(
+      tap(() => this.dataRefresh.notify(['clients', 'lockers', 'finances'])),
+    );
   }
 
   public updateClient(id: number, dto: CreateClientDTO): Observable<any> {
-    return this.httpClient.put<any>(`${this.url}/Client/${id}`, dto);
+    return this.httpClient.put<any>(`${this.url}/Client/${id}`, dto).pipe(
+      tap(() => this.dataRefresh.notify(['clients', 'lockers', 'finances'])),
+    );
   }
 
   public getNextPaymentIdentifier(): Observable<{ nextIdentifier: number }> {
@@ -128,7 +136,9 @@ export class ClientService {
   };
 
   public deactivateClient(id: number): Observable<void> {
-    return this.httpClient.delete<void>(`${this.url}/Client/${id}`);
+    return this.httpClient.delete<void>(`${this.url}/Client/${id}`).pipe(
+      tap(() => this.dataRefresh.notify(['clients', 'lockers', 'finances'])),
+    );
   }
 
   public applyDepartureAction(id: number, request: {
@@ -139,7 +149,9 @@ export class ClientService {
     departureDate?: string;
     pendingSurchargeAction?: 'forgive' | 'immediate';
   }): Observable<void> {
-    return this.httpClient.post<void>(`${this.url}/Client/${id}/departure-action`, request);
+    return this.httpClient.post<void>(`${this.url}/Client/${id}/departure-action`, request).pipe(
+      tap(() => this.dataRefresh.notify(['clients', 'lockers', 'finances'])),
+    );
   }
 
   public getDepartureProportionalPreview(id: number, departureDate: string): Observable<ClientDepartureProportionalPreview> {
@@ -150,7 +162,9 @@ export class ClientService {
   }
 
   reactivateClient(id: number, dto: any): Observable<any> {
-    return this.httpClient.put(`${this.url}/Client/${id}/reactivate`, dto);
+    return this.httpClient.put(`${this.url}/Client/${id}/reactivate`, dto).pipe(
+      tap(() => this.dataRefresh.notify(['clients', 'lockers', 'finances'])),
+    );
   }
 
   getClientLockerHistory(clientId: number): Observable<ClientLockerHistory[]> {
@@ -158,19 +172,27 @@ export class ClientService {
   }
 
   deleteLockerHistory(clientId: number, historyId: number): Observable<void> {
-    return this.httpClient.delete<void>(`${this.url}/Client/${clientId}/locker-history/${historyId}`);
+    return this.httpClient.delete<void>(`${this.url}/Client/${clientId}/locker-history/${historyId}`).pipe(
+      tap(() => this.dataRefresh.notify('clients')),
+    );
   }
 
   updateClientColor(id: number, color?: string): Observable<any> {
-    return this.httpClient.put(`${this.url}/Client/${id}/color`, { color });
+    return this.httpClient.put(`${this.url}/Client/${id}/color`, { color }).pipe(
+      tap(() => this.dataRefresh.notify('clients')),
+    );
   }
 
   updateClientComment(id: number, comment?: string): Observable<any> {
-    return this.httpClient.put(`${this.url}/Client/${id}/comment`, { comment });
+    return this.httpClient.put(`${this.url}/Client/${id}/comment`, { comment }).pipe(
+      tap(() => this.dataRefresh.notify('clients')),
+    );
   }
 
   updateClientNotes(id: number, notes?: string): Observable<any> {
-    return this.httpClient.put<any>(`${this.url}/Client/${id}/notes`, { notes });
+    return this.httpClient.put<any>(`${this.url}/Client/${id}/notes`, { notes }).pipe(
+      tap(() => this.dataRefresh.notify('clients')),
+    );
   }
 
   // ── Rental Amount History ──────────────────────────────────────────────────
@@ -187,6 +209,8 @@ export class ClientService {
     return this.httpClient.post<void>(
       `${this.url}/Client/${clientId}/rental-amount-history`,
       data
+    ).pipe(
+      tap(() => this.dataRefresh.notify(['clients', 'finances'])),
     );
   }
 
@@ -198,12 +222,16 @@ export class ClientService {
     return this.httpClient.put<void>(
       `${this.url}/Client/${clientId}/rental-amount-history/${histId}`,
       data
+    ).pipe(
+      tap(() => this.dataRefresh.notify(['clients', 'finances'])),
     );
   }
 
   deleteRentalAmountEntry(clientId: number, histId: number): Observable<void> {
     return this.httpClient.delete<void>(
       `${this.url}/Client/${clientId}/rental-amount-history/${histId}`
+    ).pipe(
+      tap(() => this.dataRefresh.notify(['clients', 'finances'])),
     );
   }
 }
