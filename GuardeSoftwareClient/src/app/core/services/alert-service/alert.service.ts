@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
 import { environment } from '../../../../environments/environments';
 import { HttpClient } from '@angular/common/http';
 
@@ -28,6 +28,8 @@ export class AlertService {
 
   /** Alerta activa del sistema. null = ninguna alerta en pantalla. */
   activeAlert$ = new BehaviorSubject<SystemAlert | null>(null);
+  /** Solicita refrescar la bandeja cuando el servidor creó una notificación. */
+  notificationsChanged$ = new Subject<void>();
 
   constructor(private http: HttpClient) {}
 
@@ -69,6 +71,10 @@ export class AlertService {
     // Escuchar cuando la alerta es limpiada desde el servidor
     this.hubConnection.on('ClearSystemAlert', () => {
       this.handleIncomingAlert(null);
+    });
+
+    this.hubConnection.on('NotificationsChanged', () => {
+      this.notificationsChanged$.next();
     });
   }
 

@@ -101,7 +101,7 @@ export class CreateAlertModalComponent implements OnInit {
     this.alertService.sendAlert(payload).subscribe({
       next: () => {
         this.isLoading = false;
-        this.feedbackMessage = '✓ Advertencia emitida correctamente a todos los usuarios conectados.';
+        this.feedbackMessage = '✓ Advertencia emitida y guardada en la bandeja de todos los usuarios.';
         this.feedbackIsError = false;
         setTimeout(() => this.closeModal.emit(), 2000);
       },

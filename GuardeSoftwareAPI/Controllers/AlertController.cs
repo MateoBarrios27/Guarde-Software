@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
+using GuardeSoftwareAPI.Services.notification;
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -14,15 +15,20 @@ namespace GuardeSoftwareAPI.Controllers
     {
         private readonly IHubContext<AlertHub> _hubContext;
         private readonly ILogger<AlertController> _logger;
+        private readonly INotificationService _notificationService;
 
         // Almacenamiento en memoria del último cartel activo
         // (en una implementación más robusta, esto podría ir a DB o cache distribuido)
         private static SystemAlertDto? _activeAlert = null;
 
-        public AlertController(IHubContext<AlertHub> hubContext, ILogger<AlertController> logger)
+        public AlertController(
+            IHubContext<AlertHub> hubContext,
+            ILogger<AlertController> logger,
+            INotificationService notificationService)
         {
             _hubContext = hubContext;
             _logger = logger;
+            _notificationService = notificationService;
         }
 
         /// <summary>
@@ -37,10 +43,23 @@ namespace GuardeSoftwareAPI.Controllers
             // Enriquecer con datos del usuario que emite la alerta
             var senderName = User.FindFirst(ClaimTypes.Name)?.Value
                           ?? User.FindFirst("unique_name")?.Value
+                          ?? User.FindFirst("username")?.Value
                           ?? "Administrador";
 
             dto.SenderName = senderName;
             dto.CreatedAt = DateTime.Now;
+
+            int? senderUserId = int.TryParse(User.FindFirst("businessUserId")?.Value, out int parsedUserId)
+                ? parsedUserId
+                : null;
+
+            await _notificationService.CreateEventAsync(
+                sourceType: "system_alert",
+                severity: NormalizeNotificationSeverity(dto.Severity),
+                title: dto.Title.Trim(),
+                message: dto.Message.Trim(),
+                actionUrl: null,
+                createdByUserId: senderUserId);
 
             // Guardar como alerta activa
             _activeAlert = dto;
@@ -53,8 +72,17 @@ namespace GuardeSoftwareAPI.Controllers
                 senderName, dto.Severity, dto.Title
             );
 
-            return Ok(new { message = "Alerta enviada a todos los usuarios conectados." });
+            return Ok(new { message = "Alerta enviada y guardada en la bandeja de notificaciones." });
         }
+
+        private static string NormalizeNotificationSeverity(string severity)
+            => severity?.Trim().ToLowerInvariant() switch
+            {
+                "danger" => "danger",
+                "warning" => "warning",
+                "maintenance" => "warning",
+                _ => "info"
+            };
 
         /// <summary>
         /// Retorna la alerta activa actual (útil para usuarios que se conectan mientras hay una alerta vigente).

@@ -1,0 +1,25 @@
+:host {
+  display: block;
+}
+
+.notification-panel {
+  animation: notification-panel-enter 140ms ease-out;
+  transform-origin: top right;
+}
+
+@keyframes notification-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notification-panel {
+    animation: none;
+  }
+}

@@ -18,6 +18,8 @@
       </button>
 
       <h1 class="text-lg font-semibold text-gray-900">{{ pageTitle }}</h1>
+
+      <app-notification-inbox *ngIf="authService.isLoggedIn()" class="ml-auto"></app-notification-inbox>
     </header>
 
     <main id="main-scroll" class="flex-1 min-w-0 min-h-0 overflow-auto p-6 pt-0 pb-0">

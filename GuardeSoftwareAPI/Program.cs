@@ -38,6 +38,7 @@ using GuardeSoftwareAPI.Services.cash;
 using GuardeSoftwareAPI.Services.clientMonthBalance;
 using GuardeSoftwareAPI.Services.sync;
 using GuardeSoftwareAPI.Services.massCommunicationRecipient;
+using GuardeSoftwareAPI.Services.notification;
 
 
 
@@ -140,6 +141,7 @@ builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
 builder.Services.AddScoped<AccessDB>();
 builder.Services.AddScoped<DaoUser>();
+builder.Services.AddScoped<DaoNotification>();
 //SERVICES
 builder.Services.AddScoped<IAccountMovementService, AccountMovementService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
@@ -169,6 +171,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICashService, CashService>();
 builder.Services.AddScoped<IClientMonthBalanceService, ClientMonthBalanceService>();
 builder.Services.AddScoped<IPaymentStateService, PaymentStateService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton<PaymentPresenceRegistry>();
 
 // --- Configuration Quartz.NET ---
