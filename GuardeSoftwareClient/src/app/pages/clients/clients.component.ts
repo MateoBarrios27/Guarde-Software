@@ -12,7 +12,7 @@ import { GetClientsRequest } from '../../core/dtos/client/GetClientsRequest';
 import { ClientDepartureProportionalPreview, ClientService } from '../../core/services/client-service/client.service';
 import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO';
 
-import { Subject, Observable, firstValueFrom } from 'rxjs';
+import { Subject, Observable, firstValueFrom, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { ClientDetailModalComponent } from "../../shared/components/client-detail-modal/client-detail-modal.component";
 import { ClientStatisticsDto } from '../../core/dtos/statistics/ClientStatisticsDto';
@@ -30,6 +30,7 @@ import { OfflineService } from '../../core/services/offline-service/offline.serv
 import { IndexedDbService } from '../../core/services/offline-service/indexed-db.service';
 import Swal from '../../shared/services/ui-alert.service';
 import { ToastNotificationComponent } from '../../shared/components/toast-notification/toast-notification.component';
+import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 
 @Component({
   selector: 'app-clients',
@@ -146,6 +147,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   private supportingDataLoadScheduled = false;
   private clientIdToPositionFromQuery: number | null = null;
   private detailClientIdFromQuery: number | null = null;
+  private readonly dataRefreshSubscription = new Subscription();
 
   constructor(
     private clientService: ClientService, 
@@ -159,7 +161,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     public offlineService: OfflineService,
     private idb: IndexedDbService,
     private cdr: ChangeDetectorRef,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private dataRefresh: DataRefreshService,
   ) 
   {
     this.searchSubject.pipe(
@@ -411,6 +414,21 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public lockerTypes: any[] = [];
 
   ngOnInit(): void {
+    this.dataRefreshSubscription.add(
+      this.dataRefresh.watch(['clients', 'finances', 'lockers', 'catalog'], 'clients').subscribe(event => {
+        if (event.domains.includes('catalog')) {
+          this.loadSupportingData();
+        }
+
+        if (event.domains.some(domain =>
+          domain === 'clients' || domain === 'finances' || domain === 'lockers',
+        )) {
+          void this.loadClients();
+          this.loadStatistics();
+        }
+      }),
+    );
+
     this.route.queryParams.subscribe(params => {
       const searchTerm = params['searchTerm'];
       if (searchTerm) {
@@ -471,18 +489,20 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.supportingDataLoadScheduled) return;
     this.supportingDataLoadScheduled = true;
 
-    const load = () => {
-      this.warehouseService.getWarehouses().subscribe(data => { this.warehouses = data; this.cdr.markForCheck(); });
-      this.billingTypeService.getBillingTypes().subscribe(data => { this.billingTypes = data; this.cdr.markForCheck(); });
-      this.paymentMethodService.getPaymentMethods().subscribe(data => { this.paymentMethods = data; this.cdr.markForCheck(); });
-      this.lockerTypeService.getLockerTypes().subscribe(data => { this.lockerTypes = data; this.cdr.markForCheck(); });
-    };
+    const load = () => this.loadSupportingData();
 
     if ('requestIdleCallback' in window) {
       window.requestIdleCallback(load, { timeout: 2500 });
     } else {
       setTimeout(load, 500);
     }
+  }
+
+  private loadSupportingData(): void {
+    this.warehouseService.getWarehouses().subscribe(data => { this.warehouses = data; this.cdr.markForCheck(); });
+    this.billingTypeService.getBillingTypes().subscribe(data => { this.billingTypes = data; this.cdr.markForCheck(); });
+    this.paymentMethodService.getPaymentMethods().subscribe(data => { this.paymentMethods = data; this.cdr.markForCheck(); });
+    this.lockerTypeService.getLockerTypes().subscribe(data => { this.lockerTypes = data; this.cdr.markForCheck(); });
   }
 
   public quickFiltersList = [
@@ -629,6 +649,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.dataRefreshSubscription.unsubscribe();
     const scrollContainer = document.getElementById('main-scroll');
     if (scrollContainer) {
       scrollContainer.removeEventListener('scroll', this.onScroll.bind(this));

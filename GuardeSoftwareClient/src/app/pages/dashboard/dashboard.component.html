@@ -389,18 +389,27 @@
           </div>
 
           <!-- Input de Cancela Deuda Condicional -->
-          <div *ngIf="isPaymentMethodDifferent()" class="mt-2.5 flex items-center gap-1.5 text-[11px] text-indigo-700 font-medium bg-indigo-50/60 px-2.5 py-1.5 rounded-lg border border-indigo-100/80 w-fit animate-fade-in">
-            <span>Cancela deuda por: $</span>
-            <input
-              type="text"
-              appCurrencyFormat
-              (keydown.enter)="blurInput($event)"
-              min="0.01"
-              step="0.01"
-              [(ngModel)]="newAmount"
-              (ngModelChange)="onDebtCancelChange($event)"
-              class="w-24 px-1.5 py-0.5 text-xs font-bold text-indigo-950 bg-white border border-indigo-200 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500/20 tabular-nums"
-            />
+          <div *ngIf="isPaymentMethodDifferent()" class="mt-2.5 flex flex-wrap items-center gap-3 animate-fade-in">
+            <div class="flex items-center gap-1.5 text-[11px] text-indigo-700 font-medium bg-indigo-50/60 px-2.5 py-1.5 rounded-lg border border-indigo-100/80">
+              <span>Cancela deuda por: $</span>
+                      <input
+                        type="text"
+                        appCurrencyFormat
+                        (keydown.enter)="blurInput($event)"
+                        min="0.01"
+                        step="0.01"
+                        [(ngModel)]="newAmount"
+                        (ngModelChange)="onDebtCancelChange($event)"
+                        class="w-24 px-1.5 py-0.5 text-xs font-bold text-indigo-950 bg-white border border-indigo-200 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500/20 tabular-nums"
+                      />
+            </div>
+            <label class="flex flex-col items-center gap-1 text-[11px] font-medium text-indigo-700 cursor-pointer select-none">
+              <input type="checkbox" role="switch" class="sr-only peer"
+                [(ngModel)]="applyPaymentAdjustment" (ngModelChange)="onPaymentAdjustmentChange()"
+                [attr.aria-label]="paymentAdjustmentLabel" />
+              <span class="relative w-9 h-5 rounded-full bg-gray-300 transition-colors peer-checked:bg-indigo-600 peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-400 peer-focus-visible:ring-offset-2 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"></span>
+              <span>{{ paymentAdjustmentLabel }}</span>
+            </label>
           </div>
         </div>
 
@@ -410,7 +419,7 @@
           </label>
           <select
             [(ngModel)]="paymentDto.paymentMethodId"
-            (ngModelChange)="onAmountChange(paymentDto.amount)"
+            (ngModelChange)="onPaymentMethodChange()"
             class="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-semibold text-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all outline-none shadow-2xs cursor-pointer"
           >
             <option *ngFor="let method of paymentMethods" [value]="method.id">

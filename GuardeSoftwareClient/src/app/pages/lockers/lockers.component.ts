@@ -15,6 +15,8 @@ import { DeleteConfirmationService } from '../../shared/services/delete-confirma
 import { LockerType } from '../../core/models/locker-type';
 import { LockerTypeService } from '../../core/services/lockerType-service/locker-type.service';
 import { CreateLockerDTO } from '../../core/dtos/locker/CreateLockerDTO';
+import { Subscription } from 'rxjs';
+import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 
 @Component({
   selector: 'app-lockers',
@@ -78,15 +80,28 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('bottomAnchor') bottomAnchor!: ElementRef;
   pointingUp: boolean = false;
   private scrollObserver!: IntersectionObserver;
+  private readonly dataRefreshSubscription = new Subscription();
 
   constructor(
     private lockerService: LockerService,
     private warehouseService: WarehouseService,
     private lockerTypeService: LockerTypeService,
-    private deleteConfirmation: DeleteConfirmationService
+    private deleteConfirmation: DeleteConfirmationService,
+    private dataRefresh: DataRefreshService,
   ) {}
 
   ngOnInit(): void {
+    this.dataRefreshSubscription.add(
+      this.dataRefresh.watch(['lockers', 'clients', 'catalog'], 'lockers').subscribe(event => {
+        if (event.domains.includes('catalog')) {
+          this.loadWarehouses();
+          this.loadLockerTypes();
+        }
+        if (event.domains.includes('lockers') || event.domains.includes('clients')) {
+          this.loadLockers();
+        }
+      }),
+    );
     this.loadLockers();
     this.loadWarehouses();
     this.loadLockerTypes();
@@ -109,6 +124,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.dataRefreshSubscription.unsubscribe();
     if (this.scrollObserver) {
       this.scrollObserver.disconnect();
     }

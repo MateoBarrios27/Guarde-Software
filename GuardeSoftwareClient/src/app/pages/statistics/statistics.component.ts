@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MonthlyStatisticsDTO } from '../../core/dtos/statistics/MonthlyStatisticsDTO';
 import { StatisticsService } from '../../core/services/statics-service/statics-service.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { Subscription } from 'rxjs';
+import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 
 @Component({
   selector: 'app-statistics',
@@ -10,17 +12,31 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
   imports: [CommonModule, IconComponent],
   templateUrl: './statistics.component.html',
 })
-export class StatisticsComponent implements OnInit {
+export class StatisticsComponent implements OnInit, OnDestroy {
   currentDate = new Date();
   isLoading = false;
   hasError = false;
 
   stats: MonthlyStatisticsDTO = this.emptyStats();
 
-  constructor(private statisticsService: StatisticsService) {}
+  private readonly dataRefreshSubscription = new Subscription();
+
+  constructor(
+    private statisticsService: StatisticsService,
+    private dataRefresh: DataRefreshService,
+  ) {}
 
   ngOnInit(): void {
+    this.dataRefreshSubscription.add(
+      this.dataRefresh.watch(['clients', 'finances', 'lockers'], 'statistics').subscribe(() => {
+        this.loadStats();
+      }),
+    );
     this.loadStats();
+  }
+
+  ngOnDestroy(): void {
+    this.dataRefreshSubscription.unsubscribe();
   }
 
   loadStats(): void {

@@ -16,6 +16,7 @@ import { PdfGeneratorService } from '../../core/services/pdfGenerator-service/pd
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 import { Subscription } from 'rxjs';
 import { PaymentCompletedNotice, PaymentPresenceService, PaymentPresenceUser } from '../../core/services/payment-presence/payment-presence.service';
+import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 
 interface PaymentMonthBreakdown {
   year: number;
@@ -86,6 +87,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedPreferredPaymentId: number = 0;
   commision:number = 0;
   newAmount: number = 0;
+  applyPaymentAdjustment = true;
 
   // --- VARIABLES PARA EL MODAL DE AUMENTO ---
   selectedIncreaseAnchorDate: string | null = null;
@@ -129,7 +131,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private paymentService: PaymentService,
     private paymentMethodService: PaymentMethodService,
     private pdfGeneratorService: PdfGeneratorService,
-    private paymentPresenceService: PaymentPresenceService
+    private paymentPresenceService: PaymentPresenceService,
+    private dataRefresh: DataRefreshService,
   ) {}
 
   ngOnInit(): void {
@@ -138,6 +141,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
     );
     this.paymentPresenceSubscriptions.add(
       this.paymentPresenceService.onPaymentCompleted$.subscribe(event => this.handleExternalPayment(event))
+    );
+    this.paymentPresenceSubscriptions.add(
+      this.dataRefresh.watch(['clients', 'finances', 'catalog'], 'dashboard').subscribe(event => {
+        if (event.domains.includes('catalog')) {
+          this.loadPaymentMethods();
+        }
+        if (event.domains.includes('clients') || event.domains.includes('finances')) {
+          this.LoadPedingRentals();
+          this.LoadPayments();
+        }
+      }),
     );
     this.LoadPedingRentals();
     this.LoadPayments();
@@ -412,6 +426,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.isPreviousBalanceSelected = true;
     }
 
+    this.applyPaymentAdjustment = true;
     this.paymentDto = {
       clientId: item.clientId ?? 0,
       movementType: 'CREDITO',
@@ -672,7 +687,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const selectedCommission = this.getCommissionByMethodId(selectedMethodId);
     const includedCommission = this.getCommissionByMethodId(preferredPaymentId);
     
-    if (selectedCommission === includedCommission) {
+    if (!this.applyPaymentAdjustment || selectedCommission === includedCommission) {
         return { amountEntered, equivalentDebtPaid: amountEntered, difference: 0, isSurcharge: false, isDiscount: false, selectedCommission, includedCommission };
     }
 
@@ -719,7 +734,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           const selectedCommission = this.getCommissionByMethodId(this.paymentDto.paymentMethodId);
           const includedCommission = this.getCommissionByMethodId(this.selectedPreferredPaymentId);
 
-          if (selectedCommission === includedCommission) {
+          if (!this.applyPaymentAdjustment || selectedCommission === includedCommission) {
               this.paymentDto.amount = debtCancelled;
               this.commision = 0;
               this.newAmount = debtCancelled;
@@ -743,6 +758,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.isPreviousBalanceSelected = false;
           this.syncPaymentPreview();
       }
+  }
+
+  get paymentAdjustmentLabel(): string {
+    return this.getCommissionByMethodId(this.paymentDto.paymentMethodId) >
+      this.getCommissionByMethodId(this.selectedPreferredPaymentId)
+      ? 'Aplicar recargo' : 'Aplicar descuento';
+  }
+
+  onPaymentMethodChange(): void {
+    // Preserve the debt being settled while recalculating the amount to collect.
+    this.onDebtCancelChange(this.newAmount);
+  }
+
+  onPaymentAdjustmentChange(): void {
+    this.onDebtCancelChange(this.newAmount);
   }
 
   isPaymentMethodDifferent(): boolean {

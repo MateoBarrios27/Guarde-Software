@@ -23,6 +23,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Subscription } from 'rxjs';
 import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 import { PaymentCompletedNotice, PaymentPresenceService, PaymentPresenceUser } from '../../core/services/payment-presence/payment-presence.service';
+import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 
 export interface DetailedPaymentView extends DetailedPaymentDTO {
   groupPos?: 'start' | 'middle' | 'end' | 'none';
@@ -67,7 +68,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
     private idb: IndexedDbService,
     private syncService: SyncService,
     private paymentPresenceService: PaymentPresenceService,
-    private deleteConfirmation: DeleteConfirmationService
+    private deleteConfirmation: DeleteConfirmationService,
+    private dataRefresh: DataRefreshService,
   ){}
 
   clients: Client[] = [];
@@ -208,6 +210,19 @@ export class FinancesComponent implements OnInit, OnDestroy {
     );
     this.paymentPresenceSubscriptions.add(
       this.paymentPresenceService.onPaymentCompleted$.subscribe(event => this.handleExternalPayment(event))
+    );
+    this.paymentPresenceSubscriptions.add(
+      this.dataRefresh.watch(['clients', 'finances', 'catalog'], 'finances').subscribe(event => {
+        if (event.domains.includes('catalog')) {
+          this.loadPaymentMethods();
+        }
+        if (event.domains.includes('finances')) {
+          this.loadPayments();
+        }
+        if (event.domains.includes('clients') || event.domains.includes('finances')) {
+          this.loadClients();
+        }
+      }),
     );
     this.route.queryParams.subscribe(params => {
       if (params['autoOpenPayment']) {
@@ -792,6 +807,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
     const returnClientId = this.paymentDto.clientId || this.selectedClientId;
 
+    this.applyPaymentAdjustment = true;
     this.paymentDto = {
       clientId: 0, movementType: 'CREDITO', concept: ` `, amount: 0, paymentMethodId: 1, date: now, isAdvancePayment: false, advanceMonths: 0,
       skipFutureProjection: false 
@@ -841,6 +857,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
     const now = new Date();
     this.manualDateEnabled = false;
     this.dateString = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    this.applyPaymentAdjustment = true;
     this.paymentDto = {
       clientId: 0, movementType: 'CREDITO', concept: ` `, amount: 0, paymentMethodId: 1, date: now, isAdvancePayment: false, advanceMonths: 0,
       skipFutureProjection: false 
@@ -1010,6 +1027,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
   commision:number = 0;
   newAmount: number = 0;
+  applyPaymentAdjustment = true;
 
   private getCommissionByMethodId(paymentMethodId: number): number {
     const id = Number(paymentMethodId);
@@ -1560,7 +1578,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
           const selectedCommission = this.getCommissionByMethodId(this.paymentDto.paymentMethodId);
           const includedCommission = this.getCommissionByMethodId(this.selectedPreferredPaymentId);
 
-          if (selectedCommission === includedCommission) {
+          if (!this.applyPaymentAdjustment || selectedCommission === includedCommission) {
               this.paymentDto.amount = debtCancelled;
               this.commision = 0;
               this.newAmount = debtCancelled;
@@ -1584,6 +1602,21 @@ export class FinancesComponent implements OnInit, OnDestroy {
           this.isPreviousBalanceSelected = false;
           this.syncPaymentPreview();
       }
+  }
+
+  get paymentAdjustmentLabel(): string {
+    return this.getCommissionByMethodId(this.paymentDto.paymentMethodId) >
+      this.getCommissionByMethodId(this.selectedPreferredPaymentId)
+      ? 'Aplicar recargo' : 'Aplicar descuento';
+  }
+
+  onPaymentMethodChange(): void {
+    // Preserve the debt being settled while recalculating the amount to collect.
+    this.onDebtCancelChange(this.newAmount);
+  }
+
+  onPaymentAdjustmentChange(): void {
+    this.onDebtCancelChange(this.newAmount);
   }
 
   isPaymentMethodDifferent(): boolean {
@@ -1633,7 +1666,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
     const selectedCommission = this.getCommissionByMethodId(selectedMethodId);
     const includedCommission = this.getCommissionByMethodId(preferredPaymentId);
     
-    if (selectedCommission === includedCommission) {
+    if (!this.applyPaymentAdjustment || selectedCommission === includedCommission) {
         return { amountEntered, equivalentDebtPaid: amountEntered, difference: 0, isSurcharge: false, isDiscount: false, selectedCommission, includedCommission };
     }
 

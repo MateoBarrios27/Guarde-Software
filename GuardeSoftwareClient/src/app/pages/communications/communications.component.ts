@@ -22,6 +22,7 @@ import {
   buildCommunicationPreviewText
 } from '../../shared/utils/communication-preview.util';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 
 interface Channel {
   id: number;
@@ -205,6 +206,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   modalSendToAllEmails = signal(false);
 
   private signalRSubscription?: Subscription;
+  private readonly dataRefreshSubscription = new Subscription();
 
   constructor(
     private http: HttpClient,
@@ -212,7 +214,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     private clientService: ClientService,
     private massRecipientService: MassCommunicationRecipientService,
     private sanitizer: DomSanitizer,
-    private deleteConfirmation: DeleteConfirmationService
+    private deleteConfirmation: DeleteConfirmationService,
+    private dataRefresh: DataRefreshService,
   ) {}
 
   private readonly icbcTemplate = `
@@ -743,6 +746,19 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
 `;
 
   ngOnInit(): void {
+    this.dataRefreshSubscription.add(
+      this.dataRefresh.watch(['clients', 'catalog'], 'communications').subscribe(event => {
+        if (event.domains.includes('clients')) {
+          this.loadRecipientOptions();
+          this.loadClientsForSelector();
+        }
+        if (event.domains.includes('catalog')) {
+          this.loadSmtpConfigs();
+          this.loadExternalRecipientsForSelector();
+        }
+      }),
+    );
+
     // Iniciar conexión SignalR y escuchar actualizaciones
     this.ensureQuillStylesheet();
     this.commService.startSignalRConnection();
@@ -780,7 +796,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     document.head.appendChild(link);
   }
 
-  ngOnDestroy(): void {
+  ngOnDestroy(): void {
+    this.dataRefreshSubscription.unsubscribe();
     if (this.signalRSubscription) {
       this.signalRSubscription.unsubscribe();
     }
