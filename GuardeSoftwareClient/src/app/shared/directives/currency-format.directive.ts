@@ -43,23 +43,35 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
   onInput(event: any): void {
     const input = event.target as HTMLInputElement;
     const originalValue = input.value;
-    const originalLength = originalValue.length;
-    let cursorPosition = input.selectionStart ?? originalLength;
+    const originalCursorPosition = input.selectionStart ?? originalValue.length;
+    const digitsToTheRight = (originalValue.substring(originalCursorPosition).match(/\d/g) ?? []).length;
     const parsed = this.parseAndFormat(originalValue);
     const formattedStr = parsed.formatted;
 
-    this.el.nativeElement.value = formattedStr;
+    input.value = formattedStr;
 
-    const newLength = formattedStr.length;
-    cursorPosition = cursorPosition + (newLength - originalLength);
-
-    if (cursorPosition < 0) cursorPosition = 0;
-
-    setTimeout(() => {
-      input.setSelectionRange(cursorPosition, cursorPosition);
-    }, 0);
+    // Reubicar el cursor de forma sincrónica evita que queden callbacks viejos
+    // capaces de moverlo mientras el usuario continúa escribiendo. Contar los
+    // dígitos a la derecha también conserva la posición lógica cuando aparecen
+    // o desaparecen separadores de miles.
+    const cursorPosition = this.cursorPositionFromRight(formattedStr, digitsToTheRight);
+    input.setSelectionRange(cursorPosition, cursorPosition);
 
     this.onChange(parsed.numberValue);
+  }
+
+  private cursorPositionFromRight(value: string, digitsToTheRight: number): number {
+    if (digitsToTheRight === 0) return value.length;
+
+    let remainingDigits = digitsToTheRight;
+    for (let index = value.length - 1; index >= 0; index--) {
+      if (/\d/.test(value[index])) {
+        remainingDigits--;
+        if (remainingDigits === 0) return index;
+      }
+    }
+
+    return 0;
   }
   
   @HostListener('blur')
