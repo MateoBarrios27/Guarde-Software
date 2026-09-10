@@ -303,18 +303,18 @@ export class SettingsComponent implements OnInit {
 
   // --- Navegación ---
   configSections = [
-    { id: 'usuarios', title: 'Usuarios', icon: '👤', adminOnly: true },
-    { id: 'activity-log', title: 'Registro de actividad', icon: '🕘', adminOnly: true },
-    { id: 'medios-pago', title: 'Medios de Pago', icon: '💳' },
-    { id: 'facturacion', title: 'Facturación', icon: '📄' },
-    { id: 'locker-types', title: 'Tipos de Bauleras', icon: '🗄️' },
-    { id: 'depositos', title: 'Depósitos', icon: '🏢' },
-    { id: 'aumentos', title: 'Aumentos Mensuales', icon: '📈' },
-    { id: 'smtp', title: 'Configuración de Mails', icon: '✉️' },
-    { id: 'mass-recipients', title: 'Receptores de comunicados', icon: '👥' },
-    { id: 'offline', title: ' Modo Offline', icon: '💾' }
+    { id: 'usuarios', title: 'Usuarios', icon: 'users', adminOnly: true },
+    { id: 'activity-log', title: 'Registro de actividad', icon: 'clock', adminOnly: true },
+    { id: 'medios-pago', title: 'Medios de Pago', icon: 'credit-card' },
+    { id: 'facturacion', title: 'Facturación', icon: 'receipt' },
+    { id: 'locker-types', title: 'Tipos de Bauleras', icon: 'boxes' },
+    { id: 'depositos', title: 'Depósitos', icon: 'warehouse' },
+    { id: 'aumentos', title: 'Aumentos Mensuales', icon: 'trending-up' },
+    { id: 'smtp', title: 'Configuración de Mails', icon: 'envelope' },
+    { id: 'mass-recipients', title: 'Receptores de comunicados', icon: 'users' },
+    { id: 'offline', title: 'Modo Offline', icon: 'save' }
     // { id: 'datos', title: 'Datos', icon: '🗄️' }
-  ];
+  ].sort((firstSection, secondSection) => firstSection.title.localeCompare(secondSection.title, 'es'));
 
   setActive(section: string) {
     this.activeSection = section;

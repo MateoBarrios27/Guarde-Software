@@ -18,7 +18,8 @@
     <div class="lg:col-span-1 flex flex-col gap-5">
       <div class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 overflow-hidden">
         <div class="p-5 border-b border-gray-100 flex items-center gap-2 text-gray-800 font-semibold text-sm">
-          Menú de Configuración
+          <app-icon name="settings" class="h-4 w-4 text-blue-600"></app-icon>
+          <span>Menú de Configuración</span>
         </div>
         <nav class="flex flex-col text-sm">
             <button
@@ -28,6 +29,7 @@
                 [ngClass]="activeSection === section.id
                     ? 'text-blue-700 bg-blue-50/50 border-r-2 border-blue-600 font-semibold'
                     : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50/80 font-medium'">
+                <app-icon [name]="section.icon" class="h-4 w-4 shrink-0"></app-icon>
                 <span>{{ section.title }}</span>
             </button>
         </nav>
@@ -41,28 +43,37 @@
     <!-- Contenido principal -->
     <div class="lg:col-span-3 flex flex-col gap-5 h-full">
       <!-- Sección Usuarios -->
-      <div *ngIf="activeSection === 'usuarios'" class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 flex flex-col overflow-hidden h-full">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 p-5 gap-3">
-          <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Gestión de Usuarios</h3>
-          <div class="flex items-center gap-2 w-full sm:w-auto">
+      <div *ngIf="activeSection === 'usuarios'" class="settings-panel h-full">
+        <div class="settings-panel-header">
+          <div class="settings-panel-heading">
+            <div class="settings-panel-icon">
+              <app-icon name="users" class="h-5 w-5"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="settings-panel-eyebrow">Administración</p>
+              <h3 class="settings-panel-title">Gestión de Usuarios</h3>
+              <p class="settings-panel-description">Administrá accesos, roles y credenciales del equipo.</p>
+            </div>
+          </div>
+          <div class="settings-panel-actions">
             <button
               (click)="openCreateAlertModal()"
               id="btn-emitir-advertencia"
               title="Envía un aviso en vivo y lo guarda en la bandeja de todos los usuarios"
-              class="flex-1 sm:flex-none flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 hover:bg-orange-100 transition-all text-sm font-medium group"
+              class="settings-panel-warning group"
             >
               <app-icon name="sound" class="h-4 w-4 transition-transform group-hover:scale-110"></app-icon>
               <span>Tirar un berretín</span>
             </button>
-            <button class="flex-1 sm:flex-none flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 border border-transparent text-white text-sm font-medium hover:bg-blue-700 transition-all shadow-sm"
+            <button class="settings-panel-primary"
             (click)="openCreateUserModal()">
               <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Usuario
             </button>
           </div>
         </div>
         <div class="overflow-x-auto overflow-y-hidden flex-1 w-full custom-scrollbar">
-          <table class="w-full min-w-[500px] text-sm text-left border-collapse bg-white">
-            <thead class="text-[10px] text-gray-400 uppercase tracking-widest bg-[#f8f9fa] border-b border-gray-100 sticky top-0 z-20">
+          <table class="settings-panel-table min-w-[500px]">
+            <thead>
               <tr>
                 <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Usuario</th>
                 <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Tipo</th>
@@ -102,30 +113,36 @@
       <app-activity-log-panel *ngIf="activeSection === 'activity-log'"></app-activity-log-panel>
 
       <!-- Sección SMTP -->
-      <div *ngIf="activeSection === 'smtp'" class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 flex flex-col overflow-hidden">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 p-5 gap-3">
-          <div>
-            <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Servidores de Correo (SMTP)</h3>
-            <p class="text-xs text-gray-500 mt-1">Gestiona las cuentas para el envío de comunicados</p>
+      <div *ngIf="activeSection === 'smtp'" class="settings-panel">
+        <div class="settings-panel-header">
+          <div class="settings-panel-heading">
+            <div class="settings-panel-icon">
+              <app-icon name="envelope" class="h-5 w-5"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="settings-panel-eyebrow">Comunicaciones</p>
+              <h3 class="settings-panel-title">Servidores de Correo (SMTP)</h3>
+              <p class="settings-panel-description">Gestioná las cuentas que utiliza el sistema para enviar comunicados.</p>
+            </div>
           </div>
-          <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <div class="settings-panel-actions">
             <button
               type="button"
-              class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-white border border-blue-200 text-blue-700 text-sm font-medium hover:bg-blue-50 transition-all"
+              class="settings-panel-secondary"
               (click)="setActive('mass-recipients')"
             >
               <app-icon name="users" class="w-4 h-4"></app-icon>
               Receptores
             </button>
-            <button class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 border border-transparent text-white text-sm font-medium hover:bg-blue-700 transition-all shadow-sm"
+            <button class="settings-panel-primary"
             (click)="openModal()">
               <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Servidor
             </button>
           </div>
         </div>
-        <div class="p-5 grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+        <div class="settings-panel-content grid gap-4 md:grid-cols-2 lg:grid-cols-2">
           @for (smtp of smtpConfigs(); track smtp.id) {
-            <div class="bg-gray-50/50 p-5 rounded-xl border border-gray-200/80 shadow-sm hover:shadow-md transition group relative overflow-hidden">
+            <div class="settings-panel-card p-5 group">
               <div class="flex justify-between items-start mb-3 relative z-10">
                 <div class="flex items-center gap-3">
                   <div class="p-2.5 bg-blue-100/50 text-blue-600 rounded-lg border border-blue-200/50">
@@ -156,6 +173,15 @@
                   <span *ngIf="smtp.enableBcc" class="px-3 py-1 bg-purple-50 text-purple-700 text-[11px] font-medium tracking-wide rounded-full border border-purple-200" title="{{smtp.bccEmail}}">Copia Oculta ON</span>
                 </div>
               </div>
+            </div>
+          }
+          @empty {
+            <div class="settings-panel-empty-card">
+              <div class="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600">
+                <app-icon name="envelope" class="h-5 w-5"></app-icon>
+              </div>
+              <p class="mt-3 text-sm font-bold text-slate-700">Todavía no hay servidores configurados</p>
+              <p class="mt-1 max-w-sm text-xs leading-relaxed text-slate-500">Agregá una cuenta SMTP para habilitar el envío de comunicados desde el sistema.</p>
             </div>
           }
         </div>
@@ -246,16 +272,22 @@
       </div>
 
       <!-- Receptores externos de comunicados masivos -->
-      <div *ngIf="activeSection === 'mass-recipients'" class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 flex flex-col overflow-hidden h-full">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 p-5 gap-3">
-          <div>
-            <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Receptores de comunicados</h3>
-            <p class="text-xs text-gray-500 mt-1">Contactos externos para campañas generales como la comunicación de ICBC</p>
+      <div *ngIf="activeSection === 'mass-recipients'" class="settings-panel h-full">
+        <div class="settings-panel-header">
+          <div class="settings-panel-heading">
+            <div class="settings-panel-icon settings-panel-icon-indigo">
+              <app-icon name="users" class="h-5 w-5"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="settings-panel-eyebrow">Comunicaciones</p>
+              <h3 class="settings-panel-title">Receptores de comunicados</h3>
+              <p class="settings-panel-description">Contactos externos para campañas generales y comunicaciones masivas.</p>
+            </div>
           </div>
-          <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <div class="settings-panel-actions">
             <button
               type="button"
-              class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 transition-all shadow-sm"
+              class="settings-panel-secondary"
               (click)="openMassRecipientImportModal()"
             >
               <app-icon name="upload-cloud" class="w-4 h-4"></app-icon>
@@ -263,7 +295,7 @@
             </button>
             <button
               type="button"
-              class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 border border-transparent text-white text-sm font-medium hover:bg-blue-700 transition-all shadow-sm"
+              class="settings-panel-primary"
               (click)="openMassRecipientModal()"
             >
               <app-icon name="plus" class="w-4 h-4"></app-icon>
@@ -291,8 +323,8 @@
         </div>
 
         <div class="overflow-x-auto overflow-y-hidden flex-1 w-full custom-scrollbar">
-          <table class="w-full min-w-[780px] text-sm text-left border-collapse bg-white">
-            <thead class="text-[10px] text-gray-400 uppercase tracking-widest bg-[#f8f9fa] border-y border-gray-100 sticky top-0 z-20">
+          <table class="settings-panel-table min-w-[780px]">
+            <thead>
               <tr>
                 <th class="px-5 py-3.5 font-semibold">Nombre</th>
                 <th class="px-5 py-3.5 font-semibold">Tipo / rubro</th>
@@ -623,15 +655,23 @@
       </div>
 
       <!-- Sección Offline -->
-      <div *ngIf="activeSection === 'offline'" class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 flex flex-col overflow-hidden">
-        <div class="p-5 border-b border-gray-100">
-          <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Modo Offline</h3>
-          <p class="text-sm text-gray-500 mt-1">Gestiona los datos locales para trabajar sin conexión a internet.</p>
+      <div *ngIf="activeSection === 'offline'" class="settings-panel">
+        <div class="settings-panel-header">
+          <div class="settings-panel-heading">
+            <div class="settings-panel-icon settings-panel-icon-indigo">
+              <app-icon name="save" class="h-5 w-5"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="settings-panel-eyebrow">Continuidad operativa</p>
+              <h3 class="settings-panel-title">Modo Offline</h3>
+              <p class="settings-panel-description">Gestioná respaldos locales para continuar trabajando sin conexión.</p>
+            </div>
+          </div>
         </div>
-        <div class="p-5 space-y-5">
+        <div class="settings-panel-content space-y-5">
           <div class="flex flex-col md:flex-row gap-5">
             <!-- Descargar Snapshot -->
-            <div class="flex-1 bg-gray-50/50 border border-gray-200/80 rounded-xl p-6 flex flex-col items-center text-center">
+            <div class="settings-panel-card flex-1 p-6 flex flex-col items-center text-center">
               <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mb-4">
                 <app-icon name="download-cloud" class="w-6 h-6 text-blue-600"></app-icon>
               </div>
@@ -639,13 +679,13 @@
               <p class="text-sm text-gray-500 mb-6 flex-1">
                 Genera y descarga un archivo .json con los clientes, métodos de pago y bauleras actuales para usar como respaldo en caso de caída del servidor.
               </p>
-              <button (click)="downloadSnapshot()" class="w-full px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 shadow-sm transition-all flex justify-center items-center gap-2">
+              <button (click)="downloadSnapshot()" class="settings-panel-primary w-full">
                 Descargar ahora
               </button>
             </div>
             
             <!-- Importar Snapshot -->
-            <div class="flex-1 bg-gray-50/50 border border-gray-200/80 rounded-xl p-6 flex flex-col items-center text-center">
+            <div class="settings-panel-card flex-1 p-6 flex flex-col items-center text-center">
               <div class="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
                 <app-icon name="upload-cloud" class="w-6 h-6 text-indigo-600"></app-icon>
               </div>
@@ -655,7 +695,7 @@
               </p>
               <div class="w-full">
                 <input type="file" id="snapshotFile" (change)="importSnapshot($event)" accept=".json" class="hidden">
-                <label for="snapshotFile" class="w-full cursor-pointer px-4 py-2.5 border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-medium rounded-xl hover:bg-indigo-100 hover:border-indigo-300 transition-all flex justify-center items-center gap-2 shadow-sm">
+                <label for="snapshotFile" class="settings-panel-secondary w-full cursor-pointer">
                   Seleccionar archivo .json
                 </label>
               </div>
@@ -665,17 +705,28 @@
       </div>
 
       <!-- Depósitos -->
-      <div *ngIf="activeSection === 'depositos'" class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 flex flex-col overflow-hidden h-full">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 p-5 gap-3">
-          <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Depósitos</h3>
-          <button class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 border border-transparent text-white text-sm font-medium hover:bg-blue-700 transition-all shadow-sm"
+      <div *ngIf="activeSection === 'depositos'" class="settings-panel h-full">
+        <div class="settings-panel-header">
+          <div class="settings-panel-heading">
+            <div class="settings-panel-icon">
+              <app-icon name="warehouse" class="h-5 w-5"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="settings-panel-eyebrow">Infraestructura</p>
+              <h3 class="settings-panel-title">Depósitos</h3>
+              <p class="settings-panel-description">Definí los espacios donde se encuentran las bauleras.</p>
+            </div>
+          </div>
+          <div class="settings-panel-actions">
+          <button class="settings-panel-primary"
             (click)="openCreateWarehouseModal()">
             <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Depósito
           </button>
+          </div>
         </div>
         <div class="overflow-x-auto overflow-y-hidden flex-1 w-full custom-scrollbar">
-          <table class="w-full min-w-[500px] text-sm text-left border-collapse bg-white">
-            <thead class="text-[10px] text-gray-400 uppercase tracking-widest bg-[#f8f9fa] border-b border-gray-100 sticky top-0 z-20">
+          <table class="settings-panel-table min-w-[500px]">
+            <thead>
               <tr>
                 <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Nombre</th>
                 <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Dirección</th>
@@ -706,17 +757,28 @@
       </div>
 
       <!-- Medios de pago -->
-      <div *ngIf="activeSection === 'medios-pago'" class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 flex flex-col overflow-hidden h-full">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 p-5 gap-3">
-          <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Medios de Pago</h3>
-          <button class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 border border-transparent text-white text-sm font-medium hover:bg-blue-700 transition-all shadow-sm"
+      <div *ngIf="activeSection === 'medios-pago'" class="settings-panel h-full">
+        <div class="settings-panel-header">
+          <div class="settings-panel-heading">
+            <div class="settings-panel-icon settings-panel-icon-emerald">
+              <app-icon name="credit-card" class="h-5 w-5"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="settings-panel-eyebrow">Facturación</p>
+              <h3 class="settings-panel-title">Medios de Pago</h3>
+              <p class="settings-panel-description">Configurá los medios disponibles y sus comisiones asociadas.</p>
+            </div>
+          </div>
+          <div class="settings-panel-actions">
+          <button class="settings-panel-primary"
             (click)="openCreatePaymentMethod()">
             <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Medio
           </button>
+          </div>
         </div>
         <div class="overflow-x-auto overflow-y-hidden flex-1 w-full custom-scrollbar">
-          <table class="w-full min-w-[500px] text-sm text-left border-collapse bg-white">
-            <thead class="text-[10px] text-gray-400 uppercase tracking-widest bg-[#f8f9fa] border-b border-gray-100 sticky top-0 z-20">
+          <table class="settings-panel-table min-w-[500px]">
+            <thead>
               <tr>
                 <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Nombre</th>
                 <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Comisión</th>
@@ -746,17 +808,28 @@
       </div>
 
       <!-- Tipos de Factura -->
-      <div *ngIf="activeSection === 'facturacion'" class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 flex flex-col overflow-hidden h-full">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 p-5 gap-3">
-          <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Tipos de Factura</h3>
-          <button class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 border border-transparent text-white text-sm font-medium hover:bg-blue-700 transition-all shadow-sm"
+      <div *ngIf="activeSection === 'facturacion'" class="settings-panel h-full">
+        <div class="settings-panel-header">
+          <div class="settings-panel-heading">
+            <div class="settings-panel-icon settings-panel-icon-amber">
+              <app-icon name="receipt" class="h-5 w-5"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="settings-panel-eyebrow">Facturación</p>
+              <h3 class="settings-panel-title">Tipos de Factura</h3>
+              <p class="settings-panel-description">Mantené actualizadas las categorías usadas al registrar clientes y operaciones.</p>
+            </div>
+          </div>
+          <div class="settings-panel-actions">
+          <button class="settings-panel-primary"
             (click)="openCreateBillingTypeModal()">
             <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Tipo
           </button>
+          </div>
         </div>
         <div class="overflow-x-auto overflow-y-hidden flex-1 w-full custom-scrollbar">
-          <table class="w-full min-w-[500px] text-sm text-left border-collapse bg-white">
-            <thead class="text-[10px] text-gray-400 uppercase tracking-widest bg-[#f8f9fa] border-b border-gray-100 sticky top-0 z-20">
+          <table class="settings-panel-table min-w-[500px]">
+            <thead>
               <tr>
                 <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Nombre</th>
                 <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa] w-32 text-right">Acciones</th>
@@ -785,17 +858,28 @@
       </div>
 
       <!-- Tipos de Bauleras -->
-      <div *ngIf="activeSection === 'locker-types'" class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 flex flex-col overflow-hidden h-full">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 p-5 gap-3">
-          <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Tipos de Bauleras</h3>
-          <button class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 border border-transparent text-white text-sm font-medium hover:bg-blue-700 transition-all shadow-sm"
+      <div *ngIf="activeSection === 'locker-types'" class="settings-panel h-full">
+        <div class="settings-panel-header">
+          <div class="settings-panel-heading">
+            <div class="settings-panel-icon-indigo settings-panel-icon">
+              <app-icon name="boxes" class="h-5 w-5"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="settings-panel-eyebrow">Infraestructura</p>
+              <h3 class="settings-panel-title">Tipos de Bauleras</h3>
+              <p class="settings-panel-description">Definí las dimensiones disponibles para organizar las bauleras.</p>
+            </div>
+          </div>
+          <div class="settings-panel-actions">
+          <button class="settings-panel-primary"
             (click)="openCreateLockerTypeModal()">
             <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Tipo
           </button>
+          </div>
         </div>
         <div class="overflow-x-auto overflow-y-hidden flex-1 w-full custom-scrollbar">
-          <table class="w-full min-w-[500px] text-sm text-left border-collapse bg-white">
-            <thead class="text-[10px] text-gray-400 uppercase tracking-widest bg-[#f8f9fa] border-b border-gray-100 sticky top-0 z-20">
+          <table class="settings-panel-table min-w-[500px]">
+            <thead>
               <tr>
                 <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Nombre</th>
                 <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">M³</th>
@@ -825,20 +909,28 @@
       </div>
 
       <!-- Aumentos Mensuales -->
-      <div *ngIf="activeSection === 'aumentos'" class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 flex flex-col overflow-hidden h-full">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 p-5 gap-3">
-          <div>
-            <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Gestión de Aumentos Mensuales</h3>
-            <p class="text-xs text-gray-500 mt-1">Define el porcentaje de aumento para cada mes en que corresponda aplicarlo</p>
+      <div *ngIf="activeSection === 'aumentos'" class="settings-panel h-full">
+        <div class="settings-panel-header">
+          <div class="settings-panel-heading">
+            <div class="settings-panel-icon settings-panel-icon-amber">
+              <app-icon name="trending-up" class="h-5 w-5"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="settings-panel-eyebrow">Planificación financiera</p>
+              <h3 class="settings-panel-title">Gestión de Aumentos Mensuales</h3>
+              <p class="settings-panel-description">Programá el porcentaje que se aplicará en cada mes correspondiente.</p>
+            </div>
           </div>
-          <button class="w-full sm:w-auto flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 border border-transparent text-white text-sm font-medium hover:bg-blue-700 transition-all shadow-sm"
+          <div class="settings-panel-actions">
+          <button class="settings-panel-primary"
             (click)="openCreateIncreaseModal()">
             <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Aumento
           </button>
+          </div>
         </div>
         <div class="overflow-x-auto overflow-y-hidden flex-1 w-full custom-scrollbar">
-          <table class="w-full min-w-[500px] text-sm text-left border-collapse bg-white">
-            <thead class="text-[10px] text-gray-400 uppercase tracking-widest bg-[#f8f9fa] border-b border-gray-100 sticky top-0 z-20">
+          <table class="settings-panel-table min-w-[500px]">
+            <thead>
               <tr>
                 <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Mes de Aplicación</th>
                 <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Porcentaje</th>

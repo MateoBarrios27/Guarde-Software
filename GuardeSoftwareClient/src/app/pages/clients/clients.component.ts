@@ -1,5 +1,5 @@
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule, CurrencyPipe, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgxPaginationModule } from 'ngx-pagination';
 import { IconComponent } from '../../shared/components/icon/icon.component';
@@ -20,17 +20,20 @@ import { StatisticsService } from '../../core/services/statics-service/statics-s
 import { ɵɵDir } from "@angular/cdk/scrolling";
 import { Warehouse } from '../../core/models/warehouse';
 import { WarehouseService } from '../../core/services/warehouse-service/warehouse.service';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute, NavigationStart } from '@angular/router';
 import { BillingType } from '../../core/models/billing-type.model';
 import { BillingTypeService } from '../../core/services/billingType-service/billing-type.service';
 import { PaymentMethod } from '../../core/models/payment-method';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
 import { LockerTypeService } from '../../core/services/lockerType-service/locker-type.service';
 import { OfflineService } from '../../core/services/offline-service/offline.service';
-import { IndexedDbService } from '../../core/services/offline-service/indexed-db.service';
+import { CachedClient, IndexedDbService } from '../../core/services/offline-service/indexed-db.service';
 import Swal from '../../shared/services/ui-alert.service';
 import { ToastNotificationComponent } from '../../shared/components/toast-notification/toast-notification.component';
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
+
+type FilterTagState = 'none' | 'include' | 'exclude';
+type FilterTagGroup = 'warehouse' | 'quick' | 'billing' | 'paymentMethod' | 'iva' | 'lockerType' | 'paymentDay';
 
 @Component({
   selector: 'app-clients',
@@ -67,6 +70,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   };
   public searchClientes = '';
   private searchSubject = new Subject<string>();
+  private clientLoadSequence = 0;
   public filterEstadoClientes = 'Todos';
   public showInactivos = false;
   public currentPageClientes = 1;
@@ -100,7 +104,9 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   public warehouses: Warehouse[] = [];
   public selectedWarehouseIds: number[] = [];
+  public excludedWarehouseIds: number[] = [];
   public selectedQuickFilters: string[] = [];
+  public excludedQuickFilters: string[] = [];
 
   // --- Tags filter properties ---
   public billingTypes: BillingType[] = [];
@@ -108,10 +114,20 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public ivaConditionsList: string[] = ['Consumidor Final', 'Monotributista', 'Responsable Inscripto', 'Exento', 'Sin asignar'];
 
   public selectedIvaConditions: string[] = [];
+  public excludedIvaConditions: string[] = [];
   public selectedBillingTypeIds: number[] = [];
+  public excludedBillingTypeIds: number[] = [];
   public selectedPaymentMethodIds: number[] = [];
+  public excludedPaymentMethodIds: number[] = [];
   public selectedLockerTypeIds: number[] = [];
+  public excludedLockerTypeIds: number[] = [];
+  public selectedPaymentDays: number[] = [];
+  public excludedPaymentDays: number[] = [];
+  public readonly paymentCalendarWeekdays = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+  public readonly paymentCalendarDays = this.buildPaymentCalendarDays();
   public showTagsPopover = false;
+  public tagsPopoverReady = false;
+  public tagsPopoverPosition = { top: 0, left: 0, maxHeight: 720 };
 
   public activeDepartureClient: TableClient | null = null;
   public departureAction: 'SE_VA' | 'SE_QUEDA' | 'DAR_DE_BAJA' = 'SE_VA';
@@ -128,6 +144,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild('tagsPopoverRef') tagsPopoverRef!: ElementRef;
   @ViewChild('tagsButtonRef') tagsButtonRef!: ElementRef;
+
+  private readonly mainScrollHandler = (event: Event): void => this.onScroll(event);
 
   totals = {
     previousBalance: 0,
@@ -147,6 +165,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   private supportingDataLoadScheduled = false;
   private clientIdToPositionFromQuery: number | null = null;
   private detailClientIdFromQuery: number | null = null;
+  locatedClientId: number | null = null;
+  private clientPositionTimer?: ReturnType<typeof setTimeout>;
+  private clientLocationTimer?: ReturnType<typeof setTimeout>;
+  private consumingClientNavigationQuery = false;
   private readonly dataRefreshSubscription = new Subscription();
 
   constructor(
@@ -158,6 +180,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     private lockerTypeService: LockerTypeService,
     private router: Router,
     private route: ActivatedRoute,
+    private location: Location,
     public offlineService: OfflineService,
     private idb: IndexedDbService,
     private cdr: ChangeDetectorRef,
@@ -165,13 +188,15 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     private dataRefresh: DataRefreshService,
   ) 
   {
-    this.searchSubject.pipe(
-      debounceTime(400),
-      distinctUntilChanged() 
-    ).subscribe(() => {
-      this.currentPageClientes = 1; 
-      this.loadClients();
-    });
+    this.dataRefreshSubscription.add(
+      this.searchSubject.pipe(
+        debounceTime(400),
+        distinctUntilChanged()
+      ).subscribe(() => {
+        this.currentPageClientes = 1;
+        void this.loadClients();
+      })
+    );
   }
 
   @HostListener('document:click', ['$event'])
@@ -182,7 +207,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       const clickedInsidePopover = this.tagsPopoverRef && this.tagsPopoverRef.nativeElement.contains(target);
       const clickedInsideButton = this.tagsButtonRef && this.tagsButtonRef.nativeElement.contains(target);
       if (!clickedInsidePopover && !clickedInsideButton) {
-        this.showTagsPopover = false;
+        this.closeTagsPopover();
       }
     }
 
@@ -414,6 +439,11 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public lockerTypes: any[] = [];
 
   ngOnInit(): void {
+    this.dataRefreshSubscription.add(this.router.events.subscribe(event => {
+      if (event instanceof NavigationStart && event.url.split(/[?#]/)[0] !== '/clients') {
+        this.clearClientLocation();
+      }
+    }));
     this.dataRefreshSubscription.add(
       this.dataRefresh.watch(['clients', 'finances', 'lockers', 'catalog'], 'clients').subscribe(event => {
         if (event.domains.includes('catalog')) {
@@ -430,6 +460,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     );
 
     this.route.queryParams.subscribe(params => {
+      if (this.consumingClientNavigationQuery && !params['clientId'] && !params['detailClientId']) {
+        this.consumingClientNavigationQuery = false;
+        return;
+      }
       const searchTerm = params['searchTerm'];
       if (searchTerm) {
         this.searchClientes = searchTerm;
@@ -439,7 +473,6 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       const detailClientId = Number(params['detailClientId'] ?? 0);
       this.clientIdToPositionFromQuery = clientId > 0 ? clientId : null;
       this.detailClientIdFromQuery = detailClientId > 0 ? detailClientId : null;
-      this.handleClientNavigationQuery();
       
       void this.loadClients().finally(() => {
         this.scheduleSupportingDataLoad();
@@ -462,6 +495,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (positionClientId) {
       this.positionClientInTable(positionClientId);
     }
+    this.consumingClientNavigationQuery = true;
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { clientId: null, detailClientId: null },
@@ -471,18 +505,33 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private positionClientInTable(clientId: number): void {
+    this.clearClientLocation();
     const rowId = `client-row-${clientId}`;
     const tryPosition = (attempt = 0): void => {
+      if (this.router.url.split(/[?#]/)[0] !== '/clients') return;
       const row = document.getElementById(rowId);
-      if (row) {
-        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        row.classList.add('ring-2', 'ring-blue-400', 'bg-blue-50');
-        window.setTimeout(() => row.classList.remove('ring-2', 'ring-blue-400', 'bg-blue-50'), 2200);
+      if (row && !this.isLoading) {
+        this.locatedClientId = clientId;
+        this.cdr.detectChanges();
+        row.focus({ preventScroll: true });
+        row.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+          block: 'center'
+        });
+        this.clientLocationTimer = setTimeout(() => this.clearClientLocation(), 8000);
         return;
       }
-      if (attempt < 8) window.setTimeout(() => tryPosition(attempt + 1), 100);
+      if (attempt < 20) this.clientPositionTimer = setTimeout(() => tryPosition(attempt + 1), 100);
     };
-    tryPosition();
+    // Wait until route restoration and the freshly loaded rows have rendered.
+    this.clientPositionTimer = setTimeout(() => tryPosition(), 0);
+  }
+
+  clearClientLocation(): void {
+    clearTimeout(this.clientPositionTimer);
+    clearTimeout(this.clientLocationTimer);
+    this.locatedClientId = null;
+    this.cdr.markForCheck();
   }
 
   private scheduleSupportingDataLoad(): void {
@@ -499,10 +548,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private loadSupportingData(): void {
-    this.warehouseService.getWarehouses().subscribe(data => { this.warehouses = data; this.cdr.markForCheck(); });
-    this.billingTypeService.getBillingTypes().subscribe(data => { this.billingTypes = data; this.cdr.markForCheck(); });
-    this.paymentMethodService.getPaymentMethods().subscribe(data => { this.paymentMethods = data; this.cdr.markForCheck(); });
-    this.lockerTypeService.getLockerTypes().subscribe(data => { this.lockerTypes = data; this.cdr.markForCheck(); });
+    this.warehouseService.getWarehouses().subscribe(data => { this.warehouses = data; this.refreshTagsPopoverLayout(); this.cdr.markForCheck(); });
+    this.billingTypeService.getBillingTypes().subscribe(data => { this.billingTypes = data; this.refreshTagsPopoverLayout(); this.cdr.markForCheck(); });
+    this.paymentMethodService.getPaymentMethods().subscribe(data => { this.paymentMethods = data; this.refreshTagsPopoverLayout(); this.cdr.markForCheck(); });
+    this.lockerTypeService.getLockerTypes().subscribe(data => { this.lockerTypes = data; this.refreshTagsPopoverLayout(); this.cdr.markForCheck(); });
   }
 
   public quickFiltersList = [
@@ -515,17 +564,30 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleTagsPopover(): void {
     this.showTagsPopover = !this.showTagsPopover;
+    this.tagsPopoverReady = false;
+    if (this.showTagsPopover) {
+      this.refreshTagsPopoverLayout();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private refreshTagsPopoverLayout(): void {
+    if (this.showTagsPopover) {
+      requestAnimationFrame(() => this.positionTagsPopover());
+    }
+  }
+
+  closeTagsPopover(): void {
+    this.showTagsPopover = false;
+    this.tagsPopoverReady = false;
+    this.cdr.markForCheck();
   }
 
   toggleWarehouseId(id: number): void {
-    const idx = this.selectedWarehouseIds.indexOf(id);
-    if (idx > -1) {
-      this.selectedWarehouseIds.splice(idx, 1);
-    } else {
-      this.selectedWarehouseIds.push(id);
-    }
-    this.currentPageClientes = 1;
-    this.loadClients();
+    const next = this.cycleFilterSelection(id, this.selectedWarehouseIds, this.excludedWarehouseIds);
+    this.selectedWarehouseIds = next.included;
+    this.excludedWarehouseIds = next.excluded;
+    this.reloadClientsForFilterChange();
   }
 
   getWarehouseName(id: number): string {
@@ -534,14 +596,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   toggleQuickFilter(val: string): void {
-    const idx = this.selectedQuickFilters.indexOf(val);
-    if (idx > -1) {
-      this.selectedQuickFilters.splice(idx, 1);
-    } else {
-      this.selectedQuickFilters.push(val);
-    }
-    this.currentPageClientes = 1;
-    this.loadClients();
+    const next = this.cycleFilterSelection(val, this.selectedQuickFilters, this.excludedQuickFilters);
+    this.selectedQuickFilters = next.included;
+    this.excludedQuickFilters = next.excluded;
+    this.reloadClientsForFilterChange();
   }
 
   getQuickFilterLabel(val: string): string {
@@ -550,69 +608,236 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   toggleIvaCondition(cond: string): void {
-    const idx = this.selectedIvaConditions.indexOf(cond);
-    if (idx > -1) {
-      this.selectedIvaConditions.splice(idx, 1);
-    } else {
-      this.selectedIvaConditions.push(cond);
-    }
-    this.currentPageClientes = 1;
-    this.loadClients();
+    const next = this.cycleFilterSelection(cond, this.selectedIvaConditions, this.excludedIvaConditions);
+    this.selectedIvaConditions = next.included;
+    this.excludedIvaConditions = next.excluded;
+    this.reloadClientsForFilterChange();
   }
 
   toggleBillingTypeId(id: number): void {
-    const idx = this.selectedBillingTypeIds.indexOf(id);
-    if (idx > -1) {
-      this.selectedBillingTypeIds.splice(idx, 1);
-    } else {
-      this.selectedBillingTypeIds.push(id);
-    }
-    this.currentPageClientes = 1;
-    this.loadClients();
+    const next = this.cycleFilterSelection(id, this.selectedBillingTypeIds, this.excludedBillingTypeIds);
+    this.selectedBillingTypeIds = next.included;
+    this.excludedBillingTypeIds = next.excluded;
+    this.reloadClientsForFilterChange();
   }
 
   togglePaymentMethodId(id: number): void {
-    const idx = this.selectedPaymentMethodIds.indexOf(id);
-    if (idx > -1) {
-      this.selectedPaymentMethodIds.splice(idx, 1);
-    } else {
-      this.selectedPaymentMethodIds.push(id);
-    }
-    this.currentPageClientes = 1;
-    this.loadClients();
+    const next = this.cycleFilterSelection(id, this.selectedPaymentMethodIds, this.excludedPaymentMethodIds);
+    this.selectedPaymentMethodIds = next.included;
+    this.excludedPaymentMethodIds = next.excluded;
+    this.reloadClientsForFilterChange();
   }
 
   toggleLockerTypeId(id: number): void {
-    const idx = this.selectedLockerTypeIds.indexOf(id);
-    if (idx > -1) {
-      this.selectedLockerTypeIds.splice(idx, 1);
-    } else {
-      this.selectedLockerTypeIds.push(id);
+    const next = this.cycleFilterSelection(id, this.selectedLockerTypeIds, this.excludedLockerTypeIds);
+    this.selectedLockerTypeIds = next.included;
+    this.excludedLockerTypeIds = next.excluded;
+    this.reloadClientsForFilterChange();
+  }
+
+  togglePaymentDay(day: number): void {
+    const next = this.cycleFilterSelection(day, this.selectedPaymentDays, this.excludedPaymentDays);
+    this.selectedPaymentDays = next.included;
+    this.excludedPaymentDays = next.excluded;
+    this.reloadClientsForFilterChange();
+  }
+
+  private cycleFilterSelection<T>(
+    value: T,
+    included: T[],
+    excluded: T[],
+  ): { included: T[]; excluded: T[] } {
+    if (included.includes(value)) {
+      return {
+        included: included.filter(item => item !== value),
+        excluded: [...excluded, value]
+      };
     }
+
+    if (excluded.includes(value)) {
+      return {
+        included: [...included],
+        excluded: excluded.filter(item => item !== value)
+      };
+    }
+
+    return {
+      included: [...included, value],
+      excluded: [...excluded]
+    };
+  }
+
+  private reloadClientsForFilterChange(): void {
     this.currentPageClientes = 1;
-    this.loadClients();
+    void this.loadClients();
+    this.cdr.markForCheck();
+  }
+
+  public getFilterTagState(group: FilterTagGroup, value: string | number): FilterTagState {
+    const state = this.getFilterTagCollections(group);
+    if (state.included.includes(value)) return 'include';
+    if (state.excluded.includes(value)) return 'exclude';
+    return 'none';
+  }
+
+  public getFilterTagClasses(group: FilterTagGroup, value: string | number): string {
+    const state = this.getFilterTagState(group, value);
+    if (state === 'include') {
+      return 'bg-blue-600 text-white border-blue-600 font-medium shadow-sm';
+    }
+    if (state === 'exclude') {
+      return 'bg-red-600 text-white border-red-600 font-medium shadow-sm';
+    }
+    return 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
+  }
+
+  public getActiveFilterTagClasses(group: FilterTagGroup, value: string | number): string {
+    return this.getFilterTagState(group, value) === 'exclude'
+      ? 'bg-red-50 text-red-700 border-red-200'
+      : 'bg-blue-50 text-blue-700 border-blue-200';
+  }
+
+  public getFilterTagTitle(group: FilterTagGroup, value: string | number): string {
+    const label = this.getFilterTagLabel(group, value);
+    const state = this.getFilterTagState(group, value);
+    if (state === 'include') return `${label}: incluido. Segundo click para excluirlo.`;
+    if (state === 'exclude') return `${label}: excluido. Tercer click para desmarcarlo.`;
+    return `${label}: primer click para incluirlo.`;
+  }
+
+  public getFilterTagLabel(group: FilterTagGroup, value: string | number): string {
+    switch (group) {
+      case 'warehouse': return `Depósito ${this.getWarehouseName(Number(value))}`;
+      case 'quick': return this.getQuickFilterLabel(String(value));
+      case 'billing': return this.getBillingTypeName(Number(value));
+      case 'paymentMethod': return this.getPaymentMethodName(Number(value));
+      case 'iva': return `IVA ${String(value)}`;
+      case 'lockerType': return this.getLockerTypeName(Number(value));
+      case 'paymentDay': return `Día ${Number(value)}`;
+    }
+  }
+
+  private getFilterTagCollections(group: FilterTagGroup): { included: (string | number)[]; excluded: (string | number)[] } {
+    switch (group) {
+      case 'warehouse': return { included: this.selectedWarehouseIds, excluded: this.excludedWarehouseIds };
+      case 'quick': return { included: this.selectedQuickFilters, excluded: this.excludedQuickFilters };
+      case 'billing': return { included: this.selectedBillingTypeIds, excluded: this.excludedBillingTypeIds };
+      case 'paymentMethod': return { included: this.selectedPaymentMethodIds, excluded: this.excludedPaymentMethodIds };
+      case 'iva': return { included: this.selectedIvaConditions, excluded: this.excludedIvaConditions };
+      case 'lockerType': return { included: this.selectedLockerTypeIds, excluded: this.excludedLockerTypeIds };
+      case 'paymentDay': return { included: this.selectedPaymentDays, excluded: this.excludedPaymentDays };
+    }
+  }
+
+  public clearFilterTag(group: FilterTagGroup, value: string | number): void {
+    const collections = this.getFilterTagCollections(group);
+    const included = collections.included.filter(item => item !== value);
+    const excluded = collections.excluded.filter(item => item !== value);
+
+    switch (group) {
+      case 'warehouse': this.selectedWarehouseIds = included as number[]; this.excludedWarehouseIds = excluded as number[]; break;
+      case 'quick': this.selectedQuickFilters = included as string[]; this.excludedQuickFilters = excluded as string[]; break;
+      case 'billing': this.selectedBillingTypeIds = included as number[]; this.excludedBillingTypeIds = excluded as number[]; break;
+      case 'paymentMethod': this.selectedPaymentMethodIds = included as number[]; this.excludedPaymentMethodIds = excluded as number[]; break;
+      case 'iva': this.selectedIvaConditions = included as string[]; this.excludedIvaConditions = excluded as string[]; break;
+      case 'lockerType': this.selectedLockerTypeIds = included as number[]; this.excludedLockerTypeIds = excluded as number[]; break;
+      case 'paymentDay': this.selectedPaymentDays = included as number[]; this.excludedPaymentDays = excluded as number[]; break;
+    }
+    this.reloadClientsForFilterChange();
   }
 
   clearAllTags(): void {
     this.selectedWarehouseIds = [];
+    this.excludedWarehouseIds = [];
     this.selectedQuickFilters = [];
+    this.excludedQuickFilters = [];
     this.selectedIvaConditions = [];
+    this.excludedIvaConditions = [];
     this.selectedBillingTypeIds = [];
+    this.excludedBillingTypeIds = [];
     this.selectedPaymentMethodIds = [];
+    this.excludedPaymentMethodIds = [];
     this.selectedLockerTypeIds = [];
+    this.excludedLockerTypeIds = [];
+    this.selectedPaymentDays = [];
+    this.excludedPaymentDays = [];
     this.currentPageClientes = 1;
-    this.loadClients();
+    void this.loadClients();
+    this.cdr.markForCheck();
   }
 
   get totalActiveTagsCount(): number {
     return (
       this.selectedWarehouseIds.length +
+      this.excludedWarehouseIds.length +
       this.selectedQuickFilters.length +
+      this.excludedQuickFilters.length +
       this.selectedIvaConditions.length +
+      this.excludedIvaConditions.length +
       this.selectedBillingTypeIds.length +
+      this.excludedBillingTypeIds.length +
       this.selectedPaymentMethodIds.length +
-      this.selectedLockerTypeIds.length
+      this.excludedPaymentMethodIds.length +
+      this.selectedLockerTypeIds.length +
+      this.excludedLockerTypeIds.length +
+      this.selectedPaymentDays.length +
+      this.excludedPaymentDays.length
     );
+  }
+
+  private positionTagsPopover(): void {
+    if (!this.showTagsPopover) return;
+
+    const button = this.tagsButtonRef?.nativeElement as HTMLElement | undefined;
+    const popover = this.tagsPopoverRef?.nativeElement as HTMLElement | undefined;
+    if (!button || !popover) {
+      requestAnimationFrame(() => this.positionTagsPopover());
+      return;
+    }
+
+    const buttonRect = button.getBoundingClientRect();
+    if (buttonRect.bottom < 0 || buttonRect.top > window.innerHeight) {
+      this.closeTagsPopover();
+      return;
+    }
+    const viewportMargin = 12;
+    const gap = 8;
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const spaceBelow = viewportHeight - buttonRect.bottom - viewportMargin - gap;
+    const spaceAbove = buttonRect.top - viewportMargin - gap;
+    const naturalHeight = popover.scrollHeight;
+    const idealHeight = Math.min(naturalHeight, viewportHeight - viewportMargin * 2);
+    const opensAbove = spaceBelow < idealHeight && spaceAbove > spaceBelow;
+    const availableHeight = Math.max(180, Math.min(naturalHeight, opensAbove ? spaceAbove : spaceBelow, viewportHeight - viewportMargin * 2));
+    const top = opensAbove
+      ? Math.max(viewportMargin, buttonRect.top - gap - availableHeight)
+      : Math.max(viewportMargin, Math.min(buttonRect.bottom + gap, viewportHeight - viewportMargin - availableHeight));
+    const popoverWidth = Math.min(680, viewportWidth - viewportMargin * 2);
+    const left = Math.max(viewportMargin, Math.min(buttonRect.left, viewportWidth - viewportMargin - popoverWidth));
+
+    this.tagsPopoverPosition = { top, left, maxHeight: availableHeight };
+    this.tagsPopoverReady = true;
+    this.cdr.markForCheck();
+  }
+
+  private buildPaymentCalendarDays(): number[] {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).getDay();
+    const mondayOffset = (firstDay + 6) % 7;
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const days = [
+      ...Array.from({ length: mondayOffset }, () => 0),
+      ...Array.from({ length: daysInMonth }, (_, index) => index + 1)
+    ];
+
+    while (days.length % 7 !== 0) days.push(0);
+    return days;
+  }
+
+  get paymentCalendarMonthLabel(): string {
+    const label = new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' }).format(new Date());
+    return label.charAt(0).toUpperCase() + label.slice(1);
   }
 
   getBillingTypeName(id: number): string {
@@ -635,7 +860,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     setTimeout(() => {
       const scrollContainer = document.getElementById('main-scroll');
       if (scrollContainer) {
-        scrollContainer.addEventListener('scroll', this.onScroll.bind(this));
+        scrollContainer.addEventListener('scroll', this.mainScrollHandler, { passive: true });
         this.onScroll({ target: scrollContainer } as any); // Initialize
       }
     }, 100);
@@ -646,13 +871,33 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     // Si estamos cerca del fondo, la flecha apunta hacia arriba
     const isAtBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 100;
     this.pointingUp = isAtBottom;
+    if (this.showTagsPopover) {
+      this.positionTagsPopover();
+    }
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    if (this.showTagsPopover) {
+      this.positionTagsPopover();
+    }
+  }
+
+  @HostListener('window:scroll')
+  onWindowScroll(): void {
+    if (this.showTagsPopover) {
+      this.positionTagsPopover();
+    }
   }
 
   ngOnDestroy() {
+    this.clearClientLocation();
+    this.clientLoadSequence++;
+    this.searchSubject.complete();
     this.dataRefreshSubscription.unsubscribe();
     const scrollContainer = document.getElementById('main-scroll');
     if (scrollContainer) {
-      scrollContainer.removeEventListener('scroll', this.onScroll.bind(this));
+      scrollContainer.removeEventListener('scroll', this.mainScrollHandler);
     }
   }
 
@@ -667,16 +912,102 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-   async loadClients(): Promise<void> {
+  private matchesCachedClientFilters(client: CachedClient): boolean {
+    const matchesAny = <T>(values: T[], matcher: (value: T) => boolean): boolean =>
+      values.length === 0 || values.some(matcher);
+
+    const warehouseIds = client.warehouseIds ?? [];
+    if (!matchesAny(this.selectedWarehouseIds, id => warehouseIds.includes(id))) return false;
+    if (this.excludedWarehouseIds.some(id => warehouseIds.includes(id))) return false;
+
+    const nextPaymentMonthValue = this.getCachedMonthValue(client.nextPaymentDay);
+    const now = new Date();
+    const currentMonthValue = now.getFullYear() * 12 + now.getMonth();
+    const nextMonthValue = currentMonthValue + 1;
+    const increaseMonthValue = this.getCachedMonthValue(client.increaseAnchorDate);
+    const matchesQuickFilter = (filter: string): boolean => {
+      switch (filter) {
+        case 'pagaron_este_mes': return nextPaymentMonthValue !== null && nextPaymentMonthValue > currentMonthValue;
+        case 'no_pagaron_este_mes': return nextPaymentMonthValue !== null && nextPaymentMonthValue <= currentMonthValue;
+        case 'pagaron_meses_futuros': return nextPaymentMonthValue !== null && nextPaymentMonthValue > nextMonthValue;
+        case 'intereses_impagos': return (client.interestAmount ?? 0) > 0;
+        case 'aumento_proximo_mes': return increaseMonthValue === nextMonthValue;
+        default: return false;
+      }
+    };
+    if (!matchesAny(this.selectedQuickFilters, matchesQuickFilter)) return false;
+    if (this.excludedQuickFilters.some(matchesQuickFilter)) return false;
+
+    const ivaCondition = (client.ivaCondition ?? '').trim();
+    const matchesIva = (condition: string): boolean =>
+      condition === 'Sin asignar'
+        ? ivaCondition === '' || ivaCondition === 'Sin asignar'
+        : ivaCondition === condition;
+    if (!matchesAny(this.selectedIvaConditions, matchesIva)) return false;
+    if (this.excludedIvaConditions.some(matchesIva)) return false;
+
+    const matchesBillingType = (id: number): boolean =>
+      id > 0 ? client.billingTypeId === id : !client.billingTypeId || client.billingTypeId <= 0;
+    if (!matchesAny(this.selectedBillingTypeIds, matchesBillingType)) return false;
+    if (this.excludedBillingTypeIds.some(matchesBillingType)) return false;
+
+    const matchesPaymentMethod = (id: number): boolean =>
+      id > 0 ? client.preferredPaymentMethodId === id : !client.preferredPaymentMethodId || client.preferredPaymentMethodId <= 0;
+    if (!matchesAny(this.selectedPaymentMethodIds, matchesPaymentMethod)) return false;
+    if (this.excludedPaymentMethodIds.some(matchesPaymentMethod)) return false;
+
+    const lockerTypeIds = client.lockerTypeIds ?? [];
+    const matchesLockerType = (id: number): boolean =>
+      id > 0 ? lockerTypeIds.includes(id) : lockerTypeIds.length === 0;
+    if (!matchesAny(this.selectedLockerTypeIds, matchesLockerType)) return false;
+    if (this.excludedLockerTypeIds.some(matchesLockerType)) return false;
+
+    const paymentDays = client.paymentDaysThisMonth ?? [];
+    const matchesPaymentDay = (day: number): boolean => paymentDays.includes(day);
+    if (!matchesAny(this.selectedPaymentDays, matchesPaymentDay)) return false;
+    if (this.excludedPaymentDays.some(matchesPaymentDay)) return false;
+
+    return true;
+  }
+
+  private getCachedMonthValue(dateValue?: string | null): number | null {
+    if (!dateValue) return null;
+
+    const dateOnly = /^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(dateValue);
+    const date = dateOnly
+      ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+      : new Date(dateValue);
+
+    return Number.isNaN(date.getTime())
+      ? null
+      : date.getFullYear() * 12 + date.getMonth();
+  }
+
+  private parseCachedDate(dateValue?: string | null): Date | null {
+    if (!dateValue) return null;
+
+    const dateOnly = /^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(dateValue);
+    const date = dateOnly
+      ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+      : new Date(dateValue);
+
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  async loadClients(): Promise<void> {
+    const loadSequence = ++this.clientLoadSequence;
     this.isLoading = true;
     this.cdr.markForCheck();
 
     if (!this.offlineService.isOnline) {
       // Load from IndexedDB cache
       const cached = await this.idb.getCachedClients();
+      if (loadSequence !== this.clientLoadSequence) return;
       
       // We map the cached Client model (which is simple) to the TableClient format as best as possible
-      let filtered = cached.map(c => ({
+      let filtered = cached
+        .filter(c => this.matchesCachedClientFilters(c))
+        .map(c => ({
         id: c.id,
         fullName: c.fullName,
         paymentIdentifier: c.paymentIdentifier ?? 0,
@@ -689,7 +1020,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         lastGeneratedMonthYear: c.lastGeneratedMonthYear,
         color: c.color,
         status: c.status ?? (c.active ? 'Al día' : 'Baja'),
-        nextPaymentDay: c.nextPaymentDay ? new Date(c.nextPaymentDay) : null,
+        nextPaymentDay: this.parseCachedDate(c.nextPaymentDay),
         active: c.active ?? true,
         phone1: '',
         email: '',
@@ -699,9 +1030,9 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         documentNumber: '',
         comment: '',
         commentUpdatedAt: new Date(),
-        billingTypeId: 0,
-        ivaCondition: '',
         preferredPaymentMethodId: c.preferredPaymentMethodId ?? 0,
+        billingTypeId: c.billingTypeId ?? 0,
+        ivaCondition: c.ivaCondition ?? '',
         dni: '',
         cuit: ''
       } as unknown as TableClient));
@@ -733,15 +1064,24 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       statusFilter: this.filterEstadoClientes === 'Todos' ? undefined : this.filterEstadoClientes,
       active: !this.showInactivos,
       warehouseIds: this.selectedWarehouseIds.length > 0 ? this.selectedWarehouseIds : undefined,
+      excludedWarehouseIds: this.excludedWarehouseIds.length > 0 ? this.excludedWarehouseIds : undefined,
       advancedFilters: this.selectedQuickFilters.length > 0 ? this.selectedQuickFilters : undefined,
+      excludedAdvancedFilters: this.excludedQuickFilters.length > 0 ? this.excludedQuickFilters : undefined,
       ivaConditions: this.selectedIvaConditions.length > 0 ? this.selectedIvaConditions : undefined,
+      excludedIvaConditions: this.excludedIvaConditions.length > 0 ? this.excludedIvaConditions : undefined,
       billingTypeIds: this.selectedBillingTypeIds.length > 0 ? this.selectedBillingTypeIds : undefined,
+      excludedBillingTypeIds: this.excludedBillingTypeIds.length > 0 ? this.excludedBillingTypeIds : undefined,
       preferredPaymentMethodIds: this.selectedPaymentMethodIds.length > 0 ? this.selectedPaymentMethodIds : undefined,
-      lockerTypeIds: this.selectedLockerTypeIds.length > 0 ? this.selectedLockerTypeIds : undefined
+      excludedPreferredPaymentMethodIds: this.excludedPaymentMethodIds.length > 0 ? this.excludedPaymentMethodIds : undefined,
+      lockerTypeIds: this.selectedLockerTypeIds.length > 0 ? this.selectedLockerTypeIds : undefined,
+      excludedLockerTypeIds: this.excludedLockerTypeIds.length > 0 ? this.excludedLockerTypeIds : undefined,
+      paymentDays: this.selectedPaymentDays.length > 0 ? this.selectedPaymentDays : undefined,
+      excludedPaymentDays: this.excludedPaymentDays.length > 0 ? this.excludedPaymentDays : undefined
     };
 
     try {
       const result = await firstValueFrom(this.clientService.getTableClients(request));
+      if (loadSequence !== this.clientLoadSequence) return;
       this.clientes = result.items;
       this.totalClientes = result.totalCount;
       this.precomputeClientProps();
@@ -749,6 +1089,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.isLoading = false;
       this.cdr.markForCheck();
     } catch (err) {
+      if (loadSequence !== this.clientLoadSequence) return;
       console.error('Error al cargar clientes:', err);
       this.isLoading = false;
       this.cdr.markForCheck();
@@ -834,13 +1175,16 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   onSearchChange(): void {
     this.searchSubject.next(this.searchClientes);
     this.calculateTotals();
+    this.updateSearchUrl();
+  }
 
-    this.router.navigate([], {
+  private updateSearchUrl(): void {
+    const urlTree = this.router.createUrlTree([], {
       relativeTo: this.route,
       queryParams: { searchTerm: this.searchClientes || null },
-      queryParamsHandling: 'merge',
-      replaceUrl: true
+      queryParamsHandling: 'merge'
     });
+    this.location.replaceState(this.router.serializeUrl(urlTree));
   }
 
   onFilterChange(): void {
@@ -876,10 +1220,19 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.searchClientes = '';
     this.filterEstadoClientes = 'Todos';
     this.selectedWarehouseIds = [];
+    this.excludedWarehouseIds = [];
     this.selectedQuickFilters = [];
+    this.excludedQuickFilters = [];
     this.selectedIvaConditions = [];
+    this.excludedIvaConditions = [];
     this.selectedBillingTypeIds = [];
+    this.excludedBillingTypeIds = [];
     this.selectedPaymentMethodIds = [];
+    this.excludedPaymentMethodIds = [];
+    this.selectedLockerTypeIds = [];
+    this.excludedLockerTypeIds = [];
+    this.selectedPaymentDays = [];
+    this.excludedPaymentDays = [];
     this.showInactivos = false;
     this.currentPageClientes = 1;
     this.sortFieldClientes = 'PaymentIdentifier';

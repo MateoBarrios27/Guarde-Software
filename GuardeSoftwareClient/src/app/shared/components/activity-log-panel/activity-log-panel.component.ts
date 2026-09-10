@@ -45,7 +45,6 @@ export class ActivityLogPanelComponent implements OnInit {
 
   activities: ActivityLog[] = [];
   users: ActivityLogUser[] = [];
-  totalCount = 0;
   totalPages = 0;
   pageNumber = 1;
   pageSize = 25;
@@ -79,7 +78,6 @@ export class ActivityLogPanelComponent implements OnInit {
     this.activityLogService.getActivityLogs(this.buildFilter()).subscribe({
       next: (page: ActivityLogPage) => {
         this.activities = page.items ?? [];
-        this.totalCount = page.totalCount ?? 0;
         this.totalPages = page.totalPages ?? 0;
         this.pageNumber = page.pageNumber ?? this.pageNumber;
         this.pageSize = page.pageSize ?? this.pageSize;
@@ -87,7 +85,6 @@ export class ActivityLogPanelComponent implements OnInit {
       },
       error: () => {
         this.activities = [];
-        this.totalCount = 0;
         this.totalPages = 0;
         this.isLoading = false;
         this.errorMessage = 'No se pudo cargar el registro de actividad.';
