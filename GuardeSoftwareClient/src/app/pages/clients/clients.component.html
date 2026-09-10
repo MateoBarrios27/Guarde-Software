@@ -138,149 +138,200 @@
               </span>
             </button>
 
-            <!-- Popover flotante -->
+            <!-- Popover flotante: se posiciona respecto al viewport para no quedar recortado por el scroll de la tarjeta. -->
             <div
               #tagsPopoverRef
               *ngIf="showTagsPopover"
-              class="absolute left-0 mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-2xl w-[calc(100vw-2rem)] sm:w-[580px] max-w-[340px] sm:max-w-none p-4 sm:p-5 text-sm"
+              [style.top.px]="tagsPopoverPosition.top"
+              [style.left.px]="tagsPopoverPosition.left"
+              [style.max-height.px]="tagsPopoverPosition.maxHeight"
+              [class.invisible]="!tagsPopoverReady"
+              class="fixed z-[100] flex w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-3 text-sm shadow-2xl sm:w-[680px] sm:p-4"
             >
-              <div class="flex items-center justify-between pb-2 border-b border-gray-100">
-                <div>
-                  <h4 class="text-xs font-bold text-gray-500 tracking-wider">FILTRAR CLIENTES</h4>
-                  <p class="text-xs text-gray-400 mt-0.5">Combina filtros por depósito, estado y etiquetas.</p>
+              <div class="flex flex-none items-start justify-between gap-3 border-b border-gray-100 pb-2">
+                <div class="min-w-0">
+                  <h4 class="text-xs font-bold tracking-wider text-gray-500">FILTRAR CLIENTES</h4>
                 </div>
                 <button
                   type="button"
-                  (click)="showTagsPopover = false"
-                  class="text-gray-400 hover:text-gray-600 p-1"
+                  (click)="closeTagsPopover()"
+                  class="flex h-7 w-7 flex-none items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                  aria-label="Cerrar filtros"
                 >
                   <app-icon name="x" class="h-4 w-4"></app-icon>
                 </button>
               </div>
 
-              <div class="py-3 space-y-4 max-h-[520px] overflow-y-auto pr-1">
-                <!-- Depósito -->
-                <div>
-                  <span class="block text-xs font-semibold text-gray-600 mb-2">Depósito</span>
-                  <div class="flex flex-wrap gap-1.5">
-                    <button
-                      *ngFor="let w of warehouses"
-                      type="button"
-                      (click)="toggleWarehouseId(w.id)"
-                      class="px-2.5 py-1 rounded-full text-xs transition-colors border"
-                      [ngClass]="selectedWarehouseIds.includes(w.id) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
-                    >
-                      {{ w.name }}
-                    </button>
-                  </div>
-                </div>
+              <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 pr-1">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3.5">
+                  <!-- Depósito -->
+                  <section class="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5">
+                    <span class="mb-2 block text-[11px] font-bold uppercase tracking-wide text-gray-500">Depósito</span>
+                    <div class="flex flex-wrap gap-1.5">
+                      <button
+                        *ngFor="let w of warehouses"
+                        type="button"
+                        (click)="toggleWarehouseId(w.id)"
+                        [ngClass]="getFilterTagClasses('warehouse', w.id)"
+                        [attr.aria-pressed]="getFilterTagState('warehouse', w.id) !== 'none'"
+                        [title]="getFilterTagTitle('warehouse', w.id)"
+                        class="rounded-full border px-2 py-1 text-[11px] transition-colors"
+                      >
+                        <span *ngIf="getFilterTagState('warehouse', w.id) === 'exclude'" class="mr-0.5 font-black">−</span>{{ w.name }}
+                      </button>
+                    </div>
+                  </section>
 
-                <!-- Filtro rápido -->
-                <div>
-                  <span class="block text-xs font-semibold text-gray-600 mb-2">Filtro rápido (pago/estado)</span>
-                  <div class="flex flex-wrap gap-1.5">
-                    <button
-                      *ngFor="let qf of quickFiltersList"
-                      type="button"
-                      (click)="toggleQuickFilter(qf.value)"
-                      class="px-2.5 py-1 rounded-full text-xs transition-colors border"
-                      [ngClass]="selectedQuickFilters.includes(qf.value) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
-                    >
-                      {{ qf.label }}
-                    </button>
-                  </div>
-                </div>
+                  <!-- Filtro rápido -->
+                  <section class="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5">
+                    <span class="mb-2 block text-[11px] font-bold uppercase tracking-wide text-gray-500">Pago / estado</span>
+                    <div class="flex flex-wrap gap-1.5">
+                      <button
+                        *ngFor="let qf of quickFiltersList"
+                        type="button"
+                        (click)="toggleQuickFilter(qf.value)"
+                        [ngClass]="getFilterTagClasses('quick', qf.value)"
+                        [attr.aria-pressed]="getFilterTagState('quick', qf.value) !== 'none'"
+                        [title]="getFilterTagTitle('quick', qf.value)"
+                        class="rounded-full border px-2 py-1 text-[11px] transition-colors"
+                      >
+                        <span *ngIf="getFilterTagState('quick', qf.value) === 'exclude'" class="mr-0.5 font-black">−</span>{{ qf.label }}
+                      </button>
+                    </div>
+                  </section>
 
-                <!-- Tipo de facturación -->
-                <div>
-                  <span class="block text-xs font-semibold text-gray-600 mb-2">Tipo de facturación</span>
-                  <div class="flex flex-wrap gap-1.5">
-                    <button
-                      *ngFor="let bt of billingTypes"
-                      type="button"
-                      (click)="toggleBillingTypeId(bt.id)"
-                      class="px-2.5 py-1 rounded-full text-xs transition-colors border"
-                      [ngClass]="selectedBillingTypeIds.includes(bt.id) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
-                    >
-                      {{ bt.name }}
-                    </button>
-                    <button
-                      type="button"
-                      (click)="toggleBillingTypeId(0)"
-                      class="px-2.5 py-1 rounded-full text-xs transition-colors border"
-                      [ngClass]="selectedBillingTypeIds.includes(0) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
-                    >
-                      Sin factura
-                    </button>
-                  </div>
-                </div>
+                  <!-- Tipo de facturación -->
+                  <section class="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5">
+                    <span class="mb-2 block text-[11px] font-bold uppercase tracking-wide text-gray-500">Facturación</span>
+                    <div class="flex flex-wrap gap-1.5">
+                      <button
+                        *ngFor="let bt of billingTypes"
+                        type="button"
+                        (click)="toggleBillingTypeId(bt.id)"
+                        [ngClass]="getFilterTagClasses('billing', bt.id)"
+                        [attr.aria-pressed]="getFilterTagState('billing', bt.id) !== 'none'"
+                        [title]="getFilterTagTitle('billing', bt.id)"
+                        class="rounded-full border px-2 py-1 text-[11px] transition-colors"
+                      >
+                        <span *ngIf="getFilterTagState('billing', bt.id) === 'exclude'" class="mr-0.5 font-black">−</span>{{ bt.name }}
+                      </button>
+                      <button
+                        type="button"
+                        (click)="toggleBillingTypeId(0)"
+                        [ngClass]="getFilterTagClasses('billing', 0)"
+                        [attr.aria-pressed]="getFilterTagState('billing', 0) !== 'none'"
+                        [title]="getFilterTagTitle('billing', 0)"
+                        class="rounded-full border px-2 py-1 text-[11px] transition-colors"
+                      >
+                        <span *ngIf="getFilterTagState('billing', 0) === 'exclude'" class="mr-0.5 font-black">−</span>Sin factura
+                      </button>
+                    </div>
+                  </section>
 
-                <!-- Método de pago preferido -->
-                <div>
-                  <span class="block text-xs font-semibold text-gray-600 mb-2">Método de pago preferido</span>
-                  <div class="flex flex-wrap gap-1.5">
-                    <button
-                      *ngFor="let pm of paymentMethods"
-                      type="button"
-                      (click)="togglePaymentMethodId(pm.id)"
-                      class="px-2.5 py-1 rounded-full text-xs transition-colors border"
-                      [ngClass]="selectedPaymentMethodIds.includes(pm.id) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
-                    >
-                      {{ pm.name }}
-                    </button>
-                    <button
-                      type="button"
-                      (click)="togglePaymentMethodId(0)"
-                      class="px-2.5 py-1 rounded-full text-xs transition-colors border"
-                      [ngClass]="selectedPaymentMethodIds.includes(0) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
-                    >
-                      Sin asignar
-                    </button>
-                  </div>
-                </div>
+                  <!-- Método de pago preferido -->
+                  <section class="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5">
+                    <span class="mb-2 block text-[11px] font-bold uppercase tracking-wide text-gray-500">Método preferido</span>
+                    <div class="flex flex-wrap gap-1.5">
+                      <button
+                        *ngFor="let pm of paymentMethods"
+                        type="button"
+                        (click)="togglePaymentMethodId(pm.id)"
+                        [ngClass]="getFilterTagClasses('paymentMethod', pm.id)"
+                        [attr.aria-pressed]="getFilterTagState('paymentMethod', pm.id) !== 'none'"
+                        [title]="getFilterTagTitle('paymentMethod', pm.id)"
+                        class="rounded-full border px-2 py-1 text-[11px] transition-colors"
+                      >
+                        <span *ngIf="getFilterTagState('paymentMethod', pm.id) === 'exclude'" class="mr-0.5 font-black">−</span>{{ pm.name }}
+                      </button>
+                      <button
+                        type="button"
+                        (click)="togglePaymentMethodId(0)"
+                        [ngClass]="getFilterTagClasses('paymentMethod', 0)"
+                        [attr.aria-pressed]="getFilterTagState('paymentMethod', 0) !== 'none'"
+                        [title]="getFilterTagTitle('paymentMethod', 0)"
+                        class="rounded-full border px-2 py-1 text-[11px] transition-colors"
+                      >
+                        <span *ngIf="getFilterTagState('paymentMethod', 0) === 'exclude'" class="mr-0.5 font-black">−</span>Sin asignar
+                      </button>
+                    </div>
+                  </section>
 
-                <!-- Condición ante el IVA -->
-                <div>
-                  <span class="block text-xs font-semibold text-gray-600 mb-2">Condición ante el IVA</span>
-                  <div class="flex flex-wrap gap-1.5">
-                    <button
-                      *ngFor="let cond of ivaConditionsList"
-                      type="button"
-                      (click)="toggleIvaCondition(cond)"
-                      class="px-2.5 py-1 rounded-full text-xs transition-colors border"
-                      [ngClass]="selectedIvaConditions.includes(cond) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
-                    >
-                      {{ cond }}
-                    </button>
-                  </div>
-                </div>
+                  <!-- Condición ante el IVA -->
+                  <section class="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5">
+                    <span class="mb-2 block text-[11px] font-bold uppercase tracking-wide text-gray-500">Condición ante el IVA</span>
+                    <div class="flex flex-wrap gap-1.5">
+                      <button
+                        *ngFor="let cond of ivaConditionsList"
+                        type="button"
+                        (click)="toggleIvaCondition(cond)"
+                        [ngClass]="getFilterTagClasses('iva', cond)"
+                        [attr.aria-pressed]="getFilterTagState('iva', cond) !== 'none'"
+                        [title]="getFilterTagTitle('iva', cond)"
+                        class="rounded-full border px-2 py-1 text-[11px] transition-colors"
+                      >
+                        <span *ngIf="getFilterTagState('iva', cond) === 'exclude'" class="mr-0.5 font-black">−</span>{{ cond }}
+                      </button>
+                    </div>
+                  </section>
 
-                <!-- Tipo de Baulera -->
-                <div>
-                  <span class="block text-xs font-semibold text-gray-600 mb-2">Tipo de Baulera</span>
-                  <div class="flex flex-wrap gap-1.5">
-                    <button
-                      *ngFor="let lt of lockerTypes"
-                      type="button"
-                      (click)="toggleLockerTypeId(lt.id)"
-                      class="px-2.5 py-1 rounded-full text-xs transition-colors border"
-                      [ngClass]="selectedLockerTypeIds.includes(lt.id) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
-                    >
-                      {{ lt.name }}
-                    </button>
-                    <button
-                      type="button"
-                      (click)="toggleLockerTypeId(0)"
-                      class="px-2.5 py-1 rounded-full text-xs transition-colors border"
-                      [ngClass]="selectedLockerTypeIds.includes(0) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
-                    >
-                      Sin baulera
-                    </button>
-                  </div>
+                  <!-- Tipo de Baulera -->
+                  <section class="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5">
+                    <span class="mb-2 block text-[11px] font-bold uppercase tracking-wide text-gray-500">Tipo de baulera</span>
+                    <div class="flex flex-wrap gap-1.5">
+                      <button
+                        *ngFor="let lt of lockerTypes"
+                        type="button"
+                        (click)="toggleLockerTypeId(lt.id)"
+                        [ngClass]="getFilterTagClasses('lockerType', lt.id)"
+                        [attr.aria-pressed]="getFilterTagState('lockerType', lt.id) !== 'none'"
+                        [title]="getFilterTagTitle('lockerType', lt.id)"
+                        class="rounded-full border px-2 py-1 text-[11px] transition-colors"
+                      >
+                        <span *ngIf="getFilterTagState('lockerType', lt.id) === 'exclude'" class="mr-0.5 font-black">−</span>{{ lt.name }}
+                      </button>
+                      <button
+                        type="button"
+                        (click)="toggleLockerTypeId(0)"
+                        [ngClass]="getFilterTagClasses('lockerType', 0)"
+                        [attr.aria-pressed]="getFilterTagState('lockerType', 0) !== 'none'"
+                        [title]="getFilterTagTitle('lockerType', 0)"
+                        class="rounded-full border px-2 py-1 text-[11px] transition-colors"
+                      >
+                        <span *ngIf="getFilterTagState('lockerType', 0) === 'exclude'" class="mr-0.5 font-black">−</span>Sin baulera
+                      </button>
+                    </div>
+                  </section>
+
+                  <!-- Día de pago del mes actual -->
+                  <section class="rounded-lg border border-blue-100 bg-blue-50/40 p-2.5 sm:col-span-2">
+                    <div class="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                      <span class="text-[11px] font-bold uppercase tracking-wide text-blue-700">Día que vino a pagar</span>
+                      <span class="text-[10px] font-semibold text-blue-700/75">{{ paymentCalendarMonthLabel }}</span>
+                    </div>
+                    <div class="mb-1 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase text-blue-700/60">
+                      <span *ngFor="let weekday of paymentCalendarWeekdays">{{ weekday }}</span>
+                    </div>
+                    <div class="grid grid-cols-7 gap-1">
+                      <ng-container *ngFor="let day of paymentCalendarDays">
+                        <button
+                          *ngIf="day > 0; else emptyPaymentDay"
+                          type="button"
+                          (click)="togglePaymentDay(day)"
+                          [ngClass]="getFilterTagClasses('paymentDay', day)"
+                          [attr.aria-pressed]="getFilterTagState('paymentDay', day) !== 'none'"
+                          [title]="getFilterTagTitle('paymentDay', day)"
+                          class="h-8 rounded-md border text-center text-[11px] font-semibold tabular-nums transition-colors"
+                        >
+                          <span *ngIf="getFilterTagState('paymentDay', day) === 'exclude'" class="mr-0.5 font-black">−</span>{{ day | number:'2.0-0' }}
+                        </button>
+                        <ng-template #emptyPaymentDay><span class="h-8 rounded-md"></span></ng-template>
+                      </ng-container>
+                    </div>
+                  </section>
                 </div>
               </div>
 
-              <div *ngIf="totalActiveTagsCount > 0" class="pt-2 border-t border-gray-100 flex justify-end">
+              <div *ngIf="totalActiveTagsCount > 0" class="flex flex-none justify-end border-t border-gray-100 pt-2">
                 <button
                   type="button"
                   (click)="clearAllTags()"
@@ -289,66 +340,122 @@
                   Limpiar filtros
                 </button>
               </div>
+              </div>
             </div>
-          </div>
 
         </div>
 
         <!-- Fila de Filtros/Etiquetas Activas -->
-        <div *ngIf="totalActiveTagsCount > 0" class="mt-3 pt-2 border-t border-gray-100 flex flex-wrap items-center gap-2">
-          <span class="text-xs font-semibold text-gray-500 mr-1">Filtros activos:</span>
-          
-          <!-- Depósitos activos -->
-          <span *ngFor="let id of selectedWarehouseIds" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
-            Depósito: {{ getWarehouseName(id) }}
-            <button type="button" (click)="toggleWarehouseId(id)" class="hover:text-blue-900 focus:outline-none">
-              <app-icon name="x" class="h-3 w-3"></app-icon>
-            </button>
-          </span>
+        <div *ngIf="totalActiveTagsCount > 0" class="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2">
+          <span class="mr-1 text-xs font-semibold text-gray-500">Filtros activos:</span>
 
-          <!-- Filtros rápidos activos -->
-          <span *ngFor="let val of selectedQuickFilters" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
-            {{ getQuickFilterLabel(val) }}
-            <button type="button" (click)="toggleQuickFilter(val)" class="hover:text-blue-900 focus:outline-none">
-              <app-icon name="x" class="h-3 w-3"></app-icon>
-            </button>
-          </span>
+          <!-- Depósitos -->
+          <ng-container *ngFor="let id of selectedWarehouseIds">
+            <span [ngClass]="getActiveFilterTagClasses('warehouse', id)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="toggleWarehouseId(id)" [title]="getFilterTagTitle('warehouse', id)" class="px-2.5 py-1 focus:outline-none">
+                Depósito: {{ getWarehouseName(id) }}
+              </button>
+              <button type="button" (click)="clearFilterTag('warehouse', id); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar filtro de depósito">
+                <app-icon name="x" class="h-3 w-3"></app-icon>
+              </button>
+            </span>
+          </ng-container>
+          <ng-container *ngFor="let id of excludedWarehouseIds">
+            <span [ngClass]="getActiveFilterTagClasses('warehouse', id)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="toggleWarehouseId(id)" [title]="getFilterTagTitle('warehouse', id)" class="px-2.5 py-1 focus:outline-none">
+                Excepto depósito: {{ getWarehouseName(id) }}
+              </button>
+              <button type="button" (click)="clearFilterTag('warehouse', id); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar exclusión de depósito">
+                <app-icon name="x" class="h-3 w-3"></app-icon>
+              </button>
+            </span>
+          </ng-container>
 
-          <!-- Tipo de facturación activas -->
-          <span *ngFor="let id of selectedBillingTypeIds" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
-            {{ getBillingTypeName(id) }}
-            <button type="button" (click)="toggleBillingTypeId(id)" class="hover:text-blue-900 focus:outline-none">
-              <app-icon name="x" class="h-3 w-3"></app-icon>
-            </button>
-          </span>
+          <!-- Filtros rápidos -->
+          <ng-container *ngFor="let val of selectedQuickFilters">
+            <span [ngClass]="getActiveFilterTagClasses('quick', val)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="toggleQuickFilter(val)" [title]="getFilterTagTitle('quick', val)" class="px-2.5 py-1 focus:outline-none">{{ getQuickFilterLabel(val) }}</button>
+              <button type="button" (click)="clearFilterTag('quick', val); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar filtro rápido"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
+          <ng-container *ngFor="let val of excludedQuickFilters">
+            <span [ngClass]="getActiveFilterTagClasses('quick', val)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="toggleQuickFilter(val)" [title]="getFilterTagTitle('quick', val)" class="px-2.5 py-1 focus:outline-none">Excepto: {{ getQuickFilterLabel(val) }}</button>
+              <button type="button" (click)="clearFilterTag('quick', val); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar exclusión de filtro rápido"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
 
-          <!-- Método de pago activas -->
-          <span *ngFor="let id of selectedPaymentMethodIds" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
-            {{ getPaymentMethodName(id) }}
-            <button type="button" (click)="togglePaymentMethodId(id)" class="hover:text-blue-900 focus:outline-none">
-              <app-icon name="x" class="h-3 w-3"></app-icon>
-            </button>
-          </span>
+          <!-- Facturación -->
+          <ng-container *ngFor="let id of selectedBillingTypeIds">
+            <span [ngClass]="getActiveFilterTagClasses('billing', id)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="toggleBillingTypeId(id)" [title]="getFilterTagTitle('billing', id)" class="px-2.5 py-1 focus:outline-none">{{ getBillingTypeName(id) }}</button>
+              <button type="button" (click)="clearFilterTag('billing', id); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar filtro de facturación"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
+          <ng-container *ngFor="let id of excludedBillingTypeIds">
+            <span [ngClass]="getActiveFilterTagClasses('billing', id)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="toggleBillingTypeId(id)" [title]="getFilterTagTitle('billing', id)" class="px-2.5 py-1 focus:outline-none">Excepto: {{ getBillingTypeName(id) }}</button>
+              <button type="button" (click)="clearFilterTag('billing', id); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar exclusión de facturación"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
 
-          <!-- Condición de IVA activas -->
-          <span *ngFor="let cond of selectedIvaConditions" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
-            IVA: {{ cond }}
-            <button type="button" (click)="toggleIvaCondition(cond)" class="hover:text-blue-900 focus:outline-none">
-              <app-icon name="x" class="h-3 w-3"></app-icon>
-            </button>
-          </span>
+          <!-- Método preferido -->
+          <ng-container *ngFor="let id of selectedPaymentMethodIds">
+            <span [ngClass]="getActiveFilterTagClasses('paymentMethod', id)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="togglePaymentMethodId(id)" [title]="getFilterTagTitle('paymentMethod', id)" class="px-2.5 py-1 focus:outline-none">{{ getPaymentMethodName(id) }}</button>
+              <button type="button" (click)="clearFilterTag('paymentMethod', id); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar filtro de método de pago"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
+          <ng-container *ngFor="let id of excludedPaymentMethodIds">
+            <span [ngClass]="getActiveFilterTagClasses('paymentMethod', id)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="togglePaymentMethodId(id)" [title]="getFilterTagTitle('paymentMethod', id)" class="px-2.5 py-1 focus:outline-none">Excepto: {{ getPaymentMethodName(id) }}</button>
+              <button type="button" (click)="clearFilterTag('paymentMethod', id); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar exclusión de método de pago"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
 
-          <!-- Tipos de baulera activos -->
-          <span *ngFor="let id of selectedLockerTypeIds" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
-            Tipo de Baulera: {{ getLockerTypeName(id) }}
-            <button type="button" (click)="toggleLockerTypeId(id)" class="hover:text-blue-900 focus:outline-none">
-              <app-icon name="x" class="h-3 w-3"></app-icon>
-            </button>
-          </span>
+          <!-- IVA -->
+          <ng-container *ngFor="let cond of selectedIvaConditions">
+            <span [ngClass]="getActiveFilterTagClasses('iva', cond)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="toggleIvaCondition(cond)" [title]="getFilterTagTitle('iva', cond)" class="px-2.5 py-1 focus:outline-none">IVA: {{ cond }}</button>
+              <button type="button" (click)="clearFilterTag('iva', cond); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar filtro de IVA"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
+          <ng-container *ngFor="let cond of excludedIvaConditions">
+            <span [ngClass]="getActiveFilterTagClasses('iva', cond)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="toggleIvaCondition(cond)" [title]="getFilterTagTitle('iva', cond)" class="px-2.5 py-1 focus:outline-none">Excepto IVA: {{ cond }}</button>
+              <button type="button" (click)="clearFilterTag('iva', cond); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar exclusión de IVA"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
 
-          <button type="button" (click)="clearAllTags()" class="ml-2 text-xs font-semibold text-red-600 hover:underline">
-            Limpiar todo
-          </button>
+          <!-- Tipo de baulera -->
+          <ng-container *ngFor="let id of selectedLockerTypeIds">
+            <span [ngClass]="getActiveFilterTagClasses('lockerType', id)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="toggleLockerTypeId(id)" [title]="getFilterTagTitle('lockerType', id)" class="px-2.5 py-1 focus:outline-none">Baulera: {{ getLockerTypeName(id) }}</button>
+              <button type="button" (click)="clearFilterTag('lockerType', id); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar filtro de baulera"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
+          <ng-container *ngFor="let id of excludedLockerTypeIds">
+            <span [ngClass]="getActiveFilterTagClasses('lockerType', id)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="toggleLockerTypeId(id)" [title]="getFilterTagTitle('lockerType', id)" class="px-2.5 py-1 focus:outline-none">Excepto baulera: {{ getLockerTypeName(id) }}</button>
+              <button type="button" (click)="clearFilterTag('lockerType', id); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar exclusión de baulera"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
+
+          <!-- Días de pago -->
+          <ng-container *ngFor="let day of selectedPaymentDays">
+            <span [ngClass]="getActiveFilterTagClasses('paymentDay', day)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="togglePaymentDay(day)" [title]="getFilterTagTitle('paymentDay', day)" class="px-2.5 py-1 focus:outline-none">Día de pago: {{ day | number:'2.0-0' }}</button>
+              <button type="button" (click)="clearFilterTag('paymentDay', day); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar día de pago"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
+          <ng-container *ngFor="let day of excludedPaymentDays">
+            <span [ngClass]="getActiveFilterTagClasses('paymentDay', day)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="togglePaymentDay(day)" [title]="getFilterTagTitle('paymentDay', day)" class="px-2.5 py-1 focus:outline-none">Excepto día de pago: {{ day | number:'2.0-0' }}</button>
+              <button type="button" (click)="clearFilterTag('paymentDay', day); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar exclusión de día de pago"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
+
+          <button type="button" (click)="clearAllTags()" class="ml-2 text-xs font-semibold text-red-600 hover:underline">Limpiar todo</button>
         </div>
         <div class="flex flex-wrap items-center justify-between gap-2">
           <!-- <div class="flex items-center gap-2">
@@ -519,6 +626,9 @@
               [hidden]="isLoading"
               id="client-row-{{cliente.id}}"
               class="border-b hover:bg-gray-50 transition-colors client-row"
+              [class.client-row-located]="locatedClientId === cliente.id"
+              tabindex="-1"
+              (keydown.escape)="clearClientLocation()"
               [class.has-color]="!!cliente.color || isClientLeaving(cliente)"
               [style.--client-color]="isClientLeaving(cliente) ? '#dc2626' : cliente.color"
               [style.--client-color-light]="isClientLeaving(cliente) ? '#fca5a5' : cliente._colorLight"
@@ -564,6 +674,10 @@
                             [style.color]="isClientLeaving(cliente) ? '#dc2626' : (cliente.color || '#111827')">
                         {{ cliente.fullName }}
                       </span>
+                      <small *ngIf="locatedClientId === cliente.id" class="client-location-label" role="status">
+                        <app-icon name="arrow-right" aria-hidden="true"></app-icon>
+                        Cliente seleccionado
+                      </small>
                     </div>
                   </div>
                 </div>

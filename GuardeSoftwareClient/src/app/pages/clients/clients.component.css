@@ -12,6 +12,37 @@ tr.client-row.has-color > td:last-child {
   border-right: 1px solid var(--client-color-light);
 }
 
+/* Locate a client without overriding their account/status colors. */
+.client-row-located { outline: none; scroll-margin-block: 5.5rem; }
+.client-row-located > td {
+  background-image: linear-gradient(rgba(15, 118, 110, 0.045), rgba(15, 118, 110, 0.045));
+  box-shadow: inset 0 1px 0 #b7d8d3, inset 0 -1px 0 #b7d8d3;
+}
+.client-row-located > td:first-child {
+  box-shadow: inset 3px 0 0 #0f766e, inset 0 1px 0 #b7d8d3, inset 0 -1px 0 #b7d8d3;
+}
+.client-row-located > td:last-child {
+  box-shadow: inset -1px 0 0 #b7d8d3, inset 0 1px 0 #b7d8d3, inset 0 -1px 0 #b7d8d3;
+}
+.client-location-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #0f766e;
+  font-size: 0.65rem;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: client-location-appear 220ms ease-out;
+}
+.client-location-label app-icon { width: 0.75rem; height: 0.75rem; }
+@keyframes client-location-appear {
+  from { opacity: 0; transform: translateX(-3px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .client-location-label { animation: none; }
+}
+
 /* ── Skeleton Loader ─────────────────────────────────── */
 @keyframes skeleton-shimmer {
   0%   { background-position: -400px 0; }

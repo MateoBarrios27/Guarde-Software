@@ -97,9 +97,19 @@ export class ClientService {
         params = params.append('WarehouseIds', id.toString());
       });
     }
+    if (request.excludedWarehouseIds && request.excludedWarehouseIds.length > 0) {
+      request.excludedWarehouseIds.forEach(id => {
+        params = params.append('ExcludedWarehouseIds', id.toString());
+      });
+    }
     if (request.advancedFilters && request.advancedFilters.length > 0) {
       request.advancedFilters.forEach(f => {
         params = params.append('AdvancedFilters', f);
+      });
+    }
+    if (request.excludedAdvancedFilters && request.excludedAdvancedFilters.length > 0) {
+      request.excludedAdvancedFilters.forEach(f => {
+        params = params.append('ExcludedAdvancedFilters', f);
       });
     }
     if (request.ivaConditions && request.ivaConditions.length > 0) {
@@ -107,14 +117,49 @@ export class ClientService {
         params = params.append('IvaConditions', cond);
       });
     }
+    if (request.excludedIvaConditions && request.excludedIvaConditions.length > 0) {
+      request.excludedIvaConditions.forEach(cond => {
+        params = params.append('ExcludedIvaConditions', cond);
+      });
+    }
     if (request.billingTypeIds && request.billingTypeIds.length > 0) {
       request.billingTypeIds.forEach(id => {
         params = params.append('BillingTypeIds', id.toString());
       });
     }
+    if (request.excludedBillingTypeIds && request.excludedBillingTypeIds.length > 0) {
+      request.excludedBillingTypeIds.forEach(id => {
+        params = params.append('ExcludedBillingTypeIds', id.toString());
+      });
+    }
     if (request.preferredPaymentMethodIds && request.preferredPaymentMethodIds.length > 0) {
       request.preferredPaymentMethodIds.forEach(id => {
         params = params.append('PreferredPaymentMethodIds', id.toString());
+      });
+    }
+    if (request.excludedPreferredPaymentMethodIds && request.excludedPreferredPaymentMethodIds.length > 0) {
+      request.excludedPreferredPaymentMethodIds.forEach(id => {
+        params = params.append('ExcludedPreferredPaymentMethodIds', id.toString());
+      });
+    }
+    if (request.lockerTypeIds && request.lockerTypeIds.length > 0) {
+      request.lockerTypeIds.forEach(id => {
+        params = params.append('LockerTypeIds', id.toString());
+      });
+    }
+    if (request.excludedLockerTypeIds && request.excludedLockerTypeIds.length > 0) {
+      request.excludedLockerTypeIds.forEach(id => {
+        params = params.append('ExcludedLockerTypeIds', id.toString());
+      });
+    }
+    if (request.paymentDays && request.paymentDays.length > 0) {
+      request.paymentDays.forEach(day => {
+        params = params.append('PaymentDays', day.toString());
+      });
+    }
+    if (request.excludedPaymentDays && request.excludedPaymentDays.length > 0) {
+      request.excludedPaymentDays.forEach(day => {
+        params = params.append('ExcludedPaymentDays', day.toString());
       });
     }
 

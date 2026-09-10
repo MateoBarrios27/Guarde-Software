@@ -1,4 +1,5 @@
-import { Component, OnDestroy, OnInit, HostListener } from '@angular/core';
+import { Component, OnDestroy, OnInit, HostListener, ViewChild } from '@angular/core';
+import { CdkConnectedOverlay, CdkOverlayOrigin, ConnectedPosition, Overlay, OverlayModule } from '@angular/cdk/overlay';
 import { PaymentService } from '../../core/services/payment-service/payment.service';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
 import { PendingRentalDTO } from '../../core/dtos/rental/PendingRentalDTO';
@@ -14,7 +15,7 @@ import { Client } from '../../core/models/client';
 import { CreatePaymentDTO } from '../../core/dtos/payment/CreatePaymentDTO';
 import Swal from '../../shared/services/ui-alert.service';
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router } from '@angular/router';
 import { PdfGeneratorService } from '../../core/services/pdfGenerator-service/pdf-generator.service';
 import { OfflineService } from '../../core/services/offline-service/offline.service';
 import { IndexedDbService } from '../../core/services/offline-service/indexed-db.service';
@@ -48,7 +49,7 @@ interface PaymentMonthBreakdown {
 
 @Component({
   selector: 'app-finances',
-  imports: [FormsModule, CommonModule, IconComponent, PaymentIncreaseModalComponent, NgxPaginationModule, CurrencyFormatDirective],
+  imports: [FormsModule, CommonModule, IconComponent, PaymentIncreaseModalComponent, NgxPaginationModule, CurrencyFormatDirective, OverlayModule],
   templateUrl: './finances.component.html',
   styleUrl: './finances.component.css',
   host: {
@@ -70,7 +71,98 @@ export class FinancesComponent implements OnInit, OnDestroy {
     private paymentPresenceService: PaymentPresenceService,
     private deleteConfirmation: DeleteConfirmationService,
     private dataRefresh: DataRefreshService,
-  ){}
+    overlay: Overlay,
+  ){
+    this.clientStatsScrollStrategy = overlay.scrollStrategies.close();
+    this.paymentPresenceSubscriptions.add(this.router.events.subscribe(event => {
+      if (event instanceof NavigationStart) {
+        this.clientStatsNavigationPending = true;
+        this.closeClientStats();
+      } else if (event instanceof NavigationEnd || event instanceof NavigationCancel || event instanceof NavigationError) {
+        this.clientStatsNavigationPending = false;
+      }
+    }));
+  }
+
+  clientStatsOrigin: CdkOverlayOrigin | null = null;
+  clientStatsPayment: DetailedPaymentView | null = null;
+  clientStatsOpen = false;
+  @ViewChild('clientStatsOverlay') private clientStatsOverlay?: CdkConnectedOverlay;
+  private clientStatsNavigationPending = false;
+  readonly clientStatsScrollStrategy;
+  readonly clientStatsPositions: ConnectedPosition[] = [
+    { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 0 },
+    { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: 0 },
+    { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 0 },
+    { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: 0 },
+  ];
+  private clientStatsOpenTimer?: ReturnType<typeof setTimeout>;
+  private clientStatsCloseTimer?: ReturnType<typeof setTimeout>;
+
+  get clientStats(): Client | undefined {
+    return this.clientStatsPayment ? this.findPaymentClient(this.clientStatsPayment) : undefined;
+  }
+
+  isClientNextPaymentFuture(client: Client | undefined): boolean {
+    if (!client?.nextPaymentDay) return false;
+    const nextPayment = new Date(client.nextPaymentDay);
+    if (Number.isNaN(nextPayment.getTime())) return false;
+    const current = new Date();
+    return (nextPayment.getFullYear() * 12 + nextPayment.getMonth())
+      > (current.getFullYear() * 12 + current.getMonth());
+  }
+
+  clientInitials(name: string): string {
+    return (name || '').trim().split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join('').toUpperCase();
+  }
+
+  showClientStats(payment: DetailedPaymentView, origin: CdkOverlayOrigin): void {
+    if (!this.canShowClientStats(origin)) return;
+    this.keepClientStatsOpen();
+    clearTimeout(this.clientStatsOpenTimer);
+    if (this.clientStatsPayment === payment && this.clientStatsOpen) return;
+    this.clientStatsOpen = false;
+    this.clientStatsOpenTimer = setTimeout(() => {
+      if (!this.canShowClientStats(origin)) return;
+      this.clientStatsPayment = payment;
+      this.clientStatsOrigin = origin;
+      this.clientStatsOpen = true;
+    }, 250);
+  }
+
+  keepClientStatsOpen(): void {
+    clearTimeout(this.clientStatsCloseTimer);
+  }
+
+  scheduleClientStatsClose(): void {
+    clearTimeout(this.clientStatsOpenTimer);
+    this.keepClientStatsOpen();
+    this.clientStatsCloseTimer = setTimeout(() => this.closeClientStats(), 180);
+  }
+
+  closeClientStats(): void {
+    clearTimeout(this.clientStatsOpenTimer);
+    clearTimeout(this.clientStatsCloseTimer);
+    this.clientStatsOpen = false;
+    this.clientStatsPayment = null;
+    // Cached routes stop rendering before Angular necessarily applies the binding.
+    // The CDK pane lives under body, so detach it synchronously as well.
+    this.clientStatsOverlay?.overlayRef?.detach();
+  }
+
+  private canShowClientStats(origin: CdkOverlayOrigin): boolean {
+    return !this.clientStatsNavigationPending
+      && this.router.url.split(/[?#]/)[0] === '/finances'
+      && origin.elementRef.nativeElement.isConnected;
+  }
+
+  private findPaymentClient(payment: DetailedPaymentView): Client | undefined {
+    if (payment.clientId) return this.clientsById.get(Number(payment.clientId));
+    const name = (payment.clientName || '').trim().toLowerCase();
+    const matches = this.clients.filter(client => client.fullName.trim().toLowerCase() === name
+      && (!payment.paymentIdentifier || String(client.paymentIdentifier ?? '') === String(payment.paymentIdentifier)));
+    return matches.length === 1 ? matches[0] : undefined;
+  }
 
   clients: Client[] = [];
   private clientsById = new Map<number, Client>();
@@ -252,6 +344,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.closeClientStats();
     if (this.activePresenceClientId) {
       void this.paymentPresenceService.leaveClientRoom(this.activePresenceClientId);
     }
@@ -652,6 +745,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
   }
 
   openClientInClients(payment: DetailedPaymentView): void {
+    this.closeClientStats();
     const normalizedName = (payment.clientName || '').trim().toLowerCase();
     const matchingClient = this.clients.find(client =>
       client.fullName.trim().toLowerCase() === normalizedName

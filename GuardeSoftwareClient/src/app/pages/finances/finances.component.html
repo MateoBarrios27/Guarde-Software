@@ -1,3 +1,56 @@
+<ng-template
+  cdkConnectedOverlay
+  #clientStatsOverlay="cdkConnectedOverlay"
+  [cdkConnectedOverlayOrigin]="clientStatsOrigin!"
+  [cdkConnectedOverlayOpen]="clientStatsOpen"
+  [cdkConnectedOverlayPositions]="clientStatsPositions"
+  [cdkConnectedOverlayScrollStrategy]="clientStatsScrollStrategy"
+  [cdkConnectedOverlayViewportMargin]="12"
+  [cdkConnectedOverlayPush]="true"
+  (detach)="clientStatsOpen && closeClientStats()"
+  (overlayKeydown)="$event.key === 'Escape' && closeClientStats()"
+>
+  <section id="finance-client-stats" role="tooltip" class="client-stats-card"
+    (mouseenter)="keepClientStatsOpen()" (mouseleave)="scheduleClientStatsClose()">
+    <div class="client-stats-heading">
+      <div>
+        <p class="client-stats-eyebrow">Estadísticas del cliente</p>
+        <p class="client-stats-title">{{ clientStatsPayment?.clientName }}</p>
+      </div>
+    </div>
+    <ng-container *ngIf="clientStats as stats; else unavailableClientStats">
+      <div class="client-stats-next-payment">
+        <p class="client-stats-context">Próx. pago{{ offlineService.isOnline ? '' : ' · Sin conexión' }}</p>
+        <p class="client-stats-next-payment-value"
+           [class.client-stats-next-payment-future]="isClientNextPaymentFuture(stats)">
+          {{ stats.nextPaymentDay ? (stats.nextPaymentDay | date:'MM/yyyy') : '—' }}
+        </p>
+      </div>
+      <dl class="client-stats-values">
+        <div class="client-stats-row">
+          <dt>Saldo anterior</dt>
+          <dd [class.client-stats-negative]="(stats.previousBalance ?? 0) < 0">{{ stats.previousBalance == null ? '—' : (stats.previousBalance | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') }}</dd>
+        </div>
+        <div class="client-stats-row">
+          <dt>Intereses</dt>
+          <dd [class.client-stats-interest]="(stats.interestAmount ?? 0) > 0">{{ stats.interestAmount == null ? '—' : (stats.interestAmount | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') }}</dd>
+        </div>
+        <div class="client-stats-row">
+          <dt>Abono</dt>
+          <dd>{{ stats.currentRent == null ? '—' : (stats.currentRent | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') }}</dd>
+        </div>
+        <div class="client-stats-balance" [class.client-stats-balance-debt]="(stats.balance ?? 0) < 0">
+          <dt>Saldo<small>{{ stats.balance == null ? 'Sin información' : stats.balance < 0 ? 'Pendiente de pago' : stats.balance > 0 ? 'A favor' : 'Al día' }}</small></dt>
+          <dd>{{ stats.balance == null ? '—' : (stats.balance | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') }}</dd>
+        </div>
+      </dl>
+    </ng-container>
+    <ng-template #unavailableClientStats>
+      <p class="client-stats-unavailable">No hay estadísticas disponibles para este cliente.</p>
+    </ng-template>
+  </section>
+</ng-template>
+
 <div class="pt-6 space-y-8">
  <!-- === CARDS DE ESTADÍSTICAS === -->
    <!-- <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -224,10 +277,20 @@
             <button
               type="button"
               (click)="openClientInClients(p)"
-              class="text-left text-blue-700 hover:text-blue-900 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded"
-              [attr.title]="'Ver ficha de ' + p.clientName"
+              cdkOverlayOrigin
+              #clientOrigin="cdkOverlayOrigin"
+              (mouseenter)="showClientStats(p, clientOrigin)"
+              (mouseleave)="scheduleClientStatsClose()"
+              (focus)="showClientStats(p, clientOrigin)"
+              (blur)="scheduleClientStatsClose()"
+              (keydown.escape)="closeClientStats()"
+              class="finance-client-trigger"
+              [class.finance-client-trigger-active]="clientStatsOpen && clientStatsPayment === p"
+              [attr.aria-label]="'Ver cliente: ' + p.clientName"
+              [attr.aria-describedby]="clientStatsOpen && clientStatsPayment === p ? 'finance-client-stats' : null"
             >
               {{ p.clientName }}
+              <app-icon name="arrow-right" class="finance-client-arrow" aria-hidden="true"></app-icon>
             </button>
           </td>
           <td class="py-3 px-4 text-gray-700 font-mono">{{ formatIdentifier(p.paymentIdentifier) }}</td>
