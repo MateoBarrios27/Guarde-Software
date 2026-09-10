@@ -494,6 +494,7 @@ namespace GuardeSoftwareAPI.Dao
             string query = @"
                 SELECT DISTINCT
                     c.client_id AS Id,
+                    c.payment_identifier AS PaymentIdentifier,
                     c.full_name AS Name,
                     ISNULL((SELECT STRING_AGG(NULLIF(LTRIM(RTRIM(e.address)), ''), ';')
                     FROM emails e 
@@ -569,7 +570,11 @@ namespace GuardeSoftwareAPI.Dao
                               AND ISNULL(d.is_test, 0) = 0
                         )
                     )
-                )";
+                )
+                ORDER BY
+                    CASE WHEN c.payment_identifier IS NULL THEN 1 ELSE 0 END,
+                    c.payment_identifier ASC,
+                    c.client_id ASC";
             
             var parameters = new[]
             {
@@ -682,6 +687,8 @@ namespace GuardeSoftwareAPI.Dao
                 WITH ClientRecipients AS (
                     SELECT
                         e.client_id AS Id,
+                        c.payment_identifier AS PaymentIdentifier,
+                        CASE WHEN c.payment_identifier IS NULL THEN 1 ELSE 0 END AS RecipientGroup,
                         ISNULL(c.full_name, '') AS Name,
                         STRING_AGG(NULLIF(LTRIM(RTRIM(e.address)), ''), ';') AS Email,
                         CAST(NULL AS INT) AS ExternalRecipientId
@@ -701,11 +708,13 @@ namespace GuardeSoftwareAPI.Dao
                           AND d.status = 'Exitoso'
                           AND ISNULL(d.is_test, 0) = 0
                     )
-                    GROUP BY e.client_id, c.full_name
+                    GROUP BY e.client_id, c.payment_identifier, c.full_name
                 ),
                 ExternalRecipients AS (
                     SELECT
                         0 AS Id,
+                        CAST(NULL AS DECIMAL(10, 2)) AS PaymentIdentifier,
+                        2 AS RecipientGroup,
                         ISNULL(NULLIF(LTRIM(RTRIM(r.name)), ''), '') AS Name,
                         NULLIF(LTRIM(RTRIM(r.email)), '') AS Email,
                         r.recipient_id AS ExternalRecipientId
@@ -735,9 +744,14 @@ namespace GuardeSoftwareAPI.Dao
                             AND ISNULL(d.is_test, 0) = 0
                       )
                 )
-                SELECT Id, Name, Email, ExternalRecipientId FROM ClientRecipients
+                SELECT Id, PaymentIdentifier, RecipientGroup, Name, Email, ExternalRecipientId FROM ClientRecipients
                 UNION ALL
-                SELECT Id, Name, Email, ExternalRecipientId FROM ExternalRecipients";
+                SELECT Id, PaymentIdentifier, RecipientGroup, Name, Email, ExternalRecipientId FROM ExternalRecipients
+                ORDER BY
+                    RecipientGroup ASC,
+                    PaymentIdentifier ASC,
+                    Id ASC,
+                    ExternalRecipientId ASC";
 
             var parameters = new[]
             {

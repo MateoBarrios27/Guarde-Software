@@ -587,6 +587,9 @@ namespace GuardeSoftwareAPI.Dao
             var filterParameters = new List<SqlParameter>();
             var finalWhereClause = new StringBuilder("WHERE 1=1 ");
             var clientDataWhereClause = request.Active.HasValue ? "WHERE c.active = @Active AND c.is_deleted = 0 " : "WHERE c.is_deleted = 0 ";
+            var argentinaNowExpression = "DATEADD(hour, -3, GETUTCDATE())";
+            var currentMonthStartExpression = $"DATEFROMPARTS(YEAR({argentinaNowExpression}), MONTH({argentinaNowExpression}), 1)";
+            var nextMonthStartExpression = $"DATEADD(month, 1, {currentMonthStartExpression})";
 
             if (request.Active.HasValue)
             {
@@ -646,6 +649,35 @@ namespace GuardeSoftwareAPI.Dao
                     ) ");
             }
 
+            var validExcludedWarehouseIds = request.ExcludedWarehouseIds?.Where(id => id > 0).Distinct().ToList() ?? new List<int>();
+            if (validExcludedWarehouseIds.Any())
+            {
+                var paramNames = new List<string>();
+                for (int i = 0; i < validExcludedWarehouseIds.Count; i++)
+                {
+                    string pName = $"@ExcludedWhId_{i}";
+                    paramNames.Add(pName);
+                    filterParameters.Add(new SqlParameter(pName, validExcludedWarehouseIds[i]));
+                }
+                string inClause = string.Join(", ", paramNames);
+                finalWhereClause.Append($@"
+                    AND NOT (
+                        Id IN (
+                            SELECT r.client_id
+                            FROM rentals r
+                            JOIN lockers l ON r.rental_id = l.rental_id
+                            WHERE l.warehouse_id IN ({inClause})
+                        )
+                        OR Id IN (
+                            SELECT clh.client_id
+                            FROM client_locker_history clh
+                            JOIN lockers l ON clh.locker_id = l.locker_id
+                            JOIN clients cl ON clh.client_id = cl.client_id
+                            WHERE l.warehouse_id IN ({inClause}) AND cl.active = 0
+                        )
+                    ) ");
+            }
+
             var validAdvancedFilters = request.AdvancedFilters?.Where(f => !string.IsNullOrEmpty(f) && f != "Todos").ToList() ?? new List<string>();
             if (!string.IsNullOrEmpty(request.AdvancedFilter) && request.AdvancedFilter != "Todos" && !validAdvancedFilters.Contains(request.AdvancedFilter))
             {
@@ -682,114 +714,271 @@ namespace GuardeSoftwareAPI.Dao
                 }
             }
 
-            if (request.IvaConditions != null && request.IvaConditions.Any())
+            var validExcludedAdvancedFilters = request.ExcludedAdvancedFilters?
+                .Where(f => !string.IsNullOrEmpty(f) && f != "Todos")
+                .Distinct()
+                .ToList() ?? new List<string>();
+            if (validExcludedAdvancedFilters.Any())
             {
-                var conditions = request.IvaConditions.Where(c => !string.IsNullOrEmpty(c) && c != "Sin asignar").ToList();
-                bool includeNull = request.IvaConditions.Contains("Sin asignar");
-                var clauses = new List<string>();
+                var excludedAdvClauses = new List<string>();
+                foreach (var adv in validExcludedAdvancedFilters)
+                {
+                    switch (adv)
+                    {
+                        case "pagaron_este_mes":
+                            excludedAdvClauses.Add(@"(NextPaymentDay IS NOT NULL AND (YEAR(NextPaymentDay) * 100 + MONTH(NextPaymentDay)) > (YEAR(DATEADD(hour, -3, GETUTCDATE())) * 100 + MONTH(DATEADD(hour, -3, GETUTCDATE()))))");
+                            break;
+                        case "no_pagaron_este_mes":
+                            excludedAdvClauses.Add(@"(NextPaymentDay IS NOT NULL AND (YEAR(NextPaymentDay) * 100 + MONTH(NextPaymentDay)) <= (YEAR(DATEADD(hour, -3, GETUTCDATE())) * 100 + MONTH(DATEADD(hour, -3, GETUTCDATE()))))");
+                            break;
+                        case "pagaron_meses_futuros":
+                            excludedAdvClauses.Add(@"(NextPaymentDay IS NOT NULL AND (YEAR(NextPaymentDay) * 100 + MONTH(NextPaymentDay)) > (YEAR(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))) * 100 + MONTH(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE())))))");
+                            break;
+                        case "intereses_impagos":
+                            excludedAdvClauses.Add(@"(ISNULL(InterestAmount, 0) > 0)");
+                            break;
+                        case "aumento_proximo_mes":
+                            excludedAdvClauses.Add(@"(IncreaseAnchorDate IS NOT NULL AND YEAR(IncreaseAnchorDate) = YEAR(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))) AND MONTH(IncreaseAnchorDate) = MONTH(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))))");
+                            break;
+                    }
+                }
+                if (excludedAdvClauses.Any())
+                {
+                    finalWhereClause.Append($" AND NOT ({string.Join(" OR ", excludedAdvClauses)}) ");
+                }
+            }
 
-                if (conditions.Any())
+            var includedIvaConditions = request.IvaConditions?
+                .Where(c => !string.IsNullOrEmpty(c) && c != "Sin asignar")
+                .Distinct()
+                .ToList() ?? new List<string>();
+            var includeUnassignedIva = request.IvaConditions?.Contains("Sin asignar") == true;
+            if (includedIvaConditions.Any() || includeUnassignedIva)
+            {
+                var clauses = new List<string>();
+                if (includedIvaConditions.Any())
                 {
                     var paramNames = new List<string>();
-                    for (int i = 0; i < conditions.Count; i++)
+                    for (int i = 0; i < includedIvaConditions.Count; i++)
                     {
                         string pName = $"@IvaCond_{i}";
                         paramNames.Add(pName);
-                        filterParameters.Add(new SqlParameter(pName, conditions[i]));
+                        filterParameters.Add(new SqlParameter(pName, includedIvaConditions[i]));
                     }
                     clauses.Add($"IvaCondition IN ({string.Join(", ", paramNames)})");
                 }
-                if (includeNull)
+                if (includeUnassignedIva)
                 {
                     clauses.Add("(IvaCondition IS NULL OR IvaCondition = '' OR IvaCondition = 'Sin asignar')");
                 }
-                if (clauses.Any())
-                {
-                    finalWhereClause.Append($" AND ({string.Join(" OR ", clauses)}) ");
-                }
+                finalWhereClause.Append($" AND ({string.Join(" OR ", clauses)}) ");
             }
 
-            if (request.BillingTypeIds != null && request.BillingTypeIds.Any())
+            var excludedIvaConditions = request.ExcludedIvaConditions?
+                .Where(c => !string.IsNullOrEmpty(c) && c != "Sin asignar")
+                .Distinct()
+                .ToList() ?? new List<string>();
+            var excludeUnassignedIva = request.ExcludedIvaConditions?.Contains("Sin asignar") == true;
+            if (excludedIvaConditions.Any() || excludeUnassignedIva)
             {
-                var ids = request.BillingTypeIds.Where(id => id > 0).ToList();
-                bool includeNull = request.BillingTypeIds.Contains(0) || request.BillingTypeIds.Contains(-1);
                 var clauses = new List<string>();
-
-                if (ids.Any())
+                if (excludedIvaConditions.Any())
                 {
                     var paramNames = new List<string>();
-                    for (int i = 0; i < ids.Count; i++)
+                    for (int i = 0; i < excludedIvaConditions.Count; i++)
+                    {
+                        string pName = $"@ExcludedIvaCond_{i}";
+                        paramNames.Add(pName);
+                        filterParameters.Add(new SqlParameter(pName, excludedIvaConditions[i]));
+                    }
+                    clauses.Add($"(IvaCondition IS NULL OR IvaCondition NOT IN ({string.Join(", ", paramNames)}))");
+                }
+                if (excludeUnassignedIva)
+                {
+                    clauses.Add("(IvaCondition IS NOT NULL AND IvaCondition <> '' AND IvaCondition <> 'Sin asignar')");
+                }
+                finalWhereClause.Append($" AND ({string.Join(" AND ", clauses)}) ");
+            }
+
+            var includedBillingTypeIds = request.BillingTypeIds?.Where(id => id > 0).Distinct().ToList() ?? new List<int>();
+            var includeUnassignedBillingType = request.BillingTypeIds?.Any(id => id == 0 || id == -1) == true;
+            if (includedBillingTypeIds.Any() || includeUnassignedBillingType)
+            {
+                var clauses = new List<string>();
+                if (includedBillingTypeIds.Any())
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < includedBillingTypeIds.Count; i++)
                     {
                         string pName = $"@BillType_{i}";
                         paramNames.Add(pName);
-                        filterParameters.Add(new SqlParameter(pName, ids[i]));
+                        filterParameters.Add(new SqlParameter(pName, includedBillingTypeIds[i]));
                     }
                     clauses.Add($"BillingTypeId IN ({string.Join(", ", paramNames)})");
                 }
-                if (includeNull)
+                if (includeUnassignedBillingType)
                 {
                     clauses.Add("BillingTypeId IS NULL");
                 }
-                if (clauses.Any())
-                {
-                    finalWhereClause.Append($" AND ({string.Join(" OR ", clauses)}) ");
-                }
+                finalWhereClause.Append($" AND ({string.Join(" OR ", clauses)}) ");
             }
 
-            if (request.PreferredPaymentMethodIds != null && request.PreferredPaymentMethodIds.Any())
+            var excludedBillingTypeIds = request.ExcludedBillingTypeIds?.Where(id => id > 0).Distinct().ToList() ?? new List<int>();
+            var excludeUnassignedBillingType = request.ExcludedBillingTypeIds?.Any(id => id == 0 || id == -1) == true;
+            if (excludedBillingTypeIds.Any() || excludeUnassignedBillingType)
             {
-                var ids = request.PreferredPaymentMethodIds.Where(id => id > 0).ToList();
-                bool includeNull = request.PreferredPaymentMethodIds.Contains(0) || request.PreferredPaymentMethodIds.Contains(-1);
                 var clauses = new List<string>();
-
-                if (ids.Any())
+                if (excludedBillingTypeIds.Any())
                 {
                     var paramNames = new List<string>();
-                    for (int i = 0; i < ids.Count; i++)
+                    for (int i = 0; i < excludedBillingTypeIds.Count; i++)
+                    {
+                        string pName = $"@ExcludedBillType_{i}";
+                        paramNames.Add(pName);
+                        filterParameters.Add(new SqlParameter(pName, excludedBillingTypeIds[i]));
+                    }
+                    clauses.Add($"(BillingTypeId IS NULL OR BillingTypeId NOT IN ({string.Join(", ", paramNames)}))");
+                }
+                if (excludeUnassignedBillingType)
+                {
+                    clauses.Add("BillingTypeId IS NOT NULL");
+                }
+                finalWhereClause.Append($" AND ({string.Join(" AND ", clauses)}) ");
+            }
+
+            var includedPaymentMethodIds = request.PreferredPaymentMethodIds?.Where(id => id > 0).Distinct().ToList() ?? new List<int>();
+            var includeUnassignedPaymentMethod = request.PreferredPaymentMethodIds?.Any(id => id == 0 || id == -1) == true;
+            if (includedPaymentMethodIds.Any() || includeUnassignedPaymentMethod)
+            {
+                var clauses = new List<string>();
+                if (includedPaymentMethodIds.Any())
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < includedPaymentMethodIds.Count; i++)
                     {
                         string pName = $"@PayMethod_{i}";
                         paramNames.Add(pName);
-                        filterParameters.Add(new SqlParameter(pName, ids[i]));
+                        filterParameters.Add(new SqlParameter(pName, includedPaymentMethodIds[i]));
                     }
                     clauses.Add($"PreferredPaymentMethodId IN ({string.Join(", ", paramNames)})");
                 }
-                if (includeNull)
+                if (includeUnassignedPaymentMethod)
                 {
                     clauses.Add("PreferredPaymentMethodId IS NULL");
                 }
-                if (clauses.Any())
-                {
-                    finalWhereClause.Append($" AND ({string.Join(" OR ", clauses)}) ");
-                }
+                finalWhereClause.Append($" AND ({string.Join(" OR ", clauses)}) ");
             }
 
-            if (request.LockerTypeIds != null && request.LockerTypeIds.Any())
+            var excludedPaymentMethodIds = request.ExcludedPreferredPaymentMethodIds?.Where(id => id > 0).Distinct().ToList() ?? new List<int>();
+            var excludeUnassignedPaymentMethod = request.ExcludedPreferredPaymentMethodIds?.Any(id => id == 0 || id == -1) == true;
+            if (excludedPaymentMethodIds.Any() || excludeUnassignedPaymentMethod)
             {
-                var ids = request.LockerTypeIds.Where(id => id > 0).ToList();
-                bool includeNull = request.LockerTypeIds.Contains(0) || request.LockerTypeIds.Contains(-1);
                 var clauses = new List<string>();
-
-                if (ids.Any())
+                if (excludedPaymentMethodIds.Any())
                 {
                     var paramNames = new List<string>();
-                    for (int i = 0; i < ids.Count; i++)
+                    for (int i = 0; i < excludedPaymentMethodIds.Count; i++)
+                    {
+                        string pName = $"@ExcludedPayMethod_{i}";
+                        paramNames.Add(pName);
+                        filterParameters.Add(new SqlParameter(pName, excludedPaymentMethodIds[i]));
+                    }
+                    clauses.Add($"(PreferredPaymentMethodId IS NULL OR PreferredPaymentMethodId NOT IN ({string.Join(", ", paramNames)}))");
+                }
+                if (excludeUnassignedPaymentMethod)
+                {
+                    clauses.Add("PreferredPaymentMethodId IS NOT NULL");
+                }
+                finalWhereClause.Append($" AND ({string.Join(" AND ", clauses)}) ");
+            }
+
+            var includedLockerTypeIds = request.LockerTypeIds?.Where(id => id > 0).Distinct().ToList() ?? new List<int>();
+            var includeNoLocker = request.LockerTypeIds?.Any(id => id == 0 || id == -1) == true;
+            if (includedLockerTypeIds.Any() || includeNoLocker)
+            {
+                var clauses = new List<string>();
+                if (includedLockerTypeIds.Any())
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < includedLockerTypeIds.Count; i++)
                     {
                         string pName = $"@LockerType_{i}";
                         paramNames.Add(pName);
-                        filterParameters.Add(new SqlParameter(pName, ids[i]));
+                        filterParameters.Add(new SqlParameter(pName, includedLockerTypeIds[i]));
                     }
-                    clauses.Add($"EXISTS (SELECT 1 FROM lockers l_filt WHERE l_filt.rental_id = r.rental_id AND l_filt.locker_type_id IN ({string.Join(", ", paramNames)}) AND l_filt.active = 1)");
-                    clauses.Add($"EXISTS (SELECT 1 FROM rental_lockers rl_filt INNER JOIN lockers l_rl_filt ON rl_filt.locker_id = l_rl_filt.locker_id WHERE rl_filt.rental_id = r.rental_id AND l_rl_filt.locker_type_id IN ({string.Join(", ", paramNames)}) AND l_rl_filt.active = 1)");
+                    clauses.Add($"EXISTS (SELECT 1 FROM lockers l_filt WHERE l_filt.rental_id = RentalId AND l_filt.locker_type_id IN ({string.Join(", ", paramNames)}) AND l_filt.active = 1)");
+                    clauses.Add($"EXISTS (SELECT 1 FROM rental_lockers rl_filt INNER JOIN lockers l_rl_filt ON rl_filt.locker_id = l_rl_filt.locker_id WHERE rl_filt.rental_id = RentalId AND l_rl_filt.locker_type_id IN ({string.Join(", ", paramNames)}) AND l_rl_filt.active = 1)");
                 }
-                if (includeNull)
+                if (includeNoLocker)
                 {
-                    clauses.Add("NOT EXISTS (SELECT 1 FROM lockers l_filt WHERE l_filt.rental_id = r.rental_id AND l_filt.active = 1)");
-                    clauses.Add("NOT EXISTS (SELECT 1 FROM rental_lockers rl_filt WHERE rl_filt.rental_id = r.rental_id)");
+                    clauses.Add("(RentalId IS NULL OR (NOT EXISTS (SELECT 1 FROM lockers l_filt WHERE l_filt.rental_id = RentalId AND l_filt.active = 1) AND NOT EXISTS (SELECT 1 FROM rental_lockers rl_filt INNER JOIN lockers l_rl_filt ON rl_filt.locker_id = l_rl_filt.locker_id WHERE rl_filt.rental_id = RentalId AND l_rl_filt.active = 1)))");
                 }
-                if (clauses.Any())
+                finalWhereClause.Append($" AND ({string.Join(" OR ", clauses)}) ");
+            }
+
+            var excludedLockerTypeIds = request.ExcludedLockerTypeIds?.Where(id => id > 0).Distinct().ToList() ?? new List<int>();
+            var excludeNoLocker = request.ExcludedLockerTypeIds?.Any(id => id == 0 || id == -1) == true;
+            if (excludedLockerTypeIds.Any() || excludeNoLocker)
+            {
+                var clauses = new List<string>();
+                if (excludedLockerTypeIds.Any())
                 {
-                    finalWhereClause.Append($" AND ({string.Join(" OR ", clauses)}) ");
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < excludedLockerTypeIds.Count; i++)
+                    {
+                        string pName = $"@ExcludedLockerType_{i}";
+                        paramNames.Add(pName);
+                        filterParameters.Add(new SqlParameter(pName, excludedLockerTypeIds[i]));
+                    }
+                    clauses.Add($"NOT (EXISTS (SELECT 1 FROM lockers l_filt WHERE l_filt.rental_id = RentalId AND l_filt.locker_type_id IN ({string.Join(", ", paramNames)}) AND l_filt.active = 1) OR EXISTS (SELECT 1 FROM rental_lockers rl_filt INNER JOIN lockers l_rl_filt ON rl_filt.locker_id = l_rl_filt.locker_id WHERE rl_filt.rental_id = RentalId AND l_rl_filt.locker_type_id IN ({string.Join(", ", paramNames)}) AND l_rl_filt.active = 1))");
                 }
+                if (excludeNoLocker)
+                {
+                    clauses.Add("(RentalId IS NOT NULL AND (EXISTS (SELECT 1 FROM lockers l_filt WHERE l_filt.rental_id = RentalId AND l_filt.active = 1) OR EXISTS (SELECT 1 FROM rental_lockers rl_filt INNER JOIN lockers l_rl_filt ON rl_filt.locker_id = l_rl_filt.locker_id WHERE rl_filt.rental_id = RentalId AND l_rl_filt.active = 1)))");
+                }
+                finalWhereClause.Append($" AND ({string.Join(" AND ", clauses)}) ");
+            }
+
+            var paymentDays = request.PaymentDays?.Where(day => day is >= 1 and <= 31).Distinct().ToList() ?? new List<int>();
+            if (paymentDays.Any())
+            {
+                var paramNames = new List<string>();
+                for (int i = 0; i < paymentDays.Count; i++)
+                {
+                    string pName = $"@PaymentDay_{i}";
+                    paramNames.Add(pName);
+                    filterParameters.Add(new SqlParameter(pName, paymentDays[i]));
+                }
+                finalWhereClause.Append($@"
+                    AND EXISTS (
+                        SELECT 1
+                        FROM payments p_day
+                        WHERE p_day.client_id = Id
+                          AND p_day.payment_date >= {currentMonthStartExpression}
+                          AND p_day.payment_date < {nextMonthStartExpression}
+                          AND DAY(p_day.payment_date) IN ({string.Join(", ", paramNames)})
+                    ) ");
+            }
+
+            var excludedPaymentDays = request.ExcludedPaymentDays?.Where(day => day is >= 1 and <= 31).Distinct().ToList() ?? new List<int>();
+            if (excludedPaymentDays.Any())
+            {
+                var paramNames = new List<string>();
+                for (int i = 0; i < excludedPaymentDays.Count; i++)
+                {
+                    string pName = $"@ExcludedPaymentDay_{i}";
+                    paramNames.Add(pName);
+                    filterParameters.Add(new SqlParameter(pName, excludedPaymentDays[i]));
+                }
+                finalWhereClause.Append($@"
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM payments p_day_excluded
+                        WHERE p_day_excluded.client_id = Id
+                          AND p_day_excluded.payment_date >= {currentMonthStartExpression}
+                          AND p_day_excluded.payment_date < {nextMonthStartExpression}
+                          AND DAY(p_day_excluded.payment_date) IN ({string.Join(", ", paramNames)})
+                    ) ");
             }
 
             string fullQuery = $@"
@@ -827,6 +1016,7 @@ namespace GuardeSoftwareAPI.Dao
                 ClientData AS (
                     SELECT
                         c.client_id AS Id,
+                        r.rental_id AS RentalId,
                         c.payment_identifier AS PaymentIdentifier,
                         c.full_name AS FullName,
                         first_email.address AS Email,

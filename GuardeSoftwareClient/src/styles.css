@@ -1,4 +1,5 @@
 @import './app/pages/statistics/statistics.component.css';
+@import '@angular/cdk/overlay-prebuilt.css';
 
 @tailwind base;
 @tailwind components;

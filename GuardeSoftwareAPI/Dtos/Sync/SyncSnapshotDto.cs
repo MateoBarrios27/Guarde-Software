@@ -14,6 +14,11 @@ namespace GuardeSoftwareAPI.Dtos.Sync
         public string? Color { get; set; }
         public bool? Active { get; set; }
         public int? PreferredPaymentMethodId { get; set; }
+        public int? BillingTypeId { get; set; }
+        public string? IvaCondition { get; set; }
+        public List<int> WarehouseIds { get; set; } = new();
+        public List<int> LockerTypeIds { get; set; } = new();
+        public List<int> PaymentDaysThisMonth { get; set; } = new();
         // New enriched fields
         public string? NextPaymentDay { get; set; }
         public string? Status { get; set; }

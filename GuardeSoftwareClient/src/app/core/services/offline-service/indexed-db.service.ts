@@ -13,6 +13,11 @@ export interface CachedClient {
   color?: string;
   active?: boolean;
   preferredPaymentMethodId?: number;
+  billingTypeId?: number;
+  ivaCondition?: string;
+  warehouseIds?: number[];
+  lockerTypeIds?: number[];
+  paymentDaysThisMonth?: number[];
   // Enriched fields
   nextPaymentDay?: string;
   status?: string;

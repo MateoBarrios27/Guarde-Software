@@ -19,6 +19,18 @@ namespace GuardeSoftwareAPI.Services.sync
             _logger = logger;
         }
 
+        private static List<int> ParseCommaSeparatedInts(object value)
+        {
+            if (value == DBNull.Value) return [];
+
+            return value.ToString()?
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(part => int.TryParse(part, out var number) ? number : 0)
+                .Where(number => number > 0)
+                .Distinct()
+                .ToList() ?? [];
+        }
+
         public async Task<SyncSnapshotDto> GetSnapshotAsync()
         {
             var snapshot = new SyncSnapshotDto
@@ -44,10 +56,47 @@ namespace GuardeSoftwareAPI.Services.sync
                     c.active                            AS Active,
                     c.departure_status                 AS DepartureStatus,
                     c.preferred_payment_method_id       AS PreferredPaymentMethodId,
+                    c.billing_type_id                   AS BillingTypeId,
+                    c.iva_condition                     AS IvaCondition,
                     c.increase_frequency_months         AS IncreaseFrequencyMonths,
                     c.is_six_month_promotion             AS IsSixMonthPromotion,
                     r.rental_id                         AS RentalId,
                     r.increase_anchor_date              AS IncreaseAnchorDate,
+
+                    -- Filter dimensions needed by the Clients page while offline.
+                    (
+                        SELECT STRING_AGG(CONVERT(varchar(10), ids.warehouse_id), ',')
+                        FROM (
+                            SELECT l.warehouse_id
+                            FROM lockers l
+                            WHERE l.rental_id = r.rental_id AND l.active = 1
+                            UNION ALL
+                            SELECT l_rl.warehouse_id
+                            FROM rental_lockers rl
+                            INNER JOIN lockers l_rl ON l_rl.locker_id = rl.locker_id
+                            WHERE rl.rental_id = r.rental_id AND l_rl.active = 1
+                        ) ids
+                    ) AS WarehouseIds,
+                    (
+                        SELECT STRING_AGG(CONVERT(varchar(10), ids.locker_type_id), ',')
+                        FROM (
+                            SELECT l.locker_type_id
+                            FROM lockers l
+                            WHERE l.rental_id = r.rental_id AND l.active = 1
+                            UNION ALL
+                            SELECT l_rl.locker_type_id
+                            FROM rental_lockers rl
+                            INNER JOIN lockers l_rl ON l_rl.locker_id = rl.locker_id
+                            WHERE rl.rental_id = r.rental_id AND l_rl.active = 1
+                        ) ids
+                    ) AS LockerTypeIds,
+                    (
+                        SELECT STRING_AGG(CONVERT(varchar(2), DAY(p.payment_date)), ',')
+                        FROM payments p
+                        WHERE p.client_id = c.client_id
+                          AND p.payment_date >= DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)
+                          AND p.payment_date < DATEADD(month, 1, DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1))
+                    ) AS PaymentDaysThisMonth,
 
                     -- PendingSurcharge from rentals (not on clients table)
                     (
@@ -289,8 +338,13 @@ namespace GuardeSoftwareAPI.Services.sync
                     Color = row["Color"]?.ToString(),
                     Active = row["Active"] != DBNull.Value ? Convert.ToBoolean(row["Active"]) : null,
                     PreferredPaymentMethodId = row["PreferredPaymentMethodId"] != DBNull.Value ? Convert.ToInt32(row["PreferredPaymentMethodId"]) : null,
+                    BillingTypeId = row["BillingTypeId"] != DBNull.Value ? Convert.ToInt32(row["BillingTypeId"]) : null,
+                    IvaCondition = row["IvaCondition"] != DBNull.Value ? row["IvaCondition"]?.ToString() : null,
+                    WarehouseIds = ParseCommaSeparatedInts(row["WarehouseIds"]),
+                    LockerTypeIds = ParseCommaSeparatedInts(row["LockerTypeIds"]),
+                    PaymentDaysThisMonth = ParseCommaSeparatedInts(row["PaymentDaysThisMonth"]),
                     // New enriched fields
-                    NextPaymentDay = row["NextPaymentDay"]?.ToString(),
+                    NextPaymentDay = row["NextPaymentDay"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDay"]).ToString("yyyy-MM-dd") : null,
                     Status = row["Status"]?.ToString(),
                     DepartureStatus = row["DepartureStatus"] != DBNull.Value ? row["DepartureStatus"]?.ToString() : null,
                     RentalId = row["RentalId"] != DBNull.Value ? Convert.ToInt32(row["RentalId"]) : null,
