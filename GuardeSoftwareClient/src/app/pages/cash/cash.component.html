@@ -308,29 +308,176 @@
 
   <div #planillaContainer class="w-full flex flex-col bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 mt-2">
   
-    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-gray-100 pb-5 bg-white z-40 px-4 md:px-6 pt-4 md:pt-6">
+    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-gray-100 bg-white z-40 px-4 md:px-6 pt-4 md:pt-6 pb-4">
       <div class="flex items-center gap-4">
         <h2 class="font-semibold text-gray-900 text-xl tracking-tight">Movimientos</h2>
       </div>
-          
+
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto justify-end">
+        <!-- El botón queda antes del buscador para que el panel no se ancle al borde derecho de la tabla. -->
+        <button
+          #cashFiltersButtonRef
+          type="button"
+          (click)="toggleCashFilters()"
+          class="w-full sm:w-auto px-3 py-2 text-sm font-semibold border rounded-xl flex items-center justify-center gap-2 transition-colors whitespace-nowrap shadow-sm"
+          [ngClass]="totalActiveCashFiltersCount > 0 ? 'bg-blue-50 text-blue-700 border-blue-300' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+          [attr.aria-expanded]="showCashFilters"
+        >
+          <app-icon name="plus" class="h-4 w-4"></app-icon>
+          <span>Filtros</span>
+          <span *ngIf="totalActiveCashFiltersCount > 0" class="ml-1 px-1.5 py-0.5 text-xs bg-blue-600 text-white rounded-full font-bold">
+            {{ totalActiveCashFiltersCount }}
+          </span>
+        </button>
+
         <div class="relative w-full sm:w-64">
-            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><app-icon name="search" class="w-4 h-4 text-gray-400"></app-icon></div>
-            <input type="text" RipTable [(ngModel)]="searchTerm" (input)="filterItems()" placeholder="Buscar conceptos, montos..." class="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 block w-full pl-9 p-2 transition-all shadow-sm">
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><app-icon name="search" class="w-4 h-4 text-gray-400"></app-icon></div>
+          <input type="text" RipTable [(ngModel)]="searchTerm" (input)="filterItems()" placeholder="Buscar conceptos, montos..." class="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 block w-full pl-9 p-2 transition-all shadow-sm">
         </div>
+
         <div class="flex items-center gap-1 bg-gray-50 rounded-xl border border-gray-200 p-1 w-full sm:w-auto justify-between sm:justify-start">
-            <div class="relative flex-1 sm:flex-none" [title]="searchDateFrom ? 'Desde' : 'Día específico'">
-                <input type="date" [(ngModel)]="searchDateFrom" (change)="filterItems()" [max]="filterMaxDate" class="border-none text-gray-600 text-sm focus:ring-0 cursor-pointer bg-transparent py-1 px-2 hover:bg-white rounded-lg transition-colors w-full" [ngClass]="searchDateFrom ? 'sm:w-32' : 'sm:w-36'">
+          <div class="relative flex-1 sm:flex-none" [title]="searchDateFrom ? 'Desde' : 'Día específico'">
+            <input type="date" [(ngModel)]="searchDateFrom" (change)="filterItems()" [max]="filterMaxDate" class="border-none text-gray-600 text-sm focus:ring-0 cursor-pointer bg-transparent py-1 px-2 hover:bg-white rounded-lg transition-colors w-full" [ngClass]="searchDateFrom ? 'sm:w-32' : 'sm:w-36'">
+          </div>
+          <ng-container *ngIf="searchDateFrom">
+            <span class="text-gray-300 font-bold mx-1">-</span>
+            <div class="relative animate-fade-in-down flex-1 sm:flex-none" title="Hasta">
+              <input type="date" [(ngModel)]="searchDateTo" (change)="filterItems()" [min]="searchDateFrom" class="border-none text-gray-600 text-sm focus:ring-0 cursor-pointer bg-transparent py-1 px-2 hover:bg-white rounded-lg transition-colors w-full" [ngClass]="searchDateFrom ? 'sm:w-32' : 'sm:w-36'">
             </div>
-            <ng-container *ngIf="searchDateFrom">
-                <span class="text-gray-300 font-bold mx-1">-</span>
-                <div class="relative animate-fade-in-down flex-1 sm:flex-none" title="Hasta">
-                    <input type="date" [(ngModel)]="searchDateTo" (change)="filterItems()" [min]="searchDateFrom" class="border-none text-gray-600 text-sm focus:ring-0 cursor-pointer bg-transparent py-1 px-2 hover:bg-white rounded-lg transition-colors w-full" [ngClass]="searchDateFrom ? 'sm:w-32' : 'sm:w-36'">
-                </div>
-            </ng-container>
-            <button *ngIf="searchDateFrom || searchDateTo" (click)="clearDateFilter()" class="p-1.5 ml-1 flex-shrink-0 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-all" title="Limpiar fechas"><app-icon name="x" class="w-4 h-4 stroke-[2.5]"></app-icon></button>
+          </ng-container>
+          <button *ngIf="searchDateFrom || searchDateTo" (click)="clearDateFilter()" class="p-1.5 ml-1 flex-shrink-0 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-all" title="Limpiar fechas"><app-icon name="x" class="w-4 h-4 stroke-[2.5]"></app-icon></button>
         </div>
       </div>
+    </div>
+
+    <!-- Popover flotante como en Clients: se posiciona respecto al viewport y no altera el layout de la tabla. -->
+    <div
+      #cashFiltersPopoverRef
+      *ngIf="showCashFilters"
+      [style.top.px]="cashFiltersPopoverPosition.top"
+      [style.left.px]="cashFiltersPopoverPosition.left"
+      [style.max-height.px]="cashFiltersPopoverPosition.maxHeight"
+      [class.invisible]="!cashFiltersPopoverReady"
+      class="fixed z-[100] flex w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-3 text-sm shadow-2xl sm:w-[680px] sm:p-4"
+    >
+      <div class="flex flex-none items-start justify-between gap-3 border-b border-gray-100 pb-2">
+        <div class="min-w-0">
+          <h4 class="text-xs font-bold tracking-wider text-gray-500">FILTRAR MOVIMIENTOS</h4>
+          <p class="mt-1 text-[11px] text-gray-400">Incluye o excluye cada opción con clics sucesivos.</p>
+        </div>
+        <button type="button" (click)="closeCashFilters()" class="flex h-7 w-7 flex-none items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Cerrar filtros">
+          <app-icon name="x" class="h-4 w-4"></app-icon>
+        </button>
+      </div>
+
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 pr-1">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3.5">
+          <section class="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5">
+            <span class="mb-2 block text-[11px] font-bold uppercase tracking-wide text-gray-500">Pago</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                *ngFor="let option of cashPaymentFilterOptions"
+                type="button"
+                (click)="toggleCashFilter('payment', option.value)"
+                [ngClass]="getCashFilterTagClasses('payment', option.value)"
+                [attr.aria-pressed]="getCashFilterTagState('payment', option.value) !== 'none'"
+                [title]="getCashFilterTagTitle('payment', option.value)"
+                class="rounded-full border px-2 py-1 text-[11px] transition-colors"
+              >
+                <span *ngIf="getCashFilterTagState('payment', option.value) === 'exclude'" class="mr-0.5 font-black">−</span>{{ option.label }}
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5">
+            <span class="mb-2 block text-[11px] font-bold uppercase tracking-wide text-gray-500">Replicación</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                *ngFor="let option of cashReplicationFilterOptions"
+                type="button"
+                (click)="toggleCashFilter('replication', option.value)"
+                [ngClass]="getCashFilterTagClasses('replication', option.value)"
+                [attr.aria-pressed]="getCashFilterTagState('replication', option.value) !== 'none'"
+                [title]="getCashFilterTagTitle('replication', option.value)"
+                class="rounded-full border px-2 py-1 text-[11px] transition-colors"
+              >
+                <span *ngIf="getCashFilterTagState('replication', option.value) === 'exclude'" class="mr-0.5 font-black">−</span>{{ option.label }}
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5 sm:col-span-2">
+            <span class="mb-2 block text-[11px] font-bold uppercase tracking-wide text-gray-500">Columnas con monto</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                *ngFor="let option of cashAmountFilterOptions"
+                type="button"
+                (click)="toggleCashFilter('amount', option.value)"
+                [ngClass]="getCashFilterTagClasses('amount', option.value)"
+                [attr.aria-pressed]="getCashFilterTagState('amount', option.value) !== 'none'"
+                [title]="getCashFilterTagTitle('amount', option.value)"
+                class="rounded-full border px-2 py-1 text-[11px] transition-colors"
+              >
+                <span *ngIf="getCashFilterTagState('amount', option.value) === 'exclude'" class="mr-0.5 font-black">−</span>{{ option.label }}
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div *ngIf="totalActiveCashFiltersCount > 0" class="flex flex-none justify-end border-t border-gray-100 pt-2">
+        <button type="button" (click)="clearAllCashFilters()" class="text-xs font-semibold text-red-600 hover:text-red-700">Limpiar filtros</button>
+      </div>
+    </div>
+
+    <div *ngIf="totalActiveCashFiltersCount > 0" class="mt-3 flex flex-wrap items-center gap-2 px-4 md:px-6">
+      <span class="mr-1 text-xs font-semibold text-gray-500">Filtros activos:</span>
+
+      <ng-container *ngFor="let value of selectedCashPaymentFilters">
+        <span [ngClass]="getActiveCashFilterTagClasses('payment', value)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+          <button type="button" (click)="toggleCashFilter('payment', value)" [title]="getCashFilterTagTitle('payment', value)" class="px-2.5 py-1 focus:outline-none">{{ getCashFilterTagLabel('payment', value) }}</button>
+          <button type="button" (click)="clearCashFilterTag('payment', value); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar filtro de pago"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+        </span>
+      </ng-container>
+      <ng-container *ngFor="let value of excludedCashPaymentFilters">
+        <span [ngClass]="getActiveCashFilterTagClasses('payment', value)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+          <button type="button" (click)="toggleCashFilter('payment', value)" [title]="getCashFilterTagTitle('payment', value)" class="px-2.5 py-1 focus:outline-none">Excepto: {{ getCashFilterTagLabel('payment', value) }}</button>
+          <button type="button" (click)="clearCashFilterTag('payment', value); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar exclusión de pago"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+        </span>
+      </ng-container>
+
+      <ng-container *ngFor="let value of selectedCashAmountFilters">
+        <span [ngClass]="getActiveCashFilterTagClasses('amount', value)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+          <button type="button" (click)="toggleCashFilter('amount', value)" [title]="getCashFilterTagTitle('amount', value)" class="px-2.5 py-1 focus:outline-none">Con {{ getCashFilterTagLabel('amount', value) }}</button>
+          <button type="button" (click)="clearCashFilterTag('amount', value); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar filtro de monto"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+        </span>
+      </ng-container>
+      <ng-container *ngFor="let value of excludedCashAmountFilters">
+        <span [ngClass]="getActiveCashFilterTagClasses('amount', value)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+          <button type="button" (click)="toggleCashFilter('amount', value)" [title]="getCashFilterTagTitle('amount', value)" class="px-2.5 py-1 focus:outline-none">Sin {{ getCashFilterTagLabel('amount', value) }}</button>
+          <button type="button" (click)="clearCashFilterTag('amount', value); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar exclusión de monto"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+        </span>
+      </ng-container>
+
+      <ng-container *ngFor="let value of selectedCashReplicationFilters">
+        <span [ngClass]="getActiveCashFilterTagClasses('replication', value)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+          <button type="button" (click)="toggleCashFilter('replication', value)" [title]="getCashFilterTagTitle('replication', value)" class="px-2.5 py-1 focus:outline-none">{{ getCashFilterTagLabel('replication', value) }}</button>
+          <button type="button" (click)="clearCashFilterTag('replication', value); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar filtro de replicación"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+        </span>
+      </ng-container>
+      <ng-container *ngFor="let value of excludedCashReplicationFilters">
+        <span [ngClass]="getActiveCashFilterTagClasses('replication', value)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+          <button type="button" (click)="toggleCashFilter('replication', value)" [title]="getCashFilterTagTitle('replication', value)" class="px-2.5 py-1 focus:outline-none">Excepto: {{ getCashFilterTagLabel('replication', value) }}</button>
+          <button type="button" (click)="clearCashFilterTag('replication', value); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar exclusión de replicación"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+        </span>
+      </ng-container>
+
+      <span *ngIf="searchDateFrom || searchDateTo" class="inline-flex items-center overflow-hidden rounded-full border border-blue-200 bg-blue-50 text-xs text-blue-700">
+        <button type="button" (click)="clearDateFilter()" class="px-2.5 py-1 focus:outline-none">Fecha: {{ searchDateFrom || '…' }}<span *ngIf="searchDateTo"> a {{ searchDateTo }}</span></button>
+        <button type="button" (click)="clearDateFilter(); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar filtro de fecha"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+      </span>
+
+      <button type="button" (click)="clearAllCashFilters()" class="ml-2 text-xs font-semibold text-red-600 hover:underline">Limpiar todo</button>
     </div>
 
     <div class="relative w-full pb-2 overflow-x-auto custom-scrollbar mt-2">

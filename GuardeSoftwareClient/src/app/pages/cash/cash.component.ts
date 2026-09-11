@@ -37,6 +37,9 @@ export interface UndoAction {
   anchorYear: number;
 }
 
+type CashFilterTagState = 'none' | 'include' | 'exclude';
+type CashFilterTagGroup = 'payment' | 'amount' | 'replication';
+
 @Component({ 
   selector: 'app-cash',
   templateUrl: './cash.component.html',
@@ -98,11 +101,45 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   isHistoricalView: boolean = false; 
   filteredItems: any[] = [];
 
+  // --- FILTROS INCLUSIVOS / EXCLUYENTES DE CAJA ---
+  showCashFilters = false;
+  cashFiltersPopoverReady = false;
+  cashFiltersPopoverPosition = { top: 0, left: 0, maxHeight: 720 };
+  public readonly cashPaymentFilterOptions = [
+    { value: 'paid', label: 'Pagó' },
+    { value: 'unpaid', label: 'No pagó' }
+  ];
+  public readonly cashAmountFilterOptions = [
+    { value: 'depo', label: 'Depo' },
+    { value: 'casa', label: 'Casa' },
+    { value: 'retiros', label: 'Retiros' },
+    { value: 'extras', label: 'Extras' },
+    { value: 'iaia', label: 'Iaia' }
+  ];
+  public readonly cashReplicationFilterOptions = [
+    { value: 'none', label: 'No replicado' },
+    { value: 'pending', label: 'Pendiente' },
+    { value: 'replicated', label: 'Replicado' }
+  ];
+  public selectedCashPaymentFilters: string[] = [];
+  public excludedCashPaymentFilters: string[] = [];
+  public selectedCashAmountFilters: string[] = [];
+  public excludedCashAmountFilters: string[] = [];
+  public selectedCashReplicationFilters: string[] = [];
+  public excludedCashReplicationFilters: string[] = [];
+
   @ViewChild('topAnchor') topAnchor!: ElementRef;
   @ViewChild('bottomAnchor') bottomAnchor!: ElementRef;
+  @ViewChild('cashFiltersButtonRef') cashFiltersButtonRef!: ElementRef;
+  @ViewChild('cashFiltersPopoverRef') cashFiltersPopoverRef!: ElementRef;
   
   isScrolledDown: boolean = false;
   private scrollObserver!: IntersectionObserver;
+  private readonly cashMainScrollHandler = (): void => {
+    if (this.showCashFilters) {
+      this.positionCashFiltersPopover();
+    }
+  };
 
   // --- VARIABLES SISTEMA CTRL+Z / CTRL+Y ---
   public undoStack: UndoAction[] = [];
@@ -205,6 +242,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
         this.closeAdvancesModal();
       } else if (this.showIvaComprasModal) {
         this.closeIvaComprasModal();
+      } else if (this.showCashFilters) {
+        this.closeCashFilters();
       } else if (this.activeCommentItem) {
         this.activeCommentItem = null;
       }
@@ -714,6 +753,24 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.topAnchor) {
       this.scrollObserver.observe(this.topAnchor.nativeElement);
     }
+
+    setTimeout(() => {
+      document.getElementById('main-scroll')?.addEventListener('scroll', this.cashMainScrollHandler, { passive: true });
+    }, 100);
+  }
+
+  @HostListener('window:resize')
+  onCashFiltersResize(): void {
+    if (this.showCashFilters) {
+      this.positionCashFiltersPopover();
+    }
+  }
+
+  @HostListener('window:scroll')
+  onCashFiltersScroll(): void {
+    if (this.showCashFilters) {
+      this.positionCashFiltersPopover();
+    }
   }
 
   ngOnDestroy() {
@@ -723,6 +780,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.signalRSubscription) {
       this.signalRSubscription.unsubscribe();
     }
+    document.getElementById('main-scroll')?.removeEventListener('scroll', this.cashMainScrollHandler);
     this.cashSignalrService.stopConnection();
   }
 
@@ -965,6 +1023,271 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     return `${y}-${mStr}-${lastDay.toString().padStart(2, '0')}`;
   }
 
+  toggleCashFilters(): void {
+    this.showCashFilters = !this.showCashFilters;
+    this.cashFiltersPopoverReady = false;
+    if (this.showCashFilters) {
+      requestAnimationFrame(() => this.positionCashFiltersPopover());
+    }
+  }
+
+  closeCashFilters(): void {
+    this.showCashFilters = false;
+    this.cashFiltersPopoverReady = false;
+  }
+
+  private positionCashFiltersPopover(): void {
+    if (!this.showCashFilters) return;
+
+    const button = this.cashFiltersButtonRef?.nativeElement as HTMLElement | undefined;
+    const popover = this.cashFiltersPopoverRef?.nativeElement as HTMLElement | undefined;
+    if (!button || !popover) {
+      requestAnimationFrame(() => this.positionCashFiltersPopover());
+      return;
+    }
+
+    const buttonRect = button.getBoundingClientRect();
+    if (buttonRect.bottom < 0 || buttonRect.top > window.innerHeight) {
+      this.closeCashFilters();
+      return;
+    }
+
+    const viewportMargin = 12;
+    const gap = 8;
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const spaceBelow = viewportHeight - buttonRect.bottom - viewportMargin - gap;
+    const spaceAbove = buttonRect.top - viewportMargin - gap;
+    const naturalHeight = popover.scrollHeight;
+    const idealHeight = Math.min(naturalHeight, viewportHeight - viewportMargin * 2);
+    const opensAbove = spaceBelow < idealHeight && spaceAbove > spaceBelow;
+    const availableHeight = Math.max(
+      180,
+      Math.min(
+        naturalHeight,
+        opensAbove ? spaceAbove : spaceBelow,
+        viewportHeight - viewportMargin * 2
+      )
+    );
+    const top = opensAbove
+      ? Math.max(viewportMargin, buttonRect.top - gap - availableHeight)
+      : Math.max(
+          viewportMargin,
+          Math.min(buttonRect.bottom + gap, viewportHeight - viewportMargin - availableHeight)
+        );
+    const popoverWidth = Math.min(680, viewportWidth - viewportMargin * 2);
+    const left = Math.max(
+      viewportMargin,
+      Math.min(buttonRect.left, viewportWidth - viewportMargin - popoverWidth)
+    );
+
+    this.cashFiltersPopoverPosition = { top, left, maxHeight: availableHeight };
+    this.cashFiltersPopoverReady = true;
+  }
+
+  private cycleCashFilterSelection(
+    value: string,
+    included: string[],
+    excluded: string[]
+  ): { included: string[]; excluded: string[] } {
+    if (included.includes(value)) {
+      return {
+        included: included.filter(item => item !== value),
+        excluded: [...excluded, value]
+      };
+    }
+
+    if (excluded.includes(value)) {
+      return {
+        included: [...included],
+        excluded: excluded.filter(item => item !== value)
+      };
+    }
+
+    return {
+      included: [...included, value],
+      excluded: [...excluded]
+    };
+  }
+
+  public toggleCashFilter(group: CashFilterTagGroup, value: string): void {
+    const collections = this.getCashFilterCollections(group);
+    const next = this.cycleCashFilterSelection(value, collections.included, collections.excluded);
+
+    switch (group) {
+      case 'payment':
+        this.selectedCashPaymentFilters = next.included;
+        this.excludedCashPaymentFilters = next.excluded;
+        break;
+      case 'amount':
+        this.selectedCashAmountFilters = next.included;
+        this.excludedCashAmountFilters = next.excluded;
+        break;
+      case 'replication':
+        this.selectedCashReplicationFilters = next.included;
+        this.excludedCashReplicationFilters = next.excluded;
+        break;
+    }
+
+    this.filterItems();
+  }
+
+  public getCashFilterTagState(group: CashFilterTagGroup, value: string): CashFilterTagState {
+    const collections = this.getCashFilterCollections(group);
+    if (collections.included.includes(value)) return 'include';
+    if (collections.excluded.includes(value)) return 'exclude';
+    return 'none';
+  }
+
+  public getCashFilterTagClasses(group: CashFilterTagGroup, value: string): string {
+    const state = this.getCashFilterTagState(group, value);
+    if (state === 'include') return 'bg-blue-600 text-white border-blue-600 font-medium shadow-sm';
+    if (state === 'exclude') return 'bg-red-600 text-white border-red-600 font-medium shadow-sm';
+    return 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
+  }
+
+  public getActiveCashFilterTagClasses(group: CashFilterTagGroup, value: string): string {
+    return this.getCashFilterTagState(group, value) === 'exclude'
+      ? 'bg-red-50 text-red-700 border-red-200'
+      : 'bg-blue-50 text-blue-700 border-blue-200';
+  }
+
+  public getCashFilterTagTitle(group: CashFilterTagGroup, value: string): string {
+    const label = this.getCashFilterTagLabel(group, value);
+    const state = this.getCashFilterTagState(group, value);
+    if (state === 'include') return `${label}: incluido. Segundo click para excluirlo.`;
+    if (state === 'exclude') return `${label}: excluido. Tercer click para desmarcarlo.`;
+    return `${label}: primer click para incluirlo.`;
+  }
+
+  public getCashFilterTagLabel(group: CashFilterTagGroup, value: string): string {
+    const options = group === 'payment'
+      ? this.cashPaymentFilterOptions
+      : group === 'amount'
+        ? this.cashAmountFilterOptions
+        : this.cashReplicationFilterOptions;
+    return options.find(option => option.value === value)?.label || value;
+  }
+
+  private getCashFilterCollections(group: CashFilterTagGroup): { included: string[]; excluded: string[] } {
+    switch (group) {
+      case 'payment':
+        return { included: this.selectedCashPaymentFilters, excluded: this.excludedCashPaymentFilters };
+      case 'amount':
+        return { included: this.selectedCashAmountFilters, excluded: this.excludedCashAmountFilters };
+      case 'replication':
+        return { included: this.selectedCashReplicationFilters, excluded: this.excludedCashReplicationFilters };
+    }
+  }
+
+  public clearCashFilterTag(group: CashFilterTagGroup, value: string): void {
+    const collections = this.getCashFilterCollections(group);
+    const included = collections.included.filter(item => item !== value);
+    const excluded = collections.excluded.filter(item => item !== value);
+
+    switch (group) {
+      case 'payment':
+        this.selectedCashPaymentFilters = included;
+        this.excludedCashPaymentFilters = excluded;
+        break;
+      case 'amount':
+        this.selectedCashAmountFilters = included;
+        this.excludedCashAmountFilters = excluded;
+        break;
+      case 'replication':
+        this.selectedCashReplicationFilters = included;
+        this.excludedCashReplicationFilters = excluded;
+        break;
+    }
+
+    this.filterItems();
+  }
+
+  public clearAllCashFilters(): void {
+    this.selectedCashPaymentFilters = [];
+    this.excludedCashPaymentFilters = [];
+    this.selectedCashAmountFilters = [];
+    this.excludedCashAmountFilters = [];
+    this.selectedCashReplicationFilters = [];
+    this.excludedCashReplicationFilters = [];
+    this.searchDateFrom = '';
+    this.searchDateTo = '';
+    this.filterItems();
+  }
+
+  get totalActiveCashFiltersCount(): number {
+    return this.selectedCashPaymentFilters.length +
+      this.excludedCashPaymentFilters.length +
+      this.selectedCashAmountFilters.length +
+      this.excludedCashAmountFilters.length +
+      this.selectedCashReplicationFilters.length +
+      this.excludedCashReplicationFilters.length +
+      (this.searchDateFrom ? 1 : 0) +
+      (this.searchDateTo ? 1 : 0);
+  }
+
+  private isCashItemPaid(item: CashFlowItem): boolean {
+    return item.hasAdvances ? this.isAdvancesComplete(item) : !!item.isPaid;
+  }
+
+  private cashAmountColumnHasValue(item: CashFlowItem, column: string): boolean {
+    const amount = Number((item as any)?.[column]);
+    return Number.isFinite(amount) && Math.abs(amount) > 0.000001;
+  }
+
+  private getCashReplicationFilterValue(item: CashFlowItem): string {
+    const state = Number(item.replicationState);
+    if (state === 2) return 'replicated';
+    if (state === 1) return 'pending';
+    return 'none';
+  }
+
+  private matchesCashFilters(item: CashFlowItem): boolean {
+    const matchesAny = (values: string[], matcher: (value: string) => boolean): boolean =>
+      values.length === 0 || values.some(matcher);
+
+    const matchesPayment = (value: string): boolean =>
+      value === 'paid' ? this.isCashItemPaid(item) : !this.isCashItemPaid(item);
+    if (!matchesAny(this.selectedCashPaymentFilters, matchesPayment)) return false;
+    if (this.excludedCashPaymentFilters.some(matchesPayment)) return false;
+
+    const matchesAmount = (value: string): boolean => this.cashAmountColumnHasValue(item, value);
+    if (!matchesAny(this.selectedCashAmountFilters, matchesAmount)) return false;
+    if (this.excludedCashAmountFilters.some(matchesAmount)) return false;
+
+    const replicationState = this.getCashReplicationFilterValue(item);
+    const matchesReplication = (value: string): boolean => replicationState === value;
+    if (!matchesAny(this.selectedCashReplicationFilters, matchesReplication)) return false;
+    if (this.excludedCashReplicationFilters.some(matchesReplication)) return false;
+
+    return true;
+  }
+
+  private normalizeCashItemDate(value: unknown): string {
+    if (!value) return '';
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    const normalized = String(value);
+    return normalized.includes('T') ? normalized.split('T')[0] : normalized.slice(0, 10);
+  }
+
+  private matchesCashDate(item: CashFlowItem, allowMissingDate: boolean): boolean {
+    if (!this.searchDateFrom && !this.searchDateTo) return true;
+
+    const itemDate = this.normalizeCashItemDate(item.date);
+    // El reporte histórico ya viene limitado por el rango y agrupa conceptos,
+    // por eso sus filas no tienen una fecha propia para comparar.
+    if (!itemDate) return allowMissingDate;
+
+    return (!this.searchDateFrom || itemDate >= this.searchDateFrom) &&
+      (!this.searchDateTo || itemDate <= this.searchDateTo);
+  }
+
+  private matchesCashItem(item: CashFlowItem, term: string, allowMissingDate: boolean): boolean {
+    const searchStr = `${item.rowNum || ''} ${item.description || ''} ${item.depo || ''} ${item.casa || ''} ${item.retiros || ''} ${item.extras || ''} ${item.iaia || ''}`.toLowerCase();
+    const matchesText = !term || searchStr.includes(term);
+    return matchesText && this.matchesCashDate(item, allowMissingDate) && this.matchesCashFilters(item);
+  }
+
   onItemChange(item: CashFlowItem): void {
     if (item.date === '') item.date = null as any;
     
@@ -1051,12 +1374,9 @@ filterItems(): void {
           item.rowNum = index + 1; 
         });
         
-        this.filteredItems = data.filter(item => {
-          if (!term) return true;
-          // Buscador global (Busca por monto, nro de fila, concepto, etc. EXCLUYE NOTAS)
-          const searchStr = `${item.rowNum} ${item.description || ''} ${item.depo || ''} ${item.casa || ''} ${item.retiros || ''} ${item.iaia || ''}`.toLowerCase();
-          return searchStr.includes(term);
-        });
+        // El backend ya limita el período del reporte; se aplican aquí el
+        // texto y todos los filtros inclusivos/excluyentes de la planilla.
+        this.filteredItems = data.filter(item => this.matchesCashItem(item, term, true));
         
         this.calculateTableTotals();
         this.isLoading = false;
@@ -1075,13 +1395,7 @@ filterItems(): void {
       item.rowNum = index + 1;
     });
 
-    this.filteredItems = this.items.filter(item => {
-      // Excluimos item.comment de la búsqueda
-      const searchStr = `${item.rowNum} ${item.description || ''} ${item.depo || ''} ${item.casa || ''} ${item.retiros || ''} ${item.iaia || ''}`.toLowerCase();
-      const matchesText = !term || searchStr.includes(term);
-      const matchesDate = !this.searchDateFrom || item.date === this.searchDateFrom;
-      return matchesText && matchesDate;
-    });
+    this.filteredItems = this.items.filter(item => this.matchesCashItem(item, term, false));
     this.calculateTableTotals();
   }
 }
@@ -1089,7 +1403,6 @@ filterItems(): void {
   clearDateFilter(): void {
     this.searchDateFrom = '';
     this.searchDateTo = '';
-    this.searchTerm = '';
     this.filterItems();
   }
 
@@ -1563,6 +1876,15 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
 
   @HostListener('document:click', ['$event'])
   onClickOutside(event: Event) {
+    if (this.showCashFilters) {
+      const target = event.target as HTMLElement;
+      const clickedInsidePopover = this.cashFiltersPopoverRef?.nativeElement?.contains(target);
+      const clickedInsideButton = this.cashFiltersButtonRef?.nativeElement?.contains(target);
+      if (!clickedInsidePopover && !clickedInsideButton) {
+        this.closeCashFilters();
+      }
+    }
+
     if (this.activeCommentItem) {
       const target = event.target as HTMLElement;
       if (!target.closest('.note-popup-container') && !target.closest('.note-toggle-btn')) {
