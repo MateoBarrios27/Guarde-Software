@@ -122,7 +122,7 @@
             <div class="min-w-0">
               <p class="settings-panel-eyebrow">Comunicaciones</p>
               <h3 class="settings-panel-title">Servidores de Correo (SMTP)</h3>
-              <p class="settings-panel-description">Gestioná las cuentas que utiliza el sistema para enviar comunicados.</p>
+              <p class="settings-panel-description">Gestioná las cuentas que utiliza el sistema para enviar comunicados y recibos.</p>
             </div>
           </div>
           <div class="settings-panel-actions">
@@ -148,7 +148,13 @@
                   <div class="p-2.5 bg-blue-100/50 text-blue-600 rounded-lg border border-blue-200/50">
                       <app-icon name="envelope" class="w-5 h-5"></app-icon>
                   </div>
-                  <h3 class="font-bold text-gray-800 text-base tracking-tight">{{ smtp.name }}</h3>
+                  <div>
+                    <h3 class="font-bold text-gray-800 text-base tracking-tight">{{ smtp.name }}</h3>
+                    <p *ngIf="smtp.isReceiptDefault" class="mt-1 flex items-center gap-1.5 text-xs font-semibold text-blue-700">
+                      <app-icon name="check-circle" class="h-3.5 w-3.5"></app-icon>
+                      Predeterminado para recibos
+                    </p>
+                  </div>
                 </div>
                 <div class="flex gap-1.5 opacity-100 lg:opacity-40 lg:group-hover:opacity-100 transition-opacity">
                   <button (click)="openModal(smtp)" class="p-1.5 bg-white border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 rounded-lg shadow-sm">
@@ -246,6 +252,11 @@
                     <input type="checkbox" name="smtpEnableBcc" class="smtp-toggle-input" [ngModel]="currentConfig().enableBcc" (ngModelChange)="updateSmtpField('enableBcc', $event)" />
                     <span class="smtp-toggle-track"><span class="smtp-toggle-thumb"></span></span>
                     <span class="min-w-0"><span class="block text-sm font-semibold text-slate-800">Copia oculta</span><span class="mt-0.5 block text-xs text-slate-500">Recibí una copia de cada envío.</span></span>
+                  </label>
+                  <label class="smtp-toggle-card sm:col-span-2">
+                    <input type="checkbox" name="smtpReceiptDefault" class="smtp-toggle-input" [ngModel]="currentConfig().isReceiptDefault" (ngModelChange)="updateSmtpField('isReceiptDefault', $event)" />
+                    <span class="smtp-toggle-track"><span class="smtp-toggle-thumb"></span></span>
+                    <span class="min-w-0"><span class="block text-sm font-semibold text-slate-800">Predeterminado para recibos</span><span class="mt-0.5 block text-xs text-slate-500">Será el primer servidor que se intente al enviar un comprobante. Si falla, se probarán los demás servidores activos.</span></span>
                   </label>
                 </div>
 

@@ -14,12 +14,18 @@ namespace GuardeSoftwareAPI.Controllers
     public class CommunicationsController : ControllerBase
     {
         private readonly ICommunicationService _communicationService;
+        private readonly IReceiptDeliveryService _receiptDeliveryService;
         private readonly IActivityLogService _activityLogService;
         private readonly ILogger<CommunicationsController> _logger;
 
-        public CommunicationsController(ICommunicationService communicationService, IActivityLogService activityLogService, ILogger<CommunicationsController> logger)
+        public CommunicationsController(
+            ICommunicationService communicationService,
+            IReceiptDeliveryService receiptDeliveryService,
+            IActivityLogService activityLogService,
+            ILogger<CommunicationsController> logger)
         {
             _communicationService = communicationService;
+            _receiptDeliveryService = receiptDeliveryService;
             _activityLogService = activityLogService;
             _logger = logger;
         }
@@ -233,6 +239,33 @@ namespace GuardeSoftwareAPI.Controllers
             {
                 _logger.LogError(ex, "Error reintentando seleccionados del comunicado {Id}", id);
                 return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("receipt")]
+        [Consumes("multipart/form-data")]
+        [RequestSizeLimit(12 * 1024 * 1024)]
+        public async Task<IActionResult> SendReceipt(
+            [FromForm] ReceiptDeliveryRequest request,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var result = await _receiptDeliveryService.SendAsync(request, cancellationToken);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return StatusCode(499);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo enviar el comprobante de {ClientName}.", request.ClientName);
+                return StatusCode(500, new { message = "No se pudo enviar el comprobante." });
             }
         }
 

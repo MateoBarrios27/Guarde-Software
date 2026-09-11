@@ -21,10 +21,11 @@ import { OfflineService } from '../../core/services/offline-service/offline.serv
 import { IndexedDbService } from '../../core/services/offline-service/indexed-db.service';
 import { SyncService } from '../../core/services/offline-service/sync.service';
 import { v4 as uuidv4 } from 'uuid';
-import { Subscription } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 import { PaymentCompletedNotice, PaymentPresenceService, PaymentPresenceUser } from '../../core/services/payment-presence/payment-presence.service';
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
+import { CommunicationService, ReceiptDeliveryResult } from '../../core/services/communication-service/communication.service';
 
 export interface DetailedPaymentView extends DetailedPaymentDTO {
   groupPos?: 'start' | 'middle' | 'end' | 'none';
@@ -45,6 +46,25 @@ interface PaymentMonthBreakdown {
   month: number;
   label: string;
   amount: number;
+}
+
+interface ReceiptPaymentInfo {
+  clientId: number;
+  clientName: string;
+  paymentIdentifier: string;
+  amount: number;
+  paymentDate: Date;
+}
+
+interface ReceiptDestinationOption {
+  value: string;
+  selected: boolean;
+  temporary: boolean;
+}
+
+interface ReceiptDeliveryConfig {
+  emails: string[];
+  whatsAppPhones: string[];
 }
 
 @Component({
@@ -71,6 +91,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
     private paymentPresenceService: PaymentPresenceService,
     private deleteConfirmation: DeleteConfirmationService,
     private dataRefresh: DataRefreshService,
+    private communicationService: CommunicationService,
     overlay: Overlay,
   ){
     this.clientStatsScrollStrategy = overlay.scrollStrategies.close();
@@ -249,10 +270,19 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
   // --- VARIABLES PARA EL MODAL DE RECIBO ---
   showReceiptModal = false;
-  receiptPaymentInfo: any | null = null;
+  receiptPaymentInfo: ReceiptPaymentInfo | null = null;
   receiptConcepts: { description: string, amount: number }[] = [];
   receiptDateStr: string = '';
   receiptTotalAmountCustom: number = 0;
+  showReceiptDeliveryModal = false;
+  receiptDeliveryLoading = false;
+  receiptDeliveryError = '';
+  receiptEmailOptions: ReceiptDestinationOption[] = [];
+  receiptWhatsAppOptions: ReceiptDestinationOption[] = [];
+  temporaryReceiptEmail = '';
+  temporaryReceiptWhatsApp = '';
+  receiptDeliveryConfig: ReceiptDeliveryConfig = { emails: [], whatsAppPhones: [] };
+  isSendingReceipt = false;
   pendingReturnUrl: string | null = null;
   pendingReturnClientId: number | null = null;
 
@@ -304,6 +334,9 @@ export class FinancesComponent implements OnInit, OnDestroy {
       this.paymentPresenceService.onPaymentCompleted$.subscribe(event => this.handleExternalPayment(event))
     );
     this.paymentPresenceSubscriptions.add(
+      this.paymentPresenceService.onPaymentRegistered$.subscribe(event => this.handlePaymentRegistered(event))
+    );
+    this.paymentPresenceSubscriptions.add(
       this.dataRefresh.watch(['clients', 'finances', 'catalog'], 'finances').subscribe(event => {
         if (event.domains.includes('catalog')) {
           this.loadPaymentMethods();
@@ -316,6 +349,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
         }
       }),
     );
+    void this.paymentPresenceService.startConnection().catch(() => undefined);
     this.route.queryParams.subscribe(params => {
       if (params['autoOpenPayment']) {
         this.autoOpenClientId = Number(params['autoOpenPayment']);
@@ -855,7 +889,13 @@ export class FinancesComponent implements OnInit, OnDestroy {
       this.skipIncrease();
       return;
     }
-    if (this.showReceiptModal) {
+    if (this.showReceiptDeliveryModal) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.closeReceiptDeliveryModal();
+      return;
+    }
+    if (this.showReceiptModal && !this.isSendingReceipt) {
       this.closeReceiptModal();
       return;
     }
@@ -1044,6 +1084,14 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.paymentCollision = notice;
     Swal.close();
     setTimeout(() => this.showPaymentCollisionAlert(notice), 0);
+  }
+
+  private handlePaymentRegistered(_notice: PaymentCompletedNotice): void {
+    // Este evento se emite a todos los usuarios conectados, aunque no tengan
+    // abierto el modal de pago. La tabla de finanzas se actualiza de forma
+    // selectiva sin desmontar ni recargar toda la pantalla.
+    this.loadPayments();
+    this.loadClients();
   }
 
   private showPaymentCollisionAlert(notice: PaymentCompletedNotice, fallbackMessage?: string): void {
@@ -2596,6 +2644,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
             this.pendingReturnUrl = targetReturnUrl;
             this.pendingReturnClientId = payloadToSave.clientId;
             this.openReceiptModalFromNewPayment({
+              clientId: payloadToSave.clientId,
               clientName: this.getClientNameById(payloadToSave.clientId),
               paymentIdentifier: this.getClientIdentifierById(payloadToSave.clientId),
               amount: payloadToSave.amount,
@@ -2623,6 +2672,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
   openReceiptModal(item: DetailedPaymentView) {
     this.openReceiptModalFromNewPayment({
+      clientId: Number(item.clientId ?? this.findPaymentClient(item)?.id ?? 0),
       clientName: item.clientName ?? '',
       paymentIdentifier: String(item.paymentIdentifier),
       amount: item.amount,
@@ -2635,8 +2685,9 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.receiptTotalAmountCustom = this.receiptConcepts.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   }
 
-  openReceiptModalFromNewPayment(info: { clientName: string, paymentIdentifier: string, amount: number, paymentDate: Date, concept: string }) {
+  openReceiptModalFromNewPayment(info: { clientId: number, clientName: string, paymentIdentifier: string, amount: number, paymentDate: Date, concept: string }) {
     this.receiptPaymentInfo = {
+      clientId: info.clientId,
       clientName: info.clientName,
       paymentIdentifier: info.paymentIdentifier,
       amount: info.amount,
@@ -2653,14 +2704,17 @@ export class FinancesComponent implements OnInit, OnDestroy {
       { description: info.concept || 'SERVICIO DE BAULERAS', amount: info.amount }
     ];
     this.recalculateTotalAmount();
+    this.resetReceiptDelivery();
     this.showReceiptModal = true;
   }
 
   closeReceiptModal() {
+    if (this.isSendingReceipt) return;
     this.showReceiptModal = false;
     this.receiptPaymentInfo = null;
     this.receiptConcepts = [];
     this.receiptDateStr = '';
+    this.resetReceiptDelivery();
     
     if (this.pendingReturnUrl) {
       const url = this.pendingReturnUrl;
@@ -2671,8 +2725,12 @@ export class FinancesComponent implements OnInit, OnDestroy {
     }
   }
 
-  confirmGenerateReceipt() {
+  async confirmGenerateReceipt() {
     if (!this.receiptPaymentInfo) return;
+    if (!this.receiptDateStr) {
+      Swal.fire('Atención', 'Seleccioná la fecha del recibo.', 'warning');
+      return;
+    }
     if (this.receiptConcepts.some(c => !c.description.trim())) {
       Swal.fire('Atención', 'Todas las descripciones deben estar completas.', 'warning');
       return;
@@ -2680,15 +2738,205 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
     const [year, month, day] = this.receiptDateStr.split('-');
     const finalReceiptDate = `${day}/${month}/${year}`;
-
-    this.pdfGeneratorService.generateBauleraReceipt({
+    const receiptData = {
       date: finalReceiptDate, 
       clientNumber: this.receiptPaymentInfo.paymentIdentifier ?? 0,
       clientName: this.receiptPaymentInfo.clientName ?? "",
       concepts: this.receiptConcepts,
       totalAmount: this.receiptTotalAmountCustom
+    };
+
+    if (!this.hasReceiptDeliveryConfigured) {
+      await this.pdfGeneratorService.generateBauleraReceipt(receiptData);
+      this.closeReceiptModal();
+      return;
+    }
+
+    this.isSendingReceipt = true;
+    try {
+      const receiptPeriod = this.getReceiptPeriod();
+      const fileName = this.buildReceiptFileName(receiptPeriod, this.receiptPaymentInfo.clientName);
+      const blob = await this.pdfGeneratorService.generateBauleraReceiptForDelivery(receiptData);
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      const result = await firstValueFrom(this.communicationService.sendReceipt(
+        this.receiptPaymentInfo.clientName,
+        receiptPeriod,
+        this.receiptDeliveryConfig.emails,
+        this.receiptDeliveryConfig.whatsAppPhones,
+        file
+      ));
+      await this.handleReceiptDeliveryResult(result);
+    } catch (error: any) {
+      const message = error?.error?.message || error?.message || 'No se pudo enviar el comprobante.';
+      await Swal.fire({
+        title: 'El recibo se generó, pero no se pudo enviar',
+        text: message,
+        icon: 'error',
+        confirmButtonColor: '#2563eb'
+      });
+    } finally {
+      this.isSendingReceipt = false;
+    }
+  }
+
+  get hasReceiptDeliveryConfigured(): boolean {
+    return this.receiptDeliveryConfig.emails.length + this.receiptDeliveryConfig.whatsAppPhones.length > 0;
+  }
+
+  get receiptDeliveryDestinationCount(): number {
+    return this.receiptDeliveryConfig.emails.length + this.receiptDeliveryConfig.whatsAppPhones.length;
+  }
+
+  async openReceiptDeliveryModal(): Promise<void> {
+    if (!this.receiptPaymentInfo) return;
+
+    this.showReceiptDeliveryModal = true;
+    this.receiptDeliveryLoading = true;
+    this.receiptDeliveryError = '';
+    this.temporaryReceiptEmail = '';
+    this.temporaryReceiptWhatsApp = '';
+
+    try {
+      const detail = await firstValueFrom(this.clientService.getClientDetailById(this.receiptPaymentInfo.clientId));
+      this.receiptEmailOptions = this.mergeReceiptDestinations(
+        detail.email ?? [],
+        this.receiptDeliveryConfig.emails
+      );
+      this.receiptWhatsAppOptions = this.mergeReceiptDestinations(
+        (detail.phones ?? []).map(phone => phone.number),
+        this.receiptDeliveryConfig.whatsAppPhones
+      );
+    } catch {
+      this.receiptEmailOptions = this.mergeReceiptDestinations([], this.receiptDeliveryConfig.emails);
+      this.receiptWhatsAppOptions = this.mergeReceiptDestinations([], this.receiptDeliveryConfig.whatsAppPhones);
+      this.receiptDeliveryError = 'No se pudieron cargar los contactos del cliente. Podés agregar destinatarios temporales.';
+    } finally {
+      this.receiptDeliveryLoading = false;
+    }
+  }
+
+  closeReceiptDeliveryModal(): void {
+    if (this.receiptDeliveryLoading) return;
+    this.showReceiptDeliveryModal = false;
+    this.receiptDeliveryError = '';
+  }
+
+  addTemporaryReceiptEmail(): void {
+    const email = this.temporaryReceiptEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      this.receiptDeliveryError = 'Ingresá un email válido.';
+      return;
+    }
+    this.addTemporaryReceiptDestination(this.receiptEmailOptions, email, true);
+    this.temporaryReceiptEmail = '';
+    this.receiptDeliveryError = '';
+  }
+
+  addTemporaryReceiptWhatsApp(): void {
+    const phone = this.temporaryReceiptWhatsApp.trim();
+    if (phone.replace(/\D/g, '').length < 8) {
+      this.receiptDeliveryError = 'Ingresá un número de WhatsApp válido, con código de área.';
+      return;
+    }
+    this.addTemporaryReceiptDestination(this.receiptWhatsAppOptions, phone, false);
+    this.temporaryReceiptWhatsApp = '';
+    this.receiptDeliveryError = '';
+  }
+
+  removeTemporaryReceiptDestination(options: ReceiptDestinationOption[], index: number): void {
+    if (options[index]?.temporary) options.splice(index, 1);
+  }
+
+  saveReceiptDeliveryConfig(): void {
+    this.receiptDeliveryConfig = {
+      emails: this.receiptEmailOptions.filter(option => option.selected).map(option => option.value),
+      whatsAppPhones: this.receiptWhatsAppOptions.filter(option => option.selected).map(option => option.value)
+    };
+    this.showReceiptDeliveryModal = false;
+    this.receiptDeliveryError = '';
+  }
+
+  private mergeReceiptDestinations(existing: string[], selected: string[]): ReceiptDestinationOption[] {
+    const cleanExisting = existing.map(value => value?.trim()).filter((value): value is string => !!value);
+    const all = [...cleanExisting];
+    selected.forEach(value => {
+      if (!all.some(item => item.toLocaleLowerCase() === value.toLocaleLowerCase())) all.push(value);
     });
-    this.closeReceiptModal();
+    return all
+      .filter((value, index) => all.findIndex(item => item.toLocaleLowerCase() === value.toLocaleLowerCase()) === index)
+      .map(value => ({
+        value,
+        selected: selected.some(item => item.toLocaleLowerCase() === value.toLocaleLowerCase()),
+        temporary: !cleanExisting.some(item => item.toLocaleLowerCase() === value.toLocaleLowerCase())
+      }));
+  }
+
+  private addTemporaryReceiptDestination(options: ReceiptDestinationOption[], value: string, email: boolean): void {
+    const normalized = email ? value.toLocaleLowerCase() : value.replace(/\D/g, '');
+    const existing = options.find(option =>
+      (email ? option.value.toLocaleLowerCase() : option.value.replace(/\D/g, '')) === normalized
+    );
+    if (existing) {
+      existing.selected = true;
+      return;
+    }
+    options.push({ value, selected: true, temporary: true });
+  }
+
+  private resetReceiptDelivery(): void {
+    this.showReceiptDeliveryModal = false;
+    this.receiptDeliveryLoading = false;
+    this.receiptDeliveryError = '';
+    this.receiptEmailOptions = [];
+    this.receiptWhatsAppOptions = [];
+    this.temporaryReceiptEmail = '';
+    this.temporaryReceiptWhatsApp = '';
+    this.receiptDeliveryConfig = { emails: [], whatsAppPhones: [] };
+  }
+
+  private getReceiptPeriod(): string {
+    const [year, month] = this.receiptDateStr.split('-').map(Number);
+    const monthNames = [
+      'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+      'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+    ];
+    return `${monthNames[month - 1]} ${year}`;
+  }
+
+  private buildReceiptFileName(period: string, clientName: string): string {
+    const safeName = `Comprobante ${period} ${clientName}`
+      .replace(/[\\/:*?"<>|]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return `${safeName}.pdf`;
+  }
+
+  private async handleReceiptDeliveryResult(result: ReceiptDeliveryResult): Promise<void> {
+    if (result.failedCount === 0) {
+      this.isSendingReceipt = false;
+      this.closeReceiptModal();
+      await Swal.fire({
+        title: 'Recibo generado y enviado',
+        text: `Se entregó ${result.fileName} a ${result.successfulCount} destinatario${result.successfulCount === 1 ? '' : 's'}.`,
+        icon: 'success',
+        confirmButtonColor: '#2563eb'
+      });
+      return;
+    }
+
+    const failedAttempts = result.attempts.filter(attempt => !attempt.success);
+    this.receiptDeliveryConfig = {
+      emails: failedAttempts.filter(attempt => attempt.channel === 'email').map(attempt => attempt.recipient),
+      whatsAppPhones: failedAttempts.filter(attempt => attempt.channel === 'whatsapp').map(attempt => attempt.recipient)
+    };
+    const failedRecipients = failedAttempts.map(attempt => `${attempt.recipient}: ${attempt.error || 'error de envío'}`).join('\n');
+    await Swal.fire({
+      title: result.successfulCount > 0 ? 'Envío completado parcialmente' : 'No se pudo enviar el recibo',
+      text: `${result.successfulCount} enviados, ${result.failedCount} fallidos.\n\n${failedRecipients}`,
+      icon: result.successfulCount > 0 ? 'warning' : 'error',
+      confirmButtonColor: '#2563eb',
+      confirmButtonText: 'Revisar destinatarios'
+    });
   }
 
   addReceiptConcept() {

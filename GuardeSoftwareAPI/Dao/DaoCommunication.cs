@@ -1380,7 +1380,12 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<List<SmtpConfigurationDto>> GetAllSmtpConfigsAsync()
         {
             var list = new List<SmtpConfigurationDto>();
-            string query = "SELECT * FROM smtp_configurations WHERE is_active = 1";
+            string query = @"
+                SELECT smtp_id, name, host, port, email, password, use_ssl,
+                       enable_bcc, bcc_email, is_receipt_default
+                FROM smtp_configurations
+                WHERE is_active = 1
+                ORDER BY smtp_id ASC";
             var dt = await _accessDB.GetTableAsync("SmtpList", query);
             
             foreach (DataRow row in dt.Rows)
@@ -1395,7 +1400,9 @@ namespace GuardeSoftwareAPI.Dao
                     Password = row["password"].ToString(),
                     UseSsl = Convert.ToBoolean(row["use_ssl"]),
                     EnableBcc = row["enable_bcc"] != DBNull.Value && Convert.ToBoolean(row["enable_bcc"]),
-                    BccEmail = row["bcc_email"]?.ToString() ?? ""
+                    BccEmail = row["bcc_email"]?.ToString() ?? "",
+                    IsReceiptDefault = row["is_receipt_default"] != DBNull.Value
+                        && Convert.ToBoolean(row["is_receipt_default"])
                 });
             }
             return list;
@@ -1403,45 +1410,94 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<int> CreateSmtpConfigAsync(SmtpConfigurationDto dto)
         {
-            string query = @"
-                INSERT INTO smtp_configurations (name, host, port, email, password, use_ssl, enable_bcc, bcc_email, is_active)
-                OUTPUT INSERTED.smtp_id
-                VALUES (@Name, @Host, @Port, @Email, @Password, @UseSsl, @EnableBcc, @BccEmail, 1)";
-            
-            var param = new[] {
-                new SqlParameter("@Name", dto.Name),
-                new SqlParameter("@Host", dto.Host),
-                new SqlParameter("@Port", dto.Port),
-                new SqlParameter("@Email", dto.Email),
-                new SqlParameter("@Password", dto.Password),
-                new SqlParameter("@UseSsl", dto.UseSsl),
-                new SqlParameter("@EnableBcc", dto.EnableBcc),
-                new SqlParameter("@BccEmail", string.IsNullOrEmpty(dto.BccEmail) ? DBNull.Value : dto.BccEmail)
-            };
+            await using var connection = _accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
+            try
+            {
+                if (dto.IsReceiptDefault)
+                {
+                    await _accessDB.ExecuteCommandTransactionAsync(
+                        "UPDATE smtp_configurations SET is_receipt_default = 0 WHERE is_receipt_default = 1",
+                        null,
+                        connection,
+                        transaction);
+                }
 
-            return (int)await _accessDB.ExecuteScalarAsync(query, param);
+                const string query = @"
+                    INSERT INTO smtp_configurations
+                        (name, host, port, email, password, use_ssl, enable_bcc, bcc_email, is_receipt_default, is_active)
+                    OUTPUT INSERTED.smtp_id
+                    VALUES
+                        (@Name, @Host, @Port, @Email, @Password, @UseSsl, @EnableBcc, @BccEmail, @IsReceiptDefault, 1)";
+
+                await using var command = new SqlCommand(query, connection, transaction);
+                command.Parameters.AddRange(CreateSmtpParameters(dto, includeId: false));
+                int newId = Convert.ToInt32(await command.ExecuteScalarAsync());
+                await transaction.CommitAsync();
+                return newId;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task UpdateSmtpConfigAsync(SmtpConfigurationDto dto)
         {
-            string query = @"
-                UPDATE smtp_configurations 
-                SET name=@Name, host=@Host, port=@Port, email=@Email, password=@Password, 
-                    use_ssl=@UseSsl, enable_bcc=@EnableBcc, bcc_email=@BccEmail
-                WHERE smtp_id=@Id";
-            
-            var param = new[] {
-                new SqlParameter("@Id", dto.Id),
-                new SqlParameter("@Name", dto.Name),
-                new SqlParameter("@Host", dto.Host),
-                new SqlParameter("@Port", dto.Port),
-                new SqlParameter("@Email", dto.Email),
-                new SqlParameter("@Password", dto.Password),
-                new SqlParameter("@UseSsl", dto.UseSsl),
-                new SqlParameter("@EnableBcc", dto.EnableBcc),
-                new SqlParameter("@BccEmail", (object)dto.BccEmail ?? DBNull.Value)
+            await using var connection = _accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
+            try
+            {
+                if (dto.IsReceiptDefault)
+                {
+                    await _accessDB.ExecuteCommandTransactionAsync(
+                        "UPDATE smtp_configurations SET is_receipt_default = 0 WHERE is_receipt_default = 1",
+                        null,
+                        connection,
+                        transaction);
+                }
+
+                const string query = @"
+                    UPDATE smtp_configurations
+                    SET name = @Name, host = @Host, port = @Port, email = @Email, password = @Password,
+                        use_ssl = @UseSsl, enable_bcc = @EnableBcc, bcc_email = @BccEmail,
+                        is_receipt_default = @IsReceiptDefault
+                    WHERE smtp_id = @Id";
+
+                await _accessDB.ExecuteCommandTransactionAsync(
+                    query,
+                    CreateSmtpParameters(dto, includeId: true),
+                    connection,
+                    transaction);
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        private static SqlParameter[] CreateSmtpParameters(SmtpConfigurationDto dto, bool includeId)
+        {
+            var parameters = new List<SqlParameter>
+            {
+                new("@Name", dto.Name),
+                new("@Host", dto.Host),
+                new("@Port", dto.Port),
+                new("@Email", dto.Email),
+                new("@Password", dto.Password),
+                new("@UseSsl", dto.UseSsl),
+                new("@EnableBcc", dto.EnableBcc),
+                new("@BccEmail", string.IsNullOrWhiteSpace(dto.BccEmail) ? DBNull.Value : dto.BccEmail),
+                new("@IsReceiptDefault", dto.IsReceiptDefault)
             };
-            await _accessDB.ExecuteCommandAsync(query, param);
+            if (includeId)
+                parameters.Insert(0, new SqlParameter("@Id", dto.Id));
+            return parameters.ToArray();
         }
 
         public async Task DeleteSmtpConfigAsync(int id)

@@ -150,6 +150,8 @@ builder.Services.AddScoped<IBillingTypeService, BillingTypeService>();
 builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IClientIncreaseRegimenService, ClientIncreaseRegimenService>();
 builder.Services.AddScoped<ICommunicationService, CommunicationService>();
+builder.Services.AddScoped<IReceiptSmtpConfigurationProvider, ReceiptSmtpConfigurationProvider>();
+builder.Services.AddScoped<IReceiptDeliveryService, ReceiptDeliveryService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IMassCommunicationRecipientService, MassCommunicationRecipientService>();
 builder.Services.AddScoped<IIncreaseRegimenService, IncreaseRegimenService>();

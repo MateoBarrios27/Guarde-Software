@@ -40,10 +40,12 @@ export class PaymentPresenceService {
 
   private readonly presenceChangedSource = new Subject<PaymentPresenceChanged>();
   private readonly paymentCompletedSource = new Subject<PaymentCompletedNotice>();
+  private readonly paymentRegisteredSource = new Subject<PaymentCompletedNotice>();
   private readonly connectionIssueSource = new Subject<boolean>();
 
   readonly onPresenceChanged$ = this.presenceChangedSource.asObservable();
   readonly onPaymentCompleted$ = this.paymentCompletedSource.asObservable();
+  readonly onPaymentRegistered$ = this.paymentRegisteredSource.asObservable();
   readonly onConnectionIssue$ = this.connectionIssueSource.asObservable();
 
   async joinClientRoom(clientId: number): Promise<PaymentPresenceJoinResult | null> {
@@ -111,7 +113,7 @@ export class PaymentPresenceService {
     }
   }
 
-  private async startConnection(): Promise<void> {
+  async startConnection(): Promise<void> {
     if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
       return;
     }
@@ -139,6 +141,9 @@ export class PaymentPresenceService {
       });
       this.hubConnection.on('PaymentCompleted', (event: PaymentCompletedNotice) => {
         this.paymentCompletedSource.next(event);
+      });
+      this.hubConnection.on('PaymentRegistered', (event: PaymentCompletedNotice) => {
+        this.paymentRegisteredSource.next(event);
       });
       this.hubConnection.onreconnecting(() => this.connectionIssueSource.next(true));
       this.hubConnection.onreconnected(async () => {

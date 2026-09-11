@@ -170,7 +170,8 @@ export class SettingsComponent implements OnInit {
     password: '',
     useSsl: true,
     enableBcc: false,
-    bccEmail: 'estadodecuenta@abono.com.ar' // Default value
+    bccEmail: 'estadodecuenta@abono.com.ar', // Default value
+    isReceiptDefault: false
   });
 
   // --- Receptores externos para comunicados masivos ---
@@ -793,7 +794,8 @@ export class SettingsComponent implements OnInit {
       password: '',
       useSsl: true,
       enableBcc: false,
-      bccEmail: ''
+      bccEmail: '',
+      isReceiptDefault: false
     });
   }
 

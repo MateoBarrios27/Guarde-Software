@@ -143,6 +143,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.paymentPresenceService.onPaymentCompleted$.subscribe(event => this.handleExternalPayment(event))
     );
     this.paymentPresenceSubscriptions.add(
+      this.paymentPresenceService.onPaymentRegistered$.subscribe(event => this.handlePaymentRegistered(event))
+    );
+    this.paymentPresenceSubscriptions.add(
       this.dataRefresh.watch(['clients', 'finances', 'catalog'], 'dashboard').subscribe(event => {
         if (event.domains.includes('catalog')) {
           this.loadPaymentMethods();
@@ -153,6 +156,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
       }),
     );
+    void this.paymentPresenceService.startConnection().catch(() => undefined);
     this.LoadPedingRentals();
     this.LoadPayments();
     this.loadPaymentMethods();
@@ -596,6 +600,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.paymentCollision = notice;
     Swal.close();
     setTimeout(() => this.showPaymentCollisionAlert(notice), 0);
+  }
+
+  private handlePaymentRegistered(_notice: PaymentCompletedNotice): void {
+    this.LoadPedingRentals();
+    this.LoadPayments();
   }
 
   private showPaymentCollisionAlert(notice: PaymentCompletedNotice, fallbackMessage?: string): void {

@@ -181,25 +181,39 @@ namespace GuardeSoftwareAPI.Controllers
             CreatePaymentTransaction dto,
             (string DisplayName, string UserName) actor)
         {
+            var notice = new PaymentCompletedNotice
+            {
+                ClientId = dto.ClientId,
+                PayerName = actor.DisplayName,
+                PayerUserName = actor.UserName,
+                Amount = dto.Amount,
+                PaymentDate = dto.Date,
+                RecordedAtUtc = DateTime.UtcNow,
+                Concept = dto.Concept
+            };
+
             try
             {
                 await _paymentPresenceHub.Clients
                     .Group(PaymentPresenceHub.ClientGroupName(dto.ClientId))
-                    .SendAsync("PaymentCompleted", new PaymentCompletedNotice
-                    {
-                        ClientId = dto.ClientId,
-                        PayerName = actor.DisplayName,
-                        PayerUserName = actor.UserName,
-                        Amount = dto.Amount,
-                        PaymentDate = dto.Date,
-                        RecordedAtUtc = DateTime.UtcNow,
-                        Concept = dto.Concept
-                    });
+                    .SendAsync("PaymentCompleted", notice);
             }
             catch (Exception ex)
             {
                 // The transaction has already committed; a transient hub failure must not turn it into a failed payment.
                 _logger.LogWarning(ex, "Payment {ClientId} was saved but its presence notification could not be delivered", dto.ClientId);
+            }
+
+            try
+            {
+                await _paymentPresenceHub.Clients
+                    .All
+                    .SendAsync("PaymentRegistered", notice);
+            }
+            catch (Exception ex)
+            {
+                // The transaction has already committed; a transient hub failure must not turn it into a failed payment.
+                _logger.LogWarning(ex, "Payment {ClientId} was saved but its global finance refresh notification could not be delivered", dto.ClientId);
             }
         }
 

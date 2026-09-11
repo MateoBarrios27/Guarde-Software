@@ -28,6 +28,23 @@ export class PdfGeneratorService {
   }
 
   async generateBauleraReceipt(data: ReceiptData): Promise<void> {
+    const receipt = await this.createBauleraReceipt(data);
+    receipt.open();
+  }
+
+  async generateBauleraReceiptForDelivery(data: ReceiptData): Promise<Blob> {
+    const receipt = await this.createBauleraReceipt(data);
+    receipt.open();
+    return new Promise<Blob>((resolve, reject) => {
+      try {
+        receipt.getBlob((blob: Blob) => resolve(blob));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  private async createBauleraReceipt(data: ReceiptData): Promise<any> {
     const pdfMakeModule = await import('pdfmake/build/pdfmake');
     const pdfFontsModule = await import('pdfmake/build/vfs_fonts');
 
@@ -131,6 +148,6 @@ export class PdfGeneratorService {
       ]
     };
 
-    pdfMake.createPdf(docDefinition).open();
+    return pdfMake.createPdf(docDefinition);
   }
 }

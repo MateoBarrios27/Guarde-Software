@@ -15,6 +15,20 @@ import { SmtpConfig } from '../../models/smtp-config';
 import * as signalR from '@microsoft/signalr';
 import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
 
+export interface ReceiptDeliveryAttempt {
+  channel: 'email' | 'whatsapp';
+  recipient: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface ReceiptDeliveryResult {
+  successfulCount: number;
+  failedCount: number;
+  fileName: string;
+  attempts: ReceiptDeliveryAttempt[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -206,5 +220,22 @@ export class CommunicationService {
 
   getDispatchContent(dispatchId: number): Observable<{content: string}> {
     return this.http.get<{content: string}>(`${this.url}/Communications/dispatch/${dispatchId}/content`);
+  }
+
+  sendReceipt(
+    clientName: string,
+    receiptPeriod: string,
+    emails: string[],
+    whatsAppPhones: string[],
+    receipt: File
+  ): Observable<ReceiptDeliveryResult> {
+    const formData = new FormData();
+    formData.append('clientName', clientName);
+    formData.append('receiptPeriod', receiptPeriod);
+    emails.forEach((email, index) => formData.append(`emails[${index}]`, email));
+    whatsAppPhones.forEach((phone, index) => formData.append(`whatsAppPhones[${index}]`, phone));
+    formData.append('receipt', receipt, receipt.name);
+
+    return this.http.post<ReceiptDeliveryResult>(`${this.url}/Communications/receipt`, formData);
   }
 }

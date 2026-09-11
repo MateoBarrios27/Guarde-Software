@@ -9,4 +9,5 @@ public class SmtpConfigurationDto
     public bool UseSsl { get; set; }
     public bool EnableBcc { get; set; } 
     public string BccEmail { get; set; } = string.Empty;
+    public bool IsReceiptDefault { get; set; }
 }

@@ -8,4 +8,5 @@ export interface SmtpConfig {
   useSsl: boolean;
   enableBcc: boolean;
   bccEmail: string;
+  isReceiptDefault: boolean;
 }
