@@ -316,71 +316,42 @@ namespace GuardeSoftwareAPI.Services.payment
                     }
                 }
 
-                var latePaymentProjection = ProjectLatePayment(
-                    existingMonths,
+                // Replay the ledger using the same rule as the final rebuild. Old CMB rows
+                // may still have legacy allocations, so they are not the source of truth.
+                var ledger = await ClientMonthBalanceService.GetMovementsAsync(rental.Id, connection, transaction);
+                var beforePayment = PaymentAllocationEngine.Allocate(
+                    ledger.Where(m => m.PaymentId != paymentId));
+                var latePaymentProjection = LatePaymentSurchargeCalculator.Project(
+                    beforePayment.Rows,
                     dto.Date,
                     paymentAvailableForDebt,
                     !isClientMarkedAsLeaving && dto.NewRentAmount.HasValue && dto.NewRentAmount.Value > baseRent
                         ? dto.NewRentAmount.Value
                         : baseRent);
-                moneyInHand = paymentAvailableForDebt;
 
-                decimal rolledOverDebt = 0;
-
-                for (int i = 0; i < existingMonths.Count; i++)
-                {
-                    var month = existingMonths[i];
-
-                    if (i > 0) 
-                    {
-                        month.PreviousBalance = rolledOverDebt;
-                    }
-
-                    // FIX: Siempre recalculamos el balance, incluso para el primer mes, 
-                    // por si acaba de ser actualizado en la corrección retroactiva de arriba.
-                    month.Balance = month.PreviousBalance + month.Interests + month.MonthlyDebits;
-
-                    string updBal = "UPDATE client_month_balances SET previous_balance = @pb, balance = @b WHERE id = @id";
-                    using var cmdBal = new SqlCommand(updBal, connection, transaction);
-                    cmdBal.Parameters.AddWithValue("@pb", month.PreviousBalance);
-                    cmdBal.Parameters.AddWithValue("@b", month.Balance);
-                    cmdBal.Parameters.AddWithValue("@id", month.Id);
-                    await cmdBal.ExecuteNonQueryAsync();
-
-                    decimal owes = month.Balance - (month.Paid + month.AdvancedPayment);
-
-                    if (owes > 0 && moneyInHand > 0)
-                    {
-                        decimal applied = Math.Min(moneyInHand, owes);
-                        DateTime rowMonth = DateTime.ParseExact(month.MonthYear, "MM/yyyy", null);
-                        
-                        string colToUpdate = (rowMonth > currentRealMonth) ? "advanced_payment" : "paid";
-                        
-                        string updPaid = $"UPDATE client_month_balances SET {colToUpdate} = {colToUpdate} + @app WHERE id = @id";
-                        using var cmdPaid = new SqlCommand(updPaid, connection, transaction);
-                        cmdPaid.Parameters.AddWithValue("@app", applied);
-                        cmdPaid.Parameters.AddWithValue("@id", month.Id);
-                        await cmdPaid.ExecuteNonQueryAsync();
-
-                        if (colToUpdate == "paid") month.Paid += applied; else month.AdvancedPayment += applied;
-                        moneyInHand -= applied;
-                    }
-
-                    rolledOverDebt = month.Balance - (month.Paid + month.AdvancedPayment);
-                }
+                // Reserve only the immediate surcharge during future-rent projection.
+                // Commissions already exist in the ledger and must not be deducted twice.
+                var primaryPaymentCredit = ledger.Where(m => m.PaymentId == paymentId && m.MovementType == "CREDITO")
+                    .OrderBy(m => m.Id).First();
+                primaryPaymentCredit.Amount = Math.Max(0m, primaryPaymentCredit.Amount - reservedImmediateSurcharge);
+                var allocation = PaymentAllocationEngine.Allocate(ledger);
+                existingMonths = allocation.Rows;
+                moneyInHand = allocation.UnallocatedCredits.Values.Sum();
+                decimal rolledOverDebt = existingMonths.Count == 0 ? 0m : Math.Max(0m,
+                    existingMonths[^1].Balance - existingMonths[^1].Paid - existingMonths[^1].AdvancedPayment);
 
                 // ==============================================================================
                 // --- 4. GENERAMOS EL FUTURO (Adelantos o Proyección del Próximo Pago)
                 // ==============================================================================
-                string lastMonthStr = existingMonths.Last().MonthYear;
+                string lastMonthStr = existingMonths.LastOrDefault()?.MonthYear ?? currentRealMonth.ToString("MM/yyyy");
                 DateTime lastGeneratedDate = DateTime.ParseExact(lastMonthStr, "MM/yyyy", null);
                 decimal lastMonthDebt = rolledOverDebt;
 
                 // El flujo histórico genera el próximo débito cuando el último mes fue tocado.
                 // SkipFutureProjection queda reservado para los casos en que la interfaz
                 // decide explícitamente no proyectar (por ejemplo, al omitir un aumento).
-                var lastExistingMonth = existingMonths.Last();
-                bool lastMonthWasTouched = (lastExistingMonth.Paid + lastExistingMonth.AdvancedPayment) > 0;
+                var lastExistingMonth = existingMonths.LastOrDefault();
+                bool lastMonthWasTouched = lastExistingMonth != null && (lastExistingMonth.Paid + lastExistingMonth.AdvancedPayment) > 0;
                 bool shouldProjectFuture = !isClientMarkedAsLeaving
                     && lastMonthWasTouched
                     && !dto.SkipFutureProjection
@@ -464,8 +435,9 @@ namespace GuardeSoftwareAPI.Services.payment
                 ?? new DateTime(dto.Date.Year, dto.Date.Month, 1);
             decimal lateRentBase = rental.PendingSurchargeRentBase
                 ?? latePaymentProjection.LateRentBase;
-            decimal recalculatedPenalty = RoundInterestToNearestHundredDown(
-                (lateRentBase + latePaymentProjection.UnpaidInterestsAfterPayment) * 0.10m);
+            decimal recalculatedPenalty = LatePaymentSurchargeCalculator.Calculate(
+                lateRentBase,
+                latePaymentProjection.UnpaidInterestsAfterPayment);
             decimal finalPenalty = dto.SurchargeAmountWasOverridden
                 ? Math.Max(0m, dto.SurchargeAmount ?? 0m)
                 : recalculatedPenalty;
@@ -1110,85 +1082,6 @@ namespace GuardeSoftwareAPI.Services.payment
             return Convert.ToInt32(await command.ExecuteScalarAsync()) == 1;
         }
 
-        private static LatePaymentProjection ProjectLatePayment(
-            IEnumerable<ClientMonthBalance> balances,
-            DateTime paymentDate,
-            decimal paymentAvailableForDebt,
-            decimal currentRentFallback)
-        {
-            var paymentMonth = new DateTime(paymentDate.Year, paymentDate.Month, 1);
-            var components = balances
-                .Select(balance => new
-                {
-                    Balance = balance,
-                    Month = DateTime.TryParseExact(
-                        balance.MonthYear,
-                        "MM/yyyy",
-                        CultureInfo.InvariantCulture,
-                        DateTimeStyles.None,
-                        out var parsedMonth)
-                        ? parsedMonth
-                        : DateTime.MaxValue
-                })
-                .Where(item => item.Month <= paymentMonth)
-                .OrderBy(item => item.Month)
-                .ThenBy(item => item.Balance.Id)
-                .Select(item =>
-                {
-                    decimal totalApplied = item.Balance.Paid + item.Balance.AdvancedPayment;
-                    decimal appliedAfterPrevious = Math.Max(0m, totalApplied - item.Balance.PreviousBalance);
-                    decimal unpaidInterest = Math.Max(0m, item.Balance.Interests - appliedAfterPrevious);
-                    decimal appliedToRent = Math.Max(0m, appliedAfterPrevious - item.Balance.Interests);
-                    decimal unpaidRent = Math.Max(0m, item.Balance.MonthlyDebits - appliedToRent);
-
-                    return new LatePaymentComponent
-                    {
-                        Month = item.Month,
-                        UnpaidInterest = unpaidInterest,
-                        UnpaidRent = unpaidRent
-                    };
-                })
-                .ToList();
-
-            decimal lateRentBase = components
-                .Where(component => component.Month == paymentMonth)
-                .Select(component => component.UnpaidRent)
-                .LastOrDefault();
-
-            if (!components.Any(component => component.Month == paymentMonth))
-            {
-                lateRentBase = Math.Max(0m, currentRentFallback);
-            }
-
-            decimal remainingPayment = Math.Max(0m, paymentAvailableForDebt);
-            foreach (var component in components)
-            {
-                decimal appliedToInterest = Math.Min(remainingPayment, component.UnpaidInterest);
-                component.UnpaidInterest -= appliedToInterest;
-                remainingPayment -= appliedToInterest;
-
-                decimal appliedToRent = Math.Min(remainingPayment, component.UnpaidRent);
-                component.UnpaidRent -= appliedToRent;
-                remainingPayment -= appliedToRent;
-
-                if (remainingPayment <= 0)
-                {
-                    remainingPayment = 0;
-                }
-            }
-
-            return new LatePaymentProjection
-            {
-                LateRentBase = lateRentBase,
-                UnpaidInterestsAfterPayment = components.Sum(component => component.UnpaidInterest)
-            };
-        }
-
-        private static decimal RoundInterestToNearestHundredDown(decimal amount)
-        {
-            return amount <= 0m ? 0m : Math.Floor(amount / 100m) * 100m;
-        }
-
         private static async Task<string> BuildSmartPaymentConceptAsync(
             int rentalId,
             int paymentId,
@@ -1230,52 +1123,13 @@ namespace GuardeSoftwareAPI.Services.payment
                 return string.Empty;
             }
 
-            var debitComponents = movements
-                .Where(movement => string.Equals(movement.MovementType, "DEBITO", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(movement => new DateTime(movement.MovementDate.Year, movement.MovementDate.Month, 1))
-                .ThenBy(movement => IsInterestMovement(movement.Concept) ? 0 : 1)
-                .ThenBy(movement => movement.MovementDate)
-                .ThenBy(movement => movement.Id)
-                .Select(movement => new DebitAllocationComponent
+            var allocation = PaymentAllocationEngine.Allocate(movements);
+            var allocations = allocation.Allocations.Where(a => a.CreditId == primaryCredit.Id)
+                .Select(a => new PaymentConceptAllocation
                 {
-                    Concept = string.IsNullOrWhiteSpace(movement.Concept) ? "Débito sin concepto" : movement.Concept.Trim(),
-                    Remaining = movement.Amount
-                })
-                .ToList();
-
-            var allocations = new List<PaymentConceptAllocation>();
-            decimal unusedPrimaryCredit = 0m;
-            foreach (var credit in movements
-                .Where(movement => string.Equals(movement.MovementType, "CREDITO", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(movement => movement.MovementDate)
-                .ThenBy(movement => movement.Id))
-            {
-                decimal creditRemaining = credit.Amount;
-                foreach (var debit in debitComponents.Where(component => component.Remaining > 0m))
-                {
-                    if (creditRemaining <= 0m) break;
-
-                    decimal outstandingBefore = debit.Remaining;
-                    decimal applied = Math.Min(creditRemaining, outstandingBefore);
-                    debit.Remaining -= applied;
-                    creditRemaining -= applied;
-
-                    if (credit.Id == primaryCredit.Id && applied > 0m)
-                    {
-                        allocations.Add(new PaymentConceptAllocation
-                        {
-                            Concept = debit.Concept,
-                            Amount = applied,
-                            IsPartial = applied < outstandingBefore
-                        });
-                    }
-                }
-
-                if (credit.Id == primaryCredit.Id)
-                {
-                    unusedPrimaryCredit = Math.Max(0m, creditRemaining);
-                }
-            }
+                    Concept = a.Concept, Amount = a.Amount, IsPartial = a.IsPartial
+                }).ToList();
+            decimal unusedPrimaryCredit = allocation.UnallocatedCredits.GetValueOrDefault(primaryCredit.Id);
 
             string smartConcept = ComposeSmartPaymentConcept(allocations, unusedPrimaryCredit);
             const string updateQuery = @"
@@ -1288,12 +1142,6 @@ namespace GuardeSoftwareAPI.Services.payment
             await updateCommand.ExecuteNonQueryAsync();
 
             return smartConcept;
-        }
-
-        private static bool IsInterestMovement(string? concept)
-        {
-            return !string.IsNullOrWhiteSpace(concept)
-                && concept.StartsWith("Interés por mora", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string ComposeSmartPaymentConcept(
@@ -1343,25 +1191,6 @@ namespace GuardeSoftwareAPI.Services.payment
             }
 
             return result.Length <= 255 ? result : result[..255];
-        }
-
-        private sealed class LatePaymentProjection
-        {
-            public decimal LateRentBase { get; init; }
-            public decimal UnpaidInterestsAfterPayment { get; init; }
-        }
-
-        private sealed class LatePaymentComponent
-        {
-            public DateTime Month { get; init; }
-            public decimal UnpaidInterest { get; set; }
-            public decimal UnpaidRent { get; set; }
-        }
-
-        private sealed class DebitAllocationComponent
-        {
-            public string Concept { get; init; } = string.Empty;
-            public decimal Remaining { get; set; }
         }
 
         private sealed class PaymentConceptAllocation

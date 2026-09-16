@@ -2,6 +2,9 @@ namespace GuardeSoftwareAPI.Dtos.Client
 {
     public class RentalAmountHistoryItemDto
     {
+        public string? OldPaymentMethod { get; set; }
+        public string? NewPaymentMethod { get; set; }
+        public decimal? PreviousAmount { get; set; }
         public int Id { get; set; }
         public decimal Amount { get; set; }
         public DateTime StartDate { get; set; }

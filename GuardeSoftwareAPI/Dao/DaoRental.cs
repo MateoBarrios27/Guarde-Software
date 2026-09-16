@@ -316,11 +316,7 @@ namespace GuardeSoftwareAPI.Dao
                         ISNULL(cmb.interests, 0) AS interests,
                         ISNULL(cmb.monthly_debits, 0) AS monthly_debits,
                         -- Cascada: saldo anterior -> intereses -> alquiler del mes.
-                        CASE 
-                            WHEN ISNULL(cmb.monthly_debits, 0) > applied.AppliedToRent
-                                THEN ISNULL(cmb.monthly_debits, 0) - applied.AppliedToRent
-                            ELSE 0
-                        END AS UnpaidMonthlyDebits,
+                        ISNULL(cmb.unpaid_rent, 0) AS UnpaidMonthlyDebits,
                         ROW_NUMBER() OVER(
                             PARTITION BY cmb.rental_id
                             ORDER BY monthInfo.MonthValue DESC, cmb.id DESC
@@ -330,42 +326,17 @@ namespace GuardeSoftwareAPI.Dao
                         SELECT MonthValue = TRY_CONVERT(int, RIGHT(cmb.month_year, 4)) * 100
                                           + TRY_CONVERT(int, LEFT(cmb.month_year, 2))
                     ) monthInfo
-                    CROSS APPLY (
-                        SELECT AppliedAfterPrevious = CASE
-                            WHEN ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0) > ISNULL(cmb.previous_balance, 0)
-                                THEN ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0) - ISNULL(cmb.previous_balance, 0)
-                            ELSE 0
-                        END
-                    ) afterPrevious
-                    CROSS APPLY (
-                        SELECT AppliedToRent = CASE
-                            WHEN afterPrevious.AppliedAfterPrevious > ISNULL(cmb.interests, 0)
-                                THEN afterPrevious.AppliedAfterPrevious - ISNULL(cmb.interests, 0)
-                            ELSE 0
-                        END
-                    ) applied
                     WHERE monthInfo.MonthValue <= YEAR(GETDATE()) * 100 + MONTH(GETDATE())
                 ),
                 UnpaidInterests AS (
                     SELECT 
                         cmb.rental_id,
-                        ISNULL(SUM(CASE
-                            WHEN ISNULL(cmb.interests, 0) > applied.AppliedAfterPrevious
-                                THEN ISNULL(cmb.interests, 0) - applied.AppliedAfterPrevious
-                            ELSE 0
-                        END), 0) AS TotalUnpaidInterests
+                        ISNULL(SUM(cmb.unpaid_interests), 0) AS TotalUnpaidInterests
                     FROM client_month_balances cmb
                     CROSS APPLY (
                         SELECT MonthValue = TRY_CONVERT(int, RIGHT(cmb.month_year, 4)) * 100
                                           + TRY_CONVERT(int, LEFT(cmb.month_year, 2))
                     ) monthInfo
-                    CROSS APPLY (
-                        SELECT AppliedAfterPrevious = CASE
-                            WHEN ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0) > ISNULL(cmb.previous_balance, 0)
-                                THEN ISNULL(cmb.paid, 0) + ISNULL(cmb.advanced_payment, 0) - ISNULL(cmb.previous_balance, 0)
-                            ELSE 0
-                        END
-                    ) applied
                     WHERE monthInfo.MonthValue <= YEAR(GETDATE()) * 100 + MONTH(GETDATE())
                     GROUP BY cmb.rental_id
                 )
@@ -495,7 +466,7 @@ namespace GuardeSoftwareAPI.Dao
                     r.months_unpaid,
                     r.pending_surcharge AS PendingSurcharge,
                     ISNULL(step1.UI_Balance, 0) AS balance,
-                    ISNULL(latest_cmb.PrevBalDB, 0) AS PreviousBalance,
+                    -ISNULL(rawData.Raw_PrevBal, 0) AS PreviousBalance,
                     ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS CurrentRent,
                     ISNULL(ll.LockerIdentifiers, '') AS locker_identifiers,
                     ISNULL(step1.UI_InterestAmount, 0) AS InterestAmount,
@@ -505,6 +476,13 @@ namespace GuardeSoftwareAPI.Dao
                 INNER JOIN clients c ON r.client_id = c.client_id
                 LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
                 LEFT JOIN LockerList ll ON r.rental_id = ll.rental_id
+                OUTER APPLY (
+                    SELECT LastTouchedRentMonth = MAX(TRY_CONVERT(date, '01/' + cmb.month_year, 103))
+                    FROM client_month_balances cmb
+                    WHERE cmb.rental_id = r.rental_id
+                      AND ISNULL(cmb.monthly_debits, 0) > 0
+                      AND ISNULL(cmb.unpaid_rent, 0) < ISNULL(cmb.monthly_debits, 0)
+                ) lastTouchedRent
                 OUTER APPLY (
                     SELECT TOP 1
                         PrevBalDB = ISNULL(cmb.previous_balance, 0),
@@ -524,26 +502,17 @@ namespace GuardeSoftwareAPI.Dao
                         AdvPayDB = ISNULL(cmb.advanced_payment, 0)
                     FROM client_month_balances cmb
                     WHERE cmb.rental_id = r.rental_id
-                    ORDER BY
-                        CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN 0 ELSE 1 END ASC,
-                        CASE WHEN (cmb.balance - cmb.paid - cmb.advanced_payment) > 0 THEN cmb.id ELSE -cmb.id END ASC
+                    ORDER BY cmb.id DESC
                 ) db
                 OUTER APPLY (
                     SELECT 
+                        Raw_PrevBal = ISNULL((
+                            SELECT SUM(cmb2.unpaid_rent)
+                            FROM client_month_balances cmb2
+                            WHERE cmb2.rental_id = r.rental_id AND cmb2.id < db.Id
+                        ), 0),
                         Raw_Interest = ISNULL((
-                            SELECT SUM(CASE
-                                WHEN ISNULL(cmb2.interests, 0) > CASE
-                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
-                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
-                                    ELSE 0
-                                END
-                                THEN ISNULL(cmb2.interests, 0) - CASE
-                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
-                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
-                                    ELSE 0
-                                END
-                                ELSE 0
-                            END)
+                            SELECT SUM(cmb2.unpaid_interests)
                             FROM client_month_balances cmb2
                             WHERE cmb2.rental_id = r.rental_id AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
                         ), 0)
@@ -560,16 +529,13 @@ namespace GuardeSoftwareAPI.Dao
                               END
                         ),
                         UI_InterestAmount = rawData.Raw_Interest,
-                        LastBalanceDate = CASE 
-                            WHEN latest_cmb.MonthYearDB IS NOT NULL AND LEN(latest_cmb.MonthYearDB) = 7 THEN
-                                CASE 
-                                    WHEN latest_cmb.NetBalance <= 0 THEN 
-                                        DATEADD(month, 1, DATEFROMPARTS(CAST(RIGHT(latest_cmb.MonthYearDB, 4) AS INT), CAST(LEFT(latest_cmb.MonthYearDB, 2) AS INT), 1))
-                                    ELSE
-                                        DATEFROMPARTS(CAST(RIGHT(ISNULL(db.MonthYearDB, latest_cmb.MonthYearDB), 4) AS INT), CAST(LEFT(ISNULL(db.MonthYearDB, latest_cmb.MonthYearDB), 2) AS INT), 1)
-                                END
-                            ELSE NULL 
-                        END
+                        LastBalanceDate = (
+                            SELECT MAX(candidate.PaymentMonth)
+                            FROM (VALUES
+                                (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
+                                (DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth))
+                            ) candidate(PaymentMonth)
+                        )
                 ) step1
                 WHERE r.active = 1
                 AND (r.months_unpaid > 0 OR ISNULL(step1.UI_Balance, 0) < 0);";

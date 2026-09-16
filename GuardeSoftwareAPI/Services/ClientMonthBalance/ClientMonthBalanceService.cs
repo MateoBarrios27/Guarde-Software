@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Services.payment;
 using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Services.clientMonthBalance
@@ -56,106 +57,11 @@ namespace GuardeSoftwareAPI.Services.clientMonthBalance
             if (rentalId <= 0) throw new ArgumentException("Invalid rental ID.", nameof(rentalId));
 
             var movements = await GetMovementsAsync(rentalId, connection, transaction);
-            var debitBuckets = BuildDebitBuckets(movements);
-            var credits = BuildCredits(movements);
-
-            var rebuiltRows = ApplyCreditsChronologically(debitBuckets, credits);
+            var rebuiltRows = PaymentAllocationEngine.Allocate(movements).Rows;
             await ReplaceBalancesAsync(rentalId, rebuiltRows, connection, transaction);
         }
 
-        private static SortedDictionary<DateTime, ClientMonthBalance> BuildDebitBuckets(IEnumerable<AccountMovement> movements)
-        {
-            var buckets = new SortedDictionary<DateTime, ClientMonthBalance>();
-
-            foreach (var movement in movements.Where(m => string.Equals(m.MovementType, "DEBITO", StringComparison.OrdinalIgnoreCase)))
-            {
-                var monthStart = ResolveMonthStart(movement);
-                if (!buckets.TryGetValue(monthStart, out var bucket))
-                {
-                    bucket = new ClientMonthBalance
-                    {
-                        MonthYear = monthStart.ToString("MM/yyyy"),
-                        PreviousBalance = 0m,
-                        Interests = 0m,
-                        MonthlyDebits = 0m,
-                        Paid = 0m,
-                        AdvancedPayment = 0m
-                    };
-                    buckets[monthStart] = bucket;
-                }
-
-                if (IsInterestConcept(movement.Concept))
-                    bucket.Interests += movement.Amount;
-                else
-                    bucket.MonthlyDebits += movement.Amount;
-            }
-
-            return buckets;
-        }
-
-        private static List<CreditLedger> BuildCredits(IEnumerable<AccountMovement> movements)
-        {
-            return movements
-                .Where(m => string.Equals(m.MovementType, "CREDITO", StringComparison.OrdinalIgnoreCase))
-                .Select(m => new CreditLedger
-                {
-                    Remaining = m.Amount,
-                    CreditMonth = new DateTime(m.MovementDate.Year, m.MovementDate.Month, 1)
-                })
-                .Where(c => c.Remaining > 0)
-                .OrderBy(c => c.CreditMonth)
-                .ToList();
-        }
-
-        private static List<ClientMonthBalance> ApplyCreditsChronologically(
-            SortedDictionary<DateTime, ClientMonthBalance> debitBuckets,
-            List<CreditLedger> credits)
-        {
-            var result = new List<ClientMonthBalance>();
-            var orderedMonths = debitBuckets.Keys.OrderBy(d => d).ToList();
-            var creditIndex = 0;
-            decimal carryDebt = 0m;
-
-            foreach (var monthStart in orderedMonths)
-            {
-                var row = debitBuckets[monthStart];
-                row.PreviousBalance = carryDebt;
-                row.Balance = row.PreviousBalance + row.Interests + row.MonthlyDebits;
-                row.Paid = 0m;
-                row.AdvancedPayment = 0m;
-
-                var outstanding = row.Balance;
-                while (outstanding > 0 && creditIndex < credits.Count)
-                {
-                    var credit = credits[creditIndex];
-                    if (credit.Remaining <= 0)
-                    {
-                        creditIndex++;
-                        continue;
-                    }
-
-                    var applied = Math.Min(outstanding, credit.Remaining);
-                    if (monthStart > credit.CreditMonth)
-                        row.AdvancedPayment += applied;
-                    else
-                        row.Paid += applied;
-
-                    outstanding -= applied;
-                    credit.Remaining -= applied;
-
-                    if (credit.Remaining <= 0)
-                        creditIndex++;
-                }
-
-                carryDebt = Math.Max(0m, row.Balance - row.Paid - row.AdvancedPayment);
-                row.Balance = row.PreviousBalance + row.Interests + row.MonthlyDebits;
-                result.Add(row);
-            }
-
-            return result;
-        }
-
-        private static DateTime ResolveMonthStart(AccountMovement movement)
+        internal static DateTime ResolveMonthStart(AccountMovement movement)
         {
             if (!string.IsNullOrWhiteSpace(movement.Concept))
             {
@@ -174,7 +80,7 @@ namespace GuardeSoftwareAPI.Services.clientMonthBalance
             return new DateTime(movement.MovementDate.Year, movement.MovementDate.Month, 1);
         }
 
-        private static bool IsInterestConcept(string? concept)
+        internal static bool IsInterestConcept(string? concept)
         {
             var normalized = Normalize(concept ?? string.Empty);
             return normalized.Contains("interes por mora", StringComparison.Ordinal);
@@ -217,7 +123,7 @@ namespace GuardeSoftwareAPI.Services.clientMonthBalance
             return builder.ToString().Normalize(NormalizationForm.FormC);
         }
 
-        private async Task<List<AccountMovement>> GetMovementsAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
+        internal static async Task<List<AccountMovement>> GetMovementsAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
         {
             const string query = @"
                 SELECT movement_id, rental_id, movement_date, movement_type, concept, amount, payment_id
@@ -262,9 +168,9 @@ namespace GuardeSoftwareAPI.Services.clientMonthBalance
 
             const string insertQuery = @"
                 INSERT INTO client_month_balances
-                (rental_id, month_year, previous_balance, interests, monthly_debits, balance, paid, advanced_payment)
+                (rental_id, month_year, previous_balance, interests, monthly_debits, balance, paid, advanced_payment, allocated_interests, allocated_rent)
                 VALUES
-                (@rental_id, @month_year, @previous_balance, @interests, @monthly_debits, @balance, @paid, @advanced_payment);";
+                (@rental_id, @month_year, @previous_balance, @interests, @monthly_debits, @balance, @paid, @advanced_payment, @allocated_interests, @allocated_rent);";
 
             foreach (var balance in balances)
             {
@@ -277,14 +183,11 @@ namespace GuardeSoftwareAPI.Services.clientMonthBalance
                 insertCommand.Parameters.Add(new SqlParameter("@balance", SqlDbType.Decimal) { Precision = 18, Scale = 2, Value = balance.Balance });
                 insertCommand.Parameters.Add(new SqlParameter("@paid", SqlDbType.Decimal) { Precision = 18, Scale = 2, Value = balance.Paid });
                 insertCommand.Parameters.Add(new SqlParameter("@advanced_payment", SqlDbType.Decimal) { Precision = 18, Scale = 2, Value = balance.AdvancedPayment });
+                insertCommand.Parameters.Add(new SqlParameter("@allocated_interests", SqlDbType.Decimal) { Precision = 18, Scale = 2, Value = balance.AllocatedInterests ?? 0m });
+                insertCommand.Parameters.Add(new SqlParameter("@allocated_rent", SqlDbType.Decimal) { Precision = 18, Scale = 2, Value = balance.AllocatedRent ?? 0m });
                 await insertCommand.ExecuteNonQueryAsync();
             }
         }
 
-        private sealed class CreditLedger
-        {
-            public DateTime CreditMonth { get; set; }
-            public decimal Remaining { get; set; }
-        }
     }
 }

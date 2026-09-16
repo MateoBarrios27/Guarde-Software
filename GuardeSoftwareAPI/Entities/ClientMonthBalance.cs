@@ -11,5 +11,11 @@ namespace GuardeSoftwareAPI.Entities
         public decimal Balance { get; set; }
         public decimal Paid { get; set; }
         public decimal AdvancedPayment { get; set; }
+        public decimal? AllocatedInterests { get; set; }
+        public decimal? AllocatedRent { get; set; }
+        public decimal UnpaidInterests => Math.Max(0m, Interests - (AllocatedInterests
+            ?? Math.Max(0m, Paid + AdvancedPayment - PreviousBalance)));
+        public decimal UnpaidRent => Math.Max(0m, MonthlyDebits - (AllocatedRent
+            ?? Math.Max(0m, Paid + AdvancedPayment - PreviousBalance - Interests)));
     }
 }

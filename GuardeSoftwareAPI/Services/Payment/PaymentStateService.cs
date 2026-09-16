@@ -57,7 +57,7 @@ namespace GuardeSoftwareAPI.Services.payment
 
                 var rentalId = await AppendRentalStateAsync(clientId, connection, transaction, lockHint, fingerprint);
                 await AppendRowsAsync(
-                    $@"SELECT id, month_year, previous_balance, interests, monthly_debits, balance, paid, advanced_payment
+                    $@"SELECT id, month_year, previous_balance, interests, monthly_debits, balance, paid, advanced_payment, allocated_interests, allocated_rent
                        FROM client_month_balances{lockHint}
                        WHERE rental_id = @rentalId
                        ORDER BY id",

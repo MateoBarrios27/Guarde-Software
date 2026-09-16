@@ -165,10 +165,31 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<bool> IsDebitAlreadyCreatedAsync(int rentalId, string concept, SqlConnection conn, SqlTransaction trans)
         {
-            string query = "SELECT COUNT(1) FROM account_movements WHERE rental_id = @rental_id AND movement_type = 'DEBITO' AND concept LIKE @concept + '%'";
+            const string query = @"
+                DECLARE @lockResult INT;
+                EXEC @lockResult = sp_getapplock
+                    @Resource = @resource,
+                    @LockMode = 'Exclusive',
+                    @LockOwner = 'Transaction',
+                    @LockTimeout = 15000,
+                    @DbPrincipal = 'public';
+
+                IF @lockResult < 0
+                    THROW 51000, 'No se pudo bloquear la generación del débito mensual.', 1;
+
+                SELECT COUNT(1)
+                FROM account_movements
+                WHERE rental_id = @rental_id
+                  AND movement_type = 'DEBITO'
+                  AND concept LIKE @concept + '%';";
+
             using var cmd = new SqlCommand(query, conn, trans);
-            cmd.Parameters.AddWithValue("@rental_id", rentalId);
-            cmd.Parameters.AddWithValue("@concept", concept);
+            cmd.Parameters.Add(new SqlParameter("@resource", SqlDbType.NVarChar, 255)
+            {
+                Value = $"rent-debit:{rentalId}:{concept.Trim().ToUpperInvariant()}"
+            });
+            cmd.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+            cmd.Parameters.Add(new SqlParameter("@concept", SqlDbType.NVarChar, 255) { Value = concept });
             var count = await cmd.ExecuteScalarAsync();
             return Convert.ToInt32(count) > 0;
         }

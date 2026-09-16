@@ -26,6 +26,7 @@ import { DeleteConfirmationService } from '../../shared/services/delete-confirma
 import { PaymentCompletedNotice, PaymentPresenceService, PaymentPresenceUser } from '../../core/services/payment-presence/payment-presence.service';
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 import { CommunicationService, ReceiptDeliveryResult } from '../../core/services/communication-service/communication.service';
+import { projectLatePaymentSurcharge } from '../../core/utils/late-payment-surcharge';
 
 export interface DetailedPaymentView extends DetailedPaymentDTO {
   groupPos?: 'start' | 'middle' | 'end' | 'none';
@@ -1295,6 +1296,20 @@ export class FinancesComponent implements OnInit, OnDestroy {
     const breakdown = this.buildPaymentMonthBreakdown();
     if (breakdown.length > 0) {
       this.paymentMonthBreakdown = breakdown;
+      // The first amount includes all outstanding debt. Show its components in
+      // payment order instead of labelling a payment of old debt as current rent.
+      if (this.selectedClientBalance < 0) {
+        const first = breakdown[0];
+        const previous = Math.min(first.amount, Math.max(0, -Number(this.selectedClientPreviousBalance || 0)));
+        const interests = Math.min(Math.max(0, first.amount - previous), Math.max(0, Number(this.selectedInterestAmount || 0)));
+        const rent = Math.max(0, first.amount - previous - interests);
+        return [
+          { ...first, label: 'Saldo anterior', amount: previous },
+          { ...first, label: 'Intereses pendientes', amount: interests },
+          { ...first, label: `Abono ${first.label}`, amount: rent },
+          ...breakdown.slice(1)
+        ].filter(item => item.amount > 0);
+      }
       return breakdown;
     }
 
@@ -1478,23 +1493,40 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
   calculateInterestAmount(): number {
     const scenario = this.getSurchargeScenario();
-    if (scenario === 'A' || scenario === 'B') {
+    if (scenario === 'A') {
       return this.selectedPendingSurcharge;
     }
-    if (scenario === 'C') {
-      if (this.customScenarioCInterest !== null) {
-        return this.customScenarioCInterest;
-      }
-      const baseImponible = (this.selectedInterestAmount || 0) + (this.selectedClientRentAmount || 0);
-      const rawPenalty = baseImponible * 0.10;
-      return Math.floor(rawPenalty / 100) * 100;
+    if (scenario === 'B' && this.surchargeAmountWasOverridden) {
+      return this.selectedPendingSurcharge;
+    }
+    if (scenario === 'C' && this.customScenarioCInterest !== null) {
+      return this.customScenarioCInterest;
+    }
+    if (scenario === 'B' || scenario === 'C') {
+      return this.getProjectedLatePaymentSurcharge().surchargeAmount;
     }
     return 0;
   }
 
+  private getProjectedLatePaymentSurcharge() {
+    const payment = this.getCalculatedAmounts(
+      this.paymentDto.amount,
+      this.paymentDto.paymentMethodId,
+      this.selectedPreferredPaymentId
+    );
+    return projectLatePaymentSurcharge(
+      Math.max(0, -Number(this.selectedClientPreviousBalance || 0)),
+      Number(this.selectedInterestAmount || 0),
+      Number(this.selectedClientRentAmount || 0),
+      payment.equivalentDebtPaid
+    );
+  }
+
   modifyInterestAmount(fromSummary: boolean = false): void {
     const scenario = this.getSurchargeScenario();
-    const currentAmt = (scenario === 'C') ? this.calculateInterestAmount() : (this.selectedPendingSurcharge || 0);
+    const currentAmt = (scenario === 'B' || scenario === 'C')
+      ? this.calculateInterestAmount()
+      : (this.selectedPendingSurcharge || 0);
 
     Swal.fire({
       title: 'Modificar Monto de Recargo / Interés',
@@ -2231,10 +2263,10 @@ export class FinancesComponent implements OnInit, OnDestroy {
           <div class="flex items-start justify-between gap-3 border-b border-amber-200/60 pb-2.5">
             <div>
               <h4 class="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
-                <span>Recargo por mora pendiente (${formatARS(this.selectedPendingSurcharge)})</span>
+                <span>Recargo por mora a aplicar (${formatARS(interestAmt)})</span>
                 <button type="button" id="swal-edit-interest-btn-b" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Modificar monto</button>
               </h4>
-              <p class="text-xs text-amber-700 mt-0.5">Monto previo al pago. Al confirmar, el servidor lo recalcula según qué intereses queden realmente impagos. Seleccioná cómo aplicarlo:</p>
+              <p class="text-xs text-amber-700 mt-0.5">Monto registrado al vencer: ${formatARS(this.selectedPendingSurcharge)}. La proyección ya descuenta los intereses que este pago cancela por cascada. Seleccioná cómo aplicarlo:</p>
             </div>
             <span class="bg-amber-100/90 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día > 10</span>
           </div>
@@ -2254,7 +2286,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
           </div>
         </div>`;
     } else if (scenario === 'C') {
-      const baseImp = (this.selectedInterestAmount || 0) + (this.selectedClientRentAmount || 0);
+      const baseImp = this.getProjectedLatePaymentSurcharge().taxableBase;
       surchargeBannerHtml = `
         <div class="bg-amber-50/90 border border-amber-200/80 p-4 rounded-xl mb-4 text-left shadow-2xs space-y-3">
           <div class="flex items-start justify-between gap-3 border-b border-amber-200/60 pb-2.5">
@@ -2263,7 +2295,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
                 <span>Aplicar intereses por mora (${formatARS(interestAmt)})</span>
                 <button type="button" id="swal-edit-interest-btn-c" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Modificar monto</button>
               </h4>
-              <p class="text-xs text-amber-700 mt-0.5">Fecha posterior al día 10. Estimación: 10% de base imponible (${formatARS(baseImp)}); se ajusta con la cascada real al confirmar.</p>
+              <p class="text-xs text-amber-700 mt-0.5">Fecha posterior al día 10. Base proyectada después de aplicar la cascada del pago: ${formatARS(baseImp)}.</p>
             </div>
             <label class="flex items-center gap-2 cursor-pointer shrink-0 pt-1">
               <input type="checkbox" id="swal-apply-scenario-c" ${this.applyScenarioCInterest ? 'checked' : ''} class="rounded text-amber-600 focus:ring-amber-500 w-4 h-4">
@@ -2552,7 +2584,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
       amount = this.selectedPendingSurcharge;
     } else if (scenario === 'B') {
       action = this.selectedSurchargeAction;
-      amount = this.selectedPendingSurcharge;
+      amount = this.calculateInterestAmount();
     } else if (scenario === 'C') {
       if (this.applyScenarioCInterest) {
         action = this.selectedSurchargeAction;

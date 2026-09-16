@@ -35,6 +35,7 @@ export interface ClientDetailDTO{
     interestAmount?: number;
     paymentStatus: string;
     rentAmount: number;
+    currentRentAmount?: number;
     totalPaid?: number;
 
     //locker info
