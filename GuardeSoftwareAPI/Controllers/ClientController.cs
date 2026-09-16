@@ -34,6 +34,21 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpGet("{id}/payment-method-change")]
+        public async Task<IActionResult> GetPaymentMethodChangeContext(int id)
+        {
+            try { return Ok(await _clientService.GetPaymentMethodChangeContextAsync(id)); }
+            catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+        }
+
+        [HttpPost("{id}/payment-method-change")]
+        public async Task<IActionResult> ChangePaymentMethod(int id, [FromBody] ChangePaymentMethodDto request)
+        {
+            try { return Ok(new { message = await _clientService.ChangePaymentMethodAsync(id, request) }); }
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+            catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<Client>> GetClientById(int id)
         {

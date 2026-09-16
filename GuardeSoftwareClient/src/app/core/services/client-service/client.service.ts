@@ -41,6 +41,16 @@ export class ClientService {
     );
   }
 
+  public getPaymentMethodChangeContext(id: number): Observable<PaymentMethodChangeContext> {
+    return this.httpClient.get<PaymentMethodChangeContext>(`${this.url}/Client/${id}/payment-method-change`);
+  }
+
+  public changePaymentMethod(id: number, context: PaymentMethodChangeContext, paymentMethodId: number, amount: number): Observable<{ message: string }> {
+    return this.httpClient.post<{ message: string }>(`${this.url}/Client/${id}/payment-method-change`, {
+      paymentMethodId, amount, expectedPaymentMethodId: context.paymentMethodId, expectedAmount: context.amount
+    }).pipe(tap(() => this.dataRefresh.notify(['clients', 'finances'], null)));
+  }
+
   public updateClient(id: number, dto: CreateClientDTO): Observable<any> {
     return this.httpClient.put<any>(`${this.url}/Client/${id}`, dto).pipe(
       tap(() => this.dataRefresh.notify(['clients', 'lockers', 'finances'])),
@@ -286,7 +296,10 @@ export interface RentalAmountHistoryItem {
   amount: number;
   startDate: string;
   endDate?: string;
-  status: 'active' | 'planned' | 'past';
+  status: 'active' | 'planned' | 'past' | 'event';
+  oldPaymentMethod?: string;
+  newPaymentMethod?: string;
+  previousAmount?: number;
 }
 
 export interface ClientDepartureProportionalPreview {
@@ -294,4 +307,12 @@ export interface ClientDepartureProportionalPreview {
   proportionalAmount: number;
   daysToCharge: number;
   daysInMonth: number;
+}
+
+export interface PaymentMethodChangeContext {
+  paymentMethodId: number;
+  paymentMethodName: string;
+  commission: number;
+  amount: number;
+  nextIncreaseDate?: string;
 }

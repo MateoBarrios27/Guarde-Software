@@ -530,15 +530,20 @@
 
                 <div *ngFor="let item of rentalAmountHistory; let last = last"
                      class="relative flex gap-4 pb-4">
+                  <div *ngIf="item.status === 'event'" class="ml-7 w-full border-t border-gray-300 pt-3 pb-2 text-sm text-gray-600">
+                    <span class="text-xs text-gray-500">{{ item.startDate | date:'dd/MM/yyyy HH:mm' }}</span>
+                    <p>Se cambió el método de pago de <strong>{{ item.oldPaymentMethod }}</strong> a <strong>{{ item.newPaymentMethod }}</strong>.</p>
+                    <p class="mt-1 text-xs">Abono: {{ item.previousAmount | currency:'ARS':'symbol-narrow':'1.2-2' }} → {{ item.amount | currency:'ARS':'symbol-narrow':'1.2-2' }}</p>
+                  </div>
 
                   <!-- Dot -->
-                  <div class="flex-shrink-0 mt-3">
+                  <div *ngIf="item.status !== 'event'" class="flex-shrink-0 mt-3">
                     <span class="block w-[10px] h-[10px] rounded-full border-2 border-white shadow-sm"
                           [ngClass]="getAbonoDotClass(item.status)"></span>
                   </div>
 
                   <!-- Card -->
-                  <div class="flex-1 bg-white border rounded-xl px-4 py-3 shadow-sm"
+                  <div *ngIf="item.status !== 'event'" class="flex-1 bg-white border rounded-xl px-4 py-3 shadow-sm"
                        [class.border-emerald-200]="item.status === 'active'"
                        [class.border-blue-200]="item.status === 'planned'"
                        [class.border-gray-200]="item.status === 'past'">

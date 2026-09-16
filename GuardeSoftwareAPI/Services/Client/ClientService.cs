@@ -29,7 +29,7 @@ using GuardeSoftwareAPI.Utils; // <- EL HELPER QUE ACABAMOS DE CREAR
 namespace GuardeSoftwareAPI.Services.client
 {
 
-    public class ClientService : IClientService
+    public partial class ClientService : IClientService
     {
         private readonly DaoClient daoClient;
         private readonly IAddressService addressService;
@@ -584,7 +584,19 @@ namespace GuardeSoftwareAPI.Services.client
                     Status = status
                 });
             }
-            return result;
+            var events = await accessDB.GetTableAsync("payment_method_changes", @"
+                SELECT id, changed_at, old_method_name, new_method_name, old_amount, new_amount
+                FROM client_payment_method_changes WHERE rental_id = @rentalId",
+                new[] { new SqlParameter("@rentalId", rentalId) });
+            foreach (DataRow row in events.Rows)
+                result.Add(new RentalAmountHistoryItemDto {
+                    Id = -Convert.ToInt32(row["id"]), Status = "event",
+                    StartDate = Convert.ToDateTime(row["changed_at"]), Amount = Convert.ToDecimal(row["new_amount"]),
+                    PreviousAmount = Convert.ToDecimal(row["old_amount"]),
+                    OldPaymentMethod = row["old_method_name"].ToString(), NewPaymentMethod = row["new_method_name"].ToString()
+                });
+            return result.OrderByDescending(item => item.Status == "active")
+                .ThenByDescending(item => item.StartDate).ThenByDescending(item => Math.Abs(item.Id)).ToList();
         }
 
         public async Task AddClientRentalAmountEntryAsync(int clientId, decimal amount, int year, int month)
@@ -879,6 +891,7 @@ namespace GuardeSoftwareAPI.Services.client
                 InterestAmount = row["interest_amount"] != DBNull.Value ? Convert.ToDecimal(row["interest_amount"]) : 0m,
                 PaymentStatus = row["payment_status"]?.ToString() ?? "Desconocido",
                 RentAmount = row["rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["rent_amount"]) : 0m,
+                CurrentRentAmount = row["current_rent_amount"] != DBNull.Value ? Convert.ToDecimal(row["current_rent_amount"]) : 0m,
 
                 // Other information
                 Notes = row["notes"]?.ToString() ?? string.Empty,
@@ -970,6 +983,8 @@ namespace GuardeSoftwareAPI.Services.client
                     {
                         var existingClient = await daoClient.GetClientByIdTransactionAsync(id, connection, transaction);
                         if (existingClient == null) return false;
+                        if (dto.PreferredPaymentMethodId.HasValue && dto.PreferredPaymentMethodId != existingClient.PreferredPaymentMethodId)
+                            throw new InvalidOperationException("Usá Cambiar método de pago para actualizar el método y su abono.");
 
                         if (!string.IsNullOrWhiteSpace(dto.Dni) && await daoClient.ExistsByDniAsync(dto.Dni, id, connection, transaction))
                             throw new InvalidOperationException("Ya existe otro cliente con este DNI.");
@@ -1050,7 +1065,17 @@ namespace GuardeSoftwareAPI.Services.client
                         {
                             var lastAmountHistory = await rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(currentRental.Id, connection, transaction);
                             
-                            if (lastAmountHistory != null && dto.Amount != lastAmountHistory.Amount)
+                            decimal? currentAmount = null;
+                            using (var currentAmountCommand = new SqlCommand(@"SELECT TOP 1 amount FROM rental_amount_history
+                                WHERE rental_id = @rentalId AND start_date <= @today
+                                ORDER BY start_date DESC, rental_amount_history_id DESC", connection, transaction))
+                            {
+                                currentAmountCommand.Parameters.AddWithValue("@rentalId", currentRental.Id);
+                                currentAmountCommand.Parameters.AddWithValue("@today", TimeHelper.GetArgentinaTime().Date);
+                                var value = await currentAmountCommand.ExecuteScalarAsync();
+                                if (value != null && value != DBNull.Value) currentAmount = Convert.ToDecimal(value);
+                            }
+                            if (lastAmountHistory != null && dto.Amount != (currentAmount ?? lastAmountHistory.Amount))
                             {
                                 // FIX UTC: Usa la hora de Argentina
                                 DateTime argTime = TimeHelper.GetArgentinaTime();
@@ -1256,6 +1281,22 @@ namespace GuardeSoftwareAPI.Services.client
             return paymentMethodName?.Contains("efectivo", StringComparison.OrdinalIgnoreCase) == true;
         }
 
+        /// <summary>
+        /// Applies the same payment-method unit used by the increase flow:
+        /// cash rounds upward to whole thousands, while bank methods round
+        /// upward to whole hundreds (the last two digits are zero).
+        /// </summary>
+        private static decimal RoundAmountUpForPaymentMethod(
+            decimal amount,
+            string? paymentMethodName)
+        {
+            if (amount <= 0m)
+                return 0m;
+
+            decimal step = IsCashPaymentMethod(paymentMethodName) ? 1000m : 100m;
+            return Math.Ceiling(amount / step) * step;
+        }
+
         private static decimal RoundRentAmountForPaymentMethod(
             decimal targetAmount,
             string? paymentMethodName,
@@ -1271,7 +1312,7 @@ namespace GuardeSoftwareAPI.Services.client
                 return targetAmount;
 
             decimal step = IsCashPaymentMethod(paymentMethodName) ? 1000m : 100m;
-            decimal rounded = Math.Ceiling(targetAmount / step) * step;
+            decimal rounded = RoundAmountUpForPaymentMethod(targetAmount, paymentMethodName);
             decimal currentPercentage = ((rounded - originalRent) / originalRent) * 100m;
 
             // El redondeo nunca puede dejar el aumento efectivo por debajo del

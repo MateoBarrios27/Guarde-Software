@@ -1,3 +1,4 @@
+import { ChangePaymentMethodModalComponent } from '../change-payment-method-modal/change-payment-method-modal.component';
 import {
   Component,
   OnInit,
@@ -45,11 +46,24 @@ import { AuthService } from '../../../core/services/auth-service/auth.service';
 @Component({
   selector: 'app-create-client-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, IconComponent, CurrencyFormatDirective],
+  imports: [CommonModule, ReactiveFormsModule, IconComponent, CurrencyFormatDirective, ChangePaymentMethodModalComponent],
   templateUrl: './create-client-modal.component.html',
   styleUrl: './create-client-modal.component.css',
 })
 export class CreateClientModalComponent implements OnInit, OnChanges {
+  public showMethodChange = false;
+  public methodChangeMessage = '';
+
+  onMethodChanged(result: { method: PaymentMethod; amount: number; message: string }): void {
+    this.newClientForm.patchValue({ metodoPago: result.method, montoManual: result.amount });
+    if (this.clientData) {
+      this.clientData = { ...this.clientData, preferredPaymentMethod: result.method.name, rentAmount: result.amount, currentRentAmount: result.amount };
+      this._clientData = this.clientData;
+    }
+    this.showMethodChange = false;
+    this.methodChangeMessage = `Cambio guardado. ${result.message}`;
+  }
+
   private _clientData: ClientDetailDTO | null = null;
   public isEditMode = false; 
 
@@ -99,6 +113,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     if (changes['clientData'] || changes['isReactivation']) {
         
         // Actualizamos variables locales
+        this.showMethodChange = false;
+        this.methodChangeMessage = '';
         this._clientData = this.clientData;
         this.isEditMode = !!this.clientData;
 
@@ -544,7 +560,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
         metodoPago: matchingPaymentMethod || null,
         direccion: data.address,
         observaciones: data.notes,
-        montoManual: data.rentAmount,
+        montoManual: this.isEditMode && !this.isReactivation ? (data.currentRentAmount ?? data.rentAmount) : data.rentAmount,
         billingTypeId: data.billingTypeId || null,
         isLegacyClient: true, 
         legacyStartDate: this.formatDateToYYYYMMDD(data.registrationDate), 

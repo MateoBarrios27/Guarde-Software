@@ -33,6 +33,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public decimal InterestAmount { get; set; }
         public string PaymentStatus { get; set; } = string.Empty;
         public decimal RentAmount { get; set; }
+        public decimal CurrentRentAmount { get; set; }
         public int? BillingTypeId { get; set; } 
         public string BillingType { get; set; } = string.Empty;
         public decimal TotalPaid { get; set; }

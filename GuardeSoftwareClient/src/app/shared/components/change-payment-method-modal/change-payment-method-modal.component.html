@@ -1,0 +1,36 @@
+<div class="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" (click)="$event.stopPropagation()" (keydown.escape)="!saving && closed.emit(); $event.stopPropagation()">
+  <section role="dialog" aria-modal="true" aria-labelledby="change-method-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" class="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-xl p-6">
+    <div class="flex items-center justify-between gap-4 mb-5">
+      <h2 id="change-method-title" class="text-lg font-semibold text-gray-900">Cambiar método de pago</h2>
+      <button type="button" (click)="closed.emit()" [disabled]="saving" aria-label="Cerrar" class="px-2 py-1 rounded hover:bg-gray-100">✕</button>
+    </div>
+    <p *ngIf="loading" role="status" class="text-sm text-gray-500">Cargando abono y métodos de pago…</p>
+    <p *ngIf="error" role="alert" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
+    <div *ngIf="context && !loading" class="space-y-4">
+      <div class="rounded-lg bg-gray-50 p-4">
+        <p class="text-sm text-gray-600">{{ context.paymentMethodName }} · {{ context.commission }} %</p>
+        <p class="text-xs text-gray-500 mt-2">Abono actual</p>
+        <p class="text-xl font-semibold">{{ context.amount | currency:'ARS':'symbol-narrow':'1.2-2' }}</p>
+      </div>
+      <div>
+        <label for="new-payment-method" class="block text-sm font-medium mb-1">Nuevo método de pago</label>
+        <select id="new-payment-method" [(ngModel)]="methodId" (ngModelChange)="recalculate()" [disabled]="saving" class="w-full p-2 border rounded-lg bg-white">
+          <option [ngValue]="0" disabled>Seleccionar método</option>
+          <option *ngFor="let method of methods" [ngValue]="method.id" [disabled]="method.id === context.paymentMethodId">{{ method.name }} ({{ method.commission }} %)</option>
+        </select>
+      </div>
+      <div>
+        <label for="new-payment-amount" class="block text-sm font-medium mb-1">Nuevo abono</label>
+        <input id="new-payment-amount" type="text" inputmode="decimal" appCurrencyFormat [(ngModel)]="amount" [disabled]="saving" class="w-full p-2 border rounded-lg text-lg font-semibold" />
+        <p *ngIf="methodId" class="text-xs text-gray-500 mt-1">Sugerido: {{ suggestedAmount | currency:'ARS':'symbol-narrow':'1.2-2' }}. Podés editar el importe.</p>
+        <p class="text-xs text-gray-500 mt-2">Próximo aumento: {{ context.nextIncreaseDate ? (context.nextIncreaseDate | date:'MM/yyyy') : 'Sin fecha' }}</p>
+      </div>
+      <p class="text-xs text-gray-600 leading-relaxed">Se ajustará el alquiler del último mes generado si tiene menos del 60 % cubierto. Si alcanzó el 60 % o está saldado, se conservará ese débito. Los aumentos programados mantienen sus fechas e importes.</p>
+      <p class="text-xs text-gray-500">Este cambio se guarda al confirmar, independientemente de los demás datos del formulario de edición.</p>
+    </div>
+    <div class="flex justify-end gap-3 mt-6">
+      <button type="button" (click)="closed.emit()" [disabled]="saving" class="px-4 py-2 rounded-lg border">Cancelar</button>
+      <button type="button" (click)="save()" [disabled]="loading || saving || !valid" class="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50">{{ saving ? 'Guardando…' : 'Confirmar cambio' }}</button>
+    </div>
+  </section>
+</div>

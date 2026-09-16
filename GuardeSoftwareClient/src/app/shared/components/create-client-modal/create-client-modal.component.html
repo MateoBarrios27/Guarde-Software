@@ -112,10 +112,15 @@
             </div>
             <div>
               <label class="text-sm font-medium text-blue-700">Método de Pago *</label>
-              <select formControlName="metodoPago" class="w-full mt-1 p-2 border rounded-md bg-white">
+              <select *ngIf="!isEditMode || isReactivation" formControlName="metodoPago" class="w-full mt-1 p-2 border rounded-md bg-white">
                 <option [ngValue]="null" disabled>Seleccionar método</option>
                 <option *ngFor="let method of paymentMethods" [ngValue]="method">{{ method.name }}</option>
               </select>
+              <div *ngIf="isEditMode && !isReactivation" class="flex items-center gap-2 mt-1">
+                <input type="text" disabled [value]="newClientForm.get('metodoPago')?.value?.name || clientData?.preferredPaymentMethod || 'Sin método'" class="min-w-0 flex-1 p-2 border rounded-md bg-gray-100 text-sm text-gray-600" aria-label="Método de pago actual" />
+                <button type="button" (click)="showMethodChange = true" [disabled]="isLoading" class="shrink-0 px-3 py-2 rounded-md border border-blue-600 text-blue-700 text-sm hover:bg-blue-50">Cambiar método de pago</button>
+              </div>
+              <p *ngIf="methodChangeMessage" role="status" class="mt-2 text-xs text-emerald-700">{{ methodChangeMessage }}</p>
             </div>
           </div>
         </div>
@@ -570,3 +575,6 @@
     </footer>
   </form>
 </div>
+
+<app-change-payment-method-modal *ngIf="showMethodChange && clientData && isEditMode && !isReactivation"
+  [clientId]="clientData.id" (closed)="showMethodChange = false" (saved)="onMethodChanged($event)"></app-change-payment-method-modal>

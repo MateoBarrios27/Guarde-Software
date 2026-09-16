@@ -8,6 +8,8 @@ namespace GuardeSoftwareAPI.Services.client
 
     public interface IClientService
     {
+        Task<PaymentMethodChangeContextDto> GetPaymentMethodChangeContextAsync(int clientId);
+        Task<string> ChangePaymentMethodAsync(int clientId, ChangePaymentMethodDto request);
         Task<List<Client>> GetClientsList();
         Task<List<Client>> GetClientListById(int id);
         Task<int> CreateClientAsync(CreateClientDTO dto);
