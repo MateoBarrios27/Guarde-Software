@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Globalization;
 using Microsoft.AspNetCore.SignalR;
 using GuardeSoftwareAPI.Hubs;
+using GuardeSoftwareAPI.Services.communication;
 namespace GuardeSoftwareAPI.Jobs
 {
     [DisallowConcurrentExecution]
@@ -202,14 +203,38 @@ namespace GuardeSoftwareAPI.Jobs
             {
                 effectiveSettings = new SmtpSettingsModel
                 {
-                    Host = _config["SmtpSettings:Server"],
-                    Port = int.Parse(_config["SmtpSettings:Port"]),
-                    Email = _config["SmtpSettings:SenderEmail"],
-                    Password = _config["SmtpSettings:Password"],
-                    UseSsl = bool.Parse(_config["SmtpSettings:UseSsl"]),
+                    Host = _config["SmtpSettings:Server"] ?? string.Empty,
+                    Port = int.TryParse(_config["SmtpSettings:Port"], out var port) ? port : 465,
+                    Email = _config["SmtpSettings:SenderEmail"] ?? string.Empty,
+                    Password = _config["SmtpSettings:Password"] ?? string.Empty,
+                    UseSsl = !bool.TryParse(_config["SmtpSettings:UseSsl"], out var useSsl) || useSsl,
                     EnableBcc = bool.TryParse(_config["SmtpSettings:EnableBcc"], out var bcc) && bcc,
                     BccEmail = _config["SmtpSettings:BccEmail"] ?? ""
                 };
+            }
+
+            if (string.IsNullOrWhiteSpace(effectiveSettings.Host)
+                || effectiveSettings.Port is < 1 or > 65535
+                || string.IsNullOrWhiteSpace(effectiveSettings.Email)
+                || string.IsNullOrWhiteSpace(effectiveSettings.Password))
+            {
+                const string configurationError = "No hay una configuración SMTP completa para este comunicado. Verificá el servidor, el usuario y la contraseña.";
+                _logger.LogError(
+                    "No se pudo enviar el comunicado {CommunicationId}: la configuración SMTP seleccionada está incompleta.",
+                    communicationId);
+                errorLog.AppendLine(configurationError);
+
+                foreach (var recipient in recipients)
+                {
+                    await LogEmailAttemptAsync(
+                        channel.CommChannelContentId,
+                        recipient,
+                        "Fallido",
+                        configurationError,
+                        isTest: isTestMode);
+                }
+
+                return;
             }
 
             // 3. Obtener Adjuntos
@@ -221,7 +246,10 @@ namespace GuardeSoftwareAPI.Jobs
                 smtp.CheckCertificateRevocation = false;
                 smtp.ServerCertificateValidationCallback = (s, c, h, e) => true;
 
-                await smtp.ConnectAsync(effectiveSettings.Host, effectiveSettings.Port, effectiveSettings.UseSsl);
+                await smtp.ConnectAsync(
+                    effectiveSettings.Host,
+                    effectiveSettings.Port,
+                    SmtpConnectionOptions.Resolve(effectiveSettings));
                 await smtp.AuthenticateAsync(effectiveSettings.Email, effectiveSettings.Password);
 
                 foreach (var recipient in recipients)

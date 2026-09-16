@@ -131,7 +131,11 @@ namespace GuardeSoftwareAPI.Services.communication
                 using var smtp = new SmtpClient();
                 try
                 {
-                    await smtp.ConnectAsync(settings.Host, settings.Port, settings.UseSsl, cancellationToken);
+                    await smtp.ConnectAsync(
+                        settings.Host,
+                        settings.Port,
+                        SmtpConnectionOptions.Resolve(settings),
+                        cancellationToken);
                     await smtp.AuthenticateAsync(settings.Email, settings.Password, cancellationToken);
 
                     foreach (var email in pendingEmails.Values.ToList())

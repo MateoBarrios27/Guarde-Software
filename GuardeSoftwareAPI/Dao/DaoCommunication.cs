@@ -495,6 +495,7 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT DISTINCT
                     c.client_id AS Id,
                     c.payment_identifier AS PaymentIdentifier,
+                    CASE WHEN c.payment_identifier IS NULL THEN 1 ELSE 0 END AS RecipientGroup,
                     c.full_name AS Name,
                     ISNULL((SELECT STRING_AGG(NULLIF(LTRIM(RTRIM(e.address)), ''), ';')
                     FROM emails e 
@@ -572,9 +573,9 @@ namespace GuardeSoftwareAPI.Dao
                     )
                 )
                 ORDER BY
-                    CASE WHEN c.payment_identifier IS NULL THEN 1 ELSE 0 END,
-                    c.payment_identifier ASC,
-                    c.client_id ASC";
+                    RecipientGroup ASC,
+                    PaymentIdentifier ASC,
+                    Id ASC";
             
             var parameters = new[]
             {
@@ -1636,7 +1637,10 @@ namespace GuardeSoftwareAPI.Dao
                         Id = cmb.id,
                         PrevBalDB = ISNULL(cmb.previous_balance, 0),
                         IntsDB = ISNULL(cmb.interests, 0),
-                        RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
+                        RentDB = CASE
+                            WHEN ISNULL(cmb.monthly_debits, 0) = 0 AND ISNULL(cmb.interests, 0) > 0 THEN 0
+                            WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0)
+                            ELSE cmb.monthly_debits END,
                         PaidDB = ISNULL(cmb.paid, 0),
                         AdvPayDB = ISNULL(cmb.advanced_payment, 0),
                         MonthYearDB = cmb.month_year
@@ -1649,43 +1653,13 @@ namespace GuardeSoftwareAPI.Dao
                 OUTER APPLY (
                     SELECT 
                         Raw_PrevBal = ISNULL((
-                            SELECT SUM(
-                                CASE
-                                    WHEN ISNULL(cmb2.monthly_debits, 0) > CASE
-                                        WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
-                                             > ISNULL(cmb2.previous_balance, 0) + ISNULL(cmb2.interests, 0)
-                                        THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
-                                             - ISNULL(cmb2.previous_balance, 0) - ISNULL(cmb2.interests, 0)
-                                        ELSE 0
-                                    END
-                                    THEN ISNULL(cmb2.monthly_debits, 0) - CASE
-                                        WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
-                                             > ISNULL(cmb2.previous_balance, 0) + ISNULL(cmb2.interests, 0)
-                                        THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0)
-                                             - ISNULL(cmb2.previous_balance, 0) - ISNULL(cmb2.interests, 0)
-                                        ELSE 0
-                                    END
-                                    ELSE 0
-                                END
-                            )
+                            SELECT SUM(cmb2.unpaid_rent)
                             FROM client_month_balances cmb2
                             WHERE cmb2.rental_id = r.rental_id AND cmb2.id < db.Id
                         ), 0),
                         
                         Raw_Interest = ISNULL((
-                            SELECT SUM(CASE
-                                WHEN ISNULL(cmb2.interests, 0) > CASE
-                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
-                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
-                                    ELSE 0
-                                END
-                                THEN ISNULL(cmb2.interests, 0) - CASE
-                                    WHEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) > ISNULL(cmb2.previous_balance, 0)
-                                    THEN ISNULL(cmb2.paid, 0) + ISNULL(cmb2.advanced_payment, 0) - ISNULL(cmb2.previous_balance, 0)
-                                    ELSE 0
-                                END
-                                ELSE 0
-                            END)
+                            SELECT SUM(cmb2.unpaid_interests)
                             FROM client_month_balances cmb2
                             WHERE cmb2.rental_id = r.rental_id AND (cmb2.balance - cmb2.paid - cmb2.advanced_payment) > 0
                         ), 0),
@@ -1693,17 +1667,7 @@ namespace GuardeSoftwareAPI.Dao
                         TotalPaid = ISNULL(db.PaidDB, 0) + ISNULL(db.AdvPayDB, 0)
                 ) rawData
 
-                OUTER APPLY (
-                    SELECT Rem1 = CASE WHEN rawData.TotalPaid > rawData.Raw_PrevBal THEN rawData.TotalPaid - rawData.Raw_PrevBal ELSE 0 END
-                ) calc1
-                OUTER APPLY (
-                    SELECT Rem2 = CASE WHEN calc1.Rem1 > db.RentDB THEN calc1.Rem1 - db.RentDB ELSE 0 END
-                ) calc2
-                OUTER APPLY (
-                    SELECT UnpaidInts = CASE WHEN calc2.Rem2 > rawData.Raw_Interest THEN 0 ELSE rawData.Raw_Interest - calc2.Rem2 END
-                ) calc3
-
-                OUTER APPLY (
+OUTER APPLY (
                     SELECT
                         UI_CurrentRent = db.RentDB,
                         UI_InterestAmount = rawData.Raw_Interest,
