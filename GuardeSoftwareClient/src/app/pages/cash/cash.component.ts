@@ -48,6 +48,7 @@ type CashFilterTagGroup = 'payment' | 'amount' | 'replication';
 })
 export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   showReceivablesModal = false;
+  private nextCashClientRowKey = 0;
   
   currentDate = new Date();
   selectedMonth = this.currentDate.getMonth() + 1;
@@ -79,7 +80,12 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Para evitar que el scroll salte al recargar los datos
   trackById(index: number, item: any): number | string {
-    return item.id || index;
+    if (item?.id !== undefined && item?.id !== null && item.id !== 0) {
+      return `cash-item-${item.id}`;
+    }
+
+    const clientKey = item?.__cashClientKey;
+    return clientKey ? `cash-new-${clientKey}` : `cash-index-${index}`;
   }
   
   // Totales dinámicos para el Footer de la Tabla (Cambian con la búsqueda)
@@ -817,6 +823,16 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
         console.log('[Cash] Actualización recibida pero ignorada porque el usuario está editando.');
         return;
       }
+
+      // Una fila recién insertada todavía no tiene ID. Si recargamos por el
+      // evento de SignalR antes de que el usuario la complete, la respuesta
+      // del servidor reemplaza el array local y la fila desaparece o queda
+      // visualmente asociada a otra posición.
+      if (this.items.some(item => !item.id || item.id === 0)) {
+        console.log('[Cash] Actualización recibida pero ignorada porque hay una fila nueva sin guardar.');
+        return;
+      }
+
       console.log('[Cash] Actualización recibida, recargando datos...');
       this.loadData();
     });
@@ -887,29 +903,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  addNewRow(): void {
-  const newItem: CashFlowItem = {
-    date: null as any,
-    description: '',
-    comment: '',
-    depo: null as any, 
-    casa: null as any, 
-    isPaid: false, 
-    retiros: null as any, 
-    extras: null as any,
-    iaia: null as any, 
-    replicationState: 0,
-    color: null as any
-  };
-  
-  this.items.push(newItem);
-  this.searchTerm = ''; 
-  this.searchDateFrom = '';
-  this.searchDateTo = '';
-  this.filterItems();
-}
-
-  insertRowBelow(afterItem: CashFlowItem): void {
+  private createNewCashRow(): CashFlowItem {
     const newItem: CashFlowItem = {
       date: null as any,
       description: '',
@@ -924,6 +918,41 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       color: null as any
     };
 
+    (newItem as any).__cashClientKey = ++this.nextCashClientRowKey;
+    return newItem;
+  }
+
+  private persistCurrentCashItemOrder(): void {
+    // Normalizar también las filas creadas con el botón inferior, que todavía
+    // pueden tener displayOrder = 0 (valor que el backend interpreta como
+    // "agregar al final" durante el upsert).
+    this.items.forEach((item, index) => {
+      item.displayOrder = index + 1;
+      item.rowNum = index + 1;
+    });
+
+    const reorderedItems = this.items
+      .filter(item => item.id && item.id > 0)
+      .map(item => ({ id: item.id!, displayOrder: item.displayOrder ?? 0 }));
+
+    if (reorderedItems.length > 0) {
+      this.cashService.updateItemsOrder(reorderedItems).subscribe();
+    }
+  }
+
+  addNewRow(): void {
+    const newItem = this.createNewCashRow();
+
+    this.items.push(newItem);
+    this.searchTerm = '';
+    this.searchDateFrom = '';
+    this.searchDateTo = '';
+    this.filterItems();
+  }
+
+  insertRowBelow(afterItem: CashFlowItem): void {
+    const newItem = this.createNewCashRow();
+
     // Buscar en el array principal usando referencia directa o por id
     let indexInItems = this.items.indexOf(afterItem);
     if (indexInItems === -1 && afterItem.id) {
@@ -936,11 +965,12 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       this.items.push(newItem);
     }
 
-    // Reasignar displayOrder y rowNum secuencialmente
+    // Reasignar displayOrder y rowNum secuencialmente. El orden persistido es
+    // 1-based porque el backend usa 0 como señal de "agregar al final".
     // IMPORTANTE: no llamar sortItems() acá porque reordenaría el array
     // y deshace el splice. El array ya está en el orden visual correcto.
     this.items.forEach((item, idx) => {
-      item.displayOrder = idx;
+      item.displayOrder = idx + 1;
       item.rowNum = idx + 1;
     });
 
@@ -948,15 +978,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     this.searchDateFrom = '';
     this.searchDateTo = '';
     this.filterItems();
-
-    // Persistir el nuevo orden (solo items ya guardados)
-    const reorderedItems = this.items
-      .filter(item => item.id && item.id > 0)
-      .map(item => ({ id: item.id!, displayOrder: item.displayOrder || 0 }));
-
-    if (reorderedItems.length > 0) {
-      this.cashService.updateItemsOrder(reorderedItems).subscribe();
-    }
   }
 
   toggleReplication(item: CashFlowItem): void {
@@ -1304,6 +1325,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   saveItem(item: CashFlowItem): void {
+    const isNewItem = !item.id || item.id === 0;
     const payloadToSave: CashFlowItem = {
       ...item,
       depo: item.depo || 0,
@@ -1315,6 +1337,13 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.cashService.upsertItem(payloadToSave, this.selectedMonth, this.selectedYear).subscribe(id => {
       item.id = id;
+
+      // Recién ahora la fila tiene una identidad persistida. Guardamos el
+      // orden completo para que la inserción quede exactamente debajo de la
+      // fila desde la que se accionó el botón.
+      if (isNewItem) {
+        this.persistCurrentCashItemOrder();
+      }
     });
   }
 

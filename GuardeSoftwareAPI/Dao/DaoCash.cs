@@ -362,6 +362,13 @@ namespace GuardeSoftwareAPI.Dao
                     LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1
                     LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
                     OUTER APPLY (
+                        SELECT LastTouchedRentMonth = MAX(TRY_CONVERT(date, '01/' + cmb.month_year, 103))
+                        FROM client_month_balances cmb
+                        WHERE cmb.rental_id = r.rental_id
+                          AND ISNULL(cmb.monthly_debits, 0) > 0
+                          AND ISNULL(cmb.unpaid_rent, 0) < ISNULL(cmb.monthly_debits, 0)
+                    ) lastTouchedRent
+                    OUTER APPLY (
                         SELECT TOP 1
                             Id = cmb.id,
                             PrevBalDB = ISNULL(cmb.previous_balance, 0),
@@ -377,11 +384,13 @@ namespace GuardeSoftwareAPI.Dao
                     ) db
                     OUTER APPLY (
                         SELECT 
-                            LastBalanceDate = CASE 
-                                WHEN db.MonthYearDB IS NOT NULL AND LEN(db.MonthYearDB) = 7
-                                THEN DATEFROMPARTS(CAST(RIGHT(db.MonthYearDB, 4) AS INT), CAST(LEFT(db.MonthYearDB, 2) AS INT), 1)
-                                ELSE NULL 
-                            END
+                            LastBalanceDate = (
+                                SELECT MAX(candidate.PaymentMonth)
+                                FROM (VALUES
+                                    (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
+                                    (DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth))
+                                ) candidate(PaymentMonth)
+                            )
                     ) step1
                     WHERE c.active = 1
                 )
