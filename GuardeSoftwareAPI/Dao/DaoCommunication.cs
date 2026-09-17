@@ -1542,17 +1542,7 @@ namespace GuardeSoftwareAPI.Dao
                         WHERE r2.client_id = c.client_id AND r2.active = 1
                     ), 0) AS CurrentRentAmount,
 
-                    -- MOTOR DE CÁLCULO DINÁMICO DE FECHA DE PAGO (INTEGRACIÓN)
-                    CASE 
-                        WHEN latest_cmb.MonthYearDB IS NOT NULL AND LEN(latest_cmb.MonthYearDB) = 7 THEN
-                            CASE 
-                                WHEN latest_cmb.NetBalance <= 0 THEN 
-                                    DATEADD(month, 1, DATEFROMPARTS(CAST(RIGHT(latest_cmb.MonthYearDB, 4) AS INT), CAST(LEFT(latest_cmb.MonthYearDB, 2) AS INT), 1))
-                                ELSE
-                                    DATEFROMPARTS(CAST(RIGHT(ISNULL(db.MonthYearDB, latest_cmb.MonthYearDB), 4) AS INT), CAST(LEFT(ISNULL(db.MonthYearDB, latest_cmb.MonthYearDB), 2) AS INT), 1)
-                            END
-                        ELSE NULL 
-                    END AS NextPaymentDate
+                    nextPayment.NextPaymentDate
 
                 FROM clients c
                 -- Vinculamos el alquiler activo principal para alimentar las relaciones temporales
@@ -1561,23 +1551,22 @@ namespace GuardeSoftwareAPI.Dao
                     FROM rentals 
                     WHERE client_id = c.client_id AND active = 1
                 ) r
-                -- 1. BÚSQUEDA DEL ÚLTIMO MES ABSOLUTO (Para saber hasta dónde pagó o adelantó)
                 OUTER APPLY (
-                    SELECT TOP 1
-                        MonthYearDB = cmb.month_year,
-                        NetBalance = cmb.balance - cmb.paid - cmb.advanced_payment
+                    SELECT LastTouchedRentMonth = MAX(TRY_CONVERT(date, '01/' + cmb.month_year, 103))
                     FROM client_month_balances cmb
                     WHERE cmb.rental_id = r.rental_id
-                    ORDER BY cmb.id DESC
-                ) latest_cmb
-                -- 2. BÚSQUEDA DEL MES ACTIVO (El más antiguo con deuda pendiente)
+                      AND ISNULL(cmb.monthly_debits, 0) > 0
+                      AND ISNULL(cmb.unpaid_rent, 0) < ISNULL(cmb.monthly_debits, 0)
+                ) lastTouchedRent
                 OUTER APPLY (
-                    SELECT TOP 1 MonthYearDB = cmb.month_year
-                    FROM client_month_balances cmb
-                    WHERE cmb.rental_id = r.rental_id
-                      AND (cmb.balance - cmb.paid - cmb.advanced_payment) > 0
-                    ORDER BY cmb.id DESC
-                ) db
+                    SELECT NextPaymentDate = (
+                        SELECT MAX(candidate.PaymentMonth)
+                        FROM (VALUES
+                            (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
+                            (DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth))
+                        ) candidate(PaymentMonth)
+                    )
+                ) nextPayment
                 WHERE c.active = 1
                 ORDER BY c.full_name ASC";
 
