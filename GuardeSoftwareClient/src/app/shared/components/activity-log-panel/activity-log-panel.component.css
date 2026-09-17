@@ -156,9 +156,33 @@
 
 .activity-table td {
   border-bottom: 1px solid #f1f5f9;
-  padding: 0.8rem 0.85rem;
+  padding: 0.68rem 0.85rem;
   vertical-align: middle;
   font-size: 0.78rem;
+}
+
+.activity-date-cell {
+  width: 6.5rem;
+  white-space: nowrap;
+}
+
+.activity-date,
+.activity-time {
+  display: block;
+  line-height: 1.18;
+}
+
+.activity-date {
+  color: #334155;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.activity-time {
+  margin-top: 0.12rem;
+  color: #94a3b8;
+  font-size: 0.69rem;
+  font-weight: 700;
 }
 
 .activity-row:hover td {

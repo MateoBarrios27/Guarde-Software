@@ -231,7 +231,25 @@ namespace GuardeSoftwareAPI.Services.activityLog
                         : string.Empty,
                     UserDisplayName = row.Table.Columns.Contains("user_display_name") && row["user_display_name"] != DBNull.Value
                         ? row["user_display_name"]?.ToString() ?? string.Empty
-                        : string.Empty
+                        : string.Empty,
+                    ClientFullName = row.Table.Columns.Contains("client_full_name") && row["client_full_name"] != DBNull.Value
+                        ? row["client_full_name"]?.ToString() ?? string.Empty
+                        : string.Empty,
+                    ClientPaymentIdentifier = row.Table.Columns.Contains("client_payment_identifier") && row["client_payment_identifier"] != DBNull.Value
+                        ? Convert.ToDecimal(row["client_payment_identifier"])
+                        : null,
+                    PaymentClientFullName = row.Table.Columns.Contains("payment_client_full_name") && row["payment_client_full_name"] != DBNull.Value
+                        ? row["payment_client_full_name"]?.ToString() ?? string.Empty
+                        : string.Empty,
+                    PaymentClientPaymentIdentifier = row.Table.Columns.Contains("payment_client_payment_identifier") && row["payment_client_payment_identifier"] != DBNull.Value
+                        ? Convert.ToDecimal(row["payment_client_payment_identifier"])
+                        : null,
+                    PaymentAmount = row.Table.Columns.Contains("payment_amount") && row["payment_amount"] != DBNull.Value
+                        ? Convert.ToDecimal(row["payment_amount"])
+                        : null,
+                    PaymentDate = row.Table.Columns.Contains("payment_date") && row["payment_date"] != DBNull.Value
+                        ? Convert.ToDateTime(row["payment_date"])
+                        : null
                 });
             }
 

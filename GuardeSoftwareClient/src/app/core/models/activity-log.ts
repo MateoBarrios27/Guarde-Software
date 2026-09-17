@@ -10,6 +10,12 @@ export interface ActivityLog {
     newValue?: string;
     userName?: string;
     userDisplayName?: string;
+    clientFullName?: string;
+    clientPaymentIdentifier?: number | null;
+    paymentClientFullName?: string;
+    paymentClientPaymentIdentifier?: number | null;
+    paymentAmount?: number | null;
+    paymentDate?: string | Date | null;
 }
 
 export interface ActivityLogFilter {

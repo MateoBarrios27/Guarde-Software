@@ -14,5 +14,11 @@ namespace GuardeSoftwareAPI.Entities
         // Campos de consulta; no se persisten en activity_log.
         public string UserName { get; set; } = string.Empty;
         public string UserDisplayName { get; set; } = string.Empty;
+        public string ClientFullName { get; set; } = string.Empty;
+        public decimal? ClientPaymentIdentifier { get; set; }
+        public string PaymentClientFullName { get; set; } = string.Empty;
+        public decimal? PaymentClientPaymentIdentifier { get; set; }
+        public decimal? PaymentAmount { get; set; }
+        public DateTime? PaymentDate { get; set; }
     }
 }

@@ -736,13 +736,26 @@ namespace GuardeSoftwareAPI.Services.payment
             try
             {
                 int? rentalId = null;
+                int? clientId = null;
                 DateTime? paymentDate = null;
+                decimal? paymentAmount = null;
+                string? clientName = null;
+                decimal? paymentIdentifier = null;
                 int? paymentId = null;
 
                 const string lookupQuery = @"
-                    SELECT am.rental_id, p.payment_date, am.payment_id
+                    SELECT
+                        am.rental_id,
+                        COALESCE(p.payment_date, am.movement_date) AS payment_date,
+                        am.payment_id,
+                        COALESCE(p.amount, am.amount) AS payment_amount,
+                        COALESCE(p.client_id, r.client_id) AS client_id,
+                        c.full_name AS client_name,
+                        c.payment_identifier
                     FROM account_movements am
                     LEFT JOIN payments p ON am.payment_id = p.payment_id
+                    LEFT JOIN rentals r ON r.rental_id = am.rental_id
+                    LEFT JOIN clients c ON c.client_id = COALESCE(p.client_id, r.client_id)
                     WHERE am.movement_id = @movement_id";
 
                 using (var lookupCommand = new SqlCommand(lookupQuery, connection, transaction))
@@ -754,6 +767,10 @@ namespace GuardeSoftwareAPI.Services.payment
                         rentalId = reader["rental_id"] != DBNull.Value ? Convert.ToInt32(reader["rental_id"]) : null;
                         paymentDate = reader["payment_date"] != DBNull.Value ? Convert.ToDateTime(reader["payment_date"]) : null;
                         paymentId = reader["payment_id"] != DBNull.Value ? Convert.ToInt32(reader["payment_id"]) : null;
+                        paymentAmount = reader["payment_amount"] != DBNull.Value ? Convert.ToDecimal(reader["payment_amount"]) : null;
+                        clientId = reader["client_id"] != DBNull.Value ? Convert.ToInt32(reader["client_id"]) : null;
+                        clientName = reader["client_name"] != DBNull.Value ? reader["client_name"]?.ToString() : null;
+                        paymentIdentifier = reader["payment_identifier"] != DBNull.Value ? Convert.ToDecimal(reader["payment_identifier"]) : null;
                     }
                 }
 
@@ -821,6 +838,10 @@ namespace GuardeSoftwareAPI.Services.payment
                         PaymentId = paymentId,
                         MovementId = movementId,
                         RentalId = rentalId,
+                        ClientId = clientId,
+                        ClientName = clientName,
+                        PaymentIdentifier = paymentIdentifier,
+                        Amount = paymentAmount,
                         PaymentDate = paymentDate
                     }),
                     NewValue = JsonSerializer.Serialize(new { Deleted = true })

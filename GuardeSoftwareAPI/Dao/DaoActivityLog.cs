@@ -29,9 +29,37 @@ namespace GuardeSoftwareAPI.Dao
                     al.old_value,
                     al.new_value,
                     u.username AS user_name,
-                    COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(u.first_name, ' ', u.last_name))), ''), u.username) AS user_display_name
+                    COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(u.first_name, ' ', u.last_name))), ''), u.username) AS user_display_name,
+                    c.full_name AS client_full_name,
+                    c.payment_identifier AS client_payment_identifier,
+                    pc.full_name AS payment_client_full_name,
+                    pc.payment_identifier AS payment_client_payment_identifier,
+                    COALESCE(
+                        p.amount,
+                        CASE WHEN ISJSON(al.new_value) = 1 THEN TRY_CONVERT(DECIMAL(18, 2), JSON_VALUE(al.new_value, '$.Amount')) END,
+                        CASE WHEN ISJSON(al.old_value) = 1 THEN TRY_CONVERT(DECIMAL(18, 2), JSON_VALUE(al.old_value, '$.Amount')) END
+                    ) AS payment_amount,
+                    COALESCE(
+                        p.payment_date,
+                        CASE WHEN ISJSON(al.new_value) = 1 THEN TRY_CONVERT(DATETIME2, JSON_VALUE(al.new_value, '$.Date')) END,
+                        CASE WHEN ISJSON(al.new_value) = 1 THEN TRY_CONVERT(DATETIME2, JSON_VALUE(al.new_value, '$.PaymentDate')) END,
+                        CASE WHEN ISJSON(al.old_value) = 1 THEN TRY_CONVERT(DATETIME2, JSON_VALUE(al.old_value, '$.Date')) END,
+                        CASE WHEN ISJSON(al.old_value) = 1 THEN TRY_CONVERT(DATETIME2, JSON_VALUE(al.old_value, '$.PaymentDate')) END
+                    ) AS payment_date
                 FROM activity_log al
                 LEFT JOIN users u ON u.user_id = al.user_id
+                LEFT JOIN clients c ON c.client_id = al.record_id AND al.table_name = 'clients'
+                LEFT JOIN payments p ON p.payment_id = al.record_id AND al.table_name = 'payments'
+                LEFT JOIN rentals payment_rental ON payment_rental.rental_id = COALESCE(
+                    CASE WHEN ISJSON(al.new_value) = 1 THEN TRY_CONVERT(INT, JSON_VALUE(al.new_value, '$.RentalId')) END,
+                    CASE WHEN ISJSON(al.old_value) = 1 THEN TRY_CONVERT(INT, JSON_VALUE(al.old_value, '$.RentalId')) END
+                ) AND al.table_name = 'payments'
+                LEFT JOIN clients pc ON pc.client_id = COALESCE(
+                    p.client_id,
+                    CASE WHEN ISJSON(al.new_value) = 1 THEN TRY_CONVERT(INT, JSON_VALUE(al.new_value, '$.ClientId')) END,
+                    CASE WHEN ISJSON(al.old_value) = 1 THEN TRY_CONVERT(INT, JSON_VALUE(al.old_value, '$.ClientId')) END,
+                    payment_rental.client_id
+                ) AND al.table_name = 'payments'
                 ORDER BY al.log_date DESC, al.activity_log_id DESC";
 
             return await accessDB.GetTableAsync("activity_log", query);
@@ -64,6 +92,10 @@ namespace GuardeSoftwareAPI.Dao
                         OR al.action LIKE {searchParameter}
                         OR al.table_name LIKE {searchParameter}
                         OR CONVERT(VARCHAR(20), al.record_id) LIKE {searchParameter}
+                        OR ISNULL(c.full_name, '') LIKE {searchParameter}
+                        OR CONVERT(VARCHAR(50), c.payment_identifier) LIKE {searchParameter}
+                        OR ISNULL(pc.full_name, '') LIKE {searchParameter}
+                        OR CONVERT(VARCHAR(50), pc.payment_identifier) LIKE {searchParameter}
                   )";
 
             string query = $@"
@@ -77,9 +109,37 @@ namespace GuardeSoftwareAPI.Dao
                     al.old_value,
                     al.new_value,
                     u.username AS user_name,
-                    COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(u.first_name, ' ', u.last_name))), ''), u.username) AS user_display_name
+                    COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(u.first_name, ' ', u.last_name))), ''), u.username) AS user_display_name,
+                    c.full_name AS client_full_name,
+                    c.payment_identifier AS client_payment_identifier,
+                    pc.full_name AS payment_client_full_name,
+                    pc.payment_identifier AS payment_client_payment_identifier,
+                    COALESCE(
+                        p.amount,
+                        CASE WHEN ISJSON(al.new_value) = 1 THEN TRY_CONVERT(DECIMAL(18, 2), JSON_VALUE(al.new_value, '$.Amount')) END,
+                        CASE WHEN ISJSON(al.old_value) = 1 THEN TRY_CONVERT(DECIMAL(18, 2), JSON_VALUE(al.old_value, '$.Amount')) END
+                    ) AS payment_amount,
+                    COALESCE(
+                        p.payment_date,
+                        CASE WHEN ISJSON(al.new_value) = 1 THEN TRY_CONVERT(DATETIME2, JSON_VALUE(al.new_value, '$.Date')) END,
+                        CASE WHEN ISJSON(al.new_value) = 1 THEN TRY_CONVERT(DATETIME2, JSON_VALUE(al.new_value, '$.PaymentDate')) END,
+                        CASE WHEN ISJSON(al.old_value) = 1 THEN TRY_CONVERT(DATETIME2, JSON_VALUE(al.old_value, '$.Date')) END,
+                        CASE WHEN ISJSON(al.old_value) = 1 THEN TRY_CONVERT(DATETIME2, JSON_VALUE(al.old_value, '$.PaymentDate')) END
+                    ) AS payment_date
                 FROM activity_log al
                 LEFT JOIN users u ON u.user_id = al.user_id
+                LEFT JOIN clients c ON c.client_id = al.record_id AND al.table_name = 'clients'
+                LEFT JOIN payments p ON p.payment_id = al.record_id AND al.table_name = 'payments'
+                LEFT JOIN rentals payment_rental ON payment_rental.rental_id = COALESCE(
+                    CASE WHEN ISJSON(al.new_value) = 1 THEN TRY_CONVERT(INT, JSON_VALUE(al.new_value, '$.RentalId')) END,
+                    CASE WHEN ISJSON(al.old_value) = 1 THEN TRY_CONVERT(INT, JSON_VALUE(al.old_value, '$.RentalId')) END
+                ) AND al.table_name = 'payments'
+                LEFT JOIN clients pc ON pc.client_id = COALESCE(
+                    p.client_id,
+                    CASE WHEN ISJSON(al.new_value) = 1 THEN TRY_CONVERT(INT, JSON_VALUE(al.new_value, '$.ClientId')) END,
+                    CASE WHEN ISJSON(al.old_value) = 1 THEN TRY_CONVERT(INT, JSON_VALUE(al.old_value, '$.ClientId')) END,
+                    payment_rental.client_id
+                ) AND al.table_name = 'payments'
                 {whereClause}
                 ORDER BY al.log_date DESC, al.activity_log_id DESC
                 OFFSET @offset ROWS FETCH NEXT @page_size ROWS ONLY";
@@ -97,6 +157,18 @@ namespace GuardeSoftwareAPI.Dao
                 SELECT COUNT(1)
                 FROM activity_log al
                 LEFT JOIN users u ON u.user_id = al.user_id
+                LEFT JOIN clients c ON c.client_id = al.record_id AND al.table_name = 'clients'
+                LEFT JOIN payments p ON p.payment_id = al.record_id AND al.table_name = 'payments'
+                LEFT JOIN rentals payment_rental ON payment_rental.rental_id = COALESCE(
+                    CASE WHEN ISJSON(al.new_value) = 1 THEN TRY_CONVERT(INT, JSON_VALUE(al.new_value, '$.RentalId')) END,
+                    CASE WHEN ISJSON(al.old_value) = 1 THEN TRY_CONVERT(INT, JSON_VALUE(al.old_value, '$.RentalId')) END
+                ) AND al.table_name = 'payments'
+                LEFT JOIN clients pc ON pc.client_id = COALESCE(
+                    p.client_id,
+                    CASE WHEN ISJSON(al.new_value) = 1 THEN TRY_CONVERT(INT, JSON_VALUE(al.new_value, '$.ClientId')) END,
+                    CASE WHEN ISJSON(al.old_value) = 1 THEN TRY_CONVERT(INT, JSON_VALUE(al.old_value, '$.ClientId')) END,
+                    payment_rental.client_id
+                ) AND al.table_name = 'payments'
                 {whereClause}";
 
             object countResult = await accessDB.ExecuteScalarAsync(countQuery, BuildFilterParameters(filter));
@@ -140,10 +212,21 @@ namespace GuardeSoftwareAPI.Dao
         {
 
             string query = @"
-                SELECT activity_log_id, user_id, log_date, action, table_name, record_id, old_value, new_value
-                FROM activity_log
-                WHERE user_id = @user_id
-                ORDER BY log_date DESC, activity_log_id DESC";
+                SELECT
+                    al.activity_log_id,
+                    al.user_id,
+                    al.log_date,
+                    al.action,
+                    al.table_name,
+                    al.record_id,
+                    al.old_value,
+                    al.new_value,
+                    c.full_name AS client_full_name,
+                    c.payment_identifier AS client_payment_identifier
+                FROM activity_log al
+                LEFT JOIN clients c ON c.client_id = al.record_id AND al.table_name = 'clients'
+                WHERE al.user_id = @user_id
+                ORDER BY al.log_date DESC, al.activity_log_id DESC";
 
             SqlParameter[] parameters = new SqlParameter[] {
 

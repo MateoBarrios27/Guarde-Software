@@ -92,7 +92,10 @@
           <td colspan="6" class="px-5 py-14 text-center text-sm text-slate-500">No hay actividades para los filtros seleccionados.</td>
         </tr>
         <tr *ngFor="let activity of activities; trackBy: trackByActivityId" class="activity-row">
-          <td class="whitespace-nowrap font-medium text-slate-700">{{ activity.logDate | date:'dd/MM/yyyy HH:mm' }}</td>
+          <td class="activity-date-cell">
+            <span class="activity-date">{{ activity.logDate | date:'dd/MM/yyyy' }}</span>
+            <span class="activity-time">{{ activity.logDate | date:'HH:mm' }}</span>
+          </td>
           <td>
             <div class="flex min-w-40 items-center gap-2.5">
               <span class="activity-avatar">{{ (displayUser(activity) || 'U').charAt(0).toUpperCase() }}</span>

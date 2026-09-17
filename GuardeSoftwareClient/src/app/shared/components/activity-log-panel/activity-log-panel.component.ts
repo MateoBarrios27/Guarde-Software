@@ -33,7 +33,7 @@ export class ActivityLogPanelComponent implements OnInit {
   ];
 
   readonly actions = [
-    { value: 'CREATE', label: 'Alta' },
+    { value: 'CREATE', label: 'Nuevo' },
     { value: 'UPDATE', label: 'Modificación' },
     { value: 'DELETE', label: 'Baja' },
     { value: 'DEACTIVATE', label: 'Desactivación' },
@@ -166,6 +166,10 @@ export class ActivityLogPanelComponent implements OnInit {
       return this.loginSummary(activity);
     }
 
+    if (area === 'payments' && ['CREATE', 'DELETE', 'DEACTIVATE'].includes(action)) {
+      return this.paymentSummary(activity);
+    }
+
     const newSnapshot = this.parseSnapshot(activity.newValue);
     const oldSnapshot = this.parseSnapshot(activity.oldValue);
     const snapshot = newSnapshot ?? oldSnapshot;
@@ -175,7 +179,10 @@ export class ActivityLogPanelComponent implements OnInit {
     if (field !== undefined && (action === 'UPDATE' || action === 'CREATE')) {
       const value = this.snapshotValue(snapshot, ['Value', 'value']);
       const valueText = value === undefined ? '' : ` a ${this.formatValue(value)}`;
-      return `Se actualizó ${this.humanizeKey(String(field)).toLowerCase()} ${this.relativeSubject(area)}${valueText}.`;
+      const fieldSummary = `Se actualizó ${this.humanizeKey(String(field)).toLowerCase()} ${this.relativeSubject(area)}${valueText}.`;
+      return area === 'clients'
+        ? `${fieldSummary.slice(0, -1)} (${this.clientContext(activity, newSnapshot, oldSnapshot, false)}).`
+        : fieldSummary;
     }
 
     let summary: string;
@@ -198,6 +205,10 @@ export class ActivityLogPanelComponent implements OnInit {
         break;
     }
 
+    if (area === 'clients') {
+      return `${summary.slice(0, -1)} (${this.clientContext(activity, newSnapshot, oldSnapshot)}).`;
+    }
+
     const context = this.snapshotSummary(snapshot);
     if (!context || action === 'DELETE' || action === 'DEACTIVATE') return summary;
 
@@ -216,7 +227,8 @@ export class ActivityLogPanelComponent implements OnInit {
     if (!snapshot) return 'Sin información registrada.';
 
     try {
-      return JSON.stringify(JSON.parse(snapshot), null, 2);
+      const parsed: unknown = JSON.parse(snapshot);
+      return JSON.stringify(this.formatSnapshotValue(parsed), null, 2);
     } catch {
       return snapshot;
     }
@@ -251,6 +263,12 @@ export class ActivityLogPanelComponent implements OnInit {
       channel: 'Canal',
       senddate: 'Fecha de envío',
       sendtime: 'Hora de envío',
+      date: 'Fecha',
+      paymentdate: 'Fecha de pago',
+      registrationdate: 'Fecha de alta',
+      effectivedate: 'Fecha de vigencia',
+      createdat: 'Fecha de creación',
+      updatedat: 'Fecha de modificación',
       startdate: 'Fecha de inicio',
       enddate: 'Fecha de finalización',
       address: 'Dirección',
@@ -286,6 +304,68 @@ export class ActivityLogPanelComponent implements OnInit {
     return 'Inicio de sesión: resultado no informado.';
   }
 
+  private paymentSummary(activity: ActivityLog): string {
+    const primarySnapshot = this.parseSnapshot(activity.newValue);
+    const fallbackSnapshot = this.parseSnapshot(activity.oldValue);
+    const action = activity.action?.toUpperCase();
+    const summary = action === 'CREATE' ? 'Se registró un nuevo pago.' : 'Se dio de baja al pago.';
+
+    return `${summary.slice(0, -1)} (${this.paymentContext(activity, primarySnapshot, fallbackSnapshot)}).`;
+  }
+
+  private paymentContext(
+    activity: ActivityLog,
+    primarySnapshot: Record<string, unknown> | null,
+    fallbackSnapshot: Record<string, unknown> | null
+  ): string {
+    const snapshots = [primarySnapshot, fallbackSnapshot];
+    const clientName = this.firstSnapshotValue(snapshots, ['ClientName', 'clientName', 'FullName', 'fullName'])
+      ?? activity.paymentClientFullName;
+    const clientNumber = this.firstSnapshotValue(snapshots, ['PaymentIdentifier', 'paymentIdentifier', 'ClientPaymentIdentifier', 'clientPaymentIdentifier'])
+      ?? activity.paymentClientPaymentIdentifier;
+    const amount = this.firstSnapshotValue(snapshots, ['Amount', 'amount'])
+      ?? activity.paymentAmount;
+    const paymentDate = this.firstSnapshotValue(snapshots, ['Date', 'date', 'PaymentDate', 'paymentDate'])
+      ?? activity.paymentDate;
+
+    return [
+      this.hasMeaningfulValue(clientName) ? String(clientName).trim() : 'Cliente no disponible',
+      this.hasMeaningfulValue(clientNumber) ? `N° ${this.formatClientNumber(clientNumber)}` : 'N° no disponible',
+      this.hasMeaningfulValue(amount) ? `Monto: ${this.formatMoney(amount)}` : 'Monto no disponible',
+      this.hasMeaningfulValue(paymentDate) ? `Fecha: ${this.formatActivityDate(paymentDate)}` : 'Fecha no disponible'
+    ].join(' · ');
+  }
+
+  private formatMoney(value: unknown): string {
+    const rawValue = String(value).trim();
+    const numericValue = Number(rawValue.replace(',', '.'));
+
+    if (!Number.isFinite(numericValue)) return rawValue;
+
+    return `$ ${new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(numericValue)}`;
+  }
+
+  private formatActivityDate(value: unknown): string {
+    const rawValue = String(value).trim();
+    const isoDate = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const localDate = rawValue.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+
+    if (isoDate) return `${isoDate[3]}/${isoDate[2]}/${isoDate[1]}`;
+    if (localDate) return `${localDate[1]}/${localDate[2]}/${localDate[3]}`;
+
+    const parsedDate = new Date(rawValue);
+    if (Number.isNaN(parsedDate.getTime())) return rawValue;
+
+    return new Intl.DateTimeFormat('es-AR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(parsedDate);
+  }
+
   private parseSnapshot(snapshot?: string): Record<string, unknown> | null {
     if (!snapshot) return null;
 
@@ -308,15 +388,81 @@ export class ActivityLogPanelComponent implements OnInit {
     return matchingKey === undefined ? undefined : snapshot[matchingKey];
   }
 
-  private snapshotSummary(snapshot: Record<string, unknown> | null): string {
+  private snapshotSummary(snapshot: Record<string, unknown> | null, excludedKeys: string[] = []): string {
     if (!snapshot) return '';
 
+    const excludedKeySet = new Set(excludedKeys.map(key => key.toLowerCase()));
+
     const entries = Object.entries(snapshot)
-      .filter(([key, value]) => !this.isTechnicalSnapshotField(key, value))
+      .filter(([key, value]) => !excludedKeySet.has(key.toLowerCase()) && !this.isTechnicalSnapshotField(key, value))
       .slice(0, 2)
-      .map(([key, value]) => `${this.humanizeKey(key)}: ${this.formatValue(value)}`);
+      .map(([key, value]) => `${this.humanizeKey(key)}: ${this.formatValue(value, key)}`);
 
     return entries.join(' · ');
+  }
+
+  private clientContext(
+    activity: ActivityLog,
+    primarySnapshot: Record<string, unknown> | null,
+    fallbackSnapshot: Record<string, unknown> | null,
+    includeSnapshotDetails = true
+  ): string {
+    const snapshots = [primarySnapshot, fallbackSnapshot];
+    const clientName = this.firstSnapshotValue(snapshots, ['FullName', 'fullName', 'ClientName', 'clientName'])
+      ?? activity.clientFullName;
+    const clientNumber = this.firstSnapshotValue(snapshots, ['PaymentIdentifier', 'paymentIdentifier', 'ClientPaymentIdentifier', 'clientPaymentIdentifier'])
+      ?? activity.clientPaymentIdentifier;
+    const contextParts = [
+      this.hasMeaningfulValue(clientName) ? String(clientName).trim() : 'Cliente no disponible',
+      this.hasMeaningfulValue(clientNumber) ? `N° ${this.formatClientNumber(clientNumber)}` : 'N° no disponible'
+    ];
+
+    if (includeSnapshotDetails) {
+      const snapshotDetails = this.snapshotSummary(primarySnapshot ?? fallbackSnapshot, [
+        'FullName',
+        'fullName',
+        'ClientName',
+        'clientName',
+        'PaymentIdentifier',
+        'paymentIdentifier',
+        'ClientPaymentIdentifier',
+        'clientPaymentIdentifier'
+      ]);
+
+      if (snapshotDetails) contextParts.push(snapshotDetails);
+    }
+
+    return contextParts.join(' · ');
+  }
+
+  private firstSnapshotValue(
+    snapshots: Array<Record<string, unknown> | null>,
+    keys: string[]
+  ): unknown {
+    for (const snapshot of snapshots) {
+      const value = this.snapshotValue(snapshot, keys);
+      if (this.hasMeaningfulValue(value)) return value;
+    }
+
+    return undefined;
+  }
+
+  private hasMeaningfulValue(value: unknown): boolean {
+    return value !== undefined
+      && value !== null
+      && (typeof value !== 'string' || value.trim() !== '');
+  }
+
+  private formatClientNumber(value: unknown): string {
+    const rawValue = String(value).trim();
+    const numericValue = Number(rawValue.replace(',', '.'));
+
+    if (!Number.isFinite(numericValue)) return rawValue;
+
+    return new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(numericValue);
   }
 
   private isTechnicalSnapshotField(key: string, value: unknown): boolean {
@@ -394,10 +540,59 @@ export class ActivityLogPanelComponent implements OnInit {
     return subjects[area] ?? 'del registro';
   }
 
-  private formatValue(value: unknown): string {
+  private formatSnapshotValue(value: unknown, key?: string): unknown {
+    if (Array.isArray(value)) {
+      return value.map(item => this.formatSnapshotValue(item));
+    }
+
+    if (value !== null && typeof value === 'object') {
+      const formattedObject: Record<string, unknown> = {};
+
+      Object.entries(value as Record<string, unknown>).forEach(([entryKey, entryValue]) => {
+        formattedObject[entryKey] = this.formatSnapshotValue(entryValue, entryKey);
+      });
+
+      return formattedObject;
+    }
+
+    return this.isDateValue(value, key) ? this.formatActivityDate(value) : value;
+  }
+
+  private isDateValue(value: unknown, key?: string): boolean {
+    if (value instanceof Date) return !Number.isNaN(value.getTime());
+    if (typeof value !== 'string') return false;
+
+    const rawValue = value.trim();
+    if (!rawValue) return false;
+
+    const isIsoDate = /^\d{4}-\d{2}-\d{2}(?:[T\s]|$)/.test(rawValue);
+    const isAlreadyFormattedDate = /^\d{2}\/\d{2}\/\d{4}(?:\s|$)/.test(rawValue);
+    if (isIsoDate || isAlreadyFormattedDate) return true;
+
+    const normalizedKey = (key ?? '').toLowerCase().replace(/_/g, '');
+    const dateKeys = new Set([
+      'date',
+      'paymentdate',
+      'registrationdate',
+      'effectivedate',
+      'startdate',
+      'enddate',
+      'createdat',
+      'updatedat',
+      'logdate',
+      'nextpaymentday',
+      'deactivationdate',
+      'departuredate'
+    ]);
+
+    return dateKeys.has(normalizedKey) && !Number.isNaN(new Date(rawValue).getTime());
+  }
+
+  private formatValue(value: unknown, key?: string): string {
     if (value === null || value === undefined || value === '') return '—';
     if (typeof value === 'boolean') return value ? 'Sí' : 'No';
     if (typeof value === 'object') return '[detalle]';
+    if (this.isDateValue(value, key)) return this.formatActivityDate(value);
 
     const text = String(value);
     const knownValues: Record<string, string> = {
