@@ -201,8 +201,8 @@
               
               <tr *ngFor="let account of accounts; let i = index; trackBy: trackById" 
                   cdkDrag 
-                  class="group transition-colors cursor-pointer"
-                  [ngClass]="selectedAccountIds.includes(account.id!) ? 'bg-indigo-50/40' : 'hover:bg-gray-50/60'">
+                  class="cash-account-row group transition-colors cursor-pointer"
+                  [ngClass]="selectedAccountIds.includes(account.id!) ? 'cash-account-row-selected bg-indigo-50/40' : ''">
                 
                 <div *cdkDragPreview class="bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] rounded-xl border border-gray-200 overflow-hidden ring-1 ring-black/5" style="min-width: 450px; box-sizing: border-box; display: table;">
                   <table class="w-full text-sm text-left border-collapse"><tbody class="divide-y divide-gray-100/60">
@@ -568,8 +568,8 @@
           <tr *ngFor="let item of filteredItems; let i = index; trackBy: trackById" 
               cdkDrag 
               [cdkDragDisabled]="isHistoricalView"
-              class="transition-colors cursor-pointer group"
-              [ngClass]="selectedItemIds.includes(item.id!) ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'">
+              class="cash-item-row transition-colors cursor-pointer group"
+              [ngClass]="selectedItemIds.includes(item.id!) ? 'cash-item-row-selected bg-blue-50/40' : ''">
               
             <div *cdkDragPreview class="bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] rounded-xl border border-gray-200 overflow-hidden ring-1 ring-black/5" style="min-width: 1100px; box-sizing: border-box; display: table;">
               <table class="w-full text-sm text-left border-collapse">

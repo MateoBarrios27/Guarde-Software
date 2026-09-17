@@ -1,3 +1,41 @@
+/* Hover de filas: resaltado suave, continuo y sin acento lateral. */
+tr.cash-item-row > td,
+tr.cash-account-row > td {
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+tr.cash-item-row:hover > td,
+tr.cash-account-row:hover > td {
+  background-color: rgba(241, 245, 249, 0.72);
+  background-image: none;
+  box-shadow:
+    inset 0 1px 0 rgba(148, 163, 184, 0.22),
+    inset 0 -1px 0 rgba(148, 163, 184, 0.22),
+    0 4px 9px -9px rgba(15, 23, 42, 0.5);
+}
+
+/* La primera celda reserva 3 px para la selección. En hover se colorean
+   esos píxeles para que la fila llegue visualmente hasta el borde. */
+tr.cash-account-row:not(.cash-account-row-selected):hover > td:first-child {
+  border-left-color: rgba(241, 245, 249, 0.72);
+}
+
+tr.cash-item-row.cash-item-row-selected:hover > td {
+  background-color: rgba(239, 246, 255, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(96, 165, 250, 0.28),
+    inset 0 -1px 0 rgba(96, 165, 250, 0.28),
+    0 4px 9px -9px rgba(37, 99, 235, 0.55);
+}
+
+tr.cash-account-row.cash-account-row-selected:hover > td {
+  background-color: rgba(238, 242, 255, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(129, 140, 248, 0.28),
+    inset 0 -1px 0 rgba(129, 140, 248, 0.28),
+    0 4px 9px -9px rgba(79, 70, 229, 0.5);
+}
+
 /* Input que parece texto hasta que se hace focus */
 .table-input {
   width: 100%;
