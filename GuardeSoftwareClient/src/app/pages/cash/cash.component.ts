@@ -110,7 +110,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   // --- FILTROS INCLUSIVOS / EXCLUYENTES DE CAJA ---
   showCashFilters = false;
   cashFiltersPopoverReady = false;
-  cashFiltersPopoverPosition = { top: 0, left: 0, maxHeight: 720 };
+  cashFiltersPopoverPosition = { top: 0, left: 0, maxHeight: 820 };
   public readonly cashPaymentFilterOptions = [
     { value: 'paid', label: 'Pagó' },
     { value: 'unpaid', label: 'No pagó' }
@@ -124,7 +124,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   ];
   public readonly cashReplicationFilterOptions = [
     { value: 'none', label: 'No replicado' },
-    { value: 'pending', label: 'Pendiente' },
+    { value: 'partial', label: 'Parcial' },
     { value: 'replicated', label: 'Replicado' }
   ];
   public selectedCashPaymentFilters: string[] = [];
@@ -133,6 +133,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   public excludedCashAmountFilters: string[] = [];
   public selectedCashReplicationFilters: string[] = [];
   public excludedCashReplicationFilters: string[] = [];
+  public cashAmountMin: number | null = null;
+  public cashAmountMax: number | null = null;
 
   @ViewChild('topAnchor') topAnchor!: ElementRef;
   @ViewChild('bottomAnchor') bottomAnchor!: ElementRef;
@@ -1079,24 +1081,19 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     const viewportWidth = window.innerWidth;
     const spaceBelow = viewportHeight - buttonRect.bottom - viewportMargin - gap;
     const spaceAbove = buttonRect.top - viewportMargin - gap;
-    const naturalHeight = popover.scrollHeight;
-    const idealHeight = Math.min(naturalHeight, viewportHeight - viewportMargin * 2);
-    const opensAbove = spaceBelow < idealHeight && spaceAbove > spaceBelow;
-    const availableHeight = Math.max(
-      180,
-      Math.min(
-        naturalHeight,
-        opensAbove ? spaceAbove : spaceBelow,
-        viewportHeight - viewportMargin * 2
-      )
-    );
+    // La altura máxima depende solamente del viewport. Si se recalcula con el
+    // espacio disponible junto al botón, cada scroll vuelve a medir un panel
+    // ya recortado y lo achica progresivamente.
+    const availableHeight = Math.max(180, viewportHeight - viewportMargin * 2);
+    const renderedHeight = Math.min(popover.scrollHeight, availableHeight);
+    const opensAbove = spaceBelow < renderedHeight && spaceAbove > spaceBelow;
     const top = opensAbove
-      ? Math.max(viewportMargin, buttonRect.top - gap - availableHeight)
+      ? Math.max(viewportMargin, buttonRect.top - gap - renderedHeight)
       : Math.max(
           viewportMargin,
-          Math.min(buttonRect.bottom + gap, viewportHeight - viewportMargin - availableHeight)
+          Math.min(buttonRect.bottom + gap, viewportHeight - viewportMargin - renderedHeight)
         );
-    const popoverWidth = Math.min(680, viewportWidth - viewportMargin * 2);
+    const popoverWidth = Math.min(900, viewportWidth - viewportMargin * 2);
     const left = Math.max(
       viewportMargin,
       Math.min(buttonRect.left, viewportWidth - viewportMargin - popoverWidth)
@@ -1231,6 +1228,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     this.excludedCashAmountFilters = [];
     this.selectedCashReplicationFilters = [];
     this.excludedCashReplicationFilters = [];
+    this.cashAmountMin = null;
+    this.cashAmountMax = null;
     this.searchDateFrom = '';
     this.searchDateTo = '';
     this.filterItems();
@@ -1243,6 +1242,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       this.excludedCashAmountFilters.length +
       this.selectedCashReplicationFilters.length +
       this.excludedCashReplicationFilters.length +
+      (this.cashAmountMin !== null ? 1 : 0) +
+      (this.cashAmountMax !== null ? 1 : 0) +
       (this.searchDateFrom ? 1 : 0) +
       (this.searchDateTo ? 1 : 0);
   }
@@ -1259,8 +1260,38 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   private getCashReplicationFilterValue(item: CashFlowItem): string {
     const state = Number(item.replicationState);
     if (state === 2) return 'replicated';
-    if (state === 1) return 'pending';
+    if (state === 1) return 'partial';
     return 'none';
+  }
+
+  public normalizeCashAmountRange(): void {
+    if (this.cashAmountMin !== null && this.cashAmountMax !== null && this.cashAmountMin > this.cashAmountMax) {
+      [this.cashAmountMin, this.cashAmountMax] = [this.cashAmountMax, this.cashAmountMin];
+    }
+    this.filterItems();
+  }
+
+  public clearCashAmountRange(): void {
+    this.cashAmountMin = null;
+    this.cashAmountMax = null;
+    this.filterItems();
+  }
+
+  private matchesCashAmountRange(item: CashFlowItem): boolean {
+    if (this.cashAmountMin === null && this.cashAmountMax === null) return true;
+
+    const columns = this.selectedCashAmountFilters.length > 0
+      ? this.selectedCashAmountFilters
+      : this.cashAmountFilterOptions.map(option => option.value);
+
+    return columns.some(column => {
+      const rawAmount = Number((item as any)?.[column]);
+      if (!Number.isFinite(rawAmount) || Math.abs(rawAmount) <= 0.000001) return false;
+
+      const amount = Math.abs(rawAmount);
+      return (this.cashAmountMin === null || amount >= this.cashAmountMin) &&
+        (this.cashAmountMax === null || amount <= this.cashAmountMax);
+    });
   }
 
   private matchesCashFilters(item: CashFlowItem): boolean {
@@ -1275,6 +1306,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     const matchesAmount = (value: string): boolean => this.cashAmountColumnHasValue(item, value);
     if (!matchesAny(this.selectedCashAmountFilters, matchesAmount)) return false;
     if (this.excludedCashAmountFilters.some(matchesAmount)) return false;
+    if (!this.matchesCashAmountRange(item)) return false;
 
     const replicationState = this.getCashReplicationFilterValue(item);
     const matchesReplication = (value: string): boolean => replicationState === value;
