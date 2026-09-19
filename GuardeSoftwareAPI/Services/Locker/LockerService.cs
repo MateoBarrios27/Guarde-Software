@@ -43,6 +43,7 @@ namespace GuardeSoftwareAPI.Services.locker
                     Status = row["status"]?.ToString() ?? string.Empty,
                     ClientName = row["client_name"]?.ToString() ?? string.Empty,
                     ClientNames = row["client_names"]?.ToString() ?? string.Empty,
+                    Clients = DeserializeLockerClients(row["clients_json"]?.ToString()),
                     IsFreeSpace = row["is_free_space"] != DBNull.Value && Convert.ToBoolean(row["is_free_space"])
                 };	
 				lockersList.Add(locker);
@@ -271,8 +272,10 @@ namespace GuardeSoftwareAPI.Services.locker
             // OCUPADO sólo debe impedir nuevas asignaciones; no debe eliminar las
             // filas existentes de rental_lockers ni cerrar su historial.
             // Las bauleras normales sí se desasignan al volver a DISPONIBLE.
+            bool changesToMultiClient = fullLockerUpdate?.IsFreeSpace == true;
             bool needsUnassignment = !isFreeSpace
                 && existingRentalId.HasValue
+                && !changesToMultiClient
                 && newStatus.Equals("DISPONIBLE", StringComparison.OrdinalIgnoreCase);
 
             if (needsUnassignment)
@@ -322,12 +325,42 @@ namespace GuardeSoftwareAPI.Services.locker
             {
                 if (fullLockerUpdate != null)
                 {
-                    return await daoLocker.UpdateLocker(fullLockerUpdate);
+                    using var connection = _accessDB.GetConnectionClose();
+                    await connection.OpenAsync();
+                    using var transaction = connection.BeginTransaction();
+                    try
+                    {
+                        bool updated = await daoLocker.UpdateLockerPreservingAssignmentsTransactionAsync(
+                            fullLockerUpdate,
+                            connection,
+                            transaction);
+                        await transaction.CommitAsync();
+                        return updated;
+                    }
+                    catch
+                    {
+                        await transaction.RollbackAsync();
+                        throw;
+                    }
                 }
                 else
                 {
                     return await daoLocker.UpdateLockerStatus(lockerId, newStatus);
                 }
+            }
+        }
+
+        private static List<LockerClientSummary> DeserializeLockerClients(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return [];
+
+            try
+            {
+                return JsonSerializer.Deserialize<List<LockerClientSummary>>(json) ?? [];
+            }
+            catch (JsonException)
+            {
+                return [];
             }
         }
 

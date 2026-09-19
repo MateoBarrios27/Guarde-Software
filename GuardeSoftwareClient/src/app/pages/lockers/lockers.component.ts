@@ -1,5 +1,5 @@
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { Locker } from '../../core/models/locker';
+import { Locker, LockerClientSummary } from '../../core/models/locker';
 import { LockerService } from '../../core/services/locker-service/locker.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -17,11 +17,22 @@ import { LockerTypeService } from '../../core/services/lockerType-service/locker
 import { CreateLockerDTO } from '../../core/dtos/locker/CreateLockerDTO';
 import { Subscription } from 'rxjs';
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
+import { ClientService } from '../../core/services/client-service/client.service';
+import { Client } from '../../core/models/client';
+import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router } from '@angular/router';
+import { CdkConnectedOverlay, CdkOverlayOrigin, ConnectedPosition, Overlay, OverlayModule } from '@angular/cdk/overlay';
+
+type LockerFilterGroup = 'warehouse' | 'status' | 'lockerType';
+type LockerFilterState = 'none' | 'include' | 'exclude';
+interface LockerClientTarget {
+  client: LockerClientSummary;
+  lockerId: number;
+}
 
 @Component({
   selector: 'app-lockers',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent],
+  imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent, OverlayModule],
   templateUrl: './lockers.component.html',
   styleUrls: ['./lockers.component.css'],
   host: {
@@ -67,8 +78,27 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   public showTagsPopover = false;
   public statusList: string[] = ['DISPONIBLE', 'OCUPADO', 'POR LIBERARSE', 'MANTENIMIENTO'];
   public selectedWarehouseIds: number[] = [];
+  public excludedWarehouseIds: number[] = [];
   public selectedStatuses: string[] = [];
+  public excludedStatuses: string[] = [];
   public selectedLockerTypeIds: number[] = [];
+  public excludedLockerTypeIds: number[] = [];
+
+  clients: Client[] = [];
+  clientStatsOrigin: CdkOverlayOrigin | null = null;
+  clientStatsTarget: LockerClientTarget | null = null;
+  clientStatsOpen = false;
+  @ViewChild('clientStatsOverlay') private clientStatsOverlay?: CdkConnectedOverlay;
+  private clientStatsNavigationPending = false;
+  readonly clientStatsScrollStrategy;
+  readonly clientStatsPositions: ConnectedPosition[] = [
+    { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 0 },
+    { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: 0 },
+    { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 0 },
+    { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: 0 },
+  ];
+  private clientStatsOpenTimer?: ReturnType<typeof setTimeout>;
+  private clientStatsCloseTimer?: ReturnType<typeof setTimeout>;
 
   @ViewChild('tagsPopoverRef') tagsPopoverRef!: ElementRef;
   @ViewChild('tagsButtonRef') tagsButtonRef!: ElementRef;
@@ -86,9 +116,22 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
     private lockerService: LockerService,
     private warehouseService: WarehouseService,
     private lockerTypeService: LockerTypeService,
+    private clientService: ClientService,
     private deleteConfirmation: DeleteConfirmationService,
     private dataRefresh: DataRefreshService,
-  ) {}
+    private router: Router,
+    overlay: Overlay,
+  ) {
+    this.clientStatsScrollStrategy = overlay.scrollStrategies.close();
+    this.dataRefreshSubscription.add(this.router.events.subscribe(event => {
+      if (event instanceof NavigationStart) {
+        this.clientStatsNavigationPending = true;
+        this.closeClientStats();
+      } else if (event instanceof NavigationEnd || event instanceof NavigationCancel || event instanceof NavigationError) {
+        this.clientStatsNavigationPending = false;
+      }
+    }));
+  }
 
   ngOnInit(): void {
     this.dataRefreshSubscription.add(
@@ -100,11 +143,15 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
         if (event.domains.includes('lockers') || event.domains.includes('clients')) {
           this.loadLockers();
         }
+        if (event.domains.includes('clients')) {
+          this.loadClientDirectory();
+        }
       }),
     );
     this.loadLockers();
     this.loadWarehouses();
     this.loadLockerTypes();
+    this.loadClientDirectory();
   }
 
   ngAfterViewInit() {
@@ -124,6 +171,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.closeClientStats();
     this.dataRefreshSubscription.unsubscribe();
     if (this.scrollObserver) {
       this.scrollObserver.disconnect();
@@ -143,47 +191,111 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   toggleWarehouseId(id: number): void {
-    const idx = this.selectedWarehouseIds.indexOf(id);
-    if (idx > -1) {
-      this.selectedWarehouseIds.splice(idx, 1);
-    } else {
-      this.selectedWarehouseIds.push(id);
-    }
+    const next = this.cycleFilterSelection(id, this.selectedWarehouseIds, this.excludedWarehouseIds);
+    this.selectedWarehouseIds = next.included;
+    this.excludedWarehouseIds = next.excluded;
     this.page = 1;
   }
 
   toggleStatus(status: string): void {
-    const idx = this.selectedStatuses.indexOf(status);
-    if (idx > -1) {
-      this.selectedStatuses.splice(idx, 1);
-    } else {
-      this.selectedStatuses.push(status);
-    }
+    const next = this.cycleFilterSelection(status, this.selectedStatuses, this.excludedStatuses);
+    this.selectedStatuses = next.included;
+    this.excludedStatuses = next.excluded;
     this.page = 1;
   }
 
   toggleLockerTypeId(id: number): void {
-    const idx = this.selectedLockerTypeIds.indexOf(id);
-    if (idx > -1) {
-      this.selectedLockerTypeIds.splice(idx, 1);
+    const next = this.cycleFilterSelection(id, this.selectedLockerTypeIds, this.excludedLockerTypeIds);
+    this.selectedLockerTypeIds = next.included;
+    this.excludedLockerTypeIds = next.excluded;
+    this.page = 1;
+  }
+
+  private cycleFilterSelection<T>(value: T, included: T[], excluded: T[]): { included: T[]; excluded: T[] } {
+    if (included.includes(value)) {
+      return { included: included.filter(item => item !== value), excluded: [...excluded, value] };
+    }
+    if (excluded.includes(value)) {
+      return { included: [...included], excluded: excluded.filter(item => item !== value) };
+    }
+    return { included: [...included, value], excluded: [...excluded] };
+  }
+
+  getFilterTagState(group: LockerFilterGroup, value: string | number): LockerFilterState {
+    const collections = this.getFilterTagCollections(group);
+    if (collections.included.includes(value)) return 'include';
+    if (collections.excluded.includes(value)) return 'exclude';
+    return 'none';
+  }
+
+  getFilterTagClasses(group: LockerFilterGroup, value: string | number): string {
+    const state = this.getFilterTagState(group, value);
+    if (state === 'include') return 'bg-blue-600 text-white border-blue-600 font-medium shadow-sm';
+    if (state === 'exclude') return 'bg-red-600 text-white border-red-600 font-medium shadow-sm';
+    return 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
+  }
+
+  getActiveFilterTagClasses(group: LockerFilterGroup, value: string | number): string {
+    return this.getFilterTagState(group, value) === 'exclude'
+      ? 'bg-red-50 text-red-700 border-red-200'
+      : 'bg-blue-50 text-blue-700 border-blue-200';
+  }
+
+  getFilterTagTitle(group: LockerFilterGroup, value: string | number): string {
+    const label = this.getFilterTagLabel(group, value);
+    const state = this.getFilterTagState(group, value);
+    if (state === 'include') return `${label}: incluido. Segundo click para excluirlo.`;
+    if (state === 'exclude') return `${label}: excluido. Tercer click para desmarcarlo.`;
+    return `${label}: primer click para incluirlo.`;
+  }
+
+  clearFilterTag(group: LockerFilterGroup, value: string | number): void {
+    const collections = this.getFilterTagCollections(group);
+    const included = collections.included.filter(item => item !== value);
+    const excluded = collections.excluded.filter(item => item !== value);
+    if (group === 'warehouse') {
+      this.selectedWarehouseIds = included as number[];
+      this.excludedWarehouseIds = excluded as number[];
+    } else if (group === 'status') {
+      this.selectedStatuses = included as string[];
+      this.excludedStatuses = excluded as string[];
     } else {
-      this.selectedLockerTypeIds.push(id);
+      this.selectedLockerTypeIds = included as number[];
+      this.excludedLockerTypeIds = excluded as number[];
     }
     this.page = 1;
   }
 
+  private getFilterTagCollections(group: LockerFilterGroup): { included: (string | number)[]; excluded: (string | number)[] } {
+    if (group === 'warehouse') return { included: this.selectedWarehouseIds, excluded: this.excludedWarehouseIds };
+    if (group === 'status') return { included: this.selectedStatuses, excluded: this.excludedStatuses };
+    return { included: this.selectedLockerTypeIds, excluded: this.excludedLockerTypeIds };
+  }
+
+  private getFilterTagLabel(group: LockerFilterGroup, value: string | number): string {
+    if (group === 'warehouse') return `Depósito ${this.getWarehouseName(Number(value))}`;
+    if (group === 'status') return `Estado ${String(value)}`;
+    return `Tipo ${this.getLockerTypeName(Number(value))}`;
+  }
+
   clearAllTags(): void {
     this.selectedWarehouseIds = [];
+    this.excludedWarehouseIds = [];
     this.selectedStatuses = [];
+    this.excludedStatuses = [];
     this.selectedLockerTypeIds = [];
+    this.excludedLockerTypeIds = [];
     this.page = 1;
   }
 
   get totalActiveTagsCount(): number {
     return (
       this.selectedWarehouseIds.length +
+      this.excludedWarehouseIds.length +
       this.selectedStatuses.length +
-      this.selectedLockerTypeIds.length
+      this.excludedStatuses.length +
+      this.selectedLockerTypeIds.length +
+      this.excludedLockerTypeIds.length
     );
   }
 
@@ -291,6 +403,15 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  loadClientDirectory(): void {
+    this.clientService.getClients().subscribe({
+      next: data => {
+        this.clients = data;
+      },
+      error: err => console.error('Error cargando datos de clientes para bauleras', err)
+    });
+  }
+
   get ocupados(): number {
     return this.filteredLockers.filter(l => l.status === 'OCUPADO').length;
   }
@@ -300,22 +421,28 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   get mantenimiento(): number {
     return this.filteredLockers.filter(l => l.status === 'MANTENIMIENTO').length;
   }
+  get porLiberarse(): number {
+    return this.filteredLockers.filter(l => l.status === 'POR LIBERARSE').length;
+  }
 
   get filteredLockers(): Locker[] {
     const filtered = this.lockers.filter(item => {
-      const warehouseMatch = (this.selectedWarehouseIds.length === 0 && (!this.selectedWarehouse || item.warehouseId.toString() === this.selectedWarehouse)) ||
-                             (this.selectedWarehouseIds.length > 0 && this.selectedWarehouseIds.includes(item.warehouseId));
-      
-      const statusMatch = (this.selectedStatuses.length === 0 && (!this.selectedStatus || item.status === this.selectedStatus)) ||
-                          (this.selectedStatuses.length > 0 && this.selectedStatuses.includes(item.status));
+      const warehouseMatch = (this.selectedWarehouseIds.length === 0 || this.selectedWarehouseIds.includes(item.warehouseId)) &&
+                             !this.excludedWarehouseIds.includes(item.warehouseId) &&
+                             (!this.selectedWarehouse || item.warehouseId.toString() === this.selectedWarehouse);
 
-      const lockerTypeMatch = this.selectedLockerTypeIds.length === 0 || this.selectedLockerTypeIds.includes(item.lockerTypeId);
+      const statusMatch = (this.selectedStatuses.length === 0 || this.selectedStatuses.includes(item.status)) &&
+                          !this.excludedStatuses.includes(item.status) &&
+                          (!this.selectedStatus || item.status === this.selectedStatus);
+
+      const lockerTypeMatch = (this.selectedLockerTypeIds.length === 0 || this.selectedLockerTypeIds.includes(item.lockerTypeId)) &&
+                              !this.excludedLockerTypeIds.includes(item.lockerTypeId);
 
       const searchLower = this.searchTerm.toLowerCase().trim();
       const searchMatch = !this.searchTerm || 
         item.identifier.toLowerCase().includes(searchLower) ||
         (item.features && item.features.toLowerCase().includes(searchLower)) ||
-        (item.clientName && item.clientName.toLowerCase().includes(searchLower));
+        this.getLockerClientNames(item).toLowerCase().includes(searchLower);
 
       return warehouseMatch && statusMatch && lockerTypeMatch && searchMatch;
     });
@@ -336,7 +463,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
         const weightB = this.getStatusSortWeight(b.status);
         comparison = weightA !== weightB ? weightA - weightB : (a.status || '').localeCompare(b.status || '');
       } else if (this.sortField === 'clientName') {
-        comparison = (a.clientName || '').localeCompare(b.clientName || '');
+        comparison = this.getLockerClientNames(a).localeCompare(this.getLockerClientNames(b), 'es');
       }
 
       if (comparison === 0 && this.sortField !== 'identifier') {
@@ -349,6 +476,90 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
 
   getFilteredLockers(): Locker[] {
     return this.filteredLockers;
+  }
+
+  getLockerClients(locker: Locker): LockerClientSummary[] {
+    if (locker.clients?.length) return locker.clients;
+
+    if (!locker.isFreeSpace && locker.clientName) {
+      const match = this.clients.find(client => client.fullName.trim().toLowerCase() === locker.clientName!.trim().toLowerCase());
+      return [{ id: match?.id ?? 0, fullName: locker.clientName, paymentIdentifier: match?.paymentIdentifier ?? 0 }];
+    }
+
+    return (locker.clientNames || '')
+      .split(',')
+      .map(name => name.trim())
+      .filter(Boolean)
+      .map(name => {
+        const match = this.clients.find(client => client.fullName.trim().toLowerCase() === name.toLowerCase());
+        return { id: match?.id ?? 0, fullName: name, paymentIdentifier: match?.paymentIdentifier ?? 0 };
+      });
+  }
+
+  getLockerClientNames(locker: Locker): string {
+    return this.getLockerClients(locker).map(client => client.fullName).join(', ');
+  }
+
+  trackByLockerClient(_index: number, client: LockerClientSummary): number | string {
+    return client.id || client.fullName;
+  }
+
+  get otherClientLockers(): Locker[] {
+    const target = this.clientStatsTarget;
+    if (!target) return [];
+
+    return this.lockers.filter(locker => {
+      if (locker.id === target.lockerId) return false;
+      return this.getLockerClients(locker).some(client =>
+        client.id > 0 && target.client.id > 0
+          ? client.id === target.client.id
+          : client.fullName.trim().toLocaleLowerCase('es-AR') === target.client.fullName.trim().toLocaleLowerCase('es-AR')
+      );
+    });
+  }
+
+  showClientStats(client: LockerClientSummary, lockerId: number, origin: CdkOverlayOrigin): void {
+    if (!client.id || !this.canShowClientStats(origin)) return;
+    this.keepClientStatsOpen();
+    clearTimeout(this.clientStatsOpenTimer);
+    if (this.clientStatsTarget?.client.id === client.id && this.clientStatsTarget.lockerId === lockerId && this.clientStatsOpen) return;
+    this.clientStatsOpen = false;
+    this.clientStatsOpenTimer = setTimeout(() => {
+      if (!this.canShowClientStats(origin)) return;
+      this.clientStatsTarget = { client, lockerId };
+      this.clientStatsOrigin = origin;
+      this.clientStatsOpen = true;
+    }, 250);
+  }
+
+  keepClientStatsOpen(): void {
+    clearTimeout(this.clientStatsCloseTimer);
+  }
+
+  scheduleClientStatsClose(): void {
+    clearTimeout(this.clientStatsOpenTimer);
+    this.keepClientStatsOpen();
+    this.clientStatsCloseTimer = setTimeout(() => this.closeClientStats(), 180);
+  }
+
+  closeClientStats(): void {
+    clearTimeout(this.clientStatsOpenTimer);
+    clearTimeout(this.clientStatsCloseTimer);
+    this.clientStatsOpen = false;
+    this.clientStatsTarget = null;
+    this.clientStatsOverlay?.overlayRef?.detach();
+  }
+
+  openClientInClients(client: LockerClientSummary): void {
+    if (!client.id) return;
+    this.closeClientStats();
+    this.router.navigate(['/clients'], { queryParams: { clientId: client.id } });
+  }
+
+  private canShowClientStats(origin: CdkOverlayOrigin): boolean {
+    return !this.clientStatsNavigationPending
+      && this.router.url.split(/[?#]/)[0] === '/lockers'
+      && origin.elementRef.nativeElement.isConnected;
   }
 
   private getStatusSortWeight(status: string): number {
@@ -448,7 +659,9 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
        this.lockerOriginal.status === 'OCUPADO'
      );
 
-     if (isAssignedToClient && dto.status === 'DISPONIBLE' && this.lockerOriginal.status !== 'DISPONIBLE') {
+     const staysIndividual = !this.lockerOriginal.isFreeSpace && !dto.isFreeSpace;
+
+     if (staysIndividual && isAssignedToClient && dto.status === 'DISPONIBLE' && this.lockerOriginal.status !== 'DISPONIBLE') {
        const clientNameText = this.selectedLockerForEdit?.clientName && this.selectedLockerForEdit.clientName.trim() !== ''
          ? `al cliente <b>${this.selectedLockerForEdit.clientName}</b>`
          : 'a un cliente';
@@ -494,9 +707,12 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
        },
        error: (err) => {
          console.error('Error locker update', err)
+         const backendMessage = typeof err?.error === 'string'
+           ? err.error
+           : err?.error?.message;
          Swal.fire({
                   title: 'Error',
-                  text: 'Hubo un problema al actualizar la baulera.',
+                  text: backendMessage || 'Hubo un problema al actualizar la baulera.',
                   icon: 'error',
                   confirmButtonText: 'Aceptar',
                   confirmButtonColor: '#2563eb'

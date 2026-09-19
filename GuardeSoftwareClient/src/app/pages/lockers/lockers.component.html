@@ -1,61 +1,72 @@
+<ng-template
+  cdkConnectedOverlay
+  #clientStatsOverlay="cdkConnectedOverlay"
+  [cdkConnectedOverlayOrigin]="clientStatsOrigin!"
+  [cdkConnectedOverlayOpen]="clientStatsOpen"
+  [cdkConnectedOverlayPositions]="clientStatsPositions"
+  [cdkConnectedOverlayScrollStrategy]="clientStatsScrollStrategy"
+  [cdkConnectedOverlayViewportMargin]="12"
+  [cdkConnectedOverlayPush]="true"
+  (detach)="clientStatsOpen && closeClientStats()"
+  (overlayKeydown)="$event.key === 'Escape' && closeClientStats()"
+>
+  <section id="locker-client-lockers" role="tooltip" class="client-lockers-card"
+    (mouseenter)="keepClientStatsOpen()" (mouseleave)="scheduleClientStatsClose()">
+    <div class="client-lockers-heading">
+      <div class="min-w-0">
+        <p class="client-lockers-eyebrow">Otras bauleras</p>
+        <p class="client-lockers-title">{{ clientStatsTarget?.client?.fullName }}</p>
+      </div>
+      <span class="client-lockers-count">{{ otherClientLockers.length }}</span>
+    </div>
+    <div *ngIf="otherClientLockers.length > 0; else noOtherClientLockers" class="client-lockers-list">
+      <div *ngFor="let relatedLocker of otherClientLockers" class="client-lockers-row">
+        <div class="min-w-0">
+          <p class="client-lockers-identifier">{{ relatedLocker.identifier }}</p>
+          <p class="client-lockers-meta">{{ getWarehouseName(relatedLocker.warehouseId) }} · {{ getLockerTypeName(relatedLocker.lockerTypeId) }}</p>
+        </div>
+        <span class="client-lockers-status" [ngClass]="getStatusColor(relatedLocker.status)">{{ relatedLocker.status }}</span>
+      </div>
+    </div>
+    <ng-template #noOtherClientLockers>
+      <p class="client-lockers-empty">Este cliente no tiene otras bauleras asignadas.</p>
+    </ng-template>
+  </section>
+</ng-template>
+
 <div class="space-y-6 pt-6">
 
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    
-    <!-- Tarjeta Total -->
-    <div class="bg-white p-4 rounded-xl border shadow-sm">
-      <div class="flex items-start gap-3">
-        <app-icon name="package" class="h-6 w-6 text-blue-500"></app-icon>
-        <div>
-          <p class="text-2xl font-bold text-blue-900">
-            {{ filteredLockers.length }}
-          </p>
-          <p class="text-sm text-gray-500">Total</p>
-        </div>
+  <section class="overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)]">
+    <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 md:px-6">
+      <div>
+        <h2 class="text-base font-semibold tracking-tight text-gray-800">Resumen de bauleras</h2>
+        <p class="mt-0.5 text-xs font-medium text-gray-400">Los valores acompañan los filtros activos</p>
+      </div>
+      <app-icon name="package" class="h-5 w-5 text-gray-400"></app-icon>
+    </div>
+    <div class="grid grid-cols-2 divide-x divide-y divide-gray-100 sm:grid-cols-3 lg:grid-cols-5 lg:divide-y-0">
+      <div class="flex items-center gap-3 px-5 py-4">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><app-icon name="package" class="h-4 w-4"></app-icon></div>
+        <div><p class="text-xl font-bold tabular-nums text-gray-900">{{ filteredLockers.length }}</p><p class="text-xs font-medium text-gray-500">Total</p></div>
+      </div>
+      <div class="flex items-center gap-3 px-5 py-4">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-600"><app-icon name="lock" class="h-4 w-4"></app-icon></div>
+        <div><p class="text-xl font-bold tabular-nums text-gray-900">{{ ocupados }}</p><p class="text-xs font-medium text-gray-500">Ocupadas</p></div>
+      </div>
+      <div class="flex items-center gap-3 px-5 py-4">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-green-50 text-green-600"><app-icon name="unlock" class="h-4 w-4"></app-icon></div>
+        <div><p class="text-xl font-bold tabular-nums text-gray-900">{{ libres }}</p><p class="text-xs font-medium text-gray-500">Disponibles</p></div>
+      </div>
+      <div class="flex items-center gap-3 px-5 py-4">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><app-icon name="clock" class="h-4 w-4"></app-icon></div>
+        <div><p class="text-xl font-bold tabular-nums text-gray-900">{{ porLiberarse }}</p><p class="text-xs font-medium text-gray-500">Por liberarse</p></div>
+      </div>
+      <div class="col-span-2 flex items-center gap-3 px-5 py-4 sm:col-span-1">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600"><app-icon name="wrench" class="h-4 w-4"></app-icon></div>
+        <div><p class="text-xl font-bold tabular-nums text-gray-900">{{ mantenimiento }}</p><p class="text-xs font-medium text-gray-500">Mantenimiento</p></div>
       </div>
     </div>
-
-    <!-- Tarjeta Ocupados -->
-    <div class="bg-white p-4 rounded-xl border shadow-sm">
-      <div class="flex items-start gap-3">
-        <app-icon name="lock" class="h-6 w-6 text-red-500"></app-icon>
-        <div>
-          <p class="text-2xl font-bold text-red-900">
-            {{ ocupados }}
-          </p>
-          <p class="text-sm text-gray-500">Ocupados</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tarjeta Libres -->
-    <div class="bg-white p-4 rounded-xl border shadow-sm">
-      <div class="flex items-start gap-3">
-        <app-icon name="unlock" class="h-6 w-6 text-green-500"></app-icon>
-        <div>
-          <p class="text-2xl font-bold text-green-900">
-            {{ libres }}
-          </p>
-          <p class="text-sm text-gray-500">Libres</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tarjeta Mantenimiento -->
-    <div class="bg-white p-4 rounded-xl border shadow-sm">
-      <div class="flex items-start gap-3">
-        <app-icon name="wrench" class="h-6 w-6 text-yellow-500"></app-icon>
-        <div>
-          <p class="text-2xl font-bold text-yellow-900">
-            {{ mantenimiento }}
-          </p>
-          <p class="text-sm text-gray-500">Mantenimiento</p>
-        </div>
-      </div>
-    </div>
-    <!-- Dejamos el 5to espacio (si usas grid-cols-5) para alineación -->
-
-  </div>
+  </section>
 
   <!-- Filtros y Acciones -->
   <div class="flex flex-col gap-4 mt-4">
@@ -103,7 +114,7 @@
             <div class="flex items-center justify-between pb-2 border-b border-gray-100">
               <div>
                 <h4 class="text-xs font-bold text-gray-500 tracking-wider">FILTRAR BAULERAS</h4>
-                <p class="text-xs text-gray-400 mt-0.5">Combina filtros por depósito, estado y tipo de baulera.</p>
+                <p class="text-xs text-gray-400 mt-0.5">Primer click incluye, segundo click excluye y tercero limpia.</p>
               </div>
               <button
                 type="button"
@@ -124,9 +135,11 @@
                     type="button"
                     (click)="toggleWarehouseId(w.id)"
                     class="px-2.5 py-1 rounded-full text-xs transition-colors border"
-                    [ngClass]="selectedWarehouseIds.includes(w.id) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                    [ngClass]="getFilterTagClasses('warehouse', w.id)"
+                    [attr.aria-pressed]="getFilterTagState('warehouse', w.id) !== 'none'"
+                    [title]="getFilterTagTitle('warehouse', w.id)"
                   >
-                    {{ w.name }}
+                    <span *ngIf="getFilterTagState('warehouse', w.id) === 'exclude'" class="mr-0.5 font-black">−</span>{{ w.name }}
                   </button>
                 </div>
               </div>
@@ -140,9 +153,11 @@
                     type="button"
                     (click)="toggleStatus(s)"
                     class="px-2.5 py-1 rounded-full text-xs transition-colors border"
-                    [ngClass]="selectedStatuses.includes(s) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                    [ngClass]="getFilterTagClasses('status', s)"
+                    [attr.aria-pressed]="getFilterTagState('status', s) !== 'none'"
+                    [title]="getFilterTagTitle('status', s)"
                   >
-                    {{ s }}
+                    <span *ngIf="getFilterTagState('status', s) === 'exclude'" class="mr-0.5 font-black">−</span>{{ s }}
                   </button>
                 </div>
               </div>
@@ -156,9 +171,11 @@
                     type="button"
                     (click)="toggleLockerTypeId(lt.id)"
                     class="px-2.5 py-1 rounded-full text-xs transition-colors border"
-                    [ngClass]="selectedLockerTypeIds.includes(lt.id) ? 'bg-blue-600 text-white font-medium border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                    [ngClass]="getFilterTagClasses('lockerType', lt.id)"
+                    [attr.aria-pressed]="getFilterTagState('lockerType', lt.id) !== 'none'"
+                    [title]="getFilterTagTitle('lockerType', lt.id)"
                   >
-                    {{ lt.name }}
+                    <span *ngIf="getFilterTagState('lockerType', lt.id) === 'exclude'" class="mr-0.5 font-black">−</span>{{ lt.name }}
                   </button>
                 </div>
               </div>
@@ -196,27 +213,39 @@
       <span class="text-xs font-semibold text-gray-500 mr-1">Filtros activos:</span>
       
       <!-- Depósitos activos -->
-      <span *ngFor="let id of selectedWarehouseIds" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
+      <span *ngFor="let id of selectedWarehouseIds" [ngClass]="getActiveFilterTagClasses('warehouse', id)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
         Depósito: {{ getWarehouseName(id) }}
-        <button type="button" (click)="toggleWarehouseId(id)" class="hover:text-blue-900 focus:outline-none">
+        <button type="button" (click)="clearFilterTag('warehouse', id)" class="hover:text-blue-900 focus:outline-none">
           <app-icon name="x" class="h-3 w-3"></app-icon>
         </button>
+      </span>
+      <span *ngFor="let id of excludedWarehouseIds" [ngClass]="getActiveFilterTagClasses('warehouse', id)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
+        Excepto depósito: {{ getWarehouseName(id) }}
+        <button type="button" (click)="clearFilterTag('warehouse', id)" class="hover:text-red-900 focus:outline-none"><app-icon name="x" class="h-3 w-3"></app-icon></button>
       </span>
 
       <!-- Estados activos -->
-      <span *ngFor="let s of selectedStatuses" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
+      <span *ngFor="let s of selectedStatuses" [ngClass]="getActiveFilterTagClasses('status', s)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
         Estado: {{ s }}
-        <button type="button" (click)="toggleStatus(s)" class="hover:text-blue-900 focus:outline-none">
+        <button type="button" (click)="clearFilterTag('status', s)" class="hover:text-blue-900 focus:outline-none">
           <app-icon name="x" class="h-3 w-3"></app-icon>
         </button>
       </span>
+      <span *ngFor="let s of excludedStatuses" [ngClass]="getActiveFilterTagClasses('status', s)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
+        Excepto estado: {{ s }}
+        <button type="button" (click)="clearFilterTag('status', s)" class="hover:text-red-900 focus:outline-none"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+      </span>
 
       <!-- Tipos de baulera activos -->
-      <span *ngFor="let id of selectedLockerTypeIds" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
+      <span *ngFor="let id of selectedLockerTypeIds" [ngClass]="getActiveFilterTagClasses('lockerType', id)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
         Tipo: {{ getLockerTypeName(id) }}
-        <button type="button" (click)="toggleLockerTypeId(id)" class="hover:text-blue-900 focus:outline-none">
+        <button type="button" (click)="clearFilterTag('lockerType', id)" class="hover:text-blue-900 focus:outline-none">
           <app-icon name="x" class="h-3 w-3"></app-icon>
         </button>
+      </span>
+      <span *ngFor="let id of excludedLockerTypeIds" [ngClass]="getActiveFilterTagClasses('lockerType', id)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
+        Excepto tipo: {{ getLockerTypeName(id) }}
+        <button type="button" (click)="clearFilterTag('lockerType', id)" class="hover:text-red-900 focus:outline-none"><app-icon name="x" class="h-3 w-3"></app-icon></button>
       </span>
 
       <button type="button" (click)="clearAllTags()" class="ml-2 text-xs font-semibold text-red-600 hover:underline">
@@ -327,15 +356,35 @@
               {{ locker.status }}
             </span>
           </td>
-          <td class="px-2 py-3 text-sm text-gray-600">
-            <!-- Para espacios libres, mostramos todos los clientes asignados -->
-            <ng-container *ngIf="locker.isFreeSpace; else normalClient">
-              <span *ngIf="locker.clientNames" class="block text-xs leading-snug">{{ locker.clientNames }}</span>
-              <span *ngIf="!locker.clientNames" class="text-gray-400 italic text-xs">Sin asignar</span>
-            </ng-container>
-            <ng-template #normalClient>
-              {{ locker.clientName || '-' }}
-            </ng-template>
+          <td class="px-2 py-0 text-sm text-gray-600">
+            <div *ngIf="getLockerClients(locker) as assignedClients"
+                 class="locker-client-list"
+                 [class.locker-client-list-compact]="locker.isFreeSpace">
+              <ng-container *ngFor="let client of assignedClients; let last = last; trackBy: trackByLockerClient">
+                <button
+                  type="button"
+                  (click)="openClientInClients(client)"
+                  cdkOverlayOrigin
+                  #clientOrigin="cdkOverlayOrigin"
+                  (mouseenter)="showClientStats(client, locker.id, clientOrigin)"
+                  (mouseleave)="scheduleClientStatsClose()"
+                  (focus)="showClientStats(client, locker.id, clientOrigin)"
+                  (blur)="scheduleClientStatsClose()"
+                  (keydown.escape)="closeClientStats()"
+                  class="locker-client-trigger"
+                  [class.locker-client-trigger-compact]="locker.isFreeSpace"
+                  [class.locker-client-trigger-active]="clientStatsOpen && clientStatsTarget?.client?.id === client.id && clientStatsTarget?.lockerId === locker.id"
+                  [disabled]="!client.id"
+                  [attr.aria-label]="'Ver cliente: ' + client.fullName"
+                  [attr.aria-describedby]="clientStatsOpen && clientStatsTarget?.client?.id === client.id && clientStatsTarget?.lockerId === locker.id ? 'locker-client-lockers' : null"
+                >
+                  <span>{{ client.fullName }}</span>
+                  <app-icon *ngIf="!locker.isFreeSpace" name="arrow-right" class="locker-client-arrow" aria-hidden="true"></app-icon>
+                </button>
+                <span *ngIf="locker.isFreeSpace && !last" class="locker-client-separator" aria-hidden="true">·</span>
+              </ng-container>
+              <span *ngIf="assignedClients.length === 0" class="block px-2 py-3 text-xs italic text-gray-400">Sin asignar</span>
+            </div>
           </td>
           <td class="px-2 py-3 whitespace-nowrap text-sm font-medium"> 
             <button (click)="openUpdateLockerModal(locker)" 
@@ -349,7 +398,7 @@
           </td>
         </tr>
         <tr *ngIf="filteredLockers.length === 0">
-            <td colspan="6" class="px-4 py-6 text-center text-gray-500">
+            <td colspan="7" class="px-4 py-6 text-center text-gray-500">
                 No se encontraron lockers con los filtros aplicados.
             </td>
         </tr>

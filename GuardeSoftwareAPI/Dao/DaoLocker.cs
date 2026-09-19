@@ -41,7 +41,26 @@ namespace GuardeSoftwareAPI.Dao
                         INNER JOIN rentals r2 ON rl.rental_id = r2.rental_id AND r2.active = 1
                         INNER JOIN clients cl2 ON r2.client_id = cl2.client_id
                         WHERE rl.locker_id = l.locker_id
-                    ) ELSE NULL END AS client_names
+                    ) ELSE NULL END AS client_names,
+                    CASE WHEN l.is_free_space = 0 THEN (
+                        SELECT
+                            r.client_id AS [Id],
+                            c.full_name AS [FullName],
+                            c.payment_identifier AS [PaymentIdentifier]
+                        WHERE r.rental_id IS NOT NULL
+                        FOR JSON PATH
+                    ) ELSE (
+                        SELECT
+                            r2.client_id AS [Id],
+                            cl2.full_name AS [FullName],
+                            cl2.payment_identifier AS [PaymentIdentifier]
+                        FROM rental_lockers rl
+                        INNER JOIN rentals r2 ON rl.rental_id = r2.rental_id AND r2.active = 1
+                        INNER JOIN clients cl2 ON r2.client_id = cl2.client_id
+                        WHERE rl.locker_id = l.locker_id
+                        ORDER BY cl2.full_name, r2.client_id
+                        FOR JSON PATH
+                    ) END AS clients_json
                 FROM lockers l 
                 LEFT JOIN rentals r ON l.rental_id = r.rental_id AND r.active = 1
                 LEFT JOIN clients c ON r.client_id = c.client_id 
@@ -304,6 +323,106 @@ namespace GuardeSoftwareAPI.Dao
             command.Parameters.AddRange(parameters);
             int rowsAffected = await command.ExecuteNonQueryAsync();
             return rowsAffected > 0;
+        }
+
+        /// <summary>
+        /// Actualiza una baulera y migra su asignación entre lockers.rental_id y
+        /// rental_lockers cuando cambia entre modo normal y multi-cliente.
+        /// También repara filas multi-cliente antiguas que todavía conservan
+        /// rental_id por una conversión incompleta.
+        /// </summary>
+        public async Task<bool> UpdateLockerPreservingAssignmentsTransactionAsync(
+            Locker locker,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            const string query = @"
+                DECLARE @current_is_free_space BIT;
+                DECLARE @current_rental_id INT;
+
+                SELECT
+                    @current_is_free_space = ISNULL(is_free_space, 0),
+                    @current_rental_id = rental_id
+                FROM lockers WITH (UPDLOCK, HOLDLOCK)
+                WHERE locker_id = @locker_id
+                  AND active = 1;
+
+                IF @current_is_free_space IS NULL
+                BEGIN
+                    SELECT 0;
+                    RETURN;
+                END;
+
+                IF @is_free_space = 1
+                BEGIN
+                    IF @current_rental_id IS NOT NULL
+                       AND NOT EXISTS (
+                           SELECT 1
+                           FROM rental_lockers
+                           WHERE rental_id = @current_rental_id
+                             AND locker_id = @locker_id
+                       )
+                    BEGIN
+                        INSERT INTO rental_lockers (rental_id, locker_id)
+                        VALUES (@current_rental_id, @locker_id);
+                    END;
+
+                    UPDATE lockers
+                    SET identifier = @identifier,
+                        features = @features,
+                        status = @status,
+                        locker_type_id = @locker_type_id,
+                        warehouse_id = @warehouse_id,
+                        is_free_space = 1,
+                        rental_id = NULL
+                    WHERE locker_id = @locker_id;
+                END
+                ELSE
+                BEGIN
+                    DECLARE @multi_assignment_count INT;
+                    DECLARE @multi_rental_id INT;
+
+                    SELECT
+                        @multi_assignment_count = COUNT(*),
+                        @multi_rental_id = MIN(rental_id)
+                    FROM rental_lockers WITH (UPDLOCK, HOLDLOCK)
+                    WHERE locker_id = @locker_id;
+
+                    IF @multi_assignment_count > 1
+                        THROW 51020, 'No se puede convertir a baulera individual porque tiene más de un cliente asignado.', 1;
+
+                    IF @multi_assignment_count = 1 AND UPPER(@status) <> 'OCUPADO'
+                        THROW 51021, 'Una baulera individual con cliente asignado debe conservar el estado OCUPADO.', 1;
+
+                    UPDATE lockers
+                    SET identifier = @identifier,
+                        features = @features,
+                        status = @status,
+                        locker_type_id = @locker_type_id,
+                        warehouse_id = @warehouse_id,
+                        is_free_space = 0,
+                        rental_id = COALESCE(@multi_rental_id, @current_rental_id)
+                    WHERE locker_id = @locker_id;
+
+                    DELETE FROM rental_lockers
+                    WHERE locker_id = @locker_id;
+                END;
+
+                SELECT 1;";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.AddRange([
+                new SqlParameter("@locker_id", SqlDbType.Int) { Value = locker.Id },
+                new SqlParameter("@identifier", SqlDbType.VarChar, 100) { Value = (object?)locker.Identifier ?? DBNull.Value },
+                new SqlParameter("@features", SqlDbType.VarChar) { Value = (object?)locker.Features ?? DBNull.Value },
+                new SqlParameter("@status", SqlDbType.VarChar, 50) { Value = locker.Status },
+                new SqlParameter("@locker_type_id", SqlDbType.Int) { Value = locker.LockerTypeId },
+                new SqlParameter("@warehouse_id", SqlDbType.Int) { Value = locker.WarehouseId },
+                new SqlParameter("@is_free_space", SqlDbType.Bit) { Value = locker.IsFreeSpace }
+            ]);
+
+            object? result = await command.ExecuteScalarAsync();
+            return result != null && result != DBNull.Value && Convert.ToInt32(result) == 1;
         }
 
         public async Task<bool> UpdateLockerStatus(int lockerId, string status)

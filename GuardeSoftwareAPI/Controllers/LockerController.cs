@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using GuardeSoftwareAPI.Dtos.Locker;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Data.SqlClient;
 
 namespace GuardeSoftwareAPI.Controllers
 {
@@ -105,6 +106,14 @@ namespace GuardeSoftwareAPI.Controllers
                     return Ok(new { message = "Locker updated successfully." });
                 else
                     return NotFound(new { message = $"No locker found with ID {id}." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (SqlException ex) when (ex.Number is 51020 or 51021)
+            {
+                return Conflict(new { message = ex.Message });
             }
             catch (Exception ex)
             {
