@@ -77,6 +77,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
 
   // --- Datos ---
   public warehouses: Warehouse[] = [];
+  public allLockers: Locker[] = [];
   public availableLockers: Locker[] = [];
   public lockerTypes: LockerType[] = [];
   public paymentMethods: PaymentMethod[] = [];
@@ -147,7 +148,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
         this.billingTypes = results.billingTypes;
         this.lockerTypes = results.lockerTypes; 
 
-        this.availableLockers = results.lockers.filter(
+        this.allLockers = results.lockers;
+        this.availableLockers = this.allLockers.filter(
           (l: Locker) =>
             l.status.toLowerCase() === 'disponible' ||
             (l.isFreeSpace && l.status.toUpperCase() !== 'OCUPADO') ||
@@ -607,13 +609,24 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   get filteredLockers(): Locker[] {
     if (!this.isEditMode && this.assignmentMode !== 'direct') return []; 
     
-    const search = this.newClientForm.value.lockerSearch?.toLowerCase() || '';
+    const search = this.normalizeLockerIdentifier(this.newClientForm.value.lockerSearch);
     const warehouseId = this.newClientForm.value.selectedWarehouse;
     const typeId = this.newClientForm.value.selectedLockerType;
     const assignedLockerIds = this.newClientForm.get('lockersAsignados')?.value || [];
+    const availableLockerIds = new Set(this.availableLockers.map(locker => locker.id));
+    const exactOccupiedMatches = this.isEditMode && search !== ''
+      ? this.allLockers.filter(locker =>
+          !availableLockerIds.has(locker.id)
+          && this.normalizeLockerIdentifier(locker.identifier) === search
+          && locker.status.toUpperCase() === 'OCUPADO'
+        )
+      : [];
+    const lockersToFilter = [...this.availableLockers, ...exactOccupiedMatches];
     
-    const filtered = this.availableLockers.filter((locker) => {
-      const searchMatch = search === '' || locker.identifier.toLowerCase().includes(search) || (locker.features && locker.features.toLowerCase().includes(search));
+    const filtered = lockersToFilter.filter((locker) => {
+      const searchMatch = search === ''
+        || this.normalizeLockerIdentifier(locker.identifier).includes(search)
+        || (locker.features && locker.features.toLocaleLowerCase('es-AR').includes(search));
       const warehouseMatch = warehouseId === 'all' || locker.warehouseId === Number(warehouseId);
       const typeMatch = typeId === 'all' || locker.lockerTypeId === Number(typeId);
       
@@ -634,17 +647,44 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   
   getLockerDetails(lockerId: number | null) {
       if (typeof lockerId !== 'number' || lockerId <= 0) return { locker: null, warehouse: null, lockerType: null };
-      const locker = this.availableLockers.find((l) => l.id === lockerId);
+      const locker = this.allLockers.find((l) => l.id === lockerId);
       if (!locker) return { locker: null, warehouse: null, lockerType: null };
       const warehouse = this.warehouses.find((w) => w.id === locker.warehouseId);
       const lockerType = this.lockerTypes.find((lt) => lt.id === locker.lockerTypeId);
       return { locker: locker, warehouse: warehouse || null, lockerType: lockerType || null };
   }
+
+  isLockerDisabled(locker: Locker): boolean {
+    const belongsToCurrentClient = this.clientData?.lockersList?.some(
+      assignedLocker => assignedLocker.id === locker.id
+    ) === true;
+
+    return !belongsToCurrentClient && locker.status.toUpperCase() === 'OCUPADO';
+  }
+
+  getLockerOccupantNames(locker: Locker): string {
+    const structuredNames = locker.clients
+      ?.map(client => client.fullName?.trim())
+      .filter((name): name is string => !!name) ?? [];
+
+    if (structuredNames.length > 0) {
+      return structuredNames.join(', ');
+    }
+
+    return (locker.clientNames || locker.clientName || '').trim();
+  }
   
   handleLockerToggle(lockerId: number): void {
+    const locker = this.allLockers.find(item => item.id === lockerId);
+    if (locker && this.isLockerDisabled(locker)) return;
+
     const assigned = this.newClientForm.get('lockersAsignados') as FormArray;
     const index = assigned.controls.findIndex((ctrl) => ctrl.value === lockerId);
     if (index > -1) assigned.removeAt(index); else assigned.push(this.fb.control(lockerId));
+  }
+
+  private normalizeLockerIdentifier(value: unknown): string {
+    return String(value ?? '').trim().toLocaleLowerCase('es-AR');
   }
 
   

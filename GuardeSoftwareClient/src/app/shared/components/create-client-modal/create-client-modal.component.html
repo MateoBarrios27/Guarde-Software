@@ -412,10 +412,15 @@
                     
                     <div *ngFor="let locker of filteredLockers"
                          (click)="handleLockerToggle(locker.id)"
-                         [ngClass]="{ 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200': newClientForm.get('lockersAsignados')?.value.includes(locker.id) }"
-                         class="p-3 rounded-lg border bg-white cursor-pointer hover:border-indigo-300">
+                         [attr.aria-disabled]="isLockerDisabled(locker)"
+                         [ngClass]="{
+                           'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200': newClientForm.get('lockersAsignados')?.value.includes(locker.id),
+                           'cursor-not-allowed border-gray-200 bg-gray-100 opacity-75': isLockerDisabled(locker),
+                           'cursor-pointer bg-white hover:border-indigo-300': !isLockerDisabled(locker)
+                         }"
+                         class="p-3 rounded-lg border">
                       <div class="flex items-start space-x-3">
-                        <input type="checkbox" [checked]="newClientForm.get('lockersAsignados')?.value.includes(locker.id)" readonly class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" (keydown.enter)="blurInput($event)"/>
+                        <input type="checkbox" [checked]="newClientForm.get('lockersAsignados')?.value.includes(locker.id)" [disabled]="isLockerDisabled(locker)" readonly class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" (keydown.enter)="blurInput($event)"/>
                         <div class="flex-1">
                           <div class="flex justify-between items-center mb-1">
                             <div class="flex items-center gap-2">
@@ -429,6 +434,9 @@
                             <span *ngIf="getLockerDetails(locker.id).lockerType">{{ getLockerDetails(locker.id).lockerType?.name }}</span>
                             <span *ngIf="getLockerDetails(locker.id).lockerType">{{ getLockerDetails(locker.id).lockerType?.m3 }}m³</span>
                           </div>
+                          <p *ngIf="isLockerDisabled(locker)" class="mt-1 text-xs font-medium text-amber-700">
+                            Ocupada por: {{ getLockerOccupantNames(locker) || 'cliente sin identificar' }}
+                          </p>
                         </div>
                       </div>
                     </div>

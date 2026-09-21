@@ -2,6 +2,7 @@ import { SimpleChange } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { of } from 'rxjs';
 import { CreateClientModalComponent } from './create-client-modal.component';
+import { Locker } from '../../../core/models/locker';
 
 describe('CreateClientModalComponent', () => {
   let component: CreateClientModalComponent;
@@ -71,5 +72,59 @@ describe('CreateClientModalComponent', () => {
     const earlyMonthComponent = createComponentForDate(new Date(2026, 8, 9));
     expect(earlyMonthComponent.shouldGenerateProportional).toBeFalse();
     expect(earlyMonthComponent.newClientForm.get('proportionalMode')?.value).toBe('automatic');
+  });
+
+  it('shows an exact occupied locker as disabled with all of its assigned clients in edit mode', () => {
+    const occupiedLocker: Locker = {
+      id: 50,
+      warehouseId: 1,
+      lockerTypeId: 1,
+      identifier: 'B-050',
+      features: '',
+      status: 'OCUPADO',
+      clients: [
+        { id: 10, fullName: 'Cliente Uno', paymentIdentifier: 101 },
+        { id: 11, fullName: 'Cliente Dos', paymentIdentifier: 102 },
+      ],
+      isFreeSpace: true,
+    };
+    component.isEditMode = true;
+    component.allLockers = [occupiedLocker];
+    component.availableLockers = [];
+    component.newClientForm.patchValue({
+      lockerSearch: '  b-050  ',
+      selectedWarehouse: 'all',
+      selectedLockerType: 'all',
+    });
+
+    expect(component.filteredLockers).toEqual([occupiedLocker]);
+    expect(component.isLockerDisabled(occupiedLocker)).toBeTrue();
+    expect(component.getLockerOccupantNames(occupiedLocker)).toBe('Cliente Uno, Cliente Dos');
+
+    component.handleLockerToggle(occupiedLocker.id);
+    expect(component.newClientForm.get('lockersAsignados')?.value).toEqual([]);
+  });
+
+  it('keeps occupied lockers hidden from the direct assignment flow when creating a client', () => {
+    const occupiedLocker: Locker = {
+      id: 51,
+      warehouseId: 1,
+      lockerTypeId: 1,
+      identifier: 'B-051',
+      features: '',
+      status: 'OCUPADO',
+      clientName: 'Cliente Existente',
+    };
+    component.isEditMode = false;
+    component.assignmentMode = 'direct';
+    component.allLockers = [occupiedLocker];
+    component.availableLockers = [];
+    component.newClientForm.patchValue({
+      lockerSearch: 'B-051',
+      selectedWarehouse: 'all',
+      selectedLockerType: 'all',
+    });
+
+    expect(component.filteredLockers).toEqual([]);
   });
 });
