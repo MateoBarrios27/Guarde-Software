@@ -272,9 +272,6 @@ namespace GuardeSoftwareAPI.Services.payment
                 decimal reservedImmediateSurcharge = surchargeAction == "immediate"
                     ? Math.Max(0m, dto.SurchargeAmount ?? rental.PendingSurcharge ?? 0m)
                     : 0m;
-                decimal paymentAvailableForDebt = Math.Max(
-                    0m,
-                    dto.Amount - (dto.CommissionAmount ?? 0m) - reservedImmediateSurcharge);
                 // ==============================================================================
                 // FIX: CORRECCIÓN RETROACTIVA DE MESES YA EMITIDOS (Comparando solo Año y Mes)
                 // ==============================================================================
@@ -324,7 +321,6 @@ namespace GuardeSoftwareAPI.Services.payment
                 var latePaymentProjection = LatePaymentSurchargeCalculator.Project(
                     beforePayment.Rows,
                     dto.Date,
-                    paymentAvailableForDebt,
                     !isClientMarkedAsLeaving && dto.NewRentAmount.HasValue && dto.NewRentAmount.Value > baseRent
                         ? dto.NewRentAmount.Value
                         : baseRent);
@@ -435,9 +431,14 @@ namespace GuardeSoftwareAPI.Services.payment
                 ?? new DateTime(dto.Date.Year, dto.Date.Month, 1);
             decimal lateRentBase = rental.PendingSurchargeRentBase
                 ?? latePaymentProjection.LateRentBase;
-            decimal recalculatedPenalty = LatePaymentSurchargeCalculator.Calculate(
-                lateRentBase,
-                latePaymentProjection.UnpaidInterestsAfterPayment);
+            // Si el job del día 11 ya fijó el recargo, ese importe representa la
+            // base congelada al vencimiento. El pago tardío no debe reducirlo aunque
+            // cancele luego parte o todos los intereses que estaban impagos.
+            decimal recalculatedPenalty = rental.PendingSurcharge is > 0m
+                ? rental.PendingSurcharge.Value
+                : LatePaymentSurchargeCalculator.Calculate(
+                    lateRentBase,
+                    latePaymentProjection.UnpaidInterestsAtCutoff);
             decimal finalPenalty = dto.SurchargeAmountWasOverridden
                 ? Math.Max(0m, dto.SurchargeAmount ?? 0m)
                 : recalculatedPenalty;

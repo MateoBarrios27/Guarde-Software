@@ -8,7 +8,6 @@ public static class LatePaymentSurchargeCalculator
     public static LatePaymentSurchargeProjection Project(
         IEnumerable<ClientMonthBalance> balances,
         DateTime paymentDate,
-        decimal paymentAvailableForDebt,
         decimal currentRentFallback)
     {
         var paymentMonth = new DateTime(paymentDate.Year, paymentDate.Month, 1);
@@ -46,36 +45,22 @@ public static class LatePaymentSurchargeCalculator
             lateRentBase = Math.Max(0m, currentRentFallback);
         }
 
-        decimal remainingPayment = Math.Max(0m, paymentAvailableForDebt);
-        var targets = components.SelectMany(component => new[]
-        {
-            (Component: component, IsInterest: false),
-            (Component: component, IsInterest: true)
-        }).OrderBy(target => PaymentAllocationEngine.Priority(target.Component.Month, target.IsInterest, paymentMonth))
-          .ThenBy(target => target.Component.Month);
-
-        foreach (var target in targets)
-        {
-            decimal outstanding = target.IsInterest ? target.Component.UnpaidInterest : target.Component.UnpaidRent;
-            decimal applied = Math.Min(remainingPayment, outstanding);
-            if (target.IsInterest) target.Component.UnpaidInterest -= applied;
-            else target.Component.UnpaidRent -= applied;
-            remainingPayment -= applied;
-        }
-
-        decimal unpaidInterestsAfterPayment = components.Sum(component => component.UnpaidInterest);
-        decimal taxableBase = lateRentBase + unpaidInterestsAfterPayment;
+        // El corte del día 10 congela tanto el alquiler vencido como todos los
+        // intereses que estaban impagos. Un crédito posterior puede cancelarlos
+        // contablemente, pero no reduce la penalización ya causada por pagarlos tarde.
+        decimal unpaidInterestsAtCutoff = components.Sum(component => component.UnpaidInterest);
+        decimal taxableBase = lateRentBase + unpaidInterestsAtCutoff;
         return new LatePaymentSurchargeProjection
         {
             LateRentBase = lateRentBase,
-            UnpaidInterestsAfterPayment = unpaidInterestsAfterPayment,
+            UnpaidInterestsAtCutoff = unpaidInterestsAtCutoff,
             TaxableBase = taxableBase,
             SurchargeAmount = RoundDownToHundred(taxableBase * 0.10m)
         };
     }
 
-    public static decimal Calculate(decimal lateRentBase, decimal unpaidInterestsAfterPayment) =>
-        RoundDownToHundred((Math.Max(0m, lateRentBase) + Math.Max(0m, unpaidInterestsAfterPayment)) * 0.10m);
+    public static decimal Calculate(decimal lateRentBase, decimal unpaidInterestsAtCutoff) =>
+        RoundDownToHundred((Math.Max(0m, lateRentBase) + Math.Max(0m, unpaidInterestsAtCutoff)) * 0.10m);
 
     private static decimal RoundDownToHundred(decimal amount) =>
         amount <= 0m ? 0m : Math.Floor(amount / 100m) * 100m;
@@ -83,15 +68,15 @@ public static class LatePaymentSurchargeCalculator
     private sealed class LatePaymentComponent
     {
         public DateTime Month { get; init; }
-        public decimal UnpaidInterest { get; set; }
-        public decimal UnpaidRent { get; set; }
+        public decimal UnpaidInterest { get; init; }
+        public decimal UnpaidRent { get; init; }
     }
 }
 
 public sealed class LatePaymentSurchargeProjection
 {
     public decimal LateRentBase { get; init; }
-    public decimal UnpaidInterestsAfterPayment { get; init; }
+    public decimal UnpaidInterestsAtCutoff { get; init; }
     public decimal TaxableBase { get; init; }
     public decimal SurchargeAmount { get; init; }
 }

@@ -39,6 +39,10 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
     this.onTouched = fn;
   }
 
+  setDisabledState(isDisabled: boolean): void {
+    this.el.nativeElement.disabled = isDisabled;
+  }
+
   @HostListener('input', ['$event'])
   onInput(event: any): void {
     const input = event.target as HTMLInputElement;

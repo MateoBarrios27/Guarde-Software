@@ -1493,32 +1493,22 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
   calculateInterestAmount(): number {
     const scenario = this.getSurchargeScenario();
-    if (scenario === 'A') {
-      return this.selectedPendingSurcharge;
-    }
-    if (scenario === 'B' && this.surchargeAmountWasOverridden) {
+    if (scenario === 'A' || scenario === 'B') {
       return this.selectedPendingSurcharge;
     }
     if (scenario === 'C' && this.customScenarioCInterest !== null) {
       return this.customScenarioCInterest;
     }
-    if (scenario === 'B' || scenario === 'C') {
+    if (scenario === 'C') {
       return this.getProjectedLatePaymentSurcharge().surchargeAmount;
     }
     return 0;
   }
 
   private getProjectedLatePaymentSurcharge() {
-    const payment = this.getCalculatedAmounts(
-      this.paymentDto.amount,
-      this.paymentDto.paymentMethodId,
-      this.selectedPreferredPaymentId
-    );
     return projectLatePaymentSurcharge(
-      Math.max(0, -Number(this.selectedClientPreviousBalance || 0)),
       Number(this.selectedInterestAmount || 0),
-      Number(this.selectedClientRentAmount || 0),
-      payment.equivalentDebtPaid
+      Number(this.selectedClientRentAmount || 0)
     );
   }
 
@@ -2266,7 +2256,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
                 <span>Recargo por mora a aplicar (${formatARS(interestAmt)})</span>
                 <button type="button" id="swal-edit-interest-btn-b" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Modificar monto</button>
               </h4>
-              <p class="text-xs text-amber-700 mt-0.5">Monto registrado al vencer: ${formatARS(this.selectedPendingSurcharge)}. La proyección ya descuenta los intereses que este pago cancela por cascada. Seleccioná cómo aplicarlo:</p>
+              <p class="text-xs text-amber-700 mt-0.5">Monto fijado al vencer: ${formatARS(this.selectedPendingSurcharge)}. Incluye el alquiler y todos los intereses que estaban impagos al corte; este pago tardío no reduce esa penalización. Seleccioná cómo aplicarlo:</p>
             </div>
             <span class="bg-amber-100/90 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día > 10</span>
           </div>
@@ -2295,7 +2285,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
                 <span>Aplicar intereses por mora (${formatARS(interestAmt)})</span>
                 <button type="button" id="swal-edit-interest-btn-c" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Modificar monto</button>
               </h4>
-              <p class="text-xs text-amber-700 mt-0.5">Fecha posterior al día 10. Base proyectada después de aplicar la cascada del pago: ${formatARS(baseImp)}.</p>
+              <p class="text-xs text-amber-700 mt-0.5">Fecha posterior al día 10. Base al corte, antes de este pago tardío: ${formatARS(baseImp)}.</p>
             </div>
             <label class="flex items-center gap-2 cursor-pointer shrink-0 pt-1">
               <input type="checkbox" id="swal-apply-scenario-c" ${this.applyScenarioCInterest ? 'checked' : ''} class="rounded text-amber-600 focus:ring-amber-500 w-4 h-4">
