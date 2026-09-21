@@ -106,6 +106,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   searchDateTo: string = '';
   isHistoricalView: boolean = false; 
   filteredItems: any[] = [];
+  private historicalFilterRequestSequence = 0;
 
   // --- FILTROS INCLUSIVOS / EXCLUYENTES DE CAJA ---
   showCashFilters = false;
@@ -186,6 +187,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedItemIds: number[] = [];
 
   toggleItemSelection(item: CashFlowItem): void {
+    if (this.isHistoricalView) {
+      this.showHistoricalReadOnlyNotice();
+      return;
+    }
     if (!item.id || item.id === 0) return; 
     
     const index = this.selectedItemIds.indexOf(item.id);
@@ -983,6 +988,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   toggleReplication(item: CashFlowItem): void {
+    if (this.isHistoricalView) {
+      this.showHistoricalReadOnlyNotice();
+      return;
+    }
     this.captureItem(item);
     item.replicationState = (item.replicationState + 1) % 3;
     this.checkItemChange(item);
@@ -990,6 +999,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   togglePaid(item: CashFlowItem): void {
+    if (this.isHistoricalView) {
+      this.showHistoricalReadOnlyNotice();
+      return;
+    }
     this.captureItem(item);
     item.isPaid = !item.isPaid;
     this.checkItemChange(item);
@@ -997,6 +1010,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async clearItemField(item: CashFlowItem, field: keyof CashFlowItem): Promise<void> {
+    if (this.isHistoricalView) {
+      this.showHistoricalReadOnlyNotice();
+      return;
+    }
     const fieldLabels: Partial<Record<keyof CashFlowItem, string>> = {
       depo: 'Depósito',
       casa: 'Casa',
@@ -1331,6 +1348,11 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     // por eso sus filas no tienen una fecha propia para comparar.
     if (!itemDate) return allowMissingDate;
 
+    // Una sola fecha representa un día específico. El período histórico se
+    // activa únicamente cuando Desde y Hasta están completos.
+    if (this.searchDateFrom && !this.searchDateTo) return itemDate === this.searchDateFrom;
+    if (!this.searchDateFrom && this.searchDateTo) return itemDate === this.searchDateTo;
+
     return (!this.searchDateFrom || itemDate >= this.searchDateFrom) &&
       (!this.searchDateTo || itemDate <= this.searchDateTo);
   }
@@ -1342,6 +1364,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onItemChange(item: CashFlowItem): void {
+    if (this.isHistoricalView) return;
     if (item.date === '') item.date = null as any;
     
     // Si el usuario pone el color blanco, lo interpretamos como "sin color"
@@ -1357,6 +1380,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   saveItem(item: CashFlowItem): void {
+    if (this.isHistoricalView) return;
     const isNewItem = !item.id || item.id === 0;
     const payloadToSave: CashFlowItem = {
       ...item,
@@ -1380,6 +1404,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async deleteItem(item: any): Promise<void> {
+    if (this.isHistoricalView) {
+      this.showHistoricalReadOnlyNotice();
+      return;
+    }
     const confirmed = await this.deleteConfirmation.confirm({
       message: 'Esta acción eliminará el concepto contable.'
     });
@@ -1421,15 +1449,24 @@ setDefaultDate(item: any): void {
 
 // 2. Reemplazá tu método filterItems() por esta versión "omnipotente"
 filterItems(): void {
+  const requestSequence = ++this.historicalFilterRequestSequence;
   const term = this.searchTerm.toLowerCase().trim();
   
   if (this.searchDateFrom && this.searchDateTo) {
+    const requestedDateFrom = this.searchDateFrom;
+    const requestedDateTo = this.searchDateTo;
     if (!this.isHistoricalView) this.clearItemSelection();
     this.isHistoricalView = true;
     this.isLoading = true;
     
-    this.cashService.getHistoricalReport(this.searchDateFrom, this.searchDateTo).subscribe({
+    this.cashService.getHistoricalReport(requestedDateFrom, requestedDateTo).subscribe({
       next: (data) => {
+        if (
+          requestSequence !== this.historicalFilterRequestSequence ||
+          requestedDateFrom !== this.searchDateFrom ||
+          requestedDateTo !== this.searchDateTo
+        ) return;
+
         data.forEach((item, index) => {
           item.id = -(index + 1);
           item.rowNum = index + 1; 
@@ -1443,6 +1480,7 @@ filterItems(): void {
         this.isLoading = false;
       },
       error: () => {
+        if (requestSequence !== this.historicalFilterRequestSequence) return;
         this.isLoading = false;
         Swal.fire('Error', 'No se pudo generar el reporte histórico', 'error');
       }
@@ -1451,6 +1489,7 @@ filterItems(): void {
   else {
     if (this.isHistoricalView) this.clearItemSelection();
     this.isHistoricalView = false;
+    this.isLoading = false;
 
     this.items.forEach((item, index) => {
       item.rowNum = index + 1;
@@ -1460,6 +1499,60 @@ filterItems(): void {
     this.calculateTableTotals();
   }
 }
+
+  prepareCashDateFilter(field: 'from' | 'to', event?: Event): void {
+    const input = event?.target instanceof HTMLInputElement ? event.target : null;
+    let initialDate = '';
+
+    if (field === 'from' && !this.searchDateFrom) {
+      this.searchDateFrom = this.filterMinDate;
+      initialDate = this.searchDateFrom;
+    }
+
+    if (field === 'to' && !this.searchDateTo) {
+      this.searchDateTo = this.searchDateFrom > this.filterMaxDate
+        ? this.searchDateFrom
+        : this.filterMaxDate;
+      initialDate = this.searchDateTo;
+    }
+
+    if (!initialDate) return;
+
+    if (input) {
+      input.value = initialDate;
+
+      // El calendario nativo decide su mes antes de que Angular termine el
+      // ciclo de detección. En pointerdown lo abrimos explícitamente después
+      // de asignar el valor para que nunca arranque en el mes actual.
+      if (event?.type === 'pointerdown') {
+        event.preventDefault();
+        input.focus({ preventScroll: true });
+        input.showPicker();
+      }
+    }
+
+    this.filterItems();
+  }
+
+  onCashDateRangeChange(field: 'from' | 'to'): void {
+    if (field === 'from' && !this.searchDateFrom) {
+      this.searchDateTo = '';
+    }
+    this.filterItems();
+  }
+
+  showHistoricalReadOnlyNotice(): void {
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'info',
+      title: 'Período histórico: solo lectura',
+      text: 'Quitá el rango de fechas para volver a modificar movimientos.',
+      showConfirmButton: false,
+      timer: 3200,
+      timerProgressBar: true
+    });
+  }
 
   clearDateFilter(): void {
     this.searchDateFrom = '';
@@ -2140,6 +2233,10 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
   }
 
   toggleSelectAllItems(): void {
+    if (this.isHistoricalView) {
+      this.showHistoricalReadOnlyNotice();
+      return;
+    }
     if (this.selectedItemIds.length > 0) {
       this.selectedItemIds = [];
     } else {
@@ -2177,6 +2274,10 @@ isColumnAllSelected(field: string): boolean {
 
 // Selecciona o deselecciona en bloque solo los elementos visibles que tengan valor en la columna
 toggleSelectAllColumn(field: string): void {
+  if (this.isHistoricalView) {
+    this.showHistoricalReadOnlyNotice();
+    return;
+  }
   const itemsWithValues = this.filteredItems.filter(
     item => item.id && item[field] !== null && item[field] !== undefined && item[field] !== 0 && item[field] !== ''
   );
@@ -2200,6 +2301,10 @@ toggleSelectAllColumn(field: string): void {
 // --- ADELANTOS (Pagos Parciales) ---
 
 openAdvancesModal(item: CashFlowItem): void {
+  if (this.isHistoricalView) {
+    this.showHistoricalReadOnlyNotice();
+    return;
+  }
   if (!item.id || item.id === 0) {
     // Guardar primero el item si no tiene ID
     const payloadToSave: CashFlowItem = {

@@ -335,17 +335,17 @@
           <input type="text" RipTable [(ngModel)]="searchTerm" (input)="filterItems()" placeholder="Buscar conceptos, montos..." class="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 block w-full pl-9 p-2 transition-all shadow-sm">
         </div>
 
-        <div class="flex items-center gap-1 bg-gray-50 rounded-xl border border-gray-200 p-1 w-full sm:w-auto justify-between sm:justify-start">
-          <div class="relative flex-1 sm:flex-none" [title]="searchDateFrom ? 'Desde' : 'Día específico'">
-            <input type="date" [(ngModel)]="searchDateFrom" (change)="filterItems()" [max]="filterMaxDate" class="border-none text-gray-600 text-sm focus:ring-0 cursor-pointer bg-transparent py-1 px-2 hover:bg-white rounded-lg transition-colors w-full" [ngClass]="searchDateFrom ? 'sm:w-32' : 'sm:w-36'">
-          </div>
+        <div class="flex items-center gap-1.5 bg-gray-50 rounded-xl border border-gray-200 p-1.5 w-full sm:w-auto justify-between sm:justify-start">
+          <label class="flex min-w-0 flex-1 items-center rounded-lg px-1.5 transition-colors hover:bg-white sm:flex-none">
+            <input type="date" [(ngModel)]="searchDateFrom" (pointerdown)="prepareCashDateFilter('from', $event)" (focus)="prepareCashDateFilter('from', $event)" (change)="onCashDateRangeChange('from')" [max]="searchDateTo || null" aria-label="Fecha desde" class="w-full cursor-pointer border-none bg-transparent px-1 py-1 text-sm text-gray-600 focus:ring-0 sm:w-[126px]">
+          </label>
           <ng-container *ngIf="searchDateFrom">
-            <span class="text-gray-300 font-bold mx-1">-</span>
-            <div class="relative animate-fade-in-down flex-1 sm:flex-none" title="Hasta">
-              <input type="date" [(ngModel)]="searchDateTo" (change)="filterItems()" [min]="searchDateFrom" class="border-none text-gray-600 text-sm focus:ring-0 cursor-pointer bg-transparent py-1 px-2 hover:bg-white rounded-lg transition-colors w-full" [ngClass]="searchDateFrom ? 'sm:w-32' : 'sm:w-36'">
-            </div>
+            <span class="flex-shrink-0 text-gray-300 font-bold">–</span>
+            <label class="flex min-w-0 flex-1 items-center rounded-lg px-1.5 transition-colors hover:bg-white sm:flex-none">
+              <input type="date" [(ngModel)]="searchDateTo" (pointerdown)="prepareCashDateFilter('to', $event)" (focus)="prepareCashDateFilter('to', $event)" (change)="onCashDateRangeChange('to')" [min]="searchDateFrom" aria-label="Fecha hasta" class="w-full cursor-pointer border-none bg-transparent px-1 py-1 text-sm text-gray-600 focus:ring-0 sm:w-[126px]">
+            </label>
           </ng-container>
-          <button *ngIf="searchDateFrom || searchDateTo" (click)="clearDateFilter()" class="p-1.5 ml-1 flex-shrink-0 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-all" title="Limpiar fechas"><app-icon name="x" class="w-4 h-4 stroke-[2.5]"></app-icon></button>
+          <button *ngIf="searchDateFrom || searchDateTo" (click)="clearDateFilter()" class="p-1.5 flex-shrink-0 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-all" title="Limpiar fechas" aria-label="Limpiar rango de fechas"><app-icon name="x" class="w-4 h-4 stroke-[2.5]"></app-icon></button>
         </div>
       </div>
     </div>
@@ -521,11 +521,32 @@
       </span>
 
       <span *ngIf="searchDateFrom || searchDateTo" class="inline-flex items-center overflow-hidden rounded-full border border-blue-200 bg-blue-50 text-xs text-blue-700">
-        <button type="button" (click)="clearDateFilter()" class="px-2.5 py-1 focus:outline-none">Fecha: {{ searchDateFrom || '…' }}<span *ngIf="searchDateTo"> a {{ searchDateTo }}</span></button>
+        <span class="cursor-default px-2.5 py-1">Fecha: {{ searchDateFrom || '…' }}<span *ngIf="searchDateTo"> a {{ searchDateTo }}</span></span>
         <button type="button" (click)="clearDateFilter(); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" aria-label="Quitar filtro de fecha"><app-icon name="x" class="h-3 w-3"></app-icon></button>
       </span>
 
       <button type="button" (click)="clearAllCashFilters()" class="ml-2 text-xs font-semibold text-red-600 hover:underline">Limpiar todo</button>
+    </div>
+
+    <div *ngIf="isHistoricalView" class="mx-4 mt-3 overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-[0_14px_34px_-24px_rgba(15,23,42,0.45)] md:mx-6">
+      <div class="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:px-5">
+        <div class="flex min-w-0 flex-1 items-center gap-3">
+          <div class="flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-600 shadow-sm">
+            <app-icon name="lock" class="h-4 w-4"></app-icon>
+          </div>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="text-sm font-bold text-gray-900">Vista histórica</p>
+              <span class="rounded-full border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">Solo lectura</span>
+            </div>
+            <p class="mt-0.5 text-xs leading-relaxed text-gray-500">
+              Período <span class="font-semibold text-gray-700">{{ searchDateFrom | date:'dd/MM/yyyy' }} — {{ searchDateTo | date:'dd/MM/yyyy' }}</span>. Los movimientos no se pueden modificar.
+            </p>
+          </div>
+        </div>
+        <button type="button" (click)="clearDateFilter()" class="inline-flex flex-none items-center justify-center rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900">Salir del período</button>
+      </div>
+      <div class="h-0.5 bg-gradient-to-r from-amber-400/70 via-amber-200/70 to-transparent"></div>
     </div>
 
     <div class="relative w-full pb-2 overflow-x-auto custom-scrollbar mt-2">
@@ -540,7 +561,7 @@
             <th class="px-2 py-3 w-full min-w-[280px] font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-between gap-2">
                 <span>Concepto / Detalle</span>
-                <button (click)="toggleSelectAllItems(); $event.stopPropagation()"
+                <button *ngIf="!isHistoricalView" (click)="toggleSelectAllItems(); $event.stopPropagation()"
                         [title]="selectedItemIds.length > 0 ? 'Deseleccionar todos los conceptos' : 'Seleccionar todos los conceptos'"
                         class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all duration-200 cursor-pointer group/selectbtn focus:outline-none"
                         [ngClass]="selectedItemIds.length > 0 ? 'text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/80' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100/80 border border-transparent'">
@@ -559,7 +580,7 @@
             <th class="px-0.5 py-3 w-32 min-w-[120px] text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-end gap-1.5 text-blue-600">
                 <span>Depo</span>
-                <button (click)="toggleSelectAllColumn('depo'); $event.stopPropagation()" title="Seleccionar visibles con Depo" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
+                <button *ngIf="!isHistoricalView" (click)="toggleSelectAllColumn('depo'); $event.stopPropagation()" title="Seleccionar visibles con Depo" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
                    <div class="w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all duration-200" [ngClass]="isColumnAllSelected('depo') ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'border-gray-300 bg-white group-hover/chk:border-blue-400'">
                         <app-icon name="check" class="w-2.5 h-2.5 stroke-[3] transition-transform duration-200" [ngClass]="isColumnAllSelected('depo') ? 'scale-100 opacity-100' : 'scale-0 opacity-0'"></app-icon>
                    </div>
@@ -570,7 +591,7 @@
             <th class="px-0.5 py-3 w-32 min-w-[120px] text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-end gap-1.5 text-orange-600">
                 <span>Casa</span>
-                <button (click)="toggleSelectAllColumn('casa'); $event.stopPropagation()" title="Seleccionar visibles con Casa" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
+                <button *ngIf="!isHistoricalView" (click)="toggleSelectAllColumn('casa'); $event.stopPropagation()" title="Seleccionar visibles con Casa" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
                    <div class="w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all duration-200" [ngClass]="isColumnAllSelected('casa') ? 'bg-orange-600 border-orange-600 text-white shadow-sm' : 'border-gray-300 bg-white group-hover/chk:border-orange-400'">
                         <app-icon name="check" class="w-2.5 h-2.5 stroke-[3] transition-transform duration-200" [ngClass]="isColumnAllSelected('casa') ? 'scale-100 opacity-100' : 'scale-0 opacity-0'"></app-icon>
                    </div>
@@ -581,7 +602,7 @@
             <th class="px-0.5 py-3 w-32 min-w-[120px] text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-end gap-1.5 text-slate-500">
                 <span>Retiros</span>
-                <button (click)="toggleSelectAllColumn('retiros'); $event.stopPropagation()" title="Seleccionar visibles con Retiros" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
+                <button *ngIf="!isHistoricalView" (click)="toggleSelectAllColumn('retiros'); $event.stopPropagation()" title="Seleccionar visibles con Retiros" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
                    <div class="w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all duration-200" [ngClass]="isColumnAllSelected('retiros') ? 'bg-slate-600 border-slate-600 text-white shadow-sm' : 'border-gray-300 bg-white group-hover/chk:border-slate-400'">
                         <app-icon name="check" class="w-2.5 h-2.5 stroke-[3] transition-transform duration-200" [ngClass]="isColumnAllSelected('retiros') ? 'scale-100 opacity-100' : 'scale-0 opacity-0'"></app-icon>
                    </div>
@@ -592,7 +613,7 @@
             <th class="px-0.5 py-3 w-32 min-w-[120px] text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-end gap-1.5 text-green-600">
                 <span>Iaia</span>
-                <button (click)="toggleSelectAllColumn('iaia'); $event.stopPropagation()" title="Seleccionar visibles con Iaia" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
+                <button *ngIf="!isHistoricalView" (click)="toggleSelectAllColumn('iaia'); $event.stopPropagation()" title="Seleccionar visibles con Iaia" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
                    <div class="w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all duration-200" [ngClass]="isColumnAllSelected('iaia') ? 'bg-green-600 border-green-600 text-white shadow-sm' : 'border-gray-300 bg-white group-hover/chk:border-green-400'">
                         <app-icon name="check" class="w-2.5 h-2.5 stroke-[3] transition-transform duration-200" [ngClass]="isColumnAllSelected('iaia') ? 'scale-100 opacity-100' : 'scale-0 opacity-0'"></app-icon>
                    </div>
@@ -616,8 +637,9 @@
           <tr *ngFor="let item of filteredItems; let i = index; trackBy: trackById" 
               cdkDrag 
               [cdkDragDisabled]="isHistoricalView"
-              class="cash-item-row transition-colors cursor-pointer group"
-              [ngClass]="selectedItemIds.includes(item.id!) ? 'cash-item-row-selected bg-blue-50/40' : ''">
+              (click)="isHistoricalView && showHistoricalReadOnlyNotice()"
+              class="cash-item-row transition-colors group"
+              [ngClass]="isHistoricalView ? 'cursor-default' : (selectedItemIds.includes(item.id!) ? 'cash-item-row-selected bg-blue-50/40 cursor-pointer' : 'cursor-pointer')">
               
             <div *cdkDragPreview class="bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] rounded-xl border border-gray-200 overflow-hidden ring-1 ring-black/5" style="min-width: 1100px; box-sizing: border-box; display: table;">
               <table class="w-full text-sm text-left border-collapse">
@@ -683,9 +705,10 @@
                          (click)="$event.stopPropagation()"
                          (focus)="captureItem(item)"
                          [(ngModel)]="item.color" 
+                         [disabled]="isHistoricalView"
                          (change)="checkItemChange(item); onItemChange(item)"
                          title="Cambiar color"
-                         class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                         class="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-default z-10">
                   <div class="w-full h-full rounded-full" [style.backgroundColor]="item.color || '#1f2937'"></div>
                 </div>
 
@@ -713,7 +736,7 @@
 
                   <div *ngIf="item.description !== 'IVA (21% Transferencias)'" class="w-px h-4 bg-gray-200 mx-0.5"></div>
 
-                  <button (click)="toggleItemSelection(item); $event.stopPropagation()"
+                  <button *ngIf="!isHistoricalView" (click)="toggleItemSelection(item); $event.stopPropagation()"
                           title="Seleccionar concepto"
                           class="w-7 h-7 flex items-center justify-center rounded-md transition-colors group/chk hover:bg-gray-50">
                      <div class="w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all duration-200"
@@ -750,7 +773,7 @@
             <td class="px-0 py-1.5 bg-[#f8fafc]/30 w-32 min-w-[110px]">
               <div class="w-full flex flex-col items-end relative">
                 <div class="relative w-full flex items-center justify-end group/amt">
-                  <button *ngIf="item.depo" (click)="clearItemField(item, 'depo'); $event.stopPropagation()" tabindex="-1"
+                  <button *ngIf="item.depo && !isHistoricalView" (click)="clearItemField(item, 'depo'); $event.stopPropagation()" tabindex="-1"
                           class="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-white/90 rounded-md border border-gray-100 shadow-sm">
                     <app-icon name="Trash2" class="h-3 w-3"></app-icon>
                   </button> 
@@ -766,7 +789,7 @@
             <td class="px-0 py-1.5 bg-[#fff7ed]/30 w-32 min-w-[120px]">
               <div class="w-full flex flex-col items-end relative">
                 <div class="relative w-full flex items-center justify-end group/amt">
-                  <button *ngIf="item.casa" (click)="clearItemField(item, 'casa'); $event.stopPropagation()" tabindex="-1"
+                  <button *ngIf="item.casa && !isHistoricalView" (click)="clearItemField(item, 'casa'); $event.stopPropagation()" tabindex="-1"
                           class="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-white/90 rounded-md border border-gray-100 shadow-sm">
                     <app-icon name="Trash2" class="h-3 w-3"></app-icon>
                   </button>
@@ -782,7 +805,7 @@
             <td class="px-0 py-1.5 w-32 min-w-[120px]">
               <div class="w-full flex flex-col items-end relative">
                 <div class="relative w-full flex items-center justify-end group/amt">
-                  <button *ngIf="item.retiros" (click)="clearItemField(item, 'retiros'); $event.stopPropagation()" tabindex="-1"
+                  <button *ngIf="item.retiros && !isHistoricalView" (click)="clearItemField(item, 'retiros'); $event.stopPropagation()" tabindex="-1"
                           class="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-gray-50/80 rounded-md border border-gray-100 shadow-sm">
                     <app-icon name="Trash2" class="h-3 w-3"></app-icon>
                   </button>
@@ -798,7 +821,7 @@
             <td class="px-0 py-1.5 bg-[#f0fdf4]/30 w-32 min-w-[120px]">
               <div class="w-full flex flex-col items-end relative">
                 <div class="relative w-full flex items-center justify-end group/amt">
-                  <button *ngIf="item.iaia" (click)="clearItemField(item, 'iaia'); $event.stopPropagation()" tabindex="-1"
+                  <button *ngIf="item.iaia && !isHistoricalView" (click)="clearItemField(item, 'iaia'); $event.stopPropagation()" tabindex="-1"
                           class="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-white/90 rounded-md border border-gray-100 shadow-sm">
                     <app-icon name="Trash2" class="h-3 w-3"></app-icon>
                   </button>
