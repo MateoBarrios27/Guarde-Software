@@ -24,6 +24,7 @@ namespace GuardeSoftwareAPI.Dtos.Sync
         public string? Status { get; set; }
         public string? DepartureStatus { get; set; }
         public int? RentalId { get; set; }
+        public List<string> LockerIdentifiers { get; set; } = new();
         public int? MonthsUnpaid { get; set; }
         public string? IncreaseAnchorDate { get; set; }
         public int? IncreaseFrequencyMonths { get; set; }

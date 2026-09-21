@@ -62,6 +62,19 @@ namespace GuardeSoftwareAPI.Services.sync
                     c.is_six_month_promotion             AS IsSixMonthPromotion,
                     r.rental_id                         AS RentalId,
                     r.increase_anchor_date              AS IncreaseAnchorDate,
+                    (
+                        SELECT STRING_AGG(locker_ids.identifier, ',')
+                        FROM (
+                            SELECT l.identifier
+                            FROM lockers l
+                            WHERE l.rental_id = r.rental_id AND l.active = 1
+                            UNION ALL
+                            SELECT l_rl.identifier
+                            FROM rental_lockers rl
+                            INNER JOIN lockers l_rl ON l_rl.locker_id = rl.locker_id
+                            WHERE rl.rental_id = r.rental_id AND l_rl.active = 1
+                        ) locker_ids
+                    ) AS LockerIdentifiers,
 
                     -- Filter dimensions needed by the Clients page while offline.
                     (
@@ -308,6 +321,11 @@ namespace GuardeSoftwareAPI.Services.sync
                     Status = row["Status"]?.ToString(),
                     DepartureStatus = row["DepartureStatus"] != DBNull.Value ? row["DepartureStatus"]?.ToString() : null,
                     RentalId = row["RentalId"] != DBNull.Value ? Convert.ToInt32(row["RentalId"]) : null,
+                    LockerIdentifiers = row["LockerIdentifiers"] != DBNull.Value
+                        ? row["LockerIdentifiers"].ToString()!
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .ToList()
+                        : [],
                     MonthsUnpaid = row["MonthsUnpaid"] != DBNull.Value ? Convert.ToInt32(row["MonthsUnpaid"]) : null,
                     IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? Convert.ToDateTime(row["IncreaseAnchorDate"]).ToString("yyyy-MM-dd") : null,
                     IncreaseFrequencyMonths = row["IncreaseFrequencyMonths"] != DBNull.Value ? Convert.ToInt32(row["IncreaseFrequencyMonths"]) : null,

@@ -23,6 +23,7 @@ export interface CachedClient {
   status?: string;
   departureStatus?: string;
   rentalId?: number;
+  lockerIdentifiers?: string[];
   monthsUnpaid?: number;
   increaseAnchorDate?: string;
   increaseFrequencyMonths?: number;

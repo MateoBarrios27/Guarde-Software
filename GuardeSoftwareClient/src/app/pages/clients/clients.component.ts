@@ -559,6 +559,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     { value: 'no_pagaron_este_mes', label: 'No pagaron este mes' },
     { value: 'pagaron_meses_futuros', label: 'Pagaron meses futuros' },
     { value: 'intereses_impagos', label: 'Con intereses impagos' },
+    { value: 'saldo_anterior', label: 'Con saldo anterior' },
     { value: 'aumento_proximo_mes', label: 'Aumento próximo mes' }
   ];
 
@@ -931,6 +932,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         case 'no_pagaron_este_mes': return nextPaymentMonthValue !== null && nextPaymentMonthValue <= currentMonthValue;
         case 'pagaron_meses_futuros': return nextPaymentMonthValue !== null && nextPaymentMonthValue > nextMonthValue;
         case 'intereses_impagos': return (client.interestAmount ?? 0) > 0;
+        case 'saldo_anterior': return (client.previousBalance ?? 0) < 0;
         case 'aumento_proximo_mes': return increaseMonthValue === nextMonthValue;
         default: return false;
       }
@@ -1024,7 +1026,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         active: c.active ?? true,
         phone1: '',
         email: '',
-        lockers: [],
+        lockers: c.lockerIdentifiers ?? [],
         registrationDate: new Date(),
         documentType: '',
         documentNumber: '',
@@ -1039,10 +1041,11 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // Apply basic search filter if present
       if (this.searchClientes) {
-        const term = this.searchClientes.toLowerCase();
+        const term = this.searchClientes.trim().toLocaleLowerCase('es-AR');
         filtered = filtered.filter(c => 
-          c.fullName.toLowerCase().includes(term) || 
-          (c.paymentIdentifier?.toString().includes(term) ?? false)
+          c.fullName.toLocaleLowerCase('es-AR').includes(term) ||
+          (c.paymentIdentifier?.toString().includes(term) ?? false) ||
+          (c.lockers?.some(identifier => identifier.toLocaleLowerCase('es-AR').includes(term)) ?? false)
         );
       }
 

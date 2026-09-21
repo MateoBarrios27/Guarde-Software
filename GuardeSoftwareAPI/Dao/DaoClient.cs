@@ -527,7 +527,8 @@ namespace GuardeSoftwareAPI.Dao
                         ISNULL(FullName, '') LIKE @SearchTerm OR
                         ISNULL(Email, '') LIKE @SearchTerm OR
                         ISNULL(Document, '') LIKE @SearchTerm OR
-                        CAST(PaymentIdentifier AS NVARCHAR(50)) LIKE @SearchTerm
+                        CAST(PaymentIdentifier AS NVARCHAR(50)) LIKE @SearchTerm OR
+                        ISNULL(Lockers, '') LIKE @SearchTerm
                     ) ");
                 filterParameters.Add(new SqlParameter("@SearchTerm", $"%{request.SearchTerm}%"));
             }
@@ -626,6 +627,9 @@ namespace GuardeSoftwareAPI.Dao
                         case "intereses_impagos":
                             advClauses.Add(@"(ISNULL(InterestAmount, 0) > 0)");
                             break;
+                        case "saldo_anterior":
+                            advClauses.Add(@"(ISNULL(PreviousBalance, 0) < 0)");
+                            break;
                         case "aumento_proximo_mes":
                             advClauses.Add(@"(IncreaseAnchorDate IS NOT NULL AND YEAR(IncreaseAnchorDate) = YEAR(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))) AND MONTH(IncreaseAnchorDate) = MONTH(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))))");
                             break;
@@ -659,6 +663,9 @@ namespace GuardeSoftwareAPI.Dao
                             break;
                         case "intereses_impagos":
                             excludedAdvClauses.Add(@"(ISNULL(InterestAmount, 0) > 0)");
+                            break;
+                        case "saldo_anterior":
+                            excludedAdvClauses.Add(@"(ISNULL(PreviousBalance, 0) < 0)");
                             break;
                         case "aumento_proximo_mes":
                             excludedAdvClauses.Add(@"(IncreaseAnchorDate IS NOT NULL AND YEAR(IncreaseAnchorDate) = YEAR(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))) AND MONTH(IncreaseAnchorDate) = MONTH(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))))");
