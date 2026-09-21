@@ -104,6 +104,16 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   searchTerm: string = '';
   searchDateFrom: string = '';
   searchDateTo: string = '';
+  cashDatePickerField: 'from' | 'to' | null = null;
+  cashDatePickerMonth = this.selectedMonth;
+  cashDatePickerYear = this.selectedYear;
+  itemDatePickerItem: CashFlowItem | null = null;
+  itemDatePickerPosition = { top: 0, left: 0 };
+  readonly cashCalendarWeekdays = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
+  readonly cashCalendarMonths = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
   isHistoricalView: boolean = false; 
   filteredItems: any[] = [];
   private historicalFilterRequestSequence = 0;
@@ -1436,18 +1446,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  // 1. Agregá este método para forzar la fecha del calendario al hacer clic
-setDefaultDate(item: any): void {
-  if (!item.date) {
-    const mm = String(this.selectedMonth).padStart(2, '0');
-    item.date = `${this.selectedYear}-${mm}-01`;
-    // Disparamos el guardado automático
-    if (this.checkItemChange) this.checkItemChange(item);
-    if (this.onItemChange) this.onItemChange(item);
-  }
-}
-
-// 2. Reemplazá tu método filterItems() por esta versión "omnipotente"
 filterItems(): void {
   const requestSequence = ++this.historicalFilterRequestSequence;
   const term = this.searchTerm.toLowerCase().trim();
@@ -1500,45 +1498,180 @@ filterItems(): void {
   }
 }
 
-  prepareCashDateFilter(field: 'from' | 'to', event?: Event): void {
-    const input = event?.target instanceof HTMLInputElement ? event.target : null;
-    let initialDate = '';
+  toggleCashDatePicker(field: 'from' | 'to', event: Event): void {
+    event.stopPropagation();
 
-    if (field === 'from' && !this.searchDateFrom) {
-      this.searchDateFrom = this.filterMinDate;
-      initialDate = this.searchDateFrom;
+    if (this.cashDatePickerField === field) {
+      this.cashDatePickerField = null;
+      return;
     }
 
-    if (field === 'to' && !this.searchDateTo) {
-      this.searchDateTo = this.searchDateFrom > this.filterMaxDate
-        ? this.searchDateFrom
-        : this.filterMaxDate;
-      initialDate = this.searchDateTo;
+    const selectedDate = field === 'from' ? this.searchDateFrom : this.searchDateTo;
+    if (selectedDate) {
+      const [year, month] = selectedDate.split('-').map(Number);
+      this.cashDatePickerYear = year;
+      this.cashDatePickerMonth = month;
+    } else {
+      this.cashDatePickerYear = this.selectedYear;
+      this.cashDatePickerMonth = this.selectedMonth;
     }
 
-    if (!initialDate) return;
+    this.cashDatePickerField = field;
+  }
 
-    if (input) {
-      input.value = initialDate;
+  changeCashDatePickerMonth(delta: number, event: Event): void {
+    event.stopPropagation();
+    const nextMonth = new Date(this.cashDatePickerYear, this.cashDatePickerMonth - 1 + delta, 1);
+    this.cashDatePickerYear = nextMonth.getFullYear();
+    this.cashDatePickerMonth = nextMonth.getMonth() + 1;
+  }
 
-      // El calendario nativo decide su mes antes de que Angular termine el
-      // ciclo de detección. En pointerdown lo abrimos explícitamente después
-      // de asignar el valor para que nunca arranque en el mes actual.
-      if (event?.type === 'pointerdown') {
-        event.preventDefault();
-        input.focus({ preventScroll: true });
-        input.showPicker();
+  get cashDatePickerTitle(): string {
+    return `${this.cashCalendarMonths[this.cashDatePickerMonth - 1]} ${this.cashDatePickerYear}`;
+  }
+
+  get cashDatePickerDays(): Array<{
+    date: string;
+    day: number;
+    currentMonth: boolean;
+    selected: boolean;
+    disabled: boolean;
+  }> {
+    const firstDay = new Date(this.cashDatePickerYear, this.cashDatePickerMonth - 1, 1);
+    const mondayOffset = (firstDay.getDay() + 6) % 7;
+    const gridStart = new Date(this.cashDatePickerYear, this.cashDatePickerMonth - 1, 1 - mondayOffset);
+    const selectedDate = this.cashDatePickerField === 'to' ? this.searchDateTo : this.searchDateFrom;
+
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + index);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const isoDate = `${year}-${month}-${day}`;
+
+      return {
+        date: isoDate,
+        day: date.getDate(),
+        currentMonth: date.getMonth() + 1 === this.cashDatePickerMonth,
+        selected: isoDate === selectedDate,
+        disabled: this.cashDatePickerField === 'to' && !!this.searchDateFrom && isoDate < this.searchDateFrom
+      };
+    });
+  }
+
+  selectCashDate(day: { date: string; disabled: boolean }, event: Event): void {
+    event.stopPropagation();
+    if (day.disabled || !this.cashDatePickerField) return;
+
+    if (this.cashDatePickerField === 'from') {
+      this.searchDateFrom = day.date;
+      if (this.searchDateTo && this.searchDateTo < day.date) {
+        this.searchDateTo = '';
       }
+    } else {
+      this.searchDateTo = day.date;
     }
 
+    this.cashDatePickerField = null;
     this.filterItems();
   }
 
-  onCashDateRangeChange(field: 'from' | 'to'): void {
-    if (field === 'from' && !this.searchDateFrom) {
-      this.searchDateTo = '';
+  openItemDatePicker(item: CashFlowItem, event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.isHistoricalView) {
+      this.showHistoricalReadOnlyNotice();
+      return;
     }
-    this.filterItems();
+
+    if (this.itemDatePickerItem === item) {
+      this.closeItemDatePicker();
+      return;
+    }
+
+    const trigger = event.currentTarget as HTMLElement;
+    const rect = trigger.getBoundingClientRect();
+    const popupWidth = 292;
+    const popupHeight = 326;
+    const viewportMargin = 12;
+    const preferredTop = rect.bottom + 8;
+
+    this.itemDatePickerPosition = {
+      top: preferredTop + popupHeight <= window.innerHeight - viewportMargin
+        ? preferredTop
+        : Math.max(viewportMargin, rect.top - popupHeight - 8),
+      left: Math.min(
+        window.innerWidth - popupWidth - viewportMargin,
+        Math.max(viewportMargin, rect.left - 12)
+      )
+    };
+
+    this.captureItem(item);
+    this.itemDatePickerItem = item;
+  }
+
+  closeItemDatePicker(): void {
+    this.itemDatePickerItem = null;
+    this.capturedItemState = '';
+  }
+
+  get itemDatePickerTitle(): string {
+    return `${this.cashCalendarMonths[this.selectedMonth - 1]} ${this.selectedYear}`;
+  }
+
+  get itemDatePickerDays(): Array<{
+    date: string;
+    day: number;
+    selected: boolean;
+    gridColumnStart: number | null;
+  }> {
+    const month = String(this.selectedMonth).padStart(2, '0');
+    const lastDay = new Date(this.selectedYear, this.selectedMonth, 0).getDate();
+    const firstDayColumn = (new Date(this.selectedYear, this.selectedMonth - 1, 1).getDay() + 6) % 7 + 1;
+    const selectedDate = this.normalizeCashItemDate(this.itemDatePickerItem?.date);
+
+    return Array.from({ length: lastDay }, (_, index) => {
+      const day = index + 1;
+      const date = `${this.selectedYear}-${month}-${String(day).padStart(2, '0')}`;
+      return {
+        date,
+        day,
+        selected: date === selectedDate,
+        gridColumnStart: index === 0 ? firstDayColumn : null
+      };
+    });
+  }
+
+  selectItemDate(day: { date: string }, event: Event): void {
+    event.stopPropagation();
+    const item = this.itemDatePickerItem;
+    if (!item) return;
+
+    item.date = day.date;
+    this.itemDatePickerItem = null;
+    this.checkItemChange(item);
+    this.onItemChange(item);
+  }
+
+  async clearItemDate(item: CashFlowItem, event: Event): Promise<void> {
+    event.stopPropagation();
+    const confirmed = await this.deleteConfirmation.confirm({
+      title: '¿Borrar fecha?',
+      message: 'El movimiento quedará sin una fecha asignada',
+      highlightedText: item.description || 'este movimiento',
+      messageSuffix: '.'
+    });
+    if (!confirmed) return;
+
+    item.date = null as any;
+    this.itemDatePickerItem = null;
+    this.checkItemChange(item);
+    this.onItemChange(item);
+  }
+
+  formatCashFilterDate(value: string): string {
+    if (!value) return 'dd/mm/aaaa';
+    const [year, month, day] = value.split('-');
+    return `${day}/${month}/${year}`;
   }
 
   showHistoricalReadOnlyNotice(): void {
@@ -1557,6 +1690,7 @@ filterItems(): void {
   clearDateFilter(): void {
     this.searchDateFrom = '';
     this.searchDateTo = '';
+    this.cashDatePickerField = null;
     this.filterItems();
   }
 
@@ -2030,6 +2164,14 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
 
   @HostListener('document:click', ['$event'])
   onClickOutside(event: Event) {
+    const clickedElement = event.target as HTMLElement;
+    if (this.cashDatePickerField && !clickedElement.closest('.cash-date-picker-container')) {
+      this.cashDatePickerField = null;
+    }
+    if (this.itemDatePickerItem && !clickedElement.closest('.cash-item-date-picker')) {
+      this.closeItemDatePicker();
+    }
+
     if (this.showCashFilters) {
       const target = event.target as HTMLElement;
       const clickedInsidePopover = this.cashFiltersPopoverRef?.nativeElement?.contains(target);
