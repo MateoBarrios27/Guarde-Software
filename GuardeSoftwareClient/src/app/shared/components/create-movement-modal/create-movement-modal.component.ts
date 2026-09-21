@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms'; // <-- Agregado FormsModule
 import { IconComponent } from '../icon/icon.component';
@@ -15,6 +15,9 @@ import { CurrencyFormatDirective } from "../../directives/currency-format.direct
   templateUrl: './create-movement-modal.component.html',
 })
 export class CreateMovementModalComponent implements OnInit {
+  @ViewChild('conceptAutocomplete', { static: true })
+  private conceptAutocomplete?: ElementRef<HTMLElement>;
+
   @Input() clientId!: number;
   @Output() closeModal = new EventEmitter<void>();
   @Output() saveSuccess = new EventEmitter<void>();
@@ -53,10 +56,14 @@ export class CreateMovementModalComponent implements OnInit {
     const now = new Date();
     const month = this.spanishMonths[now.getMonth()];
     const formattedMonth = month.charAt(0).toUpperCase() + month.slice(1);
+    const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const nextMonth = this.spanishMonths[nextMonthDate.getMonth()];
+    const formattedNextMonth = nextMonth.charAt(0).toUpperCase() + nextMonth.slice(1);
 
     return [
       `Interés por mora de ${formattedMonth} ${now.getFullYear()}`,
       `Alquiler ${formattedMonth} ${now.getFullYear()}`,
+      `Alquiler ${formattedNextMonth} ${nextMonthDate.getFullYear()}`,
       'Proporcional'
     ];
   }
@@ -65,12 +72,27 @@ export class CreateMovementModalComponent implements OnInit {
     this.showConceptSuggestions = true;
   }
 
-  scheduleCloseConceptSuggestions(): void {
-    // El blur ocurre antes del click de una opción. El pequeño retraso permite
-    // que la opción pueda seleccionarse sin que el desplegable desaparezca.
-    setTimeout(() => {
-      this.showConceptSuggestions = false;
-    }, 120);
+  @HostListener('document:pointerdown', ['$event'])
+  onDocumentPointerDown(event: PointerEvent): void {
+    if (!this.showConceptSuggestions) {
+      return;
+    }
+
+    const target = event.target as Node | null;
+    if (target && this.conceptAutocomplete?.nativeElement.contains(target)) {
+      return;
+    }
+
+    this.showConceptSuggestions = false;
+  }
+
+  onConceptFocusOut(event: FocusEvent): void {
+    const nextTarget = event.relatedTarget as Node | null;
+    if (nextTarget && this.conceptAutocomplete?.nativeElement.contains(nextTarget)) {
+      return;
+    }
+
+    this.showConceptSuggestions = false;
   }
 
   selectConceptSuggestion(suggestion: string): void {
