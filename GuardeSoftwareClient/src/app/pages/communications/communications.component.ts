@@ -23,6 +23,7 @@ import {
 } from '../../shared/utils/communication-preview.util';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
+import { AuthService } from '../../core/services/auth-service/auth.service';
 
 interface Channel {
   id: number;
@@ -216,6 +217,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     private sanitizer: DomSanitizer,
     private deleteConfirmation: DeleteConfirmationService,
     private dataRefresh: DataRefreshService,
+    public authService: AuthService,
   ) {}
 
   private readonly icbcTemplate = `
@@ -746,18 +748,20 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
 `;
 
   ngOnInit(): void {
-    this.dataRefreshSubscription.add(
-      this.dataRefresh.watch(['clients', 'catalog'], 'communications').subscribe(event => {
-        if (event.domains.includes('clients')) {
-          this.loadRecipientOptions();
-          this.loadClientsForSelector();
-        }
-        if (event.domains.includes('catalog')) {
-          this.loadSmtpConfigs();
-          this.loadExternalRecipientsForSelector();
-        }
-      }),
-    );
+    if (!this.authService.isObserver()) {
+      this.dataRefreshSubscription.add(
+        this.dataRefresh.watch(['clients', 'catalog'], 'communications').subscribe(event => {
+          if (event.domains.includes('clients')) {
+            this.loadRecipientOptions();
+            this.loadClientsForSelector();
+          }
+          if (event.domains.includes('catalog')) {
+            this.loadSmtpConfigs();
+            this.loadExternalRecipientsForSelector();
+          }
+        }),
+      );
+    }
 
     // Iniciar conexión SignalR y escuchar actualizaciones
     this.ensureQuillStylesheet();
@@ -776,12 +780,14 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       }
     });
 
-    this.loadCommunications();
-    this.loadRecipientOptions();
-    this.setupSearchDebounce();  
-    this.loadSmtpConfigs();
-    this.loadClientsForSelector();
-    this.loadExternalRecipientsForSelector();
+    this.loadCommunications();
+    this.setupSearchDebounce();
+    if (!this.authService.isObserver()) {
+      this.loadRecipientOptions();
+      this.loadSmtpConfigs();
+      this.loadClientsForSelector();
+      this.loadExternalRecipientsForSelector();
+    }
     this.generateMonthFilters();
   }
 
@@ -1036,6 +1042,10 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     communication: ComunicacionDto | null = null, 
     isResend: boolean = false // Este flag ahora servirá para "Clonar"
   ): void {
+    if (this.authService.isObserver() && modalType !== 'view' && modalType !== 'history') {
+      return;
+    }
+
     this.selectedCommunication.set(communication);
     this.resetForm();
 
@@ -1658,6 +1668,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   }
 
   openExtensionModal(comm: ComunicacionDto): void {
+    if (this.authService.isObserver()) return;
+
     this.selectedCommunication.set(comm);
     this.extensionRecipientType.set(DEFAULT_EXTENSION_RECIPIENT_TYPE);
     this.extensionMode.set('never-attempted');

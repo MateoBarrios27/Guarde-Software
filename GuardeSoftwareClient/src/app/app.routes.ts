@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
+import { nonObserverGuard } from './core/guards/non-observer.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -37,6 +38,7 @@ export const routes: Routes = [
   {
     path: 'communications',
     loadComponent: () => import('./pages/communications/communications.component').then(m => m.CommunicationsComponent),
+    canActivate: [AuthGuard],
     data: { title: 'Comunicaciones', reuse: true }
   },
   {
@@ -48,13 +50,13 @@ export const routes: Routes = [
   {
     path: 'statistics',
     loadComponent: () => import('./pages/statistics/statistics.component').then(m => m.StatisticsComponent),
-    canActivate: [AuthGuard],
+    canActivate: [AuthGuard, nonObserverGuard],
     data: { title: 'Estadísticas', reuse: true }
   },
   {
     path: 'settings',
     loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent),
-    canActivate: [AuthGuard],
+    canActivate: [AuthGuard, nonObserverGuard],
     data: { title: 'Configuración', reuse: true }
   },
   {

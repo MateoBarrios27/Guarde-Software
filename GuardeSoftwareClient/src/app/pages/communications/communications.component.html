@@ -5,7 +5,7 @@
       <h1 class="text-2xl font-bold text-gray-900">Comunicaciones</h1>
       <p class="text-gray-600 mt-1">Gestiona los comunicados a tus clientes</p>
     </div>
-    <button (click)="openModal('add')"
+    <button *ngIf="!authService.isObserver()" (click)="openModal('add')"
       class="mt-4 sm:mt-0 px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition duration-200 flex items-center">
       <app-icon name="Plus" class="h-4 w-4 mr-2"></app-icon>
       Agregar Comunicado
@@ -519,7 +519,7 @@
                 <th class="px-3 py-2 text-left font-semibold text-gray-600">Teléfono</th>
                 <th class="px-3 py-2 text-left font-semibold text-gray-600">Estado</th>
                 <th class="px-3 py-2 text-left font-semibold text-gray-600">Motivo / Respuesta</th>
-                <th class="px-3 py-2 text-center font-semibold text-gray-600">Ver</th>
+                <th *ngIf="!authService.isObserver()" class="px-3 py-2 text-center font-semibold text-gray-600">Ver</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 bg-white">
@@ -535,7 +535,7 @@
                   </span>
                 </td>
                 <td class="px-3 py-2 text-gray-600 font-mono text-[11px] break-words max-w-xs">{{ disp.errorMessage || '-' }}</td>
-                <td class="p-2 text-center">
+                <td *ngIf="!authService.isObserver()" class="p-2 text-center">
                   <button *ngIf="disp.hasContent"
                           (click)="viewDispatchContent(disp.dispatchId, disp.clientName)"
                           class="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
@@ -909,16 +909,16 @@
                <button (click)="openModal('view', comm)" title="Ver detalles" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
                  <app-icon name="eye" class="h-4 w-4"></app-icon>
                </button>
-               @if (canExtendCommunication(comm)) {
+               @if (canExtendCommunication(comm) && !authService.isObserver()) {
                  <button (click)="openExtensionModal(comm)" title="Ampliar destinatarios" class="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
                    <app-icon name="user-plus" class="h-4 w-4"></app-icon>
                  </button>
                }
-               @if (comm.status === 'Failed' || comm.status === 'Finished w/ Errors') {
+               @if (!authService.isObserver() && (comm.status === 'Failed' || comm.status === 'Finished w/ Errors')) {
                 <button (click)="openRetryModal(comm)" title="Reintentar fallidos" class="p-1.5 text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-full transition">
                   <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
                 </button>
-              } @else if (comm.status === 'Finished') {
+              } @else if (!authService.isObserver() && comm.status === 'Finished') {
                 <button (click)="openModal('add', comm, true)" title="Reutilizar / Clonar" class="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
                   <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
                 </button>
@@ -1024,14 +1024,14 @@
         <app-icon name="eye" class="h-4 w-4"></app-icon>
       </button>
 
-      @if (comm.status === 'Draft' || comm.status === 'Scheduled') {
+      @if (!authService.isObserver() && (comm.status === 'Draft' || comm.status === 'Scheduled')) {
       <button (click)="openModal('edit', comm)" title="Editar comunicado"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition">
         <app-icon name="edit" class="h-4 w-4"></app-icon>
       </button>
       }
 
-      @if (canExtendCommunication(comm)) {
+      @if (!authService.isObserver() && canExtendCommunication(comm)) {
       <button (click)="openExtensionModal(comm)"
               title="Ampliar destinatarios"
               class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition">
@@ -1039,14 +1039,14 @@
       </button>
       }
 
-      @if (comm.status === 'Draft') {
+      @if (!authService.isObserver() && comm.status === 'Draft') {
       <button (click)="openModal('send-confirm', comm)" title="Enviar ahora"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-green-600 hover:bg-green-100 transition">
         <app-icon name="Send" class="h-4 w-4"></app-icon>
       </button>
       } 
 
-      @else if (comm.status === 'Failed' || comm.status === 'Finished w/ Errors') {
+      @else if (!authService.isObserver() && (comm.status === 'Failed' || comm.status === 'Finished w/ Errors')) {
       <button (click)="openRetryModal(comm)" 
               title="Reintentar Envíos Fallidos"
               class="flex-1 flex justify-center items-center p-2 rounded-full text-orange-600 hover:bg-orange-100 transition">
@@ -1054,7 +1054,7 @@
       </button>
       }
       
-      @else if (comm.status === 'Finished') {
+      @else if (!authService.isObserver() && comm.status === 'Finished') {
         <button (click)="openModal('add', comm, true)" 
                 title="Reutilizar / Clonar comunicado"
                 class="flex-1 flex justify-center items-center p-2 rounded-full text-blue-600 hover:bg-blue-100 transition">
@@ -1062,7 +1062,7 @@
         </button>
       }
 
-      @if (comm.status !== 'Procesando') {
+      @if (!authService.isObserver() && comm.status !== 'Procesando') {
        <button (click)="confirmDeleteCommunication(comm)" title="Eliminar comunicado"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-red-600 hover:bg-red-100 transition">
         <app-icon name="Trash2" class="h-4 w-4"></app-icon>

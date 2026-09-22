@@ -31,6 +31,7 @@ import { CachedClient, IndexedDbService } from '../../core/services/offline-serv
 import Swal from '../../shared/services/ui-alert.service';
 import { ToastNotificationComponent } from '../../shared/components/toast-notification/toast-notification.component';
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
+import { AuthService } from '../../core/services/auth-service/auth.service';
 
 type FilterTagState = 'none' | 'include' | 'exclude';
 type FilterTagGroup = 'warehouse' | 'quick' | 'billing' | 'paymentMethod' | 'iva' | 'lockerType' | 'paymentDay';
@@ -186,6 +187,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
     private dataRefresh: DataRefreshService,
+    public authService: AuthService,
   ) 
   {
     this.dataRefreshSubscription.add(

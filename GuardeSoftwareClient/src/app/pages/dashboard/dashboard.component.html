@@ -39,7 +39,7 @@
             <th class="px-5 py-3 text-left font-medium">Meses Impagos</th>
             <th class="px-5 py-3 text-left font-medium">Saldo</th>
             <th class="px-5 py-3 text-left font-medium">Pago Mensual</th>
-            <th class="px-5 py-3 text-center font-medium">Acción</th>
+            <th *ngIf="!authService.isObserver()" class="px-5 py-3 text-center font-medium">Acción</th>
           </tr>
         </thead>
 
@@ -51,7 +51,7 @@
             <td class="px-5 py-3 text-center text-gray-800 font-medium">{{ item.monthsUnpaid }}</td>
             <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.balance | number:'1.2-2' }}</td>
             <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.currentRent | number:'1.2-2' }}</td>
-            <td class="px-5 py-3 text-center">
+            <td *ngIf="!authService.isObserver()" class="px-5 py-3 text-center">
               <button
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
                  (click)="openPaymentModalWith(item)">
@@ -62,7 +62,7 @@
           </tr>
 
           <tr *ngIf="pendingRentals.length === 0">
-            <td colspan="7" class="text-center py-6 text-gray-400">
+            <td [attr.colspan]="authService.isObserver() ? 6 : 7" class="text-center py-6 text-gray-400">
               No hay alquileres pendientes de pago.
             </td>
           </tr>
@@ -116,7 +116,7 @@
                 <th class="px-5 py-3 text-left font-medium">Fecha</th>
                 <th class="px-5 py-3 text-left font-medium">Método de pago</th>
                 <th class="px-5 py-3 text-left font-medium">Monto</th>
-                <th class="px-5 py-3 text-left font-medium">Acción</th>
+                <th *ngIf="!authService.isObserver()" class="px-5 py-3 text-left font-medium">Acción</th>
               </tr>
             </thead>
 
@@ -127,7 +127,7 @@
                 <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentDate | date:'dd/MM/yyyy' }}</td>
                 <td class="px-5 py-3 text-gray-700">{{getNamePaymentMethodById(item.paymentMethodId)}}</td>
                 <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.amount | number:'1.2-2' }}</td>
-                <td class="px-5 py-3 text-center">
+                <td *ngIf="!authService.isObserver()" class="px-5 py-3 text-center">
                   <button
                     (click)="openReceiptModal(item)" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all">
                     <app-icon name="file-text" class="h-4 w-4"></app-icon>
@@ -137,7 +137,7 @@
               </tr>
 
               <tr *ngIf="payments.length === 0">
-                <td colspan="4" class="text-center py-6 text-gray-400">
+                <td [attr.colspan]="authService.isObserver() ? 5 : 6" class="text-center py-6 text-gray-400">
                   No hay pagos realizados este mes.
                 </td>
               </tr>

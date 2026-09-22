@@ -201,7 +201,7 @@
           <option *ngFor="let size of [500, 1000, 2000]" [value]="size">{{ size }} por pág.</option>
         </select>
         
-        <button (click)="openCreateLockerModal()" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <button *ngIf="!authService.isObserver()" (click)="openCreateLockerModal()" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
           <app-icon name="plus" class="h-4 w-4"></app-icon>
           Nueva baulera
         </button>
@@ -334,7 +334,7 @@
             </div>
           </th>
 
-          <th class="px-2 py-3 text-left font-medium bg-gray-50">Acciones</th>
+          <th *ngIf="!authService.isObserver()" class="px-2 py-3 text-left font-medium bg-gray-50">Acciones</th>
         </tr>
       </thead>
       
@@ -386,7 +386,7 @@
               <span *ngIf="assignedClients.length === 0" class="block px-2 py-3 text-xs italic text-gray-400">Sin asignar</span>
             </div>
           </td>
-          <td class="px-2 py-3 whitespace-nowrap text-sm font-medium"> 
+          <td *ngIf="!authService.isObserver()" class="px-2 py-3 whitespace-nowrap text-sm font-medium">
             <button (click)="openUpdateLockerModal(locker)" 
                     class="p-1 text-black hover:text-blue-800" title="Editar"> 
               <app-icon name="edit" class="h-4 w-4"></app-icon>
@@ -398,14 +398,14 @@
           </td>
         </tr>
         <tr *ngIf="filteredLockers.length === 0">
-            <td colspan="7" class="px-4 py-6 text-center text-gray-500">
+            <td [attr.colspan]="authService.isObserver() ? 6 : 7" class="px-4 py-6 text-center text-gray-500">
                 No se encontraron lockers con los filtros aplicados.
             </td>
         </tr>
       </tbody>
       <tfoot class="sticky bottom-0 z-20 bg-gray-50 font-bold text-gray-700 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <tr>
-          <td colspan="7" class="border-t border-gray-200 px-4 py-3 text-right text-xs uppercase tracking-wider text-gray-500 bg-gray-50">
+          <td [attr.colspan]="authService.isObserver() ? 6 : 7" class="border-t border-gray-200 px-4 py-3 text-right text-xs uppercase tracking-wider text-gray-500 bg-gray-50">
             {{ filteredLockers.length }} bauleras visibles
           </td>
         </tr>

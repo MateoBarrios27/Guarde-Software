@@ -17,6 +17,7 @@ import { LockerTypeService } from '../../core/services/lockerType-service/locker
 import { CreateLockerDTO } from '../../core/dtos/locker/CreateLockerDTO';
 import { Subscription } from 'rxjs';
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
+import { AuthService } from '../../core/services/auth-service/auth.service';
 import { ClientService } from '../../core/services/client-service/client.service';
 import { Client } from '../../core/models/client';
 import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router } from '@angular/router';
@@ -120,6 +121,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
     private deleteConfirmation: DeleteConfirmationService,
     private dataRefresh: DataRefreshService,
     private router: Router,
+    public authService: AuthService,
     overlay: Overlay,
   ) {
     this.clientStatsScrollStrategy = overlay.scrollStrategies.close();
@@ -654,9 +656,9 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
 
      const isAssignedToClient = Boolean(
        (this.selectedLockerForEdit?.rentalId && this.selectedLockerForEdit.rentalId > 0) ||
+       (this.selectedLockerForEdit?.clients && this.selectedLockerForEdit.clients.length > 0) ||
        (this.selectedLockerForEdit?.clientName && this.selectedLockerForEdit.clientName.trim() !== '') ||
-       (this.selectedLockerForEdit?.clientNames && this.selectedLockerForEdit.clientNames.trim() !== '') ||
-       this.lockerOriginal.status === 'OCUPADO'
+       (this.selectedLockerForEdit?.clientNames && this.selectedLockerForEdit.clientNames.trim() !== '')
      );
 
      const staysIndividual = !this.lockerOriginal.isFreeSpace && !dto.isFreeSpace;

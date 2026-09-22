@@ -9,6 +9,7 @@ interface MenuItem {
   title: string;
   icon: string;
   adminOnly?: boolean;
+  hiddenForObserver?: boolean;
 }
 
 @Component({
@@ -33,9 +34,9 @@ export class SidebarComponent implements OnInit {
     { path: '/finances', title: 'Finanzas', icon: 'dollar-sign' },
     { path: '/communications', title: 'Comunicaciones', icon: 'message-circle' },
     { path: '/lockers', title: 'Bauleras', icon: 'package' },
-    { path: '/statistics', title: 'Estadísticas', icon: 'file-text' },
-    { path: '/settings', title: 'Configuración', icon: 'settings' },
-    { path: '/cash', title: 'Caja', icon: 'dollar', adminOnly: true },
+    { path: '/statistics', title: 'Estadísticas', icon: 'file-text', hiddenForObserver: true },
+    { path: '/settings', title: 'Configuración', icon: 'settings', hiddenForObserver: true },
+    { path: '/cash', title: 'Caja', icon: 'dollar', adminOnly: true, hiddenForObserver: true },
   ];
 
   ngOnInit(): void {
@@ -53,6 +54,11 @@ export class SidebarComponent implements OnInit {
     if (window.innerWidth < 1024) {
       this.closeSidebar.emit();
     }
+  }
+
+  isMenuItemVisible(item: MenuItem): boolean {
+    return (!item.adminOnly || this.authService.isAdmin())
+      && (!item.hiddenForObserver || !this.authService.isObserver());
   }
 
   async logout(): Promise<void> {

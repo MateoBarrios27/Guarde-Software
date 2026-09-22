@@ -5,6 +5,11 @@ namespace GuardeSoftwareAPI.Auth
 {
     public interface IJwtTokenGenerator
     {
-        string GenerateToken(ApplicationUser user, IList<string> roles, int businessUserId, int businessUserTypeId);
+        string GenerateToken(
+            ApplicationUser user,
+            IList<string> roles,
+            int businessUserId,
+            int businessUserTypeId,
+            string businessUserTypeName);
     }
 }

@@ -18,6 +18,7 @@ import { Subscription } from 'rxjs';
 import { PaymentCompletedNotice, PaymentPresenceService, PaymentPresenceUser } from '../../core/services/payment-presence/payment-presence.service';
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 import { projectLatePaymentSurcharge } from '../../core/utils/late-payment-surcharge';
+import { AuthService } from '../../core/services/auth-service/auth.service';
 
 interface PaymentMonthBreakdown {
   year: number;
@@ -134,6 +135,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private pdfGeneratorService: PdfGeneratorService,
     private paymentPresenceService: PaymentPresenceService,
     private dataRefresh: DataRefreshService,
+    public authService: AuthService,
   ) {}
 
   ngOnInit(): void {
@@ -157,7 +159,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
       }),
     );
-    void this.paymentPresenceService.startConnection().catch(() => undefined);
+    if (!this.authService.isObserver()) {
+      void this.paymentPresenceService.startConnection().catch(() => undefined);
+    }
     this.LoadPedingRentals();
     this.LoadPayments();
     this.loadPaymentMethods();

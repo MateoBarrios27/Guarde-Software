@@ -1,5 +1,6 @@
 using GuardeSoftwareAPI.Auth.Dto;
 using GuardeSoftwareAPI.Services.auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuardeSoftwareAPI.Controllers
@@ -16,6 +17,7 @@ namespace GuardeSoftwareAPI.Controllers
         }
 
         [HttpPost("register")]
+        [Authorize]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto dto)
         {
             var response = await _authService.RegisterAsync(dto);

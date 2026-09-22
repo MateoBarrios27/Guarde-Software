@@ -21,13 +21,13 @@
     <nav class="sidebar-nav flex-1 overflow-y-auto px-3 py-4" aria-label="Navegación principal">
       <ng-container *ngFor="let item of menuItems">
         <div
-          *ngIf="(item.path === '/settings' || item.path === '/cash') && (!item.adminOnly || authService.isAdmin())"
+          *ngIf="(item.path === '/settings' || item.path === '/cash') && isMenuItemVisible(item)"
           class="mx-3 my-3 h-px bg-white/10"
           aria-hidden="true"
         ></div>
 
         <a
-          *ngIf="!item.adminOnly || authService.isAdmin()"
+          *ngIf="isMenuItemVisible(item)"
           [routerLink]="item.path"
           routerLinkActive="active-link"
           [routerLinkActiveOptions]="{ exact: true }"

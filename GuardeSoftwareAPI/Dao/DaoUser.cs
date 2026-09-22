@@ -101,8 +101,13 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<DataTable> GetUserByIdentityUserId(string identityUserId)
         {
             string query = @"
-                SELECT user_id, user_type_id, username, first_name, last_name, identity_user_id
-                FROM users WHERE active = 1 AND identity_user_id = @identity_user_id";
+                SELECT u.user_id, u.user_type_id, ut.name AS user_type_name,
+                       u.username, u.first_name, u.last_name, u.identity_user_id
+                FROM users u
+                INNER JOIN user_types ut ON ut.user_type_id = u.user_type_id
+                WHERE u.active = 1
+                  AND ut.active = 1
+                  AND u.identity_user_id = @identity_user_id";
 
             SqlParameter[] parameters =
             [
@@ -110,6 +115,43 @@ namespace GuardeSoftwareAPI.Dao
             ];
 
             return await accessDB.GetTableAsync("users", query, parameters);
+        }
+
+        public async Task<string?> GetUserTypeNameAsync(int userTypeId)
+        {
+            const string query = @"
+                SELECT TOP (1) name
+                FROM user_types
+                WHERE user_type_id = @user_type_id
+                  AND active = 1";
+
+            SqlParameter[] parameters =
+            [
+                new SqlParameter("user_type_id", SqlDbType.Int) { Value = userTypeId }
+            ];
+
+            object result = await accessDB.ExecuteScalarAsync(query, parameters);
+            return result == DBNull.Value ? null : result.ToString();
+        }
+
+        public async Task<bool> IsObserverAsync(int userId)
+        {
+            const string query = @"
+                SELECT TOP (1) ut.name
+                FROM users u
+                INNER JOIN user_types ut ON ut.user_type_id = u.user_type_id
+                WHERE u.user_id = @user_id
+                  AND u.active = 1
+                  AND ut.active = 1";
+
+            SqlParameter[] parameters =
+            [
+                new SqlParameter("user_id", SqlDbType.Int) { Value = userId }
+            ];
+
+            object result = await accessDB.ExecuteScalarAsync(query, parameters);
+            return result != DBNull.Value
+                && string.Equals(result.ToString(), "Observador", StringComparison.OrdinalIgnoreCase);
         }
 
     }

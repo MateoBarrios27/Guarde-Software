@@ -61,14 +61,28 @@ namespace GuardeSoftwareAPI.Services.auth
 
             await _daoUser.CreateUser(businessUser);
 
+            businessUser.UserTypeName = await _daoUser.GetUserTypeNameAsync(businessUser.UserTypeId)
+                ?? throw new ArgumentException("El tipo de usuario seleccionado no existe o esta inactivo.");
+
             // 4) JWT
             var roles = await _userManager.GetRolesAsync(identityUser);
-            var token = _jwtTokenGenerator.GenerateToken(identityUser, roles, businessUser.Id, businessUser.UserTypeId);
+            var token = _jwtTokenGenerator.GenerateToken(
+                identityUser,
+                roles,
+                businessUser.Id,
+                businessUser.UserTypeId,
+                businessUser.UserTypeName);
 
             return new AuthResponseDto
             {
                 Token = token,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtOptions.ExpiresInMinutes)
+                ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtOptions.ExpiresInMinutes),
+                UserId = businessUser.Id,
+                UserTypeId = businessUser.UserTypeId,
+                UserTypeName = businessUser.UserTypeName,
+                UserName = businessUser.UserName,
+                FirstName = businessUser.FirstName ?? "",
+                LastName = businessUser.LastName ?? ""
             };
         }       
 
@@ -106,6 +120,7 @@ namespace GuardeSoftwareAPI.Services.auth
             {
                 Id = Convert.ToInt32(row["user_id"]),
                 UserTypeId = Convert.ToInt32(row["user_type_id"]),
+                UserTypeName = row["user_type_name"].ToString() ?? string.Empty,
                 UserName = row["username"].ToString()!,
                 FirstName = row["first_name"].ToString(),
                 LastName = row["last_name"].ToString(),
@@ -113,7 +128,12 @@ namespace GuardeSoftwareAPI.Services.auth
             };
 
             var roles = await _userManager.GetRolesAsync(identityUser);
-            var token = _jwtTokenGenerator.GenerateToken(identityUser, roles, businessUser.Id, businessUser.UserTypeId);
+            var token = _jwtTokenGenerator.GenerateToken(
+                identityUser,
+                roles,
+                businessUser.Id,
+                businessUser.UserTypeId,
+                businessUser.UserTypeName);
 
             await LogLoginAttemptAsync(businessUser.Id, businessUser.UserName, "success");
 
@@ -125,6 +145,7 @@ namespace GuardeSoftwareAPI.Services.auth
                 // datos negocio para el front
                 UserId = businessUser.Id,
                 UserTypeId = businessUser.UserTypeId,
+                UserTypeName = businessUser.UserTypeName,
                 UserName = businessUser.UserName,
                 FirstName = businessUser.FirstName ?? "",
                 LastName  = businessUser.LastName  ?? "",

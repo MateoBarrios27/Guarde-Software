@@ -15,6 +15,7 @@ interface AuthResponse {
   expiresAt: string;
   userId: number;
   userTypeId: number;
+  userTypeName: string;
   userName: string;
   firstName: string;
   lastName: string;
@@ -46,6 +47,7 @@ export class AuthService {
         localStorage.setItem('firstName', res.firstName);
         localStorage.setItem('lastName', res.lastName);
         localStorage.setItem('userTypeId', res.userTypeId.toString());
+        localStorage.setItem('userTypeName', res.userTypeName);
         this.autoLogoutOnTokenExpiration();
       })
     );
@@ -63,7 +65,8 @@ export class AuthService {
     localStorage.removeItem('userName');
     localStorage.removeItem('firstName');
     localStorage.removeItem('lastName');
-    localStorage.removeItem('userTypeId'); 
+    localStorage.removeItem('userTypeId');
+    localStorage.removeItem('userTypeName');
   }
 
   getToken(): string | null {
@@ -81,8 +84,31 @@ export class AuthService {
   }
 
   isAdmin(): boolean {
-    const typeId = localStorage.getItem('userTypeId');
+    const typeId = this.getTokenClaim('businessUserTypeId') ?? localStorage.getItem('userTypeId');
     return typeId === '1'; 
+  }
+
+  isObserver(): boolean {
+    const typeName = this.getTokenClaim('businessUserTypeName') ?? localStorage.getItem('userTypeName');
+    return typeName?.trim().toLocaleLowerCase('es-AR') === 'observador';
+  }
+
+  private getTokenClaim(claimName: string): string | null {
+    const token = this.getToken();
+    if (!token) return null;
+
+    try {
+      const encodedPayload = token.split('.')[1];
+      if (!encodedPayload) return null;
+
+      const base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/');
+      const paddedBase64 = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+      const payload = JSON.parse(atob(paddedBase64)) as Record<string, unknown>;
+      const claimValue = payload[claimName];
+      return typeof claimValue === 'string' ? claimValue : null;
+    } catch {
+      return null;
+    }
   }
 
   public autoLogoutOnTokenExpiration() {

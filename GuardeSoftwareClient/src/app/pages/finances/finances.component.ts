@@ -27,6 +27,7 @@ import { PaymentCompletedNotice, PaymentPresenceService, PaymentPresenceUser } f
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 import { CommunicationService, ReceiptDeliveryResult } from '../../core/services/communication-service/communication.service';
 import { projectLatePaymentSurcharge } from '../../core/utils/late-payment-surcharge';
+import { AuthService } from '../../core/services/auth-service/auth.service';
 
 export interface DetailedPaymentView extends DetailedPaymentDTO {
   groupPos?: 'start' | 'middle' | 'end' | 'none';
@@ -93,6 +94,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
     private deleteConfirmation: DeleteConfirmationService,
     private dataRefresh: DataRefreshService,
     private communicationService: CommunicationService,
+    public authService: AuthService,
     overlay: Overlay,
   ){
     this.clientStatsScrollStrategy = overlay.scrollStrategies.close();
@@ -350,9 +352,11 @@ export class FinancesComponent implements OnInit, OnDestroy {
         }
       }),
     );
-    void this.paymentPresenceService.startConnection().catch(() => undefined);
+    if (!this.authService.isObserver()) {
+      void this.paymentPresenceService.startConnection().catch(() => undefined);
+    }
     this.route.queryParams.subscribe(params => {
-      if (params['autoOpenPayment']) {
+      if (params['autoOpenPayment'] && !this.authService.isObserver()) {
         this.autoOpenClientId = Number(params['autoOpenPayment']);
         // Finanzas puede quedar reutilizada al volver desde Clientes. En ese
         // caso forzamos una lectura fresca antes de abrir el selector para no
@@ -542,6 +546,11 @@ export class FinancesComponent implements OnInit, OnDestroy {
    * durante ngOnInit.
    */
   private openAutoPaymentClientIfReady(): void {
+    if (this.authService.isObserver()) {
+      this.autoOpenClientId = null;
+      return;
+    }
+
     const clientId = Number(this.autoOpenClientId ?? 0);
     if (!clientId || this.clients.length === 0) return;
 
@@ -979,6 +988,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
   }
 
   OpenPaymentModal() {
+    if (this.authService.isObserver()) return;
+
     this.showClientModal = true;
     this.searchClient = '';
     this.selectedClientId = 0;

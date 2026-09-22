@@ -39,6 +39,7 @@ using GuardeSoftwareAPI.Services.clientMonthBalance;
 using GuardeSoftwareAPI.Services.sync;
 using GuardeSoftwareAPI.Services.massCommunicationRecipient;
 using GuardeSoftwareAPI.Services.notification;
+using GuardeSoftwareAPI.Middleware;
 
 
 
@@ -254,6 +255,8 @@ app.UseCors("AllowAngular");
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+
+app.UseMiddleware<ObserverReadOnlyMiddleware>();
 
 app.UseAuthorization();
 

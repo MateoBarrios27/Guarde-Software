@@ -128,7 +128,7 @@ export class ClientDetailModalComponent implements OnChanges {
     private accountMovementService: AccountMovementService,
     private communicationService: CommunicationService,
     private clientService: ClientService,
-    private authService: AuthService,
+    public authService: AuthService,
     private sanitizer: DomSanitizer,
     private cdr: ChangeDetectorRef,
     private deleteConfirmation: DeleteConfirmationService

@@ -167,10 +167,11 @@
         Limpiar filtros
       </button>
 
-      <button 
-              (click)="OpenPaymentModal()"
-              class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
-              <app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Pago
+      <button
+        *ngIf="!authService.isObserver()"
+        (click)="OpenPaymentModal()"
+        class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Pago
       </button>
 
       
@@ -257,7 +258,7 @@
             </div>
           </th>
 
-          <th class="px-4 py-3 text-center bg-gray-50">Acciones</th>
+          <th *ngIf="!authService.isObserver()" class="px-4 py-3 text-center bg-gray-50">Acciones</th>
         </tr>
       </thead>
 
@@ -313,7 +314,7 @@
             {{ p.paymentDate | date: 'dd/MM/yyyy' }}
           </td>
           
-          <td class="px-4 py-3 text-center align-middle">
+          <td *ngIf="!authService.isObserver()" class="px-4 py-3 text-center align-middle">
             <button *ngIf="p.paymentId > 0 && (p.groupPos === 'none' || p.groupPos === 'start')"
               (click)="openReceiptModal(p)" 
               class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors inline-flex items-center justify-center mr-1"
@@ -341,7 +342,7 @@
         </tr>
 
         <tr *ngIf="filteredPayments.length === 0">
-          <td colspan="7" class="text-center py-6 text-gray-400">
+          <td [attr.colspan]="authService.isObserver() ? 6 : 7" class="text-center py-6 text-gray-400">
             No se encontraron movimientos.
           </td>
         </tr>
@@ -372,7 +373,7 @@
             </div>
           </td>
 
-          <td colspan="2" class="bg-gray-50"></td>
+          <td [attr.colspan]="authService.isObserver() ? 1 : 2" class="bg-gray-50"></td>
         </tr>
       </tfoot>
     </table>

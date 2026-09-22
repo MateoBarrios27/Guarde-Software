@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace GuardeSoftwareAPI.Controllers
 {
-    // [Authorize(Roles = "Admin")] // <--- CLAVE: Solo admins
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class CashFlowController : ControllerBase
