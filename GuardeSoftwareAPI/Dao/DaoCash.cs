@@ -630,13 +630,23 @@ namespace GuardeSoftwareAPI.Dao
                         SELECT @Desc = description, @ItemMonth = month, @ItemYear = year
                         FROM cash_flow_items 
                         WHERE item_id = @Id;
-                        
+
+                        -- La identidad de una fila es item_id. Dos conceptos del
+                        -- mismo mes pueden compartir nombre y deben conservar
+                        -- posiciones independientes.
+                        UPDATE cash_flow_items
+                        SET display_order = @DisplayOrder
+                        WHERE item_id = @Id;
+
                         IF @Desc IS NOT NULL AND @Desc <> ''
                         BEGIN
+                            -- Mantener el orden del concepto replicado únicamente
+                            -- en meses posteriores. Incluir el mes de origen hacía
+                            -- que las filas homónimas se pisaran entre sí.
                             UPDATE cash_flow_items 
                             SET display_order = @DisplayOrder 
                             WHERE description = @Desc
-                            AND (year > @ItemYear OR (year = @ItemYear AND month >= @ItemMonth));
+                            AND (year > @ItemYear OR (year = @ItemYear AND month > @ItemMonth));
                         END";
                     
                     foreach (var item in itemsOrder)
