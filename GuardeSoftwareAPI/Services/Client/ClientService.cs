@@ -1534,6 +1534,52 @@ namespace GuardeSoftwareAPI.Services.client
             await daoClient.DeleteLockerHistoryAsync(clientId, historyId);
         }
 
+        public async Task<RemoveSpaceRequestResultDto> DeleteSpaceRequestAsync(int clientId, int requestId)
+        {
+            if (clientId <= 0) throw new ArgumentException("El ID del cliente es inválido.");
+            if (requestId <= 0) throw new ArgumentException("El ID del espacio solicitado es inválido.");
+
+            using var connection = accessDB.GetConnectionClose();
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                (int rentalId, DateTime removedAt) = await _daoRentalSpaceRequest.RemoveRequestTransactionAsync(
+                    clientId,
+                    requestId,
+                    connection,
+                    transaction);
+
+                List<int> lockerIds = await lockerService.GetLockerIdsByRentalIdTransactionAsync(
+                    rentalId,
+                    connection,
+                    transaction);
+
+                decimal contractedM3 = lockerIds.Count > 0
+                    ? await lockerService.CalculateTotalM3ForLockersAsync(lockerIds, connection, transaction)
+                    : await _daoRentalSpaceRequest.CalculateRequestedM3TransactionAsync(rentalId, connection, transaction);
+
+                await rentalService.UpdateContractedM3TransactionAsync(
+                    rentalId,
+                    contractedM3,
+                    connection,
+                    transaction);
+
+                await transaction.CommitAsync();
+                return new RemoveSpaceRequestResultDto
+                {
+                    ContractedM3 = contractedM3,
+                    RemovedAt = removedAt
+                };
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
         public async Task<bool> UpdateClientColorAsync(int clientId, string? color)
         {
             if (clientId <= 0) throw new ArgumentException("Invalid client ID.");

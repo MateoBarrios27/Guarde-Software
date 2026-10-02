@@ -2,6 +2,7 @@ using System;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dtos.Client;
 using GuardeSoftwareAPI.Dtos.Common;
+using GuardeSoftwareAPI.Dtos.RentalSpaceRequest;
 
 namespace GuardeSoftwareAPI.Services.client
 {
@@ -26,6 +27,7 @@ namespace GuardeSoftwareAPI.Services.client
         Task<bool> CheckPaymentIdentifierExistsAsync(decimal identifier, int? excludeClientId = null);
         Task<List<ClientLockerHistory>> GetClientLockerHistoryAsync(int clientId);
         Task DeleteLockerHistoryAsync(int clientId, int historyId);
+        Task<RemoveSpaceRequestResultDto> DeleteSpaceRequestAsync(int clientId, int requestId);
         Task<bool> UpdateClientColorAsync(int clientId, string? color);
         Task<bool> UpdateClientCommentAsync(int clientId, string? comment);
         Task<bool> UpdateClientNotesAsync(int clientId, string? notes);

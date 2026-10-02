@@ -31,6 +31,7 @@ import { DeleteConfirmationService } from '../../services/delete-confirmation.se
 import { ClientLockerHistory } from '../../../core/models/client-locker-history';
 import { ClientService, RentalAmountHistoryItem } from '../../../core/services/client-service/client.service';
 import { AuthService } from '../../../core/services/auth-service/auth.service';
+import { SpaceRequestDetailDto } from '../../../core/dtos/rentalSpaceRequest/GetSpaceRequestDetailDto';
 import {
   AppliedPaymentPlanningIncrease,
   PaymentPlanningContext,
@@ -70,7 +71,9 @@ const SPANISH_MONTHS = [
 })
 export class ClientDetailModalComponent implements OnChanges {
   @Input() client: ClientDetailDTO | null = null;
+  @Input() startPaymentPlanning = false;
   @Output() closeModal = new EventEmitter<void>();
+  @Output() editClient = new EventEmitter<void>();
   @Output() dataUpdated = new EventEmitter<number>();
 
   previewContent: SafeHtml | null = null;
@@ -148,6 +151,9 @@ export class ClientDetailModalComponent implements OnChanges {
         this.rentalAmountHistory = [];
         this.showAbonoForm = false;
         this.editingHistId = null;
+        if (this.startPaymentPlanning && !this.authService.isObserver() && this.client.paymentStatus !== 'Baja') {
+          this.openPaymentPlanningModal();
+        }
       }
     }
   }
@@ -240,6 +246,46 @@ export class ClientDetailModalComponent implements OnChanges {
       error: () => {
         console.error('Error al eliminar historial de baulera');
         Swal.fire('Error', 'No se pudo eliminar el historial. Es posible que no tenga permisos suficientes o haya ocurrido un error.', 'error');
+      }
+    });
+  }
+
+  async deleteSpaceRequest(request: SpaceRequestDetailDto): Promise<void> {
+    if (!this.client || this.authService.isObserver() || !request.id) return;
+
+    const clientId = this.client.id;
+    const confirmed = await this.deleteConfirmation.confirm({
+      title: '¿Eliminar espacio solicitado?',
+      message: 'Se quitará de Detalles, se conservará en el historial y se recalcularán los metros cúbicos contratados.',
+      highlightedText: `${request.quantity} ${request.quantity === 1 ? 'espacio' : 'espacios'} de ${request.m3} m³ en ${request.warehouse}`,
+      confirmText: 'Eliminar solicitud'
+    });
+    if (!confirmed) return;
+
+    this.clientService.deleteSpaceRequest(clientId, request.id).subscribe({
+      next: ({ contractedM3, removedAt }) => {
+        if (!this.client) return;
+
+        this.client.spaceRequests = (this.client.spaceRequests ?? []).filter(item => item.id !== request.id);
+        this.client.contractedM3 = contractedM3;
+        this.historialBauleras = this.historialBauleras.map(
+          item => item.recordType === 'spaceRequest' && item.id === request.id
+            ? { ...item, endDate: new Date(removedAt) }
+            : item
+        );
+        this.dataUpdated.emit(clientId);
+        this.cdr.markForCheck();
+        Swal.fire({
+          title: 'Solicitud retirada',
+          text: 'Se quitó de Detalles, quedó registrada en el historial y se actualizó el volumen contratado.',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      },
+      error: (err) => {
+        this.cdr.markForCheck();
+        Swal.fire('Error', err.error?.message || 'No se pudo eliminar el espacio solicitado.', 'error');
       }
     });
   }
@@ -442,6 +488,19 @@ export class ClientDetailModalComponent implements OnChanges {
     this.paymentPlanningBreakdown = [];
     this.currentPlanningIncreaseIndex = 0;
     this.showPaymentPlanningModal = true;
+  }
+
+  adjustPaymentPlanningMonths(delta: number): void {
+    this.paymentPlanningMonths = Math.min(24, Math.max(1, Number(this.paymentPlanningMonths || 1) + delta));
+  }
+
+  normalizePaymentPlanningMonths(): void {
+    this.paymentPlanningMonths = Math.min(24, Math.max(1, Number(this.paymentPlanningMonths || 1)));
+  }
+
+  setSixthMonthPromotion(enabled: boolean): void {
+    this.chargeHalfSixthMonth = enabled;
+    this.updatePaymentPlanningBreakdown();
   }
 
   closePaymentPlanningModal(): void {

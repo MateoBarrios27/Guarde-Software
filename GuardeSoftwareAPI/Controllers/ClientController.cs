@@ -344,6 +344,27 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpDelete("{clientId}/space-requests/{requestId}")]
+        public async Task<IActionResult> DeleteSpaceRequest(int clientId, int requestId)
+        {
+            try
+            {
+                return Ok(await _clientService.DeleteSpaceRequestAsync(clientId, requestId));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error al eliminar el espacio solicitado.", error = ex.Message });
+            }
+        }
+
         [HttpPut("{id}/color")]
         public async Task<IActionResult> UpdateClientColor(int id, [FromBody] UpdateClientColorDto request)
         {

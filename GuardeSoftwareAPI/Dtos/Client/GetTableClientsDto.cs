@@ -15,6 +15,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public List<string>? Lockers { get; set; } = null;
         public List<WarehouseLockerItem>? WarehouseLockers { get; set; } = null;
         public DateTime? NextPaymentDay { get; set; }
+        public bool NeedsNextRentPlanning { get; set; }
         public DateTime? DeactivationDate { get; set; }
         public bool Active { get; set; }
         public string? Color { get; set; }

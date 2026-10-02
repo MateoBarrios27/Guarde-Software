@@ -14,6 +14,7 @@ export interface TableClient {
   lockers: string[] | null;
   warehouseLockers?: WarehouseLockerItem[];
   nextPaymentDay?: Date | string | null;
+  needsNextRentPlanning?: boolean;
   deactivationDate?: Date | string | null;
   active: boolean;
   color?: string;

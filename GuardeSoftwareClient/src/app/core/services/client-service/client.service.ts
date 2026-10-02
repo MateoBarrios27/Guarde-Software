@@ -232,6 +232,14 @@ export class ClientService {
     );
   }
 
+  deleteSpaceRequest(clientId: number, requestId: number): Observable<{ contractedM3: number; removedAt: string }> {
+    return this.httpClient.delete<{ contractedM3: number; removedAt: string }>(
+      `${this.url}/Client/${clientId}/space-requests/${requestId}`
+    ).pipe(
+      tap(() => this.dataRefresh.notify(['clients', 'lockers'])),
+    );
+  }
+
   updateClientColor(id: number, color?: string): Observable<any> {
     return this.httpClient.put(`${this.url}/Client/${id}/color`, { color }).pipe(
       tap(() => this.dataRefresh.notify('clients')),

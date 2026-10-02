@@ -92,6 +92,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   // --- Detail Client properties  ---
   public showDetailClientModal = false;
   public clientToView: ClientDetailDTO | null = null;
+  public startPaymentPlanningOnDetail = false;
 
   // --- Toast properties ---
   public showToast = false;
@@ -166,6 +167,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   private supportingDataLoadScheduled = false;
   private clientIdToPositionFromQuery: number | null = null;
   private detailClientIdFromQuery: number | null = null;
+  private planAbonoFromQuery = false;
   locatedClientId: number | null = null;
   private clientPositionTimer?: ReturnType<typeof setTimeout>;
   private clientLocationTimer?: ReturnType<typeof setTimeout>;
@@ -475,6 +477,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       const detailClientId = Number(params['detailClientId'] ?? 0);
       this.clientIdToPositionFromQuery = clientId > 0 ? clientId : null;
       this.detailClientIdFromQuery = detailClientId > 0 ? detailClientId : null;
+      this.planAbonoFromQuery = params['planAbono'] === '1';
       
       void this.loadClients().finally(() => {
         this.scheduleSupportingDataLoad();
@@ -488,19 +491,21 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   private handleClientNavigationQuery(): void {
     const positionClientId = this.clientIdToPositionFromQuery;
     const detailClientId = this.detailClientIdFromQuery;
+    const planAbono = this.planAbonoFromQuery;
     if (!positionClientId && !detailClientId) return;
 
     this.clientIdToPositionFromQuery = null;
     this.detailClientIdFromQuery = null;
+    this.planAbonoFromQuery = false;
     if (detailClientId) {
-      this.openDetailClientModal(detailClientId);
+      this.openDetailClientModal(detailClientId, planAbono);
     } else if (positionClientId) {
       this.positionClientInTable(positionClientId);
     }
     this.consumingClientNavigationQuery = true;
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { clientId: null, detailClientId: null },
+      queryParams: { clientId: null, detailClientId: null, planAbono: null },
       queryParamsHandling: 'merge',
       replaceUrl: true
     });
@@ -562,7 +567,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     { value: 'pagaron_meses_futuros', label: 'Pagaron meses futuros' },
     { value: 'intereses_impagos', label: 'Con intereses impagos' },
     { value: 'saldo_anterior', label: 'Con saldo anterior' },
-    { value: 'aumento_proximo_mes', label: 'Aumento próximo mes' }
+    { value: 'aumento_proximo_mes', label: 'Aumento próximo mes' },
+    { value: 'abono_proximo_mes_pendiente', label: 'Planificar abono próximo mes' }
   ];
 
   toggleTagsPopover(): void {
@@ -936,6 +942,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         case 'intereses_impagos': return (client.interestAmount ?? 0) > 0;
         case 'saldo_anterior': return (client.previousBalance ?? 0) < 0;
         case 'aumento_proximo_mes': return increaseMonthValue === nextMonthValue;
+        case 'abono_proximo_mes_pendiente': return !!client.needsNextRentPlanning;
         default: return false;
       }
     };
@@ -1025,6 +1032,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         color: c.color,
         status: c.status ?? (c.active ? 'Al día' : 'Baja'),
         nextPaymentDay: this.parseCachedDate(c.nextPaymentDay),
+        needsNextRentPlanning: c.needsNextRentPlanning ?? false,
         active: c.active ?? true,
         phone1: '',
         email: '',
@@ -1309,12 +1317,17 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showNewClientModal = true;
   }
 
-  openEditClientModal(clientId: number): void {
+  editClientFromDetail(): void {
+    if (!this.clientToView || this.authService.isObserver()) return;
+
     this.isReactivationMode = false;
-    this.fetchAndOpenModal(clientId);
+    this.clientToEdit = this.clientToView;
+    this.closeDetailClientModal();
+    this.showNewClientModal = true;
+    this.cdr.markForCheck();
   }
 
-  private fetchAndOpenModal(clientId: number): void {
+  private fetchAndOpenReactivationModal(clientId: number): void {
     this.clientService.getClientDetailById(clientId).subscribe((clientDetail) => {
       this.clientToEdit = clientDetail;
       this.showNewClientModal = true;
@@ -1356,10 +1369,11 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // --- Methods for Detail Client Modal ---
-  openDetailClientModal(clientId: number): void {
+  openDetailClientModal(clientId: number, startPaymentPlanning = false): void {
     this.clientService
       .getClientDetailById(clientId)
       .subscribe((clientDetail) => {
+        this.startPaymentPlanningOnDetail = startPaymentPlanning;
         this.clientToView = clientDetail;
         this.showDetailClientModal = true;
         this.cdr.markForCheck();
@@ -1369,6 +1383,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   closeDetailClientModal(): void {
     this.showDetailClientModal = false;
     this.clientToView = null;
+    this.startPaymentPlanningOnDetail = false;
   }
 
   loadStatistics(): void {
@@ -1402,7 +1417,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       if (result.isConfirmed) {
         
         this.isReactivationMode = true; 
-        this.fetchAndOpenModal(cliente.id);
+        this.fetchAndOpenReactivationModal(cliente.id);
         
       }
     });

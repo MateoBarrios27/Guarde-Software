@@ -652,13 +652,26 @@
                   </div>
                   <div>
                     <div class="flex items-center gap-2">
-                      <span *ngIf="cliente.paymentIdentifier" class="inline-flex items-center font-medium text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md border border-gray-300">
-                        N° {{ cliente.paymentIdentifier | number : "1.2-2" }}
-                      </span>
-                      <span *ngIf="isClientLeaving(cliente)"
-                            class="inline-flex items-center rounded bg-red-50 px-1.5 py-0.5 text-[9px] font-bold leading-none text-red-600 border border-red-100">
-                        SE VA
-                      </span>
+                      <div class="client-badge-group">
+                        <span *ngIf="cliente.paymentIdentifier" class="client-table-badge client-payment-id-badge">
+                          N° {{ cliente.paymentIdentifier | number : "1.2-2" }}
+                        </span>
+                        <span *ngIf="isClientLeaving(cliente)" class="client-table-badge client-leaving-badge">
+                          SE VA
+                        </span>
+                        <button *ngIf="cliente.needsNextRentPlanning && !authService.isObserver() && offlineService.isOnline"
+                                type="button"
+                                (click)="openDetailClientModal(cliente.id, true); $event.stopPropagation()"
+                                class="client-table-badge client-increase-badge client-increase-badge-action"
+                                title="Confirmar el abono del próximo mes y generar su débito">
+                          Aumento
+                        </button>
+                        <span *ngIf="cliente.needsNextRentPlanning && (authService.isObserver() || !offlineService.isOnline)"
+                              class="client-table-badge client-increase-badge"
+                              title="Aumento del próximo mes pendiente de confirmar">
+                          Aumento
+                        </span>
+                      </div>
                       <button (click)="toggleComment(cliente); $event.stopPropagation()"
                               (mouseenter)="onCommentMouseEnter(cliente)"
                               (mouseleave)="onCommentMouseLeave(cliente)"
@@ -773,10 +786,6 @@
 
                   <button (click)="openDetailClientModal(cliente.id)" class="p-1 hover:text-blue-600 flex items-center justify-center" title="Ver Detalles">
                     <app-icon name="eye" class="h-4 w-4 inline-block text-black hover:text-blue-600"></app-icon>
-                  </button>
-
-                  <button *ngIf="!authService.isObserver()" (click)="openEditClientModal(cliente.id)" class="p-1 hover:text-blue-600 flex items-center justify-center" title="Editar">
-                    <app-icon name="edit" class="h-4 w-4 inline-block text-black hover:text-blue-800"></app-icon>
                   </button>
 
                   <button *ngIf="cliente.status !== 'Baja' && !authService.isObserver()"
@@ -1030,7 +1039,9 @@
   <app-client-detail-modal
     *ngIf="showDetailClientModal"
     [client]="clientToView"
+    [startPaymentPlanning]="startPaymentPlanningOnDetail"
     (closeModal)="closeDetailClientModal()"
+    (editClient)="editClientFromDetail()"
     (dataUpdated)="onClientDataUpdated($event)">
   </app-client-detail-modal>
 }

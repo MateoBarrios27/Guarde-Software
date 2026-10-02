@@ -1,8 +1,11 @@
 export interface ClientLockerHistory {
     id: number;
-    lockerIdentifier: string;
+    recordType: 'locker' | 'spaceRequest';
+    lockerIdentifier?: string;
     warehouseName: string;
-    lockerTypeName: string;
+    lockerType?: string;
+    quantity?: number;
+    requestedM3?: number;
     startDate: Date;
     endDate: Date | null; 
     notes: string | null;

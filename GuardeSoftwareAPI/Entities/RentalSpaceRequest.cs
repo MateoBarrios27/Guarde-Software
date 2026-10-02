@@ -8,5 +8,6 @@ namespace GuardeSoftwareAPI.Entities
         public int Quantity { get; set; }
         public decimal M3 { get; set; }
         public string? Comment { get; set; }
+        public DateTime? RemovedAt { get; set; }
     }
 }

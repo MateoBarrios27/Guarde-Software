@@ -633,6 +633,9 @@ namespace GuardeSoftwareAPI.Dao
                         case "aumento_proximo_mes":
                             advClauses.Add(@"(IncreaseAnchorDate IS NOT NULL AND YEAR(IncreaseAnchorDate) = YEAR(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))) AND MONTH(IncreaseAnchorDate) = MONTH(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))))");
                             break;
+                        case "abono_proximo_mes_pendiente":
+                            advClauses.Add("(NeedsNextRentPlanning = 1)");
+                            break;
                     }
                 }
                 if (advClauses.Any())
@@ -669,6 +672,9 @@ namespace GuardeSoftwareAPI.Dao
                             break;
                         case "aumento_proximo_mes":
                             excludedAdvClauses.Add(@"(IncreaseAnchorDate IS NOT NULL AND YEAR(IncreaseAnchorDate) = YEAR(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))) AND MONTH(IncreaseAnchorDate) = MONTH(DATEADD(month, 1, DATEADD(hour, -3, GETUTCDATE()))))");
+                            break;
+                        case "abono_proximo_mes_pendiente":
+                            excludedAdvClauses.Add("(NeedsNextRentPlanning = 1)");
                             break;
                     }
                 }
@@ -979,6 +985,32 @@ namespace GuardeSoftwareAPI.Dao
                         c.comment AS Comment,
                         c.comment_updated_at AS CommentUpdatedAt,
                         r.increase_anchor_date AS IncreaseAnchorDate,
+                        CAST(CASE WHEN c.active = 1
+                            AND r.increase_anchor_date >= {nextMonthStartExpression}
+                            AND r.increase_anchor_date < DATEADD(month, 1, {nextMonthStartExpression})
+                            AND (r.price_lock_end_date IS NULL OR r.price_lock_end_date < r.increase_anchor_date)
+                            AND EXISTS (
+                                SELECT 1 FROM client_month_balances due_cmb
+                                WHERE due_cmb.rental_id = r.rental_id
+                                  AND due_cmb.month_year = RIGHT('0' + CONVERT(varchar(2), MONTH({currentMonthStartExpression})), 2) + '/' + CONVERT(varchar(4), YEAR({currentMonthStartExpression}))
+                                  AND due_cmb.monthly_debits > 0
+                                  AND due_cmb.unpaid_rent >= due_cmb.monthly_debits
+                            )
+                            AND NOT EXISTS (
+                                SELECT 1 FROM account_movements next_debit
+                                WHERE next_debit.rental_id = r.rental_id
+                                  AND next_debit.movement_type = 'DEBITO'
+                                  AND next_debit.concept LIKE 'Alquiler %'
+                                  AND next_debit.movement_date >= {nextMonthStartExpression}
+                                  AND next_debit.movement_date < DATEADD(month, 1, {nextMonthStartExpression})
+                            )
+                            AND NOT EXISTS (
+                                SELECT 1 FROM rental_amount_history planned_rent
+                                WHERE planned_rent.rental_id = r.rental_id
+                                  AND planned_rent.start_date >= {nextMonthStartExpression}
+                                  AND planned_rent.start_date < DATEADD(month, 1, {nextMonthStartExpression})
+                            )
+                            THEN 1 ELSE 0 END AS bit) AS NeedsNextRentPlanning,
 
                         /*
                             
@@ -1243,6 +1275,7 @@ namespace GuardeSoftwareAPI.Dao
                     PendingSurcharge = row["PendingSurcharge"] != DBNull.Value ? Convert.ToDecimal(row["PendingSurcharge"]) : 0m,
                     Balance = row["Balance"] != DBNull.Value ? Convert.ToDecimal(row["Balance"]) : 0m,
                     NextPaymentDay = row["NextPaymentDay"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDay"]) : null,
+                    NeedsNextRentPlanning = row["NeedsNextRentPlanning"] != DBNull.Value && Convert.ToBoolean(row["NeedsNextRentPlanning"]),
                     DeactivationDate = row["DeactivationDate"] != DBNull.Value ? Convert.ToDateTime(row["DeactivationDate"]) : null,
                     Lockers = row["Lockers"] != DBNull.Value ? row["Lockers"].ToString()!.Split(',').ToList() : null,
                     Active = Convert.ToBoolean(row["Active"]),
@@ -1466,20 +1499,57 @@ namespace GuardeSoftwareAPI.Dao
             var list = new List<ClientLockerHistory>();
             
             string query = @"
-                SELECT 
-                    h.history_id, 
-                    l.identifier AS locker_identifier, 
-                    w.name AS warehouse_name, 
-                    lt.name AS locker_type, 
-                    h.start_date, 
-                    h.end_date, 
-                    h.notes
-                FROM client_locker_history h
-                INNER JOIN lockers l ON h.locker_id = l.locker_id
-                INNER JOIN warehouses w ON l.warehouse_id = w.warehouse_id
-                LEFT JOIN locker_types lt ON l.locker_type_id = lt.locker_type_id
-                WHERE h.client_id = @ClientId
-                ORDER BY h.start_date DESC"; 
+                WITH LockerTimeline AS (
+                    SELECT
+                        h.history_id AS item_id,
+                        CAST('locker' AS varchar(20)) AS record_type,
+                        l.identifier AS locker_identifier,
+                        w.name AS warehouse_name,
+                        lt.name AS locker_type,
+                        CAST(NULL AS int) AS quantity,
+                        CAST(NULL AS decimal(10, 2)) AS requested_m3,
+                        h.start_date,
+                        h.end_date,
+                        h.notes,
+                        1 AS type_order
+                    FROM client_locker_history h
+                    INNER JOIN lockers l ON h.locker_id = l.locker_id
+                    INNER JOIN warehouses w ON l.warehouse_id = w.warehouse_id
+                    LEFT JOIN locker_types lt ON l.locker_type_id = lt.locker_type_id
+                    WHERE h.client_id = @ClientId
+
+                    UNION ALL
+
+                    SELECT
+                        rsr.request_id AS item_id,
+                        CAST('spaceRequest' AS varchar(20)) AS record_type,
+                        CAST(NULL AS varchar(255)) AS locker_identifier,
+                        w.name AS warehouse_name,
+                        CAST(NULL AS varchar(255)) AS locker_type,
+                        rsr.quantity,
+                        rsr.m3 AS requested_m3,
+                        r.start_date,
+                        COALESCE(rsr.removed_at, r.end_date) AS end_date,
+                        rsr.comment AS notes,
+                        0 AS type_order
+                    FROM rental_space_requests rsr
+                    INNER JOIN rentals r ON rsr.rental_id = r.rental_id
+                    INNER JOIN warehouses w ON rsr.warehouse_id = w.warehouse_id
+                    WHERE r.client_id = @ClientId
+                )
+                SELECT
+                    item_id,
+                    record_type,
+                    locker_identifier,
+                    warehouse_name,
+                    locker_type,
+                    quantity,
+                    requested_m3,
+                    start_date,
+                    end_date,
+                    notes
+                FROM LockerTimeline
+                ORDER BY start_date ASC, type_order ASC, item_id ASC;";
 
             var dt = await accessDB.GetTableAsync("LockerHistory", query, new[] {
                 new SqlParameter("@ClientId", clientId)
@@ -1489,10 +1559,13 @@ namespace GuardeSoftwareAPI.Dao
             {
                 list.Add(new ClientLockerHistory
                 {
-                    Id = Convert.ToInt32(row["history_id"]),
-                    LockerIdentifier = row["locker_identifier"].ToString(),
-                    WarehouseName = row["warehouse_name"].ToString(),
+                    Id = Convert.ToInt32(row["item_id"]),
+                    RecordType = row["record_type"]?.ToString() ?? "locker",
+                    LockerIdentifier = row["locker_identifier"] != DBNull.Value ? row["locker_identifier"].ToString() ?? string.Empty : string.Empty,
+                    WarehouseName = row["warehouse_name"]?.ToString() ?? string.Empty,
                     LockerType = row["locker_type"] != DBNull.Value ? row["locker_type"].ToString() : "N/A",
+                    Quantity = row["quantity"] != DBNull.Value ? Convert.ToInt32(row["quantity"]) : null,
+                    RequestedM3 = row["requested_m3"] != DBNull.Value ? Convert.ToDecimal(row["requested_m3"]) : null,
                     StartDate = Convert.ToDateTime(row["start_date"]),
                     EndDate = row["end_date"] != DBNull.Value ? Convert.ToDateTime(row["end_date"]) : null,
                     Notes = row["notes"] != DBNull.Value ? row["notes"].ToString() : null

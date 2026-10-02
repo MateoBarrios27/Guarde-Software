@@ -53,6 +53,7 @@ namespace GuardeSoftwareAPI.Dao
 
             string query = @"
                 SELECT 
+                    rsr.request_id,
                     w.name AS WarehouseName,
                     rsr.quantity,
                     rsr.m3,
@@ -60,7 +61,10 @@ namespace GuardeSoftwareAPI.Dao
                 FROM rental_space_requests rsr
                 INNER JOIN rentals r ON rsr.rental_id = r.rental_id
                 INNER JOIN warehouses w ON rsr.warehouse_id = w.warehouse_id
-                WHERE r.client_id = @ClientId AND r.active = 1";
+                WHERE r.client_id = @ClientId
+                  AND r.active = 1
+                  AND rsr.removed_at IS NULL
+                ORDER BY rsr.request_id";
 
             SqlParameter[] parameters = [
                 new("@ClientId", SqlDbType.Int) { Value = clientId }
@@ -72,6 +76,7 @@ namespace GuardeSoftwareAPI.Dao
             {
                 list.Add(new GetSpaceRequestDetailDto
                 {
+                    Id = Convert.ToInt32(row["request_id"]),
                     Warehouse = row["WarehouseName"]?.ToString() ?? "Desconocido",
                     Quantity = row["quantity"] != DBNull.Value ? Convert.ToInt32(row["quantity"]) : 0,
                     M3 = row["m3"] != DBNull.Value ? Convert.ToDecimal(row["m3"]) : 0m,
@@ -80,6 +85,75 @@ namespace GuardeSoftwareAPI.Dao
             }
 
             return list;
+        }
+
+        public async Task<(int RentalId, DateTime RemovedAt)> RemoveRequestTransactionAsync(
+            int clientId,
+            int requestId,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            const string findQuery = @"
+                SELECT rsr.rental_id
+                FROM rental_space_requests rsr WITH (UPDLOCK, HOLDLOCK)
+                INNER JOIN rentals r ON rsr.rental_id = r.rental_id
+                WHERE rsr.request_id = @RequestId
+                  AND r.client_id = @ClientId
+                  AND r.active = 1
+                  AND rsr.removed_at IS NULL;";
+
+            int? rentalId = null;
+            using (var findCommand = new SqlCommand(findQuery, connection, transaction))
+            {
+                findCommand.Parameters.Add(new SqlParameter("@RequestId", SqlDbType.Int) { Value = requestId });
+                findCommand.Parameters.Add(new SqlParameter("@ClientId", SqlDbType.Int) { Value = clientId });
+                object? result = await findCommand.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                    rentalId = Convert.ToInt32(result);
+            }
+
+            if (!rentalId.HasValue)
+                throw new InvalidOperationException("No se encontró el espacio solicitado o no pertenece al alquiler activo del cliente.");
+
+            const string removeQuery = @"
+                UPDATE rental_space_requests
+                SET removed_at = DATEADD(hour, -3, GETUTCDATE())
+                OUTPUT INSERTED.removed_at
+                WHERE request_id = @RequestId
+                  AND rental_id = @RentalId
+                  AND removed_at IS NULL;";
+
+            DateTime? removedAt = null;
+            using (var removeCommand = new SqlCommand(removeQuery, connection, transaction))
+            {
+                removeCommand.Parameters.Add(new SqlParameter("@RequestId", SqlDbType.Int) { Value = requestId });
+                removeCommand.Parameters.Add(new SqlParameter("@RentalId", SqlDbType.Int) { Value = rentalId.Value });
+                object? result = await removeCommand.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                    removedAt = Convert.ToDateTime(result);
+
+                if (!removedAt.HasValue)
+                    throw new InvalidOperationException("No se pudo eliminar el espacio solicitado.");
+            }
+
+            return (rentalId.Value, removedAt.Value);
+        }
+
+        public async Task<decimal> CalculateRequestedM3TransactionAsync(
+            int rentalId,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            const string query = @"
+                SELECT ISNULL(SUM(m3 * quantity), 0)
+                FROM rental_space_requests
+                WHERE rental_id = @RentalId
+                  AND removed_at IS NULL;";
+
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@RentalId", SqlDbType.Int) { Value = rentalId });
+            object? result = await command.ExecuteScalarAsync();
+            return result == null || result == DBNull.Value ? 0m : Convert.ToDecimal(result);
         }
     }
 }

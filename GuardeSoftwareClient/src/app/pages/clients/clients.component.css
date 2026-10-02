@@ -12,6 +12,65 @@ tr.client-row.has-color > td:last-child {
   border-right: 1px solid var(--client-color-light);
 }
 
+/* Los estados comparten tamaño y forma y siempre ocupan una única línea. */
+.client-badge-group {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.35rem;
+  flex: none;
+  white-space: nowrap;
+}
+
+.client-table-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0.2rem 0.45rem;
+  border: 0;
+  border-radius: 8px;
+  font-size: 0.69rem;
+  font-weight: 800;
+  letter-spacing: 0.025em;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+}
+
+.client-payment-id-badge {
+  background: #f3f4f6;
+  color: #374151;
+  font-variant-numeric: tabular-nums;
+}
+
+.client-increase-badge {
+  background: #facc15;
+  color: #422006;
+}
+
+.client-leaving-badge {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.client-increase-badge-action {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.client-increase-badge-action:hover {
+  background: #eab308;
+}
+
+.client-increase-badge-action:focus-visible {
+  outline: 2px solid #854d0e;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .client-increase-badge-action { transition: none; }
+}
+
 /* Locate a client without overriding their account/status colors. */
 .client-row-located { outline: none; scroll-margin-block: 5.5rem; }
 .client-row-located > td {
