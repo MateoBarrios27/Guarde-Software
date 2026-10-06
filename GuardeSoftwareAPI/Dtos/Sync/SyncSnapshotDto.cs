@@ -27,6 +27,7 @@ namespace GuardeSoftwareAPI.Dtos.Sync
         public List<string> LockerIdentifiers { get; set; } = new();
         public int? MonthsUnpaid { get; set; }
         public string? IncreaseAnchorDate { get; set; }
+        public bool NeedsNextRentPlanning { get; set; }
         public int? IncreaseFrequencyMonths { get; set; }
         public bool IsSixMonthPromotion { get; set; }
         public decimal? PlannedPaymentAmount { get; set; }

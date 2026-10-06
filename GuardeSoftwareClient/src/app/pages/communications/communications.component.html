@@ -131,32 +131,6 @@
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-gray-700 mb-2">Canales de comunicación *</label>
-      <div class="flex flex-col sm:flex-row gap-4">
-        @for (channel of channels; track channel.id) {
-        <div 
-          class="flex items-center space-x-2 p-3 border rounded-lg transition duration-150"
-          [ngClass]="{
-            'bg-blue-50 border-blue-300 ring-1 ring-blue-200': formData().channels.includes(channel.name),
-            'bg-gray-50 border-gray-300 cursor-pointer hover:bg-gray-100': !formData().channels.includes(channel.name)
-          }"
-          (click)="toggleChannel(channel.name)">
-          <input 
-            type="checkbox" 
-            [id]="'channel-' + channel.name" 
-            [checked]="formData().channels.includes(channel.name)" 
-            class="rounded text-blue-600 focus:ring-blue-500 pointer-events-none"/> 
-          <label class="flex items-center gap-2 text-sm font-medium text-gray-900 cursor-pointer">
-            <app-icon [name]="channel.icon" [ngClass]="channel.name === 'Email' ? 'text-blue-600' : 'text-green-600'"></app-icon>
-            <span>{{ channel.spanishLabel }}</span>
-          </label>
-        </div>
-        }
-      </div>
-      <p *ngIf="formData().channels.length === 0" class="text-xs text-red-500 mt-2">Selecciona al menos un canal</p>
-    </div>
-
-    <div>
       <div class="flex justify-between items-center mb-1">
         <label class="block text-sm font-medium text-gray-700">Destinatarios *</label>
         <span class="text-xs text-blue-600 font-semibold" *ngIf="formData().sendToAllEmails">
@@ -187,24 +161,12 @@
         
         <button type="button" 
                 (click)="sendTestCommunication()" 
-                [disabled]="!isFormValid() || (!formData().channels.includes('Email') && !(formData().isAccountStatement && formData().channels.includes('WhatsApp')))"
+                [disabled]="!isFormValid()"
                 class="text-xs font-semibold bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-md hover:bg-indigo-100 flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-100">
           <app-icon name="send" class="w-3.5 h-3.5 mr-1.5"></app-icon>
           Enviar Prueba
         </button>
       </div>
-      <p *ngIf="formData().channels.includes('WhatsApp') && formData().isAccountStatement" class="text-xs text-emerald-700 mt-1">
-        El estado de cuenta se enviará a todos los teléfonos activos del cliente marcados como WhatsApp. Los clientes sin esos números quedarán informados como fallidos.
-      </p>
-      <p *ngIf="formData().channels.includes('WhatsApp') && !formData().isAccountStatement" class="text-xs text-emerald-700 mt-1">
-        Los comunicados generales usan el primer teléfono activo del cliente marcado como WhatsApp.
-      </p>
-      <p *ngIf="formData().channels.includes('WhatsApp') && !formData().isAccountStatement" class="text-xs text-indigo-600 mt-1">
-        La opción “Enviar Prueba” sólo prueba el Email; WhatsApp se omite para no enviar a números reales.
-      </p>
-      <p *ngIf="formData().channels.includes('WhatsApp') && formData().isAccountStatement" class="text-xs text-indigo-600 mt-1">
-        La prueba de WhatsApp se enviará al número 1160244908. Si hay Email, ese canal seguirá usando el destinatario de prueba.
-      </p>
     </div>
 
     <div class="space-y-4 pt-2 border-t border-dashed">
@@ -212,7 +174,7 @@
       <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-center justify-between">
         <div>
             <span class="block font-bold text-blue-900 text-sm">¿Es un Estado de Cuenta?</span>
-            <span class="block text-xs text-blue-600 mt-0.5">Se genera automáticamente con los saldos; por WhatsApp llegará en texto limpio.</span>
+            <span class="block text-xs text-blue-600 mt-0.5">Se genera automáticamente con los saldos del cliente y se envía por Email.</span>
         </div>
         
         <label class="relative inline-flex items-center cursor-pointer">
@@ -287,13 +249,7 @@
         </div>
 
         <div [class.opacity-40]="formData().isAccountStatement">
-          <p *ngIf="formData().isAccountStatement && formData().channels.includes('WhatsApp')" class="text-xs text-gray-500 mb-2">
-            💡 Se enviará el mismo estado de cuenta en dos formatos: HTML para Email y un resumen limpio para WhatsApp.
-          </p>
           @if (formData().channels.includes('Email')) {
-            <p *ngIf="formData().channels.includes('WhatsApp') && !formData().isAccountStatement" class="text-xs text-gray-500 mb-2">
-              💡 Escribe el contenido del email. Se enviará una versión de solo texto a WhatsApp.
-            </p>
             @if (isDesignedMarketingTemplate()) {
               <div class="overflow-hidden rounded-lg border border-blue-200 bg-blue-50/40">
                 <div class="flex items-start gap-2 border-b border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
@@ -313,16 +269,9 @@
                 placeholder="Escribe el contenido del email aquí...">
               </quill-editor>
             }
-          } @else if (formData().channels.includes('WhatsApp')) {
-            <p class="text-xs text-gray-500 mb-2">💡 Para WhatsApp: Mantén el mensaje breve y directo.</p>
-            <textarea [ngModel]="formData().content" 
-                  (ngModelChange)="updateFormField('content', $event)"
-                  [rows]="8"
-                  placeholder="Escribe el contenido para WhatsApp aquí..."
-                  class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
           } @else {
             <div class="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400 text-center h-32 flex items-center justify-center">
-              <p>Selecciona un canal para escribir el contenido.</p>
+              <p>El contenido se enviará por Email.</p>
             </div>
           }
         </div>
@@ -605,7 +554,7 @@
     <div class="space-y-2">
       <div class="flex items-center justify-between">
           <h4 class="text-sm font-semibold text-gray-800">
-            Seleccioná los destinatarios y canales a reintentar:
+            Seleccioná los destinatarios de Email a reintentar:
         </h4>
         <div class="flex gap-2">
           <button (click)="toggleAllRetrySelection(true)" class="text-xs text-blue-600 hover:text-blue-800 font-medium underline">
@@ -669,7 +618,7 @@
     <div class="bg-blue-50 p-4 rounded-lg space-y-2 border border-blue-200">
       <h4 class="text-sm font-semibold text-gray-700">Resumen del comunicado:</h4>
       <p class="text-sm"><strong>Título:</strong> {{ selectedCommunication()!.title }}</p>
-      <p class="text-sm"><strong>Canal:</strong> {{ selectedCommunication()!.channel }}</p>
+      <p class="text-sm"><strong>Canal:</strong> Email</p>
       <p class="text-sm"><strong>Destinatarios:</strong>
         @if (selectedCommunication()!.sendToAllEmails) {
           Todos los emails de clientes y receptores externos
@@ -914,7 +863,7 @@
                    <app-icon name="user-plus" class="h-4 w-4"></app-icon>
                  </button>
                }
-               @if (!authService.isObserver() && (comm.status === 'Failed' || comm.status === 'Finished w/ Errors')) {
+               @if (!authService.isObserver() && canSendCommunicationByEmail(comm) && (comm.status === 'Failed' || comm.status === 'Finished w/ Errors')) {
                 <button (click)="openRetryModal(comm)" title="Reintentar fallidos" class="p-1.5 text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-full transition">
                   <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
                 </button>
@@ -1039,14 +988,14 @@
       </button>
       }
 
-      @if (!authService.isObserver() && comm.status === 'Draft') {
+      @if (!authService.isObserver() && canSendCommunicationByEmail(comm) && comm.status === 'Draft') {
       <button (click)="openModal('send-confirm', comm)" title="Enviar ahora"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-green-600 hover:bg-green-100 transition">
         <app-icon name="Send" class="h-4 w-4"></app-icon>
       </button>
       } 
 
-      @else if (!authService.isObserver() && (comm.status === 'Failed' || comm.status === 'Finished w/ Errors')) {
+      @else if (!authService.isObserver() && canSendCommunicationByEmail(comm) && (comm.status === 'Failed' || comm.status === 'Finished w/ Errors')) {
       <button (click)="openRetryModal(comm)" 
               title="Reintentar Envíos Fallidos"
               class="flex-1 flex justify-center items-center p-2 rounded-full text-orange-600 hover:bg-orange-100 transition">

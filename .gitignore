@@ -416,3 +416,13 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Codex temporary build and verification artifacts
+/.codex_tmp/
+/GuardeSoftwareAPI/.codex_tmp/
+/GuardeSoftwareAPI/GuardeSoftwareAPI/.codex_tmp/
+/GuardeSoftwareAPI/output
+/GuardeSoftwareAPI/outputs
+
+/output
+/outputs

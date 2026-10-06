@@ -17,7 +17,6 @@ namespace GuardeSoftwareAPI.Jobs
     [DisallowConcurrentExecution]
     public class SendCommunicationJob : IJob
     {
-        private const string AccountStatementTestPhone = "1160244908";
         private const string DefaultTestEmailAddress = "fsgbrunofranco@gmail.com";
         private static readonly Regex LegacyBrandLogoImageRegex = new(
             @"<img\b[^>]*guardeloquequiera-logo(?:\.jpg)?[^>]*>",
@@ -66,10 +65,9 @@ namespace GuardeSoftwareAPI.Jobs
                 if (isTestMode)
                 {
                     _logger.LogWarning(
-                        "Communication {ComunicadoId} is a test. Email will be redirected to {TestEmail} and account-statement WhatsApp will be redirected to {TestPhone}.",
+                        "Communication {ComunicadoId} is a test. Email will be redirected to {TestEmail}.",
                         comunicadoId,
-                        testEmail,
-                        AccountStatementTestPhone);
+                        testEmail);
                 }
 
                 await _communicationDao.UpdateCommunicationStatusAndErrorAsync(comunicadoId, "Procesando", null);
@@ -80,7 +78,15 @@ namespace GuardeSoftwareAPI.Jobs
 
                 _logger.LogInformation("Found {ChannelCount} channels for communication {ComunicadoId}.", channels.Count, comunicadoId);
 
-                var emailChannel = channels.FirstOrDefault(c => c.ChannelName == "Email");
+                if (channels.Any(c => c.ChannelName.Equals(CommunicationChannelPolicy.WhatsApp, StringComparison.OrdinalIgnoreCase)))
+                {
+                    _logger.LogWarning(
+                        "Communication {ComunicadoId} contains a historical WhatsApp channel. WhatsApp delivery is temporarily disabled and will be skipped.",
+                        comunicadoId);
+                }
+
+                var emailChannel = channels.FirstOrDefault(c =>
+                    c.ChannelName.Equals(CommunicationChannelPolicy.Email, StringComparison.OrdinalIgnoreCase));
                 if (emailChannel != null)
                 {
                     List<RecipientForSendingDto> emailRecipients;
@@ -109,42 +115,10 @@ namespace GuardeSoftwareAPI.Jobs
                     _logger.LogInformation("Found {RecipientCount} email recipients for communication {ComunicadoId}.", emailRecipients.Count, comunicadoId);
                     await ProcessEmailChannel(emailChannel, emailRecipients, errorLog, comunicadoId, isTestMode, testEmail);
                 }
-
-                var whatsappChannel = channels.FirstOrDefault(c => c.ChannelName == "WhatsApp");
-                if (whatsappChannel != null)
+                else
                 {
-                    if (sendToAllEmails)
-                    {
-                        const string unsupportedWhatsAppScope = "La selección de todos los emails sólo permite el envío por Email.";
-                        _logger.LogWarning("Communication {ComunicadoId}: {Message}", comunicadoId, unsupportedWhatsAppScope);
-                        errorLog.AppendLine(unsupportedWhatsAppScope);
-                    }
-                    else
-                    {
-                        bool isAccountStatement = await _communicationDao.IsAccountStatementAsync(comunicadoId);
-                        if (isTestMode && !isAccountStatement)
-                        {
-                            _logger.LogInformation("Test communication {ComunicadoId}: WhatsApp delivery skipped to avoid sending to real client numbers.", comunicadoId);
-                        }
-                        else
-                        {
-                            var whatsappRecipients = await _communicationDao.GetRecipientsForSendingAsync(comunicadoId, whatsappChannel.CommChannelContentId);
-                            _logger.LogInformation("Found {RecipientCount} WhatsApp recipients for communication {ComunicadoId}.", whatsappRecipients.Count, comunicadoId);
-
-                            if (isTestMode && isAccountStatement)
-                            {
-                                foreach (var recipient in whatsappRecipients)
-                                {
-                                    recipient.WhatsAppPhones = [AccountStatementTestPhone];
-                                    recipient.Phone = AccountStatementTestPhone;
-                                }
-
-                                _logger.LogInformation("Test account statement {ComunicadoId}: WhatsApp delivery redirected to {TestPhone}.", comunicadoId, AccountStatementTestPhone);
-                            }
-
-                            await ProcessWhatsAppChannel(whatsappChannel, whatsappRecipients, errorLog, comunicadoId, isTestMode);
-                        }
-                    }
+                    errorLog.AppendLine(
+                        "El envío por WhatsApp está temporalmente deshabilitado y el comunicado no tiene canal Email.");
                 }
 
                 string finalStatus = errorLog.Length > 0 ? "Finished w/ Errors" : "Finished";
@@ -728,7 +702,8 @@ Sábados de 09:00 a 13:00
         {
             bool isAccountStatement = await _communicationDao.IsAccountStatementAsync(communicationId);
 
-            if (bool.TryParse(_config["WAHASettings:Enabled"], out var enabled) && !enabled)
+            if (!CommunicationChannelPolicy.WhatsAppSendingEnabled
+                || (bool.TryParse(_config["WAHASettings:Enabled"], out var enabled) && !enabled))
             {
                 const string disabledMessage = "El envío por WhatsApp está deshabilitado en la configuración.";
                 errorLog.AppendLine(disabledMessage);

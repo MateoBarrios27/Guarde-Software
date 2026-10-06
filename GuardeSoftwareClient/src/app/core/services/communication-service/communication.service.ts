@@ -226,14 +226,12 @@ export class CommunicationService {
     clientName: string,
     receiptPeriod: string,
     emails: string[],
-    whatsAppPhones: string[],
     receipt: File
   ): Observable<ReceiptDeliveryResult> {
     const formData = new FormData();
     formData.append('clientName', clientName);
     formData.append('receiptPeriod', receiptPeriod);
     emails.forEach((email, index) => formData.append(`emails[${index}]`, email));
-    whatsAppPhones.forEach((phone, index) => formData.append(`whatsAppPhones[${index}]`, phone));
     formData.append('receipt', receipt, receipt.name);
 
     return this.http.post<ReceiptDeliveryResult>(`${this.url}/Communications/receipt`, formData);

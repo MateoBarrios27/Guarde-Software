@@ -26,6 +26,7 @@ export interface CachedClient {
   lockerIdentifiers?: string[];
   monthsUnpaid?: number;
   increaseAnchorDate?: string;
+  needsNextRentPlanning?: boolean;
   increaseFrequencyMonths?: number;
   isSixMonthPromotion?: boolean;
   plannedPaymentAmount?: number;

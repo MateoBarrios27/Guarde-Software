@@ -25,13 +25,6 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 import { AuthService } from '../../core/services/auth-service/auth.service';
 
-interface Channel {
-  id: number;
-  name: 'Email' | 'WhatsApp';
-  spanishLabel: 'Email' | 'WhatsApp'; // User-facing text
-  icon: string;
-}
-
 /** State for the Add/Edit form */
 interface FormDataState {
   id: number | null;
@@ -88,11 +81,6 @@ interface MonthFilter {
   year: number;
   month: number;
 }
-
-const COMMUNICATION_CHANNELS: Channel[] = [
-  { id: 1, name: 'Email', spanishLabel: 'Email', icon: 'Mail' },
-  { id: 2, name: 'WhatsApp', spanishLabel: 'WhatsApp', icon: 'whatsapp' }
-];
 
 const INMOBILIARIAS_TEMPLATE_MARKER = 'GUARDE_TEMPLATE:INMOBILIARIAS_V1';
 const INMOBILIARIAS_TEMPLATE_URL = 'assets/email-templates/inmobiliarias/inmobiliarias.html';
@@ -891,7 +879,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     content: '', 
     sendDate: '',
     sendTime: '',
-    channels: [],
+    channels: ['Email'],
     recipients: [],
     externalRecipientIds: [],
     type: 'enviar_ahora',
@@ -925,8 +913,6 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     color: 'success',
   });
 
-  channels = COMMUNICATION_CHANNELS;
-  
   // --- Computed Signals ---
   
   scheduledCommunications = computed(() => {
@@ -1000,7 +986,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
 
     let baseValid = data.title.trim().length > 0 && 
                     contentIsValid && 
-                    data.channels.length > 0 && 
+                    data.channels.includes('Email') &&
                     recipientsAreValid &&
                     externalRecipientsAreValid;
     
@@ -1021,7 +1007,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       content: '',
       sendDate: '',
       sendTime: '',
-      channels: [],
+      channels: ['Email'],
       recipients: [],
       externalRecipientIds: [],
       type: 'enviar_ahora',
@@ -1052,12 +1038,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     let finalModalType = modalType;
 
     if (communication && (modalType === 'edit' || isResend)) {
-      // 1. Get channels as array
-      let channelsArray: ('Email' | 'WhatsApp')[] = [];
-      if (communication.channel.includes('Email')) channelsArray.push('Email');
-      if (communication.channel.includes('WhatsApp')) channelsArray.push('WhatsApp');
-
-      // 2. Determine form type based on communication status and whether it's a resend
+      // Historical WhatsApp metadata remains visible in the detail, but editing
+      // or cloning always creates an Email-only communication.
       let formType: 'programar' | 'borrador' | 'enviar_ahora' = 'borrador';
       
       // If it's a resend, default to 'enviar_ahora' regardless of original status
@@ -1079,7 +1061,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
         content: communication.content,
         sendDate: isResend ? '' : (communication.sendDate || ''),
         sendTime: isResend ? '' : (communication.sendTime || ''),
-        channels: channelsArray,
+        channels: ['Email'],
         recipients: communication.sendToAllEmails ? [] : [...communication.recipients],
         externalRecipientIds: communication.sendToAllEmails
           ? []
@@ -1100,7 +1082,11 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       this.commService.getCommunicationById(communication.id).subscribe({
         next: (fullComm) => {
           if (modalType === 'retry' && fullComm.dispatches) {
-            fullComm.dispatches.forEach(d => d.isSelected = (d.status !== 'Exitoso'));
+            fullComm.dispatches.forEach(d => {
+              d.isSelected = !d.isTest
+                && d.status !== 'Exitoso'
+                && d.channel.toLocaleLowerCase() === 'email';
+            });
           }
           this.selectedCommunication.set(fullComm);
         },
@@ -1184,6 +1170,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     const request = {
       ...data,
       content: data.isAccountStatement ? 'Estado de cuenta (Autm.)' : data.content,
+      channels: ['Email'],
       type: finalType,
       sendDate: finalSendDate,
       sendTime: finalSendTime
@@ -1202,9 +1189,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
 
   sendTestCommunication(): void {
     const data = this.formData();
-    const canTestWhatsAppStatement = data.isAccountStatement && data.channels.includes('WhatsApp');
-    const hasEmailTestChannel = data.channels.includes('Email');
-    if (!this.isFormValid() || (!hasEmailTestChannel && !canTestWhatsAppStatement)) { return; }
+    if (!this.isFormValid()) { return; }
 
     const now = new Date();
     const year = now.getFullYear();
@@ -1220,9 +1205,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       ...data,
       title: `[PRUEBA] ${data.title}`,
       content: data.isAccountStatement ? 'Estado de cuenta (Autm.)' : data.content,
-      channels: data.isAccountStatement
-        ? data.channels
-        : data.channels.filter(channel => channel === 'Email'),
+      channels: ['Email'],
       type: 'schedule',
       sendDate: finalSendDate,
       sendTime: finalSendTime,
@@ -1234,12 +1217,11 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       next: (newCommunication) => {
         this.communications.update(comms => [newCommunication, ...comms]);
         this.closeModal();
-        const testDestination = canTestWhatsAppStatement
-          ? hasEmailTestChannel
-            ? 'WhatsApp al 1160244908 y Email a fsgbrunofranco@gmail.com'
-            : 'WhatsApp al 1160244908'
-          : 'Email a fsgbrunofranco@gmail.com';
-        this.showToast('¡Prueba enviada!', `El envío se está procesando y llegará a ${testDestination}.`, 'check-circle', 'success');
+        this.showToast(
+          '¡Prueba enviada!',
+          'El envío se está procesando y llegará por Email a fsgbrunofranco@gmail.com.',
+          'check-circle',
+          'success');
       },
       error: (err) => {
         console.error(err);
@@ -1284,7 +1266,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       type: finalType,
       sendDate: finalType === 'schedule' ? finalSendDate : null,
       sendTime: finalType === 'schedule' ? finalSendTime : null,
-      channels: data.channels,
+      channels: ['Email'],
       recipients: data.recipients,
       externalRecipientIds: data.externalRecipientIds,
       smtpConfigId: data.smtpConfigId,
@@ -1333,43 +1315,6 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       error: (err) => this.showToast('Error', 'No se pudo enviar', '❌', 'error')
     });
   }
-
-  toggleChannel(channelName: 'Email' | 'WhatsApp'): void {
-    if (this.formData().sendToAllEmails && channelName === 'WhatsApp') {
-      this.showToast(
-        'Selección exclusiva por Email',
-        'La opción "Todos los emails" no envía mensajes por WhatsApp.',
-        'mail',
-        'error'
-      );
-      return;
-    }
-
-    const currentChannels = this.formData().channels;
-    const isAdding = !currentChannels.includes(channelName);
-
-    if (channelName === 'Email' && !isAdding && this.formData().externalRecipientIds.length > 0) {
-      this.showToast(
-        'El rubro requiere Email',
-        'Quitá los receptores externos seleccionados antes de desactivar el canal Email.',
-        'mail',
-        'error'
-      );
-      return;
-    }
-    
-    const newChannels = isAdding
-      ? [...currentChannels, channelName]
-      : currentChannels.filter(c => c !== channelName);
-
-    this.formData.update(data => ({ 
-      ...data, 
-      channels: newChannels,
-      sendToAllEmails: data.sendToAllEmails && channelName === 'Email' && !isAdding
-        ? false
-        : data.sendToAllEmails
-    }));
-  }
 
   addRecipientFromList(recipient: string, inputElement: HTMLInputElement): void {
     if (recipient && !this.formData().recipients.includes(recipient)) {
@@ -1430,15 +1375,14 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     this.formData.update(currentData => {
       const updated = {
         ...currentData,
-        [field]: value
+        [field]: value,
+        channels: ['Email'] as FormDataState['channels']
       };
       if (field === 'isAccountStatement' && value === true) {
         updated.title = 'ESTADO DE CUENTA';
         updated.externalRecipientIds = [];
         updated.sendToAllEmails = false;
-        // El estado se puede entregar por ambos canales. Conservamos WhatsApp
-        // si ya estaba elegido y agregamos Email como canal predeterminado.
-        updated.channels = Array.from(new Set([...updated.channels, 'Email']));
+        updated.channels = ['Email'];
       }
       return updated;
     });
@@ -1451,13 +1395,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   }
 
   loadIcbcTemplate(): void {
-    const currentChannels = this.formData().channels;
-    const channels: FormDataState['channels'] = currentChannels.includes('Email')
-      ? currentChannels
-      : [...currentChannels, 'Email'];
-
     this.updateFormField('title', 'Beneficio especial ICBC para clientes');
-    this.updateFormField('channels', channels);
+    this.updateFormField('channels', ['Email']);
     this.updateFormField('content', this.icbcTemplate);
     this.showToast(
       'Plantilla cargada',
@@ -1487,9 +1426,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
         this.formData.update(data => ({
           ...data,
           title: 'PUBLICIDAD | Una solución de guardado para tu inmobiliaria y tus clientes',
-          channels: data.channels.includes('Email')
-            ? data.channels
-            : [...data.channels, 'Email'],
+          channels: ['Email'],
           content: template
         }));
         this.isLoadingInmobiliariasTemplate.set(false);
@@ -1533,9 +1470,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
         this.formData.update(data => ({
           ...data,
           title: 'PUBLICIDAD | Espacio flexible para materiales y equipamiento de tu laboratorio',
-          channels: data.channels.includes('Email')
-            ? data.channels
-            : [...data.channels, 'Email'],
+          channels: ['Email'],
           content: template
         }));
         this.isLoadingLaboratoriosTemplate.set(false);
@@ -1579,9 +1514,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
         this.formData.update(data => ({
           ...data,
           title: 'PUBLICIDAD | Más espacio para organizar tu material de trabajo',
-          channels: data.channels.includes('Email')
-            ? data.channels
-            : [...data.channels, 'Email'],
+          channels: ['Email'],
           content: template
         }));
         this.isLoadingVisitadoresMedicosTemplate.set(false);
@@ -1606,13 +1539,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   }
 
   loadIcbcTemplate2(): void {
-    const currentChannels = this.formData().channels;
-    const channels: FormDataState['channels'] = currentChannels.includes('Email')
-      ? currentChannels
-      : [...currentChannels, 'Email'];
-
     this.updateFormField('title', 'Beneficios ICBC para nuestros clientes');
-    this.updateFormField('channels', channels);
+    this.updateFormField('channels', ['Email']);
     this.updateFormField('content', this.icbcTemplate2);
     this.showToast(
       'Plantilla 2 cargada',
@@ -1769,9 +1697,11 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   }
 
   canExtendCommunication(communication: ComunicacionDto): boolean {
-    return communication.status === 'Finished'
+    const isFinished = communication.status === 'Finished'
       || communication.status === 'Finished w/ Errors'
       || communication.status === 'Failed';
+    const channel = communication.channel.toLocaleLowerCase();
+    return isFinished && channel.includes('email') && !channel.includes('whatsapp');
   }
 
   viewDispatchContent(dispatchId: number, clientName: string): void {
@@ -1798,25 +1728,36 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
 
   getFailedDispatches(comm: ComunicacionDto): CommunicationDispatchDto[] {
     if (!comm.dispatches || comm.dispatches.length === 0) {
+      if (!this.canSendCommunicationByEmail(comm)) return [];
       return comm.recipients.map((name, idx) => ({
         dispatchId: -(idx + 1),
         clientId: -(idx + 1),
         clientName: name,
-        channel: comm.channel,
+        channel: 'Email',
         status: 'Fallido',
         errorMessage: comm.errorMessage || 'Envío fallido o interrumpido',
         dispatchDate: comm.creationDate,
         isSelected: true
       }));
     }
-    return comm.dispatches.filter(d => !d.isTest && d.status !== 'Exitoso');
+    return comm.dispatches.filter(d =>
+      !d.isTest
+      && d.status !== 'Exitoso'
+      && d.channel.toLocaleLowerCase() === 'email'
+    );
+  }
+
+  canSendCommunicationByEmail(comm: ComunicacionDto): boolean {
+    return comm.channel.toLocaleLowerCase().includes('email');
   }
 
   toggleAllRetrySelection(select: boolean): void {
     const comm = this.selectedCommunication();
     if (!comm || !comm.dispatches) return;
     comm.dispatches.forEach(d => {
-      if (!d.isTest && d.status !== 'Exitoso') d.isSelected = select;
+      if (!d.isTest && d.status !== 'Exitoso' && d.channel.toLocaleLowerCase() === 'email') {
+        d.isSelected = select;
+      }
     });
     this.selectedCommunication.set({ ...comm });
   }
@@ -2266,9 +2207,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       
       this.formData.update(data => ({
           ...data,
-          channels: selectedExternalRecipientIds.length > 0 && !data.channels.includes('Email')
-            ? [...data.channels, 'Email']
-            : data.channels,
+          channels: ['Email'],
           recipients: selectedNames,
           externalRecipientIds: data.isAccountStatement ? [] : selectedExternalRecipientIds,
           sendToAllEmails: false

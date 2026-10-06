@@ -25,7 +25,7 @@ namespace GuardeSoftwareAPI.Services.notification
 
         public async Task<NotificationInboxDto> GetInboxAsync(int userId, int take = 50)
         {
-            await SyncOperationalNotificationsAsync(DateTime.Today);
+            await SyncOperationalNotificationsAsync(DateTime.UtcNow.AddHours(-3).Date);
             DataTable table = await _dao.GetInboxAsync(userId, take);
             int unreadCount = await _dao.GetUnreadCountAsync(userId);
             var items = new List<NotificationDto>(table.Rows.Count);
@@ -112,7 +112,7 @@ namespace GuardeSoftwareAPI.Services.notification
                     "/settings?section=aumentos");
             }
 
-            // Desde el día 25 se anticipan los clientes impagos cuyo ancla cae el mes siguiente.
+            // Desde el día 24 se anticipan los clientes impagos cuyo ancla cae el mes siguiente.
             // La sincronización también resuelve avisos cuando el pago o la asignación ya se hicieron.
             DateTime nextMonth = new(today.AddMonths(1).Year, today.AddMonths(1).Month, 1);
             string nextMonthLabel = nextMonth.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("es-AR"));

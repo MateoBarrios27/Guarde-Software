@@ -45,14 +45,13 @@ namespace GuardeSoftwareAPI.Services.communication
                 .Where(value => value.Length > 0)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            var phones = (request.WhatsAppPhones ?? [])
-                .Select(value => value.Trim())
-                .Where(value => value.Length > 0)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            if ((request.WhatsAppPhones?.Count ?? 0) > 0)
+            {
+                _logger.LogWarning(
+                    "A receipt delivery request included WhatsApp recipients, but WhatsApp delivery is temporarily disabled. Only Email will be processed.");
+            }
 
             await SendEmailsAsync(emails, request, fileName, receiptBytes, result, cancellationToken);
-            await SendWhatsAppsAsync(phones, request, fileName, receiptBytes, result, cancellationToken);
 
             result.SuccessfulCount = result.Attempts.Count(attempt => attempt.Success);
             result.FailedCount = result.Attempts.Count - result.SuccessfulCount;
@@ -69,8 +68,8 @@ namespace GuardeSoftwareAPI.Services.communication
                 throw new ArgumentException("Falta el nombre del cliente.");
             if (string.IsNullOrWhiteSpace(request.ReceiptPeriod))
                 throw new ArgumentException("Falta el período del comprobante.");
-            if ((request.Emails?.Count ?? 0) == 0 && (request.WhatsAppPhones?.Count ?? 0) == 0)
-                throw new ArgumentException("Seleccioná al menos un destinatario.");
+            if ((request.Emails?.Count ?? 0) == 0)
+                throw new ArgumentException("Seleccioná al menos un email. El envío por WhatsApp está temporalmente deshabilitado.");
         }
 
         private async Task SendEmailsAsync(
@@ -242,7 +241,8 @@ namespace GuardeSoftwareAPI.Services.communication
         {
             if (phones.Count == 0) return;
 
-            if (bool.TryParse(_configuration["WAHASettings:Enabled"], out var enabled) && !enabled)
+            if (!CommunicationChannelPolicy.WhatsAppSendingEnabled
+                || (bool.TryParse(_configuration["WAHASettings:Enabled"], out var enabled) && !enabled))
             {
                 foreach (string phone in phones)
                     AddAttempt(result, "whatsapp", phone, false, "El envío por WhatsApp está deshabilitado.");

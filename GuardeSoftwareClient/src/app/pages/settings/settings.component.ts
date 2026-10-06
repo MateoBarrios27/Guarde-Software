@@ -44,11 +44,12 @@ import {
 import { MassCommunicationRecipientService } from '../../core/services/mass-communication-recipient-service/mass-communication-recipient.service';
 import { ToastNotificationComponent } from '../../shared/components/toast-notification/toast-notification.component';
 import { ActivatedRoute } from '@angular/router';
+import { NgxPaginationModule } from 'ngx-pagination';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, CreateAlertModalComponent, ActivityLogPanelComponent, ToastNotificationComponent],
+  imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent, CreateAlertModalComponent, ActivityLogPanelComponent, ToastNotificationComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css'
 })
@@ -176,6 +177,10 @@ export class SettingsComponent implements OnInit {
 
   // --- Receptores externos para comunicados masivos ---
   massRecipients: MassCommunicationRecipient[] = [];
+  massRecipientSearchTerm = '';
+  massRecipientCurrentPage = 1;
+  massRecipientItemsPerPage = 10;
+  readonly massRecipientItemsPerPageOptions = [10, 25, 50];
   showMassRecipientModal = false;
   editingMassRecipientId: number | null = null;
   massRecipientForm: UpsertMassCommunicationRecipient = {
@@ -939,12 +944,71 @@ export class SettingsComponent implements OnInit {
   // --- Receptores externos para comunicados masivos ---
   loadMassRecipients(): void {
     this.massRecipientService.getAll().subscribe({
-      next: (data) => this.massRecipients = data,
+      next: (data) => {
+        this.massRecipients = data;
+        this.ensureMassRecipientPageInRange();
+      },
       error: (err) => {
         console.error('Error al cargar receptores de comunicados', err);
         this.showToastNotification('No se pudieron cargar los receptores de comunicados.', 'error');
       }
     });
+  }
+
+  get filteredMassRecipients(): MassCommunicationRecipient[] {
+    const searchTerm = this.normalizeMassRecipientSearchValue(this.massRecipientSearchTerm);
+    if (!searchTerm) return this.massRecipients;
+
+    return this.massRecipients.filter(recipient =>
+      [recipient.name, recipient.type, recipient.email, recipient.phone]
+        .some(value => this.normalizeMassRecipientSearchValue(value).includes(searchTerm))
+    );
+  }
+
+  get massRecipientRangeStart(): number {
+    return this.filteredMassRecipients.length === 0
+      ? 0
+      : (this.massRecipientCurrentPage - 1) * this.massRecipientItemsPerPage + 1;
+  }
+
+  get massRecipientRangeEnd(): number {
+    return Math.min(
+      this.massRecipientCurrentPage * this.massRecipientItemsPerPage,
+      this.filteredMassRecipients.length
+    );
+  }
+
+  onMassRecipientSearchChanged(): void {
+    this.massRecipientCurrentPage = 1;
+  }
+
+  clearMassRecipientSearch(): void {
+    this.massRecipientSearchTerm = '';
+    this.massRecipientCurrentPage = 1;
+  }
+
+  onMassRecipientItemsPerPageChanged(): void {
+    this.massRecipientCurrentPage = 1;
+  }
+
+  onMassRecipientPageChanged(page: number): void {
+    this.massRecipientCurrentPage = page;
+  }
+
+  private ensureMassRecipientPageInRange(): void {
+    const totalPages = Math.max(
+      1,
+      Math.ceil(this.filteredMassRecipients.length / this.massRecipientItemsPerPage)
+    );
+    this.massRecipientCurrentPage = Math.min(this.massRecipientCurrentPage, totalPages);
+  }
+
+  private normalizeMassRecipientSearchValue(value: string | null | undefined): string {
+    return (value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLocaleLowerCase('es-AR');
   }
 
   openMassRecipientModal(recipient?: MassCommunicationRecipient): void {
@@ -1017,6 +1081,7 @@ export class SettingsComponent implements OnInit {
     this.massRecipientService.delete(id).subscribe({
       next: () => {
         this.massRecipients = this.massRecipients.filter(recipient => recipient.id !== id);
+        this.ensureMassRecipientPageInRange();
         this.showToastNotification('Receptor eliminado', 'success');
       },
       error: (err) => {

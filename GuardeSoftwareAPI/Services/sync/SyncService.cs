@@ -62,6 +62,32 @@ namespace GuardeSoftwareAPI.Services.sync
                     c.is_six_month_promotion             AS IsSixMonthPromotion,
                     r.rental_id                         AS RentalId,
                     r.increase_anchor_date              AS IncreaseAnchorDate,
+                    CAST(CASE WHEN c.active = 1
+                        AND r.increase_anchor_date >= DATEADD(month, 1, DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1))
+                        AND r.increase_anchor_date < DATEADD(month, 2, DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1))
+                        AND (r.price_lock_end_date IS NULL OR r.price_lock_end_date < r.increase_anchor_date)
+                        AND EXISTS (
+                            SELECT 1 FROM client_month_balances due_cmb
+                            WHERE due_cmb.rental_id = r.rental_id
+                              AND due_cmb.month_year = RIGHT('0' + CONVERT(varchar(2), MONTH(DATEADD(hour, -3, GETUTCDATE()))), 2) + '/' + CONVERT(varchar(4), YEAR(DATEADD(hour, -3, GETUTCDATE())))
+                              AND due_cmb.monthly_debits > 0
+                              AND due_cmb.unpaid_rent >= due_cmb.monthly_debits
+                        )
+                        AND NOT EXISTS (
+                            SELECT 1 FROM account_movements next_debit
+                            WHERE next_debit.rental_id = r.rental_id
+                              AND next_debit.movement_type = 'DEBITO'
+                              AND next_debit.concept LIKE 'Alquiler %'
+                              AND next_debit.movement_date >= DATEADD(month, 1, DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1))
+                              AND next_debit.movement_date < DATEADD(month, 2, DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1))
+                        )
+                        AND NOT EXISTS (
+                            SELECT 1 FROM rental_amount_history planned_rent
+                            WHERE planned_rent.rental_id = r.rental_id
+                              AND planned_rent.start_date >= DATEADD(month, 1, DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1))
+                              AND planned_rent.start_date < DATEADD(month, 2, DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1))
+                        )
+                        THEN 1 ELSE 0 END AS bit) AS NeedsNextRentPlanning,
                     (
                         SELECT STRING_AGG(locker_ids.identifier, ',')
                         FROM (
@@ -328,6 +354,7 @@ namespace GuardeSoftwareAPI.Services.sync
                         : [],
                     MonthsUnpaid = row["MonthsUnpaid"] != DBNull.Value ? Convert.ToInt32(row["MonthsUnpaid"]) : null,
                     IncreaseAnchorDate = row["IncreaseAnchorDate"] != DBNull.Value ? Convert.ToDateTime(row["IncreaseAnchorDate"]).ToString("yyyy-MM-dd") : null,
+                    NeedsNextRentPlanning = row["NeedsNextRentPlanning"] != DBNull.Value && Convert.ToBoolean(row["NeedsNextRentPlanning"]),
                     IncreaseFrequencyMonths = row["IncreaseFrequencyMonths"] != DBNull.Value ? Convert.ToInt32(row["IncreaseFrequencyMonths"]) : null,
                     IsSixMonthPromotion = row["IsSixMonthPromotion"] != DBNull.Value && Convert.ToBoolean(row["IsSixMonthPromotion"]),
                     PlannedPaymentAmount = row["PlannedPaymentAmount"] != DBNull.Value ? Convert.ToDecimal(row["PlannedPaymentAmount"]) : 0m,

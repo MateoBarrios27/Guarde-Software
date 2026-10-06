@@ -212,7 +212,7 @@ namespace GuardeSoftwareAPI.Dao
                     full_name NVARCHAR(255) NOT NULL
                 );
 
-                IF DAY(@Today) >= 25
+                IF DAY(@Today) >= 24
                 BEGIN
                     INSERT INTO @Due (notification_key, client_id, full_name)
                     SELECT DISTINCT
@@ -227,15 +227,26 @@ namespace GuardeSoftwareAPI.Dao
                       AND r.increase_anchor_date >= DATEFROMPARTS(YEAR(DATEADD(month, 1, @Today)), MONTH(DATEADD(month, 1, @Today)), 1)
                       AND r.increase_anchor_date < DATEADD(month, 1, DATEFROMPARTS(YEAR(DATEADD(month, 1, @Today)), MONTH(DATEADD(month, 1, @Today)), 1))
                       AND (r.price_lock_end_date IS NULL OR r.price_lock_end_date < r.increase_anchor_date)
-                      AND (
-                          r.months_unpaid > 0
-                          OR EXISTS (
-                              SELECT 1
-                              FROM client_month_balances cmb
-                              WHERE cmb.rental_id = r.rental_id
-                                AND cmb.month_year = RIGHT('0' + CONVERT(varchar(2), MONTH(@Today)), 2) + '/' + CONVERT(varchar(4), YEAR(@Today))
-                                AND ISNULL(cmb.balance, 0) - ISNULL(cmb.paid, 0) - ISNULL(cmb.advanced_payment, 0) > 0
-                          )
+                      AND EXISTS (
+                          SELECT 1 FROM client_month_balances cmb
+                          WHERE cmb.rental_id = r.rental_id
+                            AND cmb.month_year = RIGHT('0' + CONVERT(varchar(2), MONTH(@Today)), 2) + '/' + CONVERT(varchar(4), YEAR(@Today))
+                            AND cmb.monthly_debits > 0
+                            AND cmb.unpaid_rent >= cmb.monthly_debits
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM account_movements next_debit
+                          WHERE next_debit.rental_id = r.rental_id
+                            AND next_debit.movement_type = 'DEBITO'
+                            AND next_debit.concept LIKE 'Alquiler %'
+                            AND next_debit.movement_date >= DATEFROMPARTS(YEAR(DATEADD(month, 1, @Today)), MONTH(DATEADD(month, 1, @Today)), 1)
+                            AND next_debit.movement_date < DATEADD(month, 2, DATEFROMPARTS(YEAR(@Today), MONTH(@Today), 1))
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM rental_amount_history planned_rent
+                          WHERE planned_rent.rental_id = r.rental_id
+                            AND planned_rent.start_date >= DATEFROMPARTS(YEAR(DATEADD(month, 1, @Today)), MONTH(DATEADD(month, 1, @Today)), 1)
+                            AND planned_rent.start_date < DATEADD(month, 2, DATEFROMPARTS(YEAR(@Today), MONTH(@Today), 1))
                       );
                 END;
 
@@ -251,7 +262,7 @@ namespace GuardeSoftwareAPI.Dao
                         title = N'Asignar el próximo abono',
                         message = source.full_name + N' sigue impago y tiene aumento en ' + @NextMonthLabel
                             + N'. Asignalo antes del cierre del mes para proyectar y debitar correctamente.',
-                        action_url = N'/clients?detailClientId=' + CONVERT(nvarchar(20), source.client_id),
+                        action_url = N'/clients?detailClientId=' + CONVERT(nvarchar(20), source.client_id) + N'&planAbono=1',
                         created_at = CASE WHEN target.resolved_at IS NOT NULL THEN SYSDATETIME() ELSE target.created_at END,
                         resolved_at = NULL
                 WHEN NOT MATCHED THEN
@@ -263,7 +274,7 @@ namespace GuardeSoftwareAPI.Dao
                         N'Asignar el próximo abono',
                         source.full_name + N' sigue impago y tiene aumento en ' + @NextMonthLabel
                             + N'. Asignalo antes del cierre del mes para proyectar y debitar correctamente.',
-                        N'/clients?detailClientId=' + CONVERT(nvarchar(20), source.client_id)
+                        N'/clients?detailClientId=' + CONVERT(nvarchar(20), source.client_id) + N'&planAbono=1'
                     )
                 OUTPUT inserted.notification_id, deleted.resolved_at
                     INTO @Touched (notification_id, previous_resolved_at);

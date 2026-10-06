@@ -156,7 +156,7 @@ namespace GuardeSoftwareAPI.Services.communication
         private static void NormalizeAndValidateRecipientScope(UpsertCommunicationRequest request)
         {
             request.Recipients ??= [];
-            request.Channels ??= [];
+            CommunicationChannelPolicy.ApplyTo(request);
             request.ExternalRecipientIds = (request.ExternalRecipientIds ?? [])
                 .Where(id => id > 0)
                 .Distinct()
@@ -418,6 +418,13 @@ namespace GuardeSoftwareAPI.Services.communication
 
         public async Task<CommunicationDto> SendDraftNowAsync(int communicationId)
         {
+            var communication = await _communicationDao.GetCommunicationByIdAsync(communicationId);
+            if (!CommunicationChannelPolicy.HasEmailChannel(communication.Channel))
+            {
+                throw new InvalidOperationException(
+                    "El envío por WhatsApp está temporalmente deshabilitado y este comunicado no tiene canal Email.");
+            }
+
             // To 'send now', we set its status to 'Scheduled'
             // and the date to 1 minute from now, so Quartz can pick it up.
             var scheduleTime = DateTime.Now.AddMinutes(1);

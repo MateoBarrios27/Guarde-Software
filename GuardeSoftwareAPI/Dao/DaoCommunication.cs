@@ -1692,28 +1692,81 @@ OUTER APPLY (
             if (!isNextMonth) 
             {
                 data.PreviousBalance = currentMonthPrevBal;
-                data.Surcharge = uiInterestAmount;
-                data.CurrentBalance = currentMonthBaseDebt > 0 ? currentMonthBaseDebt + paymentIdentifier : 0;
+                data.Surcharge = uiInterestAmount + pendingSurcharge;
+
+                decimal currentMonthDebt = currentMonthBaseDebt + pendingSurcharge;
+                data.CurrentBalance = currentMonthDebt > 0 ? currentMonthDebt + paymentIdentifier : 0;
                 return data;
             }
 
             // --- ESCENARIO 2: PROYECCIÓN MES SIGUIENTE ---
-            DateTime nextMonthDate = DateTime.Now.AddMonths(1);
+            DateTime argentinaNow = DateTime.UtcNow.AddHours(-3);
+            DateTime currentMonthDate = new(argentinaNow.Year, argentinaNow.Month, 1);
+            DateTime nextMonthDate = currentMonthDate.AddMonths(1);
             string nextMonthString = nextMonthDate.ToString("MM/yyyy");
 
             string checkQuery = @"
-                SELECT 
-                    -- Restamos el advanced_payment para que el saldo a favor baje correctamente como negativo
-                    SUM(ISNULL(cmb.previous_balance, 0) - ISNULL(cmb.advanced_payment, 0)) AS PrevBal,
-                    SUM(ISNULL(cmb.interests, 0)) AS Ints,
-                    SUM(ISNULL(cmb.balance, 0) - ISNULL(cmb.paid, 0) - ISNULL(cmb.advanced_payment, 0)) AS NetBalance
-                FROM client_month_balances cmb
-                JOIN rentals r ON cmb.rental_id = r.rental_id
-                WHERE r.client_id = @ClientId AND cmb.month_year = @MonthYear AND r.active = 1";
+                WITH RentalProjection AS (
+                    SELECT
+                        TargetPreviousBalance = ISNULL(targetBalance.previous_balance, 0)
+                            - ISNULL(targetBalance.advanced_payment, 0),
+                        TargetInterests = ISNULL(targetBalance.interests, 0),
+                        TargetNetBalance = ISNULL(targetBalance.balance, 0)
+                            - ISNULL(targetBalance.paid, 0)
+                            - ISNULL(targetBalance.advanced_payment, 0),
+                        PlannedNetBalance = plannedBalance.NetBalance,
+                        NextPaymentDate = CASE
+                            WHEN DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth) > @CurrentMonth
+                                THEN DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth)
+                            ELSE @CurrentMonth
+                        END
+                    FROM rentals r
+                    JOIN client_month_balances targetBalance
+                        ON targetBalance.rental_id = r.rental_id
+                       AND targetBalance.month_year = @MonthYear
+                    OUTER APPLY (
+                        SELECT LastTouchedRentMonth = MAX(TRY_CONVERT(date, '01/' + cmb.month_year, 103))
+                        FROM client_month_balances cmb
+                        WHERE cmb.rental_id = r.rental_id
+                          AND ISNULL(cmb.monthly_debits, 0) > 0
+                          AND ISNULL(cmb.unpaid_rent, 0) < ISNULL(cmb.monthly_debits, 0)
+                    ) lastTouchedRent
+                    OUTER APPLY (
+                        SELECT TOP 1
+                            NetBalance = ISNULL(planMonth.balance, 0)
+                                - ISNULL(planMonth.paid, 0)
+                                - ISNULL(planMonth.advanced_payment, 0)
+                        FROM account_movements plannedMovement
+                        JOIN client_month_balances planMonth
+                            ON planMonth.rental_id = plannedMovement.rental_id
+                           AND TRY_CONVERT(date, '01/' + planMonth.month_year, 103)
+                               = DATEFROMPARTS(YEAR(plannedMovement.movement_date), MONTH(plannedMovement.movement_date), 1)
+                        WHERE plannedMovement.rental_id = r.rental_id
+                          AND plannedMovement.movement_type = 'DEBITO'
+                          AND plannedMovement.concept LIKE 'Alquiler % (Planificado)'
+                          AND plannedMovement.movement_date >= @TargetMonth
+                        ORDER BY plannedMovement.movement_date DESC,
+                                 plannedMovement.movement_id DESC,
+                                 planMonth.id DESC
+                    ) plannedBalance
+                    WHERE r.client_id = @ClientId
+                      AND r.active = 1
+                )
+                SELECT
+                    SUM(TargetPreviousBalance) AS PrevBal,
+                    SUM(TargetInterests) AS Ints,
+                    SUM(CASE
+                        WHEN NextPaymentDate <= @TargetMonth AND PlannedNetBalance IS NOT NULL
+                            THEN PlannedNetBalance
+                        ELSE TargetNetBalance
+                    END) AS NetBalance
+                FROM RentalProjection;";
 
             var dtNext = await _accessDB.GetTableAsync("NextMonth", checkQuery, new[] { 
                 new SqlParameter("@ClientId", clientId),
-                new SqlParameter("@MonthYear", nextMonthString)
+                new SqlParameter("@MonthYear", nextMonthString),
+                new SqlParameter("@CurrentMonth", currentMonthDate),
+                new SqlParameter("@TargetMonth", nextMonthDate)
             });
 
             bool nextMonthExists = dtNext.Rows.Count > 0 && dtNext.Rows[0]["PrevBal"] != DBNull.Value;
@@ -1721,10 +1774,10 @@ OUTER APPLY (
             if (nextMonthExists)
             {
                 data.PreviousBalance = Convert.ToDecimal(dtNext.Rows[0]["PrevBal"]);
-                data.Surcharge = Convert.ToDecimal(dtNext.Rows[0]["Ints"]);
+                data.Surcharge = Convert.ToDecimal(dtNext.Rows[0]["Ints"]) + pendingSurcharge;
                 
                 decimal netBalanceNextMonth = Convert.ToDecimal(dtNext.Rows[0]["NetBalance"]);
-                decimal nextMonthDebt = netBalanceNextMonth > 0 ? netBalanceNextMonth : 0;
+                decimal nextMonthDebt = Math.Max(netBalanceNextMonth, 0) + pendingSurcharge;
                 
                 data.CurrentBalance = nextMonthDebt > 0 ? nextMonthDebt + paymentIdentifier : 0;
             }
@@ -1745,9 +1798,9 @@ OUTER APPLY (
                     // Como uiBalance es positivo (Saldo a Favor), le ponemos un menos adelante 
                     // para que se muestre en negativo en el comprobante del mes siguiente.
                     data.PreviousBalance = -uiBalance; 
-                    data.Surcharge = 0;
+                    data.Surcharge = pendingSurcharge;
                     
-                    totalProjectedDebt = projectedNextMonthRent - uiBalance;
+                    totalProjectedDebt = projectedNextMonthRent + pendingSurcharge - uiBalance;
                     if (totalProjectedDebt < 0) totalProjectedDebt = 0;
                 }
 

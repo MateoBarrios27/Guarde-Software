@@ -66,7 +66,6 @@ interface ReceiptDestinationOption {
 
 interface ReceiptDeliveryConfig {
   emails: string[];
-  whatsAppPhones: string[];
 }
 
 @Component({
@@ -281,10 +280,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
   receiptDeliveryLoading = false;
   receiptDeliveryError = '';
   receiptEmailOptions: ReceiptDestinationOption[] = [];
-  receiptWhatsAppOptions: ReceiptDestinationOption[] = [];
   temporaryReceiptEmail = '';
-  temporaryReceiptWhatsApp = '';
-  receiptDeliveryConfig: ReceiptDeliveryConfig = { emails: [], whatsAppPhones: [] };
+  receiptDeliveryConfig: ReceiptDeliveryConfig = { emails: [] };
   isSendingReceipt = false;
   pendingReturnUrl: string | null = null;
   pendingReturnClientId: number | null = null;
@@ -2795,7 +2792,6 @@ export class FinancesComponent implements OnInit, OnDestroy {
         this.receiptPaymentInfo.clientName,
         receiptPeriod,
         this.receiptDeliveryConfig.emails,
-        this.receiptDeliveryConfig.whatsAppPhones,
         file
       ));
       await this.handleReceiptDeliveryResult(result);
@@ -2813,11 +2809,11 @@ export class FinancesComponent implements OnInit, OnDestroy {
   }
 
   get hasReceiptDeliveryConfigured(): boolean {
-    return this.receiptDeliveryConfig.emails.length + this.receiptDeliveryConfig.whatsAppPhones.length > 0;
+    return this.receiptDeliveryConfig.emails.length > 0;
   }
 
   get receiptDeliveryDestinationCount(): number {
-    return this.receiptDeliveryConfig.emails.length + this.receiptDeliveryConfig.whatsAppPhones.length;
+    return this.receiptDeliveryConfig.emails.length;
   }
 
   async openReceiptDeliveryModal(): Promise<void> {
@@ -2827,7 +2823,6 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.receiptDeliveryLoading = true;
     this.receiptDeliveryError = '';
     this.temporaryReceiptEmail = '';
-    this.temporaryReceiptWhatsApp = '';
 
     try {
       const detail = await firstValueFrom(this.clientService.getClientDetailById(this.receiptPaymentInfo.clientId));
@@ -2835,13 +2830,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
         detail.email ?? [],
         this.receiptDeliveryConfig.emails
       );
-      this.receiptWhatsAppOptions = this.mergeReceiptDestinations(
-        (detail.phones ?? []).map(phone => phone.number),
-        this.receiptDeliveryConfig.whatsAppPhones
-      );
     } catch {
       this.receiptEmailOptions = this.mergeReceiptDestinations([], this.receiptDeliveryConfig.emails);
-      this.receiptWhatsAppOptions = this.mergeReceiptDestinations([], this.receiptDeliveryConfig.whatsAppPhones);
       this.receiptDeliveryError = 'No se pudieron cargar los contactos del cliente. Podés agregar destinatarios temporales.';
     } finally {
       this.receiptDeliveryLoading = false;
@@ -2860,19 +2850,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
       this.receiptDeliveryError = 'Ingresá un email válido.';
       return;
     }
-    this.addTemporaryReceiptDestination(this.receiptEmailOptions, email, true);
+    this.addTemporaryReceiptDestination(this.receiptEmailOptions, email);
     this.temporaryReceiptEmail = '';
-    this.receiptDeliveryError = '';
-  }
-
-  addTemporaryReceiptWhatsApp(): void {
-    const phone = this.temporaryReceiptWhatsApp.trim();
-    if (phone.replace(/\D/g, '').length < 8) {
-      this.receiptDeliveryError = 'Ingresá un número de WhatsApp válido, con código de área.';
-      return;
-    }
-    this.addTemporaryReceiptDestination(this.receiptWhatsAppOptions, phone, false);
-    this.temporaryReceiptWhatsApp = '';
     this.receiptDeliveryError = '';
   }
 
@@ -2882,8 +2861,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
   saveReceiptDeliveryConfig(): void {
     this.receiptDeliveryConfig = {
-      emails: this.receiptEmailOptions.filter(option => option.selected).map(option => option.value),
-      whatsAppPhones: this.receiptWhatsAppOptions.filter(option => option.selected).map(option => option.value)
+      emails: this.receiptEmailOptions.filter(option => option.selected).map(option => option.value)
     };
     this.showReceiptDeliveryModal = false;
     this.receiptDeliveryError = '';
@@ -2904,10 +2882,10 @@ export class FinancesComponent implements OnInit, OnDestroy {
       }));
   }
 
-  private addTemporaryReceiptDestination(options: ReceiptDestinationOption[], value: string, email: boolean): void {
-    const normalized = email ? value.toLocaleLowerCase() : value.replace(/\D/g, '');
+  private addTemporaryReceiptDestination(options: ReceiptDestinationOption[], value: string): void {
+    const normalized = value.toLocaleLowerCase();
     const existing = options.find(option =>
-      (email ? option.value.toLocaleLowerCase() : option.value.replace(/\D/g, '')) === normalized
+      option.value.toLocaleLowerCase() === normalized
     );
     if (existing) {
       existing.selected = true;
@@ -2921,10 +2899,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.receiptDeliveryLoading = false;
     this.receiptDeliveryError = '';
     this.receiptEmailOptions = [];
-    this.receiptWhatsAppOptions = [];
     this.temporaryReceiptEmail = '';
-    this.temporaryReceiptWhatsApp = '';
-    this.receiptDeliveryConfig = { emails: [], whatsAppPhones: [] };
+    this.receiptDeliveryConfig = { emails: [] };
   }
 
   private getReceiptPeriod(): string {
@@ -2959,8 +2935,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
     const failedAttempts = result.attempts.filter(attempt => !attempt.success);
     this.receiptDeliveryConfig = {
-      emails: failedAttempts.filter(attempt => attempt.channel === 'email').map(attempt => attempt.recipient),
-      whatsAppPhones: failedAttempts.filter(attempt => attempt.channel === 'whatsapp').map(attempt => attempt.recipient)
+      emails: failedAttempts.filter(attempt => attempt.channel === 'email').map(attempt => attempt.recipient)
     };
     const failedRecipients = failedAttempts.map(attempt => `${attempt.recipient}: ${attempt.error || 'error de envío'}`).join('\n');
     await Swal.fire({

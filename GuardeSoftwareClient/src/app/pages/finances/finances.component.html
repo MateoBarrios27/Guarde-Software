@@ -908,8 +908,7 @@
       <div class="min-w-0">
         <p class="text-sm font-semibold">Este comprobante se enviará al generarlo</p>
         <p class="mt-0.5 text-xs text-emerald-800">
-          {{ receiptDeliveryConfig.emails.length }} por email ·
-          {{ receiptDeliveryConfig.whatsAppPhones.length }} por WhatsApp
+          {{ receiptDeliveryConfig.emails.length }} por email
         </p>
       </div>
     </div>
@@ -944,7 +943,7 @@
      role="dialog"
      aria-modal="true"
      aria-labelledby="receipt-delivery-title">
-  <div class="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/70 bg-white shadow-2xl"
+  <div class="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-white/70 bg-white shadow-2xl"
        (click)="$event.stopPropagation()">
     <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
       <div class="flex items-start gap-3">
@@ -953,7 +952,7 @@
         </div>
         <div>
           <h3 id="receipt-delivery-title" class="text-lg font-semibold text-gray-950">Configurar envío del recibo</h3>
-          <p class="mt-1 text-sm text-gray-500">Elegí los contactos que recibirán el PDF de {{ receiptPaymentInfo?.clientName }}.</p>
+          <p class="mt-1 text-sm text-gray-500">Elegí los emails que recibirán el PDF de {{ receiptPaymentInfo?.clientName }}.</p>
         </div>
       </div>
       <button type="button" (click)="closeReceiptDeliveryModal()" [disabled]="receiptDeliveryLoading"
@@ -969,7 +968,7 @@
         <p class="text-sm">Cargando contactos del cliente...</p>
       </div>
 
-      <div *ngIf="!receiptDeliveryLoading" class="grid gap-5 md:grid-cols-2">
+      <div *ngIf="!receiptDeliveryLoading" class="grid gap-5">
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-gray-50/60">
           <div class="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
             <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
@@ -1008,43 +1007,6 @@
           </div>
         </section>
 
-        <section class="overflow-hidden rounded-xl border border-gray-200 bg-gray-50/60">
-          <div class="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-              <app-icon name="whatsapp" class="h-4 w-4"></app-icon>
-            </div>
-            <div>
-              <h4 class="text-sm font-semibold text-gray-900">WhatsApp</h4>
-              <p class="text-xs text-gray-500">Documento PDF por chat</p>
-            </div>
-          </div>
-
-          <div class="space-y-2 p-3">
-            <label *ngFor="let option of receiptWhatsAppOptions; let i = index"
-                   class="group flex cursor-pointer items-center gap-3 rounded-lg border bg-white px-3 py-2.5 transition-all"
-                   [ngClass]="option.selected ? 'border-emerald-300 shadow-sm ring-1 ring-emerald-100' : 'border-gray-200 hover:border-gray-300'">
-              <input type="checkbox" [(ngModel)]="option.selected" class="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
-              <span class="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">{{ option.value }}</span>
-              <span *ngIf="option.temporary" class="text-[11px] font-medium text-gray-400">Temporal</span>
-              <button *ngIf="option.temporary" type="button" (click)="$event.preventDefault(); $event.stopPropagation(); removeTemporaryReceiptDestination(receiptWhatsAppOptions, i)"
-                      class="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" aria-label="Quitar WhatsApp temporal">
-                <app-icon name="x" class="h-3.5 w-3.5"></app-icon>
-              </button>
-            </label>
-            <p *ngIf="receiptWhatsAppOptions.length === 0" class="px-2 py-5 text-center text-sm text-gray-400">El cliente no tiene teléfonos cargados.</p>
-
-            <div class="flex gap-2 border-t border-gray-200 pt-3">
-              <input type="tel" [(ngModel)]="temporaryReceiptWhatsApp" (keydown.enter)="$event.preventDefault(); addTemporaryReceiptWhatsApp()"
-                     placeholder="Ej: 11 5780 0251"
-                     class="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100">
-              <button type="button" (click)="addTemporaryReceiptWhatsApp()"
-                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-white transition-colors hover:bg-emerald-600"
-                      aria-label="Agregar WhatsApp temporal">
-                <app-icon name="plus" class="h-4 w-4"></app-icon>
-              </button>
-            </div>
-          </div>
-        </section>
       </div>
 
       <p *ngIf="receiptDeliveryError && !receiptDeliveryLoading"
@@ -1058,7 +1020,7 @@
 
     <div class="flex flex-col-reverse gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
       <p class="text-sm text-gray-600">
-        Los contactos quedan desactivados hasta que los selecciones.
+        Los emails quedan desactivados hasta que los selecciones.
       </p>
       <div class="flex justify-end gap-3">
         <button type="button" (click)="closeReceiptDeliveryModal()" [disabled]="receiptDeliveryLoading"

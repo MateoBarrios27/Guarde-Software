@@ -269,6 +269,22 @@
   }
 }
 
+:host ::ng-deep .mass-recipient-pagination .ngx-pagination {
+  margin: 0;
+  padding: 0;
+}
+
+:host ::ng-deep .mass-recipient-pagination .ngx-pagination li {
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+:host ::ng-deep .mass-recipient-pagination .ngx-pagination .current {
+  color: #ffffff;
+  background: #4f46e5;
+  border-radius: 0.5rem;
+}
+
 .smtp-modal-shell {
   animation: smtp-modal-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
