@@ -23,6 +23,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
         private readonly IClientMonthBalanceService _clientMonthBalanceService;
         private readonly IServiceProvider _serviceProvider;
         private readonly IRentalAmountHistoryService _rentalAmountHistoryService;
+        private readonly DaoMonthlyIncrease _daoMonthlyIncrease;
 
         public AccountMovementService(AccessDB _accessDB, ILogger<AccountMovementService> logger, IClientMonthBalanceService clientMonthBalanceService, IServiceProvider serviceProvider, IRentalAmountHistoryService rentalAmountHistoryService)
         {
@@ -33,6 +34,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             _clientMonthBalanceService = clientMonthBalanceService;
             _serviceProvider = serviceProvider;
             _rentalAmountHistoryService = rentalAmountHistoryService;
+            _daoMonthlyIncrease = new DaoMonthlyIncrease(_accessDB);
         }
 
         public async Task<List<AccountMovement>> GetAccountMovementList()
@@ -160,11 +162,13 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             int processedCount = 0;
 
             // Preparamos los datos del mes ACTUAL (el que queremos cobrar)
+            var today = DateTime.Now;
+            var currentMonthStart = new DateTime(today.Year, today.Month, 1);
             var culture = new CultureInfo("es-AR");
-            string monthName = culture.DateTimeFormat.GetMonthName(DateTime.Now.Month);
+            string monthName = culture.DateTimeFormat.GetMonthName(currentMonthStart.Month);
             // Usamos culture.TextInfo para capitalizar correctamente en español
             string titleMonth = culture.TextInfo.ToTitleCase(monthName); 
-            string currentYear = DateTime.Now.Year.ToString();
+            string currentYear = currentMonthStart.Year.ToString();
 
             // Concepto Base que buscaremos: "Alquiler Febrero 2025"
             // El DAO buscará con LIKE 'Alquiler Febrero 2025%' para cubrir variantes
@@ -206,6 +210,12 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                             continue;
                         }
 
+                        // Si el mes anterior quedó totalmente impago y no se planificó el débito
+                        // ni un nuevo tramo de abono, aplicar el porcentaje global configurado
+                        // para el mes antes de crear el débito automático.
+                        currentAmount = await ApplyMissedMonthlyIncreaseAsync(
+                            rentalId, currentAmount, currentMonthStart, connection, transaction);
+
                         // 3. Decidir si aplicar débito (Lógica de Crédito a favor)
                         // Si el balance + el nuevo débito sigue siendo negativo (o cero), significa que tiene saldo a favor suficiente.
                         // Ejemplo: Balance -10000, Nuevo Débito 5000 -> -5000 (Sigue teniendo crédito, no generamos deuda nueva, pero ¿debemos registrar el movimiento?)
@@ -225,7 +235,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                         var debitMovement = new AccountMovement
                         {
                             RentalId = rentalId,
-                            MovementDate = DateTime.Now,
+                            MovementDate = currentMonthStart,
                             MovementType = "DEBITO",
                             Amount = currentAmount,
                             Concept = targetConceptBase, // Usamos el concepto estandarizado
@@ -249,6 +259,99 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             }
 
             _logger.LogInformation($"--- Job finalizado. Procesados: {processedCount}, Ya existentes: {duplicateCount}, Omitidos por crédito: {skippedCount} ---");
+        }
+
+        private async Task<decimal> ApplyMissedMonthlyIncreaseAsync(
+            int rentalId,
+            decimal currentAmount,
+            DateTime monthStart,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            var monthEnd = monthStart.AddMonths(1);
+            var previousMonth = monthStart.AddMonths(-1);
+            var previousMonthKey = previousMonth.ToString("MM/yyyy", CultureInfo.InvariantCulture);
+            const string eligibleQuery = @"
+                SELECT TOP 1 c.increase_frequency_months
+                FROM rentals r
+                INNER JOIN clients c ON c.client_id = r.client_id
+                WHERE r.rental_id = @rental_id
+                  AND r.active = 1
+                  AND c.active = 1
+                  AND ISNULL(c.is_deleted, 0) = 0
+                  AND r.increase_anchor_date >= @month_start
+                  AND r.increase_anchor_date < @month_end
+                  AND (r.price_lock_end_date IS NULL OR r.price_lock_end_date < r.increase_anchor_date)
+                  AND EXISTS (
+                      SELECT 1
+                      FROM client_month_balances due_cmb
+                      WHERE due_cmb.rental_id = r.rental_id
+                        AND due_cmb.month_year = @previous_month
+                        AND due_cmb.monthly_debits > 0
+                        AND due_cmb.unpaid_rent >= due_cmb.monthly_debits
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM account_movements planned_debit
+                      WHERE planned_debit.rental_id = r.rental_id
+                        AND planned_debit.movement_type = 'DEBITO'
+                        AND planned_debit.concept LIKE 'Alquiler %'
+                        AND planned_debit.movement_date >= @month_start
+                        AND planned_debit.movement_date < @month_end
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM rental_amount_history planned_amount
+                      WHERE planned_amount.rental_id = r.rental_id
+                        AND planned_amount.start_date >= @month_start
+                        AND planned_amount.start_date < @month_end
+                  );";
+
+            int frequency;
+            using (var command = new SqlCommand(eligibleQuery, connection, transaction))
+            {
+                command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+                command.Parameters.Add(new SqlParameter("@month_start", SqlDbType.Date) { Value = monthStart.Date });
+                command.Parameters.Add(new SqlParameter("@month_end", SqlDbType.Date) { Value = monthEnd.Date });
+                command.Parameters.Add(new SqlParameter("@previous_month", SqlDbType.VarChar, 7) { Value = previousMonthKey });
+                var result = await command.ExecuteScalarAsync();
+                if (result == null || result == DBNull.Value)
+                    return currentAmount;
+
+                frequency = Convert.ToInt32(result);
+            }
+
+            var percentage = await _daoMonthlyIncrease.GetIncreasePercentageForMonthAsync(monthStart, connection, transaction);
+            if (!percentage.HasValue || percentage.Value <= 0m)
+            {
+                _logger.LogWarning("Rental ID {RentalId} cumple la condición de aumento omitido para {Month}, pero no hay un porcentaje mensual configurado.",
+                    rentalId, monthStart.ToString("MM/yyyy", CultureInfo.InvariantCulture));
+                return currentAmount;
+            }
+
+            var calculatedAmount = currentAmount * (1m + percentage.Value / 100m);
+            var increasedAmount = Math.Round(calculatedAmount / 1000m, MidpointRounding.AwayFromZero) * 1000m;
+            var latestHistory = await _rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(
+                rentalId, connection, transaction);
+            if (latestHistory == null)
+                return currentAmount;
+
+            if (increasedAmount > currentAmount)
+            {
+                await _rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(
+                    latestHistory.Id, rentalId, increasedAmount, monthStart, connection, transaction);
+            }
+
+            // El ciclo cuenta el mes del aumento como el primer mes del período.
+            // Esto coincide con la fecha ancla inicial y con los planes de abono.
+            var safeFrequency = frequency > 0 ? frequency : 4;
+            var nextIncreaseAnchor = monthStart.AddMonths(Math.Max(1, safeFrequency - 1));
+            await _daoRental.UpdateNextIncreaseDateTransactionAsync(
+                rentalId, nextIncreaseAnchor, connection, transaction);
+
+            _logger.LogInformation(
+                "Aumento mensual omitido aplicado automáticamente a Rental ID {RentalId}: {Percentage}% sobre {PreviousAmount}; nuevo importe {NewAmount}; próximo ancla {NextAnchor}.",
+                rentalId, percentage.Value, currentAmount, increasedAmount, nextIncreaseAnchor.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+
+            return increasedAmount > currentAmount ? increasedAmount : currentAmount;
         }
 
         public async Task<List<AccountMovement>> GetAccountMovementListByClientIdAsync(int clientId)
