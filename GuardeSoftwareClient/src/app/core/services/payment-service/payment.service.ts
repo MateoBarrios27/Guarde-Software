@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Payment } from '../../models/payment';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, tap, catchError, defer, from, switchMap, throwError } from 'rxjs';
+import { requestPaymentDecision } from './payment-decision-dialog';
 import { environment } from '../../../../environments/environments';
 import { CreatePaymentDTO } from '../../dtos/payment/CreatePaymentDTO';
 import { DetailedPaymentDTO } from '../../dtos/payment/DetailedPaymentDTO';
@@ -31,8 +32,25 @@ export class PaymentService {
   }
 
   public CreatePayment(dto: CreatePaymentDTO): Observable<any>{
-    return this.httpCliente.post<any>(`${this.url}/Payment`, dto).pipe(
+    return this.createWithDecision({ ...dto }).pipe(
       tap(() => this.dataRefresh.notify(['finances', 'clients'])),
+    );
+  }
+
+  private createWithDecision(dto: CreatePaymentDTO, attempts = 0): Observable<any> {
+    return defer(() => this.httpCliente.post<any>(`${this.url}/Payment`, dto)).pipe(
+      catchError(error => {
+        if (error?.status !== 422 || error?.error?.code !== 'PAYMENT_DECISION_REQUIRED' || attempts >= 3) {
+          return throwError(() => error);
+        }
+        return from(requestPaymentDecision(error.error)).pipe(
+          switchMap(action => action
+            ? this.createWithDecision({ ...dto, futureDebitAction: action,
+                paymentDecisionToken: error.error.decisionToken,
+                expectedPaymentStateToken: error.error.expectedPaymentStateToken }, attempts + 1)
+            : throwError(() => ({ paymentDecisionCancelled: true })))
+        );
+      })
     );
   }
 

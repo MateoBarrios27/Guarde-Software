@@ -1064,6 +1064,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  applyConfiguredIncrease(percentage: number): void {
+    this.increasePercentage = percentage;
+    this.calculateProjectedRent();
+    this.increasePercentage = percentage;
+  }
+
   calculateProjectedRent() {
     const rent = this.selectedCurrentRent || 0;
     const perc = this.increasePercentage || 0;
@@ -1727,6 +1733,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isSubmittingPayment = false;
+        if (err?.paymentDecisionCancelled) {
+          return;
+        }
         console.error('Error al guardar payment:', err);
         if (err?.status === 409) {
           this.handlePaymentConflictResponse(err);

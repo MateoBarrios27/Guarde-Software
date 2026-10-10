@@ -36,6 +36,18 @@ export class MonthlyIncreaseService {
     );
   }
 
+  getPercentageForMonth(year: number, month: number): Observable<number | null> {
+    const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+    return this.http.get<{ effectiveDate: string; percentage: number }[]>(this.apiUrl).pipe(
+      map(settings => {
+        // A configured month is a calendar period, not a timestamp in the browser's timezone.
+        const setting = settings.find(item => item.effectiveDate?.slice(0, 7) === monthKey);
+        const percentage = Number(setting?.percentage);
+        return setting && Number.isFinite(percentage) && percentage >= 0 ? percentage : null;
+      })
+    );
+  }
+
   createSetting(dto: CreateMonthlyIncreaseDto): Observable<MonthlyIncreaseSetting> {
     return this.http.post<any>(this.apiUrl, dto).pipe(
       map(this.mapSetting),

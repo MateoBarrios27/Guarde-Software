@@ -12,6 +12,8 @@ export interface CreatePaymentDTO{
     commissionConcept?: string;
     increasePercentage?: number | null;
     newRentAmount?: number;
+    futureDebitAction?: string;
+    paymentDecisionToken?: string;
     skipFutureProjection?: boolean;
     appliedIncreases?: { year: number, month: number, percentage: number, newRentAmount: number }[];
     surchargeAction?: string;

@@ -7,7 +7,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../GuardeSoftwareAPI/GuardeSoftwareAPI.csproj" />
-    <None Include="../../Database/Update_Add_PaymentComponentAllocations.sql" Link="migration.sql" CopyToOutputDirectory="PreserveNewest" />
-      <None Include="../../Database/Update_Add_PaymentCollectionDecisions.sql" Link="collection-migration.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

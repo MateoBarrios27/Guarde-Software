@@ -310,8 +310,9 @@
             ${{ p.amount | number: '1.2-2' }}
           </td>
           
-          <td class="py-3 px-4 text-gray-600 font-mono text-xs">
-            {{ p.paymentDate | date: 'dd/MM/yyyy' }}
+          <td class="py-3 px-4 finance-date-cell">
+            <span class="finance-date">{{ p.paymentDate | date:'dd/MM/yyyy' }}</span>
+            <span class="finance-time">{{ p.paymentDate | date:'HH:mm' }}</span>
           </td>
           
           <td *ngIf="!authService.isObserver()" class="px-4 py-3 text-center align-middle">
@@ -811,6 +812,10 @@
   [stage]="currentIncreaseStep + 1"
   [stageTotal]="increaseQueue.length"
   [stageLabel]="currentPendingIncrease?.label || ''"
+  [increaseYear]="currentPendingIncrease?.year || 0"
+  [increaseMonth]="currentPendingIncrease?.month || 0"
+  [useConfiguredPercentage]="currentPendingIncrease?.percentage === undefined"
+  (configuredPercentageResolved)="applyConfiguredIncrease($event)"
   [currentRent]="selectedClientRentAmount"
   [projectedRent]="projectedNewRent"
   [percentage]="increasePercentage"

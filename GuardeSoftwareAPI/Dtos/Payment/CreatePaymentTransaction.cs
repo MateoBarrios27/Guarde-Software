@@ -31,6 +31,8 @@ namespace GuardeSoftwareAPI.Dtos.Payment
         public string? CommissionConcept { get; set; }
         public decimal? IncreasePercentage { get; set; }
         public decimal? NewRentAmount { get; set; }
+        public string? FutureDebitAction { get; set; }
+        public string? PaymentDecisionToken { get; set; }
         public bool SkipFutureProjection { get; set; } = false;
         public List<PaymentIncreaseDto> AppliedIncreases { get; set; } = new List<PaymentIncreaseDto>();
         public string? SurchargeAction { get; set; }

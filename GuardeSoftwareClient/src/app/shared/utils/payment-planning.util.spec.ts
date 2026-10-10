@@ -37,6 +37,13 @@ describe('payment planning utilities', () => {
     expect(result[5].isHalfPromotion).toBeTrue();
   });
 
+  it('allows the sixth-month promotion to be disabled manually', () => {
+    const result = buildPaymentPlanningBreakdown(context({ hasSixMonthPromotion: true }), [], false);
+
+    expect(result.map(item => item.amount)).toEqual([100000, 100000, 100000, 100000, 100000, 100000]);
+    expect(result.some(item => item.isHalfPromotion)).toBeFalse();
+  });
+
   it('keeps the base rent throughout a locked six-month period', () => {
     const result = buildPaymentPlanningBreakdown(context({ isPriceLocked: true }), [
       { year: 2026, month: 9, percentage: 10, newRentAmount: 110000 }

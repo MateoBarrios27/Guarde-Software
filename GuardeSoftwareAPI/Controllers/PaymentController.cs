@@ -144,6 +144,14 @@ namespace GuardeSoftwareAPI.Controllers
 
                 return BadRequest("Could not create payment transaction.");
             }
+            catch (PaymentDecisionRequiredException decision)
+            {
+                return UnprocessableEntity(decision.Details);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
             catch (PaymentConflictException conflict)
             {
                 return Conflict(conflict.Details);
