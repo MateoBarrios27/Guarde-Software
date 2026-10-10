@@ -68,7 +68,8 @@ const INLINE_RESOURCE_PREVIEW_URLS: Record<string, string> = {
   'cid:guarde-header': '/assets/email-templates/inmobiliarias/encabezado_guarde_16_anios.png',
   'cid:guarde-instagram': '/assets/email-templates/inmobiliarias/icon_instagram_white.png',
   'cid:guarde-web': '/assets/email-templates/inmobiliarias/icon_web_white.png',
-  'cid:guarde-whatsapp': '/assets/email-templates/inmobiliarias/icon_whatsapp_white.png'
+  'cid:guarde-whatsapp': '/assets/email-templates/inmobiliarias/icon_whatsapp_white.png',
+  'cid:guarde-logisticas-flyer': '/assets/email-templates/logisticas/flyer_logisticas.png'
 };
 
 const LEGACY_BRAND_LOGO_IMAGE_REGEX =

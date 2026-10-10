@@ -1559,13 +1559,13 @@ namespace GuardeSoftwareAPI.Dao
                       AND ISNULL(cmb.unpaid_rent, 0) < ISNULL(cmb.monthly_debits, 0)
                 ) lastTouchedRent
                 OUTER APPLY (
-                    SELECT NextPaymentDate = (
+                    SELECT NextPaymentDate = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
                         SELECT MAX(candidate.PaymentMonth)
                         FROM (VALUES
                             (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
                             (DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth))
                         ) candidate(PaymentMonth)
-                    )
+                    ))
                 ) nextPayment
                 WHERE c.active = 1
                 ORDER BY c.full_name ASC";
@@ -1660,11 +1660,12 @@ OUTER APPLY (
                     SELECT
                         UI_CurrentRent = db.RentDB,
                         UI_InterestAmount = rawData.Raw_Interest,
-                        UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
-                        UI_PreviousBalance = CASE 
+                        UI_Balance = COALESCE(-(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB), -latest_cmb.NetBalance, 0),
+                        UI_PreviousBalance = COALESCE(dbo.GetPaymentCollectionPreviousBalance(r.rental_id), CASE
+                            WHEN db.Id IS NULL AND latest_cmb.NetBalance < 0 THEN -latest_cmb.NetBalance
                             WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
                             ELSE -rawData.Raw_PrevBal
-                        END
+                        END)
                 ) step1
                 WHERE c.client_id = @ClientId;";
 
@@ -1715,11 +1716,11 @@ OUTER APPLY (
                             - ISNULL(targetBalance.paid, 0)
                             - ISNULL(targetBalance.advanced_payment, 0),
                         PlannedNetBalance = plannedBalance.NetBalance,
-                        NextPaymentDate = CASE
+                        NextPaymentDate = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), CASE
                             WHEN DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth) > @CurrentMonth
                                 THEN DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth)
                             ELSE @CurrentMonth
-                        END
+                        END)
                     FROM rentals r
                     JOIN client_month_balances targetBalance
                         ON targetBalance.rental_id = r.rental_id

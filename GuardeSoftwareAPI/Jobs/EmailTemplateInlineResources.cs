@@ -6,12 +6,13 @@ public static class EmailTemplateInlineResources
 {
     private sealed record InlineResourceDefinition(string ContentId, string RelativePath);
 
-    private static readonly InlineResourceDefinition[] InmobiliariasResources =
+    private static readonly InlineResourceDefinition[] TemplateResources =
     [
         new("guarde-header", Path.Combine("EmailTemplates", "Inmobiliarias", "encabezado_guarde_16_anios.png")),
         new("guarde-instagram", Path.Combine("EmailTemplates", "Inmobiliarias", "icon_instagram_white.png")),
         new("guarde-web", Path.Combine("EmailTemplates", "Inmobiliarias", "icon_web_white.png")),
-        new("guarde-whatsapp", Path.Combine("EmailTemplates", "Inmobiliarias", "icon_whatsapp_white.png"))
+        new("guarde-whatsapp", Path.Combine("EmailTemplates", "Inmobiliarias", "icon_whatsapp_white.png")),
+        new("guarde-logisticas-flyer", Path.Combine("EmailTemplates", "Logisticas", "flyer_logisticas.png"))
     ];
 
     public static void AddReferencedResources(
@@ -33,7 +34,7 @@ public static class EmailTemplateInlineResources
                 nameof(applicationBaseDirectory));
         }
 
-        foreach (var resourceDefinition in InmobiliariasResources)
+        foreach (var resourceDefinition in TemplateResources)
         {
             string cidReference = $"cid:{resourceDefinition.ContentId}";
             if (!html.Contains(cidReference, StringComparison.OrdinalIgnoreCase))

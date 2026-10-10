@@ -17,6 +17,7 @@ import { MassCommunicationRecipient } from '../../core/models/mass-communication
 import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 import { catchError, debounceTime, distinctUntilChanged, of, Subject, switchMap, Subscription } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
+import { getLogisticasTemplateCopy, LOGISTICAS_TEMPLATE_MARKER, updateLogisticasTemplateCopy } from '../../shared/utils/logisticas-template.util';
 import {
   buildCommunicationPreviewDocument,
   buildCommunicationPreviewText
@@ -88,6 +89,7 @@ const LABORATORIOS_TEMPLATE_MARKER = 'GUARDE_TEMPLATE:LABORATORIOS_V1';
 const LABORATORIOS_TEMPLATE_URL = 'assets/email-templates/laboratorios/laboratorios.html';
 const VISITADORES_MEDICOS_TEMPLATE_MARKER = 'GUARDE_TEMPLATE:VISITADORES_MEDICOS_V1';
 const VISITADORES_MEDICOS_TEMPLATE_URL = 'assets/email-templates/visitadores-medicos/visitadores-medicos.html';
+const LOGISTICAS_TEMPLATE_URL = 'assets/email-templates/logisticas/logisticas.html';
 const UNTYPED_RECIPIENT_TYPE = '__sin_rubro__';
 const DEFAULT_EXTENSION_RECIPIENT_TYPE = 'inmobiliaria';
 
@@ -110,6 +112,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   isLoadingInmobiliariasTemplate = signal(false);
   isLoadingLaboratoriosTemplate = signal(false);
   isLoadingVisitadoresMedicosTemplate = signal(false);
+  isLoadingLogisticasTemplate = signal(false);
+  isEditingLogisticasText = signal(false);
   smtpConfigs = signal<any[]>([]);
 
   showRecipientModal = signal(false);
@@ -134,9 +138,11 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     if (content.includes(INMOBILIARIAS_TEMPLATE_MARKER)) return 'Inmobiliarias';
     if (content.includes(LABORATORIOS_TEMPLATE_MARKER)) return 'Laboratorios';
     if (content.includes(VISITADORES_MEDICOS_TEMPLATE_MARKER)) return 'Visitadores médicos';
+    if (content.includes(LOGISTICAS_TEMPLATE_MARKER)) return 'Logísticas';
     return '';
   });
   isDesignedMarketingTemplate = computed(() => this.activeDesignedTemplateLabel().length > 0);
+  isLogisticasTemplate = computed(() => this.formData().content.includes(LOGISTICAS_TEMPLATE_MARKER));
   selectedExternalCount = computed(() => this.allExternalRecipients().filter(r => r.selected).length);
   modalSelectedCount = computed(() =>
     this.allClients().filter(c => c.selected).length + this.selectedExternalCount());
@@ -1536,6 +1542,43 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
         );
       }
     });
+  }
+
+  loadLogisticasTemplate(): void {
+    if (this.isLoadingLogisticasTemplate()) return;
+    this.isLoadingLogisticasTemplate.set(true);
+    this.http.get(LOGISTICAS_TEMPLATE_URL, { responseType: 'text' }).subscribe({
+      next: (template) => {
+        this.isLoadingLogisticasTemplate.set(false);
+        if (!template.includes(LOGISTICAS_TEMPLATE_MARKER) || !getLogisticasTemplateCopy(template)) {
+          this.showToast('Plantilla no disponible', 'El archivo de la Plantilla Logísticas no es válido.', 'alert-circle', 'error');
+          return;
+        }
+        this.formData.update(data => ({
+          ...data,
+          title: 'Tu logística, con más espacio.',
+          channels: ['Email'],
+          isAccountStatement: false,
+          isNextMonthStatement: false,
+          content: template
+        }));
+        this.isEditingLogisticasText.set(false);
+        this.showToast('Plantilla Logísticas cargada', 'Podés editar el texto con Quill. Elegí los destinatarios y enviá una prueba antes del envío final.', 'mail', 'success');
+      },
+      error: () => {
+        this.isLoadingLogisticasTemplate.set(false);
+        this.showToast('Error al cargar la plantilla', 'No se pudo abrir la Plantilla Logísticas.', 'alert-circle', 'error');
+      }
+    });
+  }
+
+  getLogisticasCopyContent(): string {
+    return getLogisticasTemplateCopy(this.formData().content);
+  }
+
+  updateLogisticasCopyContent(copy: string | null): void {
+    if (!this.isLogisticasTemplate()) return;
+    this.formData.update(data => ({ ...data, content: updateLogisticasTemplateCopy(data.content, copy) }));
   }
 
   loadIcbcTemplate2(): void {

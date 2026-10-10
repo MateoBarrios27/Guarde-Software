@@ -372,6 +372,11 @@ namespace GuardeSoftwareAPI.Jobs
                 builder.HtmlBody,
                 AppContext.BaseDirectory);
 
+            // Quill stores inserted images as data URIs. Convert only this outgoing
+            // copy to MIME inline resources, preserving stored/audited content.
+            // Normal sends, tests, retries and account statements share this method.
+            builder.HtmlBody = CommunicationEmailImages.Prepare(builder, builder.HtmlBody);
+
             // Adjuntar archivos si existen
             if (attachments != null && attachments.Count > 0)
             {

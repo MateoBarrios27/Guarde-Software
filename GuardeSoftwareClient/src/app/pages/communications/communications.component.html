@@ -218,6 +218,13 @@
             {{ isLoadingInmobiliariasTemplate() ? 'Cargando...' : 'Plantilla Inmobiliarias' }}
           </button>
           <button type="button"
+                  (click)="loadLogisticasTemplate()"
+                  [disabled]="isLoadingLogisticasTemplate()"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-800 transition hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60">
+            <app-icon name="file-text" class="h-3.5 w-3.5"></app-icon>
+            {{ isLoadingLogisticasTemplate() ? 'Cargando...' : 'Plantilla Logísticas' }}
+          </button>
+          <button type="button"
                   (click)="loadLaboratoriosTemplate()"
                   [disabled]="isLoadingLaboratoriosTemplate()"
                   class="inline-flex items-center gap-1.5 rounded-md border border-cyan-200 bg-cyan-50 px-2.5 py-1.5 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:cursor-wait disabled:opacity-60">
@@ -251,6 +258,22 @@
         <div [class.opacity-40]="formData().isAccountStatement">
           @if (formData().channels.includes('Email')) {
             @if (isDesignedMarketingTemplate()) {
+              @if (isLogisticasTemplate()) {
+                <div class="mb-3">
+                  <button type="button" (click)="isEditingLogisticasText.set(!isEditingLogisticasText())"
+                          [attr.aria-expanded]="isEditingLogisticasText()"
+                          class="mb-2 rounded-md bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800">
+                    {{ isEditingLogisticasText() ? 'Cerrar editor de texto' : 'Editar texto con Quill' }}
+                  </button>
+                  @if (isEditingLogisticasText()) {
+                    <p class="mb-2 text-xs text-gray-600">Editá la introducción. El flyer, los accesos de contacto y el ancho del correo se conservan.</p>
+                    <quill-editor [ngModel]="getLogisticasCopyContent()"
+                                  (ngModelChange)="updateLogisticasCopyContent($event)"
+                                  [styles]="{ 'height': '240px', 'display': 'block' }"
+                                  placeholder="Escribí la introducción del correo..."></quill-editor>
+                  }
+                </div>
+              }
               <div class="overflow-hidden rounded-lg border border-blue-200 bg-blue-50/40">
                 <div class="flex items-start gap-2 border-b border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
                   <app-icon name="check-circle" class="mt-0.5 h-4 w-4 shrink-0 text-blue-700"></app-icon>

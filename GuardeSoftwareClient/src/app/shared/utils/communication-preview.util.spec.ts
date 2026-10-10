@@ -26,4 +26,11 @@ describe('communication preview utilities', () => {
     expect(preview).not.toContain('www.guardeloquequiera.com.ar');
     expect(preview).toContain('Hola &amp; equipo inmobiliario');
   });
+
+  it('resolves the logistics CID to the browser asset without changing the saved HTML', () => {
+    const html = '<img src="cid:guarde-logisticas-flyer" width="560">';
+    const preview = buildCommunicationPreviewDocument(html);
+    expect(preview).toContain('/assets/email-templates/logisticas/flyer_logisticas.png');
+    expect(html).toContain('cid:guarde-logisticas-flyer');
+  });
 });
