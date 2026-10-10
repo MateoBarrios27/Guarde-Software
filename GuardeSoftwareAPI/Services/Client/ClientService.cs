@@ -1357,8 +1357,10 @@ namespace GuardeSoftwareAPI.Services.client
                 {
                     try
                     {
+                        var reactivationBalance = await ReadReactivationBalanceAsync(clientId, connection, transaction);
+                        var balanceAction = ValidateReactivationDecision(dto, reactivationBalance);
                         var existingClient = await daoClient.GetClientByIdTransactionAsync(clientId, connection, transaction);
-                        if (existingClient == null) throw new Exception("Cliente no encontrado.");
+                        if (existingClient == null) throw new KeyNotFoundException("Cliente no encontrado.");
 
                         decimal newPaymentIdentifier;
                         if (dto.PaymentIdentifier.HasValue && dto.PaymentIdentifier.Value > 0)
@@ -1437,6 +1439,7 @@ namespace GuardeSoftwareAPI.Services.client
                             OccupiedSpaces = dto.OccupiedSpaces,
                         };
                         int rentalId = await rentalService.CreateRentalTransactionAsync(rental, connection, transaction);
+                        await ApplyReactivationBalanceAsync(reactivationBalance, rentalId, balanceAction, startDate, connection, transaction);
 
                         if (dto.SpaceRequests != null && dto.SpaceRequests.Count != 0)
                         {
@@ -1505,7 +1508,7 @@ namespace GuardeSoftwareAPI.Services.client
 
                         await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rentalId, connection, transaction);
 
-                        ActivityLog activityLog = new() { UserId = dto.UserID, LogDate = TimeHelper.GetArgentinaTime(), Action = "REACTIVATE", TableName = "clients", RecordId = clientId };
+                        ActivityLog activityLog = new() { UserId = dto.UserID, LogDate = TimeHelper.GetArgentinaTime(), Action = "REACTIVATE", TableName = "clients", RecordId = clientId, OldValue = JsonSerializer.Serialize(new { RentalId = reactivationBalance.RentalId, Balance = -reactivationBalance.NetDebt }), NewValue = JsonSerializer.Serialize(new { RentalId = rentalId, BalanceAction = balanceAction }) };
                         await activityLogService.CreateActivityLogTransactionAsync(activityLog, connection, transaction);
 
                         await transaction.CommitAsync();
@@ -1626,9 +1629,11 @@ namespace GuardeSoftwareAPI.Services.client
                     if (!departureDate.HasValue)
                         throw new ArgumentException("La fecha de salida es obligatoria para calcular el proporcional.");
 
-                    DateTime nextMonth = new DateTime(rentalData.Today.Year, rentalData.Today.Month, 1).AddMonths(1);
-                    if (departureDate.Value.Year != nextMonth.Year || departureDate.Value.Month != nextMonth.Month)
-                        throw new ArgumentException("La fecha de salida debe pertenecer al mes siguiente.");
+                    if (request.ProportionalAmount.HasValue &&
+                        (request.ProportionalAmount.Value < 0m ||
+                         request.ProportionalAmount.Value > 9999999999999999.99m ||
+                         decimal.Round(request.ProportionalAmount.Value, 2) != request.ProportionalAmount.Value))
+                        throw new ArgumentException("El monto a cobrar debe ser mayor o igual a cero y tener hasta dos decimales.");
                 }
 
                 // La tabla y el popover muestran el importe que corresponde al mes
@@ -1671,19 +1676,23 @@ namespace GuardeSoftwareAPI.Services.client
                 {
                     if (rentalData.ActiveRentalId.HasValue)
                     {
-                        // Un proporcional del mes siguiente reemplaza al débito mensual completo.
-                        if (request.RemoveNextMonthDebit || request.ChargeProportional)
+                        // La eliminación del mes siguiente es una decisión separada.
+                        // Si es el mes del retiro, el proporcional actualiza su débito sin eliminarlo.
+                        DateTime nextMonth = new DateTime(rentalData.Today.Year, rentalData.Today.Month, 1).AddMonths(1);
+                        bool proportionalReplacesNextMonth = request.ChargeProportional && departureDate.HasValue
+                            && departureDate.Value.Year == nextMonth.Year && departureDate.Value.Month == nextMonth.Month;
+                        if (request.RemoveNextMonthDebit && !proportionalReplacesNextMonth)
                         {
                             await RemoveNextMonthDebitAsync(rentalData.ActiveRentalId.Value, rentalData.Today, connection, transaction);
                         }
 
-                        if (request.ChargeProportional && proportionalRent > 0m && departureDate.HasValue)
+                        if (request.ChargeProportional && departureDate.HasValue)
                         {
                             await ApplyDepartureProportionalDebitAsync(
                                 rentalData.ActiveRentalId.Value,
                                 proportionalRent,
                                 departureDate.Value,
-                                rentalData.Today,
+                                request.ProportionalAmount,
                                 rentalData.PaymentMethodName,
                                 connection,
                                 transaction);
@@ -1749,7 +1758,7 @@ namespace GuardeSoftwareAPI.Services.client
                     TableName = "clients",
                     RecordId = clientId,
                     OldValue = JsonSerializer.Serialize(new { DepartureStatus = rentalData.DepartureStatus, Active = rentalData.IsActive }),
-                    NewValue = JsonSerializer.Serialize(new { DepartureStatus = action == "SE_VA" ? "SE_VA" : (string?)null, Active = action != "DAR_DE_BAJA" })
+                    NewValue = JsonSerializer.Serialize(new { DepartureStatus = action == "SE_VA" ? "SE_VA" : (string?)null, Active = action != "DAR_DE_BAJA", DepartureDate = departureDate, request.ChargeProportional, request.ProportionalAmount, request.RemoveNextMonthDebit })
                 }, connection, transaction);
 
                 await transaction.CommitAsync();
@@ -1779,9 +1788,6 @@ namespace GuardeSoftwareAPI.Services.client
                     throw new InvalidOperationException("El cliente no tiene un alquiler activo para calcular el proporcional.");
 
                 DateTime normalizedDepartureDate = departureDate.Date;
-                DateTime nextMonth = new DateTime(rentalData.Today.Year, rentalData.Today.Month, 1).AddMonths(1);
-                if (normalizedDepartureDate.Year != nextMonth.Year || normalizedDepartureDate.Month != nextMonth.Month)
-                    throw new ArgumentException("La fecha de salida debe pertenecer al mes siguiente.");
 
                 decimal baseRent = await GetRentalAmountForMonthAsync(
                     rentalData.ActiveRentalId.Value,
@@ -1970,6 +1976,21 @@ namespace GuardeSoftwareAPI.Services.client
             SqlTransaction transaction)
         {
             DateTime nextMonth = new DateTime(today.Year, today.Month, 1).AddMonths(1);
+            // El último proporcional identifica el mes del retiro, incluso en el mes actual.
+            using (var command = new SqlCommand(@"
+                SELECT TOP 1 movement_date, concept FROM account_movements
+                WHERE rental_id = @rental_id AND movement_type = 'DEBITO'
+                  AND concept LIKE 'Alquiler % (Proporcional salida%'
+                ORDER BY movement_id DESC;", connection, transaction))
+            {
+                command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+                using var reader = await command.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                    nextMonth = ClientMonthBalanceService.ResolveMonthStart(new AccountMovement
+                    {
+                        MovementDate = reader.GetDateTime(0), Concept = reader.GetString(1)
+                    });
+            }
             var culture = new CultureInfo("es-AR");
             string monthTitle = culture.TextInfo.ToTitleCase(culture.DateTimeFormat.GetMonthName(nextMonth.Month));
             string rentConceptPrefix = $"Alquiler {monthTitle} {nextMonth.Year}";
@@ -2028,6 +2049,9 @@ namespace GuardeSoftwareAPI.Services.client
                 connection,
                 transaction);
             if (nextMonthRent <= 0m)
+                return;
+
+            if (await accountMovementService.IsDebitAlreadyCreatedAsync(rentalId, rentConceptPrefix, connection, transaction))
                 return;
 
             await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
@@ -2168,46 +2192,58 @@ namespace GuardeSoftwareAPI.Services.client
             int rentalId,
             decimal currentRent,
             DateTime departureDate,
-            DateTime movementDate,
+            decimal? manualAmount,
             string? paymentMethodName,
             SqlConnection connection,
             SqlTransaction transaction)
         {
             int daysInMonth = DateTime.DaysInMonth(departureDate.Year, departureDate.Month);
             int daysToCharge = departureDate.Day;
-            decimal amount = RoundProportionalAmountForPaymentMethod(
-                currentRent / daysInMonth * daysToCharge,
-                paymentMethodName);
-            if (amount <= 0m) return;
-
+            decimal amount = manualAmount ?? RoundProportionalAmountForPaymentMethod(
+                currentRent / daysInMonth * daysToCharge, paymentMethodName);
             var culture = new CultureInfo("es-AR");
             string monthTitle = culture.TextInfo.ToTitleCase(culture.DateTimeFormat.GetMonthName(departureDate.Month));
+            string rentConcept = $"Alquiler {monthTitle} {departureDate.Year}";
+            string proportionalConcept = $"{rentConcept} (Proporcional salida {daysToCharge} días)";
 
-            // Si la operación se confirma nuevamente, reemplazar el proporcional
-            // automático anterior evita duplicar el cargo del mes siguiente.
-            const string deletePreviousQuery = @"
-                DELETE FROM account_movements
-                WHERE rental_id = @rental_id
-                  AND movement_type = 'DEBITO'
-                  AND payment_id IS NULL
-                  AND LTRIM(RTRIM(ISNULL(concept, ''))) COLLATE Latin1_General_100_CI_AI
-                      LIKE @concept_prefix + '%';";
-            using (var deleteCommand = new SqlCommand(deletePreviousQuery, connection, transaction))
+            // Usar el mismo bloqueo de período que el job mensual y la planificación.
+            await accountMovementService.IsDebitAlreadyCreatedAsync(rentalId, rentConcept, connection, transaction);
+            const string existingQuery = @"
+                SELECT TOP 2 movement_id
+                FROM account_movements WITH (UPDLOCK, HOLDLOCK)
+                WHERE rental_id = @rental_id AND movement_type = 'DEBITO'
+                  AND LTRIM(RTRIM(ISNULL(concept, ''))) COLLATE Latin1_General_100_CI_AI LIKE @concept + '%'
+                ORDER BY movement_id;";
+            int? movementId = null;
+            using (var command = new SqlCommand(existingQuery, connection, transaction))
             {
-                deleteCommand.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
-                deleteCommand.Parameters.Add(new SqlParameter("@concept_prefix", SqlDbType.NVarChar, 200)
-                {
-                    Value = $"Alquiler {monthTitle} {departureDate.Year} (Proporcional salida"
-                });
-                await deleteCommand.ExecuteNonQueryAsync();
+                command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
+                command.Parameters.Add(new SqlParameter("@concept", SqlDbType.NVarChar, 200) { Value = rentConcept });
+                using var reader = await command.ExecuteReaderAsync();
+                if (await reader.ReadAsync()) movementId = reader.GetInt32(0);
+                if (await reader.ReadAsync())
+                    throw new InvalidOperationException("Hay más de un débito de alquiler para el mes del retiro. Revisá los movimientos antes de aplicar el proporcional.");
+            }
+
+            if (movementId.HasValue)
+            {
+                // Conservar fecha, identidad y asociación al pago del movimiento existente.
+                using var update = new SqlCommand(
+                    "UPDATE account_movements SET amount = @amount, concept = @concept WHERE movement_id = @movement_id",
+                    connection, transaction);
+                update.Parameters.Add(new SqlParameter("@amount", SqlDbType.Decimal) { Precision = 18, Scale = 2, Value = amount });
+                update.Parameters.Add(new SqlParameter("@concept", SqlDbType.NVarChar, 255) { Value = proportionalConcept });
+                update.Parameters.Add(new SqlParameter("@movement_id", SqlDbType.Int) { Value = movementId.Value });
+                await update.ExecuteNonQueryAsync();
+                return;
             }
 
             await accountMovementService.CreateAccountMovementTransactionAsync(new AccountMovement
             {
                 RentalId = rentalId,
-                MovementDate = movementDate,
+                MovementDate = new DateTime(departureDate.Year, departureDate.Month, 1),
                 MovementType = "DEBITO",
-                Concept = $"Alquiler {monthTitle} {departureDate.Year} (Proporcional salida {daysToCharge} días)",
+                Concept = proportionalConcept,
                 Amount = amount,
                 PaymentId = null
             }, connection, transaction);

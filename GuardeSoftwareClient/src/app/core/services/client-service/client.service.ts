@@ -202,6 +202,7 @@ export class ClientService {
     removeNextMonthDebit: boolean;
     restoreProportional: boolean;
     departureDate?: string;
+    proportionalAmount?: number;
     pendingSurchargeAction?: 'forgive' | 'immediate';
   }): Observable<void> {
     return this.httpClient.post<void>(`${this.url}/Client/${id}/departure-action`, request).pipe(
@@ -216,8 +217,17 @@ export class ClientService {
     );
   }
 
-  reactivateClient(id: number, dto: any): Observable<any> {
-    return this.httpClient.put(`${this.url}/Client/${id}/reactivate`, dto).pipe(
+  getReactivationContext(id: number): Observable<ClientReactivationContext> {
+    return this.httpClient.get<ClientReactivationContext>(`${this.url}/Client/${id}/reactivation-context`);
+  }
+
+  reactivateClient(id: number, dto: CreateClientDTO, decision: ReactivationBalanceDecision | null): Observable<any> {
+    return this.httpClient.put(`${this.url}/Client/${id}/reactivate`, {
+      ...dto,
+      reactivationBalanceAction: decision?.action,
+      expectedReactivationRentalId: decision?.rentalId,
+      expectedReactivationBalance: decision?.balance
+    }).pipe(
       tap(() => this.dataRefresh.notify(['clients', 'lockers', 'finances'])),
     );
   }
@@ -323,4 +333,12 @@ export interface PaymentMethodChangeContext {
   commission: number;
   amount: number;
   nextIncreaseDate?: string;
+}
+
+export interface ClientReactivationContext {
+  rentalId: number | null;
+  balance: number;
+}
+export interface ReactivationBalanceDecision extends ClientReactivationContext {
+  action: 'keep' | 'zero';
 }

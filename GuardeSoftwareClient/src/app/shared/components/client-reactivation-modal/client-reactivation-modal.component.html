@@ -1,0 +1,70 @@
+<div class="reactivation-overlay">
+  <section class="reactivation-dialog" [class.confirmation-pilot]="step === 'start'" role="dialog" aria-modal="true" aria-labelledby="reactivation-title"
+           [attr.aria-describedby]="step === 'start' ? 'reactivation-confirmation' : 'reactivation-description'" [attr.aria-busy]="loading" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+    <header class="dialog-header">
+      <div class="header-heading">
+        <app-icon name="rotate-ccw" class="header-icon" aria-hidden="true"></app-icon>
+        <div class="header-copy">
+          <h2 id="reactivation-title">{{ step === 'start' ? 'Reactivar cliente' : 'Saldo al reactivar' }}</h2>
+          <p *ngIf="step === 'balance'" id="reactivation-description">{{ clientName }}</p>
+        </div>
+      </div>
+      <button type="button" class="icon-button" (click)="closed.emit()" aria-label="Cerrar reactivación">
+        <app-icon name="x" class="h-5 w-5"></app-icon>
+      </button>
+    </header>
+
+    <div class="dialog-body">
+      <div *ngIf="step === 'start'" id="reactivation-confirmation" class="client-confirmation">
+        <span class="field-label">¿Querés reactivar a este cliente?</span>
+        <strong>{{ clientName }}</strong>
+      </div>
+
+      <ng-container *ngIf="step === 'balance' && context">
+        <div class="balance-summary" [class.credit-balance]="context.balance > 0">
+          <div class="balance-caption">
+            <span class="balance-kind">
+              <app-icon [name]="context.balance < 0 ? 'arrow-up' : 'arrow-down'" class="h-4 w-4" aria-hidden="true"></app-icon>
+              {{ context.balance < 0 ? 'Deuda anterior' : 'Saldo a favor' }}
+            </span>
+            <small>Saldo del último contrato</small>
+          </div>
+          <strong>{{ balanceAmount | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+        </div>
+
+        <fieldset class="balance-options">
+          <legend>¿Qué querés hacer con este saldo?</legend>
+          <div class="options-grid">
+            <label class="balance-option" [class.selected]="action === 'keep'">
+              <input type="radio" #balanceInput name="reactivation-balance" value="keep" [(ngModel)]="action" />
+              <div><strong>Mantener el saldo</strong><span>Se traslada al nuevo contrato.</span></div>
+            </label>
+            <label class="balance-option" [class.selected]="action === 'zero'">
+              <input type="radio" name="reactivation-balance" value="zero" [(ngModel)]="action" />
+              <div><strong>Reactivar con saldo cero</strong><span>Se ajusta a cero y se conserva el historial.</span></div>
+            </label>
+          </div>
+        </fieldset>
+        <p class="balance-note"><app-icon name="info" class="h-4 w-4 shrink-0" aria-hidden="true"></app-icon>Los nuevos cargos de alquiler se generan por separado.</p>
+      </ng-container>
+
+      <span *ngIf="step === 'start' && loading" class="sr-only" role="status">Consultando el saldo del cliente.</span>
+      <p *ngIf="error" class="error-message" role="alert"><app-icon name="alert-triangle" class="h-5 w-5 shrink-0" aria-hidden="true"></app-icon><span>{{ error }}</span></p>
+    </div>
+
+    <footer class="dialog-footer" [class.start-footer]="step === 'start'">
+      <span *ngIf="step === 'balance'" class="footer-note">Se aplica al guardar la reactivación</span>
+      <div class="footer-actions">
+        <button type="button" class="secondary-button" (click)="closed.emit()">Cancelar</button>
+        <button *ngIf="step === 'start'" type="button" class="primary-button" cdkFocusInitial (click)="start()" [disabled]="loading">
+          <span>{{ loading ? 'Consultando saldo…' : 'Confirmar y continuar' }}</span>
+          <app-icon *ngIf="loading" name="loader" class="h-5 w-5 animate-spin" aria-hidden="true"></app-icon>
+          <app-icon *ngIf="!loading" name="arrow-right" class="h-5 w-5" aria-hidden="true"></app-icon>
+        </button>
+        <button *ngIf="step === 'balance'" type="button" class="primary-button" (click)="continue()">
+          <span>Continuar</span><app-icon name="arrow-right" class="h-5 w-5" aria-hidden="true"></app-icon>
+        </button>
+      </div>
+    </footer>
+  </section>
+</div>

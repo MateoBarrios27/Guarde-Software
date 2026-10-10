@@ -1,5 +1,13 @@
 # Guarde-Software
 
+## Documentación crítica
+
+- Reglas de pagos, cancelación de deuda y fecha de próximo pago:
+  [`Database/README_PaymentWaterfall.md`](Database/README_PaymentWaterfall.md).
+- Instrucciones obligatorias para agentes de código e IA:
+  [`AGENTS.md`](AGENTS.md).
+- Pruebas de regresión financiera: `tests/PaymentWaterfall.Checks`.
+
 **Guarde Software** es un sistema desarrollado para [**Guarde Lo Que Quiera**](https://www.guardeloquequiera.net/), empresa líder en el alquiler de bauleras y servicios de almacenamiento seguro para particulares y empresas, ubicada en Munro, Buenos Aires. Este proyecto consiste en una **aplicación web integral** diseñada para optimizar la gestión de clientes, bauleras y transacciones.  
 
 ## Tecnologías utilizadas  

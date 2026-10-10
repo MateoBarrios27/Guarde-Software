@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.14.1" />
+    <Compile Include="../../GuardeSoftwareAPI/Jobs/CommunicationEmailImages.cs" Link="CommunicationEmailImages.cs" />
+    <Compile Include="../../GuardeSoftwareAPI/Jobs/EmailTemplateInlineResources.cs" Link="EmailTemplateInlineResources.cs" />
+    <None Include="../../GuardeSoftwareAPI/EmailTemplates/**/*" Link="EmailTemplates/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../GuardeSoftwareClient/src/assets/email-templates/logisticas/logisticas.html" Link="logisticas.html" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../GuardeSoftwareClient/src/assets/email-templates/inmobiliarias/inmobiliarias.html" Link="inmobiliarias.html" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../GuardeSoftwareAPI/Jobs/SendCommunicationJob.cs" Link="SendCommunicationJob.source.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

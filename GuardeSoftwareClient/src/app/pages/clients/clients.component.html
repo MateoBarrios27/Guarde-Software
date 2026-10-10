@@ -104,13 +104,14 @@
               [(ngModel)]="searchClientes"
               
               (ngModelChange)="onSearchChange()"
-              placeholder="Buscar cliente o baulera..."
-              class="w-full sm:w-80 pl-10 pr-4 py-2 border rounded-lg"
+              placeholder="Nombre, ID, baulera, CUIT o email..."
+              aria-label="Buscar clientes por nombre, identificador, baulera, CUIT o email"
+              class="w-full sm:w-80 pl-10 pr-12 py-2 border rounded-lg"
               
             />
-            <button *ngIf="this.searchClientes" (click)="this.searchClientes = ''; onSearchChange()" tabindex="-1"
-                    class="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/amt:opacity-100 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar a 0">
-                    <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
+            <button *ngIf="searchClientes" type="button" (click)="searchClientes = ''; onSearchChange()"
+                    class="absolute right-1 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 z-10" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">
+                    <app-icon name="Trash2" class="h-4 w-4"></app-icon>
             </button>
           </div>
 
@@ -797,7 +798,7 @@
                     <app-icon name="Trash2" class="h-4 w-4 text-black hover:text-red-600"></app-icon>
                   </button>
 
-                  <button *ngIf="cliente.status === 'Baja' && !authService.isObserver()" (click)="onReactivateClient(cliente)" class="p-1 hover:text-green-600 flex items-center justify-center" title="Reactivar Cliente">
+                  <button *ngIf="cliente.status === 'Baja' && !authService.isObserver()" (click)="onReactivateClient(cliente)" [disabled]="clientToReactivate !== null" class="p-1 hover:text-green-600 flex items-center justify-center" title="Reactivar Cliente">
                     <app-icon name="rotate-ccw" class="h-4 w-4 text-black hover:text-green-600"></app-icon>
                   </button>
                 </div>
@@ -854,38 +855,37 @@
                              class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                              [checked]="departureChargeProportional"
                              (change)="onDepartureProportionalChange($event)" />
-                      <span>Cobrar proporcional por la ocupación del mes siguiente.</span>
+                      <span>Cobrar proporcional hasta la fecha del retiro.</span>
                     </label>
 
                     <div *ngIf="departureChargeProportional" class="mt-2 rounded-lg border border-blue-100 bg-blue-50 p-2.5">
-                      <label class="block text-[11px] font-semibold text-blue-900" for="departure-date-{{cliente.id}}">Fecha en que se va</label>
+                      <label class="block text-[11px] font-semibold text-blue-900" for="departure-date-{{cliente.id}}">Fecha del retiro</label>
                       <input [id]="'departure-date-' + cliente.id"
                              type="date"
                              [(ngModel)]="departureDate"
                              (ngModelChange)="onDepartureDateChange($event)"
-                             [min]="getNextMonthDateInputMin()"
-                             [max]="getNextMonthDateInputMax()"
                              class="mt-1 w-full rounded-md border border-blue-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      <label class="mt-2 block text-[11px] font-semibold text-blue-900" for="departure-amount-{{cliente.id}}">Monto a cobrar</label>
+                      <input [id]="'departure-amount-' + cliente.id"
+                             type="text"
+                             inputmode="decimal"
+                             appCurrencyFormat
+                             [(ngModel)]="departureProportionalAmount"
+                             [disabled]="departureProportionalPreviewLoading || departureSubmitting"
+                             [placeholder]="departureProportionalPreviewLoading ? 'Calculando…' : 'Ingresá el monto'"
+                             class="mt-1 w-full rounded-md border border-blue-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60" />
                       <p class="mt-1.5 text-[10px] leading-snug text-blue-800">
-                        Se cobrarán {{ getDepartureProportionalDays() }} días:
-                        <ng-container *ngIf="departureProportionalPreview; else departureProportionalPending">
-                          <strong>≈ {{ getDepartureProportionalAmount(cliente) | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>.
-                        </ng-container>
-                        <ng-template #departureProportionalPending>
-                          <strong>{{ departureProportionalPreviewLoading ? 'Calculando…' : 'Elegí una fecha' }}</strong>.
-                        </ng-template>
-                        El débito completo del mes siguiente se reemplaza por este proporcional.
+                        Se cobrarán {{ getDepartureProportionalDays() }} días del mes del retiro.
+                        Podés modificar el monto sugerido. Si existe un débito de alquiler de ese mes, se actualizará con este importe.
                       </p>
                     </div>
 
                     <label class="mt-3 flex items-start gap-2 text-xs text-gray-700">
                       <input type="checkbox"
                              [(ngModel)]="departureRemoveNextMonthDebit"
-                             [disabled]="departureChargeProportional"
                              class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50" />
                       <span>
                         Quitar débito completo del mes siguiente si ya está generado.
-                        <small *ngIf="departureChargeProportional" class="block text-[10px] text-gray-500">Se activa automáticamente al usar proporcional.</small>
                       </span>
                     </label>
 
@@ -1025,11 +1025,19 @@
 
 <!-- </div> -->
 
+@defer (when clientToReactivate) {
+  <app-client-reactivation-modal *ngIf="clientToReactivate"
+    [clientId]="clientToReactivate.id" [clientName]="clientToReactivate.fullName"
+    (closed)="clientToReactivate = null" (prepared)="onReactivationPrepared($event)">
+  </app-client-reactivation-modal>
+}
+
 @defer (when showNewClientModal) {
   <app-create-client-modal
     *ngIf="showNewClientModal"
     [clientData]="clientToEdit"
     [isReactivation]="isReactivationMode"
+    [reactivationBalanceDecision]="reactivationBalanceDecision"
     (closeModal)="closeNewClientModal()"
     (saveSuccess)="onClientSaveSuccess()">
   </app-create-client-modal>

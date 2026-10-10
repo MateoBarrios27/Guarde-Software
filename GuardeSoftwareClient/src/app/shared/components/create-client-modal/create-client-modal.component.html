@@ -2,10 +2,16 @@
   class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 >
   <form
+    [class.reactivation-form]="isReactivation"
     [formGroup]="newClientForm"
     (ngSubmit)="onSubmit()"
     (click)="$event.stopPropagation()"
     [class.validation-submitted]="hasAttemptedSubmit"
+    [attr.role]="isReactivation ? 'dialog' : null"
+    [attr.aria-modal]="isReactivation ? true : null"
+    [attr.aria-labelledby]="isReactivation ? 'reactivation-form-title' : null"
+    [attr.aria-busy]="isReactivation ? isLoading : null"
+    [cdkTrapFocus]="isReactivation" [cdkTrapFocusAutoCapture]="isReactivation"
     class="flex flex-col max-h-[90vh] w-full max-w-7xl bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg shadow-2xl"
   >
     <!-- Header -->
@@ -15,6 +21,8 @@
       <button
         type="button"
         (click)="closeModal.emit()"
+        [disabled]="isSavingReactivation"
+        [attr.aria-label]="isReactivation ? 'Cerrar reactivación' : 'Cerrar formulario'"
         class="absolute top-3 right-3 p-2 text-white rounded-full hover:bg-white/20"
       >
         <app-icon name="x" class="h-5 w-5"></app-icon>
@@ -23,12 +31,12 @@
         <div
           class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center"
         >
-          <app-icon [name]="isEditMode ? 'edit' : 'user-plus'" class="h-6 w-6 text-white"></app-icon>
+          <app-icon [name]="isReactivation ? 'rotate-ccw' : (isEditMode ? 'edit' : 'user-plus')" class="h-6 w-6 text-white"></app-icon>
         </div>
         <div>
-          <h2 class="text-2xl font-bold">{{ isEditMode ? 'Editar Cliente' : 'Nuevo Cliente' }}</h2>
+          <h2 [attr.id]="isReactivation ? 'reactivation-form-title' : null" class="text-2xl font-bold">{{ isReactivation ? 'Reactivar cliente' : (isEditMode ? 'Editar Cliente' : 'Nuevo Cliente') }}</h2>
           <p class="text-blue-100 text-sm">
-            {{ isEditMode ? 'Actualiza la información del cliente.' : 'Registra un nuevo cliente en el sistema' }}
+            {{ isReactivation ? clientData?.fullName : (isEditMode ? 'Actualiza la información del cliente.' : 'Registra un nuevo cliente en el sistema') }}
           </p>
         </div>
       </div>
@@ -39,8 +47,8 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         
         <!-- COL 1: INFO PERSONAL -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
-          <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-t-lg">
+        <div class="client-section bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
+          <div class="section-heading section-personal bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-t-lg">
             <h3 class="flex items-center gap-2 font-semibold text-base">
               <app-icon name="users" class="h-5 w-5"></app-icon>Información Personal y Fiscal
             </h3>
@@ -59,7 +67,7 @@
                 {{ identifierError }}
               </div>
 
-              <div *ngIf="!isEditMode || isReactivation" class="mt-2 flex bg-gray-100 rounded-lg p-1 text-xs">
+              <div *ngIf="!isEditMode || isReactivation" class="identifier-mode mt-2 flex bg-gray-100 rounded-lg p-1 text-xs">
                 <label *ngIf="isReactivation" class="flex-1 text-center py-1.5 rounded-md cursor-pointer transition-colors"
                        [ngClass]="{'bg-white shadow-sm text-blue-700 font-semibold': newClientForm.get('reactivationIdentifierMode')?.value === 'keep_old', 'text-gray-500 hover:text-gray-700': newClientForm.get('reactivationIdentifierMode')?.value !== 'keep_old'}">
                   <input type="radio" formControlName="reactivationIdentifierMode" value="keep_old" class="sr-only">
@@ -126,8 +134,8 @@
         </div>
 
         <!-- COL 2: CONTACTO -->
-        <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
-          <div class="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-t-lg">
+        <div class="client-section bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
+          <div class="section-heading section-contact bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-t-lg">
             <h3 class="flex items-center gap-2 font-semibold text-base">
               <app-icon name="envelope" class="h-5 w-5"></app-icon>Contacto y Ubicación
             </h3>
@@ -141,7 +149,10 @@
                   <app-icon name="x" class="h-4 w-4"></app-icon>
                 </button>
               </div>
-              <button type="button" (click)="addEmail()" class="text-sm text-blue-600 mt-2 font-semibold">+ Agregar Email</button>
+              <button type="button" (click)="addEmail()" class="contact-add">
+                <app-icon name="plus" class="h-4 w-4"></app-icon>
+                Agregar email
+              </button>
             </div>
             <div formArrayName="telefonos">
               <label class="text-sm font-medium text-green-700">Teléfonos</label>
@@ -206,10 +217,10 @@
               <button
                 type="button"
                 (click)="addTelefono()"
-                class="mt-3 inline-flex items-center gap-2 px-4 py-2 border border-green-400 text-green-600 rounded-md hover:bg-green-50 text-sm font-medium"
+                class="contact-add"
               >
                 <app-icon name="plus" class="h-4 w-4"></app-icon>
-                Agregar Teléfono
+                Agregar teléfono
               </button>
             </div>
 
@@ -222,7 +233,7 @@
                      (keydown.enter)="blurInput($event)"/>
             </div>
             
-            <div class="pt-4 mt-2 border-t border-green-100">
+            <div class="communications-option pt-4 mt-2 border-t border-green-100">
               <label class="flex items-center justify-between cursor-pointer group">
                 <div class="flex flex-col">
                   <span class="text-sm font-medium text-green-800 flex items-center gap-2">
@@ -245,8 +256,8 @@
         <div class="space-y-4">
           <!-- Tarjeta Legacy -->
           <!-- Tarjeta Información de Ingreso -->
-          <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
-            <div class="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-t-lg">
+          <div class="client-section bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
+            <div class="section-heading section-entry bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-t-lg">
               <h3 class="flex items-center gap-2 font-semibold text-base"><app-icon name="user-gear" class="h-5 w-5"></app-icon>Información de Ingreso</h3>
             </div>
             
@@ -279,9 +290,9 @@
               
               <!-- SOLO EN CREACIÓN: Cartel si no marcan que es antiguo -->
               <ng-template #newClientBlock>
-                <div class="pt-4 border-t border-dashed">
+                <div class="entry-note pt-4 border-t border-dashed">
                   <div class="text-center py-4 text-gray-500 rounded-lg">
-                    <p class="font-medium text-gray-600">Es un cliente nuevo</p>
+                    <p class="font-medium text-gray-600">{{ isReactivation ? 'Nuevo período de alquiler' : 'Es un cliente nuevo' }}</p>
                     <p class="text-sm">Se usará la fecha de hoy como inicio y se aplicará el 1er débito.</p>
                   </div>
                 </div>
@@ -290,17 +301,17 @@
             </div>
           </div>
           <!-- Tarjeta Observaciones -->
-          <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
-             <div class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-t-lg"><h3 class="flex items-center gap-2 font-semibold text-base"><app-icon name="file-text" class="h-5 w-5"></app-icon>Observaciones</h3></div>
+          <div class="client-section bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
+             <div class="section-heading section-notes bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-t-lg"><h3 class="flex items-center gap-2 font-semibold text-base"><app-icon name="file-text" class="h-5 w-5"></app-icon>Observaciones</h3></div>
              <div class="p-4"><label class="text-sm font-medium text-orange-700">Notas del cliente</label><textarea formControlName="observaciones" rows="3" class="w-full p-2 border rounded-md mt-1"></textarea></div>
           </div>
         </div>
 
 <div class="lg:col-span-3">
   
-  <div class="bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
+  <div class="client-section bg-white/80 backdrop-blur-sm rounded-lg shadow-md border">
           
-          <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-4 rounded-t-lg">
+          <div class="section-heading section-spaces bg-gradient-to-r from-indigo-500 to-indigo-600 text-white p-4 rounded-t-lg">
             <h3 class="flex items-center gap-2 font-semibold text-base">
               <app-icon name="package" class="h-5 w-5"></app-icon>
               {{ (isEditMode && !isReactivation) ? 'Asignación de Lockers' : 'Selección de Espacios' }}
@@ -311,7 +322,7 @@
             
             <div class="space-y-4">
               
-              <div *ngIf="!isEditMode || isReactivation" class="mb-4 p-1 bg-indigo-50 border border-indigo-100 rounded-lg flex w-full">
+              <div *ngIf="!isEditMode || isReactivation" class="assignment-switch mb-4 p-1 bg-indigo-50 border border-indigo-100 rounded-lg flex w-full">
                 
                 <button type="button" 
                         (click)="setAssignmentMode('request')" 
@@ -333,7 +344,7 @@
                   
                   <div *ngFor="let request of spaceRequests.controls; let i = index" 
                        [formGroupName]="i" 
-                       class="p-4 border-2 border-gray-200 rounded-lg bg-white relative shadow-sm">
+                       class="space-request p-4 border-2 border-gray-200 rounded-lg bg-white relative shadow-sm">
                     
                     <button type="button" 
                             (click)="removeSpaceRequest(i)"
@@ -356,14 +367,14 @@
                             <input type="number" min="0" step="0.5" formControlName="m3" placeholder="Opc." class="w-full p-2 border rounded-md text-sm" (keydown.enter)="blurInput($event)"/>
                         </div>
                         
-                        <div class="flex items-center gap-1.5 pt-4 sm:pt-0 sm:pb-0.5">
+                        <div class="quantity-controls flex items-center gap-1.5 pt-4 sm:pt-0 sm:pb-0.5">
                             <button type="button" (click)="updateQuantity(i, -1)" class="px-2 py-1 h-9 w-9 border rounded-md bg-gray-200 hover:bg-gray-300 font-bold text-lg text-gray-700">-</button>
                             <input type="number" formControlName="quantity" readonly class="w-10 h-9 p-2 border rounded-md text-center font-medium bg-gray-50" (keydown.enter)="blurInput($event)"/>
                             <button type="button" (click)="updateQuantity(i, 1)" class="px-2 py-1 h-9 w-9 border rounded-md bg-gray-200 hover:bg-gray-300 font-bold text-lg text-gray-700">+</button>
                         </div>
                     </div>
       
-                    <div class="mt-3 pt-3 border-t border-dashed border-gray-200">
+                    <div class="request-comment mt-3 pt-3 border-t border-dashed border-gray-200">
                       <button *ngIf="!request.get('showComment')?.value && !request.get('comment')?.value" 
                               type="button" 
                               (click)="request.get('showComment')?.setValue(true)"
@@ -392,7 +403,7 @@
                     </div>
                   </div>
                 </div>
-                <button type="button" (click)="addSpaceRequest()" class="mt-4 w-full flex items-center justify-center p-4 border-2 border-dashed border-indigo-300 text-indigo-600 font-medium rounded-lg hover:bg-indigo-50 transition-all">
+                <button type="button" (click)="addSpaceRequest()" [attr.aria-label]="isReactivation ? 'Agregar espacio' : null" class="add-space-button mt-4 w-full flex items-center justify-center p-4 border-2 border-dashed border-indigo-300 text-indigo-600 font-medium rounded-lg hover:bg-indigo-50 transition-all">
                   <app-icon name="plus" class="h-8 w-8"></app-icon>
                 </button>
               </ng-container>
@@ -444,16 +455,16 @@
               </ng-container>
 
       </div> 
-      <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200 h-fit sticky top-4">
+      <div class="cost-summary h-fit sticky top-4">
               <h4 class="font-medium text-indigo-900 mb-3 flex items-center gap-2">
                 <app-icon name="dollar-sign" class="h-4 w-4"></app-icon>Resumen de Costos
               </h4>
         
-        <div class="space-y-2 overflow-y-auto border-t border-b py-2">
+        <div class="cost-items space-y-2 overflow-y-auto border-t border-b py-2">
                 
                 <ng-container *ngIf="(!isEditMode || isReactivation) && assignmentMode === 'request'">
                   <ng-container *ngIf="spaceRequests.value.length > 0 && (spaceRequests.value[0].warehouseId || spaceRequests.value[0].m3 || spaceRequests.value[0].comment); else noRequestsCreation">
-                    <div *ngFor="let req of spaceRequests.value" class="flex justify-between items-center p-2 bg-white/50 rounded mb-1 border border-indigo-50 shadow-sm">
+                    <div *ngFor="let req of spaceRequests.value" class="cost-item flex justify-between items-center p-2 bg-white/50 rounded mb-1 border border-indigo-50 shadow-sm">
                       <div class="w-full">
                         <div class="font-medium text-sm text-indigo-900">
                           {{ req.quantity || 0 }} {{ req.quantity === 1 ? 'espacio' : 'espacios' }}
@@ -469,13 +480,13 @@
                     </div>
                   </ng-container>
                   <ng-template #noRequestsCreation>
-                     <div class="text-center py-8 text-gray-500"><p class="font-medium">Sin espacios solicitados</p><p class="text-sm">Añada espacios a la izquierda.</p></div>
+                     <div class="cost-empty text-center py-8 text-gray-500"><p class="font-medium">Sin espacios solicitados</p><p class="text-sm">Añada espacios a la izquierda.</p></div>
                   </ng-template>
                 </ng-container>
 
           <ng-container *ngIf="(isEditMode && !isReactivation) || ((!isEditMode || isReactivation) && assignmentMode === 'direct')">
                   <ng-container *ngIf="newClientForm.value.lockersAsignados?.length > 0; else noLockersEdit">
-                    <div *ngFor="let lockerId of newClientForm.value.lockersAsignados" class="flex justify-between items-center p-2 bg-white/50 rounded mb-1 border border-indigo-50 shadow-sm">
+                    <div *ngFor="let lockerId of newClientForm.value.lockersAsignados" class="cost-item flex justify-between items-center p-2 bg-white/50 rounded mb-1 border border-indigo-50 shadow-sm">
                       <ng-container *ngIf="getLockerDetails(lockerId) as details">
                         <div>
                           <div class="font-medium text-sm text-indigo-900">{{ details.locker?.identifier || 'ID: '+ lockerId }}</div>
@@ -485,14 +496,14 @@
                     </div>
                   </ng-container>
                   <ng-template #noLockersEdit>
-                     <div class="text-center py-8 text-gray-500"><p class="font-medium">Ningún locker seleccionado</p><p class="text-sm">Selecciona lockers de la lista.</p></div>
+                     <div class="cost-empty text-center py-8 text-gray-500"><p class="font-medium">Ningún locker seleccionado</p><p class="text-sm">Selecciona lockers de la lista.</p></div>
                   </ng-template>
                 </ng-container>
 
         </div>
         
         <div class="pt-3">
-                <div class="flex justify-between items-center mb-2">
+                <div class="rent-entry flex justify-between items-center mb-2">
                   <label for="montoManual" class="font-semibold text-indigo-900">Abono:</label>
                   <div class="relative">
                      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
@@ -500,7 +511,7 @@
                   </div>
                 </div>
 
-                <div *ngIf="shouldGenerateProportional" class="mb-3 rounded-lg border border-indigo-100 bg-indigo-50/70 p-3">
+                <div *ngIf="shouldGenerateProportional" class="proportional-summary mb-3 rounded-lg border border-indigo-100 bg-indigo-50/70 p-3">
                   <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p class="text-sm font-semibold text-indigo-900">Proporcional:</p>
@@ -559,13 +570,13 @@
                   </div>
                 </div>
 
-                <div class="text-xs text-gray-600 space-y-1">
+                <div class="summary-volume text-xs text-gray-600 space-y-1">
                   <div class="flex justify-between">
                     <span>Total m³ contratados:</span>
                     <span>{{ newClientForm.value.contractedM3 | number:'1.1-2' }} m³</span>
                   </div>
                 </div>
-                 <div class="flex justify-between items-center mt-2 pt-2 border-t border-indigo-100">
+                 <div class="summary-occupancy flex justify-between items-center mt-2 pt-2 border-t border-indigo-100">
                   <label for="occupiedSpaces" class="text-sm font-semibold text-indigo-900">Espacios Ocupados:</label>
                   <input id="occupiedSpaces" type="number" formControlName="occupiedSpaces" min="0" class="w-20 text-center p-1 border rounded-md text-gray-700" (keydown.enter)="blurInput($event)"/>
                 </div>
@@ -573,12 +584,13 @@
       </div> </div> </div> </div> </div>
     </main>
 
+    <div *ngIf="isReactivation && reactivationError" class="reactivation-error" role="alert">{{ reactivationError }}</div>
     <!-- Footer -->
     <footer class="flex-shrink-0 p-4 flex justify-end gap-4 bg-gray-50 border-t">
-      <button type="button" (click)="closeModal.emit()" class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-100">Cancelar</button>
+      <button type="button" (click)="closeModal.emit()" [disabled]="isSavingReactivation" class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-100">Cancelar</button>
       <button type="submit" [disabled]="isLoading" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
         <app-icon *ngIf="isLoading" name="loader" class="h-4 w-4 animate-spin"></app-icon>
-        {{ isLoading ? 'Guardando...' : (isEditMode ? 'Guardar Cambios' : 'Guardar Cliente') }}
+        {{ isLoading ? 'Guardando...' : (isReactivation ? 'Reactivar cliente' : (isEditMode ? 'Guardar Cambios' : 'Guardar Cliente')) }}
       </button>
     </footer>
   </form>

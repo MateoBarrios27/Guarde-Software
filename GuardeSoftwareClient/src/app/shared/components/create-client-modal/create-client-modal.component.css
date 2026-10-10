@@ -13,3 +13,43 @@
   outline: none;
   box-shadow: 0 0 0 4px rgb(220 38 38 / 28%);
 }
+
+.reactivation-error { flex-shrink: 0; margin: 0 16px 14px; padding: 10px 14px; border: 1px solid #fecaca; border-radius: 8px; background: #fef2f2; color: #b91c1c; font-size: 12px; max-height: 100px; overflow-y: auto; }
+
+/* Resumen de costos compartido por alta, edición y reactivación. */
+.cost-summary { padding: 22px; background: #2563EB; background-image: none; color: #FFFFFF; border: 0; border-radius: 12px; }
+.cost-summary :where(.border, .border-2, .border-t, .border-b, .border-dashed) { border-width: 0; }
+.cost-summary [class*='shadow'] { box-shadow: none; }
+.cost-summary input { min-width: 0; max-width: 100%; min-height: 42px; border: 0; border-radius: 7px; font-size: 13px; box-shadow: none; }
+.cost-summary h4 { margin-bottom: 18px; color: #FFFFFF; font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
+.cost-summary h4 app-icon { width: 20px; height: 20px; }
+.cost-summary .cost-items { padding: 0; border: 0; }
+.cost-summary .cost-empty { padding: 24px 16px; background: #1D4ED8; border-radius: 8px; color: #EFF6FF; }
+.cost-summary .cost-empty p:first-child { color: #FFFFFF; font-size: 14px; }
+.cost-summary .cost-empty p:last-child { margin-top: 4px; font-size: 12px; }
+.cost-summary .cost-item { padding: 14px; background: #1D4ED8; color: #FFFFFF; border: 0; border-radius: 8px; box-shadow: none; }
+.cost-summary .cost-item :is(div, span) { color: #EFF6FF; }
+.cost-summary .cost-item .font-medium { color: #FFFFFF; }
+.cost-summary .rent-entry { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin: 10px 0 20px; }
+.cost-summary .rent-entry label { color: #FFFFFF; font-size: 15px; font-weight: 600; }
+.cost-summary .rent-entry > div { width: 100%; min-width: 0; }
+.cost-summary .rent-entry > div > span { left: 16px; color: #2563EB; font-size: 22px; }
+.cost-summary #montoManual { box-sizing: border-box; width: 100%; height: 62px; padding: 12px 16px 12px 38px; background: #FFFFFF; color: #123A74; border-radius: 8px; font-size: 30px; font-weight: 650; letter-spacing: -.025em; }
+.cost-summary :is(input, button):focus-visible { outline: 2px solid #123A74; outline-offset: 3px; }
+.cost-summary .summary-volume { padding: 12px 14px; margin-top: 14px; background: #1D4ED8; border-radius: 8px; color: #EFF6FF; }
+.cost-summary .summary-occupancy { padding: 12px 14px; margin-top: 10px; gap: 10px; background: #1D4ED8; border: 0; border-radius: 8px; }
+.cost-summary .summary-occupancy label { color: #FFFFFF; font-size: 13px; }
+.cost-summary .summary-occupancy input { width: 72px; background: #FFFFFF; color: #123A74; }
+.cost-summary .proportional-summary { margin-top: 12px; padding: 14px; background: #FFFFFF; color: #344258; border: 0; border-radius: 8px; }
+.cost-summary .proportional-summary input { background: #EDF2F8; }
+@media (max-width: 640px) {
+  .cost-summary { padding: 18px; }
+  .cost-summary #montoManual { font-size: 27px; }
+}
+
+/* Ambas acciones de contacto comparten jerarquía y estados. */
+.contact-add { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; min-height: 40px; max-width: 100%; padding: 9px 14px; border: 0; border-radius: 6px; background: #15803D; color: #FFFFFF; font-size: 14px; line-height: 20px; font-weight: 600; cursor: pointer; transition: background-color .15s ease; }
+.contact-add:hover:not(:disabled) { background: #166534; }
+.contact-add:focus-visible { outline: 2px solid #166534; outline-offset: 3px; }
+.contact-add:disabled { background: #E2E8F0; color: #64748B; cursor: not-allowed; }
+.contact-add app-icon { display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 16px; height: 16px; }

@@ -30,6 +30,7 @@ import { TimeDurationPipe } from '../../pipes/time-duration.pipe';
 import { DeleteConfirmationService } from '../../services/delete-confirmation.service';
 import { ClientLockerHistory } from '../../../core/models/client-locker-history';
 import { ClientService, RentalAmountHistoryItem } from '../../../core/services/client-service/client.service';
+import { buildRentalAmountTimeline, RentalAmountTimelineEntry } from '../../utils/rental-amount-timeline.util';
 import { AuthService } from '../../../core/services/auth-service/auth.service';
 import { SpaceRequestDetailDto } from '../../../core/dtos/rentalSpaceRequest/GetSpaceRequestDetailDto';
 import {
@@ -68,6 +69,7 @@ const SPANISH_MONTHS = [
     CurrencyFormatDirective
 ],
   templateUrl: './client-detail-modal.component.html',
+  styleUrl: './client-detail-modal.component.css',
 })
 export class ClientDetailModalComponent implements OnChanges {
   @Input() client: ClientDetailDTO | null = null;
@@ -112,6 +114,8 @@ export class ClientDetailModalComponent implements OnChanges {
 
   // ── Abono ────────────────────────────────────────────────────────────────
   public rentalAmountHistory: RentalAmountHistoryItem[] = [];
+  public rentalAmountTimeline: RentalAmountTimelineEntry[] = [];
+  public rentalAmountStepCount = 0;
   public isLoadingAbono = false;
   public isAdmin = false;
 
@@ -148,7 +152,7 @@ export class ClientDetailModalComponent implements OnChanges {
         this.movementCurrentPage = 1;
         this.commCurrentPage = 1;
         this.lockerCurrentPage = 1;
-        this.rentalAmountHistory = [];
+        this.clearRentalAmountHistory();
         this.showAbonoForm = false;
         this.editingHistId = null;
         if (this.startPaymentPlanning && !this.authService.isObserver() && this.client.paymentStatus !== 'Baja') {
@@ -303,7 +307,9 @@ export class ClientDetailModalComponent implements OnChanges {
     this.isLoadingAbono = true;
     this.clientService.getRentalAmountHistory(this.client.id).subscribe({
       next: (data) => {
-        this.rentalAmountHistory = data;
+        this.rentalAmountTimeline = buildRentalAmountTimeline(data);
+        this.rentalAmountHistory = this.rentalAmountTimeline.map(entry => entry.item);
+        this.rentalAmountStepCount = data.filter(item => item.status !== 'event').length;
         this.isLoadingAbono = false;
         this.cdr.markForCheck();
       },
@@ -313,6 +319,16 @@ export class ClientDetailModalComponent implements OnChanges {
         Swal.fire('Error', 'No se pudo cargar el historial de abonos.', 'error');
       }
     });
+  }
+
+  private clearRentalAmountHistory(): void {
+    this.rentalAmountHistory = [];
+    this.rentalAmountTimeline = [];
+    this.rentalAmountStepCount = 0;
+  }
+
+  trackAbonoTimeline(_index: number, entry: RentalAmountTimelineEntry): string {
+    return `${entry.item.status === 'event' ? 'event' : 'amount'}-${entry.item.id}`;
   }
 
   openAddAbonoForm(): void {
@@ -366,7 +382,7 @@ export class ClientDetailModalComponent implements OnChanges {
         this.isSavingAbono = false;
         this.showAbonoForm = false;
         this.editingHistId = null;
-        this.rentalAmountHistory = [];
+        this.clearRentalAmountHistory();
         this.loadRentalAmountHistory();
         this.dataUpdated.emit(this.client!.id);
         this.cdr.markForCheck();
@@ -418,7 +434,7 @@ export class ClientDetailModalComponent implements OnChanges {
 
     this.clientService.deleteRentalAmountEntry(clientId, item.id).subscribe({
       next: () => {
-        this.rentalAmountHistory = [];
+        this.clearRentalAmountHistory();
         this.loadRentalAmountHistory();
         this.dataUpdated.emit(clientId);
         this.cdr.markForCheck();
@@ -432,10 +448,11 @@ export class ClientDetailModalComponent implements OnChanges {
   }
 
   formatAbonoDate(item: RentalAmountHistoryItem): string {
-    const start = new Date(item.startDate);
+    const parseDate = (value: string): Date => new Date(value.length === 10 ? `${value}T00:00:00` : value);
+    const start = parseDate(item.startDate);
     const startStr = `${SPANISH_MONTHS[start.getMonth()]} ${start.getFullYear()}`;
     if (!item.endDate) return `Desde ${startStr}`;
-    const end = new Date(item.endDate);
+    const end = parseDate(item.endDate);
     // end_date is set to 1 second before next start, so add 1 second to show the real boundary
     const endAdj = new Date(end.getTime() + 1000);
     const endStr = `${SPANISH_MONTHS[endAdj.getMonth()]} ${endAdj.getFullYear()}`;
@@ -458,15 +475,6 @@ export class ClientDetailModalComponent implements OnChanges {
       case 'planned': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'past': return 'bg-gray-100 text-gray-500 border-gray-200';
       default: return 'bg-gray-100 text-gray-600 border-gray-200';
-    }
-  }
-
-  getAbonoDotClass(status: string): string {
-    switch (status) {
-      case 'active': return 'bg-emerald-500';
-      case 'planned': return 'bg-blue-500';
-      case 'past': return 'bg-gray-400';
-      default: return 'bg-gray-300';
     }
   }
 
@@ -562,7 +570,17 @@ export class ClientDetailModalComponent implements OnChanges {
     return new Date(increase.year, increase.month - 1 + Math.max(1, frequency - 1), 1);
   }
 
+  planningIncreaseRestored = false;
+
+  applyConfiguredPlanningIncrease(percentage: number): void {
+    this.planningIncreasePercentage = percentage;
+    this.calculatePlanningProjectedRent();
+    this.planningIncreasePercentage = percentage;
+    this.cdr.markForCheck();
+  }
+
   startCurrentPlanningIncrease(): void {
+    this.planningIncreaseRestored = false;
     this.planningIncreasePercentage = 0;
     this.planningProjectedRent = this.currentPlanningBaseRent;
   }
@@ -625,6 +643,7 @@ export class ClientDetailModalComponent implements OnChanges {
     if (this.paymentPlanningStep === 'summary' && this.paymentPlanningContext?.increases.length) {
       this.paymentPlanningStep = 'increase';
       this.currentPlanningIncreaseIndex = Math.max(0, this.paymentPlanningIncreases.length - 1);
+      this.planningIncreaseRestored = true;
       const previous = this.paymentPlanningIncreases.pop();
       this.planningIncreasePercentage = previous?.percentage ?? 0;
       this.planningProjectedRent = previous?.newRentAmount ?? this.currentPlanningBaseRent;
@@ -632,6 +651,7 @@ export class ClientDetailModalComponent implements OnChanges {
     }
     if (this.paymentPlanningStep === 'increase' && this.currentPlanningIncreaseIndex > 0) {
       this.currentPlanningIncreaseIndex--;
+      this.planningIncreaseRestored = true;
       const previous = this.paymentPlanningIncreases.pop();
       this.planningIncreasePercentage = previous?.percentage ?? 0;
       this.planningProjectedRent = previous?.newRentAmount ?? this.currentPlanningBaseRent;

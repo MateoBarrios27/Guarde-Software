@@ -267,6 +267,18 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpGet("{id}/reactivation-context")]
+        public async Task<IActionResult> GetReactivationContext(int id)
+        {
+            try
+            {
+                if (id <= 0) return BadRequest("ID de cliente inválido.");
+                return Ok(await _clientService.GetReactivationContextAsync(id));
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+            catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+        }
+
         [HttpPut("{id}/reactivate")]
         public async Task<IActionResult> ReactivateClient(int id, [FromBody] CreateClientDTO dto)
         {
@@ -278,6 +290,8 @@ namespace GuardeSoftwareAPI.Controllers
                 
                 return Ok(new { message = "Cliente reactivado exitosamente con nuevo contrato." });
             }
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+            catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });

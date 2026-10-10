@@ -426,3 +426,6 @@ FodyWeavers.xsd
 
 /output
 /outputs
+
+/tmp
+/test

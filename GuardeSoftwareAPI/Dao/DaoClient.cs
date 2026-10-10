@@ -142,13 +142,13 @@ namespace GuardeSoftwareAPI.Dao
                 ) db
 
                 OUTER APPLY (
-                    SELECT NextPaymentDay = CASE WHEN r.rental_id IS NULL THEN NULL ELSE (
+                    SELECT NextPaymentDay = CASE WHEN r.rental_id IS NULL THEN NULL ELSE COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
                         SELECT MAX(candidate.PaymentMonth)
                         FROM (VALUES
                             (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
                             (DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth))
                         ) candidate(PaymentMonth)
-                    ) END
+                    )) END
                 ) nextPayment
 
                 -- SEPARACIÓN ESTRICTA DE CONCEPTOS
@@ -182,11 +182,12 @@ namespace GuardeSoftwareAPI.Dao
                             ORDER BY rah.start_date DESC, rah.rental_amount_history_id DESC
                         ), ISNULL(currentRental.CurrentRent, 0)),
                         UI_InterestAmount = rawData.Raw_Interest,
-                        UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
-                        UI_PreviousBalance = CASE 
+                        UI_Balance = COALESCE(-(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB), -latest_cmb.NetBalance, 0),
+                        UI_PreviousBalance = COALESCE(dbo.GetPaymentCollectionPreviousBalance(r.rental_id), CASE
+                            WHEN db.Id IS NULL AND latest_cmb.NetBalance < 0 THEN -latest_cmb.NetBalance
                             WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
                             ELSE -rawData.Raw_PrevBal
-                        END,
+                        END),
                         LastBalanceDate = CASE 
                             WHEN latest_cmb.MonthYearDB IS NOT NULL AND LEN(latest_cmb.MonthYearDB) = 7 THEN
                                 CASE 
@@ -346,11 +347,11 @@ namespace GuardeSoftwareAPI.Dao
                     ISNULL(step1.UI_Balance, 0) AS balance,
                     ISNULL(db.PaidDB, 0) AS total_paid,
                     
-                    CASE 
+                    COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), CASE
                         WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
                         THEN DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 10)
                         ELSE step1.LastBalanceDate
-                    END AS next_payment_day,
+                    END) AS next_payment_day,
 
                     CASE 
                         WHEN c.active = 0 THEN 'Baja'
@@ -448,18 +449,19 @@ namespace GuardeSoftwareAPI.Dao
                             ELSE ISNULL(cr.CurrentRent, 0)
                         END,
                         UI_InterestAmount = rawData.Raw_Interest,
-                        UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
-                        UI_PreviousBalance = CASE 
+                        UI_Balance = COALESCE(-(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB), -latest_cmb.NetBalance, 0),
+                        UI_PreviousBalance = COALESCE(dbo.GetPaymentCollectionPreviousBalance(r.rental_id), CASE
+                            WHEN db.Id IS NULL AND latest_cmb.NetBalance < 0 THEN -latest_cmb.NetBalance
                             WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
                             ELSE -rawData.Raw_PrevBal
-                        END,
-                        LastBalanceDate = (
+                        END),
+                        LastBalanceDate = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
                             SELECT MAX(candidate.PaymentMonth)
                             FROM (VALUES
                                 (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
                                 (DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth))
                             ) candidate(PaymentMonth)
-                        )
+                        ))
                 ) step1
 
                 WHERE c.client_id = @client_id;";
@@ -520,17 +522,29 @@ namespace GuardeSoftwareAPI.Dao
                 filterParameters.Add(new SqlParameter("@Active", request.Active.Value));
             }
 
-            if (!string.IsNullOrEmpty(request.SearchTerm))
+            if (!string.IsNullOrWhiteSpace(request.SearchTerm))
             {
+                var searchTerm = request.SearchTerm.Trim();
+                var cuitTerm = searchTerm.Replace("-", "").Replace(" ", "").Replace(".", "");
+                var isCuitSearch = cuitTerm.Length > 0 && cuitTerm.All(ch => ch >= '0' && ch <= '9');
                 finalWhereClause.Append(@"
                     AND (
                         ISNULL(FullName, '') LIKE @SearchTerm OR
-                        ISNULL(Email, '') LIKE @SearchTerm OR
+                        EXISTS (
+                            SELECT 1 FROM emails search_email
+                            WHERE search_email.client_id = ClientData.Id AND search_email.active = 1
+                              AND search_email.address COLLATE Latin1_General_100_CI_AI LIKE @SearchTerm
+                        ) OR
                         ISNULL(Document, '') LIKE @SearchTerm OR
+                        ISNULL(Cuit, '') LIKE @SearchTerm OR
+                        (@SearchCuit IS NOT NULL AND
+                            REPLACE(REPLACE(REPLACE(ISNULL(Cuit, ''), '-', ''), ' ', ''), '.', '') LIKE @SearchCuit) OR
                         CAST(PaymentIdentifier AS NVARCHAR(50)) LIKE @SearchTerm OR
                         ISNULL(Lockers, '') LIKE @SearchTerm
                     ) ");
-                filterParameters.Add(new SqlParameter("@SearchTerm", $"%{request.SearchTerm}%"));
+                filterParameters.Add(new SqlParameter("@SearchTerm", SqlDbType.NVarChar) { Value = $"%{searchTerm}%" });
+                filterParameters.Add(new SqlParameter("@SearchCuit", SqlDbType.NVarChar)
+                    { Value = isCuitSearch ? $"%{cuitTerm}%" : DBNull.Value });
             }
 
             if (!string.IsNullOrEmpty(request.StatusFilter) && request.StatusFilter != "Todos")
@@ -976,6 +990,7 @@ namespace GuardeSoftwareAPI.Dao
                         c.billing_type_id AS BillingTypeId,
                         bt.name AS BillingType,
                         c.dni AS Document,
+                        c.cuit AS Cuit,
                         locker_sub.lockers as Lockers,
                         locker_sub.lockers_json as WarehouseLockersJson,
                         c.active AS Active,
@@ -1093,18 +1108,19 @@ namespace GuardeSoftwareAPI.Dao
                     ) db
 
                     OUTER APPLY (
-                        SELECT NextPaymentDay = (
+                        SELECT NextPaymentDay = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
                             SELECT MAX(candidate.PaymentMonth)
                             FROM (VALUES
                                 (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
                                 (DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth))
                             ) candidate(PaymentMonth)
-                        )
+                        ))
                     ) baseNextPayment
 
                     OUTER APPLY (
                         SELECT NextPaymentDay = CASE
                             WHEN c.active = 0 THEN NULL
+                            WHEN dbo.GetPaymentCollectionMonth(r.rental_id) IS NOT NULL THEN baseNextPayment.NextPaymentDay
                             WHEN baseNextPayment.NextPaymentDay IS NULL
                                  OR baseNextPayment.NextPaymentDay < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
                             THEN DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)
@@ -1143,11 +1159,12 @@ namespace GuardeSoftwareAPI.Dao
                                 ORDER BY rah.start_date DESC, rah.rental_amount_history_id DESC
                             ), ISNULL(cr.CurrentRent, 0)),
                             UI_InterestAmount = rawData.Raw_Interest,
-                            UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
-                            UI_PreviousBalance = CASE 
+                            UI_Balance = COALESCE(-(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB), -latest_cmb.NetBalance, 0),
+                            UI_PreviousBalance = COALESCE(dbo.GetPaymentCollectionPreviousBalance(r.rental_id), CASE
+                                WHEN db.Id IS NULL AND latest_cmb.NetBalance < 0 THEN -latest_cmb.NetBalance
                                 WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
                                 ELSE -rawData.Raw_PrevBal
-                            END,
+                            END),
                             LastBalanceDate = CASE 
                                 WHEN latest_cmb.MonthYearDB IS NOT NULL AND LEN(latest_cmb.MonthYearDB) = 7 THEN
                                     CASE 

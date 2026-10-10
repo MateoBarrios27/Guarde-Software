@@ -1,0 +1,26 @@
+
+/* Abono: connector segments and markers use a shared 20 px column. */
+.abono-timeline { margin-top: 18px; }
+.abono-timeline-entry { position: relative; display: grid; grid-template-columns: 20px minmax(0, 1fr); column-gap: 12px; padding-bottom: 18px; }
+.abono-timeline-entry::before { content: ''; position: absolute; left: 9px; top: 0; bottom: 0; width: 2px; background: #DCE5EF; }
+.abono-timeline-entry:first-child::before { top: 28px; }
+.abono-timeline-entry:last-child::before { bottom: calc(100% - 28px); }
+.abono-timeline-entry:only-child::before { display: none; }
+.abono-timeline-entry:last-child { padding-bottom: 0; }
+.abono-marker { z-index: 1; grid-column: 1; grid-row: 1; justify-self: center; margin-top: 22px; width: 12px; height: 12px; border: 3px solid #FFFFFF; border-radius: 50%; background: #94A3B8; box-sizing: border-box; }
+.abono-marker-active { background: #059669; }
+.abono-marker-planned { background: #2563EB; }
+.abono-marker-event { background: #3170A2; border-radius: 3px; }
+.abono-step-card, .abono-payment-event { grid-column: 2; grid-row: 1; min-width: 0; padding: 14px 16px; border-radius: 12px; overflow-wrap: anywhere; }
+.abono-step-card { border: 1px solid #E2E8F0; background: #FFFFFF; }
+.abono-step-active { border-color: #A7DCC6; background: #F3FBF7; }
+.abono-step-planned { border-color: #B8D1F3; background: #F1F6FF; }
+.abono-payment-event { background: #EAF1F8; }
+.abono-transition { grid-column: 2; padding-top: 12px; }
+.abono-change { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px; background: #EAF1FC; color: #1D4ED8; font-size: 12px; line-height: 18px; font-weight: 600; }
+.abono-change-decrease { background: #FFF3E5; color: #9A4C0A; }
+.abono-change-equal { background: #F1F5F9; color: #64748B; }
+@media (max-width: 640px) {
+  .abono-timeline-entry { column-gap: 8px; }
+  .abono-step-card, .abono-payment-event { padding: 12px; }
+}

@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.spec.json",
+  "include": [
+    "src/app/shared/utils/communication-preview.util.spec.ts",
+    "src/app/shared/utils/logisticas-template.util.spec.ts",
+    "src/app/pages/communications/communications-logisticas.component.spec.ts",
+    "src/**/*.d.ts"
+  ]
+}

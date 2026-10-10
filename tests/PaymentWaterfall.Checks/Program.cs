@@ -1,6 +1,7 @@
 using System.Data;
 using System.Reflection;
 using GuardeSoftwareAPI.Dao;
+using GuardeSoftwareAPI.Dtos.AccountMovement;
 using GuardeSoftwareAPI.Entities;
 using GuardeSoftwareAPI.Dtos.Payment;
 using GuardeSoftwareAPI.Hubs;
@@ -92,24 +93,12 @@ Check(historical.Rows[0].AllocatedInterests == 10 && historical.Rows[0].UnpaidRe
     "same-month payment pays interest first; later payment pays remaining prior capital");
 
 var lateFeeBeforePayment = PaymentAllocationEngine.Allocate(Ariadna(0)).Rows;
-var lateFeeBlockedByPriorRent = LatePaymentSurchargeCalculator.Project(
-    lateFeeBeforePayment, new DateTime(2026, 9, 14), 170000m, 232000m);
-Check(lateFeeBlockedByPriorRent.UnpaidInterestsAfterPayment == 48700m &&
-      lateFeeBlockedByPriorRent.TaxableBase == 280700m &&
-      lateFeeBlockedByPriorRent.SurchargeAmount == 28000m,
-    "late fee includes every interest still unpaid after prior rent");
-var lateFeeAfterPartialInterestPayment = LatePaymentSurchargeCalculator.Project(
-    lateFeeBeforePayment, new DateTime(2026, 9, 14), 250000m, 232000m);
-Check(lateFeeAfterPartialInterestPayment.UnpaidInterestsAfterPayment == 30700m &&
-      lateFeeAfterPartialInterestPayment.TaxableBase == 262700m &&
-      lateFeeAfterPartialInterestPayment.SurchargeAmount == 26200m,
-    "late fee includes only the interest remainder after the payment waterfall");
-var lateFeeAfterFullInterestPayment = LatePaymentSurchargeCalculator.Project(
-    lateFeeBeforePayment, new DateTime(2026, 9, 14), 280700m, 232000m);
-Check(lateFeeAfterFullInterestPayment.UnpaidInterestsAfterPayment == 0m &&
-      lateFeeAfterFullInterestPayment.TaxableBase == 232000m &&
-      lateFeeAfterFullInterestPayment.SurchargeAmount == 23200m,
-    "late fee uses only current rent when all previous interests were paid");
+var lateFeeAtCutoff = LatePaymentSurchargeCalculator.Project(
+    lateFeeBeforePayment, new DateTime(2026, 9, 14), 232000m);
+Check(lateFeeAtCutoff.UnpaidInterestsAtCutoff == 48700m &&
+      lateFeeAtCutoff.TaxableBase == 280700m &&
+      lateFeeAtCutoff.SurchargeAmount == 28000m,
+    "late fee freezes current rent and every unpaid interest at the cutoff");
 
 // Only the local SQL Server and a uniquely named disposable database; no appsettings.
 var database = "GuardeWaterfallChecks_" + Guid.NewGuid().ToString("N");
@@ -135,23 +124,26 @@ try
             registration_date DATETIME, dni VARCHAR(30), cuit VARCHAR(30), preferred_payment_method_id INT,
             iva_condition VARCHAR(30), notes VARCHAR(200), departure_status VARCHAR(30), billing_type_id INT,
             increase_frequency_months INT, is_six_month_promotion BIT, initial_amount DECIMAL(18,2), active BIT, is_deleted BIT NOT NULL DEFAULT 0);
-        CREATE TABLE rentals(rental_id INT PRIMARY KEY, client_id INT, start_date DATETIME, end_date DATETIME,
-            contracted_m3 DECIMAL(18,2), months_unpaid INT, active BIT, price_lock_end_date DATETIME,
-            occupied_spaces INT, increase_anchor_date DATETIME, pending_surcharge DECIMAL(18,2),
+        CREATE TABLE rentals(rental_id INT IDENTITY PRIMARY KEY, client_id INT, start_date DATETIME, end_date DATETIME,
+            contracted_m3 DECIMAL(18,2), months_unpaid INT, active BIT DEFAULT 1, price_lock_end_date DATETIME,
+            occupied_spaces INT, increase_anchor_date DATETIME, pending_surcharge DECIMAL(18,2) DEFAULT 0,
             pending_surcharge_rent_base DECIMAL(18,2), pending_surcharge_period DATE);
         CREATE TABLE payment_methods(payment_method_id INT PRIMARY KEY, name VARCHAR(100), commission DECIMAL(18,2), active BIT);
         CREATE TABLE payments(payment_id INT IDENTITY PRIMARY KEY, client_id INT, payment_method_id INT, payment_date DATETIME, amount DECIMAL(18,2));
         CREATE TABLE rental_amount_history(rental_amount_history_id INT IDENTITY PRIMARY KEY, rental_id INT, amount DECIMAL(18,2), start_date DATETIME, end_date DATETIME);
+        CREATE TABLE monthly_increase_settings(increase_setting_id INT IDENTITY PRIMARY KEY, effective_date DATE NOT NULL UNIQUE, percentage DECIMAL(5,2) NOT NULL);
         CREATE TABLE account_movements(movement_id INT IDENTITY PRIMARY KEY, rental_id INT, movement_date DATETIME, movement_type VARCHAR(10), concept VARCHAR(255), amount DECIMAL(18,2), payment_id INT NULL);
         CREATE TABLE client_month_balances(id INT IDENTITY PRIMARY KEY, rental_id INT, month_year VARCHAR(7), previous_balance DECIMAL(18,2), interests DECIMAL(18,2), monthly_debits DECIMAL(18,2), balance DECIMAL(18,2), paid DECIMAL(18,2), advanced_payment DECIMAL(18,2));
         CREATE TABLE lockers(locker_id INT PRIMARY KEY, identifier VARCHAR(30), rental_id INT, warehouse_id INT, locker_type_id INT, active BIT);
         CREATE TABLE rental_lockers(rental_id INT, locker_id INT);
+        CREATE TABLE client_locker_history(client_id INT, locker_id INT, start_date DATETIME, end_date DATETIME);
+        CREATE TABLE warehouses(warehouse_id INT PRIMARY KEY, name VARCHAR(100));
         CREATE TABLE emails(email_id INT IDENTITY PRIMARY KEY, client_id INT, address VARCHAR(255), active BIT);
         ALTER TABLE clients ADD color VARCHAR(30), receive_communications BIT, comment VARCHAR(500), comment_updated_at DATETIME;
         CREATE TABLE addresses(address_id INT IDENTITY PRIMARY KEY, client_id INT, street VARCHAR(200), city VARCHAR(100), province VARCHAR(100));
         CREATE TABLE billing_types(billing_type_id INT PRIMARY KEY, name VARCHAR(100));
         INSERT clients(client_id, full_name, payment_identifier, preferred_payment_method_id, initial_amount, active, increase_frequency_months) VALUES(1, 'Ariadna prueba', 5.13, 1, 232000, 1, 3);
-        INSERT rentals VALUES(1, 1, '2020-01-01', NULL, 1, 2, 1, NULL, 1, '2026-10-01', 0, NULL, NULL);
+        SET IDENTITY_INSERT rentals ON; INSERT rentals(rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active, price_lock_end_date, occupied_spaces, increase_anchor_date, pending_surcharge, pending_surcharge_rent_base, pending_surcharge_period) VALUES(1, 1, '2020-01-01', NULL, 1, 2, 1, NULL, 1, '2026-10-01', 0, NULL, NULL);
         INSERT payment_methods VALUES(1, 'MP', 0, 1);
         INSERT rental_amount_history VALUES(1, 232000, '2020-01-01', NULL);
         """);
@@ -159,6 +151,19 @@ try
     await db.ExecuteCommandAsync(migration);
     await db.ExecuteCommandAsync(migration);
     Check(true, "migration applies twice");
+    var collectionMigration = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "collection-migration.sql"));
+    for (int pass = 0; pass < 2; pass++)
+        foreach (var batch in System.Text.RegularExpressions.Regex.Split(collectionMigration, @"(?im)^GO\s*$"))
+            if (!string.IsNullOrWhiteSpace(batch)) await db.ExecuteCommandAsync(batch);
+    Check(true, "collection decision migration applies twice");
+
+    if (args.Contains("--client-search-only"))
+    {
+        await ClientSearchChecks.RunAsync(db, Check);
+        Console.WriteLine($"ALL {checks} CHECKS PASSED");
+        return;
+    }
+
     async Task<decimal> Scalar(string sql) => Convert.ToDecimal(await db.ExecuteScalarAsync(sql));
     async Task Insert(AccountMovement m) => await db.ExecuteCommandAsync("""
         INSERT account_movements(rental_id, movement_date, movement_type, concept, amount, payment_id)
@@ -178,13 +183,21 @@ try
     var payments = new PaymentService(db, accountService, NullLogger<PaymentService>.Instance,
         new RentalService(db), historyService, new PaymentMethodService(db, activity), balances,
         stateService, new PaymentPresenceRegistry(), activity);
-    async Task Pay(decimal amount, int day, bool skipFuture = true, string? action = null) =>
-        await payments.CreatePaymentWithMovementAsync(new CreatePaymentTransaction
-        {
+    async Task Pay(decimal amount, int day, bool skipFuture = true, string? action = null) {
+        var dto = new CreatePaymentTransaction {
             ClientId = 1, PaymentMethodId = 1, Amount = amount, Date = new DateTime(2026, 9, day),
             SkipFutureProjection = skipFuture, SurchargeAction = action,
             ExpectedPaymentStateToken = (await stateService.GetSnapshotAsync(1)).Token
-        });
+        };
+        try { await payments.CreatePaymentWithMovementAsync(dto); }
+        catch (PaymentDecisionRequiredException ex) {
+            Check(ex.Details.Scenario == "partial_payment", "prior principal partial payment consults collection month");
+            dto.FutureDebitAction = ex.Details.Options.Any(o=>o.Action=="close_partial_month")
+                ? "close_partial_month" : "keep_month_pending";
+            dto.PaymentDecisionToken = ex.Details.DecisionToken;
+            await payments.CreatePaymentWithMovementAsync(dto);
+        }
+    }
     await Pay(170000,14, skipFuture:false);
     Check(await Scalar("SELECT unpaid_rent FROM client_month_balances WHERE month_year='08/2026'") == 62000, "real payment: previous principal 62000");
     Check(await Scalar("SELECT SUM(unpaid_interests) FROM client_month_balances") == 48700, "real payment: interests untouched");
@@ -229,9 +242,9 @@ try
     Check(await Scalar("SELECT unpaid_rent FROM client_month_balances WHERE month_year='08/2026'") == 62000 &&
         await Scalar("SELECT SUM(unpaid_interests) FROM client_month_balances") == 48700, "deletion rebuild restores 62000 capital and 48700 interests");
     await db.ExecuteCommandAsync("UPDATE rentals SET pending_surcharge=28000, pending_surcharge_rent_base=232000, pending_surcharge_period='2026-09-01'");
-    await Pay(1,16, action:"next_payment");
+    await Pay(280700,16, action:"next_payment");
     Check(await Scalar("SELECT amount FROM account_movements WHERE concept='Interés por mora de Septiembre 2026'") == 28000,
-        "late fee retains every unpaid interest until prior principal is cleared");
+        "late payment keeps the cutoff fee even when it later pays every prior interest");
 
     // NextPaymentDay: a pending plan starts in the current month; any formal
     // partial payment defers the next contact one month, while complete advance
@@ -244,7 +257,7 @@ try
         INSERT clients(client_id, full_name, payment_identifier, preferred_payment_method_id, initial_amount,
             active, increase_frequency_months, registration_date, receive_communications)
         VALUES(2, 'Cliente planificación', 9.99, 1, 100, 1, 4, @previousMonth, 1);
-        INSERT rentals(rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active,
+        SET IDENTITY_INSERT rentals ON; INSERT rentals(rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active,
             price_lock_end_date, occupied_spaces, increase_anchor_date, pending_surcharge,
             pending_surcharge_rent_base, pending_surcharge_period)
         VALUES(2, 2, @previousMonth, NULL, 1, 0, 1, NULL, 1, NULL, 0, NULL, NULL);
@@ -377,6 +390,207 @@ try
     Check(SameMonth(DateTime.Parse(coveredSnapshot.Clients.Single(c => c.Id == 2).NextPaymentDay!), monthAfterPlan),
         "offline snapshot defers next payment beyond a fully paid plan");
 
+    // A projected statement for the month when the next payment is due must
+    // include the complete pending plan, not only the target month's debit.
+    var projectedStatementMonth = thisMonth.AddMonths(1);
+    await db.ExecuteCommandAsync("""
+        INSERT clients(client_id, full_name, payment_identifier, preferred_payment_method_id, initial_amount,
+            active, increase_frequency_months, registration_date, receive_communications)
+        VALUES(3, 'Cliente estado proyectado', 0, 1, 100, 1, 4, @thisMonth, 1);
+        SET IDENTITY_INSERT rentals ON; INSERT rentals(rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active,
+            price_lock_end_date, occupied_spaces, increase_anchor_date, pending_surcharge,
+            pending_surcharge_rent_base, pending_surcharge_period)
+        VALUES(3, 3, @thisMonth, NULL, 1, 0, 1, NULL, 1, NULL, 0, NULL, NULL);
+        INSERT rental_amount_history(rental_id, amount, start_date, end_date)
+        VALUES(3, 100, @thisMonth, NULL);
+        """, [new SqlParameter("@thisMonth", thisMonth)]);
+
+    await AddRentDebit(3, thisMonth, planned: false);
+    await AddFormalPayment(3, 3, thisMonth.AddDays(5), 100);
+    await AddRentDebit(3, projectedStatementMonth, planned: true);
+    await AddRentDebit(3, projectedStatementMonth.AddMonths(1), planned: true);
+    await AddRentDebit(3, projectedStatementMonth.AddMonths(2), planned: true);
+    await balances.RebuildForRentalAsync(3);
+
+    var projectedStatementRecipients = await new CommunicationDao(db).GetClientsForSelectorAsync();
+    Check(SameMonth(
+            projectedStatementRecipients.Single(c => c.Id == 3).NextPaymentDate
+                ?? throw new Exception("Projected statement client returned no next payment date"),
+            projectedStatementMonth),
+        "projected statement client is due in the first month of the pending plan");
+
+    var normalPlannedStatement = await new CommunicationDao(db).GetClientFinancialData(3);
+    Check(normalPlannedStatement.CurrentBalance == 300m,
+        "normal statement includes the complete three-month pending plan");
+
+    var projectedPlannedStatement = await new CommunicationDao(db).GetClientFinancialData(3, isNextMonth: true);
+    Check(projectedPlannedStatement.CurrentBalance == 300m,
+        "projected statement includes the complete plan due in its target month");
+
+    // A pending surcharge belongs to the statement even when the planned
+    // debits include an assigned increase. It is not materialized as an
+    // account movement until the payment workflow applies it.
+    var increasedPlanMonth = projectedStatementMonth.AddMonths(1);
+    await db.ExecuteCommandAsync("""
+        INSERT clients(client_id, full_name, payment_identifier, preferred_payment_method_id, initial_amount,
+            active, increase_frequency_months, registration_date, receive_communications)
+        VALUES(4, 'Cliente plan con aumento y recargo', 0, 1, 100, 1, 4, @thisMonth, 1);
+        SET IDENTITY_INSERT rentals ON; INSERT rentals(rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active,
+            price_lock_end_date, occupied_spaces, increase_anchor_date, pending_surcharge,
+            pending_surcharge_rent_base, pending_surcharge_period)
+        VALUES(4, 4, @thisMonth, NULL, 1, 0, 1, NULL, 1, @increaseMonth, 25, 100, @thisMonth);
+        INSERT rental_amount_history(rental_id, amount, start_date, end_date)
+        VALUES(4, 100, @thisMonth, NULL);
+        """, [
+            new SqlParameter("@thisMonth", thisMonth),
+            new SqlParameter("@increaseMonth", increasedPlanMonth)
+        ]);
+
+    await AddRentDebit(4, thisMonth, planned: false);
+    await AddFormalPayment(4, 4, thisMonth.AddDays(5), 100);
+    await balances.RebuildForRentalAsync(4);
+
+    var increasedPlanContext = await accountService.GetPaymentPlanningContextAsync(4, 3);
+    Check(increasedPlanContext.Increases.Count == 1 &&
+          increasedPlanContext.Increases[0].Year == increasedPlanMonth.Year &&
+          increasedPlanContext.Increases[0].Month == increasedPlanMonth.Month,
+        "payment plan detects the assigned increase inside the planned period");
+
+    var increasedPlan = await accountService.PlanClientPaymentAsync(new PlanClientPaymentDto
+    {
+        ClientId = 4,
+        Months = 3,
+        ChargeHalfSixthMonth = true,
+        AppliedIncreases =
+        [
+            new PlannedPaymentIncreaseDto
+            {
+                Year = increasedPlanMonth.Year,
+                Month = increasedPlanMonth.Month,
+                Percentage = 10,
+                NewRentAmount = 110
+            }
+        ]
+    });
+    Check(increasedPlan.TotalAmount == 320m,
+        "payment plan applies the assigned increase to its month and following month");
+
+    var normalIncreasedStatement = await new CommunicationDao(db).GetClientFinancialData(4);
+    Check(normalIncreasedStatement.Surcharge == 25m && normalIncreasedStatement.CurrentBalance == 345m,
+        "normal statement includes pending surcharge alongside the increased plan");
+
+    var projectedIncreasedStatement = await new CommunicationDao(db).GetClientFinancialData(4, isNextMonth: true);
+    Check(projectedIncreasedStatement.Surcharge == 25m && projectedIncreasedStatement.CurrentBalance == 345m,
+        "projected statement includes pending surcharge alongside the increased plan");
+
+    // Six months or more lock the base price even when an increase anchor falls
+    // inside the period. The sixth-month benefit remains an explicit operator
+    // choice for promotional clients.
+    async Task AddSixMonthPromotionClient(int clientId)
+    {
+        await db.ExecuteCommandAsync("""
+            INSERT clients(client_id, full_name, payment_identifier, preferred_payment_method_id, initial_amount,
+                active, increase_frequency_months, registration_date, receive_communications, is_six_month_promotion)
+            VALUES(@clientId, 'Cliente promoción semestral', 0, 1, 100, 1, 4, @thisMonth, 1, 1);
+            SET IDENTITY_INSERT rentals ON; INSERT rentals(rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active,
+                price_lock_end_date, occupied_spaces, increase_anchor_date, pending_surcharge,
+                pending_surcharge_rent_base, pending_surcharge_period)
+            VALUES(@clientId, @clientId, @thisMonth, NULL, 1, 0, 1, NULL, 1, @increaseMonth, 0, NULL, NULL);
+            INSERT rental_amount_history(rental_id, amount, start_date, end_date)
+            VALUES(@clientId, 100, @thisMonth, NULL);
+            """, [
+                new SqlParameter("@clientId", clientId),
+                new SqlParameter("@thisMonth", thisMonth),
+                new SqlParameter("@increaseMonth", projectedStatementMonth.AddMonths(2))
+            ]);
+        await AddRentDebit(clientId, thisMonth, planned: false);
+        await AddFormalPayment(clientId, clientId, thisMonth.AddDays(5), 100);
+        await balances.RebuildForRentalAsync(clientId);
+    }
+
+    await AddSixMonthPromotionClient(5);
+    var lockedPromotionContext = await accountService.GetPaymentPlanningContextAsync(5, 6);
+    Check(lockedPromotionContext.IsPriceLocked && lockedPromotionContext.Increases.Count == 0,
+        "six-month plan suppresses an increase anchor inside the planned period");
+
+    var discountedPromotionPlan = await accountService.PlanClientPaymentAsync(new PlanClientPaymentDto
+    {
+        ClientId = 5,
+        Months = 6,
+        ChargeHalfSixthMonth = true
+    });
+    Check(discountedPromotionPlan.TotalAmount == 550m &&
+          discountedPromotionPlan.Months.Take(5).All(month => month.Amount == 100m) &&
+          discountedPromotionPlan.Months[5].Amount == 50m &&
+          discountedPromotionPlan.Months[5].IsHalfPromotion,
+        "promotional six-month plan charges half of only the sixth month");
+    Check(Convert.ToDecimal(await db.ExecuteScalarAsync(
+            "SELECT COUNT(*) FROM rental_amount_history WHERE rental_id=5 AND amount<>100")) == 0,
+        "six-month price lock does not create an increased rent history");
+
+    await AddSixMonthPromotionClient(6);
+    var fullPricePromotionPlan = await accountService.PlanClientPaymentAsync(new PlanClientPaymentDto
+    {
+        ClientId = 6,
+        Months = 6,
+        ChargeHalfSixthMonth = false
+    });
+    Check(fullPricePromotionPlan.TotalAmount == 600m &&
+          fullPricePromotionPlan.Months.All(month => month.Amount == 100m && !month.IsHalfPromotion),
+        "operator can disable the sixth-month benefit and charge the full month");
+
+    // The monthly debit job fills an increase that was not planned while the
+    // preceding month remained completely unpaid. Partial payment is excluded.
+    var automaticDebitMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+    var previousAutomaticDebitMonth = automaticDebitMonth.AddMonths(-1);
+    await db.ExecuteCommandAsync("""
+        INSERT clients(client_id, full_name, payment_identifier, preferred_payment_method_id, initial_amount,
+            active, increase_frequency_months)
+        VALUES(7, 'Cliente aumento automático', 0, 1, 100000, 1, 4),
+              (8, 'Cliente con pago parcial', 0, 1, 100000, 1, 4);
+        SET IDENTITY_INSERT rentals ON; INSERT rentals(rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active,
+            price_lock_end_date, occupied_spaces, increase_anchor_date, pending_surcharge,
+            pending_surcharge_rent_base, pending_surcharge_period)
+        VALUES(7, 7, @start_date, NULL, 1, 0, 1, NULL, 1, @increase_month, 0, NULL, NULL),
+              (8, 8, @start_date, NULL, 1, 0, 1, NULL, 1, @increase_month, 0, NULL, NULL);
+        INSERT rental_amount_history(rental_id, amount, start_date, end_date)
+        VALUES(7, 100000, @history_start, NULL), (8, 100000, @history_start, NULL);
+        INSERT account_movements(rental_id, movement_date, movement_type, concept, amount, payment_id)
+        VALUES(7, @previous_month, 'DEBITO', 'Alquiler mes anterior', 100000, NULL),
+              (8, @previous_month, 'DEBITO', 'Alquiler mes anterior', 100000, NULL),
+              (8, DATEADD(day, 5, @previous_month), 'CREDITO', 'Pago parcial', 1, 800);
+        INSERT monthly_increase_settings(effective_date, percentage) VALUES(@increase_month, 10);
+        """, [
+            new SqlParameter("@start_date", previousAutomaticDebitMonth),
+            new SqlParameter("@increase_month", automaticDebitMonth),
+            new SqlParameter("@history_start", automaticDebitMonth.AddYears(-2)),
+            new SqlParameter("@previous_month", previousAutomaticDebitMonth)
+        ]);
+    await balances.RebuildForRentalAsync(7);
+    await balances.RebuildForRentalAsync(8);
+    var monthlyDebits = new AccountMovementService(db, NullLogger<AccountMovementService>.Instance,
+        balances, null!, historyService);
+    await monthlyDebits.ApplyMonthlyDebitsAsync();
+    Check(Convert.ToDecimal(await db.ExecuteScalarAsync(
+            "SELECT amount FROM account_movements WHERE rental_id=7 AND movement_date >= @month AND concept LIKE 'Alquiler %'",
+            [new SqlParameter("@month", automaticDebitMonth)])) == 110000m,
+        "automatic monthly debit applies configured increase to fully unpaid missed plan");
+    Check(Convert.ToDecimal(await db.ExecuteScalarAsync(
+            "SELECT amount FROM rental_amount_history WHERE rental_id=7 AND start_date=@month",
+            [new SqlParameter("@month", automaticDebitMonth)])) == 110000m &&
+          Convert.ToDateTime(await db.ExecuteScalarAsync(
+              "SELECT increase_anchor_date FROM rentals WHERE rental_id=7")).Date == automaticDebitMonth.AddMonths(3),
+        "automatic increase creates new rent history and advances anchor by configured frequency");
+    Check(Convert.ToDecimal(await db.ExecuteScalarAsync(
+            "SELECT amount FROM account_movements WHERE rental_id=8 AND movement_date >= @month AND concept LIKE 'Alquiler %'",
+            [new SqlParameter("@month", automaticDebitMonth)])) == 100000m &&
+          Convert.ToInt32(await db.ExecuteScalarAsync(
+              "SELECT COUNT(*) FROM rental_amount_history WHERE rental_id=8 AND start_date=@month",
+              [new SqlParameter("@month", automaticDebitMonth)])) == 0 &&
+          Convert.ToDateTime(await db.ExecuteScalarAsync(
+              "SELECT increase_anchor_date FROM rentals WHERE rental_id=8")).Date == automaticDebitMonth,
+        "automatic configured increase does not apply when prior rent was partially paid");
+
     var movementDao = new DaoAccountMovement(db);
     const string concurrentConcept = "Alquiler Enero 2099";
     using (var firstConnection = db.GetConnectionClose())
@@ -410,6 +624,11 @@ try
             "waiting monthly debit transaction observes the debit committed by its competitor");
         await secondTransaction.CommitAsync();
     }
+
+    await PaymentDecisionChecks.RunAsync(db, payments, balances, stateService, Check);
+
+    await DepartureChecks.RunAsync(db, balances, Check);
+    await ReactivationChecks.RunAsync(db, balances, Check);
 
     Console.WriteLine($"ALL {checks} CHECKS PASSED");
 }

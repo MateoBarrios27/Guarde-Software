@@ -9,7 +9,7 @@ import { CreateClientModalComponent } from '../../shared/components/create-clien
 // --- Modelos y Servicios para la TABLA ---
 import { TableClient } from '../../core/dtos/client/TableClientDto';
 import { GetClientsRequest } from '../../core/dtos/client/GetClientsRequest';
-import { ClientDepartureProportionalPreview, ClientService } from '../../core/services/client-service/client.service';
+import { ClientDepartureProportionalPreview, ClientService, ReactivationBalanceDecision } from '../../core/services/client-service/client.service';
 import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO';
 
 import { Subject, Observable, firstValueFrom, Subscription } from 'rxjs';
@@ -32,6 +32,8 @@ import Swal from '../../shared/services/ui-alert.service';
 import { ToastNotificationComponent } from '../../shared/components/toast-notification/toast-notification.component';
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 import { AuthService } from '../../core/services/auth-service/auth.service';
+import { ClientReactivationModalComponent, ClientReactivationPrepared } from '../../shared/components/client-reactivation-modal/client-reactivation-modal.component';
+import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 
 type FilterTagState = 'none' | 'include' | 'exclude';
 type FilterTagGroup = 'warehouse' | 'quick' | 'billing' | 'paymentMethod' | 'iva' | 'lockerType' | 'paymentDay';
@@ -46,7 +48,9 @@ type FilterTagGroup = 'warehouse' | 'quick' | 'billing' | 'paymentMethod' | 'iva
     NgxPaginationModule,
     CreateClientModalComponent,
     ClientDetailModalComponent,
-    ToastNotificationComponent
+    ToastNotificationComponent,
+    CurrencyFormatDirective,
+    ClientReactivationModalComponent
   ],
   templateUrl: './clients.component.html',
   styleUrl: './clients.component.css',
@@ -103,6 +107,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public clientToDeactivateId: string | null = null;
 
   public isReactivationMode = false;
+  public reactivationBalanceDecision: ReactivationBalanceDecision | null = null;
+  public clientToReactivate: TableClient | null = null;
 
   public warehouses: Warehouse[] = [];
   public selectedWarehouseIds: number[] = [];
@@ -142,6 +148,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public departureSubmitting = false;
   public departureProportionalPreview: ClientDepartureProportionalPreview | null = null;
   public departureProportionalPreviewLoading = false;
+  public departureProportionalAmount: number | null = null;
   private departurePreviewRequestId = 0;
 
   @ViewChild('tagsPopoverRef') tagsPopoverRef!: ElementRef;
@@ -273,8 +280,6 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.departureChargeProportional = (event.target as HTMLInputElement).checked;
     this.departureFormError = '';
     if (this.departureChargeProportional) {
-      // El proporcional reemplaza al débito mensual completo del mes siguiente.
-      this.departureRemoveNextMonthDebit = true;
       this.loadDepartureProportionalPreview();
     } else {
       this.clearDepartureProportionalPreview();
@@ -292,24 +297,9 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  public getNextMonthDateInputMin(): string {
-    const today = new Date();
-    return this.toDateInputValue(new Date(today.getFullYear(), today.getMonth() + 1, 1));
-  }
-
-  public getNextMonthDateInputMax(): string {
-    const today = new Date();
-    return this.toDateInputValue(new Date(today.getFullYear(), today.getMonth() + 2, 0));
-  }
-
   public getDepartureProportionalDays(): number {
     const date = this.parseDateInput(this.departureDate);
     return date ? date.getDate() : 0;
-  }
-
-  public getDepartureProportionalAmount(cliente: TableClient): number {
-    if (this.activeDepartureClient?.id !== cliente.id) return 0;
-    return this.departureProportionalPreview?.proportionalAmount ?? 0;
   }
 
   private async loadDepartureProportionalPreview(): Promise<void> {
@@ -323,6 +313,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const requestId = ++this.departurePreviewRequestId;
     this.departureProportionalPreview = null;
+    this.departureProportionalAmount = null;
     this.departureProportionalPreviewLoading = true;
     this.cdr.markForCheck();
 
@@ -332,6 +323,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       );
       if (requestId !== this.departurePreviewRequestId) return;
       this.departureProportionalPreview = preview;
+      this.departureProportionalAmount = preview.proportionalAmount;
     } catch (error) {
       if (requestId !== this.departurePreviewRequestId) return;
       console.error('Error al calcular el proporcional de salida:', error);
@@ -347,6 +339,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   private clearDepartureProportionalPreview(): void {
     this.departurePreviewRequestId++;
     this.departureProportionalPreview = null;
+    this.departureProportionalAmount = null;
     this.departureProportionalPreviewLoading = false;
   }
 
@@ -357,13 +350,19 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.departureAction !== 'SE_QUEDA' && this.departureChargeProportional) {
       const selectedDate = this.parseDateInput(this.departureDate);
-      const minDate = this.parseDateInput(this.getNextMonthDateInputMin());
-      const maxDate = this.parseDateInput(this.getNextMonthDateInputMax());
-      if (!selectedDate || !minDate || !maxDate || selectedDate < minDate || selectedDate > maxDate) {
-        this.departureFormError = 'Elegí una fecha válida dentro del mes siguiente.';
+      if (!selectedDate) {
+        this.departureFormError = 'Elegí una fecha de retiro válida.';
         this.cdr.markForCheck();
         return;
       }
+    }
+
+    if (this.departureAction !== 'SE_QUEDA' && this.departureChargeProportional &&
+        (this.departureProportionalPreviewLoading || this.departureProportionalAmount === null ||
+         !Number.isFinite(this.departureProportionalAmount) || this.departureProportionalAmount < 0)) {
+      this.departureFormError = 'Ingresá un monto a cobrar válido, mayor o igual a cero.';
+      this.cdr.markForCheck();
+      return;
     }
 
     const action = this.departureAction;
@@ -378,18 +377,13 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-  private toDateInputValue(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
   private parseDateInput(value: string): Date | null {
     if (!value) return null;
     const [year, month, day] = value.split('-').map(Number);
     if (!year || !month || !day) return null;
-    return new Date(year, month - 1, day);
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+      ? date : null;
   }
 
   private submitDepartureAction(
@@ -409,6 +403,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       removeNextMonthDebit,
       restoreProportional: action === 'SE_QUEDA' && this.departureRestoreProportional,
       departureDate,
+      proportionalAmount: chargeProportional ? this.departureProportionalAmount ?? undefined : undefined,
       pendingSurchargeAction
     }).subscribe({
       next: () => {
@@ -1016,8 +1011,20 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       if (loadSequence !== this.clientLoadSequence) return;
       
       // We map the cached Client model (which is simple) to the TableClient format as best as possible
-      let filtered = cached
+      const term = this.searchClientes.trim().toLocaleLowerCase('es-AR');
+      const cuitTerm = term.replace(/[- .]/g, '');
+      const isCuitSearch = /^[0-9]+$/.test(cuitTerm);
+      const filtered = cached
         .filter(c => this.matchesCachedClientFilters(c))
+        .filter(c => !term ||
+          c.fullName.toLocaleLowerCase('es-AR').includes(term) ||
+          (c.paymentIdentifier?.toString().includes(term) ?? false) ||
+          (c.lockerIdentifiers?.some(identifier => identifier.toLocaleLowerCase('es-AR').includes(term)) ?? false) ||
+          (c.dni?.includes(term) ?? false) ||
+          (c.cuit?.includes(term) ?? false) ||
+          (isCuitSearch && (c.cuit?.replace(/[- .]/g, '').includes(cuitTerm) ?? false)) ||
+          (c.emails?.some(email => email.toLocaleLowerCase('es-AR').includes(term)) ?? false)
+        )
         .map(c => ({
         id: c.id,
         fullName: c.fullName,
@@ -1035,7 +1042,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         needsNextRentPlanning: c.needsNextRentPlanning ?? false,
         active: c.active ?? true,
         phone1: '',
-        email: '',
+        email: c.emails?.[0] ?? '',
         lockers: c.lockerIdentifiers ?? [],
         registrationDate: new Date(),
         documentType: '',
@@ -1045,19 +1052,9 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         preferredPaymentMethodId: c.preferredPaymentMethodId ?? 0,
         billingTypeId: c.billingTypeId ?? 0,
         ivaCondition: c.ivaCondition ?? '',
-        dni: '',
-        cuit: ''
+        dni: c.dni ?? '',
+        cuit: c.cuit ?? ''
       } as unknown as TableClient));
-
-      // Apply basic search filter if present
-      if (this.searchClientes) {
-        const term = this.searchClientes.trim().toLocaleLowerCase('es-AR');
-        filtered = filtered.filter(c => 
-          c.fullName.toLocaleLowerCase('es-AR').includes(term) ||
-          (c.paymentIdentifier?.toString().includes(term) ?? false) ||
-          (c.lockers?.some(identifier => identifier.toLocaleLowerCase('es-AR').includes(term)) ?? false)
-        );
-      }
 
       this.clientes = filtered;
       this.totalClientes = filtered.length;
@@ -1327,21 +1324,15 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  private fetchAndOpenReactivationModal(clientId: number): void {
-    this.clientService.getClientDetailById(clientId).subscribe((clientDetail) => {
-      this.clientToEdit = clientDetail;
-      this.showNewClientModal = true;
-      this.cdr.markForCheck();
-    });
-  }
-
   closeNewClientModal(): void {
     this.showNewClientModal = false;
     this.clientToEdit = null;
+    this.reactivationBalanceDecision = null;
+    this.isReactivationMode = false;
   }
 
   onClientSaveSuccess(): void {
-    this.showToastNotification('¡Cliente guardado exitosamente!', 'success');
+    this.showToastNotification(this.isReactivationMode ? 'Cliente reactivado correctamente.' : '¡Cliente guardado exitosamente!', 'success');
     this.closeNewClientModal();
     this.loadClients();
     this.loadStatistics();
@@ -1396,31 +1387,20 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  public async onReactivateClient(cliente: TableClient): Promise<void> {
-    const { default: Swal } = await import('../../shared/services/ui-alert.service');
-    Swal.fire({
-      title: '¿Reactivar Cliente?',
-      html: `
-        Vas a reactivar a <strong>${cliente.fullName}</strong>.<br><br>
-        <ul style="text-align: left; font-size: 0.9em; margin-left: 20px;">
-          <li>Se generará un <strong>nuevo Número de Identificación</strong>.</li>
-          <li>Se abrirá el formulario para <strong>confirmar los datos y asignar bauleras</strong>.</li>
-        </ul>
-      `,
-      icon: 'info',
-      showCancelButton: true,
-      confirmButtonColor: '#2563eb',
-      cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Sí, configurar reactivación',
-      cancelButtonText: 'Cancelar',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        
-        this.isReactivationMode = true; 
-        this.fetchAndOpenReactivationModal(cliente.id);
-        
-      }
-    });
+  public onReactivateClient(cliente: TableClient): void {
+    if (this.authService.isObserver() || this.clientToReactivate) return;
+    this.reactivationBalanceDecision = null;
+    this.clientToReactivate = cliente;
+    this.cdr.markForCheck();
+  }
+
+  public onReactivationPrepared(result: ClientReactivationPrepared): void {
+    this.clientToReactivate = null;
+    this.reactivationBalanceDecision = result.decision;
+    this.isReactivationMode = true;
+    this.clientToEdit = result.clientDetail;
+    this.showNewClientModal = true;
+    this.cdr.markForCheck();
   }
 
   onClientDataUpdated(clientId: number): void {

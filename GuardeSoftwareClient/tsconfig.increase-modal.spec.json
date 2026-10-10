@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.spec.json",
+  "include": [
+    "src/app/core/services/monthlyIncrease-service/monthly-increase.service.spec.ts",
+    "src/app/shared/components/payment-increase-modal/*.spec.ts",
+    "src/app/shared/utils/payment-planning.util.spec.ts"
+  ]
+}

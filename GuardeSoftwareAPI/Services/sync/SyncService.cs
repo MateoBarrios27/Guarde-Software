@@ -31,6 +31,17 @@ namespace GuardeSoftwareAPI.Services.sync
                 .ToList() ?? [];
         }
 
+        private static List<string> ParseEmailAddresses(object value)
+        {
+            var json = value == DBNull.Value ? null : value?.ToString();
+            if (string.IsNullOrWhiteSpace(json)) return new();
+            using var document = System.Text.Json.JsonDocument.Parse(json);
+            return document.RootElement.EnumerateArray()
+                .Where(email => email.TryGetProperty("address", out _))
+                .Select(email => email.GetProperty("address").GetString() ?? string.Empty)
+                .Where(address => !string.IsNullOrWhiteSpace(address)).ToList();
+        }
+
         public async Task<SyncSnapshotDto> GetSnapshotAsync()
         {
             var snapshot = new SyncSnapshotDto
@@ -51,6 +62,10 @@ namespace GuardeSoftwareAPI.Services.sync
                 SELECT
                     c.client_id                         AS Id,
                     c.full_name                         AS FullName,
+                    c.dni                               AS Dni,
+                    c.cuit                              AS Cuit,
+                    (SELECT e.address FROM emails e WHERE e.client_id = c.client_id AND e.active = 1
+                     ORDER BY e.email_id FOR JSON PATH)  AS EmailsJson,
                     c.payment_identifier                AS PaymentIdentifier,
                     c.color                             AS Color,
                     c.active                            AS Active,
@@ -161,6 +176,7 @@ namespace GuardeSoftwareAPI.Services.sync
                     -- NextPaymentDay (same logic as GetTableClientsAsync)
                     CASE
                         WHEN c.active = 0 THEN NULL
+                        WHEN dbo.GetPaymentCollectionMonth(r.rental_id) IS NOT NULL THEN CAST(dbo.GetPaymentCollectionMonth(r.rental_id) AS VARCHAR(10))
                         WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
                         THEN CAST(DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1) AS VARCHAR(10))
                         ELSE CAST(step1.LastBalanceDate AS VARCHAR(10))
@@ -303,18 +319,19 @@ namespace GuardeSoftwareAPI.Services.sync
                             ELSE ISNULL(cr.CurrentRent, 0)
                         END,
                         UI_InterestAmount = rawData.Raw_Interest,
-                        UI_Balance = -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB),
-                        UI_PreviousBalance = CASE
+                        UI_Balance = COALESCE(-(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB), -latest_cmb.NetBalance, 0),
+                        UI_PreviousBalance = COALESCE(dbo.GetPaymentCollectionPreviousBalance(r.rental_id), CASE
+                            WHEN db.Id IS NULL AND latest_cmb.NetBalance < 0 THEN -latest_cmb.NetBalance
                             WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
                             ELSE -rawData.Raw_PrevBal
-                        END,
-                        LastBalanceDate = (
+                        END),
+                        LastBalanceDate = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
                             SELECT MAX(candidate.PaymentMonth)
                             FROM (VALUES
                                 (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
                                 (DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth))
                             ) candidate(PaymentMonth)
-                        )
+                        ))
                 ) step1
 
                 WHERE c.active = 1
@@ -327,6 +344,9 @@ namespace GuardeSoftwareAPI.Services.sync
                 {
                     Id = Convert.ToInt32(row["Id"]),
                     FullName = row["FullName"]?.ToString() ?? string.Empty,
+                    Dni = row["Dni"] != DBNull.Value ? row["Dni"]?.ToString() : null,
+                    Cuit = row["Cuit"] != DBNull.Value ? row["Cuit"]?.ToString() : null,
+                    Emails = ParseEmailAddresses(row["EmailsJson"]),
                     PaymentIdentifier = row["PaymentIdentifier"] != DBNull.Value ? Convert.ToDecimal(row["PaymentIdentifier"]) : null,
                     Balance = row["Balance"] != DBNull.Value ? Convert.ToDecimal(row["Balance"]) : null,
                     PreviousBalance = row["PreviousBalance"] != DBNull.Value ? Convert.ToDecimal(row["PreviousBalance"]) : null,
@@ -418,7 +438,7 @@ namespace GuardeSoftwareAPI.Services.sync
                         AdvanceMonths = offlinePayment.AdvanceMonths,
                         CommissionAmount = offlinePayment.CommissionAmount,
                         CommissionConcept = offlinePayment.CommissionConcept,
-                        SkipFutureProjection = offlinePayment.SkipFutureProjection,
+                        SkipFutureProjection = true,
                         SurchargeAction = offlinePayment.SurchargeAction,
                         SurchargeAmount = offlinePayment.SurchargeAmount,
                         SurchargeAmountWasOverridden = offlinePayment.SurchargeAmountWasOverridden,

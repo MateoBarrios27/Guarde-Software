@@ -7,6 +7,7 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public bool RemoveNextMonthDebit { get; set; }
         public bool RestoreProportional { get; set; }
         public DateTime? DepartureDate { get; set; }
+        public decimal? ProportionalAmount { get; set; }
         public string? PendingSurchargeAction { get; set; }
     }
 }

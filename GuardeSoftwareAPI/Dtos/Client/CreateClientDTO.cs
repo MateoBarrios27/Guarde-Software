@@ -10,6 +10,9 @@ namespace GuardeSoftwareAPI.Dtos.Client
     {
         //Client table
         public int? Id { get; set; }
+        public string? ReactivationBalanceAction { get; set; }
+        public int? ExpectedReactivationRentalId { get; set; }
+        public decimal? ExpectedReactivationBalance { get; set; }
         public decimal? PaymentIdentifier { get; set; }
         public string FullName { get; set; } = string.Empty;
         public DateTime RegistrationDate { get; set; }

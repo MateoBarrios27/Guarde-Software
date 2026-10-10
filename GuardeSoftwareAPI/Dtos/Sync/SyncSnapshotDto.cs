@@ -4,6 +4,9 @@ namespace GuardeSoftwareAPI.Dtos.Sync
     {
         public int Id { get; set; }
         public string FullName { get; set; } = string.Empty;
+        public string? Dni { get; set; }
+        public string? Cuit { get; set; }
+        public List<string> Emails { get; set; } = new();
         public decimal? PaymentIdentifier { get; set; }
         public decimal? Balance { get; set; }
         public decimal? CurrentRent { get; set; }

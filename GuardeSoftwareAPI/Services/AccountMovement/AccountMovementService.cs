@@ -449,9 +449,12 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             
             try
             {
-                // 1. Buscar el rentalId activo del cliente
-                var rental = await _daoRental.GetActiveRentalByClientIdTransactionAsync(dto.ClientId, connection, transaction);
-                if (rental == null) throw new InvalidOperationException("No se encontró un alquiler activo para este cliente.");
+                // Usar el alquiler activo o el último contrato cerrado si el cliente está dado de baja.
+                var rentalId = await _daoRental.GetRentalIdForManualMovementAsync(dto.ClientId, connection, transaction);
+                if (!rentalId.HasValue) throw new InvalidOperationException("El cliente no tiene un contrato donde registrar el movimiento.");
+                var movementType = dto.MovementType?.Trim().ToUpperInvariant();
+                if (movementType is not ("DEBITO" or "CREDITO"))
+                    throw new ArgumentException("El tipo de movimiento debe ser DEBITO o CREDITO.");
 
                 // ACÁ ESTÁ TU DATETIME: Carga la fecha y hora exacta que mandó Angular, o la actual si viene nula.
                 DateTime movDate = dto.Date ?? DateTime.Now;
@@ -459,9 +462,9 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                 // 2. Crear la entidad AccountMovement (Libro Diario)
                 var movement = new AccountMovement
                 {
-                    RentalId = rental.Id,
+                    RentalId = rentalId.Value,
                     MovementDate = movDate,
-                    MovementType = dto.MovementType.ToUpper(), // "DEBITO" o "CREDITO"
+                    MovementType = movementType, // "DEBITO" o "CREDITO"
                     Concept = dto.Concept,
                     Amount = dto.Amount,
                     PaymentId = null
@@ -471,14 +474,14 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                 await _daoAccountMovement.CreateAccountMovementTransactionAsync(movement, connection, transaction);
 
                 // 4. LIMPIEZA DE MORA SI EL SALDO GLOBAL ES 0 (O a favor)
-                decimal newGlobalBalance = await _daoRental.GetBalanceByRentalIdTransactionAsync(rental.Id, connection, transaction);
+                decimal newGlobalBalance = await _daoRental.GetBalanceByRentalIdTransactionAsync(rentalId.Value, connection, transaction);
                 if (newGlobalBalance <= 0)
                 {
-                    await _daoRental.ResetUnpaidMonthsTransactionAsync(rental.Id, connection, transaction);
+                    await _daoRental.ResetUnpaidMonthsTransactionAsync(rentalId.Value, connection, transaction);
                 }
 
                 // 5. LA MAGIA: El Rebuild lee el movimiento nuevo y reconstruye todo el Excel solo.
-                await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rental.Id, connection, transaction);
+                await _clientMonthBalanceService.RebuildForRentalTransactionAsync(rentalId.Value, connection, transaction);
                 
                 await transaction.CommitAsync();
                 return movement;

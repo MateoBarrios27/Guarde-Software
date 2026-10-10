@@ -2,6 +2,8 @@ import { ChangePaymentMethodModalComponent } from '../change-payment-method-moda
 import {
   Component,
   OnInit,
+  HostListener,
+  ChangeDetectorRef,
   Input,
   Output,
   EventEmitter,
@@ -11,6 +13,7 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { A11yModule } from '@angular/cdk/a11y';
 import {
   FormBuilder,
   FormGroup,
@@ -34,7 +37,7 @@ import { LockerService } from '../../../core/services/locker-service/locker.serv
 import { WarehouseService } from '../../../core/services/warehouse-service/warehouse.service';
 import { PaymentMethodService } from '../../../core/services/paymentMethod-service/payment-method.service';
 import { LockerTypeService } from '../../../core/services/lockerType-service/locker-type.service';
-import { ClientService } from '../../../core/services/client-service/client.service';
+import { ClientService, ReactivationBalanceDecision } from '../../../core/services/client-service/client.service';
 import { forkJoin, Observable, of, Subject } from 'rxjs'; 
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators'; 
 import { BillingType } from '../../../core/models/billing-type.model';
@@ -46,7 +49,7 @@ import { AuthService } from '../../../core/services/auth-service/auth.service';
 @Component({
   selector: 'app-create-client-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, IconComponent, CurrencyFormatDirective, ChangePaymentMethodModalComponent],
+  imports: [CommonModule, A11yModule, ReactiveFormsModule, IconComponent, CurrencyFormatDirective, ChangePaymentMethodModalComponent],
   templateUrl: './create-client-modal.component.html',
   styleUrl: './create-client-modal.component.css',
 })
@@ -68,6 +71,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   public isEditMode = false; 
 
   @Input() isReactivation = false;
+  @Input() reactivationBalanceDecision: ReactivationBalanceDecision | null = null;
   @Input() clientData: ClientDetailDTO | null = null;
   @Output() closeModal = new EventEmitter<void>();
   @Output() saveSuccess = new EventEmitter<void>();
@@ -84,6 +88,14 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   public billingTypes: BillingType[] = [];
   isLoading: boolean = false;
   public hasAttemptedSubmit = false;
+  public reactivationError = '';
+  public isSavingReactivation = false;
+
+  @HostListener('document:keydown.escape')
+  onReactivationEscape(): void {
+    if (this.isReactivation && !this.isSavingReactivation) this.closeModal.emit();
+  }
+
   private areBasicDataLoaded = false;
   public phonesSignal: WritableSignal<PhoneInputDto[]> = signal([
     { number: '', whatsapp: true },
@@ -99,7 +111,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     private lockerTypeService: LockerTypeService,
     private billingTypeService: BillingTypeService,
     private clientService: ClientService,
-    private authService: AuthService
+    private authService: AuthService,
+    private cdr: ChangeDetectorRef
   ) {
     this.newClientForm = this.fb.group({});
   }
@@ -125,6 +138,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
         // 2. Si ya tenemos los datos maestros (warehouses, etc), poblamos el form
         if (this.areBasicDataLoaded) {
             this.tryPopulateForm();
+            if (this.isReactivation) this.cdr.markForCheck();
         }
     }
   }
@@ -162,11 +176,16 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
         this.isLoading = false;
         
         this.tryPopulateForm();
+        if (this.isReactivation) this.cdr.markForCheck();
       },
       error: (err) => {
         this.isLoading = false;
         console.error('Error cargando datos:', err);
-        Swal.fire('Error', 'No se pudieron cargar los datos necesarios.', 'error');
+        if (this.isReactivation) {
+          this.reactivationError = 'No se pudieron cargar los datos necesarios. Cerrá el formulario e intentá nuevamente.';
+          this.cdr.markForCheck();
+        }
+        else Swal.fire('Error', 'No se pudieron cargar los datos necesarios.', 'error');
       },
     });
   }
@@ -689,6 +708,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
 
   
   onSubmit(): void {
+  if (this.isReactivation && this.isLoading) return;
+  this.reactivationError = '';
   const formValue = this.newClientForm.getRawValue();
 
   if (this.newClientForm.invalid) {
@@ -699,6 +720,11 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     const fieldLabel = this.getFieldLabel(invalidField?.getAttribute('formControlName') ?? null);
     const isRequired = this.getControlForElement(invalidField)?.hasError('required') ?? false;
 
+    if (this.isReactivation) {
+      this.reactivationError = isRequired ? `El campo ${fieldLabel} es obligatorio.` : `Revisá el campo ${fieldLabel}.`;
+      this.revealInvalidField(invalidField);
+      return;
+    }
     Swal.fire({
       icon: 'warning',
       title: isRequired ? `Falta ${fieldLabel}` : `Revisá ${fieldLabel}`,
@@ -714,6 +740,10 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   const paymentMethodId = formValue.metodoPago?.id;
   if (!paymentMethodId || paymentMethodId <= 0) {
     console.error('Valor de metodoPago inválido:', formValue.metodoPago);
+    if (this.isReactivation) {
+      this.reactivationError = 'Seleccioná un método de pago válido.';
+      return;
+    }
     Swal.fire(
       'Error de Validación',
       'Método de pago no seleccionado o inválido.',
@@ -842,7 +872,8 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   let apiCall: Observable<any>;
     
     if (this.isReactivation) {
-      apiCall = this.clientService.reactivateClient(this.clientData!.id, dto);
+      this.isSavingReactivation = true;
+      apiCall = this.clientService.reactivateClient(this.clientData!.id, dto, this.reactivationBalanceDecision);
     } else if (isEditing) {
       apiCall = this.clientService.updateClient(this.clientData!.id, dto);
     } else {
@@ -852,6 +883,11 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   apiCall.subscribe({
     next: (response) => {
       this.isLoading = false;
+      this.isSavingReactivation = false;
+      if (this.isReactivation) {
+        this.saveSuccess.emit();
+        return;
+      }
       this.saveSuccess.emit();
       Swal.fire({
         icon: 'success',
@@ -862,6 +898,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     },
     error: (err) => {
       this.isLoading = false;
+      this.isSavingReactivation = false;
       console.error('Error al guardar:', err);
       const actionLabel = isEditing ? 'actualizar' : 'crear';
       const backendUnavailable = err?.status === 0;
@@ -886,6 +923,11 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
             ? 'El servidor encontró un problema al procesar la solicitud.'
             : err.statusText || 'Ocurrió un error inesperado al guardar el cliente.');
 
+      if (this.isReactivation) {
+        this.reactivationError = errorMsg;
+        this.cdr.markForCheck();
+        return;
+      }
       Swal.fire({
         icon: 'error',
         title: `No se pudo ${actionLabel} el cliente`,

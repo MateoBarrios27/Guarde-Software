@@ -489,3 +489,42 @@ body {
     transition: none !important;
   }
 }
+
+/* Shared payment consultation: rendered by SweetAlert outside component scopes. */
+.payment-decision-body { text-align: left; color: #475569; font-size: .9rem; }
+.payment-decision-body > p { line-height: 1.5; }
+.payment-decision-summary { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: space-between; align-items: center; padding: 1rem; margin: 1rem 0; border-radius: .75rem; background: #eff6ff; color: #1e40af; }
+.payment-decision-summary strong { font-size: 1.25rem; }
+.payment-decision-options { border: 0; padding: 0; margin: 1.25rem 0 0; min-width: 0; }
+.payment-decision-options legend { margin-bottom: .75rem; font-weight: 600; color: #334155; font-size: .83rem; }
+.payment-decision-card { display: flex; align-items: flex-start; gap: .75rem; border: 1px solid #e2e8f0; border-radius: .8rem; padding: 1rem; margin-bottom: .75rem; cursor: pointer; transition: border-color .15s, background-color .15s; }
+.payment-decision-card:has(input:checked) { border-color: #2563eb; background: #f8faff; box-shadow: 0 0 0 1px #2563eb; }
+.payment-decision-card:has(input:focus-visible) { outline: 3px solid #93c5fd; outline-offset: 3px; }
+.payment-decision-card input { margin-top: .2rem; accent-color: #2563eb; flex-shrink: 0; }
+.payment-decision-card-content { min-width: 0; flex: 1; }
+.payment-decision-card-title { color: #0f172a; font-weight: 700; }
+.payment-decision-card p { font-size: .8rem; line-height: 1.5; margin: .35rem 0 .65rem; }
+.payment-decision-debits { padding: 0; margin: 0; list-style: none; max-height: 9rem; overflow-y: auto; font-size: .8rem; }
+.payment-decision-debits li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .4rem; padding: .25rem 0; }
+.payment-decision-outcome { border-top: 1px solid #e2e8f0; padding-top: .6rem; margin-top: .6rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .4rem; color: #334155; }
+.payment-decision-note { color: #64748b; font-size: .75rem; margin-top: 1rem; }
+
+.payment-decision-popup.guarde-alert-popup { width: min(92vw, 47.5rem) !important; display: flex !important; flex-direction: column; max-height: calc(100dvh - 24px); }
+.payment-decision-popup .guarde-alert-title { flex-shrink: 0; margin-top: 1.25rem !important; padding: 0 !important; }
+.payment-decision-popup .guarde-alert-actions { flex-shrink: 0; margin-top: 1rem !important; }
+.payment-decision-popup .guarde-alert-html { width: 100%; max-width: none; box-sizing: border-box; min-height: 0; overflow-y: auto; flex: 0 1 auto; }
+@media (max-width: 600px) {
+  .payment-decision-popup.guarde-alert-popup { width: calc(100vw - 24px) !important; }
+  .payment-decision-popup .guarde-alert-html { width: 100% !important; margin-inline: 0 !important; padding-inline: 1rem !important; max-height: none; }
+  .payment-decision-popup .guarde-alert-title { margin-inline: 1rem !important; font-size: 1.05rem !important; }
+  .payment-decision-popup .guarde-alert-actions { width: 100%; box-sizing: border-box; flex-direction: column-reverse; padding-inline: 1rem !important; }
+  .payment-decision-popup .guarde-alert-actions button { width: 100%; }
+  .payment-decision-card { padding: .8rem; }
+}
+
+.payment-decision-card-heading { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: .75rem; }
+.payment-decision-next-payment { min-width: 5.3rem; display: flex; flex-direction: column; align-items: flex-end; gap: .2rem; color: #64748b; font-size: .72rem; white-space: nowrap; }
+.payment-decision-next-payment strong { color: #1d4ed8; font-size: 1.1rem; letter-spacing: -.02em; }
+.payment-decision-outcomes { margin-top: .75rem; border-top: 1px solid #e2e8f0; padding-top: .4rem; }
+.payment-decision-outcomes .payment-decision-outcome { margin-top: 0; padding-top: .3rem; border: 0; font-size: .8rem; }
+.payment-decision-outcomes .payment-decision-total { font-size: .9rem; padding-top: .5rem; color: #0f172a; }

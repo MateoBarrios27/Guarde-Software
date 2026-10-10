@@ -466,7 +466,7 @@ namespace GuardeSoftwareAPI.Dao
                     r.months_unpaid,
                     r.pending_surcharge AS PendingSurcharge,
                     ISNULL(step1.UI_Balance, 0) AS balance,
-                    -ISNULL(rawData.Raw_PrevBal, 0) AS PreviousBalance,
+                    COALESCE(dbo.GetPaymentCollectionPreviousBalance(r.rental_id), -ISNULL(rawData.Raw_PrevBal, 0)) AS PreviousBalance,
                     ISNULL(step1.UI_CurrentRent, ISNULL(cr.CurrentRent, 0)) AS CurrentRent,
                     ISNULL(ll.LockerIdentifiers, '') AS locker_identifiers,
                     ISNULL(step1.UI_InterestAmount, 0) AS InterestAmount,
@@ -529,13 +529,13 @@ namespace GuardeSoftwareAPI.Dao
                               END
                         ),
                         UI_InterestAmount = rawData.Raw_Interest,
-                        LastBalanceDate = (
+                        LastBalanceDate = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
                             SELECT MAX(candidate.PaymentMonth)
                             FROM (VALUES
                                 (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
                                 (DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth))
                             ) candidate(PaymentMonth)
-                        )
+                        ))
                 ) step1
                 WHERE r.active = 1
                 AND (r.months_unpaid > 0 OR ISNULL(step1.UI_Balance, 0) < 0);";
@@ -669,6 +669,22 @@ namespace GuardeSoftwareAPI.Dao
                 int rowsAffected = await command.ExecuteNonQueryAsync();
                 return rowsAffected > 0;
             }
+        }
+
+        public async Task<int?> GetRentalIdForManualMovementAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = @"
+                SELECT r.rental_id FROM clients c WITH (UPDLOCK, HOLDLOCK)
+                OUTER APPLY (
+                    SELECT TOP 1 rental_id FROM rentals
+                    WHERE client_id = c.client_id AND (active = 1 OR c.active = 0)
+                    ORDER BY active DESC, start_date DESC, rental_id DESC
+                ) r
+                WHERE c.client_id = @client_id AND ISNULL(c.is_deleted, 0) = 0;";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId });
+            var result = await command.ExecuteScalarAsync();
+            return result == null || result == DBNull.Value ? null : Convert.ToInt32(result);
         }
 
         public async Task<Rental?> GetActiveRentalByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)

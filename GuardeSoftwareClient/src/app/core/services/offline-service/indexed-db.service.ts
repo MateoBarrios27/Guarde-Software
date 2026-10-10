@@ -3,6 +3,9 @@ import { Injectable } from '@angular/core';
 export interface CachedClient {
   id: number;
   fullName: string;
+  dni?: string;
+  cuit?: string;
+  emails?: string[];
   paymentIdentifier?: number;
   balance?: number;
   currentRent?: number;
