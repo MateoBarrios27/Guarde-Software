@@ -1373,6 +1373,14 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     return matchesText && this.matchesCashDate(item, allowMissingDate) && this.matchesCashFilters(item);
   }
 
+  getCashAmountInputWidth(value: number | null | undefined): number {
+    const formatted = new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value ?? 0);
+    // Reserve room for the clear button, padding and the full formatted amount.
+    return Math.max(156, formatted.length * 9 + 40);
+  }
   onItemChange(item: CashFlowItem): void {
     if (this.isHistoricalView) return;
     if (item.date === '') item.date = null as any;

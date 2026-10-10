@@ -854,9 +854,9 @@
                     <app-icon name="Trash2" class="h-3 w-3"></app-icon>
                   </button> 
                   <input type="text" appCurrencyFormat 
-                        (focus)="captureItem(item)" [(ngModel)]="item.depo" [disabled]="isHistoricalView"
+                        (focus)="captureItem(item)" [(ngModel)]="item.depo" [disabled]="isHistoricalView" [style.min-width.px]="getCashAmountInputWidth(item.depo)"
                         (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)" 
-                        class="w-full pl-6 pr-1 py-1.5 bg-transparent border border-transparent text-right text-sm text-blue-600 font-semibold focus:bg-white focus:ring-1 focus:ring-blue-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
+                        class="w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-blue-600 font-semibold focus:bg-white focus:ring-1 focus:ring-blue-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
                 </div>
                 <div *ngIf="item.depo" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (item.depo / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </div>
@@ -870,9 +870,9 @@
                     <app-icon name="Trash2" class="h-3 w-3"></app-icon>
                   </button>
                   <input type="text" appCurrencyFormat 
-                        (focus)="captureItem(item)" [(ngModel)]="item.casa" [disabled]="isHistoricalView"
+                        (focus)="captureItem(item)" [(ngModel)]="item.casa" [disabled]="isHistoricalView" [style.min-width.px]="getCashAmountInputWidth(item.casa)"
                         (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
-                        class="w-full pl-6 pr-1 py-1.5 bg-transparent border border-transparent text-right text-sm text-orange-600 font-semibold focus:bg-white focus:ring-1 focus:ring-orange-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
+                        class="w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-orange-600 font-semibold focus:bg-white focus:ring-1 focus:ring-orange-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
                 </div>
                 <div *ngIf="item.casa" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (item.casa / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </div>
@@ -886,9 +886,9 @@
                     <app-icon name="Trash2" class="h-3 w-3"></app-icon>
                   </button>
                   <input type="text" appCurrencyFormat 
-                        (focus)="captureItem(item)" [(ngModel)]="item.retiros" [disabled]="isHistoricalView"
+                        (focus)="captureItem(item)" [(ngModel)]="item.retiros" [disabled]="isHistoricalView" [style.min-width.px]="getCashAmountInputWidth(item.retiros)"
                         (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
-                        class="w-full pl-6 pr-1 py-1.5 bg-transparent border border-transparent text-right text-sm text-slate-600 font-medium focus:bg-white focus:ring-1 focus:ring-slate-300 hover:bg-gray-50 hover:border-gray-200 rounded-lg transition-all">
+                        class="w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-slate-600 font-medium focus:bg-white focus:ring-1 focus:ring-slate-300 hover:bg-gray-50 hover:border-gray-200 rounded-lg transition-all">
                 </div>
                 <div *ngIf="item.retiros" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (item.retiros / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </div>
@@ -902,9 +902,9 @@
                     <app-icon name="Trash2" class="h-3 w-3"></app-icon>
                   </button>
                   <input type="text" appCurrencyFormat 
-                        (focus)="captureItem(item)" [(ngModel)]="item.iaia" [disabled]="isHistoricalView"
+                        (focus)="captureItem(item)" [(ngModel)]="item.iaia" [disabled]="isHistoricalView" [style.min-width.px]="getCashAmountInputWidth(item.iaia)"
                         (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
-                        class="w-full pl-6 pr-1 py-1.5 bg-transparent border border-transparent text-right text-sm text-green-600 font-semibold focus:bg-white focus:ring-1 focus:ring-green-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
+                        class="w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-green-600 font-semibold focus:bg-white focus:ring-1 focus:ring-green-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
                 </div>
                 <div *ngIf="item.iaia" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (item.iaia / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </div>

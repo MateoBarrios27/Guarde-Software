@@ -353,11 +353,11 @@ namespace GuardeSoftwareAPI.Dao
                     SELECT 
                         c.client_id,
                         -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB) AS Balance,
-                        CASE 
+                        COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), CASE
                             WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(GETDATE() AS DATE)
                             THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
                             ELSE step1.LastBalanceDate
-                        END AS NextPaymentDay
+                        END) AS NextPaymentDay
                     FROM clients c
                     LEFT JOIN rentals r ON c.client_id = r.client_id AND r.active = 1
                     LEFT JOIN CurrentRentalAmount cr ON r.rental_id = cr.rental_id
@@ -384,13 +384,13 @@ namespace GuardeSoftwareAPI.Dao
                     ) db
                     OUTER APPLY (
                         SELECT 
-                            LastBalanceDate = (
+                            LastBalanceDate = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
                                 SELECT MAX(candidate.PaymentMonth)
                                 FROM (VALUES
                                     (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
                                     (DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth))
                                 ) candidate(PaymentMonth)
-                            )
+                            ))
                     ) step1
                     WHERE c.active = 1
                 )
