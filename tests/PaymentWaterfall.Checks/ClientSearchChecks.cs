@@ -12,10 +12,14 @@ internal static class ClientSearchChecks
             VALUES(901,'Cliente Busqueda Uno',901.12,'30000111','20-30000111-9',1,100),
                   (902,'Cliente Busqueda Dos',902.34,NULL,'20123456787',1,100),
                   (903,'Cliente Busqueda Baja',903.56,NULL,'27-98765432-1',0,100),
-                  (904,'Cliente Busqueda Sin Datos',904.78,NULL,NULL,1,100);
+                  (904,'Cliente Busqueda Sin Datos',904.78,NULL,NULL,1,100),
+                  (905,'Empresa Alias',7.87,NULL,NULL,1,100),
+                  (906,'Empresa Adicional',17.87,NULL,NULL,1,100);
             INSERT emails(client_id,address,active) VALUES
                 (901,'principal@ejemplo.test',1),(901,'secundario@empresa.test',1),
                 (901,'otra@empresa.test',1),(901,'eliminado@viejo.test',0),
+                (901,'secundaria@empresa.test',1),(901,'ventas_2026@empresa.test',1),
+                (902,'ventasX2026@empresa.test',1),
                 (902,'otro@ejemplo.test',1),(903,'baja@empresa.test',1);
             SET IDENTITY_INSERT rentals ON;
             INSERT rentals(rental_id,client_id,start_date,active,months_unpaid,pending_surcharge)
@@ -30,7 +34,7 @@ internal static class ClientSearchChecks
         async Task Search(string term, int[] expected, bool active = true, int pageSize = 100)
         {
             var result = await dao.GetTableClientsAsync(new GetClientsRequestDto
-                { SearchTerm=term, Active=active, PageSize=pageSize });
+                { SearchTerm=term, Active=active, PageSize=pageSize, SortField="PaymentIdentifier" });
             check(result.totalCount == expected.Length, $"search '{term}' count matches");
             check(result.clients.Select(c=>c.Id).Order().SequenceEqual(expected.Order().Take(pageSize)),
                 $"search '{term}' returns expected unique clients");
@@ -43,8 +47,22 @@ internal static class ClientSearchChecks
         await Search("30000111", [901]);
         await Search("secundario@empresa.test", [901]);
         await Search("SECUNDARIO@EMPRESA.TEST", [901]);
-        await Search("@empresa.test", [901]);
-        await Search("@empresa.test", [901], pageSize:1);
+        await Search("@empresa.test", []);
+        await Search("sec", [901], pageSize:1);
+        await Search("20-30", [901]);
+        await Search("2030", [901]);
+        await Search("2012", [902]);
+        await Search("12345678", []);
+        await Search("000111", []);
+        await Search("3000", [901]);
+        await Search("1119", []);
+        await Search("sec", [901]);
+        await Search("cundario@empresa.test", []);
+        await Search("empresa.test", []);
+        await Search("ventas_", [901]);
+        await Search("otr", [901,902], pageSize:1);
+        await Search("Busqueda Uno", [901]);
+        await Search("-77", [901,902]);
         await Search("eliminado@viejo.test", []);
         await Search("27123456789", []);
         await Search("27987654321", [903], active:false);
@@ -52,10 +70,16 @@ internal static class ClientSearchChecks
         await Search("M-77", [901,902]);
         await Search("Cliente Busqueda Uno", [901]);
         await Search("901.12", [901]);
+        foreach (var alias in new[] { "trex", "TREX", "T REX", "t rex", "  T  ReX  " })
+            await Search(alias, [905]);
+        await Search("trex", [], active:false);
+        await Search("trexx", []);
+        await Search("t rex extra", []);
+        await Search("rex", []);
         var snapshot = await new SyncService(db, null!, NullLogger<SyncService>.Instance).GetSnapshotAsync();
         var cached = snapshot.Clients.Single(c=>c.Id==901);
         check(cached.Cuit=="20-30000111-9" && cached.Dni=="30000111", "snapshot contains CUIT and DNI");
-        check(cached.Emails.SequenceEqual(new[]{"principal@ejemplo.test","secundario@empresa.test","otra@empresa.test"}),
+        check(cached.Emails.SequenceEqual(new[]{"principal@ejemplo.test","secundario@empresa.test","otra@empresa.test","secundaria@empresa.test","ventas_2026@empresa.test"}),
             "snapshot contains all active emails in display order");
         check(snapshot.Clients.Single(c=>c.Id==904).Emails.Count==0,
             "snapshot tolerates a client without email or CUIT");

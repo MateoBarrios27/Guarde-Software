@@ -1,3 +1,4 @@
+import { roundRentToPaymentStep } from '../../shared/utils/payment-planning.util';
 import { Component, OnDestroy, OnInit, HostListener } from '@angular/core';
 import { PendingRentalDTO } from '../../core/dtos/rental/PendingRentalDTO';
 import { RentalService } from '../../core/services/rental-service/rental.service';
@@ -480,7 +481,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown.escape', ['$event'])
   onEscapeKey(event: KeyboardEvent): void {
     if (this.showIncreaseOverlay) {
-      this.skipIncrease();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.closeIncreaseModal();
       return;
     }
     if (this.showReceiptModal) {
@@ -899,22 +902,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // =========================================================
 
   private roundRentAmount(targetAmount: number, methodName: string, originalRent: number, targetPercentage: number): number {
-    if (targetAmount === 0) return 0;
-
-    // El redondeo nunca puede dejar el aumento por debajo del porcentaje confirmado.
-    if (targetPercentage <= 0 || originalRent <= 0) return targetAmount;
-
-    const methodLower = methodName.toLowerCase();
-    const step = methodLower.includes('efectivo') ? 1000 : 100;
-    let rounded = Math.ceil(targetAmount / step) * step;
-    let currentPercentage = ((rounded - originalRent) / originalRent) * 100;
-
-    while (currentPercentage < targetPercentage) {
-      rounded += step;
-      currentPercentage = ((rounded - originalRent) / originalRent) * 100;
-    }
-
-    return rounded;
+    if (targetAmount === 0 || targetPercentage <= 0 || originalRent <= 0) return targetAmount;
+    return roundRentToPaymentStep(targetAmount, methodName);
   }
 
   private updateProjectedDate() {
@@ -1067,7 +1056,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   applyConfiguredIncrease(percentage: number): void {
     this.increasePercentage = percentage;
     this.calculateProjectedRent();
-    this.increasePercentage = percentage;
   }
 
   calculateProjectedRent() {
@@ -1122,7 +1110,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     let targetRent = this.projectedNewRent || 0;
 
     const methodName = this.getNamePaymentMethodById(this.selectedPreferredPaymentId).toLowerCase();
-    targetRent = this.roundRentAmount(targetRent, methodName, rent, this.increasePercentage);
+    const amountPercentage = rent > 0 ? ((targetRent - rent) / rent) * 100 : 0;
+    targetRent = this.roundRentAmount(targetRent, methodName, rent, amountPercentage);
     this.projectedNewRent = targetRent; 
     
     if (rent === 0) {
@@ -1355,6 +1344,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     } else {
       this.showSummarySwal();
     }
+  }
+
+  closeIncreaseModal(): void {
+    if (this.isSubmittingPayment) return;
+    this.showIncreaseOverlay = false;
+    this.currentIncreaseFlow = 'none';
+    this.increaseResolved = false;
+    this.selectedCurrentRent = this.originalBaseRentCopy;
+    this.currentIncreaseStep = 0;
+    this.increaseQueue = [];
+    this.confirmedIncreases = [];
+    this.currentPendingIncrease = null;
+    this.paymentDto.appliedIncreases = [];
+    this.paymentDto.skipFutureProjection = false;
   }
 
   goBackFromIncrease() {

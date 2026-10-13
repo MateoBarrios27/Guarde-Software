@@ -563,8 +563,20 @@ las pruebas del servicio y diálogo Angular. Compilar no demuestra esta lógica.
 
 El buscador conserva nombre, identificador de pago, DNI y bauleras (incluidas
 las compartidas), y busca también por CUIT y cualquiera de los emails activos.
-El CUIT admite coincidencia parcial con o sin guiones, espacios o puntos. Los
-emails se buscan sin distinguir mayúsculas; los dados de baja no se incluyen.
+CUIT, DNI y email coinciden sólo desde el comienzo del dato cargado (prefijo),
+por pedido del 2026-10-10. No incluir clientes por fragmentos internos de esos
+campos. El CUIT admite prefijos con o sin guiones, espacios o puntos; los emails
+se buscan sin distinguir mayúsculas y los dados de baja no se incluyen.
+Los caracteres %, _ y [ del prefijo se tratan como texto literal en SQL.
+Nombre, identificador de pago y bauleras conservan sus coincidencias parciales;
+un cliente aún puede coincidir por alguno de esos otros criterios.
+La misma regla de prefijo rige con conexión y sobre el snapshot offline.
+Alias solicitado el 2026-10-10: trex, TREX, T REX y t rex también encuentran
+al cliente con identificador de pago exactamente 7.87. Comparar el alias sin
+mayúsculas ni espacios, pero no activar este alias por fragmentos u otras
+palabras. El alias se agrega a los criterios existentes, respeta todos los
+filtros y no confunde 7.87 con otros identificadores que lo contengan.
+Mantener la misma regla en SQL y en el buscador offline.
 El filtro SQL usa parámetros y EXISTS para no duplicar clientes ni alterar el
 conteo/paginación cuando coinciden varios emails. Conserva el primer email visible.
 El modo offline busca sobre dni/cuit/emails del último snapshot actualizado;
@@ -604,10 +616,30 @@ sin convertirla a la zona horaria del navegador. No tomar el porcentaje del mes
 actual, del último registro ni de otro año cuando el período solicitado no existe.
 Cada apertura/etapa nueva lee Configuración otra vez; no agregar un caché del valor.
 
-El porcentaje inicial muestra exactamente el de Configuración; el nuevo abono
-se calcula con los redondeos ya existentes según el medio de pago. La edición
-manual y sus redondeos conservan su funcionamiento. Volver a una etapa confirmada
-restaura sus importes/porcentaje y no los reemplaza por el predeterminado.
+Criterio actualizado el 2026-10-10: el porcentaje de Configuración se usa como
+base para calcular el nuevo abono con el redondeo existente según el medio de
+pago. Desde la carga inicial, el input muestra el porcentaje efectivo calculado
+como (nuevo abono redondeado - abono anterior) / abono anterior * 100, con cuatro
+decimales como en la edición actual. No restablecer después el porcentaje nominal
+de Configuración: tocar el monto sin editarlo no debe cambiar el porcentaje.
+Corrección del 2026-10-10: enfocar/salir de un input sin cambiar su valor no
+recalcula nada; escribir y restaurar el valor original tampoco. El porcentaje
+nominal editado calcula el abono una sola vez; si se edita el monto, ese monto
+es la fuente del cálculo, se redondea una vez y luego se deriva el porcentaje
+efectivo. No reconstruir el monto desde ese porcentaje limitado a cuatro
+decimales ni usarlo como mínimo para agregar otro escalón. El redondeo compara
+importes a precisión de centavos antes de aplicar techo a miles (efectivo) o
+centenas (otros medios), evitando ruido binario en límites exactos. Volver a
+una etapa confirmada restaura sus importes/porcentaje sin aplicar otra vez la
+configuración. El input de porcentaje tiene 210 px y admite cuatro decimales.
+El encabezado incluye X y el indicativo ESC como Registrar Pago, adaptados al
+azul sólido (ESC visible en escritorio). X/Escape cancelan sin omitir aumentos,
+confirmar ni registrar pagos; Finanzas/Dashboard vuelven al formulario conservando
+sus datos y descartan la cola provisional, y la ficha cierra la planificación.
+Escape consume el evento para no cerrar también la superficie de abajo.
+El diálogo recibe foco al abrir, devuelve el foco al cancelar y permite cerrar
+mientras consulta Configuración; el guardado activo bloquea el cierre.
+No reutilizar skipIncrease/skipPlanningIncrease como acciones de cierre.
 Cancelar o cambiar de etapa cancela la consulta anterior: una respuesta tardía
 no puede modificar el nuevo período. Mientras carga, se desactivan los campos
 y la confirmación; siguen disponibles Atrás y Omitir con sus reglas actuales.
@@ -622,6 +654,8 @@ Mantener el abono proyectado destacado y la fecha del próximo aumento visible.
 Sin degradados, sombras decorativas ni badges en el encabezado. En pantallas
 pequeñas el cuerpo puede desplazarse y las acciones quedan accesibles.
 El cambio es del frontend, usa el endpoint existente y no requiere migración SQL.
-Verificar con tsconfig.increase-modal.spec.json, compilación Angular y revisión
+Verificar focus/input/blur reales con tsconfig.increase-modal.spec.json, incluyendo
+el caso base $232.000 + 6,7% => $248.000 (6,8966%) y clics repetidos,
+además de compilación Angular y revisión
 visual del componente real con datos simulados; estas pruebas no registran pagos.
 

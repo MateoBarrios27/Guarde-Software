@@ -1,6 +1,7 @@
 import {
   buildPaymentPlanningBreakdown,
-  roundPlannedRent
+  roundPlannedRent,
+  roundRentToPaymentStep
 } from './payment-planning.util';
 import { PaymentPlanningContext } from '../../core/dtos/accountMovement/payment-planning.dto';
 
@@ -57,4 +58,20 @@ describe('payment planning utilities', () => {
     expect(roundPlannedRent(100000, 10.01, 'Transferencia')).toBe(110100);
     expect(roundPlannedRent(100000, 0, 'Efectivo')).toBe(100000);
   });
+  it('does not jump to the next step because of binary noise at an exact amount', () => {
+    expect(roundPlannedRent(100000, 10, 'Efectivo')).toBe(110000);
+    expect(roundPlannedRent(100000, 10, 'Transferencia')).toBe(110000);
+    expect(roundRentToPaymentStep(110000.00000000001, 'Efectivo')).toBe(110000);
+    expect(roundRentToPaymentStep(110000.01, 'Efectivo')).toBe(111000);
+    expect(roundRentToPaymentStep(110000.01, 'Transferencia')).toBe(110100);
+  });
+  it('rounds an edited amount once and remains stable when repeated', () => {
+    for (const method of ['Efectivo', 'Transferencia']) {
+      const rent = roundRentToPaymentStep(248001, method);
+      for (let repeat = 0; repeat < 10; repeat++) {
+        expect(roundRentToPaymentStep(rent, method)).toBe(rent);
+      }
+    }
+  });
+
 });

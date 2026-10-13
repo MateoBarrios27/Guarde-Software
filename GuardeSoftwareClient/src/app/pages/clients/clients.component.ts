@@ -1014,16 +1014,18 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       const term = this.searchClientes.trim().toLocaleLowerCase('es-AR');
       const cuitTerm = term.replace(/[- .]/g, '');
       const isCuitSearch = /^[0-9]+$/.test(cuitTerm);
+      const isTrexAlias = term.replace(/ /g, '') === 'trex';
       const filtered = cached
         .filter(c => this.matchesCachedClientFilters(c))
         .filter(c => !term ||
+          (isTrexAlias && c.paymentIdentifier === 7.87) ||
           c.fullName.toLocaleLowerCase('es-AR').includes(term) ||
           (c.paymentIdentifier?.toString().includes(term) ?? false) ||
           (c.lockerIdentifiers?.some(identifier => identifier.toLocaleLowerCase('es-AR').includes(term)) ?? false) ||
-          (c.dni?.includes(term) ?? false) ||
-          (c.cuit?.includes(term) ?? false) ||
-          (isCuitSearch && (c.cuit?.replace(/[- .]/g, '').includes(cuitTerm) ?? false)) ||
-          (c.emails?.some(email => email.toLocaleLowerCase('es-AR').includes(term)) ?? false)
+          (c.dni?.startsWith(term) ?? false) ||
+          (c.cuit?.startsWith(term) ?? false) ||
+          (isCuitSearch && (c.cuit?.replace(/[- .]/g, '').startsWith(cuitTerm) ?? false)) ||
+          (c.emails?.some(email => email.toLocaleLowerCase('es-AR').startsWith(term)) ?? false)
         )
         .map(c => ({
         id: c.id,

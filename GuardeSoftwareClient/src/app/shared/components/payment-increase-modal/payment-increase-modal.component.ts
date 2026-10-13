@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, EventEmitter, Input, Output, OnChanges, OnDestroy, SimpleChanges, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnChanges, OnDestroy, SimpleChanges, inject, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
 import { IconComponent } from '../icon/icon.component';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -12,9 +12,14 @@ import { MonthlyIncreaseService } from '../../../core/services/monthlyIncrease-s
   templateUrl: './payment-increase-modal.component.html',
   styleUrl: './payment-increase-modal.component.css'
 })
-export class PaymentIncreaseModalComponent implements OnChanges, OnDestroy {
+export class PaymentIncreaseModalComponent implements OnChanges, OnDestroy, AfterViewInit {
   private readonly monthlyIncreaseService = inject(MonthlyIncreaseService);
   private settingsSubscription?: Subscription;
+  private percentageBeforeEdit: number | null = null;
+  private rentBeforeEdit: number | null = null;
+  @ViewChild('increaseDialog') private dialog?: ElementRef<HTMLElement>;
+  private previousFocus: HTMLElement | null = null;
+  private restoreFocus = false;
 
   @Input() increaseYear = 0;
   @Input() increaseMonth = 0;
@@ -45,6 +50,7 @@ export class PaymentIncreaseModalComponent implements OnChanges, OnDestroy {
   @Output() percentageChange = new EventEmitter<number>();
   @Output() projectedRentBlur = new EventEmitter<void>();
   @Output() percentageBlur = new EventEmitter<void>();
+  @Output() close = new EventEmitter<void>();
   @Output() back = new EventEmitter<void>();
   @Output() skip = new EventEmitter<void>();
   @Output() confirm = new EventEmitter<void>();
@@ -63,12 +69,28 @@ export class PaymentIncreaseModalComponent implements OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['increaseYear'] || changes['increaseMonth'] || changes['useConfiguredPercentage']) {
+      this.percentageBeforeEdit = null;
+      this.rentBeforeEdit = null;
       this.loadConfiguredPercentage();
     }
   }
 
+  ngAfterViewInit(): void {
+    this.previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this.dialog?.nativeElement.focus({ preventScroll: true });
+  }
+
   ngOnDestroy(): void {
     this.settingsSubscription?.unsubscribe();
+    if (this.restoreFocus && this.previousFocus?.isConnected) this.previousFocus.focus({ preventScroll: true });
+  }
+
+  requestClose(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (this.loading) return;
+    this.restoreFocus = true;
+    this.close.emit();
   }
 
   loadConfiguredPercentage(): void {
@@ -101,6 +123,28 @@ export class PaymentIncreaseModalComponent implements OnChanges, OnDestroy {
 
   emitPercentage(value: number | string): void {
     this.percentageChange.emit(Number(value) || 0);
+  }
+
+  beginPercentageEdit(event: Event): void {
+    this.percentageBeforeEdit = Number((event.target as HTMLInputElement).value) || 0;
+  }
+
+  finishPercentageEdit(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value) || 0;
+    const changed = this.percentageBeforeEdit !== null && value !== this.percentageBeforeEdit;
+    this.percentageBeforeEdit = null;
+    if (changed) this.percentageBlur.emit();
+  }
+
+  beginRentEdit(event: Event): void {
+    this.rentBeforeEdit = Number((event.target as HTMLInputElement).value) || 0;
+  }
+
+  finishRentEdit(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value) || 0;
+    const changed = this.rentBeforeEdit !== null && value !== this.rentBeforeEdit;
+    this.rentBeforeEdit = null;
+    if (changed) this.projectedRentBlur.emit();
   }
 
   blurInput(event: Event): void {

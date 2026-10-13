@@ -38,15 +38,20 @@ export function buildPaymentPlanningBreakdown(
   });
 }
 
+/** Round the monetary amount once, without using a rounded display percentage as a minimum. */
+export function roundRentToPaymentStep(targetAmount: number, preferredPaymentMethod: string): number {
+  const step = preferredPaymentMethod.toLocaleLowerCase().includes('efectivo') ? 1000 : 100;
+  // Account amounts have cent precision. Normalize before ceiling so floating-point
+  // noise at an exact payment step cannot add another hundred/thousand pesos.
+  const targetCents = Math.round(targetAmount * 100);
+  return Math.ceil(targetCents / (step * 100)) * step;
+}
+
 export function roundPlannedRent(
   baseRent: number,
   percentage: number,
   preferredPaymentMethod: string
 ): number {
   if (percentage <= 0) return baseRent;
-  const step = preferredPaymentMethod.toLocaleLowerCase().includes('efectivo') ? 1000 : 100;
-  const target = baseRent * (1 + percentage / 100);
-  let rounded = Math.ceil(target / step) * step;
-  while (((rounded - baseRent) / baseRent) * 100 < percentage) rounded += step;
-  return rounded;
+  return roundRentToPaymentStep(baseRent * (1 + percentage / 100), preferredPaymentMethod);
 }

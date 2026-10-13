@@ -1,9 +1,18 @@
 <div class="increase-backdrop" role="presentation" (click)="$event.stopPropagation()">
-  <section class="increase-modal" role="dialog" aria-modal="true" aria-labelledby="increase-modal-title"
+  <section #increaseDialog class="increase-modal" tabindex="-1" (keydown.escape)="requestClose($event)" role="dialog" aria-modal="true" aria-labelledby="increase-modal-title"
     [attr.aria-busy]="loading || isLoadingDefault" (click)="$event.stopPropagation()">
     <header class="increase-header">
-      <h2 id="increase-modal-title">{{ title }}</h2>
-      <p *ngIf="clientName" class="increase-client">{{ clientName }}</p>
+      <div class="increase-header-copy">
+        <h2 id="increase-modal-title">{{ title }}</h2>
+        <p *ngIf="clientName" class="increase-client">{{ clientName }}</p>
+      </div>
+      <div class="increase-header-actions">
+        <kbd class="increase-escape" aria-hidden="true">ESC</kbd>
+        <button type="button" class="increase-close" aria-label="Cerrar aumento" title="Cerrar (Esc)"
+          [disabled]="loading" (click)="requestClose()">
+          <app-icon name="x" class="increase-close-icon"></app-icon>
+        </button>
+      </div>
     </header>
 
     <div class="increase-body">
@@ -22,8 +31,8 @@
         <div class="increase-percentage-field">
           <label for="increase-percentage">Aumento</label>
           <div class="increase-input-wrap">
-            <input id="increase-percentage" type="number" min="0" step="0.01"
-              [ngModel]="percentage" (ngModelChange)="emitPercentage($event)" (blur)="percentageBlur.emit()"
+            <input id="increase-percentage" type="number" min="0" step="0.0001"
+              [ngModel]="percentage" (ngModelChange)="emitPercentage($event)" (focus)="beginPercentageEdit($event)" (blur)="finishPercentageEdit($event)"
               (keydown.enter)="blurInput($event)" [disabled]="disabled || loading || isLoadingDefault"
               aria-label="Porcentaje de aumento" aria-describedby="increase-settings-status" />
             <span class="increase-percentage-symbol" aria-hidden="true">%</span>
@@ -34,7 +43,7 @@
           <div class="increase-input-wrap">
             <span class="increase-currency" aria-hidden="true">$</span>
             <input id="increase-projected-rent" type="number" min="0" step="0.01"
-              [ngModel]="projectedRent" (ngModelChange)="emitProjectedRent($event)" (blur)="projectedRentBlur.emit()"
+              [ngModel]="projectedRent" (ngModelChange)="emitProjectedRent($event)" (focus)="beginRentEdit($event)" (blur)="finishRentEdit($event)"
               (keydown.enter)="blurInput($event)" [disabled]="disabled || loading || isLoadingDefault"
               aria-label="Nuevo abono proyectado" />
           </div>
@@ -44,7 +53,7 @@
       <div id="increase-settings-status" class="increase-settings-status" aria-live="polite">
         <p *ngIf="isLoadingDefault">Cargando porcentaje de Configuración…</p>
         <p *ngIf="!isLoadingDefault && settingsChecked && configuredPercentage !== null">
-          Configuración de aumentos: {{ configuredPercentage | number:'1.0-2' }}%. Podés modificarlo.
+          Configuración de aumentos: {{ configuredPercentage | number:'1.0-2' }}%. El campo muestra el aumento efectivo sobre el abono final.
         </p>
         <p *ngIf="!isLoadingDefault && settingsChecked && configuredPercentage === null">
           Este mes no tiene un aumento configurado. Podés ingresar el porcentaje.

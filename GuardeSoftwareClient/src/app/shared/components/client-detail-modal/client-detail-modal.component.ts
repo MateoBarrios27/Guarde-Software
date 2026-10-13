@@ -38,7 +38,7 @@ import {
   PaymentPlanningContext,
   PaymentPlanningMonth
 } from '../../../core/dtos/accountMovement/payment-planning.dto';
-import { buildPaymentPlanningBreakdown, roundPlannedRent } from '../../utils/payment-planning.util';
+import { buildPaymentPlanningBreakdown, roundPlannedRent, roundRentToPaymentStep } from '../../utils/payment-planning.util';
 import { buildCommunicationPreviewDocument } from '../../utils/communication-preview.util';
 
 export interface IClientCommunication {
@@ -516,11 +516,13 @@ export class ClientDetailModalComponent implements OnChanges {
     this.showPaymentPlanningModal = false;
   }
 
-  @HostListener('document:keydown.escape')
-  onPaymentPlanningEscape(): void {
+  @HostListener('document:keydown.escape', ['$event'])
+  onPaymentPlanningEscape(event: KeyboardEvent): void {
     if (!this.showPaymentPlanningModal) return;
     if (this.paymentPlanningStep === 'increase') {
-      this.skipPlanningIncrease();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.closePaymentPlanningModal();
       return;
     }
     this.closePaymentPlanningModal();
@@ -575,7 +577,6 @@ export class ClientDetailModalComponent implements OnChanges {
   applyConfiguredPlanningIncrease(percentage: number): void {
     this.planningIncreasePercentage = percentage;
     this.calculatePlanningProjectedRent();
-    this.planningIncreasePercentage = percentage;
     this.cdr.markForCheck();
   }
 
@@ -608,10 +609,10 @@ export class ClientDetailModalComponent implements OnChanges {
       return;
     }
 
+    this.planningProjectedRent = roundRentToPaymentStep(targetRent, this.client?.preferredPaymentMethod || '');
     this.planningIncreasePercentage = Number(
-      (((targetRent - baseRent) / baseRent) * 100).toFixed(4)
+      (((this.planningProjectedRent - baseRent) / baseRent) * 100).toFixed(4)
     );
-    this.calculatePlanningProjectedRent();
   }
 
   confirmPlanningIncrease(): void {

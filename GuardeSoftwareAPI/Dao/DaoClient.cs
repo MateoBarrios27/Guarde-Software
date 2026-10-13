@@ -529,22 +529,27 @@ namespace GuardeSoftwareAPI.Dao
                 var isCuitSearch = cuitTerm.Length > 0 && cuitTerm.All(ch => ch >= '0' && ch <= '9');
                 finalWhereClause.Append(@"
                     AND (
+                        (@IsTrexAlias = 1 AND PaymentIdentifier = 7.87) OR
                         ISNULL(FullName, '') LIKE @SearchTerm OR
                         EXISTS (
                             SELECT 1 FROM emails search_email
                             WHERE search_email.client_id = ClientData.Id AND search_email.active = 1
-                              AND search_email.address COLLATE Latin1_General_100_CI_AI LIKE @SearchTerm
+                              AND search_email.address COLLATE Latin1_General_100_CI_AI LIKE @SearchPrefix
                         ) OR
-                        ISNULL(Document, '') LIKE @SearchTerm OR
-                        ISNULL(Cuit, '') LIKE @SearchTerm OR
+                        ISNULL(Document, '') LIKE @SearchPrefix OR
+                        ISNULL(Cuit, '') LIKE @SearchPrefix OR
                         (@SearchCuit IS NOT NULL AND
                             REPLACE(REPLACE(REPLACE(ISNULL(Cuit, ''), '-', ''), ' ', ''), '.', '') LIKE @SearchCuit) OR
                         CAST(PaymentIdentifier AS NVARCHAR(50)) LIKE @SearchTerm OR
                         ISNULL(Lockers, '') LIKE @SearchTerm
                     ) ");
                 filterParameters.Add(new SqlParameter("@SearchTerm", SqlDbType.NVarChar) { Value = $"%{searchTerm}%" });
+                filterParameters.Add(new SqlParameter("@IsTrexAlias", SqlDbType.Bit)
+                    { Value = searchTerm.Replace(" ", "").Equals("trex", StringComparison.OrdinalIgnoreCase) });
+                var searchPrefix = searchTerm.Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]") + "%";
+                filterParameters.Add(new SqlParameter("@SearchPrefix", SqlDbType.NVarChar) { Value = searchPrefix });
                 filterParameters.Add(new SqlParameter("@SearchCuit", SqlDbType.NVarChar)
-                    { Value = isCuitSearch ? $"%{cuitTerm}%" : DBNull.Value });
+                    { Value = isCuitSearch ? $"{cuitTerm}%" : DBNull.Value });
             }
 
             if (!string.IsNullOrEmpty(request.StatusFilter) && request.StatusFilter != "Todos")

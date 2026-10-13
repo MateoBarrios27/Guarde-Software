@@ -486,6 +486,8 @@
 
 <app-payment-increase-modal
   *ngIf="showIncreaseOverlay"
+  [loading]="isSubmittingPayment"
+  (close)="closeIncreaseModal()"
   [reason]="increasePromptReason"
   [clientName]="selectedClientName"
   [stage]="currentIncreaseStep + 1"

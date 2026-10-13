@@ -807,6 +807,8 @@
 
 <app-payment-increase-modal
   *ngIf="showIncreaseOverlay"
+  [loading]="isSubmittingPayment"
+  (close)="closeIncreaseModal()"
   [reason]="increasePromptReason"
   [clientName]="getClientNameById(selectedClientId)"
   [stage]="currentIncreaseStep + 1"

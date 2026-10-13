@@ -986,6 +986,8 @@
 
 <app-payment-increase-modal
   *ngIf="showPaymentPlanningModal && client && paymentPlanningStep === 'increase' && currentPlanningIncrease && !authService.isObserver()"
+  [loading]="isSavingPaymentPlan"
+  (close)="closePaymentPlanningModal()"
   [reason]="'El aumento programado para ' + currentPlanningIncrease.label + ' debe definirse antes de confirmar el plan.'"
   [clientName]="client.fullName"
   [stage]="currentPlanningIncreaseIndex + 1"
@@ -1003,7 +1005,8 @@
   [skipLabel]="'Mantener abono'"
   [confirmLabel]="currentPlanningIncreaseIndex + 1 < (paymentPlanningContext?.increases?.length || 0) ? 'Siguiente etapa' : 'Ver resumen'"
   (projectedRentChange)="planningProjectedRent = $event"
-  (percentageChange)="planningIncreasePercentage = $event; calculatePlanningProjectedRent()"
+  (percentageChange)="planningIncreasePercentage = $event"
+  (percentageBlur)="calculatePlanningProjectedRent()"
   (projectedRentBlur)="onPlanningProjectedRentBlur()"
   (back)="backPaymentPlanningStep()"
   (skip)="skipPlanningIncrease()"
