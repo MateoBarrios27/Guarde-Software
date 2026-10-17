@@ -76,6 +76,13 @@ namespace GuardeSoftwareAPI.Services.locker
             return lockersList;
         }
 
+        public async Task<List<LockerClientHistoryDto>?> GetLockerClientHistoryAsync(int lockerId)
+        {
+            if (lockerId <= 0) throw new ArgumentOutOfRangeException(nameof(lockerId));
+            if ((await daoLocker.GetLockerById(lockerId)).Rows.Count == 0) return null;
+            return await daoLocker.GetLockerClientHistoryAsync(lockerId);
+        }
+
         public async Task<Locker> CreateLocker(Locker locker)
         {
             if (locker == null)

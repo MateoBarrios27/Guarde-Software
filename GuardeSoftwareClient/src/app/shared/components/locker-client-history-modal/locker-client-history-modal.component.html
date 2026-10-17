@@ -1,0 +1,86 @@
+<div class="history-backdrop" (click)="$event.stopPropagation()">
+  <section class="history-modal" role="dialog" aria-modal="true" aria-labelledby="locker-history-title"
+    cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (keydown.escape)="requestClose($event)"
+    (click)="$event.stopPropagation()">
+    <header class="history-header">
+      <div class="history-header-copy">
+        <h2 id="locker-history-title">Historial de clientes</h2>
+        <p>Baulera {{ locker.identifier }}</p>
+      </div>
+      <div class="history-header-actions">
+        <kbd aria-hidden="true">ESC</kbd>
+        <button cdkFocusInitial type="button" class="history-close" aria-label="Cerrar historial" title="Cerrar (Esc)" (click)="requestClose()">
+          <app-icon name="x" class="h-4 w-4"></app-icon>
+        </button>
+      </div>
+    </header>
+
+    <div class="history-content">
+      <aside class="history-summary" aria-label="Resumen de la baulera">
+        <div class="history-locker">
+          <app-icon name="package" class="h-6 w-6"></app-icon>
+          <h3>{{ locker.identifier }}</h3>
+          <p>{{ locker.isFreeSpace ? 'Espacio multicliente' : 'Baulera individual' }}</p>
+        </div>
+        <dl class="history-metadata">
+          <div><dt>Depósito</dt><dd>{{ warehouseName || '—' }}</dd></div>
+          <div><dt>Tipo</dt><dd>{{ lockerTypeName || '—' }}</dd></div>
+        </dl>
+        <dl *ngIf="!loading && !error" class="history-totals">
+          <div><dt>Clientes</dt><dd>{{ clientCount }}</dd></div>
+          <div><dt>Ocupaciones registradas</dt><dd>{{ history.length }}</dd></div>
+          <div><dt>Tramos activos</dt><dd>{{ activeCount }}</dd></div>
+        </dl>
+        <p class="history-help">Cada registro muestra el período de ocupación guardado en la ficha del cliente.</p>
+      </aside>
+
+      <div class="history-main" [attr.aria-busy]="loading">
+        <div class="history-toolbar">
+          <div><h3>Ocupaciones</h3><p>Más recientes primero</p></div>
+          <div class="history-search" *ngIf="history.length > 0 && !loading && !error">
+            <app-icon name="search" class="h-4 w-4" aria-hidden="true"></app-icon>
+            <input type="search" [(ngModel)]="search" aria-label="Buscar cliente en el historial" placeholder="Buscar cliente o ID de pago" />
+          </div>
+        </div>
+
+        <div *ngIf="loading" class="history-state" role="status" aria-live="polite">
+          <span class="history-spinner" aria-hidden="true"></span><p>Cargando historial…</p>
+        </div>
+        <div *ngIf="error" class="history-state history-error" role="alert">
+          <app-icon name="alert-circle" class="h-6 w-6"></app-icon>
+          <p>{{ error }}</p><button type="button" class="history-retry" (click)="loadHistory()">Reintentar</button>
+        </div>
+        <ng-container *ngIf="!loading && !error">
+          <ol *ngIf="filteredHistory.length > 0; else emptyHistory" class="history-timeline" aria-label="Períodos de ocupación">
+            <li *ngFor="let item of filteredHistory; trackBy: trackHistory" class="history-entry" [class.history-entry-active]="item.endDate === null">
+              <div class="history-entry-heading">
+                <div class="history-client">
+                  <h4>{{ item.clientName }}</h4>
+                  <p *ngIf="item.paymentIdentifier !== null">ID de pago {{ item.paymentIdentifier | number:'1.0-2':'es-AR' }}</p>
+                </div>
+                <span class="history-status" [class.history-status-active]="item.endDate === null">{{ item.endDate === null ? 'Activo' : 'Finalizado' }}</span>
+              </div>
+              <dl class="history-dates">
+                <div><dt>Ingreso</dt><dd>{{ item.startDate | date:'dd/MM/yyyy' }}</dd></div>
+                <div><dt>Salida</dt><dd>{{ item.endDate ? (item.endDate | date:'dd/MM/yyyy') : 'Continúa asignado' }}</dd></div>
+              </dl>
+              <p *ngIf="item.notes" class="history-notes">{{ item.notes }}</p>
+            </li>
+          </ol>
+          <ng-template #emptyHistory>
+            <div class="history-state">
+              <app-icon name="clock-clockwise" class="h-7 w-7"></app-icon>
+              <h4>{{ search.trim() ? 'Sin coincidencias' : 'Sin ocupaciones registradas' }}</h4>
+              <p>{{ search.trim() ? 'Probá con otro nombre o identificador de pago.' : 'Esta baulera todavía no tiene un historial de clientes registrado.' }}</p>
+            </div>
+          </ng-template>
+        </ng-container>
+      </div>
+    </div>
+
+    <footer class="history-footer">
+      <p *ngIf="!loading && !error">{{ filteredHistory.length }} de {{ history.length }} ocupaciones</p>
+      <button type="button" class="history-done" (click)="requestClose()">Cerrar</button>
+    </footer>
+  </section>
+</div>

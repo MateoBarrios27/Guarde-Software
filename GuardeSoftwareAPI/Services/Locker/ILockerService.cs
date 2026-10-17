@@ -13,6 +13,7 @@ namespace GuardeSoftwareAPI.Services.locker
 		//Implementar esto
 		//List<Locker> GetLockersAvailable();
 		Task<List<Locker>> GetLockerListById(int id);
+		Task<List<LockerClientHistoryDto>?> GetLockerClientHistoryAsync(int lockerId);
 		Task<Locker> CreateLocker(Locker locker);
 		Task<bool> SetRentalTransactionAsync(int rentalId, List<int> lockerIds, SqlConnection connection, SqlTransaction transaction);
 		Task<List<GetLockerClientDetailDTO>> GetLockersByClientIdAsync(int clientId);

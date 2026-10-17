@@ -18,7 +18,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task<DataTable> GetRentals()
         {
-            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid FROM rentals WHERE active = 1";
+            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, dbo.GetRentalUnpaidMonths(rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) AS months_unpaid FROM rentals WHERE active = 1";
 
             return await accessDB.GetTableAsync("rentals", query);
         }
@@ -26,7 +26,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<DataTable> GetRentalById(int rentalId)
         {
 
-            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid FROM rentals WHERE active = 1 AND rental_id = @rental_id";
+            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, dbo.GetRentalUnpaidMonths(rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) AS months_unpaid FROM rentals WHERE active = 1 AND rental_id = @rental_id";
 
             SqlParameter[] parameters = new SqlParameter[] {
 
@@ -39,7 +39,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<DataTable> GetRentalsByClientId(int clientId)
         {
 
-            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid FROM rentals WHERE active = 1 AND client_id = @client_id";
+            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, dbo.GetRentalUnpaidMonths(rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) AS months_unpaid FROM rentals WHERE active = 1 AND client_id = @client_id";
 
             SqlParameter[] parameters = new SqlParameter[] {
 
@@ -52,7 +52,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<DataTable> GetRentalsByClientIdIncludingInactiveAsync(int clientId)
         {
 
-            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid FROM rentals WHERE client_id = @client_id";
+            string query = "SELECT rental_id, client_id, start_date, end_date, contracted_m3, dbo.GetRentalUnpaidMonths(rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) AS months_unpaid FROM rentals WHERE client_id = @client_id";
 
             SqlParameter[] parameters = new SqlParameter[] {
 
@@ -342,7 +342,7 @@ namespace GuardeSoftwareAPI.Dao
                 )
                 SELECT 
                     r.rental_id,
-                    r.months_unpaid,
+                    dbo.GetRentalUnpaidMonths(r.rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) AS months_unpaid,
                     ISNULL(cmb.Debt, 0) AS balance,
                     ISNULL(cra.CurrentRent, 0) AS CurrentRent,
                     ISNULL(ui.TotalUnpaidInterests, 0) AS CurrentInterests,   
@@ -367,7 +367,7 @@ namespace GuardeSoftwareAPI.Dao
             return await accessDB.GetTableAsync("all_active_rentals", query);
         }
 
-        public async Task IncrementUnpaidMonthsAndSaveInterestAsync(
+        public async Task SavePendingSurchargeAsync(
             int rentalId,
             decimal interestAmount,
             decimal lateRentBase,
@@ -377,11 +377,7 @@ namespace GuardeSoftwareAPI.Dao
             // que efectivamente quedó vencida. Esa base no desaparece por un pago posterior.
             string query = @"
                 UPDATE rentals 
-                SET months_unpaid = months_unpaid + CASE
-                        WHEN pending_surcharge_period = @surcharge_period THEN 0
-                        ELSE 1
-                    END,
-                    pending_surcharge = @amount,
+                SET pending_surcharge = @amount,
                     pending_surcharge_rent_base = @late_rent_base,
                     pending_surcharge_period = @surcharge_period
                 WHERE rental_id = @rental_id;";
@@ -432,7 +428,7 @@ namespace GuardeSoftwareAPI.Dao
 
         public async Task ResetUnpaidMonthsAsync(int rentalId)
         {
-            string query = "UPDATE rentals SET months_unpaid = 0 WHERE rental_id = @rental_id;";
+            string query = "UPDATE rentals SET months_unpaid = dbo.GetRentalUnpaidMonths(rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) WHERE rental_id = @rental_id;";
             var parameters = new SqlParameter[] { new SqlParameter("@rental_id", rentalId) };
             await accessDB.ExecuteCommandAsync(query, parameters);
         }
@@ -463,7 +459,7 @@ namespace GuardeSoftwareAPI.Dao
                     c.full_name AS client_name,
                     c.payment_identifier, 
                     c.preferred_payment_method_id,
-                    r.months_unpaid,
+                    dbo.GetRentalUnpaidMonths(r.rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) AS months_unpaid,
                     r.pending_surcharge AS PendingSurcharge,
                     ISNULL(step1.UI_Balance, 0) AS balance,
                     COALESCE(dbo.GetPaymentCollectionPreviousBalance(r.rental_id), -ISNULL(rawData.Raw_PrevBal, 0)) AS PreviousBalance,
@@ -538,7 +534,7 @@ namespace GuardeSoftwareAPI.Dao
                         ))
                 ) step1
                 WHERE r.active = 1
-                AND (r.months_unpaid > 0 OR ISNULL(step1.UI_Balance, 0) < 0);";
+                AND (dbo.GetRentalUnpaidMonths(r.rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) > 0 OR ISNULL(step1.UI_Balance, 0) < 0);";
 
             return await accessDB.GetTableAsync("pending_rentals", query);
         }
@@ -566,7 +562,7 @@ namespace GuardeSoftwareAPI.Dao
         //Resets the unpaid months of a rental inside a transaction
         public async Task ResetUnpaidMonthsTransactionAsync(int rentalId, SqlConnection connection, SqlTransaction transaction)
         {
-            string query = "UPDATE rentals SET months_unpaid = 0 WHERE rental_id = @rental_id;";
+            string query = "UPDATE rentals SET months_unpaid = dbo.GetRentalUnpaidMonths(rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) WHERE rental_id = @rental_id;";
             using (var command = new SqlCommand(query, connection, transaction))
             {
                 command.Parameters.AddWithValue("@rental_id", rentalId);
@@ -577,7 +573,7 @@ namespace GuardeSoftwareAPI.Dao
         public async Task<Rental?> GetRentalByClientIdTransactionAsync(int clientId, SqlConnection connection, SqlTransaction transaction)
         {
             // CORRECCIÓN: Se agregó 'increase_anchor_date' a la consulta SQL
-            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, months_unpaid, active, price_lock_end_date, occupied_spaces, increase_anchor_date, pending_surcharge, pending_surcharge_rent_base, pending_surcharge_period FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
+            string query = "SELECT TOP 1 rental_id, client_id, start_date, end_date, contracted_m3, dbo.GetRentalUnpaidMonths(rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) AS months_unpaid, active, price_lock_end_date, occupied_spaces, increase_anchor_date, pending_surcharge, pending_surcharge_rent_base, pending_surcharge_period FROM rentals WHERE client_id = @client_id AND active = 1 ORDER BY start_date DESC";
             SqlParameter[] parameters = [new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId }];
 
             Rental rental = null;

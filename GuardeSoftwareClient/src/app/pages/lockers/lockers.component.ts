@@ -22,6 +22,7 @@ import { ClientService } from '../../core/services/client-service/client.service
 import { Client } from '../../core/models/client';
 import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router } from '@angular/router';
 import { CdkConnectedOverlay, CdkOverlayOrigin, ConnectedPosition, Overlay, OverlayModule } from '@angular/cdk/overlay';
+import { LockerClientHistoryModalComponent } from '../../shared/components/locker-client-history-modal/locker-client-history-modal.component';
 
 type LockerFilterGroup = 'warehouse' | 'status' | 'lockerType';
 type LockerFilterState = 'none' | 'include' | 'exclude';
@@ -33,7 +34,7 @@ interface LockerClientTarget {
 @Component({
   selector: 'app-lockers',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent, OverlayModule],
+  imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent, OverlayModule, LockerClientHistoryModalComponent],
   templateUrl: './lockers.component.html',
   styleUrls: ['./lockers.component.css'],
   host: {
@@ -43,6 +44,13 @@ interface LockerClientTarget {
 export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   lockers: Locker[] = [];
   selectedLocker: Locker | null = null;
+  historyLocker: Locker | null = null;
+
+  openClientHistory(locker: Locker): void {
+    this.closeClientStats();
+    this.showTagsPopover = false;
+    this.historyLocker = locker;
+  }
   
   warehouses: Warehouse[] = [];
   lockerTypes: LockerType[] = [];
@@ -78,6 +86,16 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   // popover filters
   public showTagsPopover = false;
   public statusList: string[] = ['DISPONIBLE', 'OCUPADO', 'POR LIBERARSE', 'MANTENIMIENTO'];
+  public readonly lockerStatisticCards = [
+    { key: 'ocupados', label: 'Ocupadas', icon: 'lock', tone: 'overdue' },
+    { key: 'libres', label: 'Disponibles', icon: 'unlock', tone: 'paid' },
+    { key: 'porLiberarse', label: 'Por liberarse', icon: 'clock', tone: 'leaving' },
+    { key: 'mantenimiento', label: 'Mantenimiento', icon: 'wrench', tone: 'pending' },
+  ] as const;
+
+  public getLockerStatisticPercentage(count: number, total: number): number {
+    return total > 0 ? count / total * 100 : 0;
+  }
   public selectedWarehouseIds: number[] = [];
   public excludedWarehouseIds: number[] = [];
   public selectedStatuses: string[] = [];

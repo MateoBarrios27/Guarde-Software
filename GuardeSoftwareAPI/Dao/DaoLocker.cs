@@ -2,6 +2,7 @@ using System;
 using System.Data;
 using Microsoft.Data.SqlClient;
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Dtos.Locker;
 using System.Threading.Tasks;
 using System.Text;
 
@@ -67,6 +68,31 @@ namespace GuardeSoftwareAPI.Dao
                 WHERE l.active = 1";
 
             return await accessDB.GetTableAsync("lockers", query);
+        }
+
+        public async Task<List<LockerClientHistoryDto>> GetLockerClientHistoryAsync(int lockerId)
+        {
+            const string query = @"
+                SELECT h.history_id, h.client_id, c.full_name, c.payment_identifier,
+                       h.start_date, h.end_date, h.notes
+                FROM client_locker_history h
+                INNER JOIN clients c ON c.client_id = h.client_id
+                WHERE h.locker_id = @LockerId
+                ORDER BY h.start_date DESC, h.history_id DESC;";
+
+            var table = await accessDB.GetTableAsync("LockerClientHistory", query,
+                [new SqlParameter("@LockerId", SqlDbType.Int) { Value = lockerId }]);
+
+            return table.Rows.Cast<DataRow>().Select(row => new LockerClientHistoryDto
+            {
+                Id = Convert.ToInt32(row["history_id"]),
+                ClientId = Convert.ToInt32(row["client_id"]),
+                ClientName = row["full_name"]?.ToString() ?? string.Empty,
+                PaymentIdentifier = row["payment_identifier"] == DBNull.Value ? null : Convert.ToDecimal(row["payment_identifier"]),
+                StartDate = Convert.ToDateTime(row["start_date"]),
+                EndDate = row["end_date"] == DBNull.Value ? null : Convert.ToDateTime(row["end_date"]),
+                Notes = row["notes"] == DBNull.Value ? null : row["notes"].ToString()
+            }).ToList();
         }
 
         public async Task<DataTable> GetLockerById(int id)

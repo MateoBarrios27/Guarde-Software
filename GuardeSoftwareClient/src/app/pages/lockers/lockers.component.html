@@ -34,36 +34,28 @@
   </section>
 </ng-template>
 
-<div class="space-y-6 pt-6">
+<div class="lockers-page space-y-6 pt-6">
 
-  <section class="overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)]">
-    <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 md:px-6">
-      <div>
-        <h2 class="text-base font-semibold tracking-tight text-gray-800">Resumen de bauleras</h2>
-        <p class="mt-0.5 text-xs font-medium text-gray-400">Los valores acompañan los filtros activos</p>
+  <section *ngIf="filteredLockers as visibleLockers" class="client-statistics locker-statistics" aria-label="Resumen de bauleras">
+    <div class="client-stat-total-card">
+      <div class="client-stat-total-heading">
+        <span class="client-stat-icon"><app-icon name="package" class="h-4 w-4"></app-icon></span>
+        <p>Total Bauleras</p>
       </div>
-      <app-icon name="package" class="h-5 w-5 text-gray-400"></app-icon>
+      <div class="client-stat-total-footer">
+        <strong class="client-stat-total-count">{{ visibleLockers.length | number }}</strong>
+        <span class="client-stat-inactive locker-stat-filter-note">Según filtros</span>
+      </div>
     </div>
-    <div class="grid grid-cols-2 divide-x divide-y divide-gray-100 sm:grid-cols-3 lg:grid-cols-5 lg:divide-y-0">
-      <div class="flex items-center gap-3 px-5 py-4">
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><app-icon name="package" class="h-4 w-4"></app-icon></div>
-        <div><p class="text-xl font-bold tabular-nums text-gray-900">{{ filteredLockers.length }}</p><p class="text-xs font-medium text-gray-500">Total</p></div>
+    <div *ngFor="let stat of lockerStatisticCards" class="client-stat-card" [ngClass]="'client-stat-' + stat.tone">
+      <div class="client-stat-card-heading">
+        <span class="client-stat-icon"><app-icon [name]="stat.icon" class="h-4 w-4"></app-icon></span>
+        <span class="client-stat-percentage" [attr.aria-label]="(getLockerStatisticPercentage(this[stat.key], visibleLockers.length) | number:'1.1-1') + '% de bauleras visibles'">{{ getLockerStatisticPercentage(this[stat.key], visibleLockers.length) | number:'1.1-1' }} %</span>
       </div>
-      <div class="flex items-center gap-3 px-5 py-4">
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-600"><app-icon name="lock" class="h-4 w-4"></app-icon></div>
-        <div><p class="text-xl font-bold tabular-nums text-gray-900">{{ ocupados }}</p><p class="text-xs font-medium text-gray-500">Ocupadas</p></div>
-      </div>
-      <div class="flex items-center gap-3 px-5 py-4">
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-green-50 text-green-600"><app-icon name="unlock" class="h-4 w-4"></app-icon></div>
-        <div><p class="text-xl font-bold tabular-nums text-gray-900">{{ libres }}</p><p class="text-xs font-medium text-gray-500">Disponibles</p></div>
-      </div>
-      <div class="flex items-center gap-3 px-5 py-4">
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><app-icon name="clock" class="h-4 w-4"></app-icon></div>
-        <div><p class="text-xl font-bold tabular-nums text-gray-900">{{ porLiberarse }}</p><p class="text-xs font-medium text-gray-500">Por liberarse</p></div>
-      </div>
-      <div class="col-span-2 flex items-center gap-3 px-5 py-4 sm:col-span-1">
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600"><app-icon name="wrench" class="h-4 w-4"></app-icon></div>
-        <div><p class="text-xl font-bold tabular-nums text-gray-900">{{ mantenimiento }}</p><p class="text-xs font-medium text-gray-500">Mantenimiento</p></div>
+      <p class="client-stat-label">{{ stat.label }}</p>
+      <strong class="client-stat-count">{{ this[stat.key] | number }}</strong>
+      <div class="client-stat-track" aria-hidden="true">
+        <span class="client-stat-fill" [style.width.%]="getLockerStatisticPercentage(this[stat.key], visibleLockers.length)" [class.has-value]="this[stat.key] > 0 && visibleLockers.length > 0"></span>
       </div>
     </div>
   </section>
@@ -256,8 +248,8 @@
 
   
   <!-- Tabla -->
-  <div class="relative w-full mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible min-w-[1050px]">
-    <div class="w-full min-w-0 overflow-visible" aria-label="Tabla de bauleras">
+  <div class="locker-table-card relative w-full mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible min-w-[1050px]">
+    <div class="locker-table-viewport w-full min-w-0 overflow-visible" aria-label="Tabla de bauleras" tabindex="0">
     <table class="min-w-[1050px] w-full">
       
       <thead class="bg-gray-50 sticky top-0 z-20 shadow-sm text-gray-600 uppercase text-xs">
@@ -334,7 +326,7 @@
             </div>
           </th>
 
-          <th *ngIf="!authService.isObserver()" class="px-2 py-3 text-left font-medium bg-gray-50">Acciones</th>
+          <th class="px-2 py-3 text-left font-medium bg-gray-50">Acciones</th>
         </tr>
       </thead>
       
@@ -386,26 +378,31 @@
               <span *ngIf="assignedClients.length === 0" class="block px-2 py-3 text-xs italic text-gray-400">Sin asignar</span>
             </div>
           </td>
-          <td *ngIf="!authService.isObserver()" class="px-2 py-3 whitespace-nowrap text-sm font-medium">
-            <button (click)="openUpdateLockerModal(locker)" 
+          <td class="px-2 py-3 whitespace-nowrap text-sm font-medium">
+            <button type="button" (click)="openClientHistory(locker)"
+                    class="mr-2 rounded p-1 text-gray-500 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-500"
+                    title="Historial de clientes" [attr.aria-label]="'Historial de clientes de la baulera ' + locker.identifier">
+              <app-icon name="clock-clockwise" class="h-4 w-4"></app-icon>
+            </button>
+            <button *ngIf="!authService.isObserver()" (click)="openUpdateLockerModal(locker)" 
                     class="p-1 text-black hover:text-blue-800" title="Editar"> 
               <app-icon name="edit" class="h-4 w-4"></app-icon>
             </button> 
-            <button (click)="deleteLocker(locker)" 
+            <button *ngIf="!authService.isObserver()" (click)="deleteLocker(locker)" 
                     class="ml-2 p-1 text-black hover:text-red-600" title="Borrar">
               <app-icon name="Trash2" class="h-4 w-4"></app-icon>
             </button>
           </td>
         </tr>
         <tr *ngIf="filteredLockers.length === 0">
-            <td [attr.colspan]="authService.isObserver() ? 6 : 7" class="px-4 py-6 text-center text-gray-500">
+            <td colspan="7" class="px-4 py-6 text-center text-gray-500">
                 No se encontraron lockers con los filtros aplicados.
             </td>
         </tr>
       </tbody>
       <tfoot class="sticky bottom-0 z-20 bg-gray-50 font-bold text-gray-700 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <tr>
-          <td [attr.colspan]="authService.isObserver() ? 6 : 7" class="border-t border-gray-200 px-4 py-3 text-right text-xs uppercase tracking-wider text-gray-500 bg-gray-50">
+          <td colspan="7" class="border-t border-gray-200 px-4 py-3 text-right text-xs uppercase tracking-wider text-gray-500 bg-gray-50">
             {{ filteredLockers.length }} bauleras visibles
           </td>
         </tr>
@@ -419,6 +416,12 @@
   </pagination-controls>
 
 </div> <div #bottomAnchor class="w-full h-1 opacity-0 pointer-events-none mt-4"></div>
+
+<app-locker-client-history-modal *ngIf="historyLocker" [locker]="historyLocker"
+  [warehouseName]="getWarehouseName(historyLocker.warehouseId)"
+  [lockerTypeName]="getLockerTypeName(historyLocker.lockerTypeId)"
+  (close)="historyLocker = null">
+</app-locker-client-history-modal>
 
 <button (click)="toggleScroll()"
         class="fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-110 hover:shadow-blue-500/30 transition-all duration-300 focus:outline-none"

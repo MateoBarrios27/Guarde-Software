@@ -3,6 +3,7 @@ import { environment } from '../../../../environments/environments';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { Locker } from '../../models/locker';
+import { LockerClientHistory } from '../../models/locker-client-history';
 import { LockerUpdateDTO } from '../../dtos/locker/LockerUpdateDTO';
 import { LockerUpdateStatusDTO } from '../../dtos/locker/LockerUpdateStatusDTO';
 import { CreateLockerDTO } from '../../dtos/locker/CreateLockerDTO';
@@ -25,6 +26,10 @@ export class LockerService {
 
   public getLockerById(id: number): Observable<Locker>{
     return this.httpCliente.get<Locker>(`${this.url}/Locker/${id}`);
+  }
+
+  public getClientHistory(lockerId: number): Observable<LockerClientHistory[]> {
+    return this.httpCliente.get<LockerClientHistory[]>(`${this.url}/Locker/${lockerId}/client-history`);
   }
 
   public updateLocker(id: number, dto: LockerUpdateDTO): Observable<any>{

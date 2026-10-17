@@ -1,3 +1,39 @@
+@import '../../shared/styles/statistics-cards.css';
+
+.locker-statistics {
+  grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr));
+}
+
+.client-stat-leaving { --stat-accent: #f59e0b; --stat-tint: #fffbeb; --stat-ink: #92400e; }
+
+.locker-stat-filter-note {
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+@media (max-width: 1023px) {
+  .lockers-page { padding-top: 1rem; }
+  .lockers-page > * + * { margin-top: 1rem; }
+  .locker-statistics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .locker-statistics .client-stat-total-card { grid-column: 1 / -1; }
+  .locker-table-card { min-width: 0; }
+  .locker-table-viewport {
+    max-height: 70vh;
+    max-height: 70dvh;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  .locker-table-viewport:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+}
+
+@media (max-width: 639px) {
+  .locker-statistics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .locker-statistics .client-stat-percentage { font-size: 0.5625rem; }
+  .locker-statistics .client-stat-label { min-height: 0; font-size: 0.5625rem; }
+}
+
 .locker-client-list {
     display: flex;
     min-width: 12rem;

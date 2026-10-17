@@ -53,6 +53,23 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        [HttpGet("{id:int}/client-history")]
+        public async Task<ActionResult<List<LockerClientHistoryDto>>> GetClientHistory(int id)
+        {
+            if (id <= 0) return BadRequest(new { message = "El identificador de la baulera no es válido." });
+            try
+            {
+                var history = await _lockerService.GetLockerClientHistoryAsync(id);
+                return history == null
+                    ? NotFound(new { message = "La baulera ya no está disponible." })
+                    : Ok(history);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { message = "No se pudo consultar el historial de clientes de la baulera." });
+            }
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateLocker([FromBody] CreateLockerDTO LockerToCreate)
         {
