@@ -21,8 +21,17 @@ export class NotificationInboxComponent implements OnInit, OnDestroy {
   isLoading = false;
   hasLoadError = false;
 
+  private readonly autoOpenDelayMs = 1_500;
   private readonly subscriptions = new Subscription();
+  private readonly pendingAutoOpenSignatures = new Set<string>();
+  private readonly inMemoryAutoOpenedSignatures = new Set<string>();
   private refreshTimer?: ReturnType<typeof setInterval>;
+  private autoOpenTimer?: ReturnType<typeof setTimeout>;
+  private pageHasLoaded = document.readyState === 'complete';
+  private readonly windowLoadHandler = (): void => {
+    this.pageHasLoaded = true;
+    this.scheduleAutoOpen();
+  };
 
   constructor(
     private readonly notificationService: NotificationService,
@@ -32,6 +41,9 @@ export class NotificationInboxComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    if (!this.pageHasLoaded) {
+      window.addEventListener('load', this.windowLoadHandler, { once: true });
+    }
     this.loadNotifications();
     this.subscriptions.add(
       this.alertService.notificationsChanged$.subscribe(() => this.loadNotifications())
@@ -42,10 +54,13 @@ export class NotificationInboxComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
     if (this.refreshTimer) clearInterval(this.refreshTimer);
+    if (this.autoOpenTimer) clearTimeout(this.autoOpenTimer);
+    window.removeEventListener('load', this.windowLoadHandler);
   }
 
   toggle(event: MouseEvent): void {
     event.stopPropagation();
+    this.cancelPendingAutoOpen(true);
     this.isOpen = !this.isOpen;
     if (this.isOpen) this.loadNotifications();
   }
@@ -86,6 +101,19 @@ export class NotificationInboxComponent implements OnInit, OnDestroy {
       this.close();
       void this.router.navigateByUrl(notification.actionUrl);
     }
+  }
+
+  deleteNotification(notification: UserNotification, event: MouseEvent): void {
+    event.stopPropagation();
+
+    this.notifications = this.notifications.filter(item => item.id !== notification.id);
+    if (!notification.isRead) {
+      this.unreadCount = Math.max(0, this.unreadCount - 1);
+    }
+
+    this.notificationService.deleteForCurrentUser(notification.id).subscribe({
+      error: () => this.loadNotifications()
+    });
   }
 
   trackById(_: number, notification: UserNotification): number {
@@ -147,6 +175,7 @@ export class NotificationInboxComponent implements OnInit, OnDestroy {
         this.notifications = inbox.items;
         this.unreadCount = inbox.unreadCount;
         this.isLoading = false;
+        this.considerAutoOpen(inbox.items);
       },
       error: () => {
         this.isLoading = false;
@@ -159,5 +188,86 @@ export class NotificationInboxComponent implements OnInit, OnDestroy {
     if (notification.isRead) return;
     notification.isRead = true;
     this.unreadCount = Math.max(0, this.unreadCount - 1);
+  }
+
+  private considerAutoOpen(notifications: UserNotification[]): void {
+    const alreadyAutoOpened = this.getAutoOpenedSignatures();
+    const unseenSignatures = notifications
+      .filter(notification => !notification.isRead)
+      .map(notification => this.notificationSignature(notification))
+      .filter(signature => !alreadyAutoOpened.has(signature));
+
+    if (unseenSignatures.length === 0) return;
+
+    unseenSignatures.forEach(signature => this.pendingAutoOpenSignatures.add(signature));
+    if (this.isOpen) {
+      this.rememberPendingAutoOpenSignatures();
+      return;
+    }
+
+    this.scheduleAutoOpen();
+  }
+
+  private scheduleAutoOpen(): void {
+    if (!this.pageHasLoaded || this.autoOpenTimer || this.pendingAutoOpenSignatures.size === 0) return;
+
+    this.autoOpenTimer = setTimeout(() => {
+      this.autoOpenTimer = undefined;
+      if (this.pendingAutoOpenSignatures.size === 0) return;
+
+      this.isOpen = true;
+      this.rememberPendingAutoOpenSignatures();
+    }, this.autoOpenDelayMs);
+  }
+
+  private cancelPendingAutoOpen(markAsSeen: boolean): void {
+    if (this.autoOpenTimer) {
+      clearTimeout(this.autoOpenTimer);
+      this.autoOpenTimer = undefined;
+    }
+    if (markAsSeen) {
+      this.rememberPendingAutoOpenSignatures();
+    } else {
+      this.pendingAutoOpenSignatures.clear();
+    }
+  }
+
+  private rememberPendingAutoOpenSignatures(): void {
+    if (this.pendingAutoOpenSignatures.size === 0) return;
+
+    const signatures = this.getAutoOpenedSignatures();
+    this.pendingAutoOpenSignatures.forEach(signature => {
+      signatures.add(signature);
+      this.inMemoryAutoOpenedSignatures.add(signature);
+    });
+    this.pendingAutoOpenSignatures.clear();
+
+    try {
+      localStorage.setItem(this.autoOpenStorageKey(), JSON.stringify(Array.from(signatures).slice(-200)));
+    } catch {
+      // El fallback en memoria evita reaperturas durante la sesión si el navegador bloquea localStorage.
+    }
+  }
+
+  private getAutoOpenedSignatures(): Set<string> {
+    const signatures = new Set(this.inMemoryAutoOpenedSignatures);
+    try {
+      const stored = JSON.parse(localStorage.getItem(this.autoOpenStorageKey()) ?? '[]');
+      if (Array.isArray(stored)) {
+        stored.filter(value => typeof value === 'string').forEach(value => signatures.add(value));
+      }
+    } catch {
+      // Un valor local inválido no debe impedir cargar ni abrir la bandeja.
+    }
+    return signatures;
+  }
+
+  private autoOpenStorageKey(): string {
+    const userName = localStorage.getItem('userName')?.trim().toLowerCase() || 'anonymous';
+    return `guarde.notifications.auto-opened.${userName}`;
+  }
+
+  private notificationSignature(notification: UserNotification): string {
+    return `${notification.id}:${notification.createdAt}`;
   }
 }

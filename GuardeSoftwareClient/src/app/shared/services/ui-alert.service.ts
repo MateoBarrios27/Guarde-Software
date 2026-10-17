@@ -71,7 +71,36 @@ export class UiAlertService {
   }
 
   static success(title: string, text?: string): Promise<SweetAlertResult> {
-    return UiAlertService.fire({ title, text, icon: 'success' });
+    // Una operación completada informa sin interrumpir el formulario ni su foco.
+    return UiAlertService.fire({
+      toast: true,
+      position: 'top-end',
+      titleText: title,
+      text: text ?? 'La operación se completó correctamente.',
+      icon: 'success',
+      showConfirmButton: false,
+      showCloseButton: true,
+      closeButtonAriaLabel: 'Cerrar notificación',
+      closeButtonHtml: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+      focusConfirm: false,
+      returnFocus: false,
+      backdrop: false,
+      timer: 4500,
+      timerProgressBar: false,
+      didOpen: (toast) => {
+        const resumeWhenIdle = () => {
+          if (!toast.matches(':hover') && !toast.contains(document.activeElement)) SweetAlert.resumeTimer();
+        };
+        toast.addEventListener('mouseenter', () => SweetAlert.stopTimer());
+        toast.addEventListener('mouseleave', resumeWhenIdle);
+        toast.addEventListener('focusin', () => SweetAlert.stopTimer());
+        toast.addEventListener('focusout', resumeWhenIdle);
+      },
+      customClass: {
+        container: 'guarde-result-container',
+        popup: 'guarde-result-toast',
+      },
+    });
   }
 
   static error(title: string, text?: string): Promise<SweetAlertResult> {

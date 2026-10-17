@@ -7,6 +7,8 @@ namespace GuardeSoftwareAPI.Services.notification
         Task<NotificationInboxDto> GetInboxAsync(int userId, int take = 50);
         Task<bool> MarkAsReadAsync(long notificationId, int userId);
         Task<int> MarkAllAsReadAsync(int userId);
+        Task<bool> DismissAsync(long notificationId, int userId);
+        Task SyncArrearsNotificationsAsync(DateTime today);
         Task<long> CreateEventAsync(
             string sourceType,
             string severity,

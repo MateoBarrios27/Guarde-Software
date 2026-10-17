@@ -161,7 +161,7 @@ namespace GuardeSoftwareAPI.Services.sync
 
                     -- MonthsUnpaid from rentals
                     (
-                        SELECT SUM(ISNULL(r2.months_unpaid, 0))
+                        SELECT MAX(dbo.GetRentalUnpaidMonths(r2.rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))))
                         FROM rentals r2
                         WHERE r2.client_id = c.client_id AND r2.active = 1
                     ) AS MonthsUnpaid,
@@ -189,7 +189,7 @@ namespace GuardeSoftwareAPI.Services.sync
                     CASE
                         WHEN c.active = 0 THEN 'Baja'
                         WHEN c.departure_status = 'SE_VA' THEN 'SE VA'
-                        WHEN (SELECT SUM(ISNULL(r2.months_unpaid, 0)) FROM rentals r2 WHERE r2.client_id = c.client_id AND r2.active = 1) >= 1 THEN 'Moroso'
+                        WHEN (SELECT MAX(dbo.GetRentalUnpaidMonths(r2.rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE())))) FROM rentals r2 WHERE r2.client_id = c.client_id AND r2.active = 1) >= 1 THEN 'Moroso'
                         WHEN ISNULL(step1.UI_Balance, 0) >= 0 THEN 'Al día'
                         ELSE 'Pendiente'
                     END AS Status
@@ -364,7 +364,9 @@ namespace GuardeSoftwareAPI.Services.sync
                     PaymentDaysThisMonth = ParseCommaSeparatedInts(row["PaymentDaysThisMonth"]),
                     // New enriched fields
                     NextPaymentDay = row["NextPaymentDay"] != DBNull.Value ? Convert.ToDateTime(row["NextPaymentDay"]).ToString("yyyy-MM-dd") : null,
-                    Status = row["Status"]?.ToString(),
+                    Status = row["Status"]?.ToString() == "Moroso"
+                        ? "Moroso Nivel " + Math.Min(3, Convert.ToInt32(row["MonthsUnpaid"]))
+                        : row["Status"]?.ToString(),
                     DepartureStatus = row["DepartureStatus"] != DBNull.Value ? row["DepartureStatus"]?.ToString() : null,
                     RentalId = row["RentalId"] != DBNull.Value ? Convert.ToInt32(row["RentalId"]) : null,
                     LockerIdentifiers = row["LockerIdentifiers"] != DBNull.Value

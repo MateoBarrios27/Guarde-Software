@@ -58,6 +58,9 @@ namespace GuardeSoftwareAPI.Services.notification
         public Task<int> MarkAllAsReadAsync(int userId)
             => _dao.MarkAllAsReadAsync(userId);
 
+        public async Task<bool> DismissAsync(long notificationId, int userId)
+            => await _dao.DismissAsync(notificationId, userId) > 0;
+
         public async Task<long> CreateEventAsync(
             string sourceType,
             string severity,
@@ -93,6 +96,7 @@ namespace GuardeSoftwareAPI.Services.notification
 
         private async Task SyncOperationalNotificationsAsync(DateTime today)
         {
+            await SyncArrearsNotificationsAsync(today);
             string monthKey = today.ToString("yyyy-MM", CultureInfo.InvariantCulture);
             string missingIncreaseKey = $"monthly-increase-missing:{monthKey}";
 
@@ -117,6 +121,12 @@ namespace GuardeSoftwareAPI.Services.notification
             DateTime nextMonth = new(today.AddMonths(1).Year, today.AddMonths(1).Month, 1);
             string nextMonthLabel = nextMonth.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("es-AR"));
             await _dao.SyncClientIncreaseNotificationsAsync(today, nextMonthLabel);
+        }
+
+        public async Task SyncArrearsNotificationsAsync(DateTime today)
+        {
+            if (await _dao.SyncArrearsNotificationsAsync(today) > 0)
+                await _hubContext.Clients.All.SendAsync("NotificationsChanged");
         }
     }
 }

@@ -21,4 +21,8 @@ export class NotificationService {
   markAllAsRead(): Observable<{ updated: number }> {
     return this.http.put<{ updated: number }>(`${this.url}/read-all`, {});
   }
+
+  deleteForCurrentUser(notificationId: number): Observable<void> {
+    return this.http.delete<void>(`${this.url}/${notificationId}`);
+  }
 }

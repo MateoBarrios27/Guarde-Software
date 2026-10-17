@@ -55,6 +55,18 @@ namespace GuardeSoftwareAPI.Controllers
             return Ok(new { updated });
         }
 
+        [HttpDelete("{notificationId:long}")]
+        public async Task<IActionResult> Dismiss(long notificationId)
+        {
+            int? userId = await GetCurrentUserIdAsync();
+            if (!userId.HasValue)
+                return Unauthorized();
+
+            return await _notificationService.DismissAsync(notificationId, userId.Value)
+                ? NoContent()
+                : NotFound();
+        }
+
         private async Task<int?> GetCurrentUserIdAsync()
         {
             string? businessUserId = User.FindFirst("businessUserId")?.Value;

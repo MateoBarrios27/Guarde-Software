@@ -31,6 +31,7 @@ namespace GuardeSoftwareAPI.Dao
                 WHERE n.resolved_at IS NULL
                   AND (n.expires_at IS NULL OR n.expires_at > SYSDATETIME())
                   AND (n.target_user_id IS NULL OR n.target_user_id = @UserId)
+                  AND nr.dismissed_at IS NULL
                 ORDER BY n.created_at DESC, n.notification_id DESC;";
 
             SqlParameter[] parameters =
@@ -106,6 +107,40 @@ namespace GuardeSoftwareAPI.Dao
 
             return ExecuteScalarIntAsync(query,
             [
+                new("@UserId", SqlDbType.Int) { Value = userId }
+            ]);
+        }
+
+        public Task<int> DismissAsync(long notificationId, int userId)
+        {
+            const string query = @"
+                IF EXISTS (
+                    SELECT 1 FROM notifications
+                    WHERE notification_id = @NotificationId
+                      AND resolved_at IS NULL
+                      AND (expires_at IS NULL OR expires_at > SYSDATETIME())
+                      AND (target_user_id IS NULL OR target_user_id = @UserId)
+                )
+                BEGIN
+                    MERGE notification_reads WITH (HOLDLOCK) AS target
+                    USING (
+                        SELECT @NotificationId AS notification_id, @UserId AS user_id
+                    ) AS source
+                        ON target.notification_id = source.notification_id
+                       AND target.user_id = source.user_id
+                    WHEN MATCHED THEN
+                        UPDATE SET dismissed_at = SYSDATETIME()
+                    WHEN NOT MATCHED THEN
+                        INSERT (notification_id, user_id, read_at, dismissed_at)
+                        VALUES (source.notification_id, source.user_id, SYSDATETIME(), SYSDATETIME());
+
+                    SELECT 1;
+                END
+                ELSE SELECT 0;";
+
+            return ExecuteScalarIntAsync(query,
+            [
+                new("@NotificationId", SqlDbType.BigInt) { Value = notificationId },
                 new("@UserId", SqlDbType.Int) { Value = userId }
             ]);
         }
@@ -298,6 +333,45 @@ namespace GuardeSoftwareAPI.Dao
                 new("@Today", SqlDbType.Date) { Value = today.Date },
                 StringParameter("@NextMonthLabel", 80, nextMonthLabel)
             ]);
+        }
+
+        public Task<int> SyncArrearsNotificationsAsync(DateTime today)
+        {
+            const string query = @"
+                DECLARE @Due TABLE (notification_key NVARCHAR(200) PRIMARY KEY, client_id INT, full_name NVARCHAR(255));
+                INSERT @Due
+                SELECT N'client-arrears:' + CONVERT(nvarchar(20), c.client_id), c.client_id, c.full_name
+                FROM clients c
+                WHERE c.active = 1 AND ISNULL(c.is_deleted, 0) = 0
+                  AND EXISTS (SELECT 1 FROM rentals r WHERE r.client_id = c.client_id AND r.active = 1
+                      AND dbo.GetRentalUnpaidMonths(r.rental_id, @Today) >= 3);
+
+                DECLARE @Touched TABLE (notification_id BIGINT, previous_resolved_at DATETIME2(0), operation NVARCHAR(10));
+                MERGE notifications WITH (HOLDLOCK) AS target
+                USING @Due AS source ON target.notification_key = source.notification_key
+                WHEN MATCHED THEN UPDATE SET
+                    source_type = N'client_arrears_level3', severity = N'danger',
+                    title = N'Moroso nivel 3',
+                    message = source.full_name + N' tiene tres o más meses completos de atraso desde su mes de cobranza pendiente. Revisá su cuenta.',
+                    action_url = N'/clients?detailClientId=' + CONVERT(nvarchar(20), source.client_id),
+                    created_at = CASE WHEN target.resolved_at IS NOT NULL THEN SYSDATETIME() ELSE target.created_at END,
+                    resolved_at = NULL
+                WHEN NOT MATCHED THEN
+                    INSERT (notification_key, source_type, severity, title, message, action_url)
+                    VALUES (source.notification_key, N'client_arrears_level3', N'danger', N'Moroso nivel 3',
+                        source.full_name + N' tiene tres o más meses completos de atraso desde su mes de cobranza pendiente. Revisá su cuenta.',
+                        N'/clients?detailClientId=' + CONVERT(nvarchar(20), source.client_id))
+                OUTPUT inserted.notification_id, deleted.resolved_at, $action INTO @Touched;
+
+                DELETE nr FROM notification_reads nr JOIN @Touched t ON t.notification_id = nr.notification_id
+                WHERE t.previous_resolved_at IS NOT NULL;
+
+                UPDATE n SET resolved_at = SYSDATETIME()
+                FROM notifications n WHERE n.source_type = N'client_arrears_level3' AND n.resolved_at IS NULL
+                  AND NOT EXISTS (SELECT 1 FROM @Due d WHERE d.notification_key = n.notification_key);
+                DECLARE @Resolved INT = @@ROWCOUNT;
+                SELECT @Resolved + COUNT(*) FROM @Touched WHERE operation = N'INSERT' OR previous_resolved_at IS NOT NULL;";
+            return ExecuteScalarIntAsync(query, [new("@Today", SqlDbType.Date) { Value = today.Date }]);
         }
 
         public Task<bool> HasMonthlyIncreaseAsync(DateTime month)
