@@ -3,7 +3,7 @@ import { environment } from '../../../../environments/environments';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { AccountMovement } from '../../models/account-movement';
-import { AccountMovementDTO } from '../../dtos/accountMovement/account-movement.dto';
+import { AccountMovementDTO, MovementStatisticsDTO } from '../../dtos/accountMovement/account-movement.dto';
 import { CreateAccountMovementDTO } from '../../dtos/accountMovement/create-account-movement.dto';
 import {
   PaymentPlanningContext,
@@ -33,6 +33,12 @@ export class AccountMovementService {
 
   public getMovementsByClientId(clientId: number): Observable<AccountMovementDTO[]> {
     return this.httpCliente.get<AccountMovementDTO[]>(`${this.url}/AccountMovement/client/${clientId}`);
+  }
+
+  getMovementStatistics(clientId: number, movementId: number): Observable<MovementStatisticsDTO> {
+    return this.httpCliente.get<MovementStatisticsDTO>(
+      `${this.url}/AccountMovement/client/${clientId}/movements/${movementId}/statistics`
+    );
   }
 
   createMovement(dto: CreateAccountMovementDTO): Observable<AccountMovementDTO> {

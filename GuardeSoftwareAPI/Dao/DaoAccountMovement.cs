@@ -49,6 +49,31 @@ namespace GuardeSoftwareAPI.Dao
 
         }
 
+        public Task<DataTable> GetMovementStatisticsLedgerAsync(int clientId, int movementId)
+        {
+            const string query = """
+            SELECT m.movement_id, m.rental_id, m.movement_date, m.movement_type,
+                   m.concept, m.amount, m.payment_id, rent.amount AS current_rent
+            FROM account_movements target
+            INNER JOIN rentals r ON r.rental_id = target.rental_id AND r.client_id = @client_id
+            INNER JOIN clients c ON c.client_id = r.client_id AND c.is_deleted = 0
+            INNER JOIN account_movements m ON m.rental_id = target.rental_id
+                AND (m.movement_date < target.movement_date
+                     OR (m.movement_date = target.movement_date AND m.movement_id <= target.movement_id))
+            OUTER APPLY (
+                SELECT TOP 1 h.amount FROM rental_amount_history h
+                WHERE h.rental_id = target.rental_id AND h.start_date < DATEADD(day, 1, CAST(target.movement_date AS date))
+                  AND (h.end_date IS NULL OR h.end_date >= CAST(target.movement_date AS date))
+                ORDER BY h.start_date DESC, h.rental_amount_history_id DESC
+            ) rent
+            WHERE target.movement_id = @movement_id
+            ORDER BY m.movement_date, m.movement_id;
+            """;
+            return accessDB.GetTableAsync("movement_statistics", query,
+                [new SqlParameter("@client_id", SqlDbType.Int) { Value = clientId },
+                 new SqlParameter("@movement_id", SqlDbType.Int) { Value = movementId }]);
+        }
+
         public async Task<bool> CreateAccountMovement(AccountMovement accountMovement)
         {
             SqlParameter[] parameters =

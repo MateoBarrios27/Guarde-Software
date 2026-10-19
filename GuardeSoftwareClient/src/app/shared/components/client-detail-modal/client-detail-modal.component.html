@@ -76,7 +76,7 @@
       </div>
     </header>
 
-    <main class="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <main cdkScrollable class="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="lg:col-span-1 space-y-6">
         <div class="bg-white rounded-lg shadow-sm border p-5">
            <h3 class="text-lg font-semibold text-gray-800 mb-4">Resumen</h3>
@@ -250,7 +250,7 @@
             </div>
             
             <div>
-              <div class="relative w-full overflow-x-auto border rounded-lg">
+              <div cdkScrollable class="relative w-full overflow-x-auto border rounded-lg">
                 <table class="w-full text-sm">
                   <thead class="text-xs text-gray-700 bg-gray-50">
                     <tr class="border-b">
@@ -272,15 +272,19 @@
                           }" 
                         class="border-b hover:bg-gray-50">
                       
-                      <td class="p-3 whitespace-nowrap">{{ mov.movementDate | date : "dd/MM/yyyy" }}</td>
+                      <td class="p-3 finance-date-cell">
+                        <span class="finance-date">{{ mov.movementDate | date:'dd/MM/yyyy' }}</span>
+                        <span class="finance-time">{{ mov.movementDate | date:'HH:mm' }}</span>
+                      </td>
                       <td class="p-3">{{ mov.concept }}</td>
                       <td 
                         class="p-3 text-right font-medium whitespace-nowrap"
                         [ngClass]="mov.movementType === 'CREDITO' ? 'text-green-600' : 'text-red-600'"
                       >
-                        <span *ngIf="mov.movementType === 'CREDITO'">+</span>
-                        <span *ngIf="mov.movementType === 'DEBITO'">-</span>
-                        $ {{ mov.amount | number:'1.2-2' }}
+                        <div class="inline-flex items-center justify-end gap-2">
+                          <span><span *ngIf="mov.movementType === 'CREDITO'">+</span><span *ngIf="mov.movementType === 'DEBITO'">-</span>$ {{ mov.amount | number:'1.2-2' }}</span>
+                          <app-movement-statistics-popover [clientId]="client.id" [movement]="mov"></app-movement-statistics-popover>
+                        </div>
                       </td>
                       <td *ngIf="!authService.isObserver()" class="p-3 text-center">
                         <button (click)="deleteMovement(mov.id)" class="p-1 text-black hover:text-red-600" title="Eliminar Movimiento">

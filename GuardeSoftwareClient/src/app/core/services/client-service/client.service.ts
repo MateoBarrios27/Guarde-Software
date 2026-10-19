@@ -152,6 +152,8 @@ export class ClientService {
         params = params.append('ExcludedPreferredPaymentMethodIds', id.toString());
       });
     }
+    request.arrearsLevels?.forEach(level => { params = params.append('ArrearsLevels', level.toString()); });
+    request.excludedArrearsLevels?.forEach(level => { params = params.append('ExcludedArrearsLevels', level.toString()); });
     if (request.lockerTypeIds && request.lockerTypeIds.length > 0) {
       request.lockerTypeIds.forEach(id => {
         params = params.append('LockerTypeIds', id.toString());

@@ -9,6 +9,8 @@ import {
   ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MovementStatisticsPopoverComponent } from '../movement-statistics-popover/movement-statistics-popover.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { IconComponent } from '../icon/icon.component';
 import { PaymentIncreaseModalComponent } from '../payment-increase-modal/payment-increase-modal.component';
@@ -59,6 +61,8 @@ const SPANISH_MONTHS = [
   standalone: true,
   imports: [
     CommonModule,
+    CdkScrollable,
+    MovementStatisticsPopoverComponent,
     IconComponent,
     PaymentIncreaseModalComponent,
     DatePipe,

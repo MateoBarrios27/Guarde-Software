@@ -1,3 +1,4 @@
+import { isTableScrollAtBottom, resolveTableScrollContainer } from '../../shared/utils/table-scroll.util';
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule, CurrencyPipe, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -36,7 +37,7 @@ import { ClientReactivationModalComponent, ClientReactivationPrepared } from '..
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
 
 type FilterTagState = 'none' | 'include' | 'exclude';
-type FilterTagGroup = 'warehouse' | 'quick' | 'billing' | 'paymentMethod' | 'iva' | 'lockerType' | 'paymentDay';
+type FilterTagGroup = 'warehouse' | 'quick' | 'billing' | 'paymentMethod' | 'iva' | 'lockerType' | 'paymentDay' | 'arrears';
 
 @Component({
   selector: 'app-clients',
@@ -74,6 +75,15 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     dadosBaja: 0,
   };
   public searchClientes = '';
+  public readonly clientStatisticCards = [
+    { key: 'alDia', label: 'Pagaron el mes', icon: 'check-circle', tone: 'paid', description: 'Sin nivel de morosidad y con el mes actual contemplado como pagado.' },
+    { key: 'morosos', label: 'Morosos', icon: 'alert-triangle', tone: 'overdue', description: 'Clientes con nivel de morosidad 1, 2 o 3. No se incluyen en los otros dos grupos.' },
+    { key: 'pendientes', label: 'No pagaron el mes', icon: 'clock', tone: 'pending', description: 'Sin nivel de morosidad y con el mes actual pendiente de pago.' },
+  ] as const;
+
+  public getClientStatisticPercentage(count: number): number {
+    return this.estadisticas.total > 0 ? count / this.estadisticas.total * 100 : 0;
+  }
   private searchSubject = new Subject<string>();
   private clientLoadSequence = 0;
   public filterEstadoClientes = 'Todos';
@@ -114,6 +124,9 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public selectedWarehouseIds: number[] = [];
   public excludedWarehouseIds: number[] = [];
   public selectedQuickFilters: string[] = [];
+  public readonly arrearsLevels = [1, 2, 3];
+  public selectedArrearsLevels: number[] = [];
+  public excludedArrearsLevels: number[] = [];
   public excludedQuickFilters: string[] = [];
 
   // --- Tags filter properties ---
@@ -151,6 +164,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public departureProportionalAmount: number | null = null;
   private departurePreviewRequestId = 0;
 
+  @ViewChild('tableViewport') private tableViewport?: ElementRef<HTMLElement>;
   @ViewChild('tagsPopoverRef') tagsPopoverRef!: ElementRef;
   @ViewChild('tagsButtonRef') tagsButtonRef!: ElementRef;
 
@@ -606,6 +620,13 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.reloadClientsForFilterChange();
   }
 
+  toggleArrearsLevel(level: number): void {
+    const next = this.cycleFilterSelection(level, this.selectedArrearsLevels, this.excludedArrearsLevels);
+    this.selectedArrearsLevels = next.included;
+    this.excludedArrearsLevels = next.excluded;
+    this.reloadClientsForFilterChange();
+  }
+
   getQuickFilterLabel(val: string): string {
     const qf = this.quickFiltersList.find(q => q.value === val);
     return qf ? qf.label : val;
@@ -718,6 +739,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       case 'iva': return `IVA ${String(value)}`;
       case 'lockerType': return this.getLockerTypeName(Number(value));
       case 'paymentDay': return `Día ${Number(value)}`;
+      case 'arrears': return `Moroso nivel ${Number(value)}`;
     }
   }
 
@@ -725,6 +747,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     switch (group) {
       case 'warehouse': return { included: this.selectedWarehouseIds, excluded: this.excludedWarehouseIds };
       case 'quick': return { included: this.selectedQuickFilters, excluded: this.excludedQuickFilters };
+      case 'arrears': return { included: this.selectedArrearsLevels, excluded: this.excludedArrearsLevels };
       case 'billing': return { included: this.selectedBillingTypeIds, excluded: this.excludedBillingTypeIds };
       case 'paymentMethod': return { included: this.selectedPaymentMethodIds, excluded: this.excludedPaymentMethodIds };
       case 'iva': return { included: this.selectedIvaConditions, excluded: this.excludedIvaConditions };
@@ -741,6 +764,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     switch (group) {
       case 'warehouse': this.selectedWarehouseIds = included as number[]; this.excludedWarehouseIds = excluded as number[]; break;
       case 'quick': this.selectedQuickFilters = included as string[]; this.excludedQuickFilters = excluded as string[]; break;
+      case 'arrears': this.selectedArrearsLevels = included as number[]; this.excludedArrearsLevels = excluded as number[]; break;
       case 'billing': this.selectedBillingTypeIds = included as number[]; this.excludedBillingTypeIds = excluded as number[]; break;
       case 'paymentMethod': this.selectedPaymentMethodIds = included as number[]; this.excludedPaymentMethodIds = excluded as number[]; break;
       case 'iva': this.selectedIvaConditions = included as string[]; this.excludedIvaConditions = excluded as string[]; break;
@@ -751,6 +775,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   clearAllTags(): void {
+    this.selectedArrearsLevels = [];
+    this.excludedArrearsLevels = [];
     this.selectedWarehouseIds = [];
     this.excludedWarehouseIds = [];
     this.selectedQuickFilters = [];
@@ -775,6 +801,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedWarehouseIds.length +
       this.excludedWarehouseIds.length +
       this.selectedQuickFilters.length +
+      this.selectedArrearsLevels.length +
+      this.excludedArrearsLevels.length +
       this.excludedQuickFilters.length +
       this.selectedIvaConditions.length +
       this.excludedIvaConditions.length +
@@ -871,10 +899,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onScroll(event: Event) {
-    const target = event.target as HTMLElement;
-    // Si estamos cerca del fondo, la flecha apunta hacia arriba
-    const isAtBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 100;
-    this.pointingUp = isAtBottom;
+    this.onTableScroll();
     if (this.showTagsPopover) {
       this.positionTagsPopover();
     }
@@ -882,6 +907,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:resize')
   onWindowResize(): void {
+    this.onTableScroll();
     if (this.showTagsPopover) {
       this.positionTagsPopover();
     }
@@ -905,15 +931,20 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  toggleScroll() {
-    const scrollContainer = document.getElementById('main-scroll');
-    if (!scrollContainer) return;
-
-    if (this.pointingUp) {
-      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+  onTableScroll(): void {
+    const container = resolveTableScrollContainer(this.tableViewport?.nativeElement);
+    const pointingUp = container ? isTableScrollAtBottom(container) : false;
+    if (this.pointingUp !== pointingUp) {
+      this.pointingUp = pointingUp;
+      this.cdr.markForCheck();
     }
+  }
+
+  toggleScroll(): void {
+    const container = resolveTableScrollContainer(this.tableViewport?.nativeElement);
+    if (!container) return;
+    const top = isTableScrollAtBottom(container) ? 0 : container.scrollHeight;
+    container.scrollTo({ top, behavior: 'smooth' });
   }
 
   private matchesCachedClientFilters(client: CachedClient): boolean {
@@ -921,6 +952,11 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       values.length === 0 || values.some(matcher);
 
     const warehouseIds = client.warehouseIds ?? [];
+    const levelFromStatus = /^Moroso\s+(?:Nivel\s*|N)?(\d+)/i.exec(client.status ?? '');
+    const arrearsLevel = client.active === false || client.departureStatus === 'SE_VA'
+      ? 0 : Math.min(3, Number(levelFromStatus?.[1] ?? client.monthsUnpaid ?? 0));
+    if (!matchesAny(this.selectedArrearsLevels, level => level === arrearsLevel)) return false;
+    if (this.excludedArrearsLevels.includes(arrearsLevel)) return false;
     if (!matchesAny(this.selectedWarehouseIds, id => warehouseIds.includes(id))) return false;
     if (this.excludedWarehouseIds.some(id => warehouseIds.includes(id))) return false;
 
@@ -1074,6 +1110,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       sortDirection: this.sortDirectionClientes,
       searchTerm: this.searchClientes || undefined,
       statusFilter: this.filterEstadoClientes === 'Todos' ? undefined : this.filterEstadoClientes,
+      arrearsLevels: this.selectedArrearsLevels.length ? this.selectedArrearsLevels : undefined,
+      excludedArrearsLevels: this.excludedArrearsLevels.length ? this.excludedArrearsLevels : undefined,
       active: !this.showInactivos,
       warehouseIds: this.selectedWarehouseIds.length > 0 ? this.selectedWarehouseIds : undefined,
       excludedWarehouseIds: this.excludedWarehouseIds.length > 0 ? this.excludedWarehouseIds : undefined,
@@ -1229,6 +1267,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   handleResetFilters(): void {
+    this.selectedArrearsLevels = [];
+    this.excludedArrearsLevels = [];
     this.searchClientes = '';
     this.filterEstadoClientes = 'Todos';
     this.selectedWarehouseIds = [];

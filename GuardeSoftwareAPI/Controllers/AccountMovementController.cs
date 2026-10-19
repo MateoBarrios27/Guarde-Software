@@ -55,6 +55,19 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }    
 
+        [HttpGet("client/{clientId:int}/movements/{movementId:int}/statistics")]
+        public async Task<IActionResult> GetMovementStatistics(int clientId, int movementId)
+        {
+            try { return Ok(await _accountMovementService.GetMovementStatisticsAsync(clientId, movementId)); }
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+            catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error leyendo estadísticas del movimiento {MovementId} del cliente {ClientId}.", movementId, clientId);
+                return StatusCode(500, new { message = "No se pudo consultar el estado de la cuenta." });
+            }
+        }
+
         [HttpGet("client/{clientId}")]
         public async Task<IActionResult> GetMovementsByClientId(int clientId)
         {

@@ -6,76 +6,39 @@
 
 <div #topAnchor class="absolute top-0 w-full h-[600px] -z-10 opacity-0 pointer-events-none"></div>
 
-  <div *ngIf="activeTab === 'clientes'" class="space-y-6 pt-6">
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-      <div class="bg-white p-4 rounded-xl border shadow-sm">
-        <div class="flex items-start gap-3">
-          <app-icon name="users" class="h-6 w-6 text-blue-500"></app-icon>
-          <div>
-            <p class="text-2xl font-bold text-blue-900">
-              {{ estadisticas.total }}
-            </p>
-            <p class="text-sm text-gray-500">Total Clientes Activos</p>
+  <div *ngIf="activeTab === 'clientes'" class="clients-page space-y-6 pt-6">
+    <section class="client-statistics" aria-label="Resumen de clientes">
+      <div class="client-stat-total-card">
+        <div class="client-stat-total-heading">
+          <span class="client-stat-icon"><svg aria-hidden="true" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2M16 5a3 3 0 0 1 0 6M21 20v-2a4 4 0 0 0-3-3.87"/></svg></span>
+          <p>Total Clientes Activos</p>
+        </div>
+        <div class="client-stat-total-footer">
+          <strong class="client-stat-total-count">{{ estadisticas.total | number }}</strong>
+          <div class="client-stat-inactive">
+            <svg aria-hidden="true" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2M17 10h5"/></svg>
+            <div><strong>{{ estadisticas.dadosBaja | number }}</strong><p>Dados de Baja</p></div>
           </div>
         </div>
       </div>
-      <div class="bg-white p-4 rounded-xl border shadow-sm">
-        <div class="flex items-start gap-3">
-          <app-icon
-            name="check-circle"
-            class="h-6 w-6 text-green-500"
-          ></app-icon>
-          <div>
-            <p class="text-2xl font-bold text-green-900">
-              {{ estadisticas.alDia }}
-            </p>
-            <p class="text-sm text-gray-500">Pagaron el mes</p>
-          </div>
+      <div *ngFor="let stat of clientStatisticCards" class="client-stat-card" [ngClass]="'client-stat-' + stat.tone" [title]="stat.description">
+        <div class="client-stat-card-heading">
+          <span class="client-stat-icon"><app-icon [name]="stat.icon" class="h-5 w-5"></app-icon></span>
+          <span class="client-stat-percentage" [attr.aria-label]="(getClientStatisticPercentage(estadisticas[stat.key]) | number:'1.1-1') + '% de clientes activos'">{{ getClientStatisticPercentage(estadisticas[stat.key]) | number:'1.1-1' }} %</span>
+        </div>
+        <p class="client-stat-label">{{ stat.label }}</p>
+        <strong class="client-stat-count">{{ estadisticas[stat.key] | number }}</strong>
+        <div class="client-stat-track" aria-hidden="true">
+          <span class="client-stat-fill" [style.width.%]="getClientStatisticPercentage(estadisticas[stat.key])" [class.has-value]="estadisticas[stat.key] > 0 && estadisticas.total > 0"></span>
         </div>
       </div>
-      <div class="bg-white p-4 rounded-xl border shadow-sm">
-        <div class="flex items-start gap-3">
-          <app-icon
-            name="alert-triangle"
-            class="h-6 w-6 text-red-500"
-          ></app-icon>
-          <div>
-            <p class="text-2xl font-bold text-red-900">
-              {{ estadisticas.morosos }}
-            </p>
-            <p class="text-sm text-gray-500">Morosos</p>
-          </div>
-        </div>
-      </div>
-      <div class="bg-white p-4 rounded-xl border shadow-sm">
-        <div class="flex items-start gap-3">
-          <app-icon name="clock" class="h-6 w-6 text-orange-500"></app-icon>
-          <div>
-            <p class="text-2xl font-bold text-orange-900">
-              {{ estadisticas.pendientes }}
-            </p>
-            <p class="text-sm text-gray-500">No pagaron el mes</p>
-          </div>
-        </div>
-      </div>
-      <div class="bg-white p-4 rounded-xl border shadow-sm">
-        <div class="flex items-start gap-3">
-          <app-icon name="user-x" class="h-6 w-6 text-gray-500"></app-icon>
-          <div>
-            <p class="text-2xl font-bold text-gray-900">
-              {{ estadisticas.dadosBaja }}
-            </p>
-            <p class="text-sm text-gray-500">Dados de Baja</p>
-          </div>
-        </div>
-      </div>
-    </div>
+    </section>
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible min-w-[1180px]">
-      <div class="p-4 space-y-4">
+    <div class="clients-table-card bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible min-w-[1180px]">
+      <div class="clients-toolbar p-4 space-y-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3
-            class="text-lg font-semibold text-gray-800 flex items-center gap-2"
+            class="clients-list-title text-lg font-semibold text-gray-800 flex items-center gap-2"
           >
             <app-icon name="user" class="h-5 w-5"></app-icon> Lista de Clientes
             <span class="text-sm font-normal bg-gray-100 px-2 py-0.5 rounded-md"
@@ -93,8 +56,8 @@
             <!-- <button (click)="loadClients()" class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg hover:bg-gray-50 flex items-center gap-2"><app-icon name="rotate-ccw" class="h-4 w-4"></app-icon> Actualizar</button> -->
           </div>
         </div>
-        <div class="flex flex-wrap items-center gap-3">
-          <div class="relative flex-grow sm:flex-grow-0">
+        <div class="clients-filter-row flex flex-wrap items-center gap-3">
+          <div class="clients-search relative flex-grow sm:flex-grow-0">
             <app-icon
               name="search"
               class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4">
@@ -117,7 +80,7 @@
 
           <button
             (click)="toggleInactivos()" 
-            class="px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap"
+            class="clients-inactive-toggle px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap"
             [ngClass]="showInactivos ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-700 hover:bg-gray-50'"
           >
             <app-icon name="user-x" class="h-4 w-4"></app-icon> 
@@ -130,7 +93,7 @@
               #tagsButtonRef
               type="button"
               (click)="toggleTagsPopover()"
-              class="px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap shadow-sm"
+              class="clients-filter-toggle px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap shadow-sm"
               [ngClass]="totalActiveTagsCount > 0 ? 'bg-blue-50 text-blue-700 border-blue-300' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
             >
               <app-icon name="plus" class="h-4 w-4"></app-icon>
@@ -198,6 +161,21 @@
                         class="rounded-full border px-2 py-1 text-[11px] transition-colors"
                       >
                         <span *ngIf="getFilterTagState('quick', qf.value) === 'exclude'" class="mr-0.5 font-black">−</span>{{ qf.label }}
+                      </button>
+                    </div>
+                  </section>
+
+                  <!-- Morosidad -->
+                  <section class="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5">
+                    <span class="mb-2 block text-[11px] font-bold uppercase tracking-wide text-gray-500">Morosidad</span>
+                    <div class="flex flex-wrap gap-1.5">
+                      <button *ngFor="let level of arrearsLevels" type="button"
+                        (click)="toggleArrearsLevel(level)"
+                        [ngClass]="getFilterTagClasses('arrears', level)"
+                        [attr.aria-pressed]="getFilterTagState('arrears', level) !== 'none'"
+                        [title]="getFilterTagTitle('arrears', level)"
+                        class="rounded-full border px-2 py-1 text-[11px] transition-colors">
+                        <span *ngIf="getFilterTagState('arrears', level) === 'exclude'" class="mr-0.5 font-black">−</span>Nivel {{ level }}
                       </button>
                     </div>
                   </section>
@@ -387,6 +365,14 @@
             </span>
           </ng-container>
 
+          <!-- Morosidad -->
+          <ng-container *ngFor="let level of selectedArrearsLevels.concat(excludedArrearsLevels)">
+            <span [ngClass]="getActiveFilterTagClasses('arrears', level)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
+              <button type="button" (click)="toggleArrearsLevel(level)" [title]="getFilterTagTitle('arrears', level)" class="px-2.5 py-1 focus:outline-none"><span *ngIf="getFilterTagState('arrears', level) === 'exclude'">Excepto: </span>Moroso nivel {{ level }}</button>
+              <button type="button" (click)="clearFilterTag('arrears', level); $event.stopPropagation()" class="border-l border-current/20 px-1.5 py-1 hover:bg-black/5 focus:outline-none" [attr.aria-label]="'Quitar filtro de morosidad nivel ' + level"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+            </span>
+          </ng-container>
+
           <!-- Facturación -->
           <ng-container *ngFor="let id of selectedBillingTypeIds">
             <span [ngClass]="getActiveFilterTagClasses('billing', id)" class="inline-flex items-center overflow-hidden rounded-full border text-xs">
@@ -499,7 +485,7 @@
         </div>
       </div>
 
-      <div class="relative w-full min-w-0 overflow-visible" aria-label="Tabla de clientes">
+      <div #tableViewport (scroll)="onTableScroll()" class="clients-table-viewport relative w-full min-w-0 overflow-visible" aria-label="Tabla de clientes" tabindex="0">
         <table class="min-w-[1180px] w-full text-sm border-separate border-spacing-0">
           
           <thead class="text-xs text-gray-700 bg-gray-50 sticky top-0 z-20 shadow-sm">

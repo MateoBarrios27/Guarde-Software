@@ -208,6 +208,13 @@ builder.Services.AddQuartz(q =>
     //     .WithCronSchedule("0 58 16 * * ?") // 16:58 (4:58 PM)
     // );
 
+    var arrearsJobKey = new JobKey(nameof(ArrearsNotificationsJob));
+    q.AddJob<ArrearsNotificationsJob>(opts => opts.WithIdentity(arrearsJobKey));
+    q.AddTrigger(opts => opts.ForJob(arrearsJobKey)
+        .WithIdentity("ArrearsNotifications-trigger")
+        .StartNow()
+        .WithSimpleSchedule(schedule => schedule.WithIntervalInMinutes(5).RepeatForever()));
+
     // --- Job 3: ApplyInterestsJob (with trigger) ---
     var applyInterestsJobKey = new JobKey("ApplyInterestsJob");
     q.AddJob<ApplyInterestsJob>(opts => opts.WithIdentity(applyInterestsJobKey));

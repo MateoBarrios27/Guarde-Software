@@ -331,7 +331,7 @@ namespace GuardeSoftwareAPI.Dao
                     ad.street, ad.city, ad.province,
                     pm.name AS preferred_payment_method,
                     bt.billing_type_id, bt.name AS billing_type,
-                    r.rental_id, r.contracted_m3, r.increase_anchor_date, r.months_unpaid, r.occupied_spaces,
+                    r.rental_id, r.contracted_m3, r.increase_anchor_date, dbo.GetRentalUnpaidMonths(r.rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) AS months_unpaid, r.occupied_spaces,
                     
                     ISNULL(cr.CurrentRent, 0) AS current_rent_amount,
                     ISNULL(step1.UI_CurrentRent, CASE 
@@ -355,7 +355,7 @@ namespace GuardeSoftwareAPI.Dao
 
                     CASE 
                         WHEN c.active = 0 THEN 'Baja'
-                        WHEN ISNULL(r.months_unpaid, 0) >= 1 THEN 'Moroso Nivel ' + CAST(ISNULL(r.months_unpaid, 0) AS VARCHAR(10))
+                        WHEN dbo.GetRentalUnpaidMonths(r.rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) >= 1 THEN 'Moroso Nivel ' + CAST(CASE WHEN dbo.GetRentalUnpaidMonths(r.rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) >= 3 THEN 3 ELSE dbo.GetRentalUnpaidMonths(r.rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))) END AS VARCHAR(10))
                         WHEN ISNULL(step1.UI_Balance, 0) >= 0 THEN 'Al día'
                         ELSE 'Pendiente'
                     END AS payment_status
@@ -554,9 +554,26 @@ namespace GuardeSoftwareAPI.Dao
 
             if (!string.IsNullOrEmpty(request.StatusFilter) && request.StatusFilter != "Todos")
             {
-                finalWhereClause.Append("AND Status = @StatusFilter ");
+                finalWhereClause.Append(request.StatusFilter == "Moroso"
+                    ? "AND Status LIKE @StatusFilter + '%' " : "AND Status = @StatusFilter ");
                 filterParameters.Add(new SqlParameter("@StatusFilter", request.StatusFilter));
             }
+
+            void AddArrearsFilter(List<int>? levels, bool exclude)
+            {
+                var validLevels = levels?.Where(level => level >= 1 && level <= 3).Distinct().ToList() ?? [];
+                if (validLevels.Count == 0) return;
+                var names = new List<string>();
+                foreach (var level in validLevels)
+                {
+                    var name = $"@{(exclude ? "Excluded" : "Included")}Arrears{level}";
+                    names.Add(name);
+                    filterParameters.Add(new SqlParameter(name, SqlDbType.VarChar, 30) { Value = $"Moroso Nivel {level}" });
+                }
+                finalWhereClause.Append($"AND Status {(exclude ? "NOT IN" : "IN")} ({string.Join(",", names)}) ");
+            }
+            AddArrearsFilter(request.ArrearsLevels, false);
+            AddArrearsFilter(request.ExcludedArrearsLevels, true);
 
             var validWarehouseIds = request.WarehouseIds?.Where(id => id > 0).ToList() ?? new List<int>();
             if (request.WarehouseId.HasValue && request.WarehouseId.Value > 0 && !validWarehouseIds.Contains(request.WarehouseId.Value))
@@ -1054,7 +1071,8 @@ namespace GuardeSoftwareAPI.Dao
                         CASE
                             WHEN c.active = 0 THEN 'Baja'
                             WHEN c.departure_status = 'SE_VA' THEN 'SE VA'
-                            WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso'
+                            WHEN ISNULL(months_unpaid_sub.total_months_unpaid, 0) >= 1 THEN 'Moroso Nivel ' +
+                                CAST(CASE WHEN months_unpaid_sub.total_months_unpaid >= 3 THEN 3 ELSE months_unpaid_sub.total_months_unpaid END AS varchar(10))
                             WHEN ISNULL(step1.UI_Balance, 0) >= 0 THEN 'Al día' 
                             ELSE 'Pendiente'
                         END AS Status
@@ -1224,7 +1242,7 @@ namespace GuardeSoftwareAPI.Dao
                               AND c.active = 0
                         ) loc
                     ) locker_sub
-                    LEFT JOIN ( SELECT r.client_id, SUM(ISNULL(r.months_unpaid, 0)) as total_months_unpaid FROM rentals r WHERE r.active = 1 GROUP BY r.client_id ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
+                    LEFT JOIN ( SELECT r.client_id, MAX(dbo.GetRentalUnpaidMonths(r.rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE())))) as total_months_unpaid FROM rentals r WHERE r.active = 1 GROUP BY r.client_id ) months_unpaid_sub ON c.client_id = months_unpaid_sub.client_id
                     {clientDataWhereClause}
                 ),
                 FilteredData AS (

@@ -1,3 +1,28 @@
+/* Movement dates match the compact date/time cell in Finanzas. */
+.finance-date-cell {
+    width: 6.5rem;
+    white-space: nowrap;
+}
+
+.finance-date,
+.finance-time {
+    display: block;
+    line-height: 1.18;
+}
+
+.finance-date {
+    color: #334155;
+    font-size: 0.76rem;
+    font-weight: 800;
+}
+
+.finance-time {
+    margin-top: 0.12rem;
+    color: #94a3b8;
+    font-size: 0.69rem;
+    font-weight: 700;
+}
+
 
 /* Abono: connector segments and markers use a shared 20 px column. */
 .abono-timeline { margin-top: 18px; }

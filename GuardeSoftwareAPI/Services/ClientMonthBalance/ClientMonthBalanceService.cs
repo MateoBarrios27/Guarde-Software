@@ -59,6 +59,12 @@ namespace GuardeSoftwareAPI.Services.clientMonthBalance
             var movements = await GetMovementsAsync(rentalId, connection, transaction);
             var rebuiltRows = PaymentAllocationEngine.Allocate(movements).Rows;
             await ReplaceBalancesAsync(rentalId, rebuiltRows, connection, transaction);
+            using var refreshArrears = new SqlCommand(@"
+                UPDATE rentals SET months_unpaid = dbo.GetRentalUnpaidMonths(
+                    rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE())))
+                WHERE rental_id = @RentalId;", connection, transaction);
+            refreshArrears.Parameters.AddWithValue("@RentalId", rentalId);
+            await refreshArrears.ExecuteNonQueryAsync();
         }
 
         internal static DateTime ResolveMonthStart(AccountMovement movement)

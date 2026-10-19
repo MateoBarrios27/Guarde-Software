@@ -5,6 +5,8 @@ export interface GetClientsRequest {
   sortDirection?: 'asc' | 'desc';
   searchTerm?: string;
   statusFilter?: string;
+  arrearsLevels?: number[];
+  excludedArrearsLevels?: number[];
   active?: boolean;
   warehouseId?: number;
   warehouseIds?: number[];

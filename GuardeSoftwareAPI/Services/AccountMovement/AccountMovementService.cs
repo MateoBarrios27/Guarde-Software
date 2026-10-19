@@ -37,6 +37,27 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             _daoMonthlyIncrease = new DaoMonthlyIncrease(_accessDB);
         }
 
+        public async Task<MovementStatisticsDto> GetMovementStatisticsAsync(int clientId, int movementId)
+        {
+            if (clientId <= 0 || movementId <= 0)
+                throw new ArgumentException("El cliente y el movimiento deben ser válidos.");
+            var table = await _daoAccountMovement.GetMovementStatisticsLedgerAsync(clientId, movementId);
+            if (table.Rows.Count == 0)
+                throw new KeyNotFoundException("No se encontró el movimiento para este cliente.");
+            var ledger = table.AsEnumerable().Select(row => new AccountMovement
+            {
+                Id = Convert.ToInt32(row["movement_id"]), RentalId = Convert.ToInt32(row["rental_id"]),
+                MovementDate = Convert.ToDateTime(row["movement_date"]),
+                MovementType = row["movement_type"].ToString() ?? string.Empty,
+                Concept = row["concept"].ToString(), Amount = Convert.ToDecimal(row["amount"]),
+                PaymentId = row["payment_id"] == DBNull.Value ? null : Convert.ToInt32(row["payment_id"])
+            }).ToList();
+            var movement = ledger.Single(m => m.Id == movementId);
+            var rent = table.Rows[0]["current_rent"];
+            return MovementStatisticsCalculator.Calculate(ledger, movement,
+                rent == DBNull.Value ? null : Convert.ToDecimal(rent));
+        }
+
         public async Task<List<AccountMovement>> GetAccountMovementList()
         {
 

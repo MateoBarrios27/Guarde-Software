@@ -10,6 +10,7 @@ namespace GuardeSoftwareAPI.Services.accountMovement
 	public interface IAccountMovementService
 	{
 		Task<List<AccountMovement>> GetAccountMovementList();
+        Task<MovementStatisticsDto> GetMovementStatisticsAsync(int clientId, int movementId);
 		Task<List<AccountMovement>> GetAccountMovementListByRentalId(int id);
 		Task<bool> CreateAccountMovement(AccountMovement accountMovement);
 		Task ApplyMonthlyDebitsAsync();

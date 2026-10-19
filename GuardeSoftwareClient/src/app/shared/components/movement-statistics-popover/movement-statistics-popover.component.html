@@ -1,0 +1,34 @@
+<button #trigger type="button" cdkOverlayOrigin #origin="cdkOverlayOrigin"
+  class="movement-stats-trigger" [class.movement-stats-trigger-active]="open"
+  aria-label="Ver estado tras este movimiento" title="Ver estado tras este movimiento"
+  [attr.aria-expanded]="open" [attr.aria-controls]="open ? 'movement-stats-' + movement.id : null"
+  aria-haspopup="dialog" (click)="toggle()" (keydown.escape)="onKeydown($event)">
+  <app-icon name="info" class="h-4 w-4"></app-icon>
+</button>
+<ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="origin" [cdkConnectedOverlayOpen]="open"
+  [cdkConnectedOverlayPositions]="positions" [cdkConnectedOverlayScrollStrategy]="scrollStrategy"
+  [cdkConnectedOverlayViewportMargin]="12" [cdkConnectedOverlayPush]="true"
+  (overlayOutsideClick)="close()" (detach)="close()" (overlayKeydown)="onKeydown($event)">
+  <section [id]="'movement-stats-' + movement.id" role="dialog" aria-label="Estado tras el movimiento"
+    class="movement-stats-card" (keydown.escape)="onKeydown($event)" [attr.aria-busy]="loading" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+    <header class="movement-stats-header">
+      <div><h4>Después del movimiento</h4><p>{{ movement.movementDate | date:'dd/MM/yyyy' }} · {{ movement.movementType === 'CREDITO' ? 'Crédito' : 'Débito' }}</p></div>
+      <button type="button" class="movement-stats-close" aria-label="Cerrar estado del movimiento" (click)="close(true)">
+        <app-icon name="x" class="h-4 w-4"></app-icon>
+      </button>
+    </header>
+    <p *ngIf="loading" class="movement-stats-message" role="status">Consultando cuenta…</p>
+    <div *ngIf="error" class="movement-stats-message" role="alert">
+      <p>No se pudo consultar el estado.</p><button type="button" class="movement-stats-retry" (click)="load()">Reintentar</button>
+    </div>
+    <ng-container *ngIf="stats as value">
+      <dl class="movement-stats-values">
+        <div class="movement-stats-row"><dt>Saldo anterior</dt><dd [class.movement-stats-debt]="value.previousBalance < 0" [class.movement-stats-credit]="value.previousBalance > 0"><ng-container *ngIf="value.previousBalance > 0">+</ng-container>{{ value.previousBalance | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}</dd></div>
+        <div class="movement-stats-row"><dt>Intereses</dt><dd [class.movement-stats-interest]="value.interestAmount > 0">{{ value.interestAmount | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}</dd></div>
+        <div class="movement-stats-row"><dt>Abono</dt><dd class="movement-stats-rent">{{ value.currentRent == null ? '—' : (value.currentRent | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') }}</dd></div>
+        <div class="movement-stats-balance"><dt>Saldo<small>{{ value.balance < 0 ? 'Pendiente de pago' : value.balance > 0 ? 'A favor' : 'Al día' }}</small></dt><dd><ng-container *ngIf="value.balance > 0">+</ng-container>{{ value.balance | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}</dd></div>
+      </dl>
+      <p class="movement-stats-note">Según los movimientos vigentes.</p>
+    </ng-container>
+  </section>
+</ng-template>

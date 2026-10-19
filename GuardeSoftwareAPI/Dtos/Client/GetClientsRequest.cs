@@ -8,6 +8,8 @@ namespace GuardeSoftwareAPI.Dtos.Client
         public string SortDirection { get; set; } = "asc";
         public string? SearchTerm { get; set; }
         public string? StatusFilter { get; set; }
+        public List<int>? ArrearsLevels { get; set; }
+        public List<int>? ExcludedArrearsLevels { get; set; }
         public bool? Active { get; set; } = true;
         public int? WarehouseId { get; set; }
         public List<int>? WarehouseIds { get; set; }
