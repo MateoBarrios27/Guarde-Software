@@ -16,6 +16,13 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
   private onChange: (val: number | null) => void = () => {};
   private onTouched: () => void = () => {};
 
+  // Último texto que la directiva dejó en el campo. Todo '.' que contiene es un
+  // separador de miles escrito por ella, así que sólo un '.' nuevo respecto de este
+  // texto puede ser un decimal tipeado. Sin esta referencia, un dígito más
+  // (1.234.567 -> 1.234.5678) o un Backspace (1.234.567 -> 1.234.56) hacían que el
+  // último punto pasara por decimal y el número se truncaba o cambiaba de valor.
+  private lastText = '';
+
   constructor(private el: ElementRef) {}
 
   writeValue(value: any): void {
@@ -23,11 +30,11 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
       const numberValue = typeof value === 'number'
         ? value
         : this.parseAndFormat(String(value)).numberValue;
-      this.el.nativeElement.value = numberValue !== null && !isNaN(numberValue)
+      this.setText(numberValue !== null && !isNaN(numberValue)
         ? this.formatNumber(numberValue)
-        : '';
+        : '');
     } else {
-      this.el.nativeElement.value = '';
+      this.setText('');
     }
   }
 
@@ -46,13 +53,26 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
   @HostListener('input', ['$event'])
   onInput(event: any): void {
     const input = event.target as HTMLInputElement;
-    const originalValue = input.value;
-    const originalCursorPosition = input.selectionStart ?? originalValue.length;
+    let originalValue = input.value;
+    let originalCursorPosition = input.selectionStart ?? originalValue.length;
+
+    // Si sólo se borró un separador de miles, el formato lo repondría y el cursor
+    // quedaría atrapado: Backspace no avanzaría nunca. Se borra también el dígito
+    // contiguo, que es lo que el usuario espera de la tecla.
+    const edit = this.diffFromPrevious(originalValue, this.lastText);
+    if (edit.start === edit.end && /^\.+$/.test(edit.removed)) {
+      const digitIndex = event.inputType === 'deleteContentForward' ? edit.start : edit.start - 1;
+      if (/\d/.test(originalValue[digitIndex] ?? '')) {
+        originalValue = originalValue.substring(0, digitIndex) + originalValue.substring(digitIndex + 1);
+        originalCursorPosition = digitIndex;
+      }
+    }
+
     const digitsToTheRight = (originalValue.substring(originalCursorPosition).match(/\d/g) ?? []).length;
-    const parsed = this.parseAndFormat(originalValue);
+    const parsed = this.parseAndFormat(originalValue, this.lastText);
     const formattedStr = parsed.formatted;
 
-    input.value = formattedStr;
+    this.setText(formattedStr);
 
     // Reubicar el cursor de forma sincrónica evita que queden callbacks viejos
     // capaces de moverlo mientras el usuario continúa escribiendo. Contar los
@@ -83,32 +103,48 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
     this.onTouched();
     const val = this.el.nativeElement.value;
 
-    const parsed = this.parseAndFormat(val);
+    // El texto del campo es el que escribió la directiva: sus puntos son de miles.
+    const parsed = this.parseAndFormat(val, val);
     if (parsed.numberValue !== null && !isNaN(parsed.numberValue)) {
       this.onChange(parsed.numberValue);
-      this.el.nativeElement.value = this.formatNumber(parsed.numberValue);
+      this.setText(this.formatNumber(parsed.numberValue));
     } else {
       this.onChange(null);
-      this.el.nativeElement.value = '';
+      this.setText('');
     }
   }
 
-  private parseAndFormat(rawValue: string): { formatted: string; numberValue: number | null } {
+  private setText(text: string): void {
+    this.el.nativeElement.value = text;
+    this.lastText = text;
+  }
+
+  // Compara el texto actual con el anterior y devuelve el tramo del actual que
+  // cambió ([start, end)) y el texto que había en ese lugar antes de la edición.
+  private diffFromPrevious(value: string, previous: string): { start: number; end: number; removed: string } {
+    const max = Math.min(value.length, previous.length);
+    let start = 0;
+    while (start < max && value[start] === previous[start]) start++;
+
+    let tail = 0;
+    while (tail < max - start && value[value.length - 1 - tail] === previous[previous.length - 1 - tail]) tail++;
+
+    return { start, end: value.length - tail, removed: previous.substring(start, previous.length - tail) };
+  }
+
+  private parseAndFormat(rawValue: string, previousText = ''): { formatted: string; numberValue: number | null } {
     const isNegative = rawValue.trim().startsWith('-');
-    const value = rawValue.replace(/[^0-9.,]/g, '');
-    const decimalSeparator = this.detectDecimalSeparator(value);
-    const hasDecimalSeparator = decimalSeparator !== null;
+    const value = this.canonicalize(rawValue, previousText);
+    const decimalIndex = value.lastIndexOf(',');
+    const hasDecimalSeparator = decimalIndex !== -1;
 
-    let integerPart = value;
-    let fractionPart = '';
-
-    if (decimalSeparator) {
-      const decimalIndex = value.lastIndexOf(decimalSeparator);
-      integerPart = value.substring(0, decimalIndex);
-      fractionPart = value.substring(decimalIndex + 1).replace(/[.,]/g, '').substring(0, 2);
-    }
-
-    const integerDigits = integerPart.replace(/[.,]/g, '');
+    // Sin ceros a la izquierda: 0001 se muestra y se guarda como 1, no como 0.001.
+    const integerDigits = (hasDecimalSeparator ? value.substring(0, decimalIndex) : value)
+      .replace(/,/g, '')
+      .replace(/^0+(?=\d)/, '');
+    const fractionPart = hasDecimalSeparator
+      ? value.substring(decimalIndex + 1).replace(/,/g, '').substring(0, 2)
+      : '';
     const hasDigits = /\d/.test(integerDigits + fractionPart);
     const displayInteger = integerDigits || (fractionPart ? '0' : '');
     const groupedInteger = displayInteger.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -133,6 +169,38 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
     };
   }
 
+  // Deja sólo dígitos y, como mucho, la coma decimal. Lo que ya estaba en el campo
+  // conserva su significado (el '.' es de miles, la ',' es decimal); sólo se
+  // interpreta lo que el usuario acaba de insertar.
+  private canonicalize(rawValue: string, previousText: string): string {
+    const { start, end } = this.diffFromPrevious(rawValue, previousText);
+    const unchanged = (text: string) => text.replace(/[^0-9,]/g, '');
+    const before = unchanged(rawValue.substring(0, start));
+    const after = unchanged(rawValue.substring(end));
+    return before + this.canonicalizeInserted(rawValue.substring(start, end), before + after) + after;
+  }
+
+  private canonicalizeInserted(inserted: string, unchanged: string): string {
+    const text = inserted.replace(/[^0-9.,]/g, '');
+
+    // Pegado, autocompletado o carga del modelo: no hay referencia previa, así que
+    // el formato se deduce del propio texto.
+    if (text.length > 1) {
+      const separator = this.detectDecimalSeparator(text);
+      if (!separator) return text.replace(/[.,]/g, '');
+      const decimalIndex = text.lastIndexOf(separator);
+      return text.substring(0, decimalIndex).replace(/[.,]/g, '') + ',' + text.substring(decimalIndex + 1).replace(/[.,]/g, '');
+    }
+
+    // Un solo carácter tipeado: '.' y ',' valen como separador decimal, pero sólo
+    // si el campo todavía no tiene uno.
+    if (text === '.' || text === ',') return unchanged.includes(',') ? '' : ',';
+    return text;
+  }
+
+  // Sólo se usa para texto pegado o cargado desde el modelo, donde no se sabe qué
+  // puntos puso la directiva. Al tipear no interviene: ahí cada '.' ya presente
+  // es un separador de miles.
   private detectDecimalSeparator(value: string): ',' | '.' | null {
     const commaIndex = value.lastIndexOf(',');
     const dotIndex = value.lastIndexOf('.');
@@ -155,10 +223,6 @@ export class CurrencyFormatDirective implements ControlValueAccessor {
       return digitsBefore > 3 ? '.' : null;
     }
 
-    // Más de tres dígitos después de un punto normalmente significa que el
-    // usuario siguió escribiendo sobre el separador de miles ya formateado
-    // (por ejemplo, 1.2345). Se conserva como agrupador para no convertir
-    // accidentalmente 12.345 en 12,34 al continuar tipeando.
     return digitsAfter <= 2 ? '.' : null;
   }
 
