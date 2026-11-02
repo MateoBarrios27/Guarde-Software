@@ -429,3 +429,10 @@ FodyWeavers.xsd
 
 /tmp
 /test
+
+# Private database scripts and notes: never published
+/Database/Update_*.sql
+/Database/Check_*.sql
+/Database/Correct_*.sql
+/Database/Invoicing_*
+/Database/README_Invoicing.md
