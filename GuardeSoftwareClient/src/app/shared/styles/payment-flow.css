@@ -1,0 +1,194 @@
+/* Payment-only visual language. Shared by both entry forms and their dialogs. */
+.payment-entry,
+.swal2-popup.payment-flow-popup {
+  font-family: Inter, sans-serif;
+  --pay-blue: #2563eb;
+}
+
+:is(.payment-entry, .payment-flow-popup) .pay-tone-blue { --pay-surface: #2563eb; --pay-ink: #fff; }
+:is(.payment-entry, .payment-flow-popup) .pay-tone-green { --pay-surface: #15803d; --pay-ink: #fff; }
+:is(.payment-entry, .payment-flow-popup) .pay-tone-red { --pay-surface: #e11d48; --pay-ink: #fff; }
+:is(.payment-entry, .payment-flow-popup) .pay-tone-orange { --pay-surface: #f97316; --pay-ink: #fff; }
+:is(.payment-entry, .payment-flow-popup) .pay-tone-client { --pay-surface: #0284c7; --pay-ink: #fff; }
+:is(.payment-entry, .payment-flow-popup) .pay-tone-sky { --pay-surface: #4f46e5; --pay-ink: #fff; }
+:is(.payment-entry, .payment-flow-popup) .pay-tone-muted { --pay-surface: #f1f5f9; --pay-ink: #475569; }
+:is(.payment-entry, .payment-flow-popup) .pay-tone-neutral { --pay-surface: #e2e8f0; --pay-ink: #24344b; }
+
+:is(.payment-entry, .payment-flow-popup) [class*="pay-tone-"] {
+  background: var(--pay-surface);
+  color: var(--pay-ink);
+  border-color: transparent;
+  box-shadow: none;
+}
+:is(.payment-entry, .payment-flow-popup) [class*="pay-tone-"] :is(p, span, h4, label, app-icon, svg, strong, div) {
+  color: var(--pay-ink);
+}
+:is(.payment-entry, .payment-flow-popup) [class*="pay-tone-"] button {
+  background: #fff;
+  color: #123a74;
+  border-color: transparent;
+  box-shadow: none;
+}
+:is(.payment-entry, .payment-flow-popup) [class*="pay-tone-"] button:hover { background: #e2e8f0; }
+:is(.payment-entry, .payment-flow-popup) [class*="pay-tone-"] input:not([type="radio"]):not([type="checkbox"]) {
+  background: #fff;
+  color: #123a74;
+}
+:is(.payment-entry, .payment-flow-popup) [class*="pay-tone-"] .absolute { color: #123a74; }
+
+.payment-entry h4 { font-size: 1.2rem; font-weight: 800; letter-spacing: -.035em; }
+/*
+ * Ancho del modal de cobro: un ancho por defecto (--pay-w-base) que no depende de los datos, con un margen
+ * acotado (--pay-room) para que nombres o importes grandes lo ensanchen un poco. Pasado ese tope el texto se
+ * corta con «…». Base y margen escalan con la pantalla: en pantallas grandes hay más juego en píxeles, pero la
+ * proporción respecto de la pantalla se mantiene parecida.
+ */
+.payment-entry .payment-entry-shell {
+  --pay-room: clamp(5rem, 9vw, 14rem);
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  max-height: 92dvh;
+  min-width: 0;
+  width: min(100%, var(--pay-w-base));
+}
+.payment-entry .payment-entry-shell-finances { --pay-w-base: 44rem; }
+.payment-entry .payment-entry-shell-dashboard { --pay-w-base: 44rem; }
+.payment-entry .payment-entry-shell > .payment-entry-dialog { min-height: 0; }
+/* Keep presence inside the available width instead of extending offscreen. */
+.payment-entry .payment-entry-shell > .payment-presence-badge {
+  position: relative;
+  inset: auto;
+  align-self: flex-end;
+  flex: 0 0 auto;
+  width: fit-content;
+  min-width: 0;
+  max-width: 100%;
+  animation: none;
+  transform: none;
+}
+.payment-entry .payment-entry-shell .payment-presence-name { white-space: normal; overflow-wrap: anywhere; }
+.payment-entry .payment-client-meta { gap: .75rem; }
+.payment-entry .payment-client-meta label { font-size: .72rem; font-weight: 800; color: #475569; }
+.payment-entry .payment-client-meta span { font-family: Inter, sans-serif; font-size: .75rem; }
+:is(.payment-entry, .payment-flow-popup) .payment-duplicate-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  padding: .9rem 1rem;
+  border: 0;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+:is(.payment-entry, .payment-flow-popup) .payment-duplicate-icon { display: block; width: 20px; height: 20px; flex: 0 0 20px; margin-top: 2px; }
+:is(.payment-entry, .payment-flow-popup) .payment-duplicate-title { margin: 0; font-size: .85rem; line-height: 1.4; font-weight: 800; }
+:is(.payment-entry, .payment-flow-popup) .payment-duplicate-copy { margin: .2rem 0 0; font-size: .75rem; line-height: 1.5; font-weight: 500; }
+.payment-entry .payment-planned-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; border: 0; border-radius: 12px; }
+.payment-entry .payment-planned-copy { min-width: 0; flex: 1 1 14rem; }
+.payment-entry .payment-planned-heading { display: flex; align-items: center; gap: .5rem; font-size: .75rem; font-weight: 700; }
+.payment-entry .payment-planned-amount { margin-top: .35rem; font-size: 1.5rem; line-height: 1.25; font-weight: 800; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.payment-entry .payment-planned-details { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; padding: .65rem .85rem; min-height: 40px; border: 0; border-radius: 8px; font-size: .75rem; font-weight: 800; cursor: pointer; }
+.payment-entry .payment-planned-details :is(app-icon, svg) { color: #123a74; }
+.payment-entry .payment-state-grid { gap: .65rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.payment-entry .payment-state-grid > div {
+  min-width: 0;
+  min-height: 104px;
+  padding: 1rem;
+  border: 0;
+  border-radius: 12px;
+  box-shadow: none;
+  background: var(--pay-surface, #e2e8f0);
+  color: var(--pay-ink, #24344b);
+}
+.payment-entry .payment-state-grid > div p,
+.payment-entry .payment-state-grid > div app-icon { color: inherit; }
+.payment-entry .payment-state-grid > div > p {
+  font-size: clamp(1rem, 1.5vw, 1.25rem);
+  font-weight: 800;
+  letter-spacing: -.025em;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.payment-entry .payment-state-grid > div > div p { font-size: .65rem; font-weight: 800; letter-spacing: .05em; }
+.payment-entry .payment-state-grid > div > .payment-state-money {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  font-size: 1.25rem;
+}
+/* El nombre del cliente nunca ensancha el modal más allá del tope: en una sola línea y con «…». */
+.payment-entry .payment-state-grid > div > p.payment-state-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+}
+.payment-entry .payment-client-selected { background: #2563eb; border-color: #2563eb; }
+.payment-entry .payment-client-selected span { color: #fff; }
+.payment-entry .payment-client-check { background: #22c55e; color: #fff; box-shadow: none; }
+.payment-entry .payment-entry-dialog.payment-duplicate-active { border: 3px solid #f97316; }
+.payment-entry button[class*="bg-indigo-600"] { background: #2563eb; font-weight: 800; box-shadow: none; }
+.payment-entry button[class*="bg-indigo-600"]:hover:not(:disabled) { background: #1d4ed8; }
+:is(.payment-entry, .payment-flow-popup) :is(button, input, select):focus-visible { outline: 3px solid #60a5fa; outline-offset: 3px; }
+
+.swal2-popup.payment-flow-popup { border-radius: 16px !important; }
+.payment-flow-popup .swal2-title { font-weight: 800 !important; letter-spacing: -.035em; color: #123a74 !important; }
+.payment-flow-popup h3 { font-weight: 800; font-size: 1.4rem; letter-spacing: -.035em; }
+.payment-flow-popup .swal2-confirm { background: #2563eb !important; font-weight: 800 !important; box-shadow: none !important; }
+.payment-flow-popup .swal2-confirm:hover { background: #1d4ed8 !important; }
+.payment-flow-popup .swal2-cancel { font-weight: 800 !important; box-shadow: none !important; }
+.payment-flow-popup .tabular-nums { overflow-wrap: anywhere; min-width: 0; }
+.payment-summary-popup .swal2-html-container { text-align: left; }
+.swal2-popup.payment-summary-popup .swal2-html-container { width: 100%; max-width: none; margin: 0 !important; }
+.payment-summary-popup .payment-summary-header { padding-block: 1.75rem 1.25rem; }
+.payment-summary-popup .payment-summary-header h3 { margin: 0; }
+.payment-summary-popup .payment-surcharge-notice { padding: 1rem; }
+.payment-summary-popup .payment-surcharge-header { padding-top: .2rem; }
+.payment-summary-popup .payment-surcharge-notice h4 { margin: 0; font-size: .6875rem; font-weight: 700; line-height: 1.5; letter-spacing: 0; text-transform: none; flex-wrap: wrap; }
+.payment-summary-popup .payment-surcharge-notice :is(p, label) { font-size: .6875rem; line-height: 1.5; }
+.payment-summary-popup .payment-surcharge-notice label:hover { background: #e2e8f0; }
+.payment-flow-popup.payment-decision-popup .payment-decision-summary { background: #2563eb; color: #fff; border: 0; }
+.payment-flow-popup.payment-decision-popup .payment-decision-card { background: #f1f5f9; border: 0; box-shadow: none; padding: 1.1rem; }
+.payment-flow-popup.payment-decision-popup .payment-decision-card-title { font-size: 1rem; font-weight: 800; }
+.payment-flow-popup.payment-decision-popup .payment-decision-card:has(input:checked) { background: #2563eb; color: #fff; }
+.payment-flow-popup.payment-decision-popup .payment-decision-card:has(input:checked) :is(div, p, span, strong) { color: #fff; }
+.payment-flow-popup.payment-decision-popup .payment-decision-card:has(input:checked) input { accent-color: #fff; }
+.payment-flow-popup.payment-decision-popup .payment-decision-card:has(input:checked) .payment-decision-outcomes { border-color: #93c5fd; }
+.payment-flow-popup.payment-decision-popup .payment-decision-next-payment strong { font-weight: 800; }
+
+@media (min-width: 1024px) {
+  .payment-entry .payment-entry-shell-finances { --pay-w-base: clamp(42rem, 66vw, 52rem); }
+  .payment-entry .payment-entry-shell-dashboard { --pay-w-base: clamp(40rem, 52vw, 52rem); }
+  /* Ancho propio del contenido, acotado entre el ancho por defecto y su tope. */
+  .payment-entry .payment-entry-shell {
+    width: fit-content;
+    min-width: min(100%, var(--pay-w-base));
+    max-width: min(100%, calc(var(--pay-w-base) + var(--pay-room)));
+  }
+  .payment-entry .payment-entry-columns { grid-template-columns: 240px minmax(0, 1fr); }
+  /* min-content aporta el ancho natural de las tarjetas al cálculo del modal; el ancho usado es siempre el de su columna. */
+  .payment-entry .payment-entry-details { width: min-content; min-width: 100%; max-width: 100%; }
+  .payment-entry .payment-entry-details .payment-state-grid { width: max-content; min-width: 100%; max-width: 100%; }
+  .payment-entry .payment-state-grid > div > .payment-state-money { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+}
+/* Con cuatro tarjetas en fila hace falta más ancho por defecto; va después del bloque de 1024 px para prevalecer. */
+@media (min-width: 1280px) {
+  .payment-entry .payment-state-grid:has(> div:nth-child(4)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .payment-entry .payment-entry-shell-finances { --pay-w-base: clamp(66rem, 66vw, 78rem); }
+}
+/* Tres tarjetas en fila necesitan ~44rem de modal para mostrar importes de millones completos. */
+@media (min-width: 704px) {
+  .payment-entry .payment-state-grid:not(:has(> div:nth-child(4))) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 639px) {
+  .payment-entry .payment-state-grid { grid-template-columns: minmax(0, 1fr); }
+  .payment-entry [class*="pay-tone-"]:not(span):not(button) { flex-wrap: wrap; }
+  /* Las tarjetas de estado son columnas: con wrap el nombre sin cortes las desbordaría en vez de mostrar «…». */
+  .payment-entry .payment-state-grid.grid > div { flex-wrap: nowrap; }
+  .payment-flow-popup .flex { flex-wrap: wrap; }
+  .payment-flow-popup .grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
+  .payment-flow-popup .shrink-0 { flex-shrink: 1; }
+  .payment-flow-popup.payment-decision-popup .payment-decision-card-heading { grid-template-columns: minmax(0, 1fr); }
+  .payment-flow-popup.payment-decision-popup .payment-decision-next-payment { align-items: flex-start; }
+}

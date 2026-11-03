@@ -59,7 +59,7 @@ export async function requestPaymentDecision(details: PaymentDecisionDetails): P
     confirmButtonColor: '#2563eb',
     cancelButtonColor: '#64748b',
     allowOutsideClick: false,
-    customClass: { popup: 'payment-decision-popup' },
+    customClass: { popup: 'payment-decision-popup payment-flow-popup' },
     preConfirm: () => {
       const action = Swal.getPopup()?.querySelector<HTMLInputElement>('input[name="payment-decision"]:checked')?.value;
       if (!details.options.some(option => option.action === action)) {

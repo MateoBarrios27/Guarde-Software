@@ -1,3 +1,4 @@
+@import './app/shared/styles/payment-flow.css';
 @import './app/pages/statistics/statistics.component.css';
 @import '@angular/cdk/overlay-prebuilt.css';
 

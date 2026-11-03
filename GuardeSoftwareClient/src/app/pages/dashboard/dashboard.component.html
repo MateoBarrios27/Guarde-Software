@@ -181,11 +181,11 @@
 
 
 <div *ngIf="showPaymentModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+     class="payment-entry fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
      (keydown.escape)="closePaymentModal()"
      tabindex="-1">
   <div class="absolute inset-0 bg-slate-900/40"></div>
-  <div class="relative w-full max-w-3xl max-h-[92vh] overflow-visible animate-fade-in-down"
+  <div class="payment-entry-shell payment-entry-shell-dashboard relative w-full max-h-[92vh] overflow-visible animate-fade-in-down"
        (click)="$event.stopPropagation()">
 
     <div *ngIf="otherPaymentViewers.length > 0 && !paymentCollision" class="payment-presence-badge" role="status" aria-live="polite">
@@ -197,8 +197,8 @@
       <app-icon name="user" class="payment-presence-icon"></app-icon>
     </div>
 
-    <div class="relative w-full bg-white rounded-2xl shadow-[0_24px_60px_-15px_rgba(0,0,0,0.2)] border flex flex-col max-h-[92vh] overflow-hidden"
-         [ngClass]="isPotentiallyDuplicate() ? 'border-2 border-amber-400' : 'border-gray-200/90'"
+    <div class="payment-entry-dialog relative w-full bg-white rounded-2xl shadow-[0_24px_60px_-15px_rgba(0,0,0,0.2)] border border-gray-200/90 flex flex-col max-h-[92vh] overflow-hidden"
+         [class.payment-duplicate-active]="isPotentiallyDuplicate()"
          (click)="$event.stopPropagation()">
 
     <div *ngIf="paymentCollision" class="payment-collision-banner" role="alert">
@@ -210,13 +210,12 @@
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white shrink-0">
       <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
+        <div class="w-9 h-9 rounded-xl pay-tone-blue border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
           <app-icon name="dollar-sign" class="w-5 h-5"></app-icon>
         </div>
         <div>
           <div class="flex items-center gap-2">
             <h4 class="text-base font-bold text-gray-900 tracking-tight">Registrar Pago</h4>
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-100/70 text-indigo-700 border border-indigo-200/50">Cobranza</span>
           </div>
           <p class="text-xs text-gray-400 mt-0.5">Ingresa los detalles del cobro y estado de cuenta del cliente</p>
         </div>
@@ -230,48 +229,47 @@
     </div>
 
     <!-- Body / Form Content -->
-    <div class="p-6 overflow-y-auto flex-1 min-h-0 space-y-5 custom-scrollbar bg-white">
+    <div class="payment-entry-details p-6 overflow-y-auto flex-1 min-h-0 space-y-5 custom-scrollbar bg-white">
       
-      <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="payment-client-meta flex flex-wrap items-center justify-between gap-2">
         <div>
           <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-400">
             Detalle de Estado del Cliente
           </label>
           <div class="flex items-center gap-2 mt-1">
-            <span class="text-[11px] font-mono font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+            <span class="text-[11px] font-mono font-semibold text-slate-600">
               ID: {{ selectedPaymentIdentifier }}
             </span>
-            <span class="text-[11px] font-bold px-2 py-0.5 rounded border"
+            <span class="text-[11px] font-bold"
                   [ngClass]="{
-                    'bg-rose-50 text-rose-700 border-rose-200': selectedMonthsUnpaid > 0 || selectedBalance < 0,
-                    'bg-emerald-50 text-emerald-700 border-emerald-200': selectedMonthsUnpaid === 0 && selectedBalance >= 0
+                    'text-rose-700': selectedMonthsUnpaid > 0 || selectedBalance < 0,
+                    'text-emerald-700': selectedMonthsUnpaid === 0 && selectedBalance >= 0
                   }">
               {{ selectedMonthsUnpaid > 0 ? selectedMonthsUnpaid + ' mes(es) pendiente(s)' : 'Al día' }}
             </span>
           </div>
         </div>
-        <span class="text-xs font-semibold text-indigo-700 bg-indigo-50/80 px-2.5 py-1 rounded-lg border border-indigo-100 self-start">
+        <span class="text-xs font-semibold text-indigo-700 self-start">
           Método Pref: {{ getNamePaymentMethodById(selectedPreferredPaymentId) }}
         </span>
       </div>
 
-      <!-- Client Status KPI Grid (Notion/Figma Style Card) -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div class="bg-slate-50/80 rounded-xl p-3 border border-slate-200/80 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between">
+      <!-- Client status: shared solid-color cards -->
+      <div class="payment-state-grid grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="pay-tone-client rounded-xl p-3 border border-slate-200/80 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between">
           <div class="flex items-center gap-1.5 mb-1.5">
             <app-icon name="user" class="w-3.5 h-3.5 text-slate-500"></app-icon>
             <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cliente</p>
           </div>
-          <p class="text-sm sm:text-base font-extrabold text-gray-900 truncate" [title]="selectedClientName">
+          <p class="payment-state-name text-sm sm:text-base font-extrabold text-gray-900 truncate" [title]="selectedClientName">
             {{ selectedClientName || '—' }}
           </p>
         </div>
 
         <div class="rounded-xl p-3 border shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between"
              [ngClass]="{
-               'bg-emerald-50/80 border-emerald-200/80': selectedBalance > 0,
-               'bg-rose-50/80 border-rose-200/80': selectedBalance < 0,
-               'bg-gray-50/80 border-gray-200/80': selectedBalance === 0
+               'pay-tone-green': selectedBalance >= 0,
+               'pay-tone-red border-rose-200/80': selectedBalance < 0
              }">
           <div class="flex items-center gap-1.5 mb-1.5">
             <app-icon name="dollar-sign" class="w-3.5 h-3.5"
@@ -287,36 +285,37 @@
                  'text-gray-500': selectedBalance === 0
                }">Saldo en Cuenta</p>
           </div>
-          <p class="text-sm sm:text-base font-extrabold tabular-nums"
+          <p class="payment-state-money text-sm sm:text-base font-extrabold tabular-nums"
+             [title]="(selectedBalance > 0 ? '+ ' : '') + '$ ' + (selectedBalance | number:'1.2-2')"
              [ngClass]="{
                'text-emerald-900': selectedBalance > 0,
                'text-rose-900': selectedBalance < 0,
                'text-gray-900': selectedBalance === 0
              }">
-            $ {{ selectedBalance | number:'1.2-2' }}
+            {{ selectedBalance > 0 ? '+ ' : '' }}$ {{ selectedBalance | number:'1.2-2' }}
           </p>
         </div>
 
-        <div class="bg-indigo-50/60 rounded-xl p-3 border border-indigo-200/70 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between">
+        <div class="pay-tone-blue rounded-xl p-3 border border-indigo-200/70 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between">
           <div class="flex items-center gap-1.5 mb-1.5">
             <app-icon name="calendar" class="w-3.5 h-3.5 text-indigo-600"></app-icon>
             <p class="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Abono Mensual</p>
           </div>
-          <p class="text-sm sm:text-base font-extrabold text-indigo-950 tabular-nums">$ {{ selectedCurrentRent | number:'1.2-2' }}</p>
+          <p class="payment-state-money text-sm sm:text-base font-extrabold text-indigo-950 tabular-nums" [title]="'$ ' + (selectedCurrentRent | number:'1.2-2')">$ {{ selectedCurrentRent | number:'1.2-2' }}</p>
         </div>
       </div>
 
       <!-- Banner de Posible Pago Duplicado en Modal -->
-      <div *ngIf="isPotentiallyDuplicate()" class="bg-amber-50/90 border border-amber-200/80 px-3.5 py-2.5 rounded-xl flex items-center justify-between gap-3 animate-fade-in shadow-2xs mb-4">
-        <div class="flex items-center gap-2">
-          <app-icon name="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0"></app-icon>
-          <span class="text-xs font-bold text-amber-900 leading-tight uppercase tracking-wider">Posible réplica de pago / Al día</span>
+      <div *ngIf="isPotentiallyDuplicate()" class="payment-duplicate-notice pay-tone-orange" role="status">
+        <app-icon name="alert-triangle" class="payment-duplicate-icon"></app-icon>
+        <div>
+          <p class="payment-duplicate-title">Posible réplica de pago</p>
+          <p class="payment-duplicate-copy">El cliente está al día. Revisá el cobro antes de confirmarlo.</p>
         </div>
-        <span class="bg-amber-100/90 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold shrink-0">Al día</span>
       </div>
 
       <!-- Banner de Recargo Pendiente en Modal -->
-      <div *ngIf="selectedPendingSurcharge > 0 && !isPreviousBalanceSelected" class="bg-amber-50/90 border border-amber-200/80 p-3 rounded-xl flex items-center justify-between gap-3 animate-fade-in shadow-2xs mb-4">
+      <div *ngIf="selectedPendingSurcharge > 0 && !isPreviousBalanceSelected" class="pay-tone-orange border border-amber-200/80 p-3 rounded-xl flex items-center justify-between gap-3 animate-fade-in shadow-2xs mb-4">
         <div>
           <p class="text-xs font-bold text-amber-900 leading-tight uppercase tracking-wider">Recargo por mora pendiente</p>
           <p class="text-[11px] text-amber-700 mt-0.5 flex items-center gap-2">
@@ -324,7 +323,7 @@
             <button type="button" (click)="modifyInterestAmount()" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Modificar monto</button>
           </p>
         </div>
-        <span [ngClass]="getPaymentDay() <= 10 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-amber-100 text-amber-800 border-amber-300'" class="px-2.5 py-1 rounded-lg text-[10px] font-semibold border shrink-0">
+        <span [ngClass]="getPaymentDay() <= 10 ? 'pay-tone-green text-emerald-800 border-emerald-300' : 'pay-tone-orange text-amber-800 border-amber-300'" class="px-2.5 py-1 rounded-lg text-[10px] font-semibold border shrink-0">
           {{ getPaymentDay() <= 10 ? 'A condonar (Día ≤ 10)' : 'Aplicable (Día > 10)' }}
         </span>
       </div>
@@ -370,7 +369,7 @@
               *ngIf="selectedPreviousBalance < 0 && !isPreviousBalanceSelected"
               type="button"
               (click)="usePreviousBalance()"
-              class="text-[11px] text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100/90 border border-indigo-200/70 font-semibold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 active:scale-95 shadow-2xs"
+              class="text-[11px] text-indigo-700 pay-tone-blue hover:bg-indigo-100/90 border border-indigo-200/70 font-semibold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 active:scale-95 shadow-2xs"
             >
               <app-icon name="dollar-sign" class="text-indigo-600 w-3.5 h-3.5 shrink-0"></app-icon>
               <span>Saldo anterior ($ {{ getAbsolutePreviousBalance() | number:'1.2-2' }})</span>
@@ -381,7 +380,7 @@
               *ngIf="isPreviousBalanceSelected && getTotalDebtAmount() > 0"
               type="button"
               (click)="useTotalDebt()"
-              class="text-[11px] font-semibold text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100/90 border border-emerald-200/70 px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 active:scale-95 shadow-2xs animate-fade-in"
+              class="text-[11px] font-semibold text-emerald-700 pay-tone-green hover:bg-emerald-100/90 border border-emerald-200/70 px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 active:scale-95 shadow-2xs animate-fade-in"
             >
               <app-icon name="dollar-sign" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></app-icon>
               <span>Monto adeudado / Pagar todo ($ {{ getTotalDebtAmount() | number:'1.2-2' }})</span>
@@ -390,7 +389,7 @@
 
           <!-- Input de Cancela Deuda Condicional -->
           <div *ngIf="isPaymentMethodDifferent()" class="mt-2.5 flex flex-wrap items-center gap-3 animate-fade-in">
-            <div class="flex items-center gap-1.5 text-[11px] text-indigo-700 font-medium bg-indigo-50/60 px-2.5 py-1.5 rounded-lg border border-indigo-100/80">
+            <div class="flex items-center gap-1.5 text-[11px] text-indigo-700 font-medium pay-tone-blue px-2.5 py-1.5 rounded-lg border border-indigo-100/80">
               <span>Cancela deuda por: $</span>
                       <input
                         type="text"

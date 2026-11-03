@@ -342,6 +342,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     Swal.fire({
       title: 'Modificar Monto de Recargo / Interés',
+      customClass: { popup: 'payment-flow-popup' },
       input: 'text',
       inputValue: this.formatARSInput(currentAmt),
       text: 'Ingresá el nuevo monto que deseas aplicar o registrar por mora:',
@@ -580,7 +581,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       confirmButtonText: 'Entendido',
       customClass: {
         confirmButton: 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-xs transition-all duration-150 mx-2 active:scale-95',
-        popup: '!rounded-2xl !p-6 shadow-xl border border-gray-100 bg-white'
+        popup: 'payment-flow-popup'
       },
       buttonsStyling: false
     });
@@ -641,7 +642,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       confirmButtonText: 'Actualizar datos',
       customClass: {
         confirmButton: 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-xs transition-all duration-150 mx-2 active:scale-95',
-        popup: '!rounded-2xl !p-6 shadow-xl border border-gray-100 bg-white'
+        popup: 'payment-flow-popup'
       },
       buttonsStyling: false
     }).then(result => {
@@ -1397,17 +1398,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     const isPotentiallyDuplicate = this.isPotentiallyDuplicate();
     let warningBannerHtml = isPotentiallyDuplicate ? `
-        <div class="bg-amber-50/90 border border-amber-200/80 px-3.5 py-2.5 mb-4 rounded-xl text-left flex items-center justify-between gap-3 shadow-2xs">
-          <div class="flex items-center gap-2">
-            <h4 class="text-xs font-bold text-amber-900 uppercase tracking-wider m-0">Posible réplica de pago / Al día</h4>
+        <div class="payment-duplicate-notice pay-tone-orange" role="status">
+          <svg class="payment-duplicate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m10.3 3.9-8.1 14a2 2 0 0 0 1.7 3h16.2a2 2 0 0 0 1.7-3l-8.1-14a2 2 0 0 0-3.4 0ZM12 9v4m0 4h.01"/></svg>
+          <div>
+            <p class="payment-duplicate-title">Posible réplica de pago</p>
+            <p class="payment-duplicate-copy">El cliente está al día. Revisá el cobro antes de confirmarlo.</p>
           </div>
-          <span class="bg-amber-100/90 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold shrink-0">Al día</span>
         </div>` : '';
 
     let surchargeBannerHtml = '';
     if (scenario === 'A') {
       surchargeBannerHtml = `
-        <div class="bg-emerald-50/90 border border-emerald-200/80 p-3.5 mb-4 rounded-xl text-left flex items-start justify-between gap-3 shadow-2xs">
+        <div class="pay-tone-green border border-emerald-200/80 p-3.5 mb-4 rounded-xl text-left flex items-start justify-between gap-3 shadow-2xs">
           <div>
             <h4 class="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
               <span>Recargo por mora condonado</span>
@@ -1415,47 +1417,44 @@ export class DashboardComponent implements OnInit, OnDestroy {
             </h4>
             <p class="text-xs text-emerald-700 mt-0.5">El recargo pendiente de <span class="font-bold">${this.formatARS(this.selectedPendingSurcharge)}</span> será eliminado automáticamente porque el pago se registra dentro del plazo (día 10 o antes).</p>
           </div>
-          <span class="bg-emerald-100/90 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día ≤ 10</span>
+          <span class="pay-tone-green text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día ≤ 10</span>
         </div>`;
     } else if (scenario === 'B') {
       surchargeBannerHtml = `
-        <div class="bg-amber-50/90 border border-amber-200/80 p-4 rounded-xl mb-4 text-left shadow-2xs space-y-3">
-          <div class="flex items-start justify-between gap-3 border-b border-amber-200/60 pb-2.5">
+        <div class="payment-surcharge-notice pay-tone-muted border border-amber-200/80 p-4 rounded-xl mb-4 text-left shadow-2xs space-y-3">
+          <div class="payment-surcharge-header flex items-start justify-between gap-3 border-b border-slate-200 pb-2.5">
             <div>
               <h4 class="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
-                <span>Recargo por mora a aplicar (${this.formatARS(interestAmt)})</span>
-                <button type="button" id="swal-edit-interest-btn-b" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Modificar monto</button>
+                <span>Recargo por mora: ${this.formatARS(interestAmt)}</span>
+                <button type="button" id="swal-edit-interest-btn-b" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Editar</button>
               </h4>
-              <p class="text-xs text-amber-700 mt-0.5">Monto fijado al vencer: ${this.formatARS(this.selectedPendingSurcharge)}. Incluye el alquiler y todos los intereses que estaban impagos al corte; este pago tardío no reduce esa penalización. Seleccioná cómo aplicarlo:</p>
             </div>
-            <span class="bg-amber-100/90 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día > 10</span>
+            <span class="pay-tone-muted text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día > 10</span>
           </div>
           <div class="space-y-2 pt-1 text-xs font-semibold text-amber-900">
             <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-amber-100/60 transition-colors">
               <input type="radio" name="swal-surcharge-action" value="next_payment" ${this.selectedSurchargeAction === 'next_payment' ? 'checked' : ''} class="text-amber-600 focus:ring-amber-500 w-4 h-4">
-              <span>Cobrar en próximo pago (por defecto)</span>
+              <span>Cobrar en próximo pago</span>
             </label>
             <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-amber-100/60 transition-colors">
               <input type="radio" name="swal-surcharge-action" value="immediate" ${this.selectedSurchargeAction === 'immediate' ? 'checked' : ''} class="text-amber-600 focus:ring-amber-500 w-4 h-4">
-              <span>Cobrar ahora (se suma al pago actual)</span>
+              <span>Cobrar ahora</span>
             </label>
             <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-amber-100/60 transition-colors">
               <input type="radio" name="swal-surcharge-action" value="forgive" ${this.selectedSurchargeAction === 'forgive' ? 'checked' : ''} class="text-amber-600 focus:ring-amber-500 w-4 h-4">
-              <span>Condonar recargo (no cobrar)</span>
+              <span>Condonar</span>
             </label>
           </div>
         </div>`;
     } else if (scenario === 'C') {
-      const baseImp = this.getProjectedLatePaymentSurcharge().taxableBase;
       surchargeBannerHtml = `
-        <div class="bg-amber-50/90 border border-amber-200/80 p-4 rounded-xl mb-4 text-left shadow-2xs space-y-3">
-          <div class="flex items-start justify-between gap-3 border-b border-amber-200/60 pb-2.5">
+        <div class="payment-surcharge-notice pay-tone-muted border border-amber-200/80 p-4 rounded-xl mb-4 text-left shadow-2xs space-y-3">
+          <div class="payment-surcharge-header flex items-start justify-between gap-3 border-b border-slate-200 pb-2.5">
             <div>
               <h4 class="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
-                <span>Aplicar intereses por mora (${this.formatARS(interestAmt)})</span>
-                <button type="button" id="swal-edit-interest-btn-c" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Modificar monto</button>
+                <span>Intereses por mora: ${this.formatARS(interestAmt)}</span>
+                <button type="button" id="swal-edit-interest-btn-c" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Editar</button>
               </h4>
-              <p class="text-xs text-amber-700 mt-0.5">Fecha posterior al día 10. Base al corte, antes de este pago tardío: ${this.formatARS(baseImp)}.</p>
             </div>
             <label class="flex items-center gap-2 cursor-pointer shrink-0 pt-1">
               <input type="checkbox" id="swal-apply-scenario-c" ${this.applyScenarioCInterest ? 'checked' : ''} class="rounded text-amber-600 focus:ring-amber-500 w-4 h-4">
@@ -1465,11 +1464,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
           <div id="swal-scenario-c-options" class="space-y-2 pt-1 text-xs font-semibold text-amber-900 ${!this.applyScenarioCInterest ? 'hidden' : ''}">
             <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-amber-100/60 transition-colors">
               <input type="radio" name="swal-surcharge-action-c" value="next_payment" ${this.selectedSurchargeAction === 'next_payment' ? 'checked' : ''} class="text-amber-600 focus:ring-amber-500 w-4 h-4">
-              <span>Cobrar en próximo pago (por defecto)</span>
+              <span>Cobrar en próximo pago</span>
             </label>
             <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-amber-100/60 transition-colors">
               <input type="radio" name="swal-surcharge-action-c" value="immediate" ${this.selectedSurchargeAction === 'immediate' ? 'checked' : ''} class="text-amber-600 focus:ring-amber-500 w-4 h-4">
-              <span>Cobrar ahora (se suma al pago actual)</span>
+              <span>Cobrar ahora</span>
             </label>
           </div>
         </div>`;
@@ -1479,7 +1478,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.paymentDto.isAdvancePayment || isImmediate) {
         const displayTotalEntered = this.paymentDto.amount + (isImmediate ? interestAmt : 0);
         moneyBoxesHtml = `
-          <div class="bg-indigo-50/70 border border-indigo-200/80 p-4 rounded-xl mb-4 text-left shadow-2xs">
+          <div class="pay-tone-blue border border-indigo-200/80 p-4 rounded-xl mb-4 text-left shadow-2xs">
             <label class="block text-xs font-bold text-indigo-900 uppercase tracking-wider mb-2">
               ${isImmediate ? 'Dinero entregado por el cliente (Modificable si paga de más o menos)' : 'Dinero entregado por el cliente'}
             </label>
@@ -1501,17 +1500,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     Swal.fire({
       html: `
         <div class="text-left space-y-4">
-          <!-- Cabecera limpia con estilo Figma/Notion -->
-          <div class="flex items-center justify-between pb-4 border-b border-gray-100">
+          <!-- Shared summary header spacing -->
+          <div class="payment-summary-header flex items-center justify-between border-b border-gray-100">
             <div class="flex items-center gap-3">
-              <div class="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
+              <div class="w-11 h-11 rounded-xl pay-tone-blue border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
                 <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
               <div>
                 <h3 class="text-lg font-bold text-gray-900 leading-tight">Resumen de Cobranza</h3>
                 <p class="text-xs text-gray-500 font-medium mt-0.5">Confirmá los datos antes de registrar el ingreso</p>
               </div>
-            </div>
           </div>
 
           ${warningBannerHtml}
@@ -1520,9 +1518,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
           <!-- Tarjetas KPI (Dinero ingresado vs Deuda Cancelada) -->
           ${(!calc.isSurcharge && !calc.isDiscount) ? `
-          <div class="my-4 p-3.5 rounded-xl bg-gradient-to-r from-slate-50 to-indigo-50/40 border border-slate-200/80 shadow-2xs flex items-center justify-between gap-3">
+          <div class="my-4 p-3.5 rounded-xl pay-tone-blue border border-slate-200/80 shadow-2xs flex items-center justify-between gap-3">
             <div class="flex items-center gap-2.5">
-              <div class="w-8 h-8 rounded-lg bg-indigo-100/70 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
+              <div class="w-8 h-8 rounded-lg pay-tone-blue text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
               <div>
@@ -1535,14 +1533,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
           </div>
           ` : `
           <div class="grid grid-cols-2 gap-3 my-4">
-            <div class="p-3 rounded-xl bg-slate-50/90 border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+            <div class="p-3 rounded-xl pay-tone-neutral border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
               <div>
                 <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block leading-tight">Dinero Cobrado</span>
                 <span class="text-[10px] text-slate-400 font-medium block leading-tight">Ingreso bruto a caja</span>
               </div>
               <span id="swal-cobrado-display" class="text-base sm:text-lg font-black text-slate-900 tabular-nums self-end sm:self-auto">${this.formatARS(displayAmountEntered)}</span>
             </div>
-            <div class="p-3 rounded-xl ${calc.isDiscount ? 'bg-emerald-50/90 border-emerald-200/80' : 'bg-indigo-50/90 border-indigo-200/80'} shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+            <div class="p-3 rounded-xl ${calc.isDiscount ? 'pay-tone-green border-emerald-200/80' : 'pay-tone-blue border-indigo-200/80'} shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
               <div>
                 <span class="text-[10px] font-bold ${calc.isDiscount ? 'text-emerald-700' : 'text-indigo-700'} uppercase tracking-wider block leading-tight">Deuda Cancelada</span>
                 <span class="text-[10px] ${calc.isDiscount ? 'text-emerald-600' : 'text-indigo-600'} font-medium block leading-tight">Acreditación neta</span>
@@ -1575,7 +1573,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       customClass: { 
           confirmButton: 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-xs transition-all duration-150 mx-2 active:scale-95', 
           cancelButton: 'bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm px-6 py-3 rounded-xl transition-all duration-150 active:scale-95', 
-          popup: '!rounded-2xl !p-6 shadow-xl border border-gray-100 bg-white'
+          popup: 'payment-flow-popup payment-summary-popup'
       },
       didOpen: () => {
           if (scenario === 'B') {
