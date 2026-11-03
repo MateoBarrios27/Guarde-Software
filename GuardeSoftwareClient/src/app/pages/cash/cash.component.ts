@@ -124,7 +124,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   cashFiltersPopoverPosition = { top: 0, left: 0, maxHeight: 820 };
   public readonly cashPaymentFilterOptions = [
     { value: 'paid', label: 'Pagó' },
-    { value: 'unpaid', label: 'No pagó' }
+    { value: 'unpaid', label: 'No pagó' },
+    { value: 'partial', label: 'Parcial' }
   ];
   public readonly cashAmountFilterOptions = [
     { value: 'depo', label: 'Depo' },
@@ -1275,8 +1276,9 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       (this.searchDateTo ? 1 : 0);
   }
 
-  private isCashItemPaid(item: CashFlowItem): boolean {
-    return item.hasAdvances ? this.isAdvancesComplete(item) : !!item.isPaid;
+  private getCashPaymentFilterValue(item: CashFlowItem): 'paid' | 'unpaid' | 'partial' {
+    if (item.hasAdvances || (Number(item.totalAdvances) || 0) > 0) return 'partial';
+    return item.isPaid ? 'paid' : 'unpaid';
   }
 
   private cashAmountColumnHasValue(item: CashFlowItem, column: string): boolean {
@@ -1326,7 +1328,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       values.length === 0 || values.some(matcher);
 
     const matchesPayment = (value: string): boolean =>
-      value === 'paid' ? this.isCashItemPaid(item) : !this.isCashItemPaid(item);
+      value === this.getCashPaymentFilterValue(item);
     if (!matchesAny(this.selectedCashPaymentFilters, matchesPayment)) return false;
     if (this.excludedCashPaymentFilters.some(matchesPayment)) return false;
 
@@ -1373,14 +1375,6 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     return matchesText && this.matchesCashDate(item, allowMissingDate) && this.matchesCashFilters(item);
   }
 
-  getCashAmountInputWidth(value: number | null | undefined): number {
-    const formatted = new Intl.NumberFormat('es-AR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value ?? 0);
-    // Reserve room for the clear button, padding and the full formatted amount.
-    return Math.max(156, formatted.length * 9 + 40);
-  }
   onItemChange(item: CashFlowItem): void {
     if (this.isHistoricalView) return;
     if (item.date === '') item.date = null as any;

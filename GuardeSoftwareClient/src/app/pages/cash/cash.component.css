@@ -101,3 +101,38 @@ tbody.cdk-drop-list-dragging tr:not(.cdk-drag-placeholder) {
   background: #94a3b8; 
 }
 
+
+/* Amount columns take their intrinsic width; Concepto receives the remainder.
+   The hidden mirror uses the input font and padding, including clear-button space. */
+.cash-amount-cell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.cash-amount-editor {
+  height: 34px;
+  width: max-content;
+  min-width: 100%;
+}
+
+.cash-amount-measure {
+  display: block;
+  visibility: hidden;
+  white-space: pre;
+  box-sizing: border-box;
+  min-width: 64px;
+  height: 34px;
+  line-height: 20px;
+  padding: 6px 10px 6px 24px;
+  border: 1px solid transparent;
+}
+
+.cash-amount-input {
+  box-sizing: border-box;
+  height: 34px;
+  line-height: 20px;
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  padding-right: 10px;
+}

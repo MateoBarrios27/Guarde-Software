@@ -610,7 +610,7 @@
               </div>
             </th>
             
-            <th class="px-0.5 py-3 w-32 min-w-[120px] text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
+            <th class="px-0.5 py-3 cash-amount-cell text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-end gap-1.5 text-blue-600">
                 <span>Depo</span>
                 <button *ngIf="!isHistoricalView" (click)="toggleSelectAllColumn('depo'); $event.stopPropagation()" title="Seleccionar visibles con Depo" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
@@ -621,7 +621,7 @@
               </div>
             </th>
 
-            <th class="px-0.5 py-3 w-32 min-w-[120px] text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
+            <th class="px-0.5 py-3 cash-amount-cell text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-end gap-1.5 text-orange-600">
                 <span>Casa</span>
                 <button *ngIf="!isHistoricalView" (click)="toggleSelectAllColumn('casa'); $event.stopPropagation()" title="Seleccionar visibles con Casa" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
@@ -632,7 +632,7 @@
               </div>
             </th>
 
-            <th class="px-0.5 py-3 w-32 min-w-[120px] text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
+            <th class="px-0.5 py-3 cash-amount-cell text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-end gap-1.5 text-slate-500">
                 <span>Retiros</span>
                 <button *ngIf="!isHistoricalView" (click)="toggleSelectAllColumn('retiros'); $event.stopPropagation()" title="Seleccionar visibles con Retiros" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
@@ -643,7 +643,7 @@
               </div>
             </th>
 
-            <th class="px-0.5 py-3 w-32 min-w-[120px] text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
+            <th class="px-0.5 py-3 cash-amount-cell text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-end gap-1.5 text-green-600">
                 <span>Iaia</span>
                 <button *ngIf="!isHistoricalView" (click)="toggleSelectAllColumn('iaia'); $event.stopPropagation()" title="Seleccionar visibles con Iaia" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
@@ -846,65 +846,69 @@
               </div>
             </td>
 
-            <td class="px-0 py-1.5 bg-[#f8fafc]/30 w-32 min-w-[110px]">
+            <td class="px-0 py-1.5 bg-[#f8fafc]/30 cash-amount-cell">
               <div class="w-full flex flex-col items-end relative">
-                <div class="relative w-full flex items-center justify-end group/amt">
+                <div class="cash-amount-editor relative group/amt">
+                  <span aria-hidden="true" class="cash-amount-measure text-sm font-semibold">{{ item.depo !== null && item.depo !== undefined ? (item.depo | number:'1.2-2') : '' }}</span>
                   <button *ngIf="item.depo && !isHistoricalView" (click)="clearItemField(item, 'depo'); $event.stopPropagation()" tabindex="-1"
                           class="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-white/90 rounded-md border border-gray-100 shadow-sm">
                     <app-icon name="Trash2" class="h-3 w-3"></app-icon>
                   </button> 
                   <input type="text" appCurrencyFormat 
-                        (focus)="captureItem(item)" [(ngModel)]="item.depo" [disabled]="isHistoricalView" [style.min-width.px]="getCashAmountInputWidth(item.depo)"
+                        (focus)="captureItem(item)" [(ngModel)]="item.depo" [disabled]="isHistoricalView"
                         (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)" 
-                        class="w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-blue-600 font-semibold focus:bg-white focus:ring-1 focus:ring-blue-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
+                        class="cash-amount-input w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-blue-600 font-semibold focus:bg-white focus:ring-1 focus:ring-blue-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
                 </div>
                 <div *ngIf="item.depo" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (item.depo / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </div>
             </td>
 
-            <td class="px-0 py-1.5 bg-[#fff7ed]/30 w-32 min-w-[120px]">
+            <td class="px-0 py-1.5 bg-[#fff7ed]/30 cash-amount-cell">
               <div class="w-full flex flex-col items-end relative">
-                <div class="relative w-full flex items-center justify-end group/amt">
+                <div class="cash-amount-editor relative group/amt">
+                  <span aria-hidden="true" class="cash-amount-measure text-sm font-semibold">{{ item.casa !== null && item.casa !== undefined ? (item.casa | number:'1.2-2') : '' }}</span>
                   <button *ngIf="item.casa && !isHistoricalView" (click)="clearItemField(item, 'casa'); $event.stopPropagation()" tabindex="-1"
                           class="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-white/90 rounded-md border border-gray-100 shadow-sm">
                     <app-icon name="Trash2" class="h-3 w-3"></app-icon>
                   </button>
                   <input type="text" appCurrencyFormat 
-                        (focus)="captureItem(item)" [(ngModel)]="item.casa" [disabled]="isHistoricalView" [style.min-width.px]="getCashAmountInputWidth(item.casa)"
+                        (focus)="captureItem(item)" [(ngModel)]="item.casa" [disabled]="isHistoricalView"
                         (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
-                        class="w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-orange-600 font-semibold focus:bg-white focus:ring-1 focus:ring-orange-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
+                        class="cash-amount-input w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-orange-600 font-semibold focus:bg-white focus:ring-1 focus:ring-orange-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
                 </div>
                 <div *ngIf="item.casa" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (item.casa / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </div>
             </td>
 
-            <td class="px-0 py-1.5 w-32 min-w-[120px]">
+            <td class="px-0 py-1.5 cash-amount-cell">
               <div class="w-full flex flex-col items-end relative">
-                <div class="relative w-full flex items-center justify-end group/amt">
+                <div class="cash-amount-editor relative group/amt">
+                  <span aria-hidden="true" class="cash-amount-measure text-sm font-medium">{{ item.retiros !== null && item.retiros !== undefined ? (item.retiros | number:'1.2-2') : '' }}</span>
                   <button *ngIf="item.retiros && !isHistoricalView" (click)="clearItemField(item, 'retiros'); $event.stopPropagation()" tabindex="-1"
                           class="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-gray-50/80 rounded-md border border-gray-100 shadow-sm">
                     <app-icon name="Trash2" class="h-3 w-3"></app-icon>
                   </button>
                   <input type="text" appCurrencyFormat 
-                        (focus)="captureItem(item)" [(ngModel)]="item.retiros" [disabled]="isHistoricalView" [style.min-width.px]="getCashAmountInputWidth(item.retiros)"
+                        (focus)="captureItem(item)" [(ngModel)]="item.retiros" [disabled]="isHistoricalView"
                         (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
-                        class="w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-slate-600 font-medium focus:bg-white focus:ring-1 focus:ring-slate-300 hover:bg-gray-50 hover:border-gray-200 rounded-lg transition-all">
+                        class="cash-amount-input w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-slate-600 font-medium focus:bg-white focus:ring-1 focus:ring-slate-300 hover:bg-gray-50 hover:border-gray-200 rounded-lg transition-all">
                 </div>
                 <div *ngIf="item.retiros" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (item.retiros / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </div>
             </td>
 
-            <td class="px-0 py-1.5 bg-[#f0fdf4]/30 w-32 min-w-[120px]">
+            <td class="px-0 py-1.5 bg-[#f0fdf4]/30 cash-amount-cell">
               <div class="w-full flex flex-col items-end relative">
-                <div class="relative w-full flex items-center justify-end group/amt">
+                <div class="cash-amount-editor relative group/amt">
+                  <span aria-hidden="true" class="cash-amount-measure text-sm font-semibold">{{ item.iaia !== null && item.iaia !== undefined ? (item.iaia | number:'1.2-2') : '' }}</span>
                   <button *ngIf="item.iaia && !isHistoricalView" (click)="clearItemField(item, 'iaia'); $event.stopPropagation()" tabindex="-1"
                           class="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-white/90 rounded-md border border-gray-100 shadow-sm">
                     <app-icon name="Trash2" class="h-3 w-3"></app-icon>
                   </button>
                   <input type="text" appCurrencyFormat 
-                        (focus)="captureItem(item)" [(ngModel)]="item.iaia" [disabled]="isHistoricalView" [style.min-width.px]="getCashAmountInputWidth(item.iaia)"
+                        (focus)="captureItem(item)" [(ngModel)]="item.iaia" [disabled]="isHistoricalView"
                         (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
-                        class="w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-green-600 font-semibold focus:bg-white focus:ring-1 focus:ring-green-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
+                        class="cash-amount-input w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-green-600 font-semibold focus:bg-white focus:ring-1 focus:ring-green-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
                 </div>
                 <div *ngIf="item.iaia" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (item.iaia / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </div>
@@ -986,19 +990,19 @@
               </div>
             </td>
             
-            <td class="px-1 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa] w-36">
+            <td class="px-1 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa] cash-amount-cell">
                <div class="text-[10px] uppercase tracking-wider text-blue-600/60 font-bold mb-0.5">Depo</div>
                <div class="text-sm font-bold text-blue-700">$ {{ tableTotals.depo | number:'1.2-2' }}</div>
             </td>
-            <td class="px-1 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa] w-36">
+            <td class="px-1 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa] cash-amount-cell">
                <div class="text-[10px] uppercase tracking-wider text-orange-600/60 font-bold mb-0.5">Casa</div>
                <div class="text-sm font-bold text-orange-700">$ {{ tableTotals.casa | number:'1.2-2' }}</div>
             </td>
-            <td class="px-1 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa] w-36">
+            <td class="px-1 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa] cash-amount-cell">
                <div class="text-[10px] uppercase tracking-wider text-slate-500/60 font-bold mb-0.5">Retiros</div>
                <div class="text-sm font-bold text-slate-700">$ {{ tableTotals.retiros | number:'1.2-2' }}</div>
             </td>
-            <td class="px-1 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa] w-36">
+            <td class="px-1 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa] cash-amount-cell">
                <div class="text-[10px] uppercase tracking-wider text-green-600/60 font-bold mb-0.5">Iaia</div>
                <div class="text-sm font-bold text-green-700">$ {{ tableTotals.iaia | number:'1.2-2' }}</div>
             </td>
