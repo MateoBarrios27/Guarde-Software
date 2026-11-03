@@ -1,4 +1,4 @@
-<div *ngIf="!isLoginRoute; else loginOnly" class="h-screen w-full bg-slate-100 flex overflow-hidden">
+<div *ngIf="!isLoginRoute; else loginOnly" class="app-shell h-screen w-full bg-slate-100 flex overflow-hidden">
   
   <app-sidebar
     class="z-50"
@@ -12,12 +12,14 @@
       <app-offline-banner></app-offline-banner>
     }
 
-    <header class="flex h-16 items-center gap-4 border-b bg-white px-6 shadow-sm flex-shrink-0">
-      <button (click)="toggleSidebar()" class="text-gray-600 hover:text-gray-900 lg:hidden">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+    <header class="app-header flex h-16 items-center gap-4 border-b bg-white px-6 shadow-sm flex-shrink-0">
+      <button type="button" (click)="toggleSidebar()" class="app-menu-trigger text-gray-600 hover:text-gray-900 lg:hidden"
+              [attr.aria-label]="isSidebarOpen ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'"
+              [attr.aria-expanded]="isSidebarOpen">
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" class="h-5 w-5"><path d="M5 8h14M5 16h10"/></svg>
       </button>
 
-      <h1 class="text-lg font-semibold text-gray-900">{{ pageTitle }}</h1>
+      <h1 class="app-page-title text-lg font-semibold text-gray-900">{{ pageTitle }}</h1>
 
       <app-notification-inbox *ngIf="authService.isLoggedIn()" class="ml-auto"></app-notification-inbox>
     </header>

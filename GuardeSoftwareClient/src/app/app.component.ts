@@ -24,6 +24,7 @@ import { ChatNotifierComponent } from './shared/components/chat-notifier/chat-no
     ChatNotifierComponent
   ],
   templateUrl: './app.component.html',
+  styleUrl: './app.component.css',
 })
 export class AppComponent implements OnInit {
   isSidebarOpen = false;

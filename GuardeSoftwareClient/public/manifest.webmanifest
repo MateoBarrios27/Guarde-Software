@@ -2,6 +2,8 @@
   "name": "GuardeSoftwareClient",
   "short_name": "GuardeSoftwareClient",
   "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#2563eb",
   "scope": "./",
   "start_url": "./",
   "icons": [

@@ -1,0 +1,71 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.app-shell {
+  --app-top-color: #fff;
+  height: 100vh;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  background-image: linear-gradient(to bottom,
+    var(--app-top-color) 0 env(safe-area-inset-top, 0px),
+    transparent env(safe-area-inset-top, 0px));
+}
+
+@media (max-width: 1023px) {
+  .app-shell {
+    --app-top-color: #2563eb;
+  }
+
+  .app-header {
+    gap: 0.75rem;
+    border-bottom: 0;
+    background: #2563eb;
+    box-shadow: none;
+    --notification-trigger-color: #fff;
+    --notification-trigger-background: rgb(255 255 255 / 0.16);
+    --notification-trigger-hover-color: #fff;
+    --notification-trigger-hover-background: rgb(255 255 255 / 0.25);
+    --notification-default-icon-display: none;
+    --notification-compact-icon-display: block;
+  }
+
+  .app-menu-trigger {
+    display: flex;
+    flex: 0 0 2.5rem;
+    height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    background: rgb(255 255 255 / 0.16);
+    color: #fff;
+    transition: background-color 150ms ease;
+  }
+
+  .app-menu-trigger:hover {
+    background: rgb(255 255 255 / 0.25);
+  }
+
+  .app-menu-trigger:focus-visible {
+    outline: 2px solid #bfdbfe;
+    outline-offset: 2px;
+  }
+
+  .app-page-title {
+    min-width: 0;
+    overflow: hidden;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-menu-trigger { transition: none; }
+}
