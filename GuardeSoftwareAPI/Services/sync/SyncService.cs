@@ -176,7 +176,7 @@ namespace GuardeSoftwareAPI.Services.sync
                     -- NextPaymentDay (same logic as GetTableClientsAsync)
                     CASE
                         WHEN c.active = 0 THEN NULL
-                        WHEN dbo.GetPaymentCollectionMonth(r.rental_id) IS NOT NULL THEN CAST(dbo.GetPaymentCollectionMonth(r.rental_id) AS VARCHAR(10))
+                        WHEN dbo.GetPaymentCollectionDisplayMonth(r.rental_id) IS NOT NULL THEN CAST(dbo.GetPaymentCollectionDisplayMonth(r.rental_id) AS VARCHAR(10))
                         WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
                         THEN CAST(DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1) AS VARCHAR(10))
                         ELSE CAST(step1.LastBalanceDate AS VARCHAR(10))
@@ -325,7 +325,7 @@ namespace GuardeSoftwareAPI.Services.sync
                             WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
                             ELSE -rawData.Raw_PrevBal
                         END),
-                        LastBalanceDate = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
+                        LastBalanceDate = COALESCE(dbo.GetPaymentCollectionDisplayMonth(r.rental_id), (
                             SELECT MAX(candidate.PaymentMonth)
                             FROM (VALUES
                                 (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),

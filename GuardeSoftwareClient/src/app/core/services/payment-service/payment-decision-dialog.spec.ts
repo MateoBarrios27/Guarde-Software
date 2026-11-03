@@ -41,10 +41,40 @@ describe('Payment decision dialog', () => {
           debits: [{ month: '2026-11-01T00:00:00', amount: 100 }], resultingBalance: -150, previousBalance: -50, nextPaymentDate: '2026-11-01T00:00:00' }
       ] });
     const popup = Swal.getPopup()!;
-    expect(Swal.getTitle()?.textContent).toContain('¿Este mes sigue pendiente de pago?');
+    expect(Swal.getTitle()?.textContent).toContain('¿Qué mes queda pendiente de pago?');
     expect(popup.querySelectorAll('.payment-decision-next-payment')[0].textContent).toContain('10/2026');
     expect(popup.querySelectorAll('.payment-decision-next-payment')[1].textContent).toContain('11/2026');
     expect(popup.querySelector('.payment-decision-summary')).toBeNull();
+    popup.querySelector<HTMLInputElement>('input[value="close_partial_month"]')!.click();
+    Swal.clickConfirm();
+    expect(await result).toBe('close_partial_month');
+  });
+  it('shows current and following collection months while preserving the previous debt from an older partial payment', async () => {
+    const result = requestPaymentDecision({ ...details, scenario: 'partial_payment', surplus: 0,
+      remainingDebt: 162000,
+      message: 'El pago se aplicó a agosto y parte de septiembre. Elegí si octubre sigue pendiente o se contempla para la cobranza. La deuda anterior y la morosidad se conservan.',
+      options: [
+        { action: 'keep_month_pending', title: 'Cobrar el mes actual',
+          description: 'Octubre sigue pendiente. Los $162.000 de septiembre permanecen como deuda anterior.',
+          debits: [], resultingBalance: -532800, previousBalance: -162000, nextPaymentDate: '2026-10-01T00:00:00' },
+        { action: 'close_partial_month', title: 'Contemplar el mes actual y pasar al siguiente',
+          description: 'Noviembre queda pendiente. Se conserva toda la deuda de septiembre y octubre.',
+          debits: [{ month: '2026-11-01T00:00:00', amount: 281000 }],
+          resultingBalance: -813800, previousBalance: -443000, nextPaymentDate: '2026-11-01T00:00:00' }
+      ] });
+    const popup = Swal.getPopup()!;
+    const nextPayments = popup.querySelectorAll('.payment-decision-next-payment');
+    expect(Swal.getTitle()?.textContent).toContain('¿Qué mes queda pendiente de pago?');
+    expect(nextPayments[0].textContent).toContain('10/2026');
+    expect(nextPayments[1].textContent).toContain('11/2026');
+    expect(popup.textContent).toContain('La deuda anterior y la morosidad se conservan.');
+    const outcomes = popup.querySelectorAll('.payment-decision-outcomes');
+    const format = (value: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
+    expect(outcomes[0].textContent).toContain(format(-162000));
+    expect(outcomes[0].textContent).toContain(format(-532800));
+    expect(outcomes[1].textContent).toContain(format(-443000));
+    expect(outcomes[1].textContent).toContain(format(-813800));
+    expect(popup.querySelectorAll('.payment-decision-debits')[0].textContent).toContain('No se crean nuevos alquileres.');
     popup.querySelector<HTMLInputElement>('input[value="close_partial_month"]')!.click();
     Swal.clickConfirm();
     expect(await result).toBe('close_partial_month');

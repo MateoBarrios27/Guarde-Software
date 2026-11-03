@@ -151,7 +151,7 @@ namespace GuardeSoftwareAPI.Services.payment
                     throw new PaymentConflictException(await BuildConflictDetailsAsync(dto, connection, transaction, duplicateAttempt: true));
                 }
 
-                var previousCollectionMonth = await PaymentCollectionDecisionStore.ReadAsync(currentState.RentalId, connection, transaction);
+                var previousCollection = await PaymentCollectionDecisionStore.ReadAsync(currentState.RentalId, connection, transaction);
 
                 // 1. OBTENEMOS DATOS BASE Y CREAMOS EL PAGO GENERAL
                 int paymentId = await _daoPayment.CreatePaymentTransactionAsync(new Payment
@@ -355,7 +355,7 @@ namespace GuardeSoftwareAPI.Services.payment
                 // payment, debit, increase or price lock is left in the account.
                 var projection = PaymentProjectionPlanner.Plan(dto, beforePayment, allocation,
                     primaryPaymentCredit.Id, histories, baseRent, isClientMarkedAsLeaving,
-                    isPriceLocked, currentState.Token, netAfterFees, ledger, previousCollectionMonth);
+                    isPriceLocked, currentState.Token, netAfterFees, ledger, previousCollection.Month, previousArrearsMonth: previousCollection.ArrearsMonth);
                 if (projection.Decision is { } decision
                     && (!string.Equals(dto.PaymentDecisionToken, decision.DecisionToken, StringComparison.Ordinal)
                         || !decision.Options.Any(o => o.Action == dto.FutureDebitAction)))
@@ -394,7 +394,7 @@ namespace GuardeSoftwareAPI.Services.payment
             await daoRental.ResetPendingSurchargeTransactionAsync(rental.Id, connection, transaction);
         }
 
-        await PaymentCollectionDecisionStore.SaveAsync(paymentId, rental.Id, projection.CollectionMonth,
+        await PaymentCollectionDecisionStore.SaveAsync(paymentId, rental.Id, projection.CollectionMonth, projection.ArrearsMonth,
             projection.Decision == null ? null : dto.FutureDebitAction, connection, transaction);
 
         // E. RECONSTRUCCIÓN E IMPUTACIÓN DESCRIPTIVA
@@ -437,6 +437,7 @@ namespace GuardeSoftwareAPI.Services.payment
                 dto.CommissionAmount,
                 dto.FutureDebitAction,
                 NextPaymentMonth = projection.CollectionMonth,
+                projection.ArrearsMonth,
                 ProjectedRentDebits = projection.Debits
             })
         });

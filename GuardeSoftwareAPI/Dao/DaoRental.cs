@@ -527,7 +527,7 @@ namespace GuardeSoftwareAPI.Dao
                               END
                         ),
                         UI_InterestAmount = rawData.Raw_Interest,
-                        LastBalanceDate = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
+                        LastBalanceDate = COALESCE(dbo.GetPaymentCollectionDisplayMonth(r.rental_id), (
                             SELECT MAX(candidate.PaymentMonth)
                             FROM (VALUES
                                 (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),

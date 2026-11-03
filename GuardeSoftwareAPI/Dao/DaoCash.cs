@@ -346,16 +346,16 @@ namespace GuardeSoftwareAPI.Dao
                     FROM (
                         SELECT rental_id, amount,
                                ROW_NUMBER() OVER (PARTITION BY rental_id ORDER BY start_date DESC, CASE WHEN end_date IS NULL THEN 1 ELSE 0 END DESC, rental_amount_history_id DESC) as rn
-                        FROM rental_amount_history WHERE start_date <= GETDATE()
+                        FROM rental_amount_history WHERE start_date <= DATEADD(hour, -3, GETUTCDATE())
                     ) h WHERE h.rn = 1
                 ),
                 ClientData AS (
                     SELECT 
                         c.client_id,
-                        -(db.PrevBalDB + db.IntsDB + db.RentDB - db.PaidDB - db.AdvPayDB) AS Balance,
-                        COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), CASE
-                            WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(GETDATE() AS DATE)
-                            THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                        -db.NetBalance AS Balance,
+                        COALESCE(dbo.GetPaymentCollectionDisplayMonth(r.rental_id), CASE
+                            WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
+                            THEN DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)
                             ELSE step1.LastBalanceDate
                         END) AS NextPaymentDay
                     FROM clients c
@@ -371,6 +371,7 @@ namespace GuardeSoftwareAPI.Dao
                     OUTER APPLY (
                         SELECT TOP 1
                             Id = cmb.id,
+                            NetBalance = cmb.balance - cmb.paid - cmb.advanced_payment,
                             PrevBalDB = ISNULL(cmb.previous_balance, 0),
                             IntsDB = ISNULL(cmb.interests, 0),
                             RentDB = CASE WHEN ISNULL(cmb.monthly_debits, 0) = 0 THEN ISNULL(cr.CurrentRent, 0) ELSE cmb.monthly_debits END,
@@ -379,12 +380,11 @@ namespace GuardeSoftwareAPI.Dao
                             MonthYearDB = cmb.month_year
                         FROM client_month_balances cmb
                         WHERE cmb.rental_id = r.rental_id 
-                          AND (cmb.balance - cmb.paid - cmb.advanced_payment) > 0
                         ORDER BY cmb.id DESC
                     ) db
                     OUTER APPLY (
                         SELECT 
-                            LastBalanceDate = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
+                            LastBalanceDate = COALESCE(dbo.GetPaymentCollectionDisplayMonth(r.rental_id), (
                                 SELECT MAX(candidate.PaymentMonth)
                                 FROM (VALUES
                                     (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),

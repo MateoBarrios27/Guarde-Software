@@ -26,7 +26,7 @@ const money = (value: number): string => new Intl.NumberFormat('es-AR',
   { style: 'currency', currency: 'ARS' }).format(value);
 
 export async function requestPaymentDecision(details: PaymentDecisionDetails): Promise<string | null> {
-  const title = details.scenario === 'partial_payment' ? '¿Este mes sigue pendiente de pago?'
+  const title = details.scenario === 'partial_payment' ? '¿Qué mes queda pendiente de pago?'
     : details.scenario === 'advance_shortfall' ? 'Revisá los meses del adelanto'
     : details.scenario === 'missing_rent' ? 'Revisá el débito del alquiler'
     : details.scenario === 'surplus' ? '¿El próximo mes con saldo a favor se da por pagado?'

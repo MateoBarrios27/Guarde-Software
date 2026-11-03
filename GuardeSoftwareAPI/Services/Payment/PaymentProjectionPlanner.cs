@@ -10,7 +10,7 @@ namespace GuardeSoftwareAPI.Services.payment;
 
 public sealed record ProjectedRentDebit(DateTime Month, decimal Amount);
 public sealed record PaymentDecisionOption(string Action, string Title, string Description,
-    List<ProjectedRentDebit> Debits, decimal ResultingBalance, decimal PreviousBalance, DateTime NextPaymentDate);
+    List<ProjectedRentDebit> Debits, decimal ResultingBalance, decimal PreviousBalance, DateTime NextPaymentDate, DateTime? ArrearsMonth = null);
 public sealed record PaymentDecisionDetails(string Code, string Scenario, string Message,
     decimal Surplus, decimal RemainingDebt, string DecisionToken, string ExpectedPaymentStateToken,
     List<PaymentDecisionOption> Options);
@@ -19,7 +19,7 @@ public sealed class PaymentDecisionRequiredException(PaymentDecisionDetails deta
 {
     public PaymentDecisionDetails Details { get; } = details;
 }
-public sealed record PaymentProjectionPlan(List<ProjectedRentDebit> Debits, PaymentDecisionDetails? Decision, DateTime? CollectionMonth);
+public sealed record PaymentProjectionPlan(List<ProjectedRentDebit> Debits, PaymentDecisionDetails? Decision, DateTime? CollectionMonth, DateTime? ArrearsMonth = null);
 
 /// <summary>Plans rent issuance and the collection month without changing accounting allocations.</summary>
 public static class PaymentProjectionPlanner
@@ -27,8 +27,12 @@ public static class PaymentProjectionPlanner
     public static PaymentProjectionPlan Plan(CreatePaymentTransaction dto,
         PaymentAllocationEngine.AllocationResult before, PaymentAllocationEngine.AllocationResult after,
         int creditId, List<RentalAmountHistory> histories, decimal baseRent, bool leaving,
-        bool priceLocked, string stateToken, decimal netAfterFees, List<AccountMovement> ledger, DateTime? previousCollectionMonth)
+        bool priceLocked, string stateToken, decimal netAfterFees, List<AccountMovement> ledger, DateTime? previousCollectionMonth,
+        DateTime? currentMonth = null, DateTime? previousArrearsMonth = null)
     {
+        var reference = currentMonth ?? DateTime.UtcNow.AddHours(-3);
+        var calendarMonth = new DateTime(reference.Year, reference.Month, 1);
+        DateTime VisibleMonth(DateTime month) => month < calendarMonth ? calendarMonth : month;
         var paymentMonth = new DateTime(dto.Date.Year, dto.Date.Month, 1);
         static DateTime Month(ClientMonthBalance row) => DateTime.ParseExact(row.MonthYear, "MM/yyyy", CultureInfo.InvariantCulture);
         var lastRent = after.Rows.LastOrDefault(row => row.MonthlyDebits > 0);
@@ -62,11 +66,21 @@ public static class PaymentProjectionPlanner
                 Concept = $"Alquiler {new CultureInfo("es-AR").DateTimeFormat.GetMonthName(d.Month.Month)} {d.Month.Year}"
             }))).Rows;
         DateTime LegacyDate(List<ClientMonthBalance> rows) {
-            var today = DateTime.UtcNow.AddHours(-3);
-            var currentMonth = new DateTime(today.Year, today.Month, 1);
             var touched = rows.LastOrDefault(r => r.MonthlyDebits > 0 && r.UnpaidRent < r.MonthlyDebits);
-            var following = touched == null ? currentMonth : Month(touched).AddMonths(1);
-            return following > currentMonth ? following : currentMonth;
+            var following = touched == null ? calendarMonth : Month(touched).AddMonths(1);
+            return VisibleMonth(following);
+        }
+        DateTime? HistoricalArrears(List<ClientMonthBalance> rows)
+        {
+            // A collection-date floor must not contemplate old debt as paid.
+            // Previously contemplated periods remain excluded by the historical anchor.
+            var anchor = previousArrearsMonth ?? previousCollectionMonth;
+            if (!anchor.HasValue && partialRent != null && Month(partialRent) < calendarMonth)
+                anchor = Month(partialRent);
+            if (!anchor.HasValue || anchor.Value >= calendarMonth) return null;
+            var pending = rows.FirstOrDefault(r => r.UnpaidRent > 0
+                && Month(r) >= anchor.Value && Month(r) < calendarMonth);
+            return pending == null ? null : Month(pending);
         }
         PaymentDecisionOption Option(string action, string title, string description, List<ProjectedRentDebit> debits,
             DateTime? collectionMonth = null) {
@@ -77,15 +91,21 @@ public static class PaymentProjectionPlanner
                 : active.AdvancedPayment > 0 && active.AdvancedPayment < active.MonthlyDebits ? active.AdvancedPayment
                 : -rows.Where(r => Month(r) < Month(active)).Sum(r => r.UnpaidRent);
             var heldMonth = previousCollectionMonth.HasValue
-                && rows.Any(r => Month(r) == previousCollectionMonth && r.UnpaidRent > 0) ? previousCollectionMonth : null;
-            var explicitDue = collectionMonth ?? heldMonth;
+                && (rows.Any(r => Month(r) == previousCollectionMonth && r.UnpaidRent > 0)
+                    || HistoricalArrears(rows).HasValue) ? previousCollectionMonth : null;
+            var historicalArrears = HistoricalArrears(rows);
+            var rawDue = collectionMonth ?? heldMonth;
+            var explicitDue = rawDue.HasValue ? VisibleMonth(rawDue.Value)
+                : historicalArrears.HasValue ? LegacyDate(rows) : (DateTime?)null;
             if (explicitDue.HasValue) {
                 var due = rows.FirstOrDefault(r => Month(r) == explicitDue);
                 previous = net < 0 ? -net
                     : due is { AdvancedPayment: > 0 } && due.AdvancedPayment < due.MonthlyDebits ? due.AdvancedPayment
                     : -rows.Where(r => Month(r) < explicitDue).Sum(r => r.UnpaidRent);
             }
-            return new(action, title, description, debits, -net, previous, explicitDue ?? LegacyDate(rows));
+            var nextPayment = explicitDue ?? LegacyDate(rows);
+            return new(action, title, description, debits, -net, previous, nextPayment,
+                historicalArrears ?? nextPayment);
         }
         var noProjection = Option("no_projection", "Registrar sin nuevos débitos",
             "El pago se aplica a los movimientos existentes. El remanente queda a favor; no se crea otro alquiler.", []);
@@ -147,34 +167,55 @@ public static class PaymentProjectionPlanner
         else if (partialRent != null && !leaving)
         {
             scenario = "partial_payment";
-            message = "El débito generado quedó parcialmente pagado. Elegí si todavía se debe cobrar ese mes o si corresponde pasar al siguiente conservando la deuda.";
-            options.Add(Option("keep_month_pending", "Este mes todavía se tiene que pagar",
-                "No se genera otro débito. La fecha de próximo pago sigue siendo el mes parcialmente pagado.", [], Month(partialRent)));
-            var followingMonth = Month(partialRent).AddMonths(1);
+            var partiallyPaidMonth = Month(partialRent);
+            var collectionMonth = VisibleMonth(partiallyPaidMonth);
+            var followingMonth = collectionMonth.AddMonths(1);
+            var culture = new CultureInfo("es-AR");
+            string Period(DateTime month) => month.ToString("MMMM yyyy", culture);
+            bool oldDebt = partiallyPaidMonth < calendarMonth;
+            message = oldDebt
+                ? $"El pago se aplicó a deuda de {Period(partiallyPaidMonth)}. Elegí cobrar {Period(collectionMonth)} o contemplarlo y pasar a {Period(followingMonth)}. La deuda anterior y su morosidad se conservan."
+                : "El débito generado quedó parcialmente pagado. Elegí si todavía se debe cobrar ese mes o si corresponde pasar al siguiente conservando la deuda.";
+            options.Add(Option("keep_month_pending", $"Mantener {Period(collectionMonth)} pendiente",
+                oldDebt
+                    ? "No se genera otro débito. El faltante de los meses anteriores queda en Saldo anterior y conserva su morosidad."
+                    : "No se genera otro débito. La fecha de próximo pago sigue siendo el mes parcialmente pagado.", [], collectionMonth));
             bool alreadyExists = after.Rows.Any(r => Month(r) == followingMonth && r.MonthlyDebits > 0);
             var followingDebits = alreadyExists ? new List<ProjectedRentDebit>() : [new ProjectedRentDebit(followingMonth, Price(followingMonth))];
             if (canProject && !priceLocked)
-                options.Add(Option("close_partial_month", "Tomar este mes como pagado y pasar al siguiente",
-                    alreadyExists
-                        ? "El débito del mes siguiente ya existe y se conserva. Lo que faltó pagar queda en Saldo anterior; no se perdona la deuda."
-                        : "Se genera el débito del mes siguiente. Lo que faltó pagar queda en Saldo anterior; no se perdona la deuda.", followingDebits, followingMonth));
+                options.Add(Option("close_partial_month", $"Contemplar {Period(collectionMonth)} y pasar a {Period(followingMonth)}",
+                    (alreadyExists
+                        ? "El débito del mes siguiente ya existe y se conserva. "
+                        : "Se genera el débito del mes siguiente. ")
+                    + (oldDebt
+                        ? "Todo el capital anterior pendiente queda en Saldo anterior. La morosidad de los meses anteriores se conserva."
+                        : "Lo que faltó pagar queda en Saldo anterior; no se perdona la deuda."), followingDebits, followingMonth));
         }
 
+        var resultingRows = Replay(scenario == null ? defaults : options.FirstOrDefault(o => o.Action == dto.FutureDebitAction)?.Debits ?? []);
+        var historicalArrears = HistoricalArrears(resultingRows);
         DateTime? preservedMonth = previousCollectionMonth.HasValue
-            && Replay(scenario == null ? defaults : options.FirstOrDefault(o => o.Action == dto.FutureDebitAction)?.Debits ?? []).Any(r => Month(r) == previousCollectionMonth && r.UnpaidRent > 0)
-            ? previousCollectionMonth : null;
-        if (scenario == null) return new(defaults, null, preservedMonth);
+            && resultingRows.Any(r => Month(r) == previousCollectionMonth && r.UnpaidRent > 0)
+            ? VisibleMonth(previousCollectionMonth.Value) : null;
+        // Once a date was chosen, further payments toward its old debt retain that
+        // date while the debt remains. Paying off the anchor advances only the mora.
+        if (!preservedMonth.HasValue && historicalArrears.HasValue)
+            preservedMonth = previousCollectionMonth.HasValue
+                ? VisibleMonth(previousCollectionMonth.Value) : LegacyDate(resultingRows);
+        if (scenario == null) return new(defaults, null, preservedMonth,
+            historicalArrears ?? preservedMonth);
         // Bind the approval to both the original state and all financially relevant inputs.
         string fingerprint = JsonSerializer.Serialize(new { stateToken, dto.ClientId, dto.PaymentMethodId,
             dto.Amount, dto.Date, dto.IsAdvancePayment, dto.AdvanceMonths, dto.CommissionAmount,
             dto.NewRentAmount, dto.AppliedIncreases, dto.SkipFutureProjection, dto.SurchargeAction,
-            dto.SurchargeAmount, dto.SurchargeAmountWasOverridden, scenario, options });
+            dto.SurchargeAmount, dto.SurchargeAmountWasOverridden, calendarMonth, scenario, options });
         string token = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(fingerprint)));
         var decision = new PaymentDecisionDetails("PAYMENT_DECISION_REQUIRED", scenario, message,
             surplus, Math.Max(0m, netAfterFees), token, stateToken, options);
         var selectedOption = options.FirstOrDefault(o => o.Action == dto.FutureDebitAction);
         bool explicitMonth = dto.FutureDebitAction is "credit_next_month" or "close_credited_month" or "keep_month_pending" or "close_partial_month";
         return new(selectedOption?.Debits ?? [], decision,
-            explicitMonth ? selectedOption?.NextPaymentDate : preservedMonth);
+            explicitMonth ? selectedOption?.NextPaymentDate : preservedMonth,
+            explicitMonth ? selectedOption?.ArrearsMonth : historicalArrears ?? preservedMonth);
     }
 }

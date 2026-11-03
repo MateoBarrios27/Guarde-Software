@@ -142,7 +142,7 @@ namespace GuardeSoftwareAPI.Dao
                 ) db
 
                 OUTER APPLY (
-                    SELECT NextPaymentDay = CASE WHEN r.rental_id IS NULL THEN NULL ELSE COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
+                    SELECT NextPaymentDay = CASE WHEN r.rental_id IS NULL THEN NULL ELSE COALESCE(dbo.GetPaymentCollectionDisplayMonth(r.rental_id), (
                         SELECT MAX(candidate.PaymentMonth)
                         FROM (VALUES
                             (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
@@ -347,7 +347,7 @@ namespace GuardeSoftwareAPI.Dao
                     ISNULL(step1.UI_Balance, 0) AS balance,
                     ISNULL(db.PaidDB, 0) AS total_paid,
                     
-                    COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), CASE
+                    COALESCE(dbo.GetPaymentCollectionDisplayMonth(r.rental_id), CASE
                         WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
                         THEN DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 10)
                         ELSE step1.LastBalanceDate
@@ -455,7 +455,7 @@ namespace GuardeSoftwareAPI.Dao
                             WHEN ISNULL(db.AdvPayDB, 0) > 0 AND ISNULL(db.AdvPayDB, 0) < db.RentDB THEN ISNULL(db.AdvPayDB, 0)
                             ELSE -rawData.Raw_PrevBal
                         END),
-                        LastBalanceDate = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
+                        LastBalanceDate = COALESCE(dbo.GetPaymentCollectionDisplayMonth(r.rental_id), (
                             SELECT MAX(candidate.PaymentMonth)
                             FROM (VALUES
                                 (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
@@ -1131,7 +1131,7 @@ namespace GuardeSoftwareAPI.Dao
                     ) db
 
                     OUTER APPLY (
-                        SELECT NextPaymentDay = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
+                        SELECT NextPaymentDay = COALESCE(dbo.GetPaymentCollectionDisplayMonth(r.rental_id), (
                             SELECT MAX(candidate.PaymentMonth)
                             FROM (VALUES
                                 (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
@@ -1143,7 +1143,7 @@ namespace GuardeSoftwareAPI.Dao
                     OUTER APPLY (
                         SELECT NextPaymentDay = CASE
                             WHEN c.active = 0 THEN NULL
-                            WHEN dbo.GetPaymentCollectionMonth(r.rental_id) IS NOT NULL THEN baseNextPayment.NextPaymentDay
+                            WHEN dbo.GetPaymentCollectionDisplayMonth(r.rental_id) IS NOT NULL THEN baseNextPayment.NextPaymentDay
                             WHEN baseNextPayment.NextPaymentDay IS NULL
                                  OR baseNextPayment.NextPaymentDay < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
                             THEN DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)

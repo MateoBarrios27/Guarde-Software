@@ -24,8 +24,6 @@ public class ApplyInterestsJob : IJob
     {
         _logger.LogInformation("Iniciando Job de Gestión de Mora. Hora: {time}", DateTimeOffset.Now);
 
-        const int TERMINATION_THRESHOLD = 4;
-
         try
         {
             DataTable allRentals = await _daoRental.GetAllActiveRentalsWithStatusAsync();
@@ -36,7 +34,6 @@ public class ApplyInterestsJob : IJob
             foreach (DataRow row in allRentals.Rows)
             {
                 var rentalId = Convert.ToInt32(row["rental_id"]);
-                var monthsUnpaid = Convert.ToInt32(row["months_unpaid"]);
                 var currentRent = row["CurrentRent"] != DBNull.Value ? Convert.ToDecimal(row["CurrentRent"]) : 0;
                 
                 var currentInterests = row["CurrentInterests"] != DBNull.Value ? Convert.ToDecimal(row["CurrentInterests"]) : 0;
@@ -51,7 +48,6 @@ public class ApplyInterestsJob : IJob
 
                 if (taxableBase > 0)
                 {
-                    var newMonthsUnpaid = monthsUnpaid + 1;
                     _logger.LogWarning("Cliente del alquiler ID {rentalId} está en mora...", rentalId);
 
                     // Si existe registro CMB con débitos, usamos la porción impaga (descontando pagos parciales).
@@ -60,7 +56,7 @@ public class ApplyInterestsJob : IJob
                     
                     var roundedInterest = RoundInterestToNearestHundredDown(interestAmount);
 
-                    await _daoRental.IncrementUnpaidMonthsAndSaveInterestAsync(
+                    await _daoRental.SavePendingSurchargeAsync(
                         rentalId,
                         roundedInterest,
                         lateRentBase,
@@ -69,10 +65,6 @@ public class ApplyInterestsJob : IJob
                     totalInterests += roundedInterest;
                     _logger.LogInformation("Interés de ${amount} aplicado al alquiler ID {rentalId}. (Base Imponible: ${baseImponible}, Método Preferido: {method})", roundedInterest, rentalId, taxableBase, preferredMethod);
 
-                    if (newMonthsUnpaid >= TERMINATION_THRESHOLD)
-                    {
-                        _logger.LogError("¡ACCIÓN CRÍTICA! El alquiler ID {rentalId} ha alcanzado {newMonthsUnpaid} meses de mora.", rentalId, newMonthsUnpaid);
-                    }
                 }
             }
 

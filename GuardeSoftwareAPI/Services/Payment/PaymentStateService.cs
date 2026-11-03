@@ -85,7 +85,7 @@ namespace GuardeSoftwareAPI.Services.payment
                     fingerprint);
 
                 await AppendRowsAsync(
-                    $@"SELECT payment_id, next_payment_month, action, ledger_anchor_id
+                    $@"SELECT payment_id, next_payment_month, arrears_month, action, ledger_anchor_id
                        FROM payment_collection_decisions{lockHint}
                        WHERE rental_id = @rentalId ORDER BY payment_id",
                     connection, transaction, rentalId, fingerprint);

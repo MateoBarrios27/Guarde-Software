@@ -1530,7 +1530,7 @@ namespace GuardeSoftwareAPI.Dao
                     ), 0) AS Balance,
 
                     ISNULL((
-                        SELECT MAX(months_unpaid) 
+                        SELECT MAX(dbo.GetRentalUnpaidMonths(rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE())))) 
                         FROM rentals 
                         WHERE client_id = c.client_id AND active = 1
                     ), 0) AS MaxUnpaidMonths,
@@ -1559,7 +1559,7 @@ namespace GuardeSoftwareAPI.Dao
                       AND ISNULL(cmb.unpaid_rent, 0) < ISNULL(cmb.monthly_debits, 0)
                 ) lastTouchedRent
                 OUTER APPLY (
-                    SELECT NextPaymentDate = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), (
+                    SELECT NextPaymentDate = COALESCE(dbo.GetPaymentCollectionDisplayMonth(r.rental_id), (
                         SELECT MAX(candidate.PaymentMonth)
                         FROM (VALUES
                             (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
@@ -1716,7 +1716,7 @@ OUTER APPLY (
                             - ISNULL(targetBalance.paid, 0)
                             - ISNULL(targetBalance.advanced_payment, 0),
                         PlannedNetBalance = plannedBalance.NetBalance,
-                        NextPaymentDate = COALESCE(dbo.GetPaymentCollectionMonth(r.rental_id), CASE
+                        NextPaymentDate = COALESCE(dbo.GetPaymentCollectionDisplayMonth(r.rental_id), CASE
                             WHEN DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth) > @CurrentMonth
                                 THEN DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth)
                             ELSE @CurrentMonth
