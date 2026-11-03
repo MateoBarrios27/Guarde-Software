@@ -1,3 +1,4 @@
+import { isTableScrollAtBottom, resolveTableScrollContainer } from '../../shared/utils/table-scroll.util';
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Locker, LockerClientSummary } from '../../core/models/locker';
 import { LockerService } from '../../core/services/locker-service/locker.service';
@@ -119,6 +120,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   private clientStatsOpenTimer?: ReturnType<typeof setTimeout>;
   private clientStatsCloseTimer?: ReturnType<typeof setTimeout>;
 
+  @ViewChild('tableViewport') private tableViewport?: ElementRef<HTMLElement>;
   @ViewChild('tagsPopoverRef') tagsPopoverRef!: ElementRef;
   @ViewChild('tagsButtonRef') tagsButtonRef!: ElementRef;
 
@@ -128,7 +130,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   // --- VARIABLES PARA EL BOTÓN FLOTANTE ---
   @ViewChild('bottomAnchor') bottomAnchor!: ElementRef;
   pointingUp: boolean = false;
-  private scrollObserver!: IntersectionObserver;
+  private readonly mainScrollHandler = (): void => this.onTableScroll();
   private readonly dataRefreshSubscription = new Subscription();
 
   constructor(
@@ -174,28 +176,25 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadClientDirectory();
   }
 
-  ngAfterViewInit() {
-    this.scrollObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          this.pointingUp = true;
-        } else {
-          this.pointingUp = false;
-        }
-      });
-    }, { threshold: 0 });
+  ngAfterViewInit(): void {
+    document.getElementById('main-scroll')?.addEventListener('scroll', this.mainScrollHandler, { passive: true });
+    this.onTableScroll();
+  }
 
-    if (this.bottomAnchor) {
-      this.scrollObserver.observe(this.bottomAnchor.nativeElement);
-    }
+  @HostListener('window:resize')
+  onTableResize(): void {
+    this.onTableScroll();
+  }
+
+  onTableScroll(): void {
+    const container = resolveTableScrollContainer(this.tableViewport?.nativeElement);
+    this.pointingUp = container ? isTableScrollAtBottom(container) : false;
   }
 
   ngOnDestroy() {
     this.closeClientStats();
     this.dataRefreshSubscription.unsubscribe();
-    if (this.scrollObserver) {
-      this.scrollObserver.disconnect();
-    }
+    document.getElementById('main-scroll')?.removeEventListener('scroll', this.mainScrollHandler);
   }  @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     if (!this.showTagsPopover) return;
@@ -340,17 +339,13 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.sortDirection === 'asc' ? 'arrow-up' : 'arrow-down';
   }
 
-  toggleScroll() {
-    const scrollContainer = document.getElementById('main-scroll');
-    if (!scrollContainer) return;
-
-    if (this.pointingUp) {
-      // 1. Si apunta arriba: Subimos al tope de un saque
-      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+  toggleScroll(): void {
+    const container = resolveTableScrollContainer(this.tableViewport?.nativeElement);
+    if (!container) return;
+    if (isTableScrollAtBottom(container)) {
+      container.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      // 2. Si apunta abajo: Bajamos en bloques (ej: 70 bauleras = ~3850px)
-      const scrollAmount = 3850;
-      scrollContainer.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+      container.scrollBy({ top: 3850, behavior: 'smooth' });
     }
   }
 
