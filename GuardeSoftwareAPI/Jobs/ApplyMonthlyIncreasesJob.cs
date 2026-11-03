@@ -1,5 +1,6 @@
 using GuardeSoftwareAPI.Dao;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
+using GuardeSoftwareAPI.Utils;
 using Quartz;
 using System.Data;
 
@@ -49,6 +50,7 @@ namespace GuardeSoftwareAPI.Jobs
                 int lastHistoryId = Convert.ToInt32(row["LastHistoryId"]);
                 DateTime lastIncreaseDate = Convert.ToDateTime(row["LastIncreaseDate"]);
                 DateTime? priceLockDate = row["price_lock_end_date"] as DateTime?;
+                string paymentMethodName = row["PaymentMethodName"]?.ToString() ?? string.Empty;
 
                 DateTime catchUpStartDate = anchorDate;
                 if (priceLockDate.HasValue && priceLockDate.Value > catchUpStartDate)
@@ -92,7 +94,9 @@ namespace GuardeSoftwareAPI.Jobs
                                 
                                 if (increasesMap.TryGetValue(settingDate, out decimal percentage))
                                 {
-                                    newAmount = newAmount * (1 + (percentage / 100));
+                                    // Each stage is rounded UP to the payment method's unit and becomes the base of the
+                                    // next one, exactly like the successive increase prompts in Finanzas.
+                                    newAmount = RentIncreaseRule.Apply(newAmount, percentage, paymentMethodName);
                                     _logger.LogInformation($"  -> Aplicando aumento de {percentage}% (para {settingDate:MM/yyyy}) a Rental ID {rentalId}. Monto intermedio: {newAmount:C}");
                                     
                                     lastAppliedIncreaseDate = newAnchorDate; 
@@ -105,11 +109,11 @@ namespace GuardeSoftwareAPI.Jobs
                                 newAnchorDate = newAnchorDate.AddMonths(frequency);
                             }
 
-                            decimal finalAmount = RoundToNearest1000(newAmount);
+                            decimal finalAmount = newAmount;
 
                             if (finalAmount > currentAmount)
                             {
-                                _logger.LogInformation($"Monto final para Rental ID {rentalId}: {finalAmount:C} (redondeado desde {newAmount:C}). Actualizando BD.");
+                                _logger.LogInformation($"Monto final para Rental ID {rentalId}: {finalAmount:C}. Actualizando BD.");
                                 
                                 await _rentalAmountHistoryService.EndAndCreateRentalAmountHistoryTransactionAsync(
                                     lastHistoryId,
@@ -146,16 +150,6 @@ namespace GuardeSoftwareAPI.Jobs
                 }
             }
             _logger.LogInformation("--- Job de Aplicación de Aumentos finalizado ---");
-        }
-
-        private decimal RoundToNearest1000(decimal amount)
-        {
-            if (amount == 0) return 0;
-
-            // Math.Round with MidpointRounding.AwayFromZero rounds .5 up to the next integer, which is what we want for our rounding logic.
-            // Ej: 12500 / 1000 = 12.5 -> Round is 13 -> 13 * 1000 = 13000
-            // Ej: 12499 / 1000 = 12.499 -> Round is 12 -> 12 * 1000 = 12000
-            return Math.Round(amount / 1000m, MidpointRounding.AwayFromZero) * 1000m;
         }
     }
 }

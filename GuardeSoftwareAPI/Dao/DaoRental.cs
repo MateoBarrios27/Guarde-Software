@@ -232,10 +232,12 @@ namespace GuardeSoftwareAPI.Dao
                     c.increase_frequency_months,
                     lh.CurrentAmount,
                     lh.LastIncreaseDate,
-                    lh.LastHistoryId
+                    lh.LastHistoryId,
+                    ISNULL(pm.name, '') AS PaymentMethodName
                 FROM rentals r
                 JOIN clients c ON r.client_id = c.client_id
                 JOIN LatestHistory lh ON r.rental_id = lh.rental_id
+                LEFT JOIN payment_methods pm ON pm.payment_method_id = c.preferred_payment_method_id
                 WHERE r.active = 1
                   AND lh.rn = 1
                   AND r.increase_anchor_date <= @Today

@@ -11,6 +11,7 @@ using GuardeSoftwareAPI.Services.clientMonthBalance;
 using Microsoft.Extensions.DependencyInjection;
 using GuardeSoftwareAPI.Services.payment;
 using GuardeSoftwareAPI.Services.rentalAmountHistory;
+using GuardeSoftwareAPI.Utils;
 
 namespace GuardeSoftwareAPI.Services.accountMovement {
 
@@ -293,9 +294,10 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
             var previousMonth = monthStart.AddMonths(-1);
             var previousMonthKey = previousMonth.ToString("MM/yyyy", CultureInfo.InvariantCulture);
             const string eligibleQuery = @"
-                SELECT TOP 1 c.increase_frequency_months
+                SELECT TOP 1 c.increase_frequency_months, ISNULL(pm.name, '') AS payment_method_name
                 FROM rentals r
                 INNER JOIN clients c ON c.client_id = r.client_id
+                LEFT JOIN payment_methods pm ON pm.payment_method_id = c.preferred_payment_method_id
                 WHERE r.rental_id = @rental_id
                   AND r.active = 1
                   AND c.active = 1
@@ -327,17 +329,19 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                   );";
 
             int frequency;
+            string paymentMethodName;
             using (var command = new SqlCommand(eligibleQuery, connection, transaction))
             {
                 command.Parameters.Add(new SqlParameter("@rental_id", SqlDbType.Int) { Value = rentalId });
                 command.Parameters.Add(new SqlParameter("@month_start", SqlDbType.Date) { Value = monthStart.Date });
                 command.Parameters.Add(new SqlParameter("@month_end", SqlDbType.Date) { Value = monthEnd.Date });
                 command.Parameters.Add(new SqlParameter("@previous_month", SqlDbType.VarChar, 7) { Value = previousMonthKey });
-                var result = await command.ExecuteScalarAsync();
-                if (result == null || result == DBNull.Value)
+                using var reader = await command.ExecuteReaderAsync(CommandBehavior.SingleRow);
+                if (!await reader.ReadAsync() || reader.IsDBNull(0))
                     return currentAmount;
 
-                frequency = Convert.ToInt32(result);
+                frequency = Convert.ToInt32(reader.GetValue(0));
+                paymentMethodName = reader.GetString(1);
             }
 
             var percentage = await _daoMonthlyIncrease.GetIncreasePercentageForMonthAsync(monthStart, connection, transaction);
@@ -348,8 +352,9 @@ namespace GuardeSoftwareAPI.Services.accountMovement {
                 return currentAmount;
             }
 
-            var calculatedAmount = currentAmount * (1m + percentage.Value / 100m);
-            var increasedAmount = Math.Round(calculatedAmount / 1000m, MidpointRounding.AwayFromZero) * 1000m;
+            // Same rule the operator gets in Finanzas: rounded UP to the payment method's unit
+            // (cash: thousands; any other method: hundreds), not to the nearest thousand.
+            var increasedAmount = RentIncreaseRule.Apply(currentAmount, percentage.Value, paymentMethodName);
             var latestHistory = await _rentalAmountHistoryService.GetLatestRentalAmountHistoryTransactionAsync(
                 rentalId, connection, transaction);
             if (latestHistory == null)
