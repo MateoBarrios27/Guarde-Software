@@ -448,14 +448,10 @@ namespace GuardeSoftwareAPI.Dao
                         c.client_id,
                         CASE 
                             WHEN c.active = 0 THEN 'Baja'
-                            WHEN ISNULL(r.months_unpaid, 0) >= 1 THEN 'Moroso'
-                            WHEN (
-                                CASE 
-                                    WHEN step1.LastBalanceDate IS NULL OR step1.LastBalanceDate < CAST(DATEADD(hour, -3, GETUTCDATE()) AS DATE)
-                                    THEN DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 10)
-                                    ELSE step1.LastBalanceDate
-                                END
-                            ) > EOMONTH(DATEADD(hour, -3, GETUTCDATE())) THEN 'PagaronElMes'
+                            WHEN arrears.MonthsUnpaid >= 1 THEN 'Moroso'
+                            WHEN collection.CollectionMonth > DATEFROMPARTS(
+                                YEAR(DATEADD(hour, -3, GETUTCDATE())),
+                                MONTH(DATEADD(hour, -3, GETUTCDATE())), 1) THEN 'PagaronElMes'
                             ELSE 'NoPagaronElMes'
                         END AS Status
                     FROM clients c
@@ -467,12 +463,27 @@ namespace GuardeSoftwareAPI.Dao
                         ORDER BY r_sub.active DESC, r_sub.start_date DESC, r_sub.rental_id DESC
                     ) r
                     OUTER APPLY (
-                        SELECT TOP 1
-                            LastBalanceDate = TRY_CONVERT(date, CONCAT('01/', cmb.month_year), 103)
+                        SELECT MonthsUnpaid = MAX(dbo.GetRentalUnpaidMonths(
+                            active_rental.rental_id, CONVERT(date, DATEADD(hour, -3, GETUTCDATE()))))
+                        FROM rentals active_rental
+                        WHERE active_rental.client_id = c.client_id AND active_rental.active = 1
+                    ) arrears
+                    OUTER APPLY (
+                        SELECT LastTouchedRentMonth = MAX(TRY_CONVERT(date, '01/' + cmb.month_year, 103))
                         FROM client_month_balances cmb
                         WHERE cmb.rental_id = r.rental_id
-                        ORDER BY cmb.id DESC
-                    ) step1
+                          AND cmb.monthly_debits > 0 AND cmb.unpaid_rent < cmb.monthly_debits
+                    ) lastTouchedRent
+                    OUTER APPLY (
+                        SELECT CollectionMonth = COALESCE(dbo.GetPaymentCollectionDisplayMonth(r.rental_id), (
+                            SELECT MAX(candidate.PaymentMonth)
+                            FROM (VALUES
+                                (DATEFROMPARTS(YEAR(DATEADD(hour, -3, GETUTCDATE())), MONTH(DATEADD(hour, -3, GETUTCDATE())), 1)),
+                                (DATEADD(month, 1, lastTouchedRent.LastTouchedRentMonth))
+                            ) candidate(PaymentMonth)
+                        ))
+                    ) collection
+                    WHERE ISNULL(c.is_deleted, 0) = 0
                 )
                 SELECT 
                     SUM(CASE WHEN Status <> 'Baja' THEN 1 ELSE 0 END) as Total,
