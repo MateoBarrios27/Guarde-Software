@@ -16,6 +16,7 @@ namespace GuardeSoftwareAPI.Services.client
         Task<int> CreateClientAsync(CreateClientDTO dto);
         Task<GetClientDetailDTO> GetClientDetailByIdAsync(int id);
         Task<PaginatedResultDto<GetTableClientsDto>> GetClientsTableAsync(GetClientsRequestDto request);
+        Task<ClientProjectedNextMonthResultDto> GetProjectedNextMonthAsync(CancellationToken cancellationToken = default);
         Task<List<string>> GetClientRecipientNamesAsync();
         Task<List<string>> SearchClientNamesAsync(string query);
         Task<bool> UpdateClientAsync(int id, CreateClientDTO dto);

@@ -1,3 +1,5 @@
+import { ClientProjectedNextMonthItem } from './ClientProjectedNextMonthDto';
+
 // Define la estructura de un cliente en la tabla, coincidiendo con GetTableClientsDto
 export interface TableClient {
   id: number;
@@ -30,6 +32,8 @@ export interface TableClient {
   _isFutureMonth?: boolean;
   _bgColor?: string;
   _colorLight?: string | null;
+  // Next-month projection (see ClientProjectedNextMonthItem); only set while the projected view is on.
+  _projection?: ClientProjectedNextMonthItem | null;
 }
 
 export interface WarehouseLockerItem {

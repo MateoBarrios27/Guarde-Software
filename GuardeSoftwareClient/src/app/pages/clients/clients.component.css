@@ -41,6 +41,7 @@
   }
 
   .clients-inactive-toggle,
+  .clients-projection-toggle,
   .clients-filter-toggle {
     gap: 0.375rem;
     padding-inline: 0.625rem;
@@ -167,4 +168,26 @@ tr.client-row.has-color > td:last-child {
   );
   background-size: 800px 100%;
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Vista proyectada (próximo mes): marca las columnas cuyos importes no son los actuales. */
+.client-projected-cell {
+  background-color: rgba(37, 99, 235, 0.06);
+}
+
+.client-projection-pill {
+  padding: 0.0625rem 0.375rem;
+  border-radius: 9999px;
+  background-color: #2563eb;
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.clients-projection-toggle:has(input:focus-visible) {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }

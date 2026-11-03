@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Text.Json;
 using GuardeSoftwareAPI.Dtos.Client;
+using GuardeSoftwareAPI.Utils;
 
 namespace GuardeSoftwareAPI.Dao
 {
@@ -1683,6 +1684,10 @@ OUTER APPLY (
             decimal paymentIdentifier = Convert.ToDecimal(dt.Rows[0]["PaymentIdentifier"]);
             decimal pendingSurcharge = Convert.ToDecimal(dt.Rows[0]["PendingSurcharge"]);
 
+            data.PaymentIdentifier = paymentIdentifier;
+            data.Rent = uiCurrentRent;
+            data.NetDebt = -uiBalance;
+
             // --- ESCENARIO 1: MES ACTUAL ---
             decimal currentMonthBaseDebt = uiBalance < 0 ? Math.Abs(uiBalance) : 0;
             
@@ -1712,6 +1717,7 @@ OUTER APPLY (
                         TargetPreviousBalance = ISNULL(targetBalance.previous_balance, 0)
                             - ISNULL(targetBalance.advanced_payment, 0),
                         TargetInterests = ISNULL(targetBalance.interests, 0),
+                        TargetRent = ISNULL(targetBalance.monthly_debits, 0),
                         TargetNetBalance = ISNULL(targetBalance.balance, 0)
                             - ISNULL(targetBalance.paid, 0)
                             - ISNULL(targetBalance.advanced_payment, 0),
@@ -1756,6 +1762,7 @@ OUTER APPLY (
                 SELECT
                     SUM(TargetPreviousBalance) AS PrevBal,
                     SUM(TargetInterests) AS Ints,
+                    SUM(TargetRent) AS Rent,
                     SUM(CASE
                         WHEN NextPaymentDate <= @TargetMonth AND PlannedNetBalance IS NOT NULL
                             THEN PlannedNetBalance
@@ -1781,10 +1788,13 @@ OUTER APPLY (
                 decimal nextMonthDebt = Math.Max(netBalanceNextMonth, 0) + pendingSurcharge;
                 
                 data.CurrentBalance = nextMonthDebt > 0 ? nextMonthDebt + paymentIdentifier : 0;
+                data.Rent = Convert.ToDecimal(dtNext.Rows[0]["Rent"]);
+                data.NetDebt = nextMonthDebt > 0 ? nextMonthDebt : netBalanceNextMonth;
             }
             else
             {
-                decimal projectedNextMonthRent = await CalculateProjectedNextMonthRentAsync(clientId);
+                var projectedRent = await CalculateProjectedNextMonthRentAsync(clientId, nextMonthDate);
+                decimal projectedNextMonthRent = projectedRent.Amount;
                 decimal totalProjectedDebt = 0;
 
                 if (uiBalance < 0) 
@@ -1793,6 +1803,7 @@ OUTER APPLY (
                     data.Surcharge = uiInterestAmount + pendingSurcharge;
                     
                     totalProjectedDebt = data.PreviousBalance + data.Surcharge + projectedNextMonthRent;
+                    data.NetDebt = totalProjectedDebt;
                 }
                 else 
                 {
@@ -1802,70 +1813,102 @@ OUTER APPLY (
                     data.Surcharge = pendingSurcharge;
                     
                     totalProjectedDebt = projectedNextMonthRent + pendingSurcharge - uiBalance;
+                    data.NetDebt = totalProjectedDebt;
                     if (totalProjectedDebt < 0) totalProjectedDebt = 0;
                 }
 
+                data.Rent = projectedNextMonthRent;
+                data.RentIncreasePercentage = projectedRent.IncreasePercentage;
+                data.RentIncreasePercentageMissing = projectedRent.IncreasePercentageMissing;
                 data.CurrentBalance = totalProjectedDebt > 0 ? totalProjectedDebt + paymentIdentifier : 0;
             }
 
             return data;
         }
 
-        private async Task<decimal> CalculateProjectedNextMonthRentAsync(int clientId)
+        private sealed record ProjectedRent(decimal Amount, decimal? IncreasePercentage, bool IncreasePercentageMissing);
+
+        /// <summary>
+        /// Rent of the projected month for a client whose next-month balance does not exist yet.
+        /// The increase follows the Finanzas rule (see <see cref="RentIncreaseRule"/>): the percentage
+        /// configured for that month, rounded up to the payment method's unit. It is applied only when
+        /// the increase anchor is due, the price is not frozen, the client is not leaving (SE VA) and
+        /// the month has no amount already planned. A due increase without a configured percentage keeps
+        /// the current rent and is flagged; no percentage is assumed.
+        /// </summary>
+        private async Task<ProjectedRent> CalculateProjectedNextMonthRentAsync(int clientId, DateTime targetMonth)
         {
             decimal totalProjectedRent = 0;
-            
-            // Definimos los límites del próximo mes
-            DateTime nextMonthFirstDay = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(1);
-            DateTime nextMonthLastDay = nextMonthFirstDay.AddMonths(1).AddDays(-1);
+            decimal? appliedPercentage = null;
+            bool percentageMissing = false;
+            DateTime afterTargetMonth = targetMonth.AddMonths(1);
 
-            // Modificamos la query para traer el método de pago usando un LEFT JOIN
+            // The amount in force during the target month; a history row that starts inside it was planned
+            // ahead and already carries the increase.
             string query = @"
-                SELECT 
-                    r.rental_id, 
-                    h.amount AS CurrentAmount, 
+                SELECT
+                    r.rental_id,
+                    h.amount AS BaseAmount,
+                    h.start_date AS HistoryStart,
                     r.increase_anchor_date AS NextIncreaseDate,
-                    ISNULL(pm.name, '') AS PaymentMethodName
+                    r.price_lock_end_date AS PriceLockEndDate,
+                    ISNULL(c.departure_status, '') AS DepartureStatus,
+                    ISNULL(pm.name, '') AS PaymentMethodName,
+                    (SELECT percentage FROM monthly_increase_settings WHERE effective_date = @TargetMonth) AS ConfiguredPercentage
                 FROM rentals r
-                JOIN rental_amount_history h ON r.rental_id = h.rental_id AND h.end_date IS NULL
                 JOIN clients c ON r.client_id = c.client_id
+                CROSS APPLY (
+                    SELECT TOP 1 amount, start_date
+                    FROM rental_amount_history
+                    WHERE rental_id = r.rental_id
+                      AND start_date < @AfterTargetMonth
+                      AND (end_date IS NULL OR end_date >= @TargetMonth)
+                    ORDER BY start_date DESC, rental_amount_history_id DESC
+                ) h
                 LEFT JOIN payment_methods pm ON c.preferred_payment_method_id = pm.payment_method_id
                 WHERE r.client_id = @ClientId AND r.active = 1";
 
-            var dt = await _accessDB.GetTableAsync("ActiveRentals", query, new[] { new SqlParameter("@ClientId", clientId) });
+            var dt = await _accessDB.GetTableAsync("ActiveRentals", query, new[]
+            {
+                new SqlParameter("@ClientId", clientId),
+                new SqlParameter("@TargetMonth", targetMonth),
+                new SqlParameter("@AfterTargetMonth", afterTargetMonth)
+            });
 
             foreach (DataRow row in dt.Rows)
             {
-                decimal currentAmount = Convert.ToDecimal(row["CurrentAmount"]);
-                DateTime nextIncreaseDate = row["NextIncreaseDate"] != DBNull.Value ? Convert.ToDateTime(row["NextIncreaseDate"]) : DateTime.MaxValue;
-                string paymentMethodName = row["PaymentMethodName"].ToString().ToLower();
+                decimal baseAmount = Convert.ToDecimal(row["BaseAmount"]);
+                DateTime historyStart = Convert.ToDateTime(row["HistoryStart"]);
+                DateTime? anchor = row["NextIncreaseDate"] != DBNull.Value ? Convert.ToDateTime(row["NextIncreaseDate"]) : null;
+                DateTime? priceLockEnd = row["PriceLockEndDate"] != DBNull.Value ? Convert.ToDateTime(row["PriceLockEndDate"]) : null;
+                bool isLeaving = string.Equals(row["DepartureStatus"].ToString(), "SE_VA", StringComparison.OrdinalIgnoreCase);
 
-                // Verificamos si cae un aumento dentro de todo el mes proyectado
-                if (nextIncreaseDate <= nextMonthLastDay)
+                // Like Finanzas, an anchor that already passed still owes its increase in the first month charged.
+                bool increaseDue = anchor.HasValue
+                    && anchor.Value.Year * 12 + anchor.Value.Month <= targetMonth.Year * 12 + targetMonth.Month;
+                bool priceFrozen = priceLockEnd.HasValue && priceLockEnd.Value.Date > targetMonth.Date;
+                bool alreadyPlanned = historyStart >= targetMonth;
+
+                if (!increaseDue || priceFrozen || isLeaving || alreadyPlanned)
                 {
-                    // Aplicamos el 10% de aumento directo
-                    decimal increasedAmount = currentAmount * 1.10m;
-                    
-                    // LÓGICA DE REDONDEO DINÁMICO
-                    if (paymentMethodName.Contains("efectivo"))
-                    {
-                        // Redondeo a los 1000 más cercanos (Efectivo)
-                        totalProjectedRent += Math.Round(increasedAmount / 1000m, MidpointRounding.AwayFromZero) * 1000m;
-                    }
-                    else
-                    {
-                        // Redondeo a los 100 más cercanos (Transferencia, Tarjeta, Otros)
-                        totalProjectedRent += Math.Round(increasedAmount / 100m, MidpointRounding.AwayFromZero) * 100m;
-                    }
+                    totalProjectedRent += baseAmount;
+                    continue;
                 }
-                else
+
+                if (row["ConfiguredPercentage"] == DBNull.Value)
                 {
-                    // Si no hay aumento este mes, paga lo normal (asumimos que ya viene redondeado del historial)
-                    totalProjectedRent += currentAmount;
+                    percentageMissing = true;
+                    totalProjectedRent += baseAmount;
+                    continue;
                 }
+
+                decimal percentage = Convert.ToDecimal(row["ConfiguredPercentage"]);
+                decimal increased = RentIncreaseRule.Apply(baseAmount, percentage, row["PaymentMethodName"].ToString());
+                if (increased > baseAmount) appliedPercentage ??= percentage;
+                totalProjectedRent += increased;
             }
 
-            return totalProjectedRent;
+            return new ProjectedRent(totalProjectedRent, appliedPercentage, percentageMissing);
         }
 
         private decimal RoundToNearest1000(decimal amount)

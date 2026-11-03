@@ -323,6 +323,65 @@
               </div>
             </div>
 
+
+          <!-- Datos proyectados al mes siguiente (los mismos del estado de cuenta proyectado) -->
+          <label
+            *ngIf="!showInactivos"
+            class="clients-projection-toggle flex items-center gap-2 px-3 py-2 text-sm font-semibold border rounded-lg whitespace-nowrap select-none transition-colors shadow-sm"
+            [ngClass]="projectionActive ? 'bg-blue-50 text-blue-700 border-blue-300' : 'bg-white text-gray-700 border-gray-300'"
+            [class.hover:bg-gray-50]="!projectionActive && canProject"
+            [class.cursor-pointer]="canProject"
+            [class.cursor-not-allowed]="!canProject"
+            [class.opacity-60]="!canProject"
+            [title]="canProject ? 'Muestra saldo anterior, interés, abono y saldo proyectados al mes siguiente, igual que el estado de cuenta proyectado' : 'La proyección necesita conexión'"
+          >
+            <input
+              type="checkbox"
+              role="switch"
+              class="sr-only peer"
+              [checked]="projectionActive"
+              [disabled]="!canProject"
+              (change)="toggleProjected()"
+              aria-label="Ver datos proyectados del mes siguiente"
+            />
+            <span class="relative h-5 w-9 flex-none rounded-full bg-gray-300 transition-colors peer-checked:bg-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400 peer-focus-visible:ring-offset-2 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"></span>
+            <span>Datos proyectados</span>
+          </label>
+        </div>
+
+        <!-- Aviso de la vista proyectada -->
+        <div
+          *ngIf="projectionActive"
+          class="client-projection-banner flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900"
+          role="status"
+          aria-live="polite"
+        >
+          <div class="flex min-w-0 flex-[1_1_100%] items-start gap-2 sm:flex-1">
+            <app-icon name="calendar" class="mt-0.5 h-4 w-4 flex-none text-blue-700"></app-icon>
+            <p class="min-w-0">
+              <strong class="font-bold">
+                Proyección <ng-container *ngIf="projectionTargetMonth">de {{ projectionTargetMonth | date : "MMMM yyyy" }}</ng-container>:
+              </strong>
+              Saldo ant., interés, abono y saldo muestran lo mismo que enviaría el estado de cuenta proyectado.
+              Filtros, estado y Próx. pago siguen usando los datos actuales.
+            </p>
+          </div>
+          <span *ngIf="projectionLoading" class="font-semibold text-blue-700">Calculando...</span>
+          <span *ngIf="projectionError" class="font-semibold text-red-700">No se pudo calcular la proyección.</span>
+          <button
+            *ngIf="projectionError"
+            type="button"
+            (click)="retryProjection()"
+            class="rounded-md border border-red-300 bg-white px-2 py-1 font-semibold text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+          >
+            Reintentar
+          </button>
+          <span *ngIf="projectionMissingCount > 0" class="font-semibold text-amber-700" title="No se pudo calcular o no tienen un alquiler activo">
+            {{ projectionMissingCount }} sin proyección
+          </span>
+          <span *ngIf="projectionIncreaseMissingCount > 0" class="font-semibold text-amber-700" title="Les corresponde un aumento pero no hay porcentaje configurado para ese mes en Configuración: se muestra su abono vigente.">
+            {{ projectionIncreaseMissingCount }} con aumento sin porcentaje
+          </span>
         </div>
 
         <!-- Fila de Filtros/Etiquetas Activas -->
@@ -530,6 +589,7 @@
               <th class="p-4 text-right font-medium cursor-pointer border-b border-gray-200 bg-gray-50" (click)="handleSort('PreviousBalance')">
                 <div class="flex items-center justify-end gap-1 group">
                   Saldo Ant.
+                  <span *ngIf="projectionActive" class="client-projection-pill" title="Dato proyectado al mes siguiente">Proy.</span>
                   <app-icon 
                     [name]="getSortIcon('PreviousBalance')" 
                     class="w-4 h-4 transition-colors duration-200"
@@ -542,6 +602,7 @@
               <th class="p-4 text-right font-medium cursor-pointer border-b border-gray-200 bg-gray-50" (click)="handleSort('InterestAmount')">
                 <div class="flex items-center justify-end gap-1 group">
                   Interés
+                  <span *ngIf="projectionActive" class="client-projection-pill" title="Dato proyectado al mes siguiente">Proy.</span>
                   <app-icon 
                     [name]="getSortIcon('InterestAmount')" 
                     class="w-4 h-4 transition-colors duration-200"
@@ -554,6 +615,7 @@
               <th class="p-4 text-right font-medium cursor-pointer border-b border-gray-200 bg-gray-50" (click)="handleSort('CurrentRent')">
                 <div class="flex items-center justify-end gap-1 group">
                   {{ showInactivos ? 'Último Abono' : 'Abono' }}
+                  <span *ngIf="projectionActive" class="client-projection-pill" title="Dato proyectado al mes siguiente">Proy.</span>
                   <app-icon 
                     [name]="getSortIcon('CurrentRent')" 
                     class="w-4 h-4 transition-colors duration-200"
@@ -566,6 +628,7 @@
               <th class="p-4 text-right font-medium cursor-pointer border-b border-gray-200 bg-gray-50" (click)="handleSort('Balance')">
                 <div class="flex items-center justify-end gap-1 group">
                   Saldo
+                  <span *ngIf="projectionActive" class="client-projection-pill" title="Dato proyectado al mes siguiente">Proy.</span>
                   <app-icon 
                     [name]="getSortIcon('Balance')" 
                     class="w-4 h-4 transition-colors duration-200"
@@ -744,24 +807,30 @@
               </td>
 
               <td class="p-4 font-semibold text-right"
-                  [ngClass]="(cliente.previousBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
-                $ {{ cliente.previousBalance || 0 | number:'1.2-2' }}
+                  [class.client-projected-cell]="projectionActive"
+                  [ngClass]="amountClass(cliente, 'previousBalance')">
+                <ng-container *ngTemplateOutlet="amountValue; context: { value: shownAmount(cliente, 'previousBalance') }"></ng-container>
               </td>
 
               <td class="p-4 font-medium text-right"
-                  [ngClass]="(cliente.interestAmount || 0) > 0 ? 'text-red-600' : 'text-gray-400'">
-                $ {{ cliente.interestAmount || 0 | number:'1.2-2' }}
+                  [class.client-projected-cell]="projectionActive"
+                  [ngClass]="amountClass(cliente, 'interestAmount')">
+                <ng-container *ngTemplateOutlet="amountValue; context: { value: shownAmount(cliente, 'interestAmount') }"></ng-container>
               </td>
 
               <td class="p-4 font-semibold text-right"
-                  [ngClass]="(cliente.currentRent || 0) > 0 ? 'text-blue-700' : 'text-gray-400'"
+                  [class.client-projected-cell]="projectionActive"
+                  [ngClass]="amountClass(cliente, 'currentRent')"
+                  [title]="projectedRentHint(cliente)"
               >
-                $ {{ cliente.currentRent || 0 | number:'1.2-2' }}
+                <ng-container *ngTemplateOutlet="amountValue; context: { value: shownAmount(cliente, 'currentRent') }"></ng-container>
               </td>
 
               <td class="p-4 text-base font-bold text-right"
-                  [ngClass]="(cliente.balance || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
-                $ {{ cliente.balance || 0 | number:'1.2-2' }}
+                  [class.client-projected-cell]="projectionActive"
+                  [ngClass]="amountClass(cliente, 'balance')"
+                  [title]="projectionActive && cliente._projection ? 'Total del estado de cuenta proyectado: $ ' + (cliente._projection.statementTotal | number:'1.2-2') : ''">
+                <ng-container *ngTemplateOutlet="amountValue; context: { value: shownAmount(cliente, 'balance') }"></ng-container>
               </td>
 
               <td class="p-4 relative">
@@ -949,22 +1018,23 @@
               </td>
               
               <td class="px-4 py-2 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50"
-                  [ngClass]="totals.previousBalance >= 0 ? 'text-green-600' : 'text-red-600'">
-                 <div class="text-base font-bold">$ {{ totals.previousBalance | number:'1.2-2' }}</div>
+                  [ngClass]="totalsUnknown ? 'text-gray-400' : totals.previousBalance >= 0 ? 'text-green-600' : 'text-red-600'">
+                 <div class="text-base font-bold">{{ totalsUnknown ? '—' : '$ ' + (totals.previousBalance | number:'1.2-2') }}</div>
               </td>
 
               <td class="px-4 py-2 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50"
-                  [ngClass]="totals.interestAmount > 0 ? 'text-red-600' : 'text-gray-500'">
-                 <div class="text-base font-bold">$ {{ totals.interestAmount | number:'1.2-2' }}</div>
+                  [ngClass]="totalsUnknown ? 'text-gray-400' : totals.interestAmount > 0 ? 'text-red-600' : 'text-gray-500'">
+                 <div class="text-base font-bold">{{ totalsUnknown ? '—' : '$ ' + (totals.interestAmount | number:'1.2-2') }}</div>
               </td>
-              
-              <td class="px-4 py-2 text-right text-blue-700 whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50">
-                 <div class="text-base font-bold">$ {{ totals.currentRent | number:'1.2-2' }}</div>
-              </td>
-              
+
               <td class="px-4 py-2 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50"
-                  [ngClass]="totals.balance >= 0 ? 'text-green-600' : 'text-red-600'">
-                 <div class="text-base font-bold">$ {{ totals.balance | number:'1.2-2' }}</div>
+                  [ngClass]="totalsUnknown ? 'text-gray-400' : 'text-blue-700'">
+                 <div class="text-base font-bold">{{ totalsUnknown ? '—' : '$ ' + (totals.currentRent | number:'1.2-2') }}</div>
+              </td>
+
+              <td class="px-4 py-2 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50"
+                  [ngClass]="totalsUnknown ? 'text-gray-400' : totals.balance >= 0 ? 'text-green-600' : 'text-red-600'">
+                 <div class="text-base font-bold">{{ totalsUnknown ? '—' : '$ ' + (totals.balance | number:'1.2-2') }}</div>
               </td>
               
               <td class="border-t border-gray-200 bg-gray-50"></td>
@@ -972,12 +1042,12 @@
             <tr>
               <td colspan="5" class="bg-gray-50"></td>
               <td class="px-4 pb-1 text-right text-xs leading-tight font-medium text-gray-500 whitespace-nowrap bg-gray-50">
-                <span title="Abono + suma de paymentIdentifier de clientes activos - 0,02">
+                <span *ngIf="!totalsUnknown" title="Abono + suma de paymentIdentifier de clientes activos - 0,02">
                   ≈ $ {{ totals.currentRentWithActivePaymentIdentifiers | number:'1.2-2' }}
                 </span>
               </td>
               <td class="px-4 pb-1 text-right text-xs leading-tight font-medium text-gray-500 whitespace-nowrap bg-gray-50">
-                <span title="Saldo - suma de paymentIdentifier de clientes activos">
+                <span *ngIf="!totalsUnknown" title="Saldo - suma de paymentIdentifier de clientes activos">
                   ≈ $ {{ totals.balanceWithActivePaymentIdentifiers | number:'1.2-2' }}
                 </span>
               </td>
@@ -1000,7 +1070,16 @@
     </div>
   </div>
 
-  <div #bottomAnchor class="w-full h-1 opacity-0 pointer-events-none mt-4"></div>
+  <!-- Importe de una celda: "—" cuando la proyección no está disponible para el cliente, marcador mientras se calcula. -->
+<ng-template #amountValue let-value="value">
+  <ng-container *ngIf="value !== null; else amountUnknown">$ {{ value | number:'1.2-2' }}</ng-container>
+</ng-template>
+<ng-template #amountUnknown>
+  <span *ngIf="projectionLoading; else noProjection" class="skeleton-pulse inline-block h-3 w-16 rounded-md align-middle" role="status" aria-label="Calculando proyección"></span>
+  <ng-template #noProjection><span title="Sin proyección para este cliente">—</span></ng-template>
+</ng-template>
+
+<div #bottomAnchor class="w-full h-1 opacity-0 pointer-events-none mt-4"></div>
 
 <button (click)="toggleScroll()"
         class="fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-110 hover:shadow-blue-500/30 transition-all duration-300 focus:outline-none"

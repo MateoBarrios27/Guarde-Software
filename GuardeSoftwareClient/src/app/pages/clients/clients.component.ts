@@ -1,4 +1,6 @@
 import { isTableScrollAtBottom, resolveTableScrollContainer } from '../../shared/utils/table-scroll.util';
+import { ClientAmountColumn, displayedAmount, orderByProjectedAmount, projectableSortColumn, sumDisplayedAmounts } from './client-projection.util';
+import { ClientProjectedNextMonthItem } from '../../core/dtos/client/ClientProjectedNextMonthDto';
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule, CurrencyPipe, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -163,6 +165,21 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public departureProportionalPreviewLoading = false;
   public departureProportionalAmount: number | null = null;
   private departurePreviewRequestId = 0;
+
+  // --- Next-month projection (same figures as the projected account statement) ---
+  public showProjected = false;
+  public projectionLoading = false;
+  public projectionError = false;
+  public projectionTargetMonth: Date | null = null;
+  private projection = new Map<number, ClientProjectedNextMonthItem>();
+  private projectionLoadedAt = 0;
+  private projectionRequestId = 0;
+  private projectionInFlight = false;
+  // Clients in view without projection once it has loaded (calculation failed or no active rental).
+  public projectionMissingCount = 0;
+  public projectionIncreaseMissingCount = 0;
+  // Searches, filters and sorting reuse the last calculation; payments and edits invalidate it.
+  private readonly projectionTtlMs = 60_000;
 
   @ViewChild('tableViewport') private tableViewport?: ElementRef<HTMLElement>;
   @ViewChild('tagsPopoverRef') tagsPopoverRef!: ElementRef;
@@ -429,6 +446,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
             ? 'El cliente quedó como SE QUEDA y sus bauleras volvieron a OCUPADO.'
             : 'El cliente fue dado de baja y sus bauleras fueron liberadas.';
         this.showToastNotification(successText, 'success');
+        this.invalidateProjection();
         this.loadClients();
       },
       error: (err) => {
@@ -466,9 +484,17 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         if (event.domains.some(domain =>
           domain === 'clients' || domain === 'finances' || domain === 'lockers',
         )) {
+          this.invalidateProjection();
           void this.loadClients();
           this.loadStatistics();
         }
+      }),
+    );
+    // The projection needs the API: hide it while offline and recalculate when the connection returns.
+    this.dataRefreshSubscription.add(
+      this.offlineService.isOnline$.subscribe(() => {
+        this.applyProjection();
+        void this.ensureProjection();
       }),
     );
 
@@ -1135,9 +1161,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.clientes = result.items;
       this.totalClientes = result.totalCount;
       this.precomputeClientProps();
-      this.calculateTotals();
+      this.applyProjection();
       this.isLoading = false;
       this.cdr.markForCheck();
+      void this.ensureProjection();
     } catch (err) {
       if (loadSequence !== this.clientLoadSequence) return;
       console.error('Error al cargar clientes:', err);
@@ -1162,12 +1189,14 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     // Recorremos el array 'clientes' que es el que se muestra en la tabla
-    this.clientes.forEach(cliente => {
-      this.totals.previousBalance += Number(cliente.previousBalance) || 0;
-      this.totals.interestAmount += Number(cliente.interestAmount) || 0;
-      this.totals.currentRent += Number(cliente.currentRent) || 0;
-      this.totals.balance += Number(cliente.balance) || 0;
+    // (con la proyección activa, los importes son los proyectados).
+    const projected = this.projectionActive;
+    this.totals.previousBalance = sumDisplayedAmounts(this.clientes, 'previousBalance', projected);
+    this.totals.interestAmount = sumDisplayedAmounts(this.clientes, 'interestAmount', projected);
+    this.totals.currentRent = sumDisplayedAmounts(this.clientes, 'currentRent', projected);
+    this.totals.balance = sumDisplayedAmounts(this.clientes, 'balance', projected);
 
+    this.clientes.forEach(cliente => {
       if (cliente.active !== false && cliente.status !== 'Baja') {
         this.totals.activePaymentIdentifiers += Number(cliente.paymentIdentifier) || 0;
       }
@@ -1219,7 +1248,144 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.sortDirectionClientes = 'asc';
     }
 
+    // With the projection on, the amount columns hold projected figures that the server
+    // cannot sort: reorder the loaded rows instead.
+    if (this.projectionReady && projectableSortColumn(this.sortFieldClientes)) {
+      this.applyProjection();
+      return;
+    }
+
     this.loadClients();
+  }
+
+  // --- Next-month projection ---
+
+  /** The view is on and applicable: active clients only, and the calculation needs the API. */
+  get projectionActive(): boolean {
+    return this.showProjected && this.canProject;
+  }
+
+  get canProject(): boolean {
+    return !this.showInactivos && this.offlineService.isOnline;
+  }
+
+  get projectionReady(): boolean {
+    return this.projectionActive && !this.projectionLoading && !this.projectionError && this.projection.size > 0;
+  }
+
+  toggleProjected(): void {
+    if (!this.canProject) return;
+    this.showProjected = !this.showProjected;
+
+    if (this.showProjected) {
+      this.applyProjection();
+      void this.ensureProjection();
+      return;
+    }
+
+    // Drop a calculation still running and go back to the server's order of the amount columns.
+    this.projectionRequestId++;
+    this.projectionInFlight = false;
+    this.projectionLoading = false;
+    this.projectionError = false;
+    if (projectableSortColumn(this.sortFieldClientes)) {
+      void this.loadClients();
+    } else {
+      this.applyProjection();
+    }
+  }
+
+  retryProjection(): void {
+    void this.ensureProjection(true);
+  }
+
+  /** Payments, edits and departures change the figures: forget the last calculation. */
+  private invalidateProjection(): void {
+    this.projectionRequestId++;
+    this.projectionInFlight = false;
+    this.projectionLoadedAt = 0;
+    this.projection = new Map();
+    this.projectionLoading = this.projectionActive;
+    this.applyProjection();
+  }
+
+  private async ensureProjection(force = false): Promise<void> {
+    if (!this.projectionActive) return;
+    const fresh = this.projectionLoadedAt > 0 && Date.now() - this.projectionLoadedAt < this.projectionTtlMs;
+    if (!force && (fresh || this.projectionInFlight)) return;
+
+    const requestId = ++this.projectionRequestId;
+    this.projectionInFlight = true;
+    this.projectionLoading = true;
+    this.projectionError = false;
+    this.applyProjection();
+
+    try {
+      const result = await firstValueFrom(this.clientService.getProjectedNextMonth());
+      if (requestId !== this.projectionRequestId) return;
+      this.projection = new Map(result.items.map(item => [item.clientId, item]));
+      this.projectionTargetMonth = this.parseCachedDate(result.targetMonth);
+      this.projectionLoadedAt = Date.now();
+    } catch (error) {
+      if (requestId !== this.projectionRequestId) return;
+      console.error('Error al calcular la proyección del mes siguiente:', error);
+      this.projection = new Map();
+      this.projectionLoadedAt = 0;
+      this.projectionError = true;
+    }
+
+    this.projectionInFlight = false;
+    this.projectionLoading = false;
+    this.applyProjection();
+  }
+
+  /** Attaches each client's projection (or clears it), reorders by projected amounts and refreshes totals. */
+  private applyProjection(): void {
+    const active = this.projectionActive;
+    for (const cliente of this.clientes) {
+      cliente._projection = active ? this.projection.get(cliente.id) ?? null : null;
+    }
+    if (this.projectionReady) {
+      this.clientes = orderByProjectedAmount(this.clientes, this.sortFieldClientes, this.sortDirectionClientes, true);
+    }
+    this.projectionMissingCount = this.projectionReady ? this.clientes.filter(cliente => !cliente._projection).length : 0;
+    this.projectionIncreaseMissingCount = this.projectionReady ? this.clientes.filter(cliente => cliente._projection?.increasePercentageMissing).length : 0;
+    this.calculateTotals();
+    this.cdr.markForCheck();
+  }
+
+  /** Why the projected rent differs from the current one, or why it could not be raised. */
+  projectedRentHint(cliente: TableClient): string {
+    const projected = this.projectionActive ? cliente._projection : null;
+    if (!projected) return '';
+    if (projected.increasePercentageMissing) {
+      return 'Le corresponde un aumento pero no hay porcentaje configurado para ese mes: se muestra el abono vigente.';
+    }
+    if (projected.increasePercentage) {
+      const percentage = projected.increasePercentage.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+      return `Incluye un aumento del ${percentage} %, redondeado hacia arriba según el medio de pago.`;
+    }
+    return '';
+  }
+
+  /** Amount shown in a column: the projected one while the view is on; null when unknown. */
+  shownAmount(cliente: TableClient, column: ClientAmountColumn): number | null {
+    return displayedAmount(cliente, column, this.projectionActive);
+  }
+
+  amountClass(cliente: TableClient, column: ClientAmountColumn): string {
+    const value = this.shownAmount(cliente, column);
+    if (value === null) return 'text-gray-400';
+    switch (column) {
+      case 'interestAmount': return value > 0 ? 'text-red-600' : 'text-gray-400';
+      case 'currentRent': return value > 0 ? 'text-blue-700' : 'text-gray-400';
+      default: return value >= 0 ? 'text-green-600' : 'text-red-600';
+    }
+  }
+
+  /** The footer cannot add up figures that are still being calculated. */
+  get totalsUnknown(): boolean {
+    return this.projectionActive && (this.projectionLoading || this.projectionError);
   }
 
   onSearchChange(): void {
@@ -1246,9 +1412,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   toggleInactivos(): void {
     this.showInactivos = !this.showInactivos;
     if (this.showInactivos) {
-        this.filterEstadoClientes = 'Todos'; 
+        this.filterEstadoClientes = 'Todos';
     }
     this.currentPageClientes = 1;
+    // The projection only applies to active clients; coming back to them restores the view if it was on.
     this.loadClients();
   }
 
@@ -1376,6 +1543,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   onClientSaveSuccess(): void {
     this.showToastNotification(this.isReactivationMode ? 'Cliente reactivado correctamente.' : '¡Cliente guardado exitosamente!', 'success');
     this.closeNewClientModal();
+    this.invalidateProjection();
     this.loadClients();
     this.loadStatistics();
   }
@@ -1446,6 +1614,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onClientDataUpdated(clientId: number): void {
+    this.invalidateProjection();
     this.loadClients();
 
     this.loadStatistics();

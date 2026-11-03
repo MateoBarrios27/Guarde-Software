@@ -9,6 +9,7 @@ import { CreateClientResponseDTO } from '../../dtos/client/CreateClientResponseD
 import { TableClient } from '../../dtos/client/TableClientDto';
 import { GetClientsRequest } from '../../dtos/client/GetClientsRequest';
 import { PaginatedResult } from '../../dtos/common/PaginatedResultDto';
+import { ClientProjectedNextMonthResult } from '../../dtos/client/ClientProjectedNextMonthDto';
 import { ClientLockerHistory } from '../../models/client-locker-history';
 import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
 
@@ -176,6 +177,11 @@ export class ClientService {
     }
 
     return this.httpClient.get<PaginatedResult<TableClient>>(`${this.url}/Client/table`, { params });
+  }
+
+  /** Figures of the projected account statement (next month) for every active client. */
+  public getProjectedNextMonth(): Observable<ClientProjectedNextMonthResult> {
+    return this.httpClient.get<ClientProjectedNextMonthResult>(`${this.url}/Client/projected-next-month`);
   }
 
   public getRecipientOptions(): Observable<string[]> {

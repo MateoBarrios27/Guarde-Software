@@ -155,6 +155,14 @@ namespace GuardeSoftwareAPI.Controllers
             return Ok(result);
         }
 
+        // Read-only (also for Observador): the next-month figures the projected account statement would send.
+        [HttpGet("projected-next-month")]
+        public async Task<IActionResult> GetProjectedNextMonth(CancellationToken cancellationToken)
+        {
+            var result = await _clientService.GetProjectedNextMonthAsync(cancellationToken);
+            return Ok(result);
+        }
+
         [HttpGet("recipient-options")]
         public async Task<IActionResult> GetRecipientOptions()
         {
