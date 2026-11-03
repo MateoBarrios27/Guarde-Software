@@ -1693,10 +1693,10 @@ OUTER APPLY (
             if (!isNextMonth) 
             {
                 data.PreviousBalance = currentMonthPrevBal;
-                data.Surcharge = uiInterestAmount + pendingSurcharge;
-
-                decimal currentMonthDebt = currentMonthBaseDebt + pendingSurcharge;
-                data.CurrentBalance = currentMonthDebt > 0 ? currentMonthDebt + paymentIdentifier : 0;
+                // The waiting bag is a calculation for a later debit, not posted debt.
+                // Keep the normal statement aligned with the balance shown in Clients.
+                data.Surcharge = uiInterestAmount;
+                data.CurrentBalance = currentMonthBaseDebt > 0 ? currentMonthBaseDebt + paymentIdentifier : 0;
                 return data;
             }
 
