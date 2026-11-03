@@ -1856,7 +1856,7 @@ filterItems(): void {
           });
           this.accounts.push(newAcc);
           this.calculateAccountTotals(); 
-          Swal.fire('Creada', 'La cuenta ha sido agregada.', 'success');
+          Swal.success('Cuenta creada', 'La cuenta se agregó correctamente.');
         });
       }
     });
@@ -2294,16 +2294,7 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
         this.calculateTotalIvaCompras();
         this.newIvaCompra.amount = null as any;
         this.newIvaCompra.comment = '';
-        Swal.fire({
-          toast: true,
-          position: 'bottom-end',
-          icon: 'success',
-          title: 'Factura agregada',
-          text: 'La compra de IVA se registró correctamente.',
-          showConfirmButton: false,
-          timer: 2600,
-          timerProgressBar: true
-        });
+        Swal.success('Compra de IVA agregada', 'La factura se registró correctamente y el total de IVA Compras se actualizó.');
       },
       error: (err) => {
         console.error('Error al agregar compra de IVA:', err);
@@ -2348,16 +2339,7 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
           });
         }
         this.calculateTotalIvaCompras();
-        Swal.fire({
-          toast: true,
-          position: 'bottom-end',
-          icon: 'success',
-          title: 'Factura eliminada',
-          text: 'La compra de IVA se eliminó correctamente.',
-          showConfirmButton: false,
-          timer: 2600,
-          timerProgressBar: true
-        });
+        Swal.success('Compra de IVA eliminada', 'La factura se eliminó correctamente y el total de IVA Compras se actualizó.');
       },
       error: (err) => {
         console.error('Error al eliminar compra de IVA:', err);
@@ -2579,16 +2561,7 @@ closeAdvancesModal(): void {
 
         this.newAdvance.amount = null as any;
         this.newAdvance.comment = '';
-        Swal.fire({
-          toast: true,
-          position: 'bottom-end',
-          icon: 'success',
-          title: 'Adelanto registrado',
-          text: advanceComment ? `Concepto: ${advanceComment}` : 'Se guardó correctamente.',
-          showConfirmButton: false,
-          timer: 2600,
-          timerProgressBar: true
-        });
+        Swal.success('Adelanto registrado', advanceComment ? `El adelanto “${advanceComment}” se guardó correctamente.` : 'El pago parcial se guardó correctamente.');
       },
       error: (err) => {
         console.error('Error al registrar adelanto:', err);
@@ -2640,16 +2613,7 @@ closeAdvancesModal(): void {
         this.selectedItemForAdvances!.isPaid = this.isAdvancesComplete(this.selectedItemForAdvances!);
         this.calculateMonthlyTotals();
         this.calculateTableTotals();
-        Swal.fire({
-          toast: true,
-          position: 'bottom-end',
-          icon: 'success',
-          title: 'Adelanto eliminado',
-          text: 'El pago parcial se eliminó correctamente.',
-          showConfirmButton: false,
-          timer: 2600,
-          timerProgressBar: true
-        });
+        Swal.success('Adelanto eliminado', 'El pago parcial se eliminó correctamente.');
       },
       error: (err) => {
         console.error('Error al eliminar adelanto:', err);

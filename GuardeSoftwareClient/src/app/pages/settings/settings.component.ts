@@ -86,6 +86,11 @@ export class SettingsComponent implements OnInit {
   }
 
   private showToastNotification(message: string, type: 'success' | 'error'): void {
+    if (type === 'success') {
+      this.showToast = false;
+      void Swal.success(message, 'Los cambios se guardaron correctamente.');
+      return;
+    }
     this.toastMessage = message;
     this.toastType = type;
     this.showToast = true;
@@ -361,7 +366,7 @@ export class SettingsComponent implements OnInit {
 
     this.userService.createUser(dto).subscribe({
       next: () => {
-        Swal.fire('Éxito', 'Usuario creado correctamente.', 'success');
+        Swal.success('Usuario creado', 'El usuario se agregó correctamente.');
         this.loadUsers(); 
         this.closeCreateUserModal();
       },
@@ -385,7 +390,7 @@ export class SettingsComponent implements OnInit {
 
     this.userService.deleteUser(id).subscribe({
       next: () => {
-        Swal.fire('Eliminado', 'El usuario ha sido eliminado.', 'success');
+        Swal.success('Usuario eliminado', 'El usuario ha sido eliminado.');
         this.users = this.users.filter(u => u.id !== id);
       },
       error: () => {
@@ -417,7 +422,7 @@ export class SettingsComponent implements OnInit {
 
     this.userService.updateUser(this.SelectedUserId, this.userUpdated).subscribe({
       next: () => {
-        Swal.fire('Éxito', 'Usuario actualizado correctamente.', 'success');
+        Swal.success('Usuario actualizado', 'Los cambios del usuario se guardaron correctamente.');
         this.loadUsers();
         this.showEditUserModal = false; 
       },
@@ -454,7 +459,7 @@ export class SettingsComponent implements OnInit {
       if (result.isConfirmed && result.value) {
         this.userService.changePassword(user.id, result.value).subscribe({
           next: () => {
-            Swal.fire('Éxito', 'Contraseña actualizada correctamente.', 'success');
+            Swal.success('Contraseña actualizada', 'La nueva contraseña se guardó correctamente.');
           },
           error: (err) => {
             console.error('Error al cambiar contraseña:', err);
@@ -491,7 +496,7 @@ export class SettingsComponent implements OnInit {
 
     this.paymentMethodService.UpdatePaymentMethod(id,dto).subscribe({
       next: () => {
-        Swal.fire('Éxito', 'Método de pago actualizado.', 'success');
+        Swal.success('Método de pago actualizado', 'Los cambios se guardaron correctamente.');
         this.loadPaymentMethods();
         this.closeUpdatePaymentMethodModal();
       },
@@ -528,7 +533,7 @@ export class SettingsComponent implements OnInit {
 
     this.paymentMethodService.createPaymentMethod(dto).subscribe({
       next: () => {
-        Swal.fire('Éxito', 'Método de pago creado con éxito.', 'success');
+        Swal.success('Método de pago creado', 'El método de pago se agregó correctamente.');
         this.loadPaymentMethods();
         this.closeCreatePaymentMethodModal();
       },
@@ -552,7 +557,7 @@ export class SettingsComponent implements OnInit {
 
     this.paymentMethodService.deletePaymentMethod(id).subscribe({
       next: () => {
-        Swal.fire('Eliminado', 'El método de pago ha sido eliminado.', 'success');
+        Swal.success('Método de pago eliminado', 'El método de pago ha sido eliminado.');
         this.loadPaymentMethods();
       },
       error: () => {
@@ -579,7 +584,7 @@ export class SettingsComponent implements OnInit {
     }
     this.billingTypeService.createBillingType(this.newBillingType).subscribe({
       next: (created) => {
-        Swal.fire('Creado', `Tipo de factura "${created.name}" creado con éxito.`, 'success');
+        Swal.success('Tipo de factura creado', `El tipo de factura “${created.name}” se agregó correctamente.`);
         this.loadBillingTypes(); 
         this.closeCreateBillingTypeModal();
       },
@@ -614,7 +619,7 @@ export class SettingsComponent implements OnInit {
     const dto: UpdateBillingTypeDTO = { name: this.editingBillingType.name.trim() };
     this.billingTypeService.updateBillingType(this.editingBillingType.id, dto).subscribe({
       next: () => {
-        Swal.fire('Actualizado', 'Tipo de factura actualizado con éxito.', 'success');
+        Swal.success('Tipo de factura actualizado', 'Los cambios se guardaron correctamente.');
         this.loadBillingTypes();
         this.closeEditBillingTypeModal();
       },
@@ -635,7 +640,7 @@ export class SettingsComponent implements OnInit {
 
     this.billingTypeService.deleteBillingType(billingType.id).subscribe({
       next: () => {
-        Swal.fire('Eliminado', 'El tipo de factura ha sido eliminado.', 'success');
+        Swal.success('Tipo de factura eliminado', 'El tipo de factura ha sido eliminado.');
         this.loadBillingTypes();
       },
       error: (err) => {
@@ -667,7 +672,7 @@ export class SettingsComponent implements OnInit {
     }
     this.monthlyIncreaseService.createSetting(this.newIncrease).subscribe({
       next: (created) => {
-        Swal.fire('Creado', `Aumento del ${created.percentage}% para ${this.formatDateToMonthYear(created.effectiveDate)} creado.`, 'success');
+        Swal.success('Aumento creado', `Se guardó el aumento del ${created.percentage}% para ${this.formatDateToMonthYear(created.effectiveDate)}.`);
         this.loadMonthlyIncreases();
         this.closeCreateIncreaseModal();
       },
@@ -701,7 +706,7 @@ export class SettingsComponent implements OnInit {
     const dto: UpdateMonthlyIncreaseDto = { percentage: this.editingIncrease.percentage };
     this.monthlyIncreaseService.updateSetting(this.editingIncrease.id, dto).subscribe({
       next: () => {
-        Swal.fire('Actualizado', 'Porcentaje de aumento actualizado.', 'success');
+        Swal.success('Aumento actualizado', 'El porcentaje de aumento se guardó correctamente.');
         this.loadMonthlyIncreases();
         this.closeEditIncreaseModal();
       },
@@ -720,7 +725,7 @@ export class SettingsComponent implements OnInit {
 
     this.monthlyIncreaseService.deleteSetting(increase.id).subscribe({
       next: () => {
-        Swal.fire('Eliminado', 'El aumento ha sido eliminado.', 'success');
+        Swal.success('Aumento eliminado', 'El aumento ha sido eliminado.');
         this.loadMonthlyIncreases();
       },
       error: () => {
@@ -734,7 +739,7 @@ export class SettingsComponent implements OnInit {
   async downloadSnapshot(): Promise<void> {
     try {
       await this.syncService.downloadSnapshot();
-      Swal.fire('Éxito', 'El archivo de respaldo (snapshot) se descargó correctamente.', 'success');
+      Swal.success('Respaldo descargado', 'El archivo de respaldo se descargó correctamente.');
     } catch (err) {
       console.error(err);
       Swal.fire('Error', 'No se pudo generar el archivo de respaldo.', 'error');
@@ -749,7 +754,7 @@ export class SettingsComponent implements OnInit {
     try {
       const success = await this.syncService.importSnapshot(file);
       if (success) {
-        Swal.fire('Éxito', 'El archivo de respaldo fue importado y guardado localmente para uso sin conexión.', 'success');
+        Swal.success('Respaldo importado', 'El respaldo se guardó localmente para uso sin conexión.');
       } else {
         Swal.fire('Error', 'El archivo es inválido o corrupto.', 'error');
       }
@@ -868,15 +873,7 @@ export class SettingsComponent implements OnInit {
         next: () => {
           this.loadConfigs();
           this.closeModal();
-          Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: 'success',
-            title: 'Servidor actualizado',
-            showConfirmButton: false,
-            timer: 2600,
-            timerProgressBar: true
-          });
+          Swal.success('Servidor SMTP actualizado', `Los cambios de “${config.name}” se guardaron correctamente.`);
         },
         error: () => Swal.fire({
           icon: 'error',
@@ -890,15 +887,7 @@ export class SettingsComponent implements OnInit {
         next: () => {
           this.loadConfigs();
           this.closeModal();
-          Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: 'success',
-            title: 'Servidor creado',
-            showConfirmButton: false,
-            timer: 2600,
-            timerProgressBar: true
-          });
+          Swal.success('Servidor SMTP creado', `El servidor “${config.name}” se agregó correctamente.`);
         },
         error: () => Swal.fire({
           icon: 'error',
@@ -923,15 +912,7 @@ export class SettingsComponent implements OnInit {
     this.communicationService.deleteSmtpConfig(id).subscribe({
       next: () => {
         this.loadConfigs();
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'success',
-          title: 'Servidor eliminado',
-          showConfirmButton: false,
-          timer: 2400,
-          timerProgressBar: true
-        });
+        Swal.success('Servidor SMTP eliminado', 'La configuración del servidor se eliminó correctamente.');
       },
       error: () => Swal.fire({
         icon: 'error',
@@ -1218,7 +1199,7 @@ export class SettingsComponent implements OnInit {
     }
     this.warehouseService.createWarehouse(this.newWarehouse).subscribe({
       next: () => {
-         Swal.fire('Éxito', 'Depósito creado', 'success');
+         Swal.success('Depósito creado', 'El depósito se agregó correctamente.');
          this.loadWarehouses();
          this.closeCreateWarehouseModal();
       },
@@ -1244,7 +1225,7 @@ export class SettingsComponent implements OnInit {
     };
     this.warehouseService.updateWarehouse(this.editingWarehouse.id, dto).subscribe({
       next: () => {
-         Swal.fire('Éxito', 'Depósito actualizado', 'success');
+         Swal.success('Depósito actualizado', 'Los cambios se guardaron correctamente.');
          this.loadWarehouses();
          this.closeEditWarehouseModal();
       },
@@ -1262,7 +1243,7 @@ export class SettingsComponent implements OnInit {
 
     this.warehouseService.deleteWarehouse(wh.id).subscribe({
       next: () => {
-        Swal.fire('Eliminado', 'Depósito eliminado.', 'success');
+        Swal.success('Depósito eliminado', 'El depósito se eliminó correctamente.');
         this.loadWarehouses();
       },
       error: (err) => {
@@ -1286,7 +1267,7 @@ export class SettingsComponent implements OnInit {
     }
     this.lockerTypeService.createLockerType(this.newLockerType).subscribe({
       next: () => {
-         Swal.fire('Éxito', 'Tipo de baulera creado', 'success');
+         Swal.success('Tipo de baulera creado', 'El tipo de baulera se agregó correctamente.');
           this.loadLockerTypes();
           this.closeCreateLockerTypeModal();
       },
@@ -1309,7 +1290,7 @@ export class SettingsComponent implements OnInit {
 
     this.lockerTypeService.deleteLockerType(lt.id).subscribe({
       next: () => {
-        Swal.fire('Eliminado', 'Tipo de baulera eliminado.', 'success');
+        Swal.success('Tipo de baulera eliminado', 'El tipo de baulera se eliminó correctamente.');
         this.loadLockerTypes();
       },
       error: (err) => {
@@ -1332,7 +1313,7 @@ export class SettingsComponent implements OnInit {
     };
     this.lockerTypeService.updateLockerType(this.editingLockerType.id, dto).subscribe({
       next: () => {
-         Swal.fire('Éxito', 'Tipo de baulera actualizado', 'success');
+         Swal.success('Tipo de baulera actualizado', 'Los cambios se guardaron correctamente.');
          this.loadLockerTypes();
          this.closeEditLockerTypeModal();
       },
