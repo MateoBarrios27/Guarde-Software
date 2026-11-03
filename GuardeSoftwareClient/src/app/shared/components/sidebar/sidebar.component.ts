@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { IconComponent } from '../icon/icon.component';
 import { AuthService } from '../../../core/services/auth-service/auth.service';
+import { ChatService } from '../../../core/services/chat-service/chat.service';
 
 interface MenuItem {
   path: string;
@@ -20,7 +21,7 @@ interface MenuItem {
   styleUrls: ['./sidebar.component.css'],
 })
 export class SidebarComponent implements OnInit {
-  constructor(public authService: AuthService, private router: Router) {}
+  constructor(public authService: AuthService, private router: Router, public chat: ChatService) {}
 
   userName = '';
   firstName = '';
@@ -32,6 +33,7 @@ export class SidebarComponent implements OnInit {
   menuItems: MenuItem[] = [
     { path: '/clients', title: 'Clientes', icon: 'user' },
     { path: '/finances', title: 'Finanzas', icon: 'dollar-sign' },
+    { path: '/chat', title: 'Chat en vivo', icon: 'message-square' },
     { path: '/communications', title: 'Comunicaciones', icon: 'message-circle' },
     { path: '/lockers', title: 'Bauleras', icon: 'package' },
     { path: '/statistics', title: 'Estadísticas', icon: 'file-text', hiddenForObserver: true },

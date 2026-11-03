@@ -1,0 +1,65 @@
+<div class="hours-overlay">
+  <div #dialog class="hours-dialog" role="dialog" aria-modal="true" aria-labelledby="hours-title" tabindex="-1">
+    <header class="hours-head">
+      <span class="hours-head__icon" aria-hidden="true"><app-icon name="clock" class="h-5 w-5"></app-icon></span>
+      <div class="hours-head__text">
+        <h2 id="hours-title">Horario de atención</h2>
+        <p>Hora de Argentina. La web lo usa para prometer respuesta en menos de {{ hours.status.responseTimeMinutes }} minutos.</p>
+      </div>
+      <span class="hours-esc" aria-hidden="true">ESC</span>
+      <button type="button" class="hours-close" (click)="close()" aria-label="Cerrar" [disabled]="saving()">
+        <app-icon name="x" class="h-4 w-4"></app-icon>
+      </button>
+    </header>
+
+    <div class="hours-body">
+      <ul class="hours-list">
+        @for (day of days(); track day.dayOfWeek) {
+          <li class="hours-row" [class.hours-row--closed]="!day.isOpen" [class.hours-row--invalid]="invalidDays().has(day.dayOfWeek)">
+            <label class="hours-toggle">
+              <input type="checkbox" [checked]="day.isOpen" [disabled]="!canEdit || saving()"
+                     (change)="toggleDay(day.dayOfWeek, $any($event.target).checked)" />
+              <span class="hours-toggle__name">{{ day.name }}</span>
+            </label>
+
+            @if (day.isOpen) {
+              <div class="hours-times">
+                <input type="time" class="hours-time" [value]="day.opensAt" [disabled]="!canEdit || saving()"
+                       [attr.aria-label]="'Apertura del ' + day.name.toLowerCase()"
+                       (change)="setTime(day.dayOfWeek, 'opensAt', $any($event.target).value)" />
+                <span class="hours-times__sep">a</span>
+                <input type="time" class="hours-time" [value]="day.closesAt" [disabled]="!canEdit || saving()"
+                       [attr.aria-label]="'Cierre del ' + day.name.toLowerCase()"
+                       (change)="setTime(day.dayOfWeek, 'closesAt', $any($event.target).value)" />
+              </div>
+            } @else {
+              <span class="hours-closed">Sin atención</span>
+            }
+          </li>
+        }
+      </ul>
+
+      @if (invalidDays().size > 0) {
+        <p class="hours-message hours-message--error" role="alert">La hora de apertura debe ser anterior a la de cierre.</p>
+      }
+      @if (error()) {
+        <p class="hours-message hours-message--error" role="alert">{{ error() }}</p>
+      }
+      @if (!canEdit) {
+        <p class="hours-message">Solo un administrador puede cambiar el horario.</p>
+      }
+    </div>
+
+    <footer class="hours-foot">
+      <button type="button" class="hours-btn hours-btn--outline" (click)="close()" [disabled]="saving()">
+        {{ canEdit ? 'Cancelar' : 'Cerrar' }}
+      </button>
+      @if (canEdit) {
+        <button type="button" class="hours-btn hours-btn--dark" (click)="save()" [disabled]="!canSave()">
+          <app-icon name="check" class="h-4 w-4"></app-icon>
+          {{ saving() ? 'Guardando…' : 'Guardar horario' }}
+        </button>
+      }
+    </footer>
+  </div>
+</div>

@@ -1,0 +1,13 @@
+@if (toast(); as t) {
+  <div class="chat-toast" role="status" aria-live="polite">
+    <span class="chat-toast__icon" aria-hidden="true"><app-icon name="message-square" class="h-5 w-5"></app-icon></span>
+    <div class="chat-toast__text">
+      <strong>{{ t.count > 1 ? t.count + ' mensajes de ' + t.name : 'Mensaje nuevo de ' + t.name }}</strong>
+      <span>{{ t.preview }}</span>
+    </div>
+    <button type="button" class="chat-toast__open" (click)="open(t)">Abrir chat</button>
+    <button type="button" class="chat-toast__close" (click)="dismiss()" aria-label="Cerrar aviso">
+      <app-icon name="x" class="h-3 w-3"></app-icon>
+    </button>
+  </div>
+}

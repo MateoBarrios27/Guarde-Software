@@ -8,6 +8,7 @@ import { AuthService } from './core/services/auth-service/auth.service';
 import { OfflineBannerComponent } from './shared/components/offline-banner/offline-banner.component';
 import { DeleteConfirmationModalComponent } from './shared/components/delete-confirmation-modal/delete-confirmation-modal.component';
 import { NotificationInboxComponent } from './shared/components/notification-inbox/notification-inbox.component';
+import { ChatNotifierComponent } from './shared/components/chat-notifier/chat-notifier.component';
 
 @Component({
   selector: 'app-root',
@@ -19,7 +20,8 @@ import { NotificationInboxComponent } from './shared/components/notification-inb
     SystemAlertModalComponent,
     OfflineBannerComponent,
     DeleteConfirmationModalComponent,
-    NotificationInboxComponent
+    NotificationInboxComponent,
+    ChatNotifierComponent
   ],
   templateUrl: './app.component.html',
 })

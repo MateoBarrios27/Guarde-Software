@@ -38,7 +38,12 @@
           <span class="sidebar-icon flex h-8 w-8 shrink-0 items-center justify-center">
             <app-icon [name]="item.icon" class="h-[18px] w-[18px]"></app-icon>
           </span>
-          <span class="min-w-0 truncate text-[13px] font-semibold tracking-[-0.01em]">{{ item.title }}</span>
+          <span class="min-w-0 flex-1 truncate text-[13px] font-semibold tracking-[-0.01em]">{{ item.title }}</span>
+          <span
+            *ngIf="item.path === '/chat' && (chat.summary()?.awaitingReplyCount ?? 0) > 0"
+            class="chat-badge"
+            [attr.aria-label]="chat.summary()?.awaitingReplyCount + ' chats sin responder'"
+          >{{ chat.summary()?.awaitingReplyCount }}</span>
         </a>
       </ng-container>
     </nav>

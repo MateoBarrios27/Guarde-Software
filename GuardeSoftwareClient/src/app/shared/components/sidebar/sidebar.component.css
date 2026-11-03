@@ -61,6 +61,23 @@
   opacity: 1;
 }
 
+/* Cantidad de chats de la web que esperan respuesta. */
+.chat-badge {
+  display: inline-flex;
+  height: 1.25rem;
+  min-width: 1.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  background: #e11d48;
+}
+
 .sidebar-nav {
   scrollbar-width: thin;
   scrollbar-color: rgb(255 255 255 / 0.28) transparent;

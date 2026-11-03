@@ -40,6 +40,8 @@ using GuardeSoftwareAPI.Services.sync;
 using GuardeSoftwareAPI.Services.massCommunicationRecipient;
 using GuardeSoftwareAPI.Services.notification;
 using GuardeSoftwareAPI.Middleware;
+using GuardeSoftwareAPI.Services.chat;
+using Microsoft.AspNetCore.HttpOverrides;
 
 
 
@@ -71,7 +73,13 @@ builder.Services.AddCors(options =>
                   .AllowAnyMethod()
                   .AllowCredentials();
         });
+
+    // API pública del chat de la web (Wix): otra política, otros orígenes, sin credenciales.
+    options.AddPolicy(PublicChatPolicy.Name,
+        policy => PublicChatPolicy.ConfigureCors(policy, builder.Configuration));
 });
+
+builder.Services.AddRateLimiter(PublicChatPolicy.ConfigureRateLimiter);
 
 // --- SignalR (para alertas en tiempo real y futuros webhooks) ---
 builder.Services.AddSignalR();
@@ -177,6 +185,15 @@ builder.Services.AddScoped<IPaymentStateService, PaymentStateService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton<PaymentPresenceRegistry>();
 
+// Chat en vivo de la web: horario laboral, bandeja de la administración y widget público.
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<ChatPresenceRegistry>();
+builder.Services.AddSingleton<IChatPresence>(sp => sp.GetRequiredService<ChatPresenceRegistry>());
+builder.Services.AddScoped<DaoChat>();
+builder.Services.AddScoped<IChatRealtime, SignalRChatRealtime>();
+builder.Services.AddScoped<IChatEmailNotifier, ChatEmailNotifier>();
+builder.Services.AddScoped<IChatService, ChatService>();
+
 // --- Configuration Quartz.NET ---
 builder.Services.AddQuartz(q =>
 {
@@ -256,8 +273,17 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Detrás de Nginx, la IP real del visitante llega en X-Forwarded-For. Sólo se confía en el
+// proxy local (KnownProxies por defecto) y sólo en esa cabecera: no se altera esquema ni host.
+// Los límites de uso de la API pública del chat se calculan por esa IP.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor
+});
+
 app.UseRouting();
 app.UseCors("AllowAngular");
+app.UseRateLimiter();
 
 app.UseHttpsRedirection();
 
@@ -274,5 +300,7 @@ app.MapHub<AlertHub>("/hubs/alert");
 app.MapHub<CommunicationHub>("/hubs/communications");
 app.MapHub<CashHub>("/hubs/cash");
 app.MapHub<PaymentPresenceHub>("/hubs/payment-presence");
+app.MapHub<ChatStaffHub>("/hubs/chat");
+app.MapHub<ChatVisitorHub>("/hubs/chat-visitor").RequireCors(PublicChatPolicy.Name);
 
 app.Run();

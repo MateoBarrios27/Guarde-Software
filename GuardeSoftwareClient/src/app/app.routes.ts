@@ -36,6 +36,12 @@ export const routes: Routes = [
     data: { title: 'Finanzas', reuse: true }
   },
   {
+    path: 'chat',
+    loadComponent: () => import('./pages/chat/chat.component').then(m => m.ChatComponent),
+    canActivate: [AuthGuard],
+    data: { title: 'Chat en vivo' }
+  },
+  {
     path: 'communications',
     loadComponent: () => import('./pages/communications/communications.component').then(m => m.CommunicationsComponent),
     canActivate: [AuthGuard],

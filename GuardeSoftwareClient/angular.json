@@ -30,7 +30,12 @@
                 "input": "node_modules/quill/dist",
                 "output": "assets/quill"
               },
-              "src/assets",       
+              {
+                "glob": "signalr.min.js",
+                "input": "node_modules/@microsoft/signalr/dist/browser",
+                "output": "chat"
+              },
+              "src/assets",
               "src/favicon.ico"
             ],
             "styles": [

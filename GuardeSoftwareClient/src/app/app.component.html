@@ -44,6 +44,11 @@
   @defer (on timer(3000ms)) {
     <app-system-alert-modal></app-system-alert-modal>
   }
+
+  <!-- Avisos y contador del chat en vivo de la web, visibles desde cualquier pantalla. -->
+  @defer (on timer(1500ms)) {
+    <app-chat-notifier></app-chat-notifier>
+  }
 }
 
 <app-delete-confirmation-modal></app-delete-confirmation-modal>

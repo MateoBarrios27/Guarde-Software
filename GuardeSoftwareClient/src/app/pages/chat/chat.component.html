@@ -1,0 +1,238 @@
+<section class="chat-page" [class.chat-page--thread]="selected() !== null">
+  <div class="chat-stats" aria-label="Estado de la atención">
+    <article class="chat-stat" [class.chat-stat--alert]="awaitingCount() > 0" [class.chat-stat--ok]="awaitingCount() === 0">
+      <span class="chat-stat__label">Sin responder</span>
+      <strong class="chat-stat__value">{{ awaitingCount() }}</strong>
+    </article>
+
+    <article class="chat-stat" [class.chat-stat--alert]="isWaitOverdue()" [class.chat-stat--blue]="!isWaitOverdue()">
+      <span class="chat-stat__label">Espera más larga</span>
+      <strong class="chat-stat__value">{{ longestWaitLabel() }}</strong>
+    </article>
+
+    <article class="chat-stat chat-stat--status" [class.chat-stat--ok]="isOpenNow()" [class.chat-stat--muted]="!isOpenNow()">
+      <div class="chat-stat__text">
+        <span class="chat-stat__label">Chat de la web</span>
+        <strong class="chat-stat__value">{{ isOpenNow() ? 'Abierto' : 'Cerrado' }}</strong>
+        <span class="chat-stat__hint">{{ statusHint() }}</span>
+      </div>
+      <button type="button" class="chat-stat__action" (click)="showHours.set(true)" [disabled]="!hours()">
+        <app-icon name="clock" class="h-4 w-4"></app-icon>
+        Horario
+      </button>
+    </article>
+  </div>
+
+  <div class="chat-layout" [class.chat-layout--thread]="selected() !== null">
+    <!-- ============================================================ lista -->
+    <aside class="chat-list" aria-label="Conversaciones">
+      <div class="chat-list__head">
+        <div class="chat-list__tools">
+          <div class="chat-tabs" role="tablist" aria-label="Estado de las conversaciones">
+            <button type="button" role="tab" class="chat-tab" [class.chat-tab--active]="tab() === 'open'"
+                    [attr.aria-selected]="tab() === 'open'" (click)="setTab('open')">Abiertas</button>
+            <button type="button" role="tab" class="chat-tab" [class.chat-tab--active]="tab() === 'closed'"
+                    [attr.aria-selected]="tab() === 'closed'" (click)="setTab('closed')">Cerradas</button>
+          </div>
+          <button type="button" class="chat-sound" (click)="toggleSound()"
+                  [attr.aria-pressed]="soundMuted()" [title]="soundMuted() ? 'Activar el sonido de aviso' : 'Silenciar el sonido de aviso'">
+            <app-icon name="bell" class="h-4 w-4"></app-icon>
+            {{ soundMuted() ? 'Silenciado' : 'Sonido' }}
+          </button>
+        </div>
+
+        <label class="chat-search">
+          <app-icon name="search" class="h-4 w-4"></app-icon>
+          <input type="search" placeholder="Nombre, email o teléfono" aria-label="Buscar conversaciones"
+                 [value]="search()" (input)="onSearch($any($event.target).value)" />
+          @if (search()) {
+            <button type="button" class="chat-search__clear" (click)="clearSearch()" aria-label="Limpiar búsqueda">
+              <app-icon name="x" class="h-3 w-3"></app-icon>
+            </button>
+          }
+        </label>
+      </div>
+
+      <div class="chat-list__scroll">
+        @if (loadingList()) {
+          <p class="chat-state" role="status">Cargando conversaciones…</p>
+        } @else if (listError()) {
+          <div class="chat-state chat-state--error" role="alert">
+            <p>No se pudieron cargar las conversaciones.</p>
+            <button type="button" class="chat-btn chat-btn--outline" (click)="loadList()">Reintentar</button>
+          </div>
+        } @else if (conversations().length === 0) {
+          <p class="chat-state">
+            {{ search() ? 'Ninguna conversación coincide con la búsqueda.' : tab() === 'open' ? 'No hay conversaciones abiertas.' : 'Todavía no hay conversaciones cerradas.' }}
+          </p>
+        } @else {
+          <ul class="chat-items">
+            @for (item of conversations(); track item.id) {
+              <li>
+                <button type="button" class="chat-item" [class.chat-item--selected]="selected()?.id === item.id"
+                        [attr.aria-current]="selected()?.id === item.id ? 'true' : null"
+                        (click)="openConversation(item.id)">
+                  <span class="chat-avatar" aria-hidden="true">
+                    {{ initials(item.visitorName) }}
+                    @if (item.visitorOnline) { <span class="chat-avatar__dot"></span> }
+                  </span>
+
+                  <span class="chat-item__body">
+                    <span class="chat-item__top">
+                      <strong class="chat-item__name">{{ item.visitorName }}</strong>
+                      <time class="chat-item__time" [attr.datetime]="item.lastMessageAt">{{ listTime(item.lastMessageAt) }}</time>
+                    </span>
+                    <span class="chat-item__preview">
+                      @if (item.lastMessageSender === 'staff') { <span class="chat-item__you">Vos: </span> }{{ item.lastMessagePreview }}
+                    </span>
+                    @if (item.awaitingReply || item.unreadCount > 0 || item.visitorOnline) {
+                      <span class="chat-item__chips">
+                        @if (item.awaitingReply) {
+                          <span class="chat-chip"
+                                [class.chat-chip--alert]="isOverdue(item)"
+                                [class.chat-chip--amber]="!isOverdue(item) && item.awaitingOutOfHours">
+                            {{ !isOverdue(item) && item.awaitingOutOfHours ? 'Fuera de horario' : waitLabel(item) }}
+                          </span>
+                        }
+                        @if (item.unreadCount > 0) {
+                          <span class="chat-chip chat-chip--count" [attr.aria-label]="item.unreadCount + ' mensajes sin leer'">{{ item.unreadCount }}</span>
+                        }
+                      </span>
+                    }
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </aside>
+
+    <!-- ===================================================== conversación -->
+    <section class="chat-thread" aria-label="Conversación seleccionada">
+      @if (selected(); as c) {
+        <header class="chat-thread__head">
+          <button type="button" class="chat-back" (click)="backToList()" aria-label="Volver a las conversaciones">
+            <app-icon name="arrow-left" class="h-5 w-5"></app-icon>
+          </button>
+          <span class="chat-avatar chat-avatar--lg" aria-hidden="true">{{ initials(c.visitorName) }}</span>
+          <div class="chat-thread__who">
+            <h2 class="chat-thread__name">{{ c.visitorName }}</h2>
+            <p class="chat-thread__presence">
+              <span class="chat-dot" [class.chat-dot--on]="c.visitorOnline" aria-hidden="true"></span>
+              {{ c.visitorOnline ? 'En línea ahora' : 'Fuera de línea' }}
+              @if (c.status === 'closed') { · Conversación cerrada }
+            </p>
+          </div>
+          @if (canWrite) {
+            <div class="chat-thread__actions">
+              @if (c.status === 'open') {
+                <button type="button" class="chat-btn chat-btn--outline" (click)="closeConversation()" [disabled]="actionPending()" title="Cerrar la conversación">Cerrar chat</button>
+              } @else {
+                <button type="button" class="chat-btn chat-btn--dark" (click)="reopenConversation()" [disabled]="actionPending()">Reabrir</button>
+              }
+            </div>
+          }
+        </header>
+
+        <dl class="chat-contact">
+          @if (c.visitorEmail) {
+            <div><dt>Email</dt><dd><a [href]="'mailto:' + c.visitorEmail">{{ c.visitorEmail }}</a></dd></div>
+          }
+          @if (c.visitorPhone) {
+            <div><dt>Teléfono</dt><dd><a [href]="telHref(c.visitorPhone)">{{ c.visitorPhone }}</a></dd></div>
+          }
+          @if (c.sourceUrl && safeHref(c.sourceUrl); as href) {
+            <div><dt>Escribió desde</dt><dd><a [href]="href" target="_blank" rel="noopener noreferrer">{{ sourceLabel(c.sourceUrl) }}</a></dd></div>
+          }
+          @if (c.assignedUserName) {
+            <div><dt>Atiende</dt><dd>{{ c.assignedUserName }}</dd></div>
+          }
+        </dl>
+
+        @if (c.awaitingReply) {
+          <p class="chat-banner" [class.chat-banner--alert]="isOverdue(c)" [class.chat-banner--amber]="!isOverdue(c) && c.awaitingOutOfHours" role="status">
+            @if (isOverdue(c)) {
+              {{ waitLabel(c) }}: ya pasó el plazo de {{ responseTimeMinutes() }} minutos que promete la web.
+            } @else if (c.awaitingOutOfHours) {
+              Escribió con el chat cerrado. {{ c.visitorOnline ? 'Sigue en línea.' : c.visitorEmail ? 'Si ya se fue, tu respuesta le llega por email.' : 'No dejó email: si ya se fue, no verá la respuesta.' }}
+            } @else {
+              {{ waitLabel(c) }}. Prometimos responder en menos de {{ responseTimeMinutes() }} minutos.
+            }
+          </p>
+        }
+
+        <div #threadScroll class="chat-messages" (scroll)="onThreadScroll(threadScroll)" tabindex="0" aria-label="Mensajes" aria-live="polite">
+          @if (loadingThread()) {
+            <p class="chat-state" role="status">Cargando mensajes…</p>
+          } @else if (threadError()) {
+            <div class="chat-state chat-state--error" role="alert">
+              <p>No se pudo cargar la conversación.</p>
+              <button type="button" class="chat-btn chat-btn--outline" (click)="openConversation(c.id)">Reintentar</button>
+            </div>
+          } @else {
+            @for (entry of timeline(); track entry.message.id) {
+              @if (entry.day) {
+                <div class="chat-day"><span>{{ entry.day }}</span></div>
+              }
+              <article class="chat-msg" [class.chat-msg--staff]="entry.message.senderType === 'staff'">
+                <div class="chat-bubble">
+                  @if (entry.message.senderType === 'staff') {
+                    <span class="chat-bubble__author">{{ entry.message.senderName }}</span>
+                  }
+                  <p class="chat-bubble__text">{{ entry.message.body }}</p>
+                  <span class="chat-bubble__meta">
+                    <time [attr.datetime]="entry.message.createdAt">{{ messageTime(entry.message.createdAt) }}</time>
+                    @if (entry.message.receivedOutOfHours && entry.message.senderType === 'visitor') {
+                      <span class="chat-bubble__tag">Fuera de horario</span>
+                    }
+                  </span>
+                </div>
+                @let note = emailNote(entry.message, c);
+                @if (note) {
+                  <p class="chat-note" [class.chat-note--ok]="note.tone === 'ok'" [class.chat-note--warn]="note.tone === 'warn'" [class.chat-note--bad]="note.tone === 'bad'">{{ note.text }}</p>
+                }
+              </article>
+            }
+          }
+        </div>
+
+        @if (!canWrite) {
+          <p class="chat-readonly">Tu usuario es de solo lectura: podés ver las conversaciones, pero no responderlas.</p>
+        } @else if (c.status === 'closed') {
+          <p class="chat-readonly">Esta conversación está cerrada. Reabrila para responder.</p>
+        } @else {
+          <form class="chat-composer" (submit)="$event.preventDefault(); send()">
+            @if (sendError()) {
+              <p class="chat-composer__error" role="alert">{{ sendError() }}</p>
+            }
+            <div class="chat-composer__row">
+              <textarea #composer rows="1" class="chat-composer__input" placeholder="Escribí tu respuesta…" aria-label="Respuesta"
+                        [maxLength]="maxReplyLength" [value]="draft()" [disabled]="sending()"
+                        (input)="onDraft($any($event.target).value, composer)" (keydown)="onComposerKey($event)"></textarea>
+              <button type="submit" class="chat-send" [disabled]="!canSend()">
+                <app-icon name="send" class="h-4 w-4"></app-icon>
+                {{ sending() ? 'Enviando…' : 'Enviar' }}
+              </button>
+            </div>
+            <p class="chat-composer__hint">
+              <span>Enter envía · Shift + Enter agrega una línea</span>
+              @if (draftLength() >= 1700) { <span>{{ draftLength() }} / {{ maxReplyLength }}</span> }
+            </p>
+          </form>
+        }
+      } @else {
+        <div class="chat-empty">
+          <app-icon name="message-square" class="chat-empty__icon"></app-icon>
+          <h2>Seleccioná una conversación</h2>
+          <p>Las consultas de la web llegan acá en el momento. Dentro del horario se promete respuesta en menos de {{ responseTimeMinutes() }} minutos.</p>
+        </div>
+      }
+    </section>
+  </div>
+</section>
+
+@if (showHours() && hours(); as currentHours) {
+  <app-chat-hours-modal [hours]="currentHours" [canEdit]="isAdmin"
+                        (closed)="showHours.set(false)" (saved)="onHoursSaved($event)"></app-chat-hours-modal>
+}
