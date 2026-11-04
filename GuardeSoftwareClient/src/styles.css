@@ -82,6 +82,19 @@ html,
 body {
   height: 100%;
   overflow: hidden; /* Disable the scroll */
+  /* Sólo desplazamiento: sin zoom por pellizco ni por doble toque (la app es una pantalla fija, no un documento). */
+  touch-action: pan-x pan-y;
+}
+
+/*
+ * En el iPhone la franja de la hora/batería (y el rebote del scroll) toma el color de html/body cuando el contenido
+ * no la cubre; sin esto se ve blanca arriba del encabezado azul. El shell de la app y el login pintan encima.
+ */
+@media (max-width: 1023px) {
+  html,
+  body {
+    background-color: #2563eb;
+  }
 }
 
 /* -------------------------------------------------------------------------- */

@@ -3,17 +3,30 @@
   height: 100%;
 }
 
+/*
+ * Las áreas seguras laterales (isla/notch en horizontal) no se reservan en el contenedor: así el encabezado y el
+ * fondo llegan hasta el borde de la pantalla y sólo el contenido se corre. El inset superior sí se reserva acá,
+ * pintado con el color del encabezado.
+ */
 .app-shell {
   --app-top-color: #fff;
   height: 100vh;
   height: 100dvh;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
   background-image: linear-gradient(to bottom,
     var(--app-top-color) 0 env(safe-area-inset-top, 0px),
     transparent env(safe-area-inset-top, 0px));
+}
+
+.app-header {
+  padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+}
+
+.app-main {
+  padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
 }
 
 @media (max-width: 1023px) {

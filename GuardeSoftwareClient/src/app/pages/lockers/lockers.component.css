@@ -1,4 +1,5 @@
 @import '../../shared/styles/statistics-cards.css';
+@import '../../shared/styles/table-scroll.css';
 
 .locker-statistics {
   grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr));
@@ -19,12 +20,7 @@
   .locker-statistics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .locker-statistics .client-stat-total-card { grid-column: 1 / -1; }
   .locker-table-card { min-width: 0; }
-  .locker-table-viewport {
-    max-height: 70vh;
-    max-height: 70dvh;
-    overflow: auto;
-    overscroll-behavior: contain;
-  }
+  /* El alto y el scroll del visor salen de table-scroll.css (clase table-scroll-viewport). */
   .locker-table-viewport:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
 }
 
@@ -240,4 +236,79 @@
 @media (prefers-reduced-motion: reduce) {
     .locker-client-trigger { transition: none; }
     .client-lockers-card { animation: none; }
+}
+
+/*
+ * Filtros en pantallas chicas: hoja inferior sobre un fondo atenuado (igual que en Clientes). Antes era un panel
+ * `absolute` bajo el botón, que quedaba debajo del borde de la pantalla y tapado por el botón flotante. Respeta las
+ * áreas seguras, tiene chips de 40 px y un botón «Ver N bauleras» fijo al pie; el contenido se desplaza por dentro.
+ */
+.locker-filter-backdrop,
+.locker-filter-done {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .locker-filter-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 59;
+    background: rgb(15 23 42 / 0.45);
+    touch-action: none;
+  }
+
+  .locker-filter-popover {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 44rem);
+    max-width: none;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 0.75rem);
+    margin: 0 auto;
+    padding: 0.75rem 1rem 0;
+    overflow: hidden;
+    border-width: 1px 0 0;
+    border-radius: 1.25rem 1.25rem 0 0;
+  }
+
+  .locker-filter-popover > .overflow-y-auto {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overscroll-behavior: contain;
+  }
+
+  .locker-filter-popover button.rounded-full {
+    min-height: 2.5rem;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .locker-filter-popover > .flex:first-child button {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .locker-filter-done {
+    display: block;
+    flex: none;
+    padding: 0.5rem 0 calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .locker-filter-done button {
+    width: 100%;
+    min-height: 2.875rem;
+    border-radius: 0.75rem;
+    background: #111827;
+    color: #fff;
+    font-size: 0.9375rem;
+    font-weight: 800;
+  }
 }

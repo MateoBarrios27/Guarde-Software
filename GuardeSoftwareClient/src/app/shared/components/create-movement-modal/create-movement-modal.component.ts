@@ -6,6 +6,7 @@ import { AccountMovementService } from '../../../core/services/accountMovement-s
 import { CreateAccountMovementDTO } from '../../../core/dtos/accountMovement/create-account-movement.dto';
 import Swal from '../../services/ui-alert.service';
 import { CurrencyFormatDirective } from "../../directives/currency-format.directive";
+import { suggestRentConcepts } from '../../utils/rent-concept-suggestions.util';
 
 @Component({
   selector: 'app-create-movement-modal',
@@ -25,6 +26,7 @@ export class CreateMovementModalComponent implements OnInit {
   newMovementForm!: FormGroup;
   isLoading = false;
   showConceptSuggestions = false;
+  private rentConceptSuggestions = suggestRentConcepts([]);
 
   private readonly spanishMonths = [
     'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -43,6 +45,8 @@ export class CreateMovementModalComponent implements OnInit {
   ngOnInit(): void {
     if (!this.clientId) {
       console.error("Error: ClientID no fue proporcionado al modal de creación de movimiento.");
+    } else {
+      this.loadRentConceptSuggestions();
     }
 
     this.newMovementForm = this.fb.group({
@@ -56,16 +60,23 @@ export class CreateMovementModalComponent implements OnInit {
     const now = new Date();
     const month = this.spanishMonths[now.getMonth()];
     const formattedMonth = month.charAt(0).toUpperCase() + month.slice(1);
-    const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const nextMonth = this.spanishMonths[nextMonthDate.getMonth()];
-    const formattedNextMonth = nextMonth.charAt(0).toUpperCase() + nextMonth.slice(1);
 
     return [
       `Interés por mora de ${formattedMonth} ${now.getFullYear()}`,
-      `Alquiler ${formattedMonth} ${now.getFullYear()}`,
-      `Alquiler ${formattedNextMonth} ${nextMonthDate.getFullYear()}`,
+      ...this.rentConceptSuggestions,
       'Proporcional'
     ];
+  }
+
+  private loadRentConceptSuggestions(): void {
+    // Los alquileres a sugerir siguen al último débito que el cliente ya tiene generado.
+    this.accountMovementService.getMovementsByClientId(this.clientId).subscribe({
+      next: movements => {
+        this.rentConceptSuggestions = suggestRentConcepts(movements);
+      },
+      // Sin el historial se conservan el mes en curso y el siguiente.
+      error: () => undefined,
+    });
   }
 
   openConceptSuggestions(): void {

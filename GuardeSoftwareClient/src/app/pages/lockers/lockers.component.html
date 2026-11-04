@@ -97,11 +97,16 @@
             </span>
           </button>
 
+          <!-- Fondo atenuado: sólo en pantallas chicas, donde el panel es una hoja inferior (ver lockers.component.css). -->
+          <div *ngIf="showTagsPopover" class="locker-filter-backdrop" aria-hidden="true"></div>
+
           <!-- Popover flotante -->
           <div
             #tagsPopoverRef
             *ngIf="showTagsPopover"
-            class="absolute left-0 mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-2xl w-[calc(100vw-2rem)] sm:w-[480px] max-w-[320px] sm:max-w-none p-4 sm:p-5 text-sm"
+            role="dialog"
+            aria-label="Filtrar bauleras"
+            class="locker-filter-popover absolute left-0 mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-2xl w-[calc(100vw-2rem)] sm:w-[480px] max-w-[320px] sm:max-w-none p-4 sm:p-5 text-sm"
           >
             <div class="flex items-center justify-between pb-2 border-b border-gray-100">
               <div>
@@ -182,6 +187,11 @@
                 Limpiar filtros
               </button>
             </div>
+
+            <!-- Sólo en pantallas chicas: cierra la hoja y deja ver la tabla filtrada. -->
+            <div class="locker-filter-done">
+              <button type="button" (click)="showTagsPopover = false">Ver {{ filteredLockers.length }} bauleras</button>
+            </div>
           </div>
         </div>
       </div>
@@ -249,7 +259,7 @@
   
   <!-- Tabla -->
   <div class="locker-table-card relative w-full mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible min-w-[1050px]">
-    <div #tableViewport (scroll)="onTableScroll()" class="locker-table-viewport w-full min-w-0 overflow-visible" aria-label="Tabla de bauleras" tabindex="0">
+    <div #tableViewport (scroll)="onTableScroll()" class="locker-table-viewport table-scroll-viewport w-full min-w-0 overflow-visible" aria-label="Tabla de bauleras" tabindex="0">
     <table class="min-w-[1050px] w-full">
       
       <thead class="bg-gray-50 sticky top-0 z-20 shadow-sm text-gray-600 uppercase text-xs">
@@ -424,7 +434,7 @@
 </app-locker-client-history-modal>
 
 <button (click)="toggleScroll()"
-        class="fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-110 hover:shadow-blue-500/30 transition-all duration-300 focus:outline-none"
+        class="table-scroll-fab fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-110 hover:shadow-blue-500/30 transition-all duration-300 focus:outline-none"
         [title]="pointingUp ? 'Subir' : 'Bajar'">
   <app-icon [name]="pointingUp ? 'arrow-up' : 'arrow-down'" class="h-6 w-6"></app-icon>
 </button>

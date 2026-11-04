@@ -587,22 +587,188 @@ export class FinancesComponent implements OnInit, OnDestroy {
   }
 
   selectedMethodFilter: string = '';
-  selectedMonth: string = '';
+  // Por defecto se muestran los pagos del mes en curso (misma clave local que _paymentMonthKey).
+  selectedMonth: string = this.getCurrentMonthKey();
   selectedDay: string = '';
-  dateFilterType: string = 'none';
+  dateFilterType: string = 'month';
+
+  private getCurrentMonthKey(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  clearSearch(): void {
+    this.searchPayment = '';
+    this.filterPayments();
+  }
 
   resetFilters(): void {
     this.searchPayment = '';
     this.selectedMethodFilter = '';
-    this.selectedMonth = '';
+    this.selectedMonth = this.getCurrentMonthKey();
     this.selectedDay = '';
-    this.dateFilterType = 'none';
+    this.dateFilterType = 'month';
+    this.syncRailYear();
     this.filterPayments();
   }
 
   onDateFilterTypeChange(): void {
-    this.selectedMonth = '';
+    this.selectedMonth = this.dateFilterType === 'month' ? this.getCurrentMonthKey() : '';
     this.selectedDay = '';
+    this.syncRailYear();
+    this.filterPayments();
+  }
+
+  // === Encabezado de período: el mes (o día) que se muestra arriba de la tabla ===
+  // Sólo presentación y atajos sobre el mismo estado de filtro (dateFilterType, selectedMonth,
+  // selectedDay); el criterio de filtrado de filterPayments() no cambia.
+  readonly monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  readonly monthShortNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  private readonly weekdayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  /** Año que recorre el selector de meses; sigue al mes elegido pero se puede navegar sin filtrar. */
+  railYear: number = new Date().getFullYear();
+
+  private parseMonthKey(key: string): { year: number; month: number } | null {
+    const match = /^(\d{4})-(\d{2})$/.exec(key || '');
+    if (!match) return null;
+    const month = Number(match[2]);
+    return month >= 1 && month <= 12 ? { year: Number(match[1]), month } : null;
+  }
+
+  private parseDayKey(key: string): { year: number; month: number; day: number } | null {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key || '');
+    if (!match) return null;
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    return month >= 1 && month <= 12 && day >= 1 && day <= 31
+      ? { year: Number(match[1]), month, day }
+      : null;
+  }
+
+  private toMonthKey(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private toDayKey(date: Date): string {
+    return `${this.toMonthKey(date)}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  /** Qué período está filtrando la tabla. Un mes o día vacío equivale a no filtrar por fecha. */
+  get dateScope(): 'month' | 'day' | 'all' {
+    if (this.dateFilterType === 'month' && this.parseMonthKey(this.selectedMonth)) return 'month';
+    if (this.dateFilterType === 'day' && this.parseDayKey(this.selectedDay)) return 'day';
+    return 'all';
+  }
+
+  get dateBanner(): { eyebrow: string; title: string; subtitle: string; badge: string | null; returnLabel: string | null } {
+    const month = this.dateScope === 'month' ? this.parseMonthKey(this.selectedMonth) : null;
+    if (month) {
+      const isCurrent = this.selectedMonth === this.getCurrentMonthKey();
+      return {
+        eyebrow: 'Pagos de',
+        title: this.monthNames[month.month - 1],
+        subtitle: String(month.year),
+        badge: isCurrent ? 'Mes en curso' : null,
+        returnLabel: isCurrent ? null : 'Volver al mes actual'
+      };
+    }
+    const day = this.dateScope === 'day' ? this.parseDayKey(this.selectedDay) : null;
+    if (day) {
+      const isToday = this.selectedDay === this.toDayKey(new Date());
+      const weekday = this.weekdayNames[new Date(day.year, day.month - 1, day.day).getDay()];
+      return {
+        eyebrow: 'Pagos del día',
+        title: weekday,
+        subtitle: `${day.day} de ${this.monthNames[day.month - 1].toLowerCase()} de ${day.year}`,
+        badge: isToday ? 'Hoy' : null,
+        returnLabel: isToday ? null : 'Volver a hoy'
+      };
+    }
+    return { eyebrow: 'Pagos', title: 'Todos', subtitle: 'Sin filtro de fecha', badge: null, returnLabel: null };
+  }
+
+  /** Flechas del bloque azul: avanzan o retroceden un mes (o un día) según el filtro activo. */
+  shiftDateScope(delta: number): void {
+    const month = this.dateScope === 'month' ? this.parseMonthKey(this.selectedMonth) : null;
+    const day = this.dateScope === 'day' ? this.parseDayKey(this.selectedDay) : null;
+    if (month) {
+      this.selectedMonth = this.toMonthKey(new Date(month.year, month.month - 1 + delta, 1));
+    } else if (day) {
+      this.selectedDay = this.toDayKey(new Date(day.year, day.month - 1, day.day + delta));
+    } else {
+      return;
+    }
+    this.onDateInputChange();
+  }
+
+  goToCurrentPeriod(): void {
+    if (this.dateScope === 'month') {
+      this.selectedMonth = this.getCurrentMonthKey();
+    } else if (this.dateScope === 'day') {
+      this.selectedDay = this.toDayKey(new Date());
+    } else {
+      return;
+    }
+    this.onDateInputChange();
+  }
+
+  selectRailMonth(monthIndex: number): void {
+    this.dateFilterType = 'month';
+    this.selectedDay = '';
+    this.selectedMonth = `${this.railYear}-${String(monthIndex + 1).padStart(2, '0')}`;
+    this.onDateInputChange();
+  }
+
+  shiftRailYear(delta: number): void {
+    this.railYear += delta;
+  }
+
+  isRailMonthActive(monthIndex: number): boolean {
+    const month = this.dateScope === 'month' ? this.parseMonthKey(this.selectedMonth) : null;
+    return !!month && month.year === this.railYear && month.month === monthIndex + 1;
+  }
+
+  isRailMonthCurrent(monthIndex: number): boolean {
+    const now = new Date();
+    return now.getFullYear() === this.railYear && now.getMonth() === monthIndex;
+  }
+
+  /** Cambio de mes/día desde los inputs nativos, las flechas o el selector de meses. */
+  onDateInputChange(): void {
+    this.syncRailYear();
+    this.page = 1;
+    this.filterPayments();
+  }
+
+  private syncRailYear(): void {
+    const month = this.dateFilterType === 'month' ? this.parseMonthKey(this.selectedMonth) : null;
+    const day = this.dateFilterType === 'day' ? this.parseDayKey(this.selectedDay) : null;
+    if (month) this.railYear = month.year;
+    else if (day) this.railYear = day.year;
+  }
+
+  // === Métodos de pago: color sólido e ícono por método (filtro y columna Método) ===
+  // El color agrupa visualmente el método; no indica estado ni importancia. Los métodos que no
+  // se reconocen por nombre usan el tono neutro.
+  private readonly paymentMethodToneCache = new Map<string, { cls: string; icon: string }>();
+
+  getPaymentMethodTone(name: string | null | undefined): { cls: string; icon: string } {
+    const key = name || '';
+    const cached = this.paymentMethodToneCache.get(key);
+    if (cached) return cached;
+    const normalized = key.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    let tone = { cls: 'finance-method-other', icon: 'wallet' };
+    if (normalized.includes('efectivo')) tone = { cls: 'finance-method-cash', icon: 'banknote' };
+    else if (normalized.includes('transfer')) tone = { cls: 'finance-method-transfer', icon: 'bank' };
+    else if (/mercado\s*pago|^mp$/.test(normalized)) tone = { cls: 'finance-method-mp', icon: 'mercado-pago' };
+    else if (normalized.includes('ajuste') || normalized.includes('manual')) tone = { cls: 'finance-method-manual', icon: 'sliders' };
+    this.paymentMethodToneCache.set(key, tone);
+    return tone;
+  }
+
+  selectMethodFilter(name: string): void {
+    this.selectedMethodFilter = this.selectedMethodFilter === name ? '' : name;
+    this.page = 1;
     this.filterPayments();
   }
 

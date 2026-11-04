@@ -1,4 +1,4 @@
-import { isTableScrollAtBottom, resolveTableScrollContainer } from '../../shared/utils/table-scroll.util';
+import { isTableViewAtBottom, toggleTableScroll } from '../../shared/utils/table-scroll.util';
 import { ClientAmountColumn, displayedAmount, orderByProjectedAmount, projectableSortColumn, sumDisplayedAmounts } from './client-projection.util';
 import { ClientProjectedNextMonthItem } from '../../core/dtos/client/ClientProjectedNextMonthDto';
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
@@ -16,7 +16,7 @@ import { ClientDepartureProportionalPreview, ClientService, ReactivationBalanceD
 import { ClientDetailDTO } from '../../core/dtos/client/ClientDetailDTO';
 
 import { Subject, Observable, firstValueFrom, Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { debounceTime } from 'rxjs/operators';
 import { ClientDetailModalComponent } from "../../shared/components/client-detail-modal/client-detail-modal.component";
 import { ClientStatisticsDto } from '../../core/dtos/statistics/ClientStatisticsDto';
 import { StatisticsService } from '../../core/services/statics-service/statics-service.service';
@@ -77,11 +77,27 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     dadosBaja: 0,
   };
   public searchClientes = '';
+  // Orden de las tarjetas: pagaron, no pagaron y, al final, morosos.
   public readonly clientStatisticCards = [
-    { key: 'alDia', label: 'Pagaron el mes', icon: 'check-circle', tone: 'paid', description: 'Sin nivel de morosidad y con el mes actual contemplado como pagado.' },
-    { key: 'morosos', label: 'Morosos', icon: 'alert-triangle', tone: 'overdue', description: 'Clientes con nivel de morosidad 1, 2 o 3. No se incluyen en los otros dos grupos.' },
-    { key: 'pendientes', label: 'No pagaron el mes', icon: 'clock', tone: 'pending', description: 'Sin nivel de morosidad y con el mes actual pendiente de pago.' },
+    { key: 'alDia', label: 'Ya pagaron', withMonth: true, icon: 'check-circle', tone: 'paid', description: 'Sin nivel de morosidad y con el mes actual contemplado como pagado.' },
+    { key: 'pendientes', label: 'No pagaron', withMonth: true, icon: 'clock', tone: 'pending', description: 'Sin nivel de morosidad y con el mes actual pendiente de pago.' },
+    { key: 'morosos', label: 'Morosos', withMonth: false, icon: 'alert-triangle', tone: 'overdue', description: 'Clientes con nivel de morosidad 1, 2 o 3. No se incluyen en los otros dos grupos.' },
   ] as const;
+
+  private readonly argentinaMonthFormat = new Intl.DateTimeFormat('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    month: 'long',
+  });
+
+  /** Mes en curso en Argentina (el mismo con el que se clasifica a los clientes), ej. «Noviembre». */
+  public get statisticsMonthName(): string {
+    const name = this.argentinaMonthFormat.format(new Date());
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+
+  public getClientStatisticLabel(stat: { label: string; withMonth: boolean }): string {
+    return stat.withMonth ? `${stat.label} ${this.statisticsMonthName}` : stat.label;
+  }
 
   public getClientStatisticPercentage(count: number): number {
     return this.estadisticas.total > 0 ? count / this.estadisticas.total * 100 : 0;
@@ -232,8 +248,9 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   {
     this.dataRefreshSubscription.add(
       this.searchSubject.pipe(
-        debounceTime(400),
-        distinctUntilChanged()
+        // Sin distinctUntilChanged: un reinicio de filtros vacía la búsqueda sin pasar por el subject,
+        // y repetir después el mismo texto se descartaba como "sin cambios".
+        debounceTime(400)
       ).subscribe(() => {
         this.currentPageClientes = 1;
         void this.loadClients();
@@ -244,6 +261,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
+
+    this.closeCommentOnOutsideClick(event);
 
     if (this.showTagsPopover) {
       const clickedInsidePopover = this.tagsPopoverRef && this.tagsPopoverRef.nativeElement.contains(target);
@@ -503,13 +522,18 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
         this.consumingClientNavigationQuery = false;
         return;
       }
+      const clientId = Number(params['clientId'] ?? 0);
+      const detailClientId = Number(params['detailClientId'] ?? 0);
+      // Para ubicar a un cliente en la tabla no puede haber filtros ni búsqueda que lo oculten.
+      if (clientId > 0) {
+        this.clearFilterState();
+      }
+
       const searchTerm = params['searchTerm'];
       if (searchTerm) {
         this.searchClientes = searchTerm;
       }
 
-      const clientId = Number(params['clientId'] ?? 0);
-      const detailClientId = Number(params['detailClientId'] ?? 0);
       this.clientIdToPositionFromQuery = clientId > 0 ? clientId : null;
       this.detailClientIdFromQuery = detailClientId > 0 ? detailClientId : null;
       this.planAbonoFromQuery = params['planAbono'] === '1';
@@ -843,8 +867,30 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
+  /** Por debajo de 1024 px el panel de filtros es una hoja inferior fija (CSS): no se posiciona junto al botón. */
+  private isCompactFilterLayout(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeCloseFilters(): void {
+    if (this.showTagsPopover) {
+      this.closeTagsPopover();
+    }
+    if (this.activeDepartureClient && !this.departureSubmitting) {
+      this.closeDeparturePopover();
+      this.cdr.markForCheck();
+    }
+  }
+
   private positionTagsPopover(): void {
     if (!this.showTagsPopover) return;
+
+    if (this.isCompactFilterLayout()) {
+      this.tagsPopoverReady = true;
+      this.cdr.markForCheck();
+      return;
+    }
 
     const button = this.tagsButtonRef?.nativeElement as HTMLElement | undefined;
     const popover = this.tagsPopoverRef?.nativeElement as HTMLElement | undefined;
@@ -958,8 +1004,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onTableScroll(): void {
-    const container = resolveTableScrollContainer(this.tableViewport?.nativeElement);
-    const pointingUp = container ? isTableScrollAtBottom(container) : false;
+    const pointingUp = isTableViewAtBottom(this.tableViewport?.nativeElement);
     if (this.pointingUp !== pointingUp) {
       this.pointingUp = pointingUp;
       this.cdr.markForCheck();
@@ -967,10 +1012,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   toggleScroll(): void {
-    const container = resolveTableScrollContainer(this.tableViewport?.nativeElement);
-    if (!container) return;
-    const top = isTableScrollAtBottom(container) ? 0 : container.scrollHeight;
-    container.scrollTo({ top, behavior: 'smooth' });
+    toggleTableScroll(this.tableViewport?.nativeElement);
   }
 
   private matchesCachedClientFilters(client: CachedClient): boolean {
@@ -1433,7 +1475,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  handleResetFilters(): void {
+  /** Deja búsqueda, estado, etiquetas, activos/bajas y página como al abrir la pantalla (el orden no se toca). */
+  private clearFilterState(): void {
     this.selectedArrearsLevels = [];
     this.excludedArrearsLevels = [];
     this.searchClientes = '';
@@ -1454,9 +1497,14 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.excludedPaymentDays = [];
     this.showInactivos = false;
     this.currentPageClientes = 1;
+    this.cdr.markForCheck();
+  }
+
+  handleResetFilters(): void {
+    this.clearFilterState();
     this.sortFieldClientes = 'PaymentIdentifier';
     this.sortDirectionClientes = 'asc';
-    
+
     this.loadClients();
   }
   
@@ -1812,8 +1860,11 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     return styles;
   }
 
-  @HostListener('document:click', ['$event'])
-  onClickOutside(event: Event): void {
+  /**
+   * Cierra la nota abierta al hacer clic afuera. Se invoca desde `onDocumentClick`: Angular conserva un solo
+   * `@HostListener('document:click')` por clase (el último declarado), así que no puede haber otro con este evento.
+   */
+  private closeCommentOnOutsideClick(event: Event): void {
     if (this.activeCommentClient) {
       const target = event.target as HTMLElement;
       if (!target.closest('.note-popup-container') && !target.closest('.note-toggle-btn')) {

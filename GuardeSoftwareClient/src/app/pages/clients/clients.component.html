@@ -4,7 +4,7 @@
   [type]="toastType"
 ></app-toast-notification>
 
-<div #topAnchor class="absolute top-0 w-full h-[600px] -z-10 opacity-0 pointer-events-none"></div>
+<div #topAnchor class="absolute left-0 top-0 w-full h-[600px] -z-10 opacity-0 pointer-events-none"></div>
 
   <div *ngIf="activeTab === 'clientes'" class="clients-page space-y-6 pt-6">
     <section class="client-statistics" aria-label="Resumen de clientes">
@@ -26,7 +26,7 @@
           <span class="client-stat-icon"><app-icon [name]="stat.icon" class="h-5 w-5"></app-icon></span>
           <span class="client-stat-percentage" [attr.aria-label]="(getClientStatisticPercentage(estadisticas[stat.key]) | number:'1.1-1') + '% de clientes activos'">{{ getClientStatisticPercentage(estadisticas[stat.key]) | number:'1.1-1' }} %</span>
         </div>
-        <p class="client-stat-label">{{ stat.label }}</p>
+        <p class="client-stat-label">{{ getClientStatisticLabel(stat) }}</p>
         <strong class="client-stat-count">{{ estadisticas[stat.key] | number }}</strong>
         <div class="client-stat-track" aria-hidden="true">
           <span class="client-stat-fill" [style.width.%]="getClientStatisticPercentage(estadisticas[stat.key])" [class.has-value]="estadisticas[stat.key] > 0 && estadisticas.total > 0"></span>
@@ -103,15 +103,20 @@
               </span>
             </button>
 
+            <!-- Fondo atenuado: sólo en pantallas chicas, donde el panel es una hoja inferior (ver clients.component.css). -->
+            <div *ngIf="showTagsPopover" class="clients-filter-backdrop" (click)="closeTagsPopover()" aria-hidden="true"></div>
+
             <!-- Popover flotante: se posiciona respecto al viewport para no quedar recortado por el scroll de la tarjeta. -->
             <div
               #tagsPopoverRef
               *ngIf="showTagsPopover"
+              role="dialog"
+              aria-label="Filtrar clientes"
               [style.top.px]="tagsPopoverPosition.top"
               [style.left.px]="tagsPopoverPosition.left"
               [style.max-height.px]="tagsPopoverPosition.maxHeight"
               [class.invisible]="!tagsPopoverReady"
-              class="fixed z-[100] flex w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-3 text-sm shadow-2xl sm:w-[680px] sm:p-4"
+              class="clients-filter-popover fixed z-[100] flex w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-3 text-sm shadow-2xl sm:w-[680px] sm:p-4"
             >
               <div class="flex flex-none items-start justify-between gap-3 border-b border-gray-100 pb-2">
                 <div class="min-w-0">
@@ -311,13 +316,20 @@
                 </div>
               </div>
 
-              <div *ngIf="totalActiveTagsCount > 0" class="flex flex-none justify-end border-t border-gray-100 pt-2">
+              <div *ngIf="totalActiveTagsCount > 0" class="clients-filter-clear flex flex-none justify-end border-t border-gray-100 pt-2">
                 <button
                   type="button"
                   (click)="clearAllTags()"
                   class="text-xs font-semibold text-red-600 hover:text-red-700"
                 >
                   Limpiar filtros
+                </button>
+              </div>
+
+              <!-- Sólo en pantallas chicas: cierra la hoja y deja ver la lista filtrada. -->
+              <div class="clients-filter-done">
+                <button type="button" (click)="closeTagsPopover()">
+                  {{ isLoading ? 'Listo' : 'Ver ' + totalClientes + ' resultados' }}
                 </button>
               </div>
               </div>
@@ -544,7 +556,7 @@
         </div>
       </div>
 
-      <div #tableViewport (scroll)="onTableScroll()" class="clients-table-viewport relative w-full min-w-0 overflow-visible" aria-label="Tabla de clientes" tabindex="0">
+      <div #tableViewport (scroll)="onTableScroll()" class="clients-table-viewport table-scroll-viewport relative w-full min-w-0 overflow-visible" aria-label="Tabla de clientes" tabindex="0">
         <table class="min-w-[1180px] w-full text-sm border-separate border-spacing-0">
           
           <thead class="text-xs text-gray-700 bg-gray-50 sticky top-0 z-20 shadow-sm">
@@ -858,8 +870,12 @@
                   </button>
                 </div>
 
-                <div *ngIf="!authService.isObserver() && activeDepartureClient?.id === cliente.id"
-                     data-departure-popover
+                <ng-container *ngIf="!authService.isObserver() && activeDepartureClient?.id === cliente.id">
+                <!-- Fondo atenuado: sólo en pantallas chicas, donde el panel es una hoja inferior (ver clients.component.css). -->
+                <div class="clients-departure-backdrop" aria-hidden="true"></div>
+                <div data-departure-popover
+                     role="dialog"
+                     aria-label="Situación del cliente"
                      (click)="$event.stopPropagation()"
                      class="absolute right-2 bottom-12 z-50 w-80 max-w-[calc(100vw-1.5rem)] rounded-xl border border-gray-200 bg-white p-3 text-left shadow-2xl">
                   <div class="flex items-start justify-between gap-3 border-b border-gray-100 pb-2">
@@ -1005,6 +1021,7 @@
                     </button>
                   </ng-container>
                 </div>
+                </ng-container>
               </td>
 
             </tr>
@@ -1082,7 +1099,7 @@
 <div #bottomAnchor class="w-full h-1 opacity-0 pointer-events-none mt-4"></div>
 
 <button (click)="toggleScroll()"
-        class="fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-110 hover:shadow-blue-500/30 transition-all duration-300 focus:outline-none"
+        class="table-scroll-fab fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-110 hover:shadow-blue-500/30 transition-all duration-300 focus:outline-none"
         [title]="pointingUp ? 'Subir' : 'Bajar'">
   <app-icon [name]="pointingUp ? 'arrow-up' : 'arrow-down'" class="h-6 w-6"></app-icon>
 </button>

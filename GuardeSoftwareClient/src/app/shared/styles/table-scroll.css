@@ -1,0 +1,21 @@
+/*
+ * Tablas con scroll propio en pantallas chicas (Clientes y Bauleras). El alto deja a la vista el encabezado de la
+ * tabla y la paginación cuando la página está al final (la pantalla menos el encabezado de la app, las áreas seguras
+ * y unos 6 rem para la paginación), y el visor deja pasar el gesto vertical a la página al llegar a sus extremos
+ * (con `contain` el dedo sobre la tabla nunca podía mover la página). El gesto horizontal sigue contenido para no
+ * disparar el «atrás» de Safari.
+ */
+@media (max-width: 1023px) {
+  .table-scroll-viewport {
+    max-height: max(14rem, calc(100vh - 11.25rem));
+    max-height: max(14rem, calc(100dvh - 11.25rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+    overflow: auto;
+    overscroll-behavior: contain auto;
+  }
+}
+
+/* Botón flotante Bajar/Subir: por encima del indicador de inicio y de la isla lateral. */
+.table-scroll-fab {
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  right: calc(1.5rem + env(safe-area-inset-right, 0px));
+}

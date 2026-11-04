@@ -1,4 +1,4 @@
-import { isTableScrollAtBottom, resolveTableScrollContainer } from '../../shared/utils/table-scroll.util';
+import { isTableViewAtBottom, toggleTableScroll } from '../../shared/utils/table-scroll.util';
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Locker, LockerClientSummary } from '../../core/models/locker';
 import { LockerService } from '../../core/services/locker-service/locker.service';
@@ -187,15 +187,21 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onTableScroll(): void {
-    const container = resolveTableScrollContainer(this.tableViewport?.nativeElement);
-    this.pointingUp = container ? isTableScrollAtBottom(container) : false;
+    this.pointingUp = isTableViewAtBottom(this.tableViewport?.nativeElement);
   }
 
   ngOnDestroy() {
     this.closeClientStats();
     this.dataRefreshSubscription.unsubscribe();
     document.getElementById('main-scroll')?.removeEventListener('scroll', this.mainScrollHandler);
-  }  @HostListener('document:click', ['$event'])
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeCloseFilters(): void {
+    this.showTagsPopover = false;
+  }
+
+  @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     if (!this.showTagsPopover) return;
     const clickedInsidePopover = this.tagsPopoverRef && this.tagsPopoverRef.nativeElement.contains(event.target);
@@ -340,13 +346,8 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   toggleScroll(): void {
-    const container = resolveTableScrollContainer(this.tableViewport?.nativeElement);
-    if (!container) return;
-    if (isTableScrollAtBottom(container)) {
-      container.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      container.scrollBy({ top: 3850, behavior: 'smooth' });
-    }
+    // En escritorio conserva el avance por bloques de 3850 px; en celular lleva la tabla y la página hasta el final.
+    toggleTableScroll(this.tableViewport?.nativeElement, 3850);
   }
 
   loadLockers(): void {

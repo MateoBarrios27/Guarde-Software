@@ -192,3 +192,77 @@
   .payment-flow-popup.payment-decision-popup .payment-decision-card-heading { grid-template-columns: minmax(0, 1fr); }
   .payment-flow-popup.payment-decision-popup .payment-decision-next-payment { align-items: flex-start; }
 }
+
+/*
+ * Teléfonos y tablets chicas (< 1024 px). El modal ocupa la pantalla respetando las áreas seguras (isla, notch,
+ * indicador de inicio) y se reparte en alto: en vertical la lista de clientes queda acotada arriba y el detalle
+ * llena el resto; el pie con «Guardar Pago» siempre a la vista. Los campos van a 16 px (con menos, Safari de
+ * iPhone hace zoom al enfocarlos) y los botones a 44 px de alto. Misma paleta y tipografía que en escritorio.
+ */
+@media (max-width: 1023px) {
+  div.payment-entry {
+    padding: max(.5rem, env(safe-area-inset-top, 0px)) max(.5rem, env(safe-area-inset-right, 0px))
+      max(.5rem, env(safe-area-inset-bottom, 0px)) max(.5rem, env(safe-area-inset-left, 0px));
+  }
+  .payment-entry .payment-entry-shell { width: 100%; max-width: 48rem; height: 100%; max-height: 100%; }
+  .payment-entry .payment-entry-shell > .payment-entry-dialog { flex: 1 1 auto; max-height: none; min-height: 0; }
+
+  .payment-entry .payment-entry-header { padding: .75rem 1rem; }
+  .payment-entry .payment-entry-close { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin-right: -.5rem; }
+
+  .payment-entry .payment-entry-columns { display: flex; flex-direction: column; }
+  .payment-entry .payment-entry-columns > .payment-client-pane { flex: 0 0 auto; padding: .75rem 1rem; }
+  .payment-entry .payment-client-pane > :is(.flex, .relative) { margin-bottom: .5rem; }
+  .payment-entry .payment-client-list { flex: 0 1 auto; max-height: 8.5rem; overscroll-behavior: contain; }
+  .payment-entry .payment-entry-columns > .payment-entry-details { flex: 1 1 0; min-height: 0; }
+
+  .payment-entry .payment-entry-scroll { padding: 1rem; overscroll-behavior: contain; }
+  .payment-entry .payment-entry-scroll.space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: .875rem; }
+  .payment-entry .payment-client-pane label { white-space: nowrap; }
+  .payment-entry .payment-client-pane > .flex:first-child { flex-wrap: wrap; row-gap: .25rem; }
+  .payment-entry .payment-client-pane > .flex:first-child > span { white-space: nowrap; }
+  .payment-entry :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) { font-size: 16px; }
+  .payment-entry input::placeholder { font-size: .875rem; }
+  .payment-entry input.w-24 { width: 7.75rem; }
+
+  .payment-entry .payment-entry-footer { gap: .5rem; padding: .75rem 1rem; }
+  .payment-entry .payment-entry-footer button { min-height: 44px; justify-content: center; font-size: .875rem; white-space: nowrap; }
+  .payment-entry .payment-entry-footer button:last-child { flex: 1 1 auto; }
+}
+@media (max-width: 1023px) and (pointer: coarse) {
+  .payment-entry .payment-entry-esc { display: none; }
+}
+/* En celular vertical las tarjetas de estado van en una columna y en una sola fila cada una: etiqueta a la izquierda, importe a la derecha. */
+@media (max-width: 639px) {
+  .payment-entry .payment-entry-subtitle { display: none; }
+  .payment-entry .payment-state-grid.grid > div { flex-direction: row; align-items: center; justify-content: space-between; gap: .75rem; min-height: 3.5rem; padding: .65rem .9rem; }
+  .payment-entry .payment-state-grid.grid > div > div:first-child { flex: 0 1 auto; min-width: 0; margin-bottom: 0; }
+  .payment-entry .payment-state-grid.grid > div > div:first-child p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .payment-entry .payment-state-grid.grid > div > p { flex: 0 0 auto; text-align: right; }
+  .payment-entry .payment-state-grid.grid > div > p.payment-state-name { flex: 1 1 0; }
+}
+/* Celular horizontal: poco alto. Dos paneles lado a lado (clientes | detalle), cada uno con su scroll, y encabezado y pie compactos. */
+@media (max-width: 1023px) and (orientation: landscape) and (max-height: 520px) {
+  div.payment-entry {
+    padding: max(.375rem, env(safe-area-inset-top, 0px)) max(.5rem, env(safe-area-inset-right, 0px))
+      max(.375rem, env(safe-area-inset-bottom, 0px)) max(.5rem, env(safe-area-inset-left, 0px));
+  }
+  .payment-entry .payment-entry-shell { max-width: none; }
+  .payment-entry .payment-entry-header { padding: .5rem .875rem; }
+  .payment-entry .payment-entry-header h4 { font-size: 1.05rem; }
+  .payment-entry .payment-entry-subtitle { display: none; }
+  .payment-entry .payment-entry-close { min-width: 40px; min-height: 40px; }
+
+  .payment-entry .payment-entry-columns { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  .payment-entry .payment-entry-columns > * { border-width: 0; }
+  .payment-entry .payment-entry-columns > .payment-client-pane { padding: .625rem .75rem; border-right: 1px solid #f1f5f9; }
+  .payment-entry .payment-client-list { flex: 1 1 0; max-height: none; }
+  .payment-entry .payment-client-pane > :is(.flex, .relative) { margin-bottom: .5rem; }
+  .payment-entry .payment-entry-columns > .payment-entry-details { flex: initial; }
+
+  .payment-entry .payment-entry-scroll { padding: .75rem .875rem; }
+  .payment-entry .payment-state-grid > div { min-height: 4rem; padding: .55rem .75rem; }
+  .payment-entry .payment-entry-footer { padding: .5rem .875rem; }
+  .payment-entry .payment-entry-footer button { min-height: 40px; }
+  .payment-entry .payment-entry-footer button:last-child { flex: 0 0 auto; }
+}
