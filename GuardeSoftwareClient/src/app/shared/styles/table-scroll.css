@@ -1,16 +1,34 @@
 /*
- * Tablas con scroll propio en pantallas chicas (Clientes y Bauleras). El alto deja a la vista el encabezado de la
- * tabla y la paginación cuando la página está al final (la pantalla menos el encabezado de la app, las áreas seguras
- * y unos 6 rem para la paginación), y el visor deja pasar el gesto vertical a la página al llegar a sus extremos
- * (con `contain` el dedo sobre la tabla nunca podía mover la página). El gesto horizontal sigue contenido para no
- * disparar el «atrás» de Safari.
+ * Tablas anchas en pantallas chicas (Clientes, Bauleras y Finanzas). La tabla se desplaza SÓLO de costado, dentro de
+ * su visor, y hacia abajo se desplaza la página (#main-scroll), que es la única que se mueve en vertical.
+ *
+ * Antes el visor tenía además scroll vertical propio (la pantalla menos el encabezado). En iPhone eso daba dos
+ * desplazamientos anidados: el dedo sobre la tabla la movía en diagonal, al llegar a un borde la tabla rebotaba y
+ * dejaba un hueco en blanco de cientos de píxeles (arriba y a un costado), y para seguir bajando había que soltar y
+ * volver a tocar. Con el visor sin scroll vertical, el gesto vertical pasa directo a la página y el horizontal se
+ * queda en la tabla.
+ *
+ * - `overscroll-behavior-x: none` quita el rebote del borde (y el «atrás» de Safari al pasarse del borde izquierdo).
+ * - La tabla ya no mantiene fijos su encabezado ni sus totales (`sticky` se resuelve contra el visor, que ahora no
+ *   se desplaza en vertical): en celular son filas comunes. En escritorio no cambia nada.
+ * - `overflow-y: hidden` evita que quede un scroll vertical de 1 px por redondeos, que volvería a tomar el gesto. El
+ *   `padding-bottom` deja libre la última fila del botón flotante Bajar/Subir.
  */
 @media (max-width: 1023px) {
   .table-scroll-viewport {
-    max-height: max(14rem, calc(100vh - 11.25rem));
-    max-height: max(14rem, calc(100dvh - 11.25rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
-    overflow: auto;
-    overscroll-behavior: contain auto;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: none;
+    overscroll-behavior-y: auto;
+    padding-bottom: 5rem;
+  }
+}
+
+/* Columna que se oculta en pantallas muy angostas (teléfono en vertical): se aplica al <th> y a todas sus celdas. */
+@media (max-width: 767px) {
+  .col-hide-narrow {
+    display: none;
   }
 }
 

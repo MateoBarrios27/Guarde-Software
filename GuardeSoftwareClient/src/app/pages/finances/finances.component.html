@@ -105,20 +105,53 @@
     </div>
 </div> -->
 
-  <!-- === ENCABEZADO: MES MOSTRADO + FILTROS === -->
+  <!-- === ENCABEZADO: PERÍODO (bloque azul) + BUSCADOR, MÉTODOS Y ACCIONES === -->
   <section class="finance-hero" aria-label="Período y filtros de pagos">
     <div class="finance-hero-grid">
 
-    <!-- Bloque azul: marca el mes (o día) que se está viendo -->
+    <!-- Bloque azul: todo lo de fecha. Mes / Día / Todo, el período con sus flechas y los totales filtrados. -->
     <div class="finance-month" role="group" aria-label="Período mostrado">
-      <p class="finance-month-eyebrow">{{ dateBanner.eyebrow }}</p>
+      <div class="finance-mode" role="group" aria-label="Filtrar pagos por">
+        <button type="button" class="finance-mode-option"
+                [class.finance-mode-option-active]="dateFilterType === 'month'"
+                [attr.aria-pressed]="dateFilterType === 'month'"
+                (click)="setDateMode('month')">Mes</button>
+        <button type="button" class="finance-mode-option"
+                [class.finance-mode-option-active]="dateFilterType === 'day'"
+                [attr.aria-pressed]="dateFilterType === 'day'"
+                (click)="setDateMode('day')">Día</button>
+        <button type="button" class="finance-mode-option"
+                [class.finance-mode-option-active]="dateFilterType === 'none'"
+                [attr.aria-pressed]="dateFilterType === 'none'"
+                (click)="setDateMode('none')">Todo</button>
+      </div>
 
-      <div class="finance-month-steps">
+      <div class="finance-period">
         <button type="button" class="finance-month-step" (click)="shiftDateScope(-1)"
                 [disabled]="dateScope === 'all'"
                 [attr.aria-label]="dateScope === 'day' ? 'Día anterior' : 'Mes anterior'">
           <app-icon name="chevron-left" class="h-4 w-4"></app-icon>
         </button>
+
+        <div class="finance-period-title-wrap">
+          <!-- En Mes o Todo abre el panel de meses; en Día lo cubre el campo de fecha, que abre el selector del sistema. -->
+          <button #monthPickerTitle type="button" class="finance-period-title"
+                  cdkOverlayOrigin #monthPickerOrigin="cdkOverlayOrigin"
+                  (click)="toggleMonthPicker()"
+                  aria-haspopup="dialog"
+                  [attr.aria-expanded]="monthPickerOpen"
+                  [attr.tabindex]="dateFilterType === 'day' ? -1 : null"
+                  [attr.aria-hidden]="dateFilterType === 'day' ? true : null"
+                  [attr.aria-label]="'Elegir mes (ahora: ' + dateBanner.title + (dateScope === 'month' ? ' ' + dateBanner.subtitle : '') + ')'">
+            <span class="finance-period-name">{{ dateBanner.title }}</span>
+            <span *ngIf="dateScope === 'month'" class="finance-period-year">{{ dateBanner.subtitle }}</span>
+            <app-icon name="chevron-down" class="finance-period-caret" aria-hidden="true"></app-icon>
+          </button>
+          <input *ngIf="dateFilterType === 'day'" type="date" class="finance-period-day-input"
+                 [(ngModel)]="selectedDay" (change)="onDateInputChange()" (click)="openDayPicker($event)"
+                 aria-label="Elegir día" />
+        </div>
+
         <button type="button" class="finance-month-step" (click)="shiftDateScope(1)"
                 [disabled]="dateScope === 'all'"
                 [attr.aria-label]="dateScope === 'day' ? 'Día siguiente' : 'Mes siguiente'">
@@ -126,10 +159,9 @@
         </button>
       </div>
 
-      <h2 class="finance-month-title" aria-live="polite">{{ dateBanner.title }}</h2>
-
-      <div class="finance-month-meta">
-        <span class="finance-month-sub">{{ dateBanner.subtitle }}</span>
+      <div class="finance-month-meta" aria-live="polite">
+        <span *ngIf="dateScope !== 'month'" class="finance-month-sub">{{ dateBanner.subtitle }}</span>
+        <span *ngIf="dateScope === 'month'" class="finance-month-year-compact">{{ dateBanner.subtitle }}</span>
         <span *ngIf="dateBanner.badge" class="finance-month-badge">{{ dateBanner.badge }}</span>
         <button *ngIf="dateBanner.returnLabel" type="button" class="finance-month-return" (click)="goToCurrentPeriod()">
           <app-icon name="rotate-ccw" class="h-3.5 w-3.5"></app-icon>
@@ -149,50 +181,11 @@
       </dl>
     </div>
 
-    <!-- Panel blanco: selector de meses, métodos de pago y filtros -->
+    <!-- Panel blanco: buscador y Nuevo Pago arriba; métodos de pago y Limpiar filtros abajo -->
     <div class="finance-controls">
-
-      <div class="finance-rail">
-        <div class="finance-year">
-          <button type="button" class="finance-year-step" (click)="shiftRailYear(-1)" aria-label="Año anterior">
-            <app-icon name="chevron-left" class="h-4 w-4"></app-icon>
-          </button>
-          <span class="finance-year-value" aria-live="polite">{{ railYear }}</span>
-          <button type="button" class="finance-year-step" (click)="shiftRailYear(1)" aria-label="Año siguiente">
-            <app-icon name="chevron-right" class="h-4 w-4"></app-icon>
-          </button>
-        </div>
-        <div class="finance-rail-months" role="group" [attr.aria-label]="'Meses de ' + railYear">
-          <button *ngFor="let name of monthShortNames; let i = index" type="button"
-                  class="finance-rail-month"
-                  [class.finance-rail-month-active]="isRailMonthActive(i)"
-                  [class.finance-rail-month-current]="isRailMonthCurrent(i)"
-                  [attr.aria-pressed]="isRailMonthActive(i)"
-                  [attr.aria-label]="monthNames[i] + ' ' + railYear + (isRailMonthCurrent(i) ? ' (mes en curso)' : '')"
-                  (click)="selectRailMonth(i)">{{ name }}</button>
-        </div>
-      </div>
-
-      <div class="finance-methods">
-        <div class="finance-method-chips" role="group" aria-label="Filtrar por método de pago">
-          <button type="button" class="finance-method-chip finance-method-all"
-                  [class.finance-method-chip-active]="!selectedMethodFilter"
-                  [attr.aria-pressed]="!selectedMethodFilter"
-                  (click)="selectMethodFilter('')">Todos</button>
-          <button *ngFor="let method of paymentMethods" type="button"
-                  class="finance-method-chip"
-                  [ngClass]="getPaymentMethodTone(method.name).cls"
-                  [class.finance-method-chip-active]="selectedMethodFilter === method.name"
-                  [attr.aria-pressed]="selectedMethodFilter === method.name"
-                  (click)="selectMethodFilter(method.name)">
-            <app-icon [name]="getPaymentMethodTone(method.name).icon" class="finance-method-icon" aria-hidden="true"></app-icon>
-            {{ method.name }}
-          </button>
-        </div>
-      </div>
-
-      <div class="finance-filters">
+      <div class="finance-controls-row">
         <div class="finance-search">
+          <app-icon name="search" class="finance-search-icon" aria-hidden="true"></app-icon>
           <input
             type="text"
             [(ngModel)]="searchPayment"
@@ -207,63 +200,83 @@
           </button>
         </div>
 
-        <select
-          [(ngModel)]="dateFilterType"
-          (change)="onDateFilterTypeChange()"
-          aria-label="Tipo de filtro de fecha"
-          class="finance-field"
-        >
-          <option value="none">Sin filtro de fecha</option>
-          <option value="month">Por Mes</option>
-          <option value="day">Por Día</option>
-        </select>
+        <button
+          *ngIf="!authService.isObserver()"
+          type="button"
+          (click)="OpenPaymentModal()"
+          class="finance-action-primary">
+          <app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Pago
+        </button>
+      </div>
 
-        <!-- Con el selector de meses a la vista el mes se elige ahí: este campo sólo aparece en celular. -->
-        <input
-          *ngIf="dateFilterType === 'month'"
-          type="month"
-          [(ngModel)]="selectedMonth"
-          (change)="onDateInputChange()"
-          aria-label="Mes de los pagos"
-          class="finance-field finance-field-month"
-        />
-
-        <input
-          *ngIf="dateFilterType === 'day'"
-          type="date"
-          [(ngModel)]="selectedDay"
-          (change)="onDateInputChange()"
-          aria-label="Día de los pagos"
-          class="finance-field"
-        />
-
-        <select [(ngModel)]="itemsPerPage" (change)="page = 1"
-                aria-label="Pagos por página"
-                class="finance-field finance-field-narrow">
-          <option *ngFor="let size of [100, 200, 500]" [value]="size">{{ size }} / página</option>
-        </select>
-
-        <div class="finance-actions">
-          <button type="button" (click)="resetFilters()" class="finance-action-secondary">
-            Limpiar filtros
-          </button>
-
-          <button
-            *ngIf="!authService.isObserver()"
-            type="button"
-            (click)="OpenPaymentModal()"
-            class="finance-action-primary">
-            <app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Pago
-          </button>
+      <div class="finance-controls-row">
+        <div class="finance-methods">
+          <div class="finance-method-chips" role="group" aria-label="Filtrar por método de pago">
+            <button type="button" class="finance-method-chip finance-method-all"
+                    [class.finance-method-chip-active]="!selectedMethodFilter"
+                    [attr.aria-pressed]="!selectedMethodFilter"
+                    (click)="selectMethodFilter('')">Todos</button>
+            <button *ngFor="let method of paymentMethods" type="button"
+                    class="finance-method-chip"
+                    [ngClass]="getPaymentMethodTone(method.name).cls"
+                    [class.finance-method-chip-active]="selectedMethodFilter === method.name"
+                    [attr.aria-pressed]="selectedMethodFilter === method.name"
+                    (click)="selectMethodFilter(method.name)">
+              <app-icon [name]="getPaymentMethodTone(method.name).icon" class="finance-method-icon" aria-hidden="true"></app-icon>
+              {{ method.name }}
+            </button>
+          </div>
         </div>
+
+        <button type="button" (click)="resetFilters()" class="finance-action-secondary"
+                title="Limpiar filtros: búsqueda, método y vuelta al mes en curso" aria-label="Limpiar filtros">
+          <app-icon name="rotate-ccw" class="h-3.5 w-3.5" aria-hidden="true"></app-icon>
+          Limpiar
+        </button>
       </div>
     </div>
     </div>
   </section>
 
+  <!-- Panel desplegable de meses: año ‹ › y los 12 meses en una grilla de 4×3 -->
+  <ng-template
+    cdkConnectedOverlay
+    [cdkConnectedOverlayOrigin]="monthPickerOrigin"
+    [cdkConnectedOverlayOpen]="monthPickerOpen"
+    [cdkConnectedOverlayPositions]="monthPickerPositions"
+    [cdkConnectedOverlayScrollStrategy]="monthPickerScrollStrategy"
+    [cdkConnectedOverlayViewportMargin]="12"
+    [cdkConnectedOverlayPush]="true"
+    (attach)="focusMonthPanel()"
+    (detach)="closeMonthPicker()"
+    (overlayOutsideClick)="onMonthPickerOutsideClick($event, monthPickerTitle)"
+    (overlayKeydown)="$event.key === 'Escape' && closeMonthPicker(true)"
+  >
+    <div class="finance-month-panel" role="dialog" aria-label="Elegir mes">
+      <div class="finance-month-panel-head">
+        <button type="button" class="finance-month-panel-step" (click)="shiftRailYear(-1)" aria-label="Año anterior">
+          <app-icon name="chevron-left" class="h-4 w-4"></app-icon>
+        </button>
+        <span class="finance-month-panel-year" aria-live="polite">{{ railYear }}</span>
+        <button type="button" class="finance-month-panel-step" (click)="shiftRailYear(1)" aria-label="Año siguiente">
+          <app-icon name="chevron-right" class="h-4 w-4"></app-icon>
+        </button>
+      </div>
+      <div class="finance-month-panel-grid" role="group" [attr.aria-label]="'Meses de ' + railYear">
+        <button *ngFor="let name of monthShortNames; let i = index" type="button"
+                class="finance-month-panel-month"
+                [class.finance-month-panel-month-active]="isRailMonthActive(i)"
+                [class.finance-month-panel-month-current]="isRailMonthCurrent(i)"
+                [attr.aria-pressed]="isRailMonthActive(i)"
+                [attr.aria-label]="monthNames[i] + ' ' + railYear + (isRailMonthCurrent(i) ? ' (mes en curso)' : '')"
+                (click)="selectRailMonth(i)">{{ name }}</button>
+      </div>
+    </div>
+  </ng-template>
+
   <!-- === TABLA DE PAGOS === -->
-  <div class="relative w-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible min-w-[1050px]">
-    <div class="w-full min-w-0 overflow-visible" aria-label="Tabla de pagos">
+  <div class="finance-table-card relative w-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible min-w-[1050px]">
+    <div class="finance-table-viewport table-scroll-viewport w-full min-w-0 overflow-visible" aria-label="Tabla de pagos" tabindex="0">
     <table class="min-w-[1050px] w-full text-sm border-collapse">
       
       <!-- 2. THEAD STICKY: Agregamos sticky, top-0, z-20 y shadow-sm -->
@@ -466,13 +479,21 @@
     </table>
     </div>
 
-    <pagination-template [id]="'payments'" #p="paginationApi" (pageChange)="page = $event">
-        <div class="flex justify-center items-center gap-3">
-          <button (click)="p.previous()" [disabled]="p.isFirstPage()" class="px-2 py-1 border rounded disabled:opacity-40">«</button>
-          <span class="px-3 py-1 border rounded">{{ p.getCurrent() }}</span>
-          <button (click)="p.next()" [disabled]="p.isLastPage()" class="px-2 py-1 border rounded disabled:opacity-40">»</button>
-        </div>
-      </pagination-template>
+    <!-- Paginación y cantidad por página, al pie de la tabla -->
+    <div class="finance-pager">
+      <pagination-template [id]="'payments'" #p="paginationApi" (pageChange)="page = $event">
+          <div class="flex justify-center items-center gap-3">
+            <button (click)="p.previous()" [disabled]="p.isFirstPage()" class="px-2 py-1 border rounded disabled:opacity-40">«</button>
+            <span class="px-3 py-1 border rounded">{{ p.getCurrent() }}</span>
+            <button (click)="p.next()" [disabled]="p.isLastPage()" class="px-2 py-1 border rounded disabled:opacity-40">»</button>
+          </div>
+        </pagination-template>
+      <select [(ngModel)]="itemsPerPage" (change)="page = 1"
+              aria-label="Pagos por página"
+              class="finance-page-size">
+        <option *ngFor="let size of [100, 200, 500]" [value]="size">{{ size }} / página</option>
+      </select>
+    </div>
 
   </div>
 </div>

@@ -18,10 +18,18 @@
     flex-wrap: wrap;
   }
 
-  /* El alto y el scroll del visor salen de table-scroll.css (clase table-scroll-viewport). */
+  /* El scroll del visor (sólo de costado en celular) sale de table-scroll.css (clase table-scroll-viewport). */
   .clients-table-viewport:focus-visible {
     outline: 2px solid #2563eb;
     outline-offset: -2px;
+  }
+}
+
+/* Teléfono en vertical: sin Saldo ant. ni Interés (clase col-hide-narrow) la tabla pide menos que los 1180 px de
+   escritorio, así que se deja de forzar ese ancho y se desplaza lo mínimo. */
+@media (max-width: 767px) {
+  .clients-table-viewport table {
+    min-width: 0;
   }
 }
 

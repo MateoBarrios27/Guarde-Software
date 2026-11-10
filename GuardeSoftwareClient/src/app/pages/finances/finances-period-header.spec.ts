@@ -5,7 +5,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 // con dependencias nulas (sólo el router y el overlay necesitan forma) y se fija la fecha de hoy.
 function createComponent(): FinancesComponent {
   const router = { events: { subscribe: () => ({ unsubscribe: () => undefined }) } };
-  const overlay = { scrollStrategies: { close: () => ({}) } };
+  const overlay = { scrollStrategies: { close: () => ({}), reposition: () => ({}) } };
   const nothing = null as never;
   const component = new FinancesComponent(
     nothing, nothing, nothing, nothing, router as never, nothing, nothing, nothing,
@@ -121,6 +121,78 @@ describe('Finanzas: encabezado de período', () => {
     expect(component.isRailMonthActive(10)).toBeFalse();
   });
 
+  it('Mes / Día / Todo: Día toma hoy, Mes toma el mes del día que se veía y Todo quita la fecha', () => {
+    component.setDateMode('day');
+    expect(component.dateFilterType).toBe('day');
+    expect(component.selectedDay).toBe('2026-11-04');
+    expect(component.dateScope).toBe('day');
+
+    component.selectedDay = '2026-10-15';
+    component.setDateMode('month');
+    expect(component.selectedMonth).toBe('2026-10');
+    expect(component.selectedDay).toBe('');
+    expect(component.railYear).toBe(2026);
+
+    component.setDateMode('none');
+    expect(component.dateScope).toBe('all');
+    expect(component.selectedMonth).toBe('');
+
+    component.setDateMode('month');
+    expect(component.selectedMonth).toBe('2026-11'); // sin día previo: el mes en curso
+    expect(component.filterPayments).toHaveBeenCalledTimes(4);
+  });
+
+  it('volver a tocar Mes conserva el mes elegido y Día conserva el día elegido', () => {
+    component.selectedMonth = '2025-03';
+    component.setDateMode('month');
+    expect(component.selectedMonth).toBe('2025-03');
+
+    component.setDateMode('day');
+    component.selectedDay = '2026-01-20';
+    component.setDateMode('day');
+    expect(component.selectedDay).toBe('2026-01-20');
+  });
+
+  it('el panel de meses se abre y cierra desde el título, y elegir un mes lo cierra', () => {
+    component.selectedMonth = '2025-06';
+    component.railYear = 2030;
+    component.toggleMonthPicker();
+    expect(component.monthPickerOpen).toBeTrue();
+    expect(component.railYear).toBe(2025); // abre en el año del mes elegido
+
+    component.toggleMonthPicker();
+    expect(component.monthPickerOpen).toBeFalse();
+
+    component.toggleMonthPicker();
+    component.selectRailMonth(0);
+    expect(component.monthPickerOpen).toBeFalse();
+    expect(component.selectedMonth).toBe('2025-01');
+  });
+
+  it('un clic afuera cierra el panel, pero no un clic sobre el propio título', () => {
+    const title = document.createElement('button');
+    const inner = document.createElement('span');
+    title.appendChild(inner);
+    component.toggleMonthPicker();
+
+    component.onMonthPickerOutsideClick({ target: inner } as unknown as MouseEvent, title);
+    expect(component.monthPickerOpen).toBeTrue();
+
+    component.onMonthPickerOutsideClick({ target: document.body } as unknown as MouseEvent, title);
+    expect(component.monthPickerOpen).toBeFalse();
+  });
+
+  it('cambiar de modo o limpiar los filtros cierra el panel', () => {
+    component.toggleMonthPicker();
+    component.setDateMode('none');
+    expect(component.monthPickerOpen).toBeFalse();
+
+    component.toggleMonthPicker();
+    component.resetFilters();
+    expect(component.monthPickerOpen).toBeFalse();
+    expect(component.selectedMonth).toBe('2026-11');
+  });
+
   it('el mes marcado como actual sólo aparece en el año en curso', () => {
     expect(component.isRailMonthCurrent(10)).toBeTrue();
     expect(component.isRailMonthCurrent(9)).toBeFalse();
@@ -179,15 +251,18 @@ describe('Finanzas: íconos de los métodos', () => {
     return String(icon.svgContent);
   };
 
-  ['banknote', 'bank', 'sliders', 'mercado-pago', 'wallet'].forEach(name => {
+  ['banknote', 'bank', 'sliders', 'mercado-pago', 'wallet', 'chevron-down'].forEach(name => {
     it(`el ícono «${name}» existe en la biblioteca`, () => {
       expect(render(name)).toContain('<svg');
     });
   });
 
-  it('el de Mercado Pago toma el color del texto en vez de un blanco fijo', () => {
-    const svg = render('mercado-pago');
-    expect(svg).toContain('fill="currentColor"');
-    expect(svg.toLowerCase()).not.toContain('#fff');
+  it('el de Mercado Pago es el logo relleno de la marca y toma el color del texto', () => {
+    const mp = render('mercado-pago');
+    // Sin `fill="currentColor"` el logo quedaría negro sobre la pastilla y el chip elegido.
+    expect(mp).toContain('fill="currentColor"');
+    expect(mp).toContain('viewBox="0 0 24 24"');
+    expect(mp).not.toContain('stroke=');
+    expect(mp).not.toMatch(/#[0-9a-f]{3,8}\b/i);
   });
 });

@@ -1,3 +1,5 @@
+@import '../../shared/styles/table-scroll.css';
+
 .finance-date-cell {
     width: 6.5rem;
     white-space: nowrap;
@@ -249,10 +251,11 @@
     }
 }
 
-/* ===== Encabezado de período: bloque azul con el mes + panel de filtros ===== */
-/* El encabezado es un contenedor: el reparto (bloque al costado, en banda arriba o en celular) depende
-   de su ancho real y no del de la pantalla, porque el menú lateral le quita 280 px en escritorio.
-   Es compacto a propósito: en escritorio todo cabe en unas tres filas de 34 px (≈ 140 px de alto). */
+/* ===== Encabezado de Finanzas: bloque azul con el período + panel con buscador, métodos y acciones ===== */
+/* El encabezado es un contenedor: el reparto (bloque al costado, banda arriba o celular) depende de su ancho real y
+   no del de la pantalla, porque el menú lateral le quita 280 px en escritorio. Todo lo de fecha vive en el bloque
+   azul (Mes / Día / Todo, el período y sus flechas, el panel de meses); el panel blanco tiene sólo dos filas:
+   buscador + Nuevo Pago, y métodos de pago + Limpiar filtros. En escritorio mide unos 140 px de alto. */
 .finance-hero {
     container-type: inline-size;
     overflow: hidden;
@@ -262,27 +265,55 @@
 }
 .finance-hero-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
 
-/* --- Bloque azul. Base (≥ 40 rem de encabezado): banda con título, flechas y cifras en una fila --- */
+/* --- Bloque azul. Base (banda arriba, 40 a 58 rem): modo, período y aviso a la izquierda; cifras a la derecha --- */
 .finance-month {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    grid-template-areas: 'title steps figures' 'meta meta figures';
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'mode figures' 'period figures' 'meta figures';
+    align-content: center;
     align-items: center;
-    column-gap: 0.75rem;
-    row-gap: 0.15rem;
+    column-gap: 1rem;
+    row-gap: 0.375rem;
     min-width: 0;
-    padding: 0.75rem 1rem;
+    padding: 0.875rem 1rem;
     background: #2563eb;
     color: #fff;
 }
 
-.finance-month-eyebrow { display: none; grid-area: eyebrow; margin: 0; color: #bfdbfe; font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
-.finance-month-steps { grid-area: steps; display: flex; gap: 0.375rem; }
+/* Mes / Día / Todo: control segmentado sobre #1D4ED8; el elegido en blanco con texto navy. */
+.finance-mode {
+    grid-area: mode;
+    display: inline-flex;
+    justify-self: start;
+    gap: 0.125rem;
+    padding: 0.1875rem;
+    border-radius: 0.75rem;
+    background: #1d4ed8;
+}
+.finance-mode-option {
+    min-height: 1.75rem;
+    padding: 0 0.85rem;
+    border: 0;
+    border-radius: 0.5625rem;
+    background: transparent;
+    color: #dbeafe;
+    font-size: 0.75rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+.finance-mode-option:hover { color: #fff; }
+.finance-mode-option-active,
+.finance-mode-option-active:hover { background: #fff; color: #123a74; }
+
+/* ‹ Noviembre 2026 ▾ › */
+.finance-period { grid-area: period; display: flex; align-items: center; gap: 0.25rem; min-width: 0; }
 
 .finance-month-step {
     display: grid;
-    width: 2.125rem;
-    height: 2.125rem;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
     place-items: center;
     border: 0;
     border-radius: 0.625rem;
@@ -294,21 +325,53 @@
 .finance-month-step:hover:not(:disabled) { background: #1e40af; }
 .finance-month-step:disabled { cursor: not-allowed; opacity: 0.45; }
 
-.finance-month-title {
-    grid-area: title;
-    margin: 0;
-    padding-bottom: 0.05em;
+.finance-period-title-wrap { position: relative; flex: 0 1 auto; min-width: 0; }
+.finance-period-title {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    max-width: 100%;
+    padding: 0.05rem 0.5rem 0.1rem;
+    border: 0;
+    border-radius: 0.625rem;
+    background: transparent;
+    color: #fff;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+}
+.finance-period-title:hover,
+.finance-period-title[aria-expanded="true"] { background: #1d4ed8; }
+.finance-period-name {
+    min-width: 0;
     overflow: hidden;
-    font-size: 2rem;
+    font-size: 1.625rem;
     font-weight: 800;
     letter-spacing: -0.04em;
-    line-height: 1.15;
+    line-height: 1.2;
     text-overflow: ellipsis;
-    white-space: nowrap;
+}
+.finance-period-year { color: #bfdbfe; font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.finance-period-caret { display: inline-flex; align-self: center; width: 1rem; height: 1rem; flex: 0 0 auto; color: #bfdbfe; }
+
+/* Día: un campo de fecha transparente cubre el título; el toque abre el selector del sistema (16 px: sin zoom en iPhone). */
+.finance-period-day-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    font-size: 16px;
+    cursor: pointer;
 }
 
 .finance-month-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-height: 1.75rem; }
-.finance-month-sub { font-size: 1rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.finance-month-sub { color: #dbeafe; font-size: 0.875rem; font-weight: 700; }
+/* En celular el año pasa del título a esta fila, para que el mes entre completo entre las flechas. */
+.finance-month-year-compact { display: none; color: #fff; font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 
 .finance-month-badge {
     padding: 0.2rem 0.6rem;
@@ -338,8 +401,7 @@
 }
 .finance-month-return:hover { background: #1e40af; }
 
-/* Pagos y Total: dos bloques #1D4ED8 con la etiqueta arriba y la cifra debajo. La cifra no se achica ni se
-   abrevia: el bloque crece lo que haga falta. */
+/* Pagos y Total: bloques #1D4ED8 con la etiqueta arriba y la cifra debajo. La cifra no se achica ni se abrevia. */
 .finance-month-figures { grid-area: figures; display: flex; gap: 0.375rem; margin: 0; padding: 0; }
 .finance-month-figure { display: flex; flex-direction: column; justify-content: center; gap: 0.05rem; min-width: 0; padding: 0.4rem 0.7rem; border-radius: 0.625rem; background: #1d4ed8; }
 .finance-month-figure dt { color: #bfdbfe; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.08em; line-height: 1.2; text-transform: uppercase; }
@@ -354,70 +416,118 @@
     white-space: nowrap;
 }
 
-/* --- Panel blanco: selector de meses, métodos de pago y filtros, en filas que se acomodan solas --- */
-.finance-controls {
-    --row: 2.125rem;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem 0.75rem;
-    min-width: 0;
-    padding: 0.75rem 1rem;
+/* --- Panel desplegable de meses (vive en el overlay, fuera del encabezado) --- */
+.finance-month-panel {
+    width: 18rem;
+    max-width: calc(100vw - 1.5rem);
+    padding: 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 18px 40px -16px rgba(15, 23, 42, 0.35);
 }
-
-/* Selector de meses del año */
-.finance-rail { display: flex; align-items: center; gap: 0.5rem; flex: 1 1 34rem; min-width: 0; }
-.finance-year { display: inline-flex; align-items: center; flex: 0 0 auto; }
-.finance-year-step {
+.finance-month-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.625rem; }
+.finance-month-panel-step {
     display: grid;
-    width: 1.75rem;
-    height: var(--row);
+    width: 2.25rem;
+    height: 2.25rem;
     place-items: center;
     border: 0;
-    border-radius: 0.5rem;
+    border-radius: 0.625rem;
     background: #f1f5f9;
     color: #475569;
     cursor: pointer;
     transition: background-color 150ms ease;
 }
-.finance-year-step:hover { background: #e2e8f0; }
-.finance-year-value { min-width: 2.75rem; color: #172033; font-size: 0.9rem; font-weight: 800; font-variant-numeric: tabular-nums; text-align: center; }
-
-.finance-rail-months { display: grid; flex: 1 1 auto; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 0.2rem; min-width: 0; }
-.finance-rail-month {
+.finance-month-panel-step:hover { background: #e2e8f0; }
+.finance-month-panel-year { color: #172033; font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.finance-month-panel-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.375rem; }
+.finance-month-panel-month {
     position: relative;
-    min-height: var(--row);
+    min-height: 2.75rem;
     padding: 0;
     border: 0;
-    border-radius: 0.5rem;
-    background: #f1f5f9;
-    color: #475569;
-    font-size: 0.6875rem;
+    border-radius: 0.625rem;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 0.875rem;
     font-weight: 800;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
     cursor: pointer;
     transition: background-color 150ms ease, color 150ms ease;
 }
-.finance-rail-month:hover { background: #e2e8f0; }
-.finance-rail-month-current { color: #2563eb; }
-.finance-rail-month-current::after {
+.finance-month-panel-month:hover { background: #e2e8f0; }
+.finance-month-panel-month-current { color: #2563eb; }
+.finance-month-panel-month-current::after {
     content: '';
     position: absolute;
-    bottom: 0.2rem;
+    bottom: 0.3rem;
     left: 50%;
-    width: 0.25rem;
-    height: 0.25rem;
-    margin-left: -0.125rem;
+    width: 0.3rem;
+    height: 0.3rem;
+    margin-left: -0.15rem;
     border-radius: 50%;
     background: currentColor;
 }
-.finance-rail-month-active,
-.finance-rail-month-active:hover { background: #2563eb; color: #fff; }
+.finance-month-panel-month-active,
+.finance-month-panel-month-active:hover { background: #2563eb; color: #fff; }
+
+/* --- Panel blanco: dos filas --- */
+.finance-controls {
+    --row: 2.125rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.75rem 1rem;
+}
+.finance-controls-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; min-width: 0; }
+
+.finance-field {
+    height: var(--row);
+    padding: 0 0.65rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.625rem;
+    background: #fff;
+    color: #172033;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.finance-search { position: relative; flex: 1 1 14rem; min-width: 0; }
+.finance-search-icon {
+    position: absolute;
+    top: 50%;
+    left: 0.7rem;
+    display: inline-flex;
+    width: 1rem;
+    height: 1rem;
+    color: #94a3b8;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+.finance-search-input { width: 100%; padding-left: 2.25rem; padding-right: 2.5rem; }
+.finance-search-clear {
+    position: absolute;
+    top: 50%;
+    right: 0.2rem;
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    place-items: center;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: #64748b;
+    transform: translateY(-50%);
+    cursor: pointer;
+}
+.finance-search-clear:hover { background: #f1f5f9; color: #334155; }
 
 /* Métodos de pago: color sólido e ícono por método (filtro y columna) */
-.finance-methods { flex: 1 1 auto; min-width: 0; }
-.finance-method-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+/* Base 0: los métodos comparten la fila con «Limpiar» y, si no entran, se acomodan en dos líneas en vez de empujarlo abajo. */
+.finance-methods { flex: 1 1 0; min-width: 0; }
+.finance-method-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 
 .finance-method-cash { --tone: #15803d; }
 .finance-method-transfer { --tone: #123a74; }
@@ -433,7 +543,7 @@
     align-items: center;
     gap: 0.4rem;
     min-height: var(--row);
-    padding: 0 0.8rem 0 0.65rem;
+    padding: 0 0.7rem 0 0.55rem;
     border: 1px solid #e2e8f0;
     border-radius: 0.625rem;
     background: #fff;
@@ -444,7 +554,7 @@
     cursor: pointer;
     transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
-.finance-method-all { padding-left: 0.8rem; }
+.finance-method-all { padding-left: 0.7rem; }
 .finance-method-chip .finance-method-icon { color: var(--tone, #475569); }
 .finance-method-chip:hover { border-color: var(--tone, #475569); }
 .finance-method-chip-active,
@@ -465,43 +575,10 @@
 }
 .finance-method-pill .finance-method-icon { width: 0.9rem; height: 0.9rem; }
 
-/* Búsqueda, fecha, paginación y acciones */
-.finance-filters { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-width: 0; }
-
-.finance-field {
-    height: var(--row);
-    padding: 0 0.65rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 0.625rem;
-    background: #fff;
-    color: #172033;
-    font-size: 0.8125rem;
-    font-weight: 600;
-}
-
-.finance-search { position: relative; flex: 1 1 10rem; min-width: 0; }
-.finance-search-input { width: 100%; padding-right: 2.5rem; }
-.finance-search-clear {
-    position: absolute;
-    top: 50%;
-    right: 0.2rem;
-    display: grid;
-    width: 1.75rem;
-    height: 1.75rem;
-    place-items: center;
-    border: 0;
-    border-radius: 0.5rem;
-    background: transparent;
-    color: #64748b;
-    transform: translateY(-50%);
-    cursor: pointer;
-}
-.finance-search-clear:hover { background: #f1f5f9; color: #334155; }
-
-.finance-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
 .finance-action-secondary,
 .finance-action-primary {
     display: inline-flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
     gap: 0.45rem;
@@ -513,56 +590,84 @@
     cursor: pointer;
     transition: background-color 150ms ease;
 }
-.finance-action-secondary { padding: 0 0.9rem; border: 1px solid #cbd5e1; background: #fff; color: #334155; }
+.finance-action-secondary { margin-left: auto; padding: 0 0.9rem; border: 1px solid #cbd5e1; background: #fff; color: #334155; }
 .finance-action-secondary:hover { background: #f1f5f9; }
 .finance-action-primary { padding: 0 1rem; border: 0; background: #111827; color: #fff; }
 .finance-action-primary:hover { background: #1f2937; }
 
-/* El mes se elige en el selector de meses; este campo queda para el celular, donde ese selector no está. */
-.finance-field-month { display: none; }
+/* «100 / página» vive en el pie de la tabla, junto a la paginación. */
+.finance-pager { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; }
+.finance-pager > pagination-template { grid-column: 2; }
+.finance-page-size {
+    grid-column: 3;
+    justify-self: end;
+    height: 2.125rem;
+    padding: 0 0.65rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.625rem;
+    background: #fff;
+    color: #172033;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
 
 .finance-field:focus-visible,
+.finance-page-size:focus-visible,
 .finance-search-clear:focus-visible,
-.finance-year-step:focus-visible,
-.finance-rail-month:focus-visible,
+.finance-month-panel-step:focus-visible,
+.finance-month-panel-month:focus-visible,
 .finance-method-chip:focus-visible,
 .finance-action-secondary:focus-visible,
 .finance-action-primary:focus-visible { outline: 3px solid #60a5fa; outline-offset: 2px; }
 .finance-month .finance-month-step:focus-visible,
-.finance-month .finance-month-return:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.finance-month .finance-month-return:focus-visible,
+.finance-month .finance-mode-option:focus-visible,
+.finance-month .finance-period-title:focus-visible,
+.finance-period-title-wrap:focus-within { outline: 3px solid #fff; outline-offset: 2px; border-radius: 0.625rem; }
 
-/* Encabezado ancho (menú lateral abierto en una pantalla de 1280 px o más): el bloque azul pasa al costado,
-   con «Pagos de», el título y las cifras apiladas a su derecha. */
+/* Encabezado ancho (58 rem o más; con el menú lateral abierto, pantallas de unos 1230 px): el bloque azul pasa al
+   costado. Sin las cifras: ahí el panel blanco necesita el ancho, y el pie de la tabla muestra lo mismo. */
 @container (min-width: 58rem) {
-    .finance-hero-grid { grid-template-columns: 27rem minmax(0, 1fr); }
-    .finance-month {
-        grid-template-areas: 'eyebrow steps figures' 'title title figures' 'meta meta figures';
-        align-content: center;
-    }
-    .finance-month-eyebrow { display: block; }
-    .finance-month-figures { flex-direction: column; }
+    .finance-hero-grid { grid-template-columns: 21.5rem minmax(0, 1fr); }
+    .finance-month { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'mode' 'period' 'meta'; }
+    .finance-month-figures { display: none; }
 }
 
-/* Celular: tamaño táctil, campos de 16 px (menos provoca zoom en iPhone) y sin selector de meses
-   (las flechas del bloque azul y el input de mes lo reemplazan). Todo en pocas filas: título con las
-   flechas al costado, el período debajo y las cifras en una sola fila. */
+/* Encabezado muy ancho (68 rem o más: pantallas de unos 1400 px): el bloque crece y suma las cifras a la derecha. */
+@container (min-width: 68rem) {
+    .finance-hero-grid { grid-template-columns: 33rem minmax(0, 1fr); }
+    .finance-month { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'mode figures' 'period figures' 'meta figures'; }
+    .finance-month-figures { display: flex; flex-direction: column; }
+}
+
+/* Celular: todo apilado y en tamaño táctil. Mes / Día / Todo a lo ancho, el período entre las flechas, las cifras
+   en una fila; abajo el buscador, los métodos en una fila que se desliza y «Limpiar filtros» con «Nuevo Pago». */
 @container (max-width: 39.99rem) {
     .finance-month {
-        grid-template-columns: minmax(0, 1fr) auto;
-        grid-template-areas: 'title steps' 'meta meta' 'figures figures';
-        padding: 0.75rem 0.875rem 0.875rem;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: 'mode' 'period' 'meta' 'figures';
+        row-gap: 0.5rem;
+        padding: 0.875rem;
     }
+    .finance-mode { justify-self: stretch; }
+    .finance-mode-option { flex: 1 1 0; min-height: 2.5rem; font-size: 0.875rem; }
+    .finance-period { justify-content: space-between; }
+    .finance-period-title-wrap { flex: 1 1 auto; display: flex; justify-content: center; }
     .finance-month-step { width: 2.75rem; height: 2.75rem; }
-    .finance-month-title { font-size: clamp(1.75rem, 8vw, 2rem); }
+    .finance-period-name { font-size: clamp(1.375rem, 7vw, 1.75rem); }
+    .finance-period-year { display: none; }
+    .finance-month-year-compact { display: inline; }
+    .finance-period-caret { width: 0.875rem; height: 0.875rem; }
+    .finance-period-title { padding-inline: 0.375rem; }
+    .finance-month-meta { justify-content: center; }
     .finance-month-return { min-height: 2.25rem; }
-    .finance-month-figures { margin-top: 0.5rem; }
     .finance-month-figure:last-child { flex: 1 1 auto; }
 
-    .finance-controls { --row: 2.75rem; gap: 0.5rem; padding: 0.75rem 0.875rem; }
-    .finance-rail { display: none; }
-
-    /* Una sola fila de métodos que se desliza hacia el costado, en vez de dos o tres filas apiladas. */
-    .finance-methods { flex: 1 1 100%; }
+    .finance-controls { --row: 2.75rem; flex-direction: row; flex-wrap: wrap; padding: 0.75rem 0.875rem; }
+    .finance-controls-row { display: contents; }
+    .finance-field { font-size: 1rem; }
+    .finance-search { flex: 1 1 100%; order: 1; }
+    .finance-methods { flex: 1 1 100%; order: 2; }
     .finance-method-chips {
         flex-wrap: nowrap;
         overflow-x: auto;
@@ -573,22 +678,38 @@
     }
     .finance-method-chips::-webkit-scrollbar { display: none; }
     .finance-method-chip { flex: 1 0 auto; justify-content: center; }
+    .finance-action-secondary { order: 3; margin-left: 0; }
+    .finance-action-primary { order: 4; flex: 1 1 0; min-width: 0; }
+}
 
-    .finance-field { font-size: 1rem; }
-    .finance-search { flex: 1 1 100%; order: 1; }
-    .finance-filters > select.finance-field { flex: 1 1 calc(50% - 0.25rem); min-width: 0; order: 2; }
-    /* El mes o el día ocupa su propia fila: a media fila el texto del mes queda cortado. */
-    .finance-filters > input.finance-field { flex: 1 1 100%; min-width: 0; order: 3; }
-    .finance-field-month { display: block; }
-    .finance-actions { order: 4; display: grid; flex: 1 1 100%; grid-template-columns: auto 1fr; margin-left: 0; }
+/* Teléfonos muy angostos (320 px): flechas de 40 px para que «Septiembre» entre completo. */
+@container (max-width: 22.49rem) {
+    .finance-month-step { width: 2.5rem; height: 2.5rem; }
+}
+
+/* Pie de la tabla en celular: paginación a la izquierda y «100 / página» a la derecha, en tamaño táctil. */
+@media (max-width: 639px) {
+    .finance-pager { grid-template-columns: minmax(0, 1fr) auto; }
+    .finance-pager > pagination-template { grid-column: 1; justify-self: start; }
+    .finance-page-size { grid-column: 2; height: 2.75rem; font-size: 1rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .finance-mode-option,
     .finance-month-step,
+    .finance-period-title,
     .finance-month-return,
-    .finance-year-step,
-    .finance-rail-month,
+    .finance-month-panel-step,
+    .finance-month-panel-month,
     .finance-method-chip,
     .finance-action-secondary,
     .finance-action-primary { transition: none; }
+}
+
+/* Tabla de pagos en celular: se desplaza sólo de costado dentro de su visor (table-scroll.css) en vez de mover toda la
+   página, y sin el hueco para el botón flotante, que Finanzas no tiene. */
+@media (max-width: 1023px) {
+    .finance-table-card { min-width: 0; }
+    .finance-table-viewport { padding-bottom: 0; }
+    .finance-table-viewport:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
 }

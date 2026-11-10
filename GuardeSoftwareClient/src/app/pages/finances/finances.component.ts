@@ -1,5 +1,5 @@
 import { roundRentToPaymentStep } from '../../shared/utils/payment-planning.util';
-import { Component, OnDestroy, OnInit, HostListener, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, HostListener, ViewChild } from '@angular/core';
 import { CdkConnectedOverlay, CdkOverlayOrigin, ConnectedPosition, Overlay, OverlayModule } from '@angular/cdk/overlay';
 import { PaymentService } from '../../core/services/payment-service/payment.service';
 import { PaymentMethodService } from '../../core/services/paymentMethod-service/payment-method.service';
@@ -98,6 +98,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
     overlay: Overlay,
   ){
     this.clientStatsScrollStrategy = overlay.scrollStrategies.close();
+    this.monthPickerScrollStrategy = overlay.scrollStrategies.reposition();
     this.paymentPresenceSubscriptions.add(this.router.events.subscribe(event => {
       if (event instanceof NavigationStart) {
         this.clientStatsNavigationPending = true;
@@ -608,15 +609,35 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.selectedMonth = this.getCurrentMonthKey();
     this.selectedDay = '';
     this.dateFilterType = 'month';
+    this.monthPickerOpen = false;
     this.syncRailYear();
     this.filterPayments();
   }
 
-  onDateFilterTypeChange(): void {
-    this.selectedMonth = this.dateFilterType === 'month' ? this.getCurrentMonthKey() : '';
-    this.selectedDay = '';
-    this.syncRailYear();
-    this.filterPayments();
+  /**
+   * Botones Mes / Día / Todo del bloque azul (reemplazan al select «Tipo de filtro de fecha»). Al pasar a Mes se usa
+   * el mes del día que se estaba viendo, o el mes en curso; al pasar a Día, el día ya elegido o hoy. Así nunca queda
+   * un mes o día vacío, que equivale a no filtrar.
+   */
+  setDateMode(mode: 'month' | 'day' | 'none'): void {
+    const day = this.dateFilterType === 'day' ? this.parseDayKey(this.selectedDay) : null;
+    const keepMonth = this.dateFilterType === 'month' && this.parseMonthKey(this.selectedMonth);
+    const keepDay = this.dateFilterType === 'day' && day;
+
+    this.dateFilterType = mode;
+    if (mode === 'month') {
+      this.selectedMonth = keepMonth ? this.selectedMonth
+        : day ? this.toMonthKey(new Date(day.year, day.month - 1, 1)) : this.getCurrentMonthKey();
+      this.selectedDay = '';
+    } else if (mode === 'day') {
+      this.selectedDay = keepDay ? this.selectedDay : this.toDayKey(new Date());
+      this.selectedMonth = '';
+    } else {
+      this.selectedMonth = '';
+      this.selectedDay = '';
+    }
+    this.monthPickerOpen = false;
+    this.onDateInputChange();
   }
 
   // === Encabezado de período: el mes (o día) que se muestra arriba de la tabla ===
@@ -716,7 +737,65 @@ export class FinancesComponent implements OnInit, OnDestroy {
     this.dateFilterType = 'month';
     this.selectedDay = '';
     this.selectedMonth = `${this.railYear}-${String(monthIndex + 1).padStart(2, '0')}`;
+    this.closeMonthPicker(true);
     this.onDateInputChange();
+  }
+
+  // === Panel desplegable de meses (se abre desde el título del bloque azul) ===
+  monthPickerOpen = false;
+  readonly monthPickerScrollStrategy;
+  readonly monthPickerPositions: ConnectedPosition[] = [
+    { originX: 'center', originY: 'bottom', overlayX: 'center', overlayY: 'top', offsetY: 8 },
+    { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 8 },
+    { originX: 'center', originY: 'top', overlayX: 'center', overlayY: 'bottom', offsetY: -8 },
+  ];
+  @ViewChild('monthPickerTitle') private monthPickerTitle?: ElementRef<HTMLButtonElement>;
+
+  /** Título del bloque azul en Mes o Todo: abre o cierra el panel de meses (en Día lo cubre el campo de fecha). */
+  toggleMonthPicker(): void {
+    if (this.monthPickerOpen) {
+      this.closeMonthPicker();
+      return;
+    }
+    this.syncRailYear();
+    this.monthPickerOpen = true;
+  }
+
+  closeMonthPicker(restoreFocus = false): void {
+    if (!this.monthPickerOpen) return;
+    this.monthPickerOpen = false;
+    if (restoreFocus) setTimeout(() => this.monthPickerTitle?.nativeElement.focus());
+  }
+
+  /** Un clic afuera cierra el panel, salvo en el propio título: ese clic ya lo abre o lo cierra. */
+  onMonthPickerOutsideClick(event: MouseEvent, origin: HTMLElement): void {
+    if (event.target instanceof Node && origin.contains(event.target)) return;
+    this.closeMonthPicker();
+  }
+
+  /** Al abrir, el foco va al mes elegido (o al mes en curso, o al primero) para seguir con el teclado. */
+  focusMonthPanel(): void {
+    setTimeout(() => {
+      const panel = document.querySelector<HTMLElement>('.finance-month-panel');
+      if (!panel) return;
+      const target = panel.querySelector<HTMLElement>('.finance-month-panel-month-active')
+        ?? panel.querySelector<HTMLElement>('.finance-month-panel-month-current')
+        ?? panel.querySelector<HTMLElement>('.finance-month-panel-month');
+      target?.focus();
+    });
+  }
+
+  /**
+   * En Día, el título lo cubre un campo de fecha transparente: el toque abre el selector del sistema (la rueda en
+   * iPhone). En escritorio un clic en el campo sólo enfocaría una parte de la fecha, así que se abre el selector.
+   */
+  openDayPicker(event: Event): void {
+    const input = event.target as HTMLInputElement & { showPicker?: () => void };
+    try {
+      input.showPicker?.();
+    } catch {
+      // Sin soporte o ya abierto: queda el comportamiento nativo del campo.
+    }
   }
 
   shiftRailYear(delta: number): void {

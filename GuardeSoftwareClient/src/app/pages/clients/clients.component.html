@@ -598,7 +598,7 @@
                 </div>
               </th>
 
-              <th class="p-4 text-right font-medium cursor-pointer border-b border-gray-200 bg-gray-50" (click)="handleSort('PreviousBalance')">
+              <th class="col-hide-narrow p-4 text-right font-medium cursor-pointer border-b border-gray-200 bg-gray-50" (click)="handleSort('PreviousBalance')">
                 <div class="flex items-center justify-end gap-1 group">
                   Saldo Ant.
                   <span *ngIf="projectionActive" class="client-projection-pill" title="Dato proyectado al mes siguiente">Proy.</span>
@@ -611,7 +611,7 @@
                 </div>
               </th>
 
-              <th class="p-4 text-right font-medium cursor-pointer border-b border-gray-200 bg-gray-50" (click)="handleSort('InterestAmount')">
+              <th class="col-hide-narrow p-4 text-right font-medium cursor-pointer border-b border-gray-200 bg-gray-50" (click)="handleSort('InterestAmount')">
                 <div class="flex items-center justify-end gap-1 group">
                   Interés
                   <span *ngIf="projectionActive" class="client-projection-pill" title="Dato proyectado al mes siguiente">Proy.</span>
@@ -669,8 +669,8 @@
                 </td>
                 <td class="p-4"><div class="skeleton-pulse h-3 w-24 rounded-md"></div></td>
                 <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md"></div></td>
-                <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md"></div></td>
-                <td class="p-4"><div class="skeleton-pulse h-3 w-16 rounded-md ml-auto"></div></td>
+                <td class="col-hide-narrow p-4"><div class="skeleton-pulse h-3 w-20 rounded-md"></div></td>
+                <td class="col-hide-narrow p-4"><div class="skeleton-pulse h-3 w-16 rounded-md ml-auto"></div></td>
                 <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md ml-auto"></div></td>
                 <td class="p-4"><div class="skeleton-pulse h-3 w-20 rounded-md ml-auto"></div></td>
                 <td class="p-4">
@@ -818,13 +818,13 @@
                 <span *ngIf="(!showInactivos && !cliente.nextPaymentDay) || (showInactivos && !cliente.deactivationDate)" class="text-gray-400">-</span>
               </td>
 
-              <td class="p-4 font-semibold text-right"
+              <td class="col-hide-narrow p-4 font-semibold text-right"
                   [class.client-projected-cell]="projectionActive"
                   [ngClass]="amountClass(cliente, 'previousBalance')">
                 <ng-container *ngTemplateOutlet="amountValue; context: { value: shownAmount(cliente, 'previousBalance') }"></ng-container>
               </td>
 
-              <td class="p-4 font-medium text-right"
+              <td class="col-hide-narrow p-4 font-medium text-right"
                   [class.client-projected-cell]="projectionActive"
                   [ngClass]="amountClass(cliente, 'interestAmount')">
                 <ng-container *ngTemplateOutlet="amountValue; context: { value: shownAmount(cliente, 'interestAmount') }"></ng-container>
@@ -1034,12 +1034,12 @@
                 </span>
               </td>
               
-              <td class="px-4 py-2 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50"
+              <td class="col-hide-narrow px-4 py-2 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50"
                   [ngClass]="totalsUnknown ? 'text-gray-400' : totals.previousBalance >= 0 ? 'text-green-600' : 'text-red-600'">
                  <div class="text-base font-bold">{{ totalsUnknown ? '—' : '$ ' + (totals.previousBalance | number:'1.2-2') }}</div>
               </td>
 
-              <td class="px-4 py-2 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50"
+              <td class="col-hide-narrow px-4 py-2 text-right whitespace-nowrap align-middle border-t border-gray-200 bg-gray-50"
                   [ngClass]="totalsUnknown ? 'text-gray-400' : totals.interestAmount > 0 ? 'text-red-600' : 'text-gray-500'">
                  <div class="text-base font-bold">{{ totalsUnknown ? '—' : '$ ' + (totals.interestAmount | number:'1.2-2') }}</div>
               </td>
@@ -1057,7 +1057,10 @@
               <td class="border-t border-gray-200 bg-gray-50"></td>
             </tr>
             <tr>
-              <td colspan="5" class="bg-gray-50"></td>
+              <!-- Las dos celdas siguientes son las columnas Saldo ant. e Interés: se ocultan juntas en celular. -->
+              <td colspan="3" class="bg-gray-50"></td>
+              <td class="col-hide-narrow bg-gray-50"></td>
+              <td class="col-hide-narrow bg-gray-50"></td>
               <td class="px-4 pb-1 text-right text-xs leading-tight font-medium text-gray-500 whitespace-nowrap bg-gray-50">
                 <span *ngIf="!totalsUnknown" title="Abono + suma de paymentIdentifier de clientes activos - 0,02">
                   ≈ $ {{ totals.currentRentWithActivePaymentIdentifiers | number:'1.2-2' }}
