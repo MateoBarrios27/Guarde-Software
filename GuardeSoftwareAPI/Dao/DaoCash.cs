@@ -234,8 +234,8 @@ namespace GuardeSoftwareAPI.Dao
         {
             var list = new List<FinancialAccountDto>();
             string query = @"
-                SELECT account_id, name, type, current_balance, currency, display_order, color 
-                FROM financial_accounts 
+                SELECT account_id, name, type, current_balance, currency, display_order, color, comment, comment_updated_at
+                FROM financial_accounts
                 WHERE month = @Month AND year = @Year
                 ORDER BY display_order ASC, name ASC";
 
@@ -256,9 +256,42 @@ namespace GuardeSoftwareAPI.Dao
                     Currency = row["currency"].ToString(),
                     Balance = Convert.ToDecimal(row["current_balance"]),
                     Color = row["color"] != DBNull.Value ? row["color"].ToString() : null,
+                    Comment = row["comment"] != DBNull.Value ? row["comment"].ToString() : null,
+                    CommentUpdatedAt = row["comment_updated_at"] != DBNull.Value ? Convert.ToDateTime(row["comment_updated_at"]) : null,
                 });
             }
             return list;
+        }
+
+        /// <summary>
+        /// Guarda la nota de una cuenta. La nota pertenece a la fila del mes (igual que el comentario de un movimiento) y
+        /// se copia al mes siguiente cuando éste se genera; no pisa las filas de otros meses. La fecha de modificación
+        /// sólo cambia si el texto cambió. Found = false si la cuenta no existe; UpdatedAt es null si la cuenta nunca
+        /// tuvo una nota.
+        /// </summary>
+        public async Task<(bool Found, DateTime? UpdatedAt)> UpdateAccountCommentAsync(int id, string? comment)
+        {
+            string query = @"
+                UPDATE financial_accounts
+                SET comment = @Comment,
+                    comment_updated_at = CASE WHEN ISNULL(comment, '') <> ISNULL(@Comment, '') THEN GETDATE() ELSE comment_updated_at END
+                WHERE account_id = @Id;
+
+                IF @@ROWCOUNT = 0
+                    SELECT CAST(0 AS BIT) AS found, CAST(NULL AS DATETIME) AS updated_at;
+                ELSE
+                    SELECT CAST(1 AS BIT) AS found, comment_updated_at AS updated_at FROM financial_accounts WHERE account_id = @Id;";
+
+            var parameters = new[] {
+                new SqlParameter("@Id", id),
+                new SqlParameter("@Comment", SqlDbType.NVarChar, -1) { Value = string.IsNullOrWhiteSpace(comment) ? DBNull.Value : comment.Trim() }
+            };
+
+            var dt = await _accessDB.GetTableAsync("AccountComment", query, parameters);
+            if (dt.Rows.Count == 0 || !Convert.ToBoolean(dt.Rows[0]["found"])) return (false, null);
+
+            var updated = dt.Rows[0]["updated_at"];
+            return (true, updated != DBNull.Value ? Convert.ToDateTime(updated) : null);
         }
 
         public async Task UpdateAccountBalanceAsync(int id, decimal balance)
@@ -473,10 +506,10 @@ namespace GuardeSoftwareAPI.Dao
 
             string queryAccounts = @"
                 INSERT INTO financial_accounts (
-                    name, type, current_balance, currency, display_order, month, year, color
+                    name, type, current_balance, currency, display_order, month, year, color, comment, comment_updated_at
                 )
-                SELECT 
-                    name, type, current_balance, currency, display_order, @CurrentMonth, @CurrentYear, color
+                SELECT
+                    name, type, current_balance, currency, display_order, @CurrentMonth, @CurrentYear, color, comment, comment_updated_at
                 FROM financial_accounts
                 WHERE month = @PrevMonth AND year = @PrevYear
                 AND NOT EXISTS (
@@ -527,15 +560,15 @@ namespace GuardeSoftwareAPI.Dao
                 DECLARE @NewOrder INT;
                 SELECT @NewOrder = ISNULL(MAX(display_order), 0) + 1 FROM financial_accounts WHERE month = @Month AND year = @Year;
 
-                INSERT INTO financial_accounts (name, type, current_balance, currency, display_order, month, year, color) 
-                VALUES (@Name, @Type, @Balance, @Currency, @NewOrder, @Month, @Year, @Color);
+                INSERT INTO financial_accounts (name, type, current_balance, currency, display_order, month, year, color, comment, comment_updated_at)
+                VALUES (@Name, @Type, @Balance, @Currency, @NewOrder, @Month, @Year, @Color, @Comment, CASE WHEN @Comment IS NULL THEN NULL ELSE GETDATE() END);
 
                 DECLARE @InsertedId INT = SCOPE_IDENTITY();
 
                 IF (@Year > YEAR(GETDATE()) OR (@Year = YEAR(GETDATE()) AND @Month >= MONTH(GETDATE())))
                 BEGIN
-                    INSERT INTO financial_accounts (name, type, current_balance, currency, display_order, month, year, color)
-                    SELECT DISTINCT @Name, @Type, @Balance, @Currency, @NewOrder, month, year, @Color
+                    INSERT INTO financial_accounts (name, type, current_balance, currency, display_order, month, year, color, comment, comment_updated_at)
+                    SELECT DISTINCT @Name, @Type, @Balance, @Currency, @NewOrder, month, year, @Color, @Comment, CASE WHEN @Comment IS NULL THEN NULL ELSE GETDATE() END
                     FROM financial_accounts
                     WHERE (year > @Year OR (year = @Year AND month > @Month))
                     AND NOT EXISTS (
@@ -552,6 +585,8 @@ namespace GuardeSoftwareAPI.Dao
                 new SqlParameter("@Balance", SqlDbType.Decimal) { Value = account.Balance != null ? account.Balance : 0 },
                 new SqlParameter("@Currency", SqlDbType.NVarChar) { Value = account.Currency ?? "" },
                 new SqlParameter("@Color", SqlDbType.VarChar) { Value = !string.IsNullOrEmpty(account.Color) ? account.Color : "#1f2937" },
+                // Al recrear una cuenta borrada (deshacer) la nota vuelve con ella; una cuenta nueva no trae nota.
+                new SqlParameter("@Comment", SqlDbType.NVarChar, -1) { Value = string.IsNullOrWhiteSpace(account.Comment) ? DBNull.Value : account.Comment.Trim() },
                 new SqlParameter("@Month", month),
                 new SqlParameter("@Year", year)
             };

@@ -180,6 +180,35 @@ namespace GuardeSoftwareAPI.Controllers
             }
         }
 
+        public class UpdateAccountCommentDto { public string? Comment { get; set; } }
+
+        /// <summary>Largo máximo de la nota de una cuenta (el campo de la base es NVARCHAR(MAX): el tope es sólo de sensatez).</summary>
+        private const int MaxAccountCommentLength = 2000;
+
+        /// <summary>
+        /// Guarda o borra (texto vacío) la nota de una cuenta. Es una escritura (PUT): el Observador no llega hasta acá.
+        /// </summary>
+        [HttpPut("accounts/{id}/comment")]
+        public async Task<IActionResult> UpdateAccountComment(int id, [FromBody] UpdateAccountCommentDto dto)
+        {
+            try
+            {
+                var comment = dto?.Comment;
+                if (comment != null && comment.Length > MaxAccountCommentLength)
+                    return BadRequest($"La nota no puede superar los {MaxAccountCommentLength} caracteres.");
+
+                var (found, updatedAt) = await _service.UpdateAccountCommentAsync(id, comment);
+                if (!found) return NotFound("Cuenta no encontrada.");
+
+                await NotifyCashUpdateAsync();
+                return Ok(new { commentUpdatedAt = updatedAt });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { message = "Error al guardar la nota de la cuenta." });
+            }
+        }
+
         #region IVA Compras Endpoints
 
         [HttpGet("iva-compras")]

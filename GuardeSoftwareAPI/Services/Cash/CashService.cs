@@ -120,6 +120,11 @@ namespace GuardeSoftwareAPI.Services.cash
             return await _dao.UpdateAccountNameAsync(id, name);
         }
 
+        public async Task<(bool Found, DateTime? UpdatedAt)> UpdateAccountCommentAsync(int id, string? comment)
+        {
+            return await _dao.UpdateAccountCommentAsync(id, comment);
+        }
+
         #region IVA Compras
 
         public async Task<List<CashIVADto>> GetIvaComprasAsync(int month, int year)

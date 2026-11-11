@@ -38,6 +38,9 @@ export interface FinancialAccount {
   balance: number;
   displayOrder: number;
   color?: string;
+  /** Nota de la cuenta en el mes que se muestra (como el comentario de un movimiento). */
+  comment?: string | null;
+  commentUpdatedAt?: string | Date | null;
 }
 
 export interface IvaCompra {

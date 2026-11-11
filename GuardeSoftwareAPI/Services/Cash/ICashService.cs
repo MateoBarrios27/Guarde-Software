@@ -17,6 +17,7 @@ namespace GuardeSoftwareAPI.Services.cash
         Task UpdateUsdRateAsync(decimal rate, int month, int year);
         Task UpdateAccountColorAsync(int id, string color);
         Task<bool> UpdateAccountNameAsync(int id, string name);
+        Task<(bool Found, DateTime? UpdatedAt)> UpdateAccountCommentAsync(int id, string? comment);
         Task<List<CashIVADto>> GetIvaComprasAsync(int month, int year);
         Task<int> AddIvaCompraAsync(CashIVADto dto);
         Task DeleteIvaCompraAsync(int id);

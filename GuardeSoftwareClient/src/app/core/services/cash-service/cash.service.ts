@@ -80,6 +80,11 @@ export class CashService {
     return this.http.put(`${this.apiUrl}/accounts/${id}/name`, { name });
   }
 
+  /** Guarda (o borra, con texto vacío) la nota de una cuenta; devuelve la fecha de modificación del servidor. */
+  updateAccountComment(id: number, comment: string): Observable<{ commentUpdatedAt: string | null }> {
+    return this.http.put<{ commentUpdatedAt: string | null }>(`${this.apiUrl}/accounts/${id}/comment`, { comment });
+  }
+
   getIvaCompras(month: number, year: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/iva-compras?month=${month}&year=${year}`);
   }

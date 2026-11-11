@@ -1,4 +1,5 @@
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import { CashService } from '../../core/services/cash-service/cash.service';
 import { CashSignalrService } from '../../core/services/cash-signalr/cash-signalr.service';
 import { Subject, Subscription } from 'rxjs';
@@ -14,6 +15,7 @@ import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 import { CashReceivablesComponent } from './receivables/cash-receivables.component';
+import { MonthPickerComponent } from '../../shared/components/month-picker/month-picker.component';
 
 // --- Structure Historial (CTRL+Z) ---
 export type ActionType =
@@ -44,12 +46,12 @@ type CashFilterTagGroup = 'payment' | 'amount' | 'replication';
   selector: 'app-cash',
   templateUrl: './cash.component.html',
   styleUrls: ['./cash.component.css'],
-  imports: [IconComponent, CommonModule, FormsModule, CurrencyFormatDirective, DragDropModule, ScrollingModule, CashReceivablesComponent]
+  imports: [IconComponent, CommonModule, FormsModule, CurrencyFormatDirective, DragDropModule, ScrollingModule, OverlayModule, CashReceivablesComponent, MonthPickerComponent]
 })
 export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   showReceivablesModal = false;
   private nextCashClientRowKey = 0;
-  
+
   currentDate = new Date();
   selectedMonth = this.currentDate.getMonth() + 1;
   selectedYear = this.currentDate.getFullYear();
@@ -57,6 +59,22 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   isCommentPinned: boolean = false;
   private commentHoverTimer: any = null;
   private commentLeaveTimer: any = null;
+
+  // --- Notas de las cuentas (mismo comportamiento que el comentario de un movimiento) ---
+  // El popup va en un overlay de CDK: la tabla de cuentas recorta (overflow) y cortaría la nota de las últimas filas.
+  // No se le pasa una estrategia de scroll compartida: CDK no deja asociar una misma instancia a varios overlays (uno por
+  // fila) y falla con «Scroll strategy has already been attached»; el valor por defecto crea una por overlay y reposiciona.
+  readonly accountNotePositions: ConnectedPosition[] = [
+    { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 6 },
+    { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: -6 },
+  ];
+  readonly accountNoteMaxLength = 2000;
+  activeCommentAccount: FinancialAccount | null = null;
+  isAccountCommentPinned = false;
+  private accountCommentHoverTimer: any = null;
+  private accountCommentLeaveTimer: any = null;
+  /** Texto de la nota tal como estaba guardada al abrir el popup: sólo se guarda en el servidor si cambió. */
+  private accountCommentBaseline = '';
   items: CashFlowItem[] = [];
 
   summary: MonthlySummary = {
@@ -270,6 +288,8 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
         this.closeCashFilters();
       } else if (this.activeCommentItem) {
         this.activeCommentItem = null;
+      } else if (this.activeCommentAccount) {
+        this.closeAccountComment(this.activeCommentAccount);
       }
       return;
     }
@@ -322,7 +342,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   checkAccountChange(acc: FinancialAccount) {
     if (!this.capturedAccountState) return;
     const oldState = JSON.parse(this.capturedAccountState);
-    if (oldState.name !== acc.name || oldState.color !== acc.color || oldState.balance !== acc.balance) {
+    // El estado capturado puede ser de otra cuenta (se enfocó un campo de una y se cierra la nota de otra): no mezclarlas.
+    if (oldState.id !== acc.id) return;
+    if (oldState.name !== acc.name || oldState.color !== acc.color || oldState.balance !== acc.balance
+        || (oldState.comment ?? '') !== (acc.comment ?? '')) {
       this.recordHistoryAction({
         type: 'ACCOUNT_EDIT', 
         targetId: acc.id,
@@ -418,6 +441,15 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
         this.cashService.updateAccountName(action.targetId!, state.name).subscribe();
         this.cashService.updateAccountColor(action.targetId!, state.color).subscribe();
         this.cashService.updateAccountBalance(action.targetId!, state.balance, m, y).subscribe();
+        // La nota sólo se toca si esa edición la cambió (los historiales guardados antes de las notas no la traen).
+        if ((action.oldState?.comment ?? '') !== (action.newState?.comment ?? '')) {
+          this.cashService.updateAccountComment(action.targetId!, state.comment ?? '').subscribe({
+            next: res => {
+              const acc = isCurrentMonth ? this.accounts.find(a => a.id === action.targetId) : undefined;
+              if (acc) acc.commentUpdatedAt = res?.commentUpdatedAt ?? null;
+            }
+          });
+        }
 
         if (isCurrentMonth) {
           const acc = this.accounts.find(a => a.id === action.targetId);
@@ -1748,30 +1780,35 @@ filterItems(): void {
     this.summary.netBalance = totalRealIncome - this.summary.totalManualExpenses;
   }
 
+  /** Las flechas del selector de meses: un mes hacia atrás (-1) o hacia adelante (+1). */
   changeMonth(delta: number): void {
-    this.searchDateFrom = '';
-    this.searchDateTo = '';
-    this.searchTerm = '';
-    this.isHistoricalView = false;
-    this.clearItemSelection();
-    
     let m = this.selectedMonth + delta;
     let y = this.selectedYear;
-    
-    if (m > 12) { 
-        m = 1; 
-        y++; 
+
+    if (m > 12) {
+        m = 1;
+        y++;
     }
-    if (m < 1) { 
-        m = 12; 
-        y--; 
+    if (m < 1) {
+        m = 12;
+        y--;
     }
+
+    this.goToMonth(m, y);
+  }
+
+  /**
+   * Va a un mes (1-12) de un año, tanto desde las flechas como desde el panel de meses. Pide confirmación antes de
+   * recargar. Los filtros y la selección sólo se limpian si se confirma: cancelar no pierde lo que se estaba mirando.
+   */
+  goToMonth(m: number, y: number): void {
+    if (m === this.selectedMonth && y === this.selectedYear) return;
 
     if (y < 2026) {
         Swal.fire('Atención', 'No se pueden consultar o planificar datos anteriores al 2026.', 'warning');
         return;
     }
-    
+
     const targetDate = new Date(y, m - 1, 1);
     const targetMonthName = targetDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
 
@@ -1786,6 +1823,13 @@ filterItems(): void {
       cancelButtonColor: '#9ca3af'
     }).then((result) => {
       if (result.isConfirmed) {
+        // La nota de una cuenta que se estaba escribiendo se guarda antes de cambiar de mes.
+        if (this.activeCommentAccount) this.closeAccountComment(this.activeCommentAccount);
+        this.searchDateFrom = '';
+        this.searchDateTo = '';
+        this.searchTerm = '';
+        this.isHistoricalView = false;
+        this.clearItemSelection();
         this.selectedMonth = m;
         this.selectedYear = y;
         localStorage.setItem('cash_selected_month', this.selectedMonth.toString());
@@ -1909,6 +1953,7 @@ filterItems(): void {
       if (this.activeCommentItem && !this.isCommentPinned && this.activeCommentItem !== item) {
         this.closeComment(this.activeCommentItem);
       }
+      if (this.activeCommentAccount) this.closeAccountComment(this.activeCommentAccount);
       this.activeCommentItem = item;
       this.isCommentPinned = false;
       setTimeout(() => {
@@ -1981,6 +2026,7 @@ filterItems(): void {
       if (this.activeCommentItem) {
         this.closeComment(this.activeCommentItem);
       }
+      if (this.activeCommentAccount) this.closeAccountComment(this.activeCommentAccount);
       this.activeCommentItem = item;
       this.isCommentPinned = true;
       setTimeout(() => {
@@ -2022,6 +2068,157 @@ filterItems(): void {
   onCommentEnter(event: Event, item: CashFlowItem): void {
     event.preventDefault();
     this.closeComment(item);
+  }
+
+  // ===== Notas de las cuentas =====
+  // Misma mecánica que la nota de un movimiento: el botón abre el popup (con el mouse encima, a los 400 ms; con un clic
+  // queda fijo y toma el foco), se cierra con la X, Enter, Escape o un clic afuera, y al cerrar se guarda si cambió.
+
+  hasAccountComment(account: FinancialAccount): boolean {
+    return !!account.comment && account.comment.trim() !== '';
+  }
+
+  private clearAccountCommentTimers(): void {
+    if (this.accountCommentHoverTimer) {
+      clearTimeout(this.accountCommentHoverTimer);
+      this.accountCommentHoverTimer = null;
+    }
+    if (this.accountCommentLeaveTimer) {
+      clearTimeout(this.accountCommentLeaveTimer);
+      this.accountCommentLeaveTimer = null;
+    }
+  }
+
+  private openAccountComment(account: FinancialAccount, pinned: boolean): void {
+    // Un solo popup de nota a la vez: el de un movimiento o el de otra cuenta se cierran (y se guardan) primero.
+    if (this.activeCommentItem) this.closeComment(this.activeCommentItem);
+    if (this.activeCommentAccount && this.activeCommentAccount !== account) this.closeAccountComment(this.activeCommentAccount);
+
+    this.activeCommentAccount = account;
+    this.isAccountCommentPinned = pinned;
+    this.accountCommentBaseline = account.comment ?? '';
+    setTimeout(() => {
+      const textarea = document.getElementById('account-comment-' + account.id) as HTMLTextAreaElement | null;
+      if (!textarea) return;
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+      if (pinned) textarea.focus();
+    }, 0);
+  }
+
+  onAccountCommentMouseEnter(account: FinancialAccount): void {
+    if (this.accountCommentLeaveTimer) {
+      clearTimeout(this.accountCommentLeaveTimer);
+      this.accountCommentLeaveTimer = null;
+    }
+    if (this.activeCommentAccount === account) return;
+    if (this.accountCommentHoverTimer) clearTimeout(this.accountCommentHoverTimer);
+
+    this.accountCommentHoverTimer = setTimeout(() => {
+      this.accountCommentHoverTimer = null;
+      // Una nota que se está escribiendo (fija) no se reemplaza por pasar el mouse sobre otra cuenta.
+      if (this.activeCommentAccount && this.isAccountCommentPinned) return;
+      this.openAccountComment(account, false);
+    }, 400);
+  }
+
+  onAccountCommentMouseLeave(account: FinancialAccount): void {
+    if (this.accountCommentHoverTimer) {
+      clearTimeout(this.accountCommentHoverTimer);
+      this.accountCommentHoverTimer = null;
+    }
+    if (this.activeCommentAccount === account && !this.isAccountCommentPinned) {
+      if (this.accountCommentLeaveTimer) clearTimeout(this.accountCommentLeaveTimer);
+      this.accountCommentLeaveTimer = setTimeout(() => {
+        if (this.activeCommentAccount === account && !this.isAccountCommentPinned) this.closeAccountComment(account);
+      }, 100);
+    }
+  }
+
+  /** Un clic o el foco en el popup lo deja fijo (no se cierra al sacar el mouse) y pone el cursor en la nota. */
+  pinAccountComment(account: FinancialAccount): void {
+    if (this.accountCommentLeaveTimer) {
+      clearTimeout(this.accountCommentLeaveTimer);
+      this.accountCommentLeaveTimer = null;
+    }
+    if (this.activeCommentAccount !== account) return;
+    this.isAccountCommentPinned = true;
+    setTimeout(() => {
+      const textarea = document.getElementById('account-comment-' + account.id) as HTMLTextAreaElement | null;
+      if (textarea && document.activeElement !== textarea) textarea.focus();
+    }, 0);
+  }
+
+  toggleAccountComment(account: FinancialAccount): void {
+    this.clearAccountCommentTimers();
+
+    if (this.activeCommentAccount === account) {
+      if (this.isAccountCommentPinned) {
+        this.closeAccountComment(account);
+      } else {
+        this.pinAccountComment(account);
+      }
+      return;
+    }
+    this.openAccountComment(account, true);
+  }
+
+  closeAccountComment(account: FinancialAccount): void {
+    this.clearAccountCommentTimers();
+    // Historial (Ctrl+Z) primero: compara contra el estado capturado cuando el texto tomó el foco.
+    this.checkAccountChange(account);
+    const changed = (account.comment ?? '') !== this.accountCommentBaseline;
+    if (this.activeCommentAccount === account) {
+      this.activeCommentAccount = null;
+      this.isAccountCommentPinned = false;
+    }
+    if (changed) this.saveAccountComment(account);
+  }
+
+  private saveAccountComment(account: FinancialAccount): void {
+    const text = (account.comment ?? '').trim();
+    const previous = this.accountCommentBaseline;
+    account.comment = text;
+    this.accountCommentBaseline = text;
+    this.cashService.updateAccountComment(account.id!, text).subscribe({
+      next: res => { account.commentUpdatedAt = res?.commentUpdatedAt ?? null; },
+      error: () => {
+        // Que la pantalla no muestre como guardada una nota que el servidor no tiene.
+        account.comment = previous;
+        this.accountCommentBaseline = previous;
+        Swal.fire('Error', 'No se pudo guardar la nota de la cuenta.', 'error');
+      }
+    });
+  }
+
+  onAccountCommentInput(event: Event, account: FinancialAccount): void {
+    this.autoResizeTextarea(event);
+    account.commentUpdatedAt = new Date();
+  }
+
+  /** Enter guarda y cierra (como en los movimientos); Shift+Enter agrega un salto de línea. */
+  onAccountCommentEnter(event: Event, account: FinancialAccount): void {
+    if ((event as KeyboardEvent).shiftKey) return;
+    event.preventDefault();
+    this.closeAccountComment(account);
+  }
+
+  async deleteAccountComment(account: FinancialAccount): Promise<void> {
+    const confirmed = await this.deleteConfirmation.confirm({
+      title: '¿Borrar nota?',
+      message: 'Se eliminará la nota de la cuenta',
+      highlightedText: account.name || 'esta cuenta',
+      messageSuffix: '.'
+    });
+    if (!confirmed) return;
+
+    this.captureAccount(account);
+    account.comment = '';
+    account.commentUpdatedAt = new Date();
+    this.checkAccountChange(account);
+    this.activeCommentAccount = null;
+    this.isAccountCommentPinned = false;
+    this.saveAccountComment(account);
   }
 
   dropItem(event: CdkDragDrop<CashFlowItem[]>) {
@@ -2187,6 +2384,13 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
       const target = event.target as HTMLElement;
       if (!target.closest('.note-popup-container') && !target.closest('.note-toggle-btn')) {
         this.closeComment(this.activeCommentItem);
+      }
+    }
+
+    if (this.activeCommentAccount) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.note-popup-container') && !target.closest('.note-toggle-btn')) {
+        this.closeAccountComment(this.activeCommentAccount);
       }
     }
 
