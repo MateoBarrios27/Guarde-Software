@@ -1,0 +1,76 @@
+<div class="mp" [class.mp-bar]="variant === 'solid'" [class.mp-field]="variant === 'field'" [class.mp-compact]="variant === 'compact'"
+     [class.mp-disabled]="disabled" role="group" aria-label="Mes mostrado">
+  <!-- ‹ Noviembre 2026 ▾ › -->
+  <div class="mp-period">
+    <button *ngIf="variant !== 'field'" type="button" class="mp-step" (click)="step(-1)" [disabled]="disabled || atMinimum" aria-label="Mes anterior">
+      <app-icon name="chevron-left" class="h-4 w-4"></app-icon>
+    </button>
+
+    <button #title type="button" class="mp-title"
+            cdkOverlayOrigin #origin="cdkOverlayOrigin"
+            (click)="toggle()"
+            [disabled]="disabled"
+            aria-haspopup="dialog"
+            [attr.aria-expanded]="open"
+            [attr.aria-controls]="open ? panelId : null"
+            [attr.aria-label]="hasValue ? 'Elegir mes (ahora: ' + monthNames[month - 1] + ' ' + year + ')' : 'Elegir mes'">
+      <span class="mp-name" [class.mp-name-empty]="!hasValue">{{ displayName }}</span>
+      <span *ngIf="hasValue" class="mp-year">{{ year }}</span>
+      <app-icon *ngIf="variant !== 'field'" name="chevron-down" class="mp-caret" aria-hidden="true"></app-icon>
+      <app-icon *ngIf="variant === 'field'" name="calendar" class="mp-field-icon" aria-hidden="true"></app-icon>
+    </button>
+
+    <button *ngIf="variant !== 'field'" type="button" class="mp-step" (click)="step(1)" [disabled]="disabled || atMaximum" aria-label="Mes siguiente">
+      <app-icon name="chevron-right" class="h-4 w-4"></app-icon>
+    </button>
+  </div>
+
+  <!-- Marca del mes en curso, o atajo para volver a él (a la derecha en escritorio; abajo en celular, donde el año pasa
+       a esta fila si no entra en el título). Con la barra angosta el atajo queda sólo con el ícono. -->
+  <div *ngIf="variant === 'solid'" class="mp-meta" [class.mp-meta-current]="isCurrent" aria-live="polite">
+    <span class="mp-year-compact">{{ year }}</span>
+    <span *ngIf="isCurrent" class="mp-badge">Mes en curso</span>
+    <button *ngIf="!isCurrent && hasValue" type="button" class="mp-return" (click)="goToCurrent()" [disabled]="disabled"
+            title="Volver al mes actual" aria-label="Volver al mes actual">
+      <app-icon name="rotate-ccw" class="h-4 w-4" aria-hidden="true"></app-icon>
+      <span class="mp-return-label">Volver al mes actual</span>
+    </button>
+  </div>
+</div>
+
+<!-- Panel desplegable de meses: año ‹ › y los 12 meses en una grilla de 4×3 -->
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOpen]="open"
+  [cdkConnectedOverlayPositions]="positions"
+  [cdkConnectedOverlayScrollStrategy]="scrollStrategy"
+  [cdkConnectedOverlayViewportMargin]="12"
+  [cdkConnectedOverlayPush]="true"
+  (attach)="focusPanel()"
+  (detach)="close()"
+  (overlayOutsideClick)="onOutsideClick($event)"
+  (overlayKeydown)="onPanelKeydown($event)"
+>
+  <div class="mp-panel" [id]="panelId" role="dialog" aria-label="Elegir mes">
+    <div class="mp-panel-head">
+      <button type="button" class="mp-panel-step" (click)="shiftRailYear(-1)" [disabled]="!canGoToPreviousRailYear" aria-label="Año anterior">
+        <app-icon name="chevron-left" class="h-4 w-4"></app-icon>
+      </button>
+      <span class="mp-panel-year" aria-live="polite">{{ railYear }}</span>
+      <button type="button" class="mp-panel-step" (click)="shiftRailYear(1)" [disabled]="!canGoToNextRailYear" aria-label="Año siguiente">
+        <app-icon name="chevron-right" class="h-4 w-4"></app-icon>
+      </button>
+    </div>
+    <div class="mp-panel-grid" role="group" [attr.aria-label]="'Meses de ' + railYear">
+      <button *ngFor="let name of monthShortNames; let i = index" type="button"
+              class="mp-panel-month"
+              [class.mp-panel-month-active]="isActive(i)"
+              [class.mp-panel-month-current]="isCurrentMonth(i)"
+              [disabled]="isMonthDisabled(i)"
+              [attr.aria-pressed]="isActive(i)"
+              [attr.aria-label]="monthNames[i] + ' ' + railYear + (isCurrentMonth(i) ? ' (mes en curso)' : '')"
+              (click)="select(i)">{{ name }}</button>
+    </div>
+  </div>
+</ng-template>
