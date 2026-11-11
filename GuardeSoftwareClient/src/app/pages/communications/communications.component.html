@@ -307,12 +307,9 @@
       <div class="relative">
         <select [ngModel]="formData().smtpConfigId" 
                 (ngModelChange)="updateFormField('smtpConfigId', $event)"
-                class="w-full p-2 pr-8 border border-gray-300 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                class="w-full p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
             <option *ngFor="let smtp of smtpConfigs()" [ngValue]="smtp.id">{{ smtp.name }}</option>
         </select>
-        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-          <app-icon name="chevron-down" class="h-4 w-4"></app-icon>
-        </div>
       </div>
     </div>
     }
@@ -822,27 +819,25 @@
           (ngModelChange)="historySearchTerm.set($event); historyCurrentPage.set(1)"
           class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 outline-none transition">
       </div>
-      <div class="flex gap-2">
+      <div class="flex flex-col sm:flex-row gap-2">
         <div class="relative">
           <select [ngModel]="historyStatusFilter()"
                   (ngModelChange)="historyStatusFilter.set($event); historyCurrentPage.set(1)"
-                  class="text-sm border border-gray-300 rounded-md pl-3 pr-8 py-2 bg-white cursor-pointer focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none bg-none">
+                  class="w-full sm:w-auto text-sm border border-gray-300 rounded-md pl-3 py-2 bg-white cursor-pointer focus:ring-blue-500 focus:border-blue-500 outline-none">
             <option value="ALL">Todos los Estados</option>
             <option value="Finished">Enviado exitoso</option>
             <option value="Failed">Fallidos / Con Errores</option>
           </select>
-          <app-icon name="chevron-down" class="h-4 w-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"></app-icon>
         </div>
         
         <div class="relative">
           <select [ngModel]="historyChannelFilter()"
                   (ngModelChange)="historyChannelFilter.set($event); historyCurrentPage.set(1)"
-                  class="text-sm border border-gray-300 rounded-md pl-3 pr-8 py-2 bg-white cursor-pointer focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none bg-none">
+                  class="w-full sm:w-auto text-sm border border-gray-300 rounded-md pl-3 py-2 bg-white cursor-pointer focus:ring-blue-500 focus:border-blue-500 outline-none">
             <option value="ALL">Todos los Canales</option>
             <option value="Email">Email</option>
             <option value="WhatsApp">WhatsApp</option>
           </select>
-          <app-icon name="chevron-down" class="h-4 w-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"></app-icon>
         </div>
       </div>
     </div>
@@ -856,10 +851,10 @@
         </div>
       } @else {
         @for (comm of paginatedHistoryCommunications(); track comm.id) {
-          <div class="flex items-center justify-between bg-white p-3 rounded-md border border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md transition-all">
-            
-            <div class="flex-grow min-w-0 pr-4">
-              <div class="flex items-center gap-2 mb-1">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-0 bg-white p-3 rounded-md border border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md transition-all">
+
+            <div class="w-full min-w-0 flex-grow sm:w-auto sm:pr-4">
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
                 <span [ngClass]="getBadgeMeta(comm.status).classes" style="transform: scale(0.9); transform-origin: left;">
                   <app-icon *ngIf="getBadgeMeta(comm.status).icon" [name]="getBadgeMeta(comm.status).icon!" class="h-3.5 w-3.5"></app-icon>
                   <span>{{ getBadgeMeta(comm.status).text }}</span>
@@ -877,7 +872,7 @@
               <h4 class="text-sm font-medium text-gray-800 truncate" [title]="comm.title">{{ comm.title }}</h4>
             </div>
 
-             <div class="flex items-center gap-1 flex-shrink-0 border-l border-gray-100 pl-3">
+             <div class="flex items-center justify-end gap-1 flex-shrink-0 border-t border-gray-100 pt-2 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-3">
                <button (click)="openModal('view', comm)" title="Ver detalles" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
                  <app-icon name="eye" class="h-4 w-4"></app-icon>
                </button>

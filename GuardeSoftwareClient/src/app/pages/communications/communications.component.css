@@ -1,13 +1,15 @@
 
-    /* Custom styles for select arrow - Mimicking Shadcn styling */
+    /* Flecha de los select: es la única de este componente (no sumar un app-icon encima).
+       El SVG va como imagen de fondo y ahí currentColor no hereda el color del texto
+       (se dibujaba negra), por eso el gris va fijo. */
     select {
       appearance: none;
       -webkit-appearance: none;
       -moz-appearance: none;
-      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
       background-repeat: no-repeat;
       background-position: right 0.75rem center;
-      background-size: 1.5em 1.5em;
+      background-size: 1rem 1rem;
       padding-right: 2.5rem;
     }
 
