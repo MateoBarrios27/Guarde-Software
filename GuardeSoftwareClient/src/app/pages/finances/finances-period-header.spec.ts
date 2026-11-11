@@ -210,6 +210,11 @@ describe('Finanzas: métodos de pago', () => {
     expect(component.getPaymentMethodTone('Efectivo')).toEqual({ cls: 'finance-method-cash', icon: 'banknote' });
     expect(component.getPaymentMethodTone('TRANSFERENCIA')).toEqual({ cls: 'finance-method-transfer', icon: 'bank' });
     expect(component.getPaymentMethodTone('Transferencia Bancaria')).toEqual({ cls: 'finance-method-transfer', icon: 'bank' });
+    // En producción la transferencia se llama «Banco»: mismo color e ícono que «Transferencia».
+    const transfer = component.getPaymentMethodTone('Transferencia');
+    expect(component.getPaymentMethodTone('Banco')).toEqual(transfer);
+    expect(component.getPaymentMethodTone('BANCO')).toEqual(transfer);
+    expect(component.getPaymentMethodTone(' banco ')).toEqual(transfer);
     expect(component.getPaymentMethodTone('Mercado Pago')).toEqual({ cls: 'finance-method-mp', icon: 'mercado-pago' });
     expect(component.getPaymentMethodTone('MERCADOPAGO')).toEqual({ cls: 'finance-method-mp', icon: 'mercado-pago' });
     expect(component.getPaymentMethodTone('MP')).toEqual({ cls: 'finance-method-mp', icon: 'mercado-pago' });
@@ -219,6 +224,7 @@ describe('Finanzas: métodos de pago', () => {
   it('un método desconocido, o sin nombre, usa la billetera gris pizarra', () => {
     expect(component.getPaymentMethodTone('Cheque')).toEqual({ cls: 'finance-method-other', icon: 'wallet' });
     expect(component.getPaymentMethodTone('Empresa MP Logística')).toEqual({ cls: 'finance-method-other', icon: 'wallet' });
+    expect(component.getPaymentMethodTone('Bancolombia')).toEqual({ cls: 'finance-method-other', icon: 'wallet' }); // «banco» sólo como palabra
     expect(component.getPaymentMethodTone(null)).toEqual({ cls: 'finance-method-other', icon: 'wallet' });
   });
 

@@ -838,7 +838,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
     const normalized = key.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
     let tone = { cls: 'finance-method-other', icon: 'wallet' };
     if (normalized.includes('efectivo')) tone = { cls: 'finance-method-cash', icon: 'banknote' };
-    else if (normalized.includes('transfer')) tone = { cls: 'finance-method-transfer', icon: 'bank' };
+    // «Banco» es el nombre de la transferencia en producción: misma estética que «Transferencia».
+    else if (normalized.includes('transfer') || /\bbanc(?:o|aria|ario)\b/.test(normalized)) tone = { cls: 'finance-method-transfer', icon: 'bank' };
     else if (/mercado\s*pago|^mp$/.test(normalized)) tone = { cls: 'finance-method-mp', icon: 'mercado-pago' };
     else if (normalized.includes('ajuste') || normalized.includes('manual')) tone = { cls: 'finance-method-manual', icon: 'sliders' };
     this.paymentMethodToneCache.set(key, tone);
