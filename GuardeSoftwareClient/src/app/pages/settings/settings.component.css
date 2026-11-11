@@ -1,86 +1,188 @@
+/*
+ * Configuración — estética Guarde (2026-11-10).
+ * Superficies sólidas, Inter 800 en títulos y cifras, acción principal oscura sobre blanco,
+ * azul #2563EB como superficie (nunca como botón sobre blanco). Sin degradados ni desenfoque.
+ * Valores de referencia: AGENTS.md y la skill estetica-guarde (references/tokens.md).
+ */
+
+/* ───────────── Encabezado de la página ───────────── */
+
+.settings-hero {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1.25rem;
+  border-radius: 1rem;
+  padding: 1rem 1.25rem;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.settings-hero-icon {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.85rem;
+  color: #ffffff;
+  background: #1d4ed8;
+}
+
+.settings-hero-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+
+.settings-hero-text {
+  margin-top: 0.2rem;
+  color: #bfdbfe;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* ───────────── Menú de secciones ───────────── */
+
+.settings-nav-card {
+  border: 1px solid #e9edf2;
+  border-radius: 1rem;
+  padding: 0.5rem;
+  background: #ffffff;
+}
+
+.settings-nav-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem 0.5rem;
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.settings-nav-item {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.7rem;
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  color: #475569;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: left;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.settings-nav-item:hover {
+  color: #172033;
+  background: #f1f5f9;
+}
+
+.settings-nav-item.is-active {
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.settings-nav-item:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+/* ───────────── Panel de cada sección ───────────── */
+
 .settings-panel {
   display: flex;
   min-height: 34rem;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(226, 232, 240, 0.82);
-  border-radius: 1.25rem;
+  border: 1px solid #e9edf2;
+  border-radius: 1rem;
   background: #ffffff;
-  box-shadow: 0 2px 14px -5px rgba(15, 23, 42, 0.14);
 }
 
 .settings-panel-header {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.25rem 1.35rem;
-  border-bottom: 1px solid #f1f5f9;
-  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 58%, #eff6ff 100%);
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1.15rem 1.25rem;
+  background: #ffffff;
 }
 
+/* Si el título no entra con las acciones, éstas bajan a su propia línea en lugar de apretarlo. */
 .settings-panel-heading {
   display: flex;
   min-width: 0;
-  align-items: flex-start;
-  gap: 0.8rem;
+  flex: 1 1 22rem;
+  align-items: center;
+  gap: 0.85rem;
 }
 
 .settings-panel-icon {
   display: inline-flex;
-  width: 2.55rem;
-  height: 2.55rem;
+  width: 2.75rem;
+  height: 2.75rem;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border: 1px solid #bfdbfe;
   border-radius: 0.85rem;
-  color: #2563eb;
-  background: #eff6ff;
-  box-shadow: 0 8px 16px -14px rgba(37, 99, 235, 0.95);
+  color: #ffffff;
+  background: #2563eb;
 }
 
 .settings-panel-icon-indigo {
-  border-color: #c7d2fe;
-  color: #4f46e5;
-  background: #eef2ff;
+  background: #4f46e5;
 }
 
 .settings-panel-icon-emerald {
-  border-color: #a7f3d0;
-  color: #047857;
-  background: #ecfdf5;
+  background: #15803d;
 }
 
 .settings-panel-icon-amber {
-  border-color: #fde68a;
-  color: #b45309;
-  background: #fffbeb;
+  background: #f97316;
+}
+
+.settings-panel-icon-rose {
+  background: #e11d48;
 }
 
 .settings-panel-eyebrow {
-  color: #2563eb;
-  font-size: 0.63rem;
+  color: #64748b;
+  font-size: 0.6875rem;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.06em;
   line-height: 1.25;
   text-transform: uppercase;
 }
 
 .settings-panel-title {
-  margin-top: 0.28rem;
-  color: #0f172a;
-  font-size: 1.08rem;
+  margin-top: 0.15rem;
+  color: #172033;
+  font-size: 1.375rem;
   font-weight: 800;
-  letter-spacing: -0.015em;
-  line-height: 1.35;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
 }
 
 .settings-panel-description {
   max-width: 42rem;
-  margin-top: 0.35rem;
+  margin-top: 0.25rem;
   color: #64748b;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   line-height: 1.5;
 }
 
@@ -93,78 +195,147 @@
   gap: 0.5rem;
 }
 
-.settings-panel-primary,
-.settings-panel-secondary,
-.settings-panel-warning {
-  display: inline-flex;
-  min-height: 2.55rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  border-radius: 0.75rem;
-  padding: 0.58rem 0.82rem;
-  font-size: 0.76rem;
-  font-weight: 800;
-  transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
-}
-
-.settings-panel-primary {
-  border: 1px solid #2563eb;
-  color: #ffffff;
-  background: #2563eb;
-  box-shadow: 0 9px 16px -12px rgba(37, 99, 235, 0.95);
-}
-
-.settings-panel-primary:hover {
-  border-color: #1d4ed8;
-  background: #1d4ed8;
-  box-shadow: 0 11px 19px -12px rgba(37, 99, 235, 1);
-  transform: translateY(-1px);
-}
-
-.settings-panel-secondary {
-  border: 1px solid #bfdbfe;
-  color: #1d4ed8;
-  background: #eff6ff;
-}
-
-.settings-panel-secondary:hover {
-  border-color: #93c5fd;
-  background: #dbeafe;
-  transform: translateY(-1px);
-}
-
-.settings-panel-warning {
-  border: 1px solid #fed7aa;
-  color: #c2410c;
-  background: #fff7ed;
-}
-
-.settings-panel-warning:hover {
-  border-color: #fdba74;
-  background: #ffedd5;
-  transform: translateY(-1px);
-}
-
 .settings-panel-content {
   padding: 1.25rem;
 }
 
-.settings-panel-card {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  border-radius: 1rem;
-  background: linear-gradient(145deg, #ffffff, #f8fafc);
-  box-shadow: 0 6px 18px -16px rgba(15, 23, 42, 0.55);
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+/* ───────────── Botones ───────────── */
+
+.settings-btn-primary,
+.settings-btn-secondary,
+.settings-btn-warning {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  padding: 0.6rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
-.settings-panel-card:hover {
-  border-color: #bfdbfe;
-  box-shadow: 0 14px 24px -18px rgba(37, 99, 235, 0.42);
-  transform: translateY(-1px);
+.settings-btn-primary {
+  color: #ffffff;
+  background: #111827;
 }
+
+.settings-btn-primary:hover {
+  background: #1f2937;
+}
+
+.settings-btn-secondary {
+  border-color: #e2e8f0;
+  color: #334155;
+  background: #ffffff;
+}
+
+.settings-btn-secondary:hover {
+  border-color: #cbd5e1;
+  color: #172033;
+  background: #f1f5f9;
+}
+
+.settings-btn-warning {
+  color: #ffffff;
+  background: #c2410c;
+}
+
+.settings-btn-warning:hover {
+  background: #9a3412;
+}
+
+.settings-btn-sm {
+  min-height: 2.25rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.75rem;
+}
+
+.settings-btn-primary:focus-visible,
+.settings-btn-secondary:focus-visible,
+.settings-btn-warning:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.settings-btn-primary:disabled,
+.settings-btn-secondary:disabled,
+.settings-btn-warning:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Botones de ícono en filas y tarjetas: neutros y, al apuntarlos, llenos de color sólido. */
+.settings-icon-btn {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.65rem;
+  color: #475569;
+  background: #ffffff;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.settings-icon-btn:hover {
+  border-color: #111827;
+  color: #ffffff;
+  background: #111827;
+}
+
+.settings-icon-btn-info {
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+.settings-icon-btn-info:hover {
+  border-color: #2563eb;
+  background: #2563eb;
+}
+
+.settings-icon-btn-danger {
+  border-color: #fecdd3;
+  color: #e11d48;
+}
+
+.settings-icon-btn-danger:hover {
+  border-color: #e11d48;
+  background: #e11d48;
+}
+
+.settings-icon-btn:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.settings-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+@media (hover: hover) and (min-width: 1024px) {
+  .settings-row-actions {
+    opacity: 0.55;
+    transition: opacity 140ms ease;
+  }
+
+  .settings-panel-table tbody tr:hover .settings-row-actions,
+  .settings-panel-card:hover .settings-row-actions,
+  .settings-row-actions:focus-within {
+    opacity: 1;
+  }
+}
+
+/* ───────────── Tablas ───────────── */
 
 .settings-panel-table {
   width: 100%;
@@ -172,33 +343,40 @@
   border-spacing: 0;
   background: #ffffff;
   color: #334155;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   text-align: left;
 }
 
 .settings-panel-table thead {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  border-bottom: 1px solid #e2e8f0;
   background: #f8fafc;
-  color: #94a3b8;
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .settings-panel-table th {
   border-bottom: 1px solid #e2e8f0;
-  padding: 0.8rem 1.15rem;
+  padding: 0.85rem 0.9rem;
+  color: #64748b;
+  font-size: 0.6875rem;
   font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
 .settings-panel-table td {
   border-bottom: 1px solid #f1f5f9;
-  padding: 0.8rem 1.15rem;
+  padding: 0.85rem 0.9rem;
   vertical-align: middle;
+}
+
+/* Primera y última celda alineadas con el relleno del encabezado del panel. */
+.settings-panel-table th:first-child,
+.settings-panel-table td:first-child {
+  padding-left: 1.25rem;
+}
+
+.settings-panel-table th:last-child,
+.settings-panel-table td:last-child {
+  padding-right: 1.25rem;
 }
 
 .settings-panel-table tbody tr {
@@ -206,14 +384,152 @@
 }
 
 .settings-panel-table tbody tr:hover {
-  background: #f8fbff;
+  background: #f8fafc;
 }
 
-.settings-panel-empty {
-  color: #94a3b8;
-  font-size: 0.78rem;
+.settings-col-figure {
+  width: 9rem;
+  text-align: right;
+}
+
+.settings-col-actions {
+  width: 9rem;
+  text-align: right;
+}
+
+.settings-col-actions-3 {
+  width: 11.5rem;
+  text-align: right;
+}
+
+.settings-cell-strong {
+  color: #172033;
+  font-weight: 700;
+}
+
+.settings-cell-muted {
+  color: #64748b;
+}
+
+/* Cifra de una columna numérica: importe, comisión, porcentaje, m³. */
+.settings-cell-figure {
+  color: #172033;
+  font-size: 1.0625rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.settings-panel-table td.settings-panel-empty {
+  padding: 2.5rem 1.25rem;
+  color: #64748b;
+  font-size: 0.875rem;
   font-weight: 600;
   text-align: center;
+}
+
+/* ───────────── Tarjetas (servidores SMTP, modo offline) ───────────── */
+
+.settings-panel-card {
+  position: relative;
+  border: 1px solid #e9edf2;
+  border-radius: 1rem;
+  background: #ffffff;
+  transition: border-color 160ms ease;
+}
+
+.settings-panel-card:hover {
+  border-color: #bfdbfe;
+}
+
+/* Las columnas dependen del ancho del propio panel (el menú lateral le quita espacio), no de la pantalla. */
+.settings-card-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+}
+
+.settings-card-icon {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.settings-card-icon-indigo {
+  background: #4f46e5;
+}
+
+.settings-card-title {
+  color: #172033;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  overflow-wrap: break-word;
+}
+
+.settings-card-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid #f1f5f9;
+  padding: 0.65rem 0;
+}
+
+.settings-card-label {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.settings-card-value {
+  min-width: 0;
+  color: #172033;
+  font-size: 0.875rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.settings-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.settings-pill-blue {
+  background: #2563eb;
+}
+
+.settings-pill-green {
+  background: #15803d;
+}
+
+.settings-pill-indigo {
+  background: #4f46e5;
+}
+
+.settings-pill-slate {
+  background: #475569;
 }
 
 .settings-panel-empty-card {
@@ -231,42 +547,177 @@
   text-align: center;
 }
 
-@media (max-width: 640px) {
-  .settings-panel-header {
-    flex-direction: column;
-    padding: 1rem;
-  }
-
-  .settings-panel-heading {
-    gap: 0.65rem;
-  }
-
-  .settings-panel-icon {
-    width: 2.25rem;
-    height: 2.25rem;
-  }
-
-  .settings-panel-actions {
-    width: 100%;
-    justify-content: stretch;
-  }
-
-  .settings-panel-actions > * {
-    flex: 1 1 auto;
-  }
-
-  .settings-panel-content {
-    padding: 1rem;
-  }
+.settings-empty-icon {
+  display: flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.85rem;
+  color: #ffffff;
+  background: #2563eb;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .settings-panel-primary,
-  .settings-panel-secondary,
-  .settings-panel-warning,
-  .settings-panel-card {
-    transition: none;
-  }
+.settings-empty-title {
+  margin-top: 0.75rem;
+  color: #172033;
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+
+.settings-empty-text {
+  max-width: 24rem;
+  margin-top: 0.25rem;
+  color: #64748b;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+/* Tarjetas de modo offline */
+.settings-offline-card {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1.5rem;
+}
+
+.settings-offline-card .settings-card-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.85rem;
+}
+
+.settings-offline-title {
+  margin-top: 1rem;
+  color: #172033;
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.settings-offline-text {
+  flex: 1;
+  margin: 0.5rem 0 1.5rem;
+  color: #64748b;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+/* ───────────── Nota informativa y barra de herramientas ───────────── */
+
+.settings-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  border-radius: 0.85rem;
+  padding: 1rem;
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.settings-note-icon {
+  display: flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.settings-note-title {
+  color: #172033;
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.settings-note-text {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.settings-note-text strong {
+  color: #172033;
+  font-weight: 800;
+}
+
+.settings-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 1.25rem 1rem;
+}
+
+.settings-search {
+  position: relative;
+  width: 100%;
+}
+
+.settings-search-icon {
+  position: absolute;
+  top: 50%;
+  left: 0.95rem;
+  height: 1rem;
+  width: 1rem;
+  color: #94a3b8;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.settings-field-action {
+  position: absolute;
+  top: 50%;
+  right: 0.4rem;
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+  color: #64748b;
+  transform: translateY(-50%);
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.settings-field-action:hover {
+  color: #172033;
+  background: #f1f5f9;
+}
+
+.settings-field-action:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 1px;
+}
+
+.settings-per-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  color: #64748b;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.settings-panel-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  padding: 0.85rem 1.25rem;
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 0.8125rem;
+}
+
+.settings-panel-foot strong {
+  color: #172033;
+  font-weight: 800;
 }
 
 :host ::ng-deep .mass-recipient-pagination .ngx-pagination {
@@ -281,72 +732,180 @@
 
 :host ::ng-deep .mass-recipient-pagination .ngx-pagination .current {
   color: #ffffff;
-  background: #4f46e5;
+  background: #2563eb;
   border-radius: 0.5rem;
-}
-
-.smtp-modal-shell {
-  animation: smtp-modal-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.smtp-field-label {
-  display: block;
-  margin-bottom: 0.45rem;
-  color: #475569;
-  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
 }
 
-.smtp-field-input {
+/* ───────────── Campos de formulario ───────────── */
+
+.settings-field-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #475569;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.settings-field {
   display: block;
   width: 100%;
-  min-height: 2.85rem;
+  min-height: 2.75rem;
   box-sizing: border-box;
   border: 1px solid #cbd5e1;
-  border-radius: 0.85rem;
-  padding: 0.72rem 0.85rem;
-  color: #0f172a;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  color: #172033;
   background: #ffffff;
-  font-size: 0.88rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
   outline: none;
-  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  transition: border-color 150ms ease;
 }
 
-.smtp-field-input::placeholder {
+.settings-field::placeholder {
   color: #94a3b8;
+  font-weight: 400;
 }
 
-.smtp-field-input:hover {
+.settings-field:hover {
   border-color: #94a3b8;
 }
 
-.smtp-field-input:focus {
-  border-color: #60a5fa;
-  background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.16);
+.settings-field:focus-visible {
+  border-color: #2563eb;
+  outline: 3px solid #60a5fa;
+  outline-offset: 1px;
 }
 
-.smtp-toggle-card {
+.settings-field:disabled {
+  color: #64748b;
+  background: #f1f5f9;
+  cursor: not-allowed;
+}
+
+textarea.settings-field {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+/* Variantes de relleno: van después de .settings-field para que ganen por orden. */
+.settings-field-pad-left {
+  padding-left: 2.75rem;
+}
+
+.settings-field-pad-right {
+  padding-right: 3rem;
+}
+
+.settings-field-auto {
+  width: auto;
+  min-width: 5rem;
+  font-weight: 800;
+}
+
+.settings-field-hint {
+  display: block;
+  margin-top: 0.4rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+/* Campo con símbolo (% de comisión o aumento), como en «Ajustar abono». */
+.settings-field-group {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  transition: border-color 150ms ease;
+}
+
+.settings-field-group:hover {
+  border-color: #94a3b8;
+}
+
+.settings-field-group:focus-within {
+  border-color: #2563eb;
+  outline: 3px solid #60a5fa;
+  outline-offset: 1px;
+}
+
+.settings-field-group input {
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 0;
+  padding: 0.65rem 0.9rem;
+  color: #123a74;
+  background: transparent;
+  font-size: 1.0625rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  outline: none;
+}
+
+.settings-field-group input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.settings-field-suffix {
+  padding: 0 1rem;
+  color: #2563eb;
+  font-size: 1.125rem;
+  font-weight: 800;
+  user-select: none;
+}
+
+.settings-field-static {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  color: #475569;
+  background: #f1f5f9;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.settings-section-label {
+  margin-bottom: 0.6rem;
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Interruptores: apagado en gris suave, encendido en azul sólido con texto blanco. */
+.settings-toggle-card {
   position: relative;
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
   min-height: 4rem;
+  align-items: center;
+  gap: 0.8rem;
   cursor: pointer;
-  border: 1px solid #e2e8f0;
-  border-radius: 1rem;
-  padding: 0.8rem;
-  background: #f8fafc;
-  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+  border-radius: 0.85rem;
+  padding: 0.85rem 1rem;
+  background: #f1f5f9;
+  transition: background-color 150ms ease;
 }
 
-.smtp-toggle-card:hover {
-  border-color: #bfdbfe;
-  background: #f8fbff;
+.settings-toggle-card:hover {
+  background: #e2e8f0;
 }
 
-.smtp-toggle-input {
+.settings-toggle-card:has(.settings-toggle-input:checked) {
+  background: #2563eb;
+}
+
+.settings-toggle-input {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -356,100 +915,748 @@
   opacity: 0;
 }
 
-.smtp-toggle-track {
+.settings-toggle-track {
   position: relative;
   z-index: 0;
   display: inline-flex;
-  width: 2.35rem;
-  height: 1.35rem;
+  width: 2.5rem;
+  height: 1.45rem;
   flex: 0 0 auto;
   align-items: center;
   border-radius: 999px;
-  background: #cbd5e1;
+  background: #94a3b8;
   transition: background-color 150ms ease;
 }
 
-.smtp-toggle-thumb {
-  width: 1rem;
-  height: 1rem;
-  margin-left: 0.18rem;
+.settings-toggle-thumb {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-left: 0.2rem;
   border-radius: 999px;
   background: #ffffff;
-  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.18);
   transition: transform 150ms ease;
 }
 
-.smtp-toggle-input:checked + .smtp-toggle-track {
-  background: #2563eb;
+.settings-toggle-input:checked + .settings-toggle-track {
+  background: #1d4ed8;
 }
 
-.smtp-toggle-input:checked + .smtp-toggle-track .smtp-toggle-thumb {
-  transform: translateX(1rem);
+.settings-toggle-input:checked + .settings-toggle-track .settings-toggle-thumb {
+  transform: translateX(1.05rem);
 }
 
-.smtp-toggle-input:focus-visible + .smtp-toggle-track {
-  outline: 3px solid rgba(96, 165, 250, 0.35);
+.settings-toggle-input:focus-visible + .settings-toggle-track {
+  outline: 3px solid #60a5fa;
   outline-offset: 3px;
 }
 
-.smtp-primary-action,
-.smtp-secondary-action {
-  display: inline-flex;
-  min-height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border-radius: 0.85rem;
-  padding: 0.7rem 1.1rem;
-  font-size: 0.84rem;
+.settings-toggle-title {
+  display: block;
+  color: #172033;
+  font-size: 0.875rem;
   font-weight: 800;
-  transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
 }
 
-.smtp-primary-action {
+.settings-toggle-text {
+  display: block;
+  margin-top: 0.15rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.settings-toggle-card:has(.settings-toggle-input:checked) .settings-toggle-title {
   color: #ffffff;
-  background: #2563eb;
-  box-shadow: 0 10px 18px -12px rgba(37, 99, 235, 0.95);
 }
 
-.smtp-primary-action:hover {
-  background: #1d4ed8;
-  box-shadow: 0 12px 22px -12px rgba(37, 99, 235, 1);
-  transform: translateY(-1px);
+.settings-toggle-card:has(.settings-toggle-input:checked) .settings-toggle-text {
+  color: #dbeafe;
 }
 
-.smtp-secondary-action {
-  border: 1px solid #e2e8f0;
+.settings-check-card {
+  display: flex;
+  cursor: pointer;
+  align-items: flex-start;
+  gap: 0.85rem;
+  border-radius: 0.85rem;
+  padding: 0.9rem 1rem;
+  color: #475569;
+  background: #f1f5f9;
+  font-size: 0.875rem;
+}
+
+.settings-check-card input {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+  accent-color: #2563eb;
+}
+
+.settings-check-card strong {
+  display: block;
+  color: #172033;
+  font-weight: 800;
+}
+
+.settings-file {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.6rem;
   color: #475569;
   background: #ffffff;
+  font-size: 0.875rem;
 }
 
-.smtp-secondary-action:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
-  color: #1e293b;
+.settings-file:hover {
+  border-color: #94a3b8;
 }
 
-.smtp-primary-action:focus-visible,
-.smtp-secondary-action:focus-visible {
-  outline: 3px solid rgba(96, 165, 250, 0.38);
+.settings-file::file-selector-button {
+  margin-right: 0.75rem;
+  cursor: pointer;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  color: #ffffff;
+  background: #111827;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+/* ───────────── Modales ───────────── */
+
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(1rem, env(safe-area-inset-top))
+    max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.settings-modal {
+  display: flex;
+  width: 100%;
+  max-width: 32rem;
+  max-height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: #ffffff;
+  box-shadow: 0 24px 60px -24px rgba(15, 23, 42, 0.55);
+  animation: settings-modal-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.settings-modal-md {
+  max-width: 36rem;
+}
+
+.settings-modal-wide {
+  max-width: 42rem;
+}
+
+.settings-modal-lg {
+  max-width: 56rem;
+}
+
+.settings-modal-form {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.settings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1.2rem 1.5rem;
+}
+
+.settings-modal-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.settings-modal-icon {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.85rem;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.settings-modal-icon-indigo {
+  background: #4f46e5;
+}
+
+.settings-modal-eyebrow {
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.settings-modal-title {
+  color: #172033;
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+}
+
+.settings-modal-subtitle {
+  margin-top: 0.25rem;
+  color: #64748b;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.settings-modal-close {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  color: #64748b;
+  background: #ffffff;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.settings-modal-close:hover {
+  color: #172033;
+  background: #f1f5f9;
+}
+
+.settings-modal-close:focus-visible {
+  outline: 3px solid #60a5fa;
   outline-offset: 2px;
 }
 
-@keyframes smtp-modal-in {
+.settings-modal-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.settings-modal-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.settings-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  padding: 1rem 1.5rem;
+  background: #f8fafc;
+}
+
+/* Panel azul con datos de ayuda (servidor SMTP) */
+.settings-aside {
+  border-radius: 1rem;
+  padding: 1.1rem;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.settings-aside-icon {
+  display: flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  background: #1d4ed8;
+}
+
+.settings-aside-title {
+  margin-top: 0.9rem;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.settings-aside-text {
+  margin-top: 0.4rem;
+  color: #dbeafe;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.settings-aside-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+  border-radius: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  background: #1d4ed8;
+}
+
+.settings-aside-block span {
+  color: #dbeafe;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.settings-aside-block strong {
+  font-size: 1.1875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+/* Vista previa de la importación */
+.settings-preview {
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1rem;
+  background: #ffffff;
+}
+
+.settings-stat {
+  border-radius: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  color: #ffffff;
+}
+
+.settings-stat span {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.88;
+}
+
+.settings-stat strong {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+
+.settings-stat-blue {
+  background: #2563eb;
+}
+
+.settings-stat-green {
+  background: #15803d;
+}
+
+.settings-stat-indigo {
+  background: #4f46e5;
+}
+
+.settings-stat-slate {
+  background: #475569;
+}
+
+.settings-callout {
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  color: #475569;
+  background: #f1f5f9;
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.settings-callout-danger {
+  color: #9f1239;
+  background: #fff1f2;
+}
+
+.settings-file-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 0.85rem;
+  padding: 0.7rem 0.9rem;
+  color: #172033;
+  background: #f1f5f9;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+/* ───────────── Intereses por mora ───────────── */
+
+/* Bloque azul con el mes en curso y el próximo: el porcentaje y los días son las cifras protagonistas. */
+.interest-summary {
+  display: grid;
+  gap: 0.75rem;
+  border-radius: 1rem;
+  padding: 0.75rem;
+  background: #2563eb;
+}
+
+@media (min-width: 640px) {
+  .interest-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.interest-summary-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-radius: 0.85rem;
+  padding: 0.9rem 1rem;
+  color: #ffffff;
+  background: #1d4ed8;
+  container-type: inline-size;
+}
+
+.interest-summary-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.interest-summary-title {
+  color: #bfdbfe;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.interest-summary-month {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.interest-summary-figures {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.interest-summary-figure {
+  min-width: 0;
+  border-radius: 0.65rem;
+  padding: 0.5rem 0.65rem;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.interest-summary-figure span {
+  display: block;
+  color: #dbeafe;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.interest-summary-figure strong {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 1.375rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.interest-summary-figure-main {
+  color: #123a74;
+  background: #ffffff;
+}
+
+.interest-summary-figure-main span {
+  color: #475569;
+}
+
+.interest-summary-figure-main strong {
+  font-size: 1.625rem;
+}
+
+.interest-summary-status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #dbeafe;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.interest-locked {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+.interest-modal-note {
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  color: #475569;
+  background: #f1f5f9;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.interest-modal-note strong {
+  color: #172033;
+  font-weight: 800;
+}
+
+.interest-runs {
+  border-top: 1px solid #e2e8f0;
+  padding: 1rem 1.25rem 1.25rem;
+  background: #f8fafc;
+}
+
+.interest-runs ul {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.interest-runs li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  color: #475569;
+  font-size: 0.8125rem;
+}
+
+.interest-runs-month {
+  min-width: 9rem;
+  color: #172033;
+  font-weight: 700;
+}
+
+.interest-runs li strong {
+  margin-left: auto;
+  color: #172033;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+/* Bloque angosto (celular o panel apretado): los tres números se apilan de a dos. */
+@container (max-width: 16rem) {
+  .interest-summary-figures {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ───────────── Responsive ───────────── */
+
+@media (max-width: 1023.98px) {
+  /* El encabezado general ya muestra «Configuración» en azul: no repetirlo debajo. */
+  .settings-hero {
+    display: none;
+  }
+
+  /* El menú pasa a una fila de botones que se desliza: diez ítems apilados empujaban el contenido fuera de la pantalla. */
+  .settings-nav-card {
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .settings-nav-title {
+    display: none;
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.15rem;
+    overscroll-behavior-x: none;
+    scrollbar-width: none;
+  }
+
+  .settings-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-nav-item {
+    flex: 0 0 auto;
+    min-height: 2.75rem;
+    border: 1px solid #e2e8f0;
+    padding: 0.5rem 0.95rem;
+    background: #ffffff;
+    white-space: nowrap;
+  }
+
+  .settings-nav-item.is-active {
+    border-color: #2563eb;
+  }
+
+  .settings-icon-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  /* 16 px: con menos, Safari de iPhone hace zoom al enfocar el campo. */
+  .settings-field,
+  .settings-field-group input {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 640px) {
+  .settings-toolbar {
+    flex-flow: row wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Base de 26 rem: el texto de ayuda del buscador se lee completo; si no entra junto a «Mostrar», éste baja. */
+  .settings-search {
+    flex: 1 1 26rem;
+    max-width: 28rem;
+  }
+
+  .settings-panel-foot {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 639.98px) {
+  .settings-panel-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 1rem;
+  }
+
+  .settings-panel-heading {
+    flex: 0 0 auto;
+  }
+
+  .settings-panel-title {
+    font-size: 1.25rem;
+  }
+
+  .settings-panel-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .settings-panel-actions > * {
+    flex: 1 1 auto;
+  }
+
+  .settings-panel-content {
+    padding: 1rem;
+  }
+
+  .settings-toolbar {
+    padding: 0 1rem 1rem;
+  }
+
+  .settings-panel-foot {
+    padding: 0.85rem 1rem;
+  }
+
+  .settings-offline-card {
+    padding: 1.25rem;
+  }
+
+  .settings-modal-header {
+    padding: 1rem;
+  }
+
+  .settings-modal-title {
+    font-size: 1.25rem;
+  }
+
+  .settings-modal-body {
+    padding: 1rem;
+  }
+
+  .settings-modal-footer {
+    flex-direction: column-reverse;
+    padding: 0.85rem 1rem;
+  }
+
+  .settings-modal-footer > * {
+    width: 100%;
+  }
+
+  .settings-btn-primary,
+  .settings-btn-secondary,
+  .settings-btn-warning {
+    min-height: 2.75rem;
+  }
+
+  .settings-btn-sm {
+    min-height: 2.5rem;
+  }
+}
+
+@keyframes settings-modal-in {
   from { opacity: 0; transform: translateY(0.75rem) scale(0.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .smtp-modal-shell,
-  .smtp-field-input,
-  .smtp-toggle-card,
-  .smtp-toggle-track,
-  .smtp-toggle-thumb,
-  .smtp-primary-action,
-  .smtp-secondary-action {
+  .settings-modal,
+  .settings-nav-item,
+  .settings-btn-primary,
+  .settings-btn-secondary,
+  .settings-btn-warning,
+  .settings-icon-btn,
+  .settings-row-actions,
+  .settings-panel-card,
+  .settings-field,
+  .settings-field-group,
+  .settings-toggle-card,
+  .settings-toggle-track,
+  .settings-toggle-thumb {
     animation: none;
     transition: none;
   }
+}
+
+/* Selector de meses dentro de un modal: parece un campo más (.settings-field) y abre el mismo panel de meses. */
+app-month-picker {
+  --mp-field-height: 2.75rem;
+  --mp-field-radius: 0.75rem;
+  --mp-field-border: #cbd5e1;
+  --mp-field-border-hover: #94a3b8;
+  --mp-field-color: #172033;
+  --mp-field-font-size: 0.9375rem;
+  --mp-field-font-weight: 500;
+  --mp-field-pad-x: 0.9rem;
+  --mp-field-placeholder: #94a3b8;
+  --mp-field-bg-disabled: #f1f5f9;
 }

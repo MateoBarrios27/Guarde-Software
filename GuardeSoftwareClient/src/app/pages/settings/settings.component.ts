@@ -21,6 +21,14 @@ import { MonthlyIncreaseService } from '../../core/services/monthlyIncrease-serv
 import { MonthlyIncreaseSetting } from '../../core/models/monthly-increase-setting';
 import { CreateMonthlyIncreaseDto } from '../../core/dtos/monthlyIncrease/CreateMonthlyIncreaseDto';
 import { UpdateMonthlyIncreaseDto } from '../../core/dtos/monthlyIncrease/UpdateMonthlyIncreaseDto';
+import { MonthlyInterestService } from '../../core/services/monthlyInterest-service/monthly-interest.service';
+import {
+  CreateMonthlyInterestDto,
+  MonthlyInterestOverview,
+  MonthlyInterestRun,
+  MonthlyInterestSetting,
+} from '../../core/models/monthly-interest';
+import { MonthlyInterestRule } from '../../core/utils/interest-rule';
 import { SmtpConfig } from '../../core/models/smtp-config';
 import { CommunicationService } from '../../core/services/communication-service/communication.service';
 import { Warehouse } from '../../core/models/warehouse';
@@ -36,6 +44,7 @@ import { CreateAlertModalComponent } from '../../shared/components/create-alert-
 import { SyncService } from '../../core/services/offline-service/sync.service';
 import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 import { ActivityLogPanelComponent } from '../../shared/components/activity-log-panel/activity-log-panel.component';
+import { MonthPickerComponent } from '../../shared/components/month-picker/month-picker.component';
 import {
   MassCommunicationRecipient,
   MassCommunicationRecipientImportResult,
@@ -49,7 +58,7 @@ import { NgxPaginationModule } from 'ngx-pagination';
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent, CreateAlertModalComponent, ActivityLogPanelComponent, ToastNotificationComponent],
+  imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent, MonthPickerComponent, CreateAlertModalComponent, ActivityLogPanelComponent, ToastNotificationComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css'
 })
@@ -62,6 +71,7 @@ export class SettingsComponent implements OnInit {
     private warehouseService: WarehouseService,
     private billingTypeService: BillingTypeService,
     private monthlyIncreaseService: MonthlyIncreaseService,
+    private monthlyInterestService: MonthlyInterestService,
     private communicationService: CommunicationService,
     private lockerTypeService: LockerTypeService,
     public authService: AuthService,
@@ -162,6 +172,16 @@ export class SettingsComponent implements OnInit {
   editingIncrease: MonthlyIncreaseSetting = { id: 0, effectiveDate: new Date(), percentage: 0 };
   originalIncreasePercentage: number = 0;
 
+  // --- Propiedades de Intereses por mora ---
+  interestOverview: MonthlyInterestOverview | null = null;
+  interestLoadError = false;
+  isSavingInterest = false;
+  showCreateInterestModal = false;
+  showEditInterestModal = false;
+  newInterest: CreateMonthlyInterestDto = { effectiveDate: '', percentage: 10, applyDay: 11 };
+  editingInterest: MonthlyInterestSetting | null = null;
+  editInterestForm = { percentage: 10, applyDay: 11 };
+
   // --- Propiedades SMTP ---
   smtpConfigs = signal<SmtpConfig[]>([]);
   isModalOpen = signal(false);
@@ -237,6 +257,7 @@ export class SettingsComponent implements OnInit {
     this.loadUserTypes();
     this.loadBillingTypes();
     this.loadMonthlyIncreases();
+    this.loadMonthlyInterests();
     this.loadConfigs();
     this.loadMassRecipients();
     this.loadWarehouses();
@@ -321,6 +342,7 @@ export class SettingsComponent implements OnInit {
     { id: 'locker-types', title: 'Tipos de Bauleras', icon: 'boxes' },
     { id: 'depositos', title: 'Depósitos', icon: 'warehouse' },
     { id: 'aumentos', title: 'Aumentos Mensuales', icon: 'trending-up' },
+    { id: 'intereses', title: 'Intereses por mora', icon: 'percent' },
     { id: 'smtp', title: 'Configuración de Mails', icon: 'envelope' },
     { id: 'mass-recipients', title: 'Receptores de comunicados', icon: 'users' },
     { id: 'offline', title: 'Modo Offline', icon: 'save' }
@@ -733,6 +755,224 @@ export class SettingsComponent implements OnInit {
         Swal.fire('Error', 'No se pudo eliminar el aumento.', 'error');
       }
     });
+  }
+
+  // --- Métodos de Intereses por mora ---
+  loadMonthlyInterests(): void {
+    this.monthlyInterestService.getOverview().subscribe({
+      next: overview => {
+        this.interestOverview = overview;
+        this.interestLoadError = false;
+      },
+      error: err => {
+        console.error('Error al cargar la configuración de intereses', err);
+        this.interestLoadError = true;
+      },
+    });
+  }
+
+  get interestSettings(): MonthlyInterestSetting[] {
+    return [...(this.interestOverview?.settings ?? [])]
+      .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
+  }
+
+  get interestRuns(): MonthlyInterestRun[] {
+    return (this.interestOverview?.runs ?? []).slice(0, 6);
+  }
+
+  get interestDefaultPercentage(): number {
+    return this.interestOverview?.defaultPercentage ?? 10;
+  }
+
+  get interestDefaultApplyDay(): number {
+    return this.interestOverview?.defaultApplyDay ?? 11;
+  }
+
+  /** Mes en curso y siguiente según la fecha del servidor (la misma que usa el job). */
+  get interestMonthCards(): { title: string; label: string; rule: MonthlyInterestRule; run: MonthlyInterestRun | null }[] {
+    const base = this.interestServerToday();
+    return [0, 1].map(offset => {
+      const date = new Date(base.getFullYear(), base.getMonth() + offset, 1);
+      const key = this.interestMonthKey(date);
+      return {
+        title: offset === 0 ? 'Este mes' : 'Próximo mes',
+        label: this.interestMonthLabel(key),
+        rule: this.monthlyInterestService.ruleForMonth(date.getFullYear(), date.getMonth() + 1),
+        run: this.interestRunFor(key),
+      };
+    });
+  }
+
+  interestRunFor(monthKeyOrDate: string): MonthlyInterestRun | null {
+    const key = String(monthKeyOrDate).slice(0, 7);
+    return this.interestOverview?.runs.find(run => run.period.slice(0, 7) === key) ?? null;
+  }
+
+  interestStatus(setting: MonthlyInterestSetting): 'applied' | 'locked' | 'scheduled' {
+    if (this.interestRunFor(setting.effectiveDate)) return 'applied';
+    return setting.isLocked ? 'locked' : 'scheduled';
+  }
+
+  interestMonthLabel(value: string): string {
+    const [year, month] = String(value).slice(0, 7).split('-').map(Number);
+    if (!year || !month) return String(value);
+    const name = new Date(year, month - 1, 1).toLocaleDateString('es-AR', { month: 'long' });
+    return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`;
+  }
+
+  formatInterestPercentage(value: number): string {
+    return `${Number(value ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 2 })} %`;
+  }
+
+  formatInterestDate(value: string): string {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? ''
+      : date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  formatInterestAmount(value: number): string {
+    return Number(value ?? 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
+  }
+
+  openCreateInterestModal(): void {
+    // Propone el primer mes futuro que todavía no tiene configuración.
+    const base = this.interestServerToday();
+    const configured = new Set(this.interestSettings.map(setting => setting.effectiveDate.slice(0, 7)));
+    let next = new Date(base.getFullYear(), base.getMonth() + 1, 1);
+    while (configured.has(this.interestMonthKey(next))) {
+      next = new Date(next.getFullYear(), next.getMonth() + 1, 1);
+    }
+    this.newInterest = {
+      effectiveDate: this.interestMonthKey(next),
+      percentage: this.interestDefaultPercentage,
+      applyDay: this.interestDefaultApplyDay,
+    };
+    this.showCreateInterestModal = true;
+  }
+
+  closeCreateInterestModal(): void {
+    if (this.isSavingInterest) return;
+    this.showCreateInterestModal = false;
+  }
+
+  saveNewInterest(): void {
+    const error = this.validateInterest(this.newInterest.percentage, this.newInterest.applyDay)
+      ?? (/^\d{4}-\d{2}$/.test(this.newInterest.effectiveDate ?? '') ? null : 'Elegí el mes.');
+    if (error) {
+      Swal.fire('Datos inválidos', error, 'warning');
+      return;
+    }
+    const dto: CreateMonthlyInterestDto = {
+      effectiveDate: this.newInterest.effectiveDate,
+      percentage: Number(this.newInterest.percentage),
+      applyDay: Number(this.newInterest.applyDay),
+    };
+    this.isSavingInterest = true;
+    this.monthlyInterestService.createSetting(dto).subscribe({
+      next: created => {
+        this.isSavingInterest = false;
+        this.showCreateInterestModal = false;
+        Swal.success('Intereses guardados',
+          `${this.interestMonthLabel(created.effectiveDate)}: ${this.formatInterestPercentage(created.percentage)} el día ${created.applyDay}.`);
+        this.loadMonthlyInterests();
+      },
+      error: err => {
+        this.isSavingInterest = false;
+        Swal.fire('No se pudo guardar', this.interestErrorMessage(err), 'error');
+      },
+    });
+  }
+
+  openEditInterestModal(setting: MonthlyInterestSetting): void {
+    if (setting.isLocked) return;
+    this.editingInterest = setting;
+    this.editInterestForm = { percentage: setting.percentage, applyDay: setting.applyDay };
+    this.showEditInterestModal = true;
+  }
+
+  closeEditInterestModal(): void {
+    if (this.isSavingInterest) return;
+    this.showEditInterestModal = false;
+    this.editingInterest = null;
+  }
+
+  saveUpdatedInterest(): void {
+    const setting = this.editingInterest;
+    if (!setting) return;
+    const error = this.validateInterest(this.editInterestForm.percentage, this.editInterestForm.applyDay);
+    if (error) {
+      Swal.fire('Datos inválidos', error, 'warning');
+      return;
+    }
+    const percentage = Number(this.editInterestForm.percentage);
+    const applyDay = Number(this.editInterestForm.applyDay);
+    if (percentage === setting.percentage && applyDay === setting.applyDay) {
+      this.closeEditInterestModal();
+      return;
+    }
+    this.isSavingInterest = true;
+    this.monthlyInterestService.updateSetting(setting.id, { percentage, applyDay }).subscribe({
+      next: () => {
+        this.isSavingInterest = false;
+        this.closeEditInterestModal();
+        Swal.success('Intereses actualizados',
+          `${this.interestMonthLabel(setting.effectiveDate)}: ${this.formatInterestPercentage(percentage)} el día ${applyDay}.`);
+        this.loadMonthlyInterests();
+      },
+      error: err => {
+        this.isSavingInterest = false;
+        Swal.fire('No se pudo actualizar', this.interestErrorMessage(err), 'error');
+      },
+    });
+  }
+
+  async deleteInterest(setting: MonthlyInterestSetting): Promise<void> {
+    if (setting.isLocked) return;
+    const confirmed = await this.deleteConfirmation.confirm({
+      message: `${this.interestMonthLabel(setting.effectiveDate)} volverá al valor por defecto: ${this.formatInterestPercentage(this.interestDefaultPercentage)} el día ${this.interestDefaultApplyDay}.`
+    });
+    if (!confirmed) return;
+    this.monthlyInterestService.deleteSetting(setting.id).subscribe({
+      next: () => {
+        Swal.success('Configuración eliminada', `${this.interestMonthLabel(setting.effectiveDate)} usa el valor por defecto.`);
+        this.loadMonthlyInterests();
+      },
+      error: err => Swal.fire('No se pudo eliminar', this.interestErrorMessage(err), 'error'),
+    });
+  }
+
+  private validateInterest(percentage: number, applyDay: number): string | null {
+    const pct = Number(percentage);
+    const day = Number(applyDay);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) return 'El porcentaje debe estar entre 0 y 100.';
+    if (Math.abs(Math.round(pct * 100) - pct * 100) > 1e-6) return 'El porcentaje admite hasta dos decimales.';
+    if (!Number.isInteger(day) || day < 2 || day > 28) return 'El día debe estar entre 2 y 28.';
+    return null;
+  }
+
+  private interestErrorMessage(err: any): string {
+    const message = err?.error?.message;
+    if (typeof message === 'string' && message.trim()) return message;
+    const errors = err?.error?.errors;
+    if (errors && typeof errors === 'object') {
+      const first = (Object.values(errors) as unknown[]).flat()[0];
+      if (typeof first === 'string') return first;
+    }
+    return 'Revisá los datos e intentá de nuevo.';
+  }
+
+  private interestServerToday(): Date {
+    const today = this.interestOverview?.today;
+    if (today && /^\d{4}-\d{2}-\d{2}$/.test(today)) {
+      const [y, m, d] = today.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return new Date();
+  }
+
+  private interestMonthKey(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   }
 
   // --- Offline Snapshot Methods ---

@@ -1,4 +1,4 @@
-<div class="flex flex-col mb-3 min-h-screen bg-[#f4f7f9] font-inter relative pt-6 px-2 md:px-6">
+<div class="flex flex-col mb-3 min-h-screen bg-[#f1f5f9] font-inter relative pt-6 px-2 md:px-6">
 
   <app-toast-notification
     [visible]="showToast"
@@ -6,38 +6,41 @@
     [type]="toastType"
   ></app-toast-notification>
 
-  <div class="flex flex-col mb-6 md:flex-row md:items-center justify-between gap-4 bg-white p-4 md:p-5 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60">
-    <div class="flex-1 text-center md:text-left">
-      <h1 class="text-xl font-bold text-gray-900 tracking-tight">Configuración del Sistema</h1>
-      <p class="text-gray-400 text-sm mt-0.5 font-medium">Gestiona usuarios y configuraciones generales</p>
+  <header class="settings-hero">
+    <div class="settings-hero-icon">
+      <app-icon name="settings" class="h-6 w-6"></app-icon>
     </div>
-  </div>
+    <div class="min-w-0">
+      <h1 class="settings-hero-title">Configuración del Sistema</h1>
+      <p class="settings-hero-text">Gestioná usuarios y configuraciones generales</p>
+    </div>
+  </header>
 
-  <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start pb-6">
+  <div class="grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 items-start pb-6">
     <!-- Sidebar -->
-    <div class="lg:col-span-1 flex flex-col gap-5">
-      <div class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 overflow-hidden">
-        <div class="p-5 border-b border-gray-100 flex items-center gap-2 text-gray-800 font-semibold text-sm">
-          <app-icon name="settings" class="h-4 w-4 text-blue-600"></app-icon>
+    <div class="flex flex-col gap-5 min-w-0">
+      <div class="settings-nav-card">
+        <div class="settings-nav-title">
+          <app-icon name="settings" class="h-4 w-4"></app-icon>
           <span>Menú de Configuración</span>
         </div>
-        <nav class="flex flex-col text-sm">
-            <button
-                *ngFor="let section of configSections"
-                (click)="setActive(section.id)"
-                class="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors focus:outline-none"
-                [ngClass]="activeSection === section.id
-                    ? 'text-blue-700 bg-blue-50/50 border-r-2 border-blue-600 font-semibold'
-                    : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50/80 font-medium'">
-                <app-icon [name]="section.icon" class="h-4 w-4 shrink-0"></app-icon>
-                <span>{{ section.title }}</span>
-            </button>
+        <nav class="settings-nav" aria-label="Secciones de configuración">
+          <button
+            type="button"
+            *ngFor="let section of configSections"
+            (click)="setActive(section.id)"
+            class="settings-nav-item"
+            [class.is-active]="activeSection === section.id"
+            [attr.aria-current]="activeSection === section.id ? 'page' : null">
+            <app-icon [name]="section.icon" class="h-4 w-4 shrink-0"></app-icon>
+            <span>{{ section.title }}</span>
+          </button>
         </nav>
       </div>
     </div>
 
     <!-- Contenido principal -->
-    <div class="lg:col-span-3 flex flex-col gap-5 h-full">
+    <div class="flex flex-col gap-5 h-full min-w-0">
       <!-- Sección Usuarios -->
       <div *ngIf="activeSection === 'usuarios'" class="settings-panel h-full">
         <div class="settings-panel-header">
@@ -56,12 +59,12 @@
               (click)="openCreateAlertModal()"
               id="btn-emitir-advertencia"
               title="Envía un aviso en vivo y lo guarda en la bandeja de todos los usuarios"
-              class="settings-panel-warning group"
+              class="settings-btn-warning group"
             >
               <app-icon name="sound" class="h-4 w-4 transition-transform group-hover:scale-110"></app-icon>
               <span>Tirar un berretín</span>
             </button>
-            <button class="settings-panel-primary"
+            <button class="settings-btn-primary"
             (click)="openCreateUserModal()">
               <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Usuario
             </button>
@@ -71,30 +74,28 @@
           <table class="settings-panel-table min-w-[500px]">
             <thead>
               <tr>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Usuario</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Tipo</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Nombre</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Apellido</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa] w-44 text-right">Acciones</th>
+                <th>Usuario</th>
+                <th>Tipo</th>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th class="settings-col-actions-3">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr *ngFor="let user of users" class="hover:bg-gray-50/60 transition-colors group">
-                <td class="px-5 py-3 align-middle font-medium text-gray-900">{{user.userName}}</td>
-                <td class="px-5 py-3 align-middle text-gray-500">
-                  <span class="px-3 py-1 text-[11px] font-medium tracking-wide rounded-full bg-gray-50 border border-gray-200 text-gray-600">{{getUserTypeName(user.userTypeId)}}</span>
-                </td>
-                <td class="px-5 py-3 align-middle text-gray-600">{{user.firstName}}</td>
-                <td class="px-5 py-3 align-middle text-gray-600">{{user.lastName}}</td>     
-                <td class="px-5 py-3 align-middle">
-                  <div class="flex items-center justify-end gap-1.5 opacity-100 lg:opacity-40 lg:group-hover:opacity-100 transition-opacity">
-                    <button class="p-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded-lg text-gray-500 hover:text-gray-700 transition-all shadow-sm" title="Editar" (click)="openEditModalModal(user)">
+            <tbody>
+              <tr *ngFor="let user of users">
+                <td class="settings-cell-strong">{{user.userName}}</td>
+                <td class="settings-cell-muted font-bold">{{getUserTypeName(user.userTypeId)}}</td>
+                <td>{{user.firstName}}</td>
+                <td>{{user.lastName}}</td>
+                <td>
+                  <div class="settings-row-actions">
+                    <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar" (click)="openEditModalModal(user)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>
                     </button>
-                    <button class="p-1.5 bg-blue-50 border border-blue-100 hover:border-blue-200 rounded-lg text-blue-600 transition-all shadow-sm" title="Contraseña" (click)="changeUserPassword(user)">
+                    <button type="button" class="settings-icon-btn settings-icon-btn-info" title="Contraseña" aria-label="Contraseña" (click)="changeUserPassword(user)">
                       <app-icon name="shield-password" class="w-4 h-4"></app-icon>
                     </button>
-                    <button class="p-1.5 bg-red-50 border border-red-100 hover:border-red-200 rounded-lg text-red-600 transition-all shadow-sm" title="Eliminar" (click)="deleteUser(user.id)">
+                    <button type="button" class="settings-icon-btn settings-icon-btn-danger" title="Eliminar" aria-label="Eliminar" (click)="deleteUser(user.id)">
                       <app-icon name="Trash2" class="w-4 h-4"></app-icon>
                     </button>
                   </div>
@@ -124,155 +125,155 @@
           <div class="settings-panel-actions">
             <button
               type="button"
-              class="settings-panel-secondary"
+              class="settings-btn-secondary"
               (click)="setActive('mass-recipients')"
             >
               <app-icon name="users" class="w-4 h-4"></app-icon>
               Receptores
             </button>
-            <button class="settings-panel-primary"
+            <button class="settings-btn-primary"
             (click)="openModal()">
               <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Servidor
             </button>
           </div>
         </div>
-        <div class="settings-panel-content grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+        <div class="settings-panel-content settings-card-grid">
           @for (smtp of smtpConfigs(); track smtp.id) {
-            <div class="settings-panel-card p-5 group">
-              <div class="flex justify-between items-start mb-3 relative z-10">
-                <div class="flex items-center gap-3">
-                  <div class="p-2.5 bg-blue-100/50 text-blue-600 rounded-lg border border-blue-200/50">
-                      <app-icon name="envelope" class="w-5 h-5"></app-icon>
+            <div class="settings-panel-card p-5">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex min-w-0 items-center gap-3">
+                  <div class="settings-card-icon">
+                    <app-icon name="envelope" class="w-5 h-5"></app-icon>
                   </div>
-                  <div>
-                    <h3 class="font-bold text-gray-800 text-base tracking-tight">{{ smtp.name }}</h3>
-                    <p *ngIf="smtp.isReceiptDefault" class="mt-1 flex items-center gap-1.5 text-xs font-semibold text-blue-700">
-                      <app-icon name="check-circle" class="h-3.5 w-3.5"></app-icon>
-                      Predeterminado para recibos
-                    </p>
-                  </div>
+                  <h3 class="settings-card-title min-w-0">{{ smtp.name }}</h3>
                 </div>
-                <div class="flex gap-1.5 opacity-100 lg:opacity-40 lg:group-hover:opacity-100 transition-opacity">
-                  <button (click)="openModal(smtp)" class="p-1.5 bg-white border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 rounded-lg shadow-sm">
+                <div class="settings-row-actions">
+                  <button type="button" (click)="openModal(smtp)" class="settings-icon-btn" title="Editar" aria-label="Editar servidor">
                     <app-icon name="edit" class="w-4 h-4"></app-icon>
                   </button>
-                  <button (click)="deleteConfig(smtp.id!)" class="p-1.5 bg-red-50 border border-red-100 text-red-500 hover:border-red-200 hover:text-red-600 rounded-lg shadow-sm">
+                  <button type="button" (click)="deleteConfig(smtp.id!)" class="settings-icon-btn settings-icon-btn-danger" title="Eliminar" aria-label="Eliminar servidor">
                     <app-icon name="Trash2" class="w-4 h-4"></app-icon>
                   </button>
                 </div>
               </div>
-              <div class="text-sm text-gray-600 space-y-2 mt-4 relative z-10">
-                <div class="flex items-center justify-between border-b border-gray-100 pb-2">
-                  <span class="text-xs uppercase tracking-widest font-semibold text-gray-400">Host</span>
-                  <span class="font-medium text-gray-800">{{ smtp.host }}:{{ smtp.port }}</span>
+              <p *ngIf="smtp.isReceiptDefault" class="mt-3">
+                <span class="settings-pill settings-pill-blue">
+                  <app-icon name="check-circle" class="h-3.5 w-3.5"></app-icon>
+                  Predeterminado para recibos
+                </span>
+              </p>
+              <div class="mt-3">
+                <div class="settings-card-row">
+                  <span class="settings-card-label">Host</span>
+                  <span class="settings-card-value">{{ smtp.host }}:{{ smtp.port }}</span>
                 </div>
-                <div class="flex items-center justify-between border-b border-gray-100 pb-2">
-                  <span class="text-xs uppercase tracking-widest font-semibold text-gray-400">Usuario</span>
-                  <span class="font-medium text-gray-800">{{ smtp.email }}</span>
+                <div class="settings-card-row">
+                  <span class="settings-card-label">Usuario</span>
+                  <span class="settings-card-value">{{ smtp.email }}</span>
                 </div>
-                <div class="flex items-center gap-2 pt-1">
-                  <span *ngIf="smtp.useSsl" class="px-3 py-1 bg-green-50 text-green-700 text-[11px] font-medium tracking-wide rounded-full border border-green-200">SSL Activado</span>
-                  <span *ngIf="smtp.enableBcc" class="px-3 py-1 bg-purple-50 text-purple-700 text-[11px] font-medium tracking-wide rounded-full border border-purple-200" title="{{smtp.bccEmail}}">Copia Oculta ON</span>
+                <div *ngIf="smtp.useSsl || smtp.enableBcc" class="settings-card-row flex-wrap justify-start gap-2">
+                  <span *ngIf="smtp.useSsl" class="settings-pill settings-pill-green">SSL Activado</span>
+                  <span *ngIf="smtp.enableBcc" class="settings-pill settings-pill-indigo" title="{{smtp.bccEmail}}">Copia Oculta ON</span>
                 </div>
               </div>
             </div>
           }
           @empty {
             <div class="settings-panel-empty-card">
-              <div class="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600">
+              <div class="settings-empty-icon">
                 <app-icon name="envelope" class="h-5 w-5"></app-icon>
               </div>
-              <p class="mt-3 text-sm font-bold text-slate-700">Todavía no hay servidores configurados</p>
-              <p class="mt-1 max-w-sm text-xs leading-relaxed text-slate-500">Agregá una cuenta SMTP para habilitar el envío de comunicados desde el sistema.</p>
+              <p class="settings-empty-title">Todavía no hay servidores configurados</p>
+              <p class="settings-empty-text">Agregá una cuenta SMTP para habilitar el envío de comunicados desde el sistema.</p>
             </div>
           }
         </div>
       </div>
 
       <!-- Modal SMTP -->
-      <div *ngIf="isModalOpen()" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm sm:p-6" (keyup.enter)="closeModal()" (keydown.escape)="closeModal()" tabindex="-1" role="presentation">
-        <section class="smtp-modal-shell flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-[0_30px_90px_-28px_rgba(15,23,42,0.62)] sm:max-h-[calc(100vh-3rem)]" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="smtp-modal-title">
-          <div class="relative overflow-hidden border-b border-slate-100 bg-gradient-to-br from-slate-50 via-white to-blue-50/80 px-5 py-5 sm:px-7 sm:py-6">
-            <div class="absolute -right-12 -top-16 h-40 w-40 rounded-full bg-blue-200/30 blur-3xl"></div>
-            <div class="relative flex items-start justify-between gap-4">
-              <div class="flex items-start gap-3.5">
-                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
-                  <app-icon name="send" class="h-5 w-5"></app-icon>
-                </div>
-                <div>
-                  <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">Canal de comunicación</p>
-                  <h2 id="smtp-modal-title" class="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{{ currentConfig().id ? 'Editar servidor SMTP' : 'Nuevo servidor SMTP' }}</h2>
-                  <p class="mt-1 max-w-xl text-sm leading-relaxed text-slate-500">Configurá la cuenta que utilizará Guarde para enviar comunicados y estados de cuenta.</p>
-                </div>
+      <div *ngIf="isModalOpen()" class="settings-backdrop z-[100]" (keyup.enter)="closeModal()" (keydown.escape)="closeModal()" tabindex="-1" role="presentation">
+        <section class="settings-modal settings-modal-lg" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="smtp-modal-title">
+          <div class="settings-modal-header">
+            <div class="settings-modal-heading">
+              <div class="settings-modal-icon">
+                <app-icon name="send" class="h-5 w-5"></app-icon>
               </div>
-              <button type="button" (click)="closeModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-xl leading-none text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-100" aria-label="Cerrar modal">×</button>
+              <div class="min-w-0">
+                <p class="settings-modal-eyebrow">Canal de comunicación</p>
+                <h2 id="smtp-modal-title" class="settings-modal-title">{{ currentConfig().id ? 'Editar servidor SMTP' : 'Nuevo servidor SMTP' }}</h2>
+                <p class="settings-modal-subtitle">Configurá la cuenta que utilizará Guarde para enviar comunicados y estados de cuenta.</p>
+              </div>
             </div>
+            <button type="button" (click)="closeModal()" class="settings-modal-close" aria-label="Cerrar modal"><app-icon name="x" class="h-4 w-4"></app-icon></button>
           </div>
 
-          <form #smtpForm="ngForm" novalidate (ngSubmit)="saveConfig()" class="min-h-0 overflow-y-auto">
-            <div class="grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_15rem]">
-              <div class="min-w-0 space-y-5">
-                <div class="grid gap-4 sm:grid-cols-2">
-                  <label class="block sm:col-span-2">
-                    <span class="smtp-field-label">Nombre de referencia <span class="text-rose-500">*</span></span>
-                    <input type="text" name="smtpName" autocomplete="off" required [ngModel]="currentConfig().name" (ngModelChange)="updateSmtpField('name', $event)" class="smtp-field-input" placeholder="Ej. Gmail principal" />
-                  </label>
-                  <label class="block sm:col-span-2">
-                    <span class="smtp-field-label">Servidor SMTP <span class="text-rose-500">*</span></span>
-                    <input type="text" name="smtpHost" autocomplete="url" required [ngModel]="currentConfig().host" (ngModelChange)="updateSmtpField('host', $event)" class="smtp-field-input" placeholder="smtp.gmail.com" />
-                  </label>
-                  <label class="block">
-                    <span class="smtp-field-label">Puerto <span class="text-rose-500">*</span></span>
-                    <input type="number" name="smtpPort" min="1" max="65535" required [ngModel]="currentConfig().port" (ngModelChange)="updateSmtpField('port', +$event)" class="smtp-field-input" placeholder="587" />
-                  </label>
-                  <label class="block">
-                    <span class="smtp-field-label">Usuario / email <span class="text-rose-500">*</span></span>
-                    <input type="email" name="smtpEmail" autocomplete="username" required [ngModel]="currentConfig().email" (ngModelChange)="updateSmtpField('email', $event)" class="smtp-field-input" placeholder="cuenta@dominio.com" />
-                  </label>
-                  <label class="block sm:col-span-2">
-                    <span class="smtp-field-label">Contraseña <span class="text-rose-500">*</span></span>
-                    <div class="relative">
-                      <input [type]="showSmtpPassword ? 'text' : 'password'" name="smtpPassword" autocomplete="current-password" required [ngModel]="currentConfig().password" (ngModelChange)="updateSmtpField('password', $event)" class="smtp-field-input pr-12" placeholder="Contraseña de la cuenta" />
-                      <button type="button" (click)="toggleSmtpPassword()" class="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" [attr.aria-label]="showSmtpPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"><app-icon name="eye" class="h-4 w-4"></app-icon></button>
-                    </div>
+          <form #smtpForm="ngForm" novalidate (ngSubmit)="saveConfig()" class="settings-modal-form">
+            <div class="settings-modal-body">
+              <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_15rem]">
+                <div class="min-w-0 space-y-5">
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <label class="block sm:col-span-2">
+                      <span class="settings-field-label">Nombre de referencia <span class="text-rose-600">*</span></span>
+                      <input type="text" name="smtpName" autocomplete="off" required [ngModel]="currentConfig().name" (ngModelChange)="updateSmtpField('name', $event)" class="settings-field" placeholder="Ej. Gmail principal" />
+                    </label>
+                    <label class="block sm:col-span-2">
+                      <span class="settings-field-label">Servidor SMTP <span class="text-rose-600">*</span></span>
+                      <input type="text" name="smtpHost" autocomplete="url" required [ngModel]="currentConfig().host" (ngModelChange)="updateSmtpField('host', $event)" class="settings-field" placeholder="smtp.gmail.com" />
+                    </label>
+                    <label class="block">
+                      <span class="settings-field-label">Puerto <span class="text-rose-600">*</span></span>
+                      <input type="number" name="smtpPort" min="1" max="65535" required [ngModel]="currentConfig().port" (ngModelChange)="updateSmtpField('port', +$event)" class="settings-field" placeholder="587" />
+                    </label>
+                    <label class="block">
+                      <span class="settings-field-label">Usuario / email <span class="text-rose-600">*</span></span>
+                      <input type="email" name="smtpEmail" autocomplete="username" required [ngModel]="currentConfig().email" (ngModelChange)="updateSmtpField('email', $event)" class="settings-field" placeholder="cuenta@dominio.com" />
+                    </label>
+                    <label class="block sm:col-span-2">
+                      <span class="settings-field-label">Contraseña <span class="text-rose-600">*</span></span>
+                      <div class="relative">
+                        <input [type]="showSmtpPassword ? 'text' : 'password'" name="smtpPassword" autocomplete="current-password" required [ngModel]="currentConfig().password" (ngModelChange)="updateSmtpField('password', $event)" class="settings-field settings-field-pad-right" placeholder="Contraseña de la cuenta" />
+                        <button type="button" (click)="toggleSmtpPassword()" class="settings-field-action" [attr.aria-label]="showSmtpPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"><app-icon name="eye" class="h-4 w-4"></app-icon></button>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <label class="settings-toggle-card">
+                      <input type="checkbox" name="smtpUseSsl" class="settings-toggle-input" [ngModel]="currentConfig().useSsl" (ngModelChange)="updateSmtpField('useSsl', $event)" />
+                      <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
+                      <span class="min-w-0"><span class="settings-toggle-title">Usar SSL / TLS</span><span class="settings-toggle-text">Recomendado para puertos seguros.</span></span>
+                    </label>
+                    <label class="settings-toggle-card">
+                      <input type="checkbox" name="smtpEnableBcc" class="settings-toggle-input" [ngModel]="currentConfig().enableBcc" (ngModelChange)="updateSmtpField('enableBcc', $event)" />
+                      <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
+                      <span class="min-w-0"><span class="settings-toggle-title">Copia oculta</span><span class="settings-toggle-text">Recibí una copia de cada envío.</span></span>
+                    </label>
+                    <label class="settings-toggle-card sm:col-span-2">
+                      <input type="checkbox" name="smtpReceiptDefault" class="settings-toggle-input" [ngModel]="currentConfig().isReceiptDefault" (ngModelChange)="updateSmtpField('isReceiptDefault', $event)" />
+                      <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
+                      <span class="min-w-0"><span class="settings-toggle-title">Predeterminado para recibos</span><span class="settings-toggle-text">Será el primer servidor que se intente al enviar un comprobante. Si falla, se probarán los demás servidores activos.</span></span>
+                    </label>
+                  </div>
+
+                  <label *ngIf="currentConfig().enableBcc" class="block animate-fadeIn">
+                    <span class="settings-field-label">Email para copia oculta <span class="text-rose-600">*</span></span>
+                    <input type="email" name="smtpBccEmail" autocomplete="off" [required]="currentConfig().enableBcc" [ngModel]="currentConfig().bccEmail" (ngModelChange)="updateSmtpField('bccEmail', $event)" class="settings-field" placeholder="auditoria@dominio.com" />
                   </label>
                 </div>
 
-                <div class="grid gap-3 sm:grid-cols-2">
-                  <label class="smtp-toggle-card">
-                    <input type="checkbox" name="smtpUseSsl" class="smtp-toggle-input" [ngModel]="currentConfig().useSsl" (ngModelChange)="updateSmtpField('useSsl', $event)" />
-                    <span class="smtp-toggle-track"><span class="smtp-toggle-thumb"></span></span>
-                    <span class="min-w-0"><span class="block text-sm font-semibold text-slate-800">Usar SSL / TLS</span><span class="mt-0.5 block text-xs text-slate-500">Recomendado para puertos seguros.</span></span>
-                  </label>
-                  <label class="smtp-toggle-card">
-                    <input type="checkbox" name="smtpEnableBcc" class="smtp-toggle-input" [ngModel]="currentConfig().enableBcc" (ngModelChange)="updateSmtpField('enableBcc', $event)" />
-                    <span class="smtp-toggle-track"><span class="smtp-toggle-thumb"></span></span>
-                    <span class="min-w-0"><span class="block text-sm font-semibold text-slate-800">Copia oculta</span><span class="mt-0.5 block text-xs text-slate-500">Recibí una copia de cada envío.</span></span>
-                  </label>
-                  <label class="smtp-toggle-card sm:col-span-2">
-                    <input type="checkbox" name="smtpReceiptDefault" class="smtp-toggle-input" [ngModel]="currentConfig().isReceiptDefault" (ngModelChange)="updateSmtpField('isReceiptDefault', $event)" />
-                    <span class="smtp-toggle-track"><span class="smtp-toggle-thumb"></span></span>
-                    <span class="min-w-0"><span class="block text-sm font-semibold text-slate-800">Predeterminado para recibos</span><span class="mt-0.5 block text-xs text-slate-500">Será el primer servidor que se intente al enviar un comprobante. Si falla, se probarán los demás servidores activos.</span></span>
-                  </label>
-                </div>
-
-                <label *ngIf="currentConfig().enableBcc" class="block animate-fadeIn">
-                  <span class="smtp-field-label">Email para copia oculta <span class="text-rose-500">*</span></span>
-                  <input type="email" name="smtpBccEmail" autocomplete="off" [required]="currentConfig().enableBcc" [ngModel]="currentConfig().bccEmail" (ngModelChange)="updateSmtpField('bccEmail', $event)" class="smtp-field-input" placeholder="auditoria@dominio.com" />
-                </label>
+                <aside class="settings-aside hidden lg:block self-start">
+                  <div class="settings-aside-icon"><app-icon name="info" class="h-4 w-4"></app-icon></div>
+                  <h3 class="settings-aside-title">Configuración segura</h3>
+                  <p class="settings-aside-text">Verificá el puerto y el tipo de cifrado con tu proveedor de correo antes de guardar.</p>
+                  <div class="settings-aside-block"><span>SSL / TLS</span><strong>465 / 587</strong></div>
+                  <div class="settings-aside-block"><span>Sin cifrado</span><strong>25</strong></div>
+                </aside>
               </div>
-
-              <aside class="hidden rounded-2xl border border-blue-100 bg-blue-50/70 p-4 lg:block">
-                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm"><app-icon name="info" class="h-4 w-4"></app-icon></div>
-                <h3 class="mt-4 text-sm font-bold text-slate-900">Configuración segura</h3>
-                <p class="mt-2 text-xs leading-relaxed text-slate-600">Verificá el puerto y el tipo de cifrado con tu proveedor de correo antes de guardar.</p>
-                <div class="mt-4 space-y-2 border-t border-blue-100 pt-4 text-xs text-slate-600"><div class="flex items-center justify-between gap-3"><span>SSL / TLS</span><strong class="text-slate-800">465 / 587</strong></div><div class="flex items-center justify-between gap-3"><span>Sin cifrado</span><strong class="text-slate-800">25</strong></div></div>
-              </aside>
             </div>
 
-            <div class="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
-              <button type="button" (click)="closeModal()" class="smtp-secondary-action">Cancelar</button>
-              <button type="submit" class="smtp-primary-action"><app-icon name="check" class="h-4 w-4"></app-icon>{{ currentConfig().id ? 'Guardar cambios' : 'Crear servidor' }}</button>
+            <div class="settings-modal-footer">
+              <button type="button" (click)="closeModal()" class="settings-btn-secondary">Cancelar</button>
+              <button type="submit" class="settings-btn-primary"><app-icon name="check" class="h-4 w-4"></app-icon>{{ currentConfig().id ? 'Guardar cambios' : 'Crear servidor' }}</button>
             </div>
           </form>
         </section>
@@ -294,7 +295,7 @@
           <div class="settings-panel-actions">
             <button
               type="button"
-              class="settings-panel-secondary"
+              class="settings-btn-secondary"
               (click)="openMassRecipientImportModal()"
             >
               <app-icon name="upload-cloud" class="w-4 h-4"></app-icon>
@@ -302,7 +303,7 @@
             </button>
             <button
               type="button"
-              class="settings-panel-primary"
+              class="settings-btn-primary"
               (click)="openMassRecipientModal()"
             >
               <app-icon name="plus" class="w-4 h-4"></app-icon>
@@ -312,13 +313,13 @@
         </div>
 
         <div class="p-5">
-          <div class="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 flex items-start gap-3">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
+          <div class="settings-note">
+            <div class="settings-note-icon">
               <app-icon name="info" class="h-4 w-4"></app-icon>
             </div>
             <div class="min-w-0">
-              <p class="text-sm font-semibold text-slate-800">Cómo se utilizan estos contactos</p>
-              <p class="mt-1 text-xs leading-relaxed text-slate-600">
+              <p class="settings-note-title">Cómo se utilizan estos contactos</p>
+              <p class="settings-note-text">
                 Los receptores que tengan email participan automáticamente en la opción
                 <strong>“Todos los emails”</strong> de los comunicados masivos.
                 El teléfono queda guardado como dato de contacto. El envío por WhatsApp está temporalmente deshabilitado.
@@ -329,21 +330,21 @@
           </div>
         </div>
 
-        <div class="flex flex-col gap-3 px-5 pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div class="relative w-full sm:max-w-md">
-            <app-icon name="search" class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></app-icon>
+        <div class="settings-toolbar">
+          <div class="settings-search">
+            <app-icon name="search" class="settings-search-icon"></app-icon>
             <input
               type="search"
               [(ngModel)]="massRecipientSearchTerm"
               (ngModelChange)="onMassRecipientSearchChanged()"
-              class="min-h-11 w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+              class="settings-field settings-field-pad-left settings-field-pad-right"
               placeholder="Buscar por nombre, rubro, email o teléfono..."
               aria-label="Buscar receptores de comunicados"
             />
             <button
               *ngIf="massRecipientSearchTerm"
               type="button"
-              class="absolute right-2.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+              class="settings-field-action"
               (click)="clearMassRecipientSearch()"
               title="Limpiar búsqueda"
               aria-label="Limpiar búsqueda de receptores"
@@ -352,12 +353,12 @@
             </button>
           </div>
 
-          <label class="inline-flex items-center justify-end gap-2 whitespace-nowrap text-xs font-semibold text-slate-500">
+          <label class="settings-per-page">
             <span>Mostrar</span>
             <select
               [(ngModel)]="massRecipientItemsPerPage"
               (ngModelChange)="onMassRecipientItemsPerPageChanged()"
-              class="min-h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+              class="settings-field settings-field-auto"
               aria-label="Cantidad de receptores por página"
             >
               <option *ngFor="let option of massRecipientItemsPerPageOptions" [ngValue]="option">
@@ -369,56 +370,56 @@
         </div>
 
         <div class="overflow-x-auto overflow-y-hidden flex-1 w-full custom-scrollbar">
-          <table class="settings-panel-table min-w-[780px]">
+          <table class="settings-panel-table min-w-[640px]">
             <thead>
               <tr>
-                <th class="px-5 py-3.5 font-semibold">Nombre</th>
-                <th class="px-5 py-3.5 font-semibold">Tipo / rubro</th>
-                <th class="px-5 py-3.5 font-semibold">Email</th>
-                <th class="px-5 py-3.5 font-semibold">Teléfono</th>
-                <th class="px-5 py-3.5 font-semibold text-right w-32">Acciones</th>
+                <th>Nombre</th>
+                <th>Tipo / rubro</th>
+                <th>Email</th>
+                <th>Teléfono</th>
+                <th class="settings-col-actions">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody>
               @for (recipient of filteredMassRecipients | paginate: { id: 'massRecipients', itemsPerPage: massRecipientItemsPerPage, currentPage: massRecipientCurrentPage, totalItems: filteredMassRecipients.length }; track recipient.id) {
-                <tr class="hover:bg-gray-50/60 transition-colors group">
-                  <td class="px-5 py-3.5 align-middle font-medium text-gray-900">
+                <tr>
+                  <td class="settings-cell-strong">
                     {{ recipient.name || 'Sin nombre' }}
                   </td>
-                  <td class="px-5 py-3.5 align-middle text-gray-600">
-                    <span *ngIf="recipient.type; else noRecipientType" class="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">
-                      {{ recipient.type }}
-                    </span>
+                  <td class="font-bold text-slate-600">
+                    <span *ngIf="recipient.type; else noRecipientType">{{ recipient.type }}</span>
                     <ng-template #noRecipientType>
-                      <span class="text-gray-400 italic">Sin tipo</span>
+                      <span class="font-normal italic text-slate-400">Sin tipo</span>
                     </ng-template>
                   </td>
-                  <td class="px-5 py-3.5 align-middle text-gray-600">
+                  <td>
                     <span *ngIf="recipient.email; else noRecipientEmail">{{ recipient.email }}</span>
                     <ng-template #noRecipientEmail>
-                      <span class="text-gray-400 italic">Sin email</span>
+                      <span class="italic text-slate-400">Sin email</span>
                     </ng-template>
                   </td>
-                  <td class="px-5 py-3.5 align-middle text-gray-600">
+                  <td class="whitespace-nowrap">
                     <span *ngIf="recipient.phone; else noRecipientPhone">{{ recipient.phone }}</span>
                     <ng-template #noRecipientPhone>
-                      <span class="text-gray-400 italic">Sin teléfono</span>
+                      <span class="italic text-slate-400">Sin teléfono</span>
                     </ng-template>
                   </td>
-                  <td class="px-5 py-3.5 align-middle">
-                    <div class="flex items-center justify-end gap-1.5 opacity-100 lg:opacity-40 lg:group-hover:opacity-100 transition-opacity">
+                  <td>
+                    <div class="settings-row-actions">
                       <button
                         type="button"
-                        class="p-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded-lg text-gray-500 hover:text-gray-700 transition-all shadow-sm"
+                        class="settings-icon-btn"
                         title="Editar receptor"
+                        aria-label="Editar receptor"
                         (click)="openMassRecipientModal(recipient)"
                       >
                         <app-icon name="edit" class="w-4 h-4"></app-icon>
                       </button>
                       <button
                         type="button"
-                        class="p-1.5 bg-red-50 border border-red-100 hover:border-red-200 rounded-lg text-red-600 transition-all shadow-sm"
+                        class="settings-icon-btn settings-icon-btn-danger"
                         title="Eliminar receptor"
+                        aria-label="Eliminar receptor"
                         (click)="deleteMassRecipient(recipient.id)"
                       >
                         <app-icon name="Trash2" class="w-4 h-4"></app-icon>
@@ -428,15 +429,15 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="5" class="px-5 py-14 text-center">
-                    <div class="flex flex-col items-center justify-center text-gray-400">
-                      <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 text-gray-400">
-                        <app-icon name="users" class="h-6 w-6"></app-icon>
+                  <td colspan="5" class="settings-panel-empty">
+                    <div class="flex flex-col items-center justify-center">
+                      <div class="settings-empty-icon">
+                        <app-icon name="users" class="h-5 w-5"></app-icon>
                       </div>
-                      <p class="mt-3 text-sm font-semibold text-gray-600">
+                      <p class="settings-empty-title">
                         {{ massRecipientSearchTerm ? 'No encontramos receptores' : 'Todavía no hay receptores cargados' }}
                       </p>
-                      <p class="mt-1 text-xs text-gray-400">
+                      <p class="settings-empty-text">
                         {{ massRecipientSearchTerm
                           ? 'Probá con otro nombre, rubro, email o teléfono.'
                           : 'Agregá un contacto para incluirlo en futuros comunicados masivos.' }}
@@ -449,8 +450,8 @@
           </table>
         </div>
 
-        <div class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-          <p class="text-xs text-slate-500" aria-live="polite">
+        <div class="settings-panel-foot">
+          <p aria-live="polite">
             Mostrando <strong>{{ massRecipientRangeStart }}</strong> a
             <strong>{{ massRecipientRangeEnd }}</strong> de
             <strong>{{ filteredMassRecipients.length }}</strong> receptores
@@ -473,104 +474,101 @@
       <!-- Modal de receptor externo -->
       <div
         *ngIf="showMassRecipientModal"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm sm:p-6"
+        class="settings-backdrop z-[100]"
         (keydown.escape)="closeMassRecipientModal()"
         tabindex="-1"
         role="presentation"
       >
         <section
-          class="w-full max-w-xl overflow-hidden rounded-[1.5rem] border border-white/70 bg-white shadow-[0_30px_90px_-28px_rgba(15,23,42,0.62)]"
+          class="settings-modal settings-modal-md"
           (click)="$event.stopPropagation()"
           role="dialog"
           aria-modal="true"
           aria-labelledby="mass-recipient-modal-title"
         >
-          <div class="relative overflow-hidden border-b border-slate-100 bg-gradient-to-br from-slate-50 via-white to-blue-50/80 px-5 py-5 sm:px-7 sm:py-6">
-            <div class="absolute -right-12 -top-16 h-40 w-40 rounded-full bg-blue-200/30 blur-3xl"></div>
-            <div class="relative flex items-start justify-between gap-4">
-              <div class="flex items-start gap-3.5">
-                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
-                  <app-icon name="users" class="h-5 w-5"></app-icon>
-                </div>
-                <div>
-                  <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">Agenda de comunicados</p>
-                  <h2 id="mass-recipient-modal-title" class="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-                    {{ editingMassRecipientId ? 'Editar receptor' : 'Nuevo receptor' }}
-                  </h2>
-                  <p class="mt-1 max-w-lg text-sm leading-relaxed text-slate-500">
-                    Todos los datos son opcionales. Solo se utilizarán los canales que estén cargados.
-                  </p>
-                </div>
+          <div class="settings-modal-header">
+            <div class="settings-modal-heading">
+              <div class="settings-modal-icon">
+                <app-icon name="users" class="h-5 w-5"></app-icon>
               </div>
-              <button
-                type="button"
-                (click)="closeMassRecipientModal()"
-                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-xl leading-none text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
-                aria-label="Cerrar modal"
-              >
-                ×
-              </button>
+              <div class="min-w-0">
+                <p class="settings-modal-eyebrow">Agenda de comunicados</p>
+                <h2 id="mass-recipient-modal-title" class="settings-modal-title">
+                  {{ editingMassRecipientId ? 'Editar receptor' : 'Nuevo receptor' }}
+                </h2>
+                <p class="settings-modal-subtitle">
+                  Todos los datos son opcionales. Solo se utilizarán los canales que estén cargados.
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              (click)="closeMassRecipientModal()"
+              class="settings-modal-close"
+              aria-label="Cerrar modal"
+            >
+              <app-icon name="x" class="h-4 w-4"></app-icon>
+            </button>
           </div>
 
-          <form #massRecipientFormElement="ngForm" novalidate (ngSubmit)="saveMassRecipient()">
-            <div class="grid gap-5 p-5 sm:p-7">
+          <form #massRecipientFormElement="ngForm" novalidate (ngSubmit)="saveMassRecipient()" class="settings-modal-form">
+            <div class="settings-modal-body grid gap-5">
               <label class="block">
-                <span class="block text-xs font-bold uppercase tracking-widest text-slate-500">Nombre</span>
+                <span class="settings-field-label">Nombre</span>
                 <input
                   type="text"
                   name="massRecipientName"
                   autocomplete="name"
                   [(ngModel)]="massRecipientForm.name"
-                  class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  class="settings-field"
                   placeholder="Ej. Natalia Pedro"
                 />
               </label>
 
               <label class="block">
-                <span class="block text-xs font-bold uppercase tracking-widest text-slate-500">Email</span>
+                <span class="settings-field-label">Email</span>
                 <input
                   type="email"
                   name="massRecipientEmail"
                   autocomplete="email"
                   [(ngModel)]="massRecipientForm.email"
-                  class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  class="settings-field"
                   placeholder="contacto@dominio.com"
                 />
-                <span class="mt-1.5 block text-xs text-slate-400">Se incluirá en los comunicados masivos por email.</span>
+                <span class="settings-field-hint">Se incluirá en los comunicados masivos por email.</span>
               </label>
 
               <label class="block">
-                <span class="block text-xs font-bold uppercase tracking-widest text-slate-500">Teléfono</span>
+                <span class="settings-field-label">Teléfono</span>
                 <input
                   type="tel"
                   name="massRecipientPhone"
                   autocomplete="tel"
                   [(ngModel)]="massRecipientForm.phone"
-                  class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  class="settings-field"
                   placeholder="11 1234-5678"
                 />
-                <span class="mt-1.5 block text-xs text-slate-400">Queda disponible como dato de contacto; el envío por WhatsApp está temporalmente deshabilitado.</span>
+                <span class="settings-field-hint">Queda disponible como dato de contacto; el envío por WhatsApp está temporalmente deshabilitado.</span>
               </label>
 
               <label class="block">
-                <span class="block text-xs font-bold uppercase tracking-widest text-slate-500">Tipo / rubro <span class="font-normal normal-case tracking-normal text-slate-400">(opcional)</span></span>
+                <span class="settings-field-label">Tipo / rubro <span class="font-normal normal-case tracking-normal text-slate-400">(opcional)</span></span>
                 <input
                   type="text"
                   name="massRecipientType"
                   autocomplete="off"
                   [(ngModel)]="massRecipientForm.type"
                   maxlength="100"
-                  class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                  class="settings-field"
                   placeholder="Ej. Inmobiliarios, Laboratorios"
                 />
-                <span class="mt-1.5 block text-xs text-slate-400">Permite identificar el rubro del receptor para futuras campañas.</span>
+                <span class="settings-field-hint">Permite identificar el rubro del receptor para futuras campañas.</span>
               </label>
             </div>
 
-            <div class="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
-              <button type="button" (click)="closeMassRecipientModal()" class="smtp-secondary-action">Cancelar</button>
-              <button type="submit" class="smtp-primary-action">
+            <div class="settings-modal-footer">
+              <button type="button" (click)="closeMassRecipientModal()" class="settings-btn-secondary">Cancelar</button>
+              <button type="submit" class="settings-btn-primary">
                 <app-icon name="check" class="h-4 w-4"></app-icon>
                 {{ editingMassRecipientId ? 'Guardar cambios' : 'Agregar receptor' }}
               </button>
@@ -582,144 +580,140 @@
       <!-- Modal de importación masiva de receptores externos -->
       <div
         *ngIf="showMassRecipientImportModal"
-        class="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm sm:p-6"
+        class="settings-backdrop z-[110]"
         (keydown.escape)="closeMassRecipientImportModal()"
         tabindex="-1"
         role="presentation"
       >
         <section
-          class="flex max-h-[min(90vh,52rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[1.5rem] border border-white/70 bg-white shadow-[0_30px_90px_-28px_rgba(15,23,42,0.62)]"
+          class="settings-modal settings-modal-wide"
           (click)="$event.stopPropagation()"
           role="dialog"
           aria-modal="true"
           aria-labelledby="mass-recipient-import-modal-title"
         >
-          <div class="relative overflow-hidden border-b border-slate-100 bg-gradient-to-br from-slate-50 via-white to-indigo-50/80 px-5 py-5 sm:px-7 sm:py-6">
-            <div class="absolute -right-12 -top-16 h-40 w-40 rounded-full bg-indigo-200/30 blur-3xl"></div>
-            <div class="relative flex items-start justify-between gap-4">
-              <div class="flex items-start gap-3.5">
-                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-sm">
-                  <app-icon name="upload-cloud" class="h-5 w-5"></app-icon>
-                </div>
-                <div>
-                  <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-600">Carga segura e idempotente</p>
-                  <h2 id="mass-recipient-import-modal-title" class="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-                    Importar receptores
-                  </h2>
-                  <p class="mt-1 max-w-lg text-sm leading-relaxed text-slate-500">
-                    El email identifica al receptor. Si volvés a cargar el mismo archivo, no se crean duplicados.
-                  </p>
-                </div>
+          <div class="settings-modal-header">
+            <div class="settings-modal-heading">
+              <div class="settings-modal-icon settings-modal-icon-indigo">
+                <app-icon name="upload-cloud" class="h-5 w-5"></app-icon>
               </div>
-              <button
-                type="button"
-                (click)="closeMassRecipientImportModal()"
-                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-xl leading-none text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                [disabled]="isLoadingMassRecipientImport"
-                aria-label="Cerrar modal"
-              >
-                ×
-              </button>
+              <div class="min-w-0">
+                <p class="settings-modal-eyebrow">Carga segura e idempotente</p>
+                <h2 id="mass-recipient-import-modal-title" class="settings-modal-title">
+                  Importar receptores
+                </h2>
+                <p class="settings-modal-subtitle">
+                  El email identifica al receptor. Si volvés a cargar el mismo archivo, no se crean duplicados.
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              (click)="closeMassRecipientImportModal()"
+              class="settings-modal-close"
+              [disabled]="isLoadingMassRecipientImport"
+              aria-label="Cerrar modal"
+            >
+              <app-icon name="x" class="h-4 w-4"></app-icon>
+            </button>
           </div>
 
-          <div class="min-h-0 flex-1 overflow-y-auto">
-            <div class="grid gap-5 p-5 sm:p-7">
+          <div class="settings-modal-body">
+            <div class="grid gap-5">
               <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_13rem]">
                 <label class="block">
-                  <span class="block text-xs font-bold uppercase tracking-widest text-slate-500">Archivo</span>
+                  <span class="settings-field-label">Archivo</span>
                   <input
                     id="massRecipientImportFile"
                     type="file"
                     accept=".csv,.tsv,.xlsx"
                     (change)="onMassRecipientImportFileSelected($event)"
-                    class="mt-2 block w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-indigo-700 hover:border-indigo-300"
+                    class="settings-file"
                   />
-                  <span class="mt-1.5 block text-xs leading-relaxed text-slate-400">
+                  <span class="settings-field-hint">
                     Columnas reconocidas: Nombre/Empresa, Email/Correo y Teléfono/Celular/WhatsApp.
                     Sin encabezados, se usa ese orden. Formatos: CSV, TSV o XLSX. Máximo 20 MB.
                   </span>
                 </label>
 
                 <label class="block">
-                  <span class="block text-xs font-bold uppercase tracking-widest text-slate-500">Rubro</span>
+                  <span class="settings-field-label">Rubro</span>
                   <input
                     type="text"
                     name="massRecipientImportType"
                     [(ngModel)]="massRecipientImportType"
                     (ngModelChange)="onMassRecipientImportOptionsChanged()"
                     maxlength="100"
-                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+                    class="settings-field"
                     placeholder="Inmobiliaria"
                   />
                 </label>
               </div>
 
-              <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 text-sm text-slate-700">
+              <label class="settings-check-card">
                 <input
                   type="checkbox"
                   [(ngModel)]="massRecipientImportReactivateInactive"
                   (ngModelChange)="onMassRecipientImportOptionsChanged()"
-                  class="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 />
                 <span>
-                  <strong class="block text-slate-800">Reactivar coincidencias inactivas</strong>
+                  <strong>Reactivar coincidencias inactivas</strong>
                   <span class="mt-0.5 block text-xs leading-relaxed text-slate-500">Si está desmarcado, las coincidencias eliminadas se conservan inactivas y no participan en la campaña.</span>
                 </span>
               </label>
 
-              <div *ngIf="massRecipientImportFile" class="flex items-center justify-between gap-3 rounded-xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-sm">
-                <div class="flex min-w-0 items-center gap-2 text-indigo-800">
+              <div *ngIf="massRecipientImportFile" class="settings-file-chip">
+                <div class="flex min-w-0 items-center gap-2">
                   <app-icon name="file-text" class="h-4 w-4 shrink-0"></app-icon>
                   <span class="truncate" [title]="massRecipientImportFile.name">{{ massRecipientImportFile.name }}</span>
                 </div>
-                <button type="button" (click)="previewMassRecipientImport()" [disabled]="isLoadingMassRecipientImport" class="shrink-0 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="button" (click)="previewMassRecipientImport()" [disabled]="isLoadingMassRecipientImport" class="settings-btn-primary settings-btn-sm shrink-0">
                   <span *ngIf="!isLoadingMassRecipientImport">Analizar archivo</span>
                   <span *ngIf="isLoadingMassRecipientImport">Analizando...</span>
                 </button>
               </div>
 
-              <div *ngIf="massRecipientImportPreview as importPreview" class="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div *ngIf="massRecipientImportPreview as importPreview" class="settings-preview space-y-4">
                 <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p class="text-sm font-bold text-slate-900">Vista previa</p>
+                    <p class="text-base font-extrabold tracking-tight text-[#172033]">Vista previa</p>
                     <p class="text-xs text-slate-500">No se modificó la base de datos todavía.</p>
                   </div>
-                  <span class="inline-flex w-fit rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">{{ importPreview.validRows }} válidas</span>
+                  <span class="settings-pill settings-pill-green w-fit">{{ importPreview.validRows }} válidas</span>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <div class="rounded-xl bg-slate-50 p-3"><span class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Filas</span><strong class="mt-1 block text-lg text-slate-800">{{ importPreview.totalRows }}</strong></div>
-                  <div class="rounded-xl bg-blue-50 p-3"><span class="block text-[10px] font-bold uppercase tracking-wider text-blue-500">Nuevas</span><strong class="mt-1 block text-lg text-blue-800">{{ importPreview.newCount }}</strong></div>
-                  <div class="rounded-xl bg-amber-50 p-3"><span class="block text-[10px] font-bold uppercase tracking-wider text-amber-600">Ya activas</span><strong class="mt-1 block text-lg text-amber-800">{{ importPreview.existingActiveCount }}</strong></div>
-                  <div class="rounded-xl bg-violet-50 p-3"><span class="block text-[10px] font-bold uppercase tracking-wider text-violet-500">Inactivas</span><strong class="mt-1 block text-lg text-violet-800">{{ importPreview.existingInactiveCount }}</strong></div>
+                  <div class="settings-stat settings-stat-blue"><span>Filas</span><strong>{{ importPreview.totalRows }}</strong></div>
+                  <div class="settings-stat settings-stat-green"><span>Nuevas</span><strong>{{ importPreview.newCount }}</strong></div>
+                  <div class="settings-stat settings-stat-indigo"><span>Ya activas</span><strong>{{ importPreview.existingActiveCount }}</strong></div>
+                  <div class="settings-stat settings-stat-slate"><span>Inactivas</span><strong>{{ importPreview.existingInactiveCount }}</strong></div>
                 </div>
 
-                <div *ngIf="importPreview.reactivatedCount > 0 || importPreview.skippedInactiveCount > 0 || importPreview.duplicateCount > 0 || importPreview.invalidCount > 0 || importPreview.missingEmailCount > 0" class="space-y-1 rounded-xl border border-slate-100 bg-slate-50/80 p-3 text-xs text-slate-600">
+                <div *ngIf="importPreview.reactivatedCount > 0 || importPreview.skippedInactiveCount > 0 || importPreview.duplicateCount > 0 || importPreview.invalidCount > 0 || importPreview.missingEmailCount > 0" class="settings-callout space-y-1">
                   <p *ngIf="importPreview.reactivatedCount > 0">{{ importPreview.reactivatedCount }} coincidencia(s) inactiva(s) se reactivarían.</p>
                   <p *ngIf="importPreview.skippedInactiveCount > 0">{{ importPreview.skippedInactiveCount }} coincidencia(s) inactiva(s) quedarán sin activar.</p>
                   <p *ngIf="importPreview.duplicateCount > 0">{{ importPreview.duplicateCount }} fila(s) repetida(s) dentro del archivo se omitieron.</p>
                   <p *ngIf="importPreview.invalidCount > 0 || importPreview.missingEmailCount > 0">{{ importPreview.invalidCount + importPreview.missingEmailCount }} fila(s) no tienen un email utilizable.</p>
                 </div>
 
-                <div *ngIf="importPreview.issues.length > 0" class="rounded-xl border border-red-100 bg-red-50/70 p-3 text-xs text-red-800">
-                  <p class="font-bold">Filas que requieren revisión</p>
+                <div *ngIf="importPreview.issues.length > 0" class="settings-callout settings-callout-danger">
+                  <p class="font-extrabold">Filas que requieren revisión</p>
                   <ul class="mt-1 max-h-28 list-disc space-y-0.5 overflow-y-auto pl-5">
                     <li *ngFor="let issue of importPreview.issues">Fila {{ issue.rowNumber }}: {{ issue.reason }}<span *ngIf="issue.email"> ({{ issue.email }})</span></li>
                   </ul>
-                  <p *ngIf="importPreview.hasMoreIssues" class="mt-1 font-semibold">Se muestran las primeras incidencias.</p>
+                  <p *ngIf="importPreview.hasMoreIssues" class="mt-1 font-bold">Se muestran las primeras incidencias.</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
-            <button type="button" (click)="closeMassRecipientImportModal()" [disabled]="isLoadingMassRecipientImport" class="smtp-secondary-action">Cancelar</button>
+          <div class="settings-modal-footer">
+            <button type="button" (click)="closeMassRecipientImportModal()" [disabled]="isLoadingMassRecipientImport" class="settings-btn-secondary">Cancelar</button>
             <button
               type="button"
               (click)="confirmMassRecipientImport()"
               [disabled]="isLoadingMassRecipientImport || !massRecipientImportPreview || massRecipientImportPreview.validRows === 0"
-              class="smtp-primary-action disabled:cursor-not-allowed disabled:opacity-50"
+              class="settings-btn-primary"
             >
               <app-icon name="check" class="h-4 w-4"></app-icon>
               <span *ngIf="!isLoadingMassRecipientImport">Importar receptores</span>
@@ -746,31 +740,31 @@
         <div class="settings-panel-content space-y-5">
           <div class="flex flex-col md:flex-row gap-5">
             <!-- Descargar Snapshot -->
-            <div class="settings-panel-card flex-1 p-6 flex flex-col items-center text-center">
-              <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-                <app-icon name="download-cloud" class="w-6 h-6 text-blue-600"></app-icon>
+            <div class="settings-panel-card settings-offline-card">
+              <div class="settings-card-icon">
+                <app-icon name="download-cloud" class="w-6 h-6"></app-icon>
               </div>
-              <h3 class="font-bold text-gray-800 mb-2">Descargar Respaldo</h3>
-              <p class="text-sm text-gray-500 mb-6 flex-1">
+              <h3 class="settings-offline-title">Descargar Respaldo</h3>
+              <p class="settings-offline-text">
                 Genera y descarga un archivo .json con los clientes, métodos de pago y bauleras actuales para usar como respaldo en caso de caída del servidor.
               </p>
-              <button (click)="downloadSnapshot()" class="settings-panel-primary w-full">
+              <button (click)="downloadSnapshot()" class="settings-btn-primary w-full">
                 Descargar ahora
               </button>
             </div>
-            
+
             <!-- Importar Snapshot -->
-            <div class="settings-panel-card flex-1 p-6 flex flex-col items-center text-center">
-              <div class="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
-                <app-icon name="upload-cloud" class="w-6 h-6 text-indigo-600"></app-icon>
+            <div class="settings-panel-card settings-offline-card">
+              <div class="settings-card-icon settings-card-icon-indigo">
+                <app-icon name="upload-cloud" class="w-6 h-6"></app-icon>
               </div>
-              <h3 class="font-bold text-gray-800 mb-2">Importar Respaldo</h3>
-              <p class="text-sm text-gray-500 mb-6 flex-1">
+              <h3 class="settings-offline-title">Importar Respaldo</h3>
+              <p class="settings-offline-text">
                 Si el sistema se cae, importa el archivo de respaldo aquí para cargar los datos localmente y poder seguir cobrando de forma offline.
               </p>
               <div class="w-full">
                 <input type="file" id="snapshotFile" (change)="importSnapshot($event)" accept=".json" class="hidden">
-                <label for="snapshotFile" class="settings-panel-secondary w-full cursor-pointer">
+                <label for="snapshotFile" class="settings-btn-secondary w-full cursor-pointer">
                   Seleccionar archivo .json
                 </label>
               </div>
@@ -793,7 +787,7 @@
             </div>
           </div>
           <div class="settings-panel-actions">
-          <button class="settings-panel-primary"
+          <button class="settings-btn-primary"
             (click)="openCreateWarehouseModal()">
             <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Depósito
           </button>
@@ -803,24 +797,24 @@
           <table class="settings-panel-table min-w-[500px]">
             <thead>
               <tr>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Nombre</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Dirección</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa] w-32 text-right">Acciones</th>
+                <th>Nombre</th>
+                <th>Dirección</th>
+                <th class="settings-col-actions">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody>
               <tr *ngIf="warehouses.length === 0">
-                <td colspan="3" class="px-5 py-8 text-center text-gray-500 font-medium">No hay depósitos definidos.</td>
+                <td colspan="3" class="settings-panel-empty">No hay depósitos definidos.</td>
               </tr>
-              <tr *ngFor="let wh of warehouses" class="hover:bg-gray-50/60 transition-colors group">
-                <td class="px-5 py-3 align-middle font-semibold text-gray-900">{{ wh.name }}</td>
-                <td class="px-5 py-3 align-middle text-gray-500">{{ wh.address || '-' }}</td>
-                <td class="px-5 py-3 align-middle">
-                  <div class="flex items-center justify-end gap-1.5 opacity-100 lg:opacity-40 lg:group-hover:opacity-100 transition-opacity">
-                    <button class="p-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded-lg text-gray-500 hover:text-gray-700 transition-all shadow-sm" title="Editar" (click)="openEditWarehouseModal(wh)">
+              <tr *ngFor="let wh of warehouses">
+                <td class="settings-cell-strong">{{ wh.name }}</td>
+                <td class="settings-cell-muted">{{ wh.address || '-' }}</td>
+                <td>
+                  <div class="settings-row-actions">
+                    <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar" (click)="openEditWarehouseModal(wh)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>
                     </button>
-                    <button class="p-1.5 bg-red-50 border border-red-100 hover:border-red-200 rounded-lg text-red-600 transition-all shadow-sm" title="Eliminar" (click)="deleteWarehouse(wh)">
+                    <button type="button" class="settings-icon-btn settings-icon-btn-danger" title="Eliminar" aria-label="Eliminar" (click)="deleteWarehouse(wh)">
                       <app-icon name="Trash2" class="w-4 h-4"></app-icon>
                     </button>
                   </div>
@@ -845,7 +839,7 @@
             </div>
           </div>
           <div class="settings-panel-actions">
-          <button class="settings-panel-primary"
+          <button class="settings-btn-primary"
             (click)="openCreatePaymentMethod()">
             <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Medio
           </button>
@@ -855,23 +849,21 @@
           <table class="settings-panel-table min-w-[500px]">
             <thead>
               <tr>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Nombre</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Comisión</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa] w-32 text-right">Acciones</th>
+                <th>Nombre</th>
+                <th class="settings-col-figure">Comisión</th>
+                <th class="settings-col-actions">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr *ngFor="let paymentmeth of paymentMethods" class="hover:bg-gray-50/60 transition-colors group">
-                <td class="px-5 py-3 align-middle font-semibold text-gray-900">{{paymentmeth.name}}</td>
-                <td class="px-5 py-3 align-middle">
-                  <span class="px-3 py-1 text-[11px] font-medium tracking-wide rounded-full bg-orange-50 border border-orange-200 text-orange-600">{{paymentmeth.commission}} %</span>
-                </td>
-                <td class="px-5 py-3 align-middle">
-                  <div class="flex items-center justify-end gap-1.5 opacity-100 lg:opacity-40 lg:group-hover:opacity-100 transition-opacity">
-                    <button class="p-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded-lg text-gray-500 hover:text-gray-700 transition-all shadow-sm" title="Editar" (click)="openUpdatePaymentModal(paymentmeth)">
+            <tbody>
+              <tr *ngFor="let paymentmeth of paymentMethods">
+                <td class="settings-cell-strong">{{paymentmeth.name}}</td>
+                <td class="settings-cell-figure">{{paymentmeth.commission}} %</td>
+                <td>
+                  <div class="settings-row-actions">
+                    <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar" (click)="openUpdatePaymentModal(paymentmeth)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>
                     </button>
-                    <button class="p-1.5 bg-red-50 border border-red-100 hover:border-red-200 rounded-lg text-red-600 transition-all shadow-sm" title="Eliminar" (click)="deletePaymentMethod(paymentmeth.id)">
+                    <button type="button" class="settings-icon-btn settings-icon-btn-danger" title="Eliminar" aria-label="Eliminar" (click)="deletePaymentMethod(paymentmeth.id)">
                       <app-icon name="Trash2" class="w-4 h-4"></app-icon>
                     </button>
                   </div>
@@ -896,7 +888,7 @@
             </div>
           </div>
           <div class="settings-panel-actions">
-          <button class="settings-panel-primary"
+          <button class="settings-btn-primary"
             (click)="openCreateBillingTypeModal()">
             <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Tipo
           </button>
@@ -906,22 +898,22 @@
           <table class="settings-panel-table min-w-[500px]">
             <thead>
               <tr>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Nombre</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa] w-32 text-right">Acciones</th>
+                <th>Nombre</th>
+                <th class="settings-col-actions">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody>
               <tr *ngIf="billingTypes.length === 0">
-                <td colspan="2" class="px-5 py-8 text-center text-gray-500 font-medium">No hay tipos de factura definidos.</td>
+                <td colspan="2" class="settings-panel-empty">No hay tipos de factura definidos.</td>
               </tr>
-              <tr *ngFor="let bt of billingTypes" class="hover:bg-gray-50/60 transition-colors group">
-                <td class="px-5 py-3 align-middle font-semibold text-gray-900">{{ bt.name }}</td>
-                <td class="px-5 py-3 align-middle">
-                  <div class="flex items-center justify-end gap-1.5 opacity-100 lg:opacity-40 lg:group-hover:opacity-100 transition-opacity">
-                    <button class="p-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded-lg text-gray-500 hover:text-gray-700 transition-all shadow-sm" title="Editar" (click)="openEditBillingTypeModal(bt)">
+              <tr *ngFor="let bt of billingTypes">
+                <td class="settings-cell-strong">{{ bt.name }}</td>
+                <td>
+                  <div class="settings-row-actions">
+                    <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar" (click)="openEditBillingTypeModal(bt)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>
                     </button>
-                    <button class="p-1.5 bg-red-50 border border-red-100 hover:border-red-200 rounded-lg text-red-600 transition-all shadow-sm" title="Eliminar" (click)="deleteBillingType(bt)">
+                    <button type="button" class="settings-icon-btn settings-icon-btn-danger" title="Eliminar" aria-label="Eliminar" (click)="deleteBillingType(bt)">
                       <app-icon name="Trash2" class="w-4 h-4"></app-icon>
                     </button>
                   </div>
@@ -936,7 +928,7 @@
       <div *ngIf="activeSection === 'locker-types'" class="settings-panel h-full">
         <div class="settings-panel-header">
           <div class="settings-panel-heading">
-            <div class="settings-panel-icon-indigo settings-panel-icon">
+            <div class="settings-panel-icon settings-panel-icon-indigo">
               <app-icon name="boxes" class="h-5 w-5"></app-icon>
             </div>
             <div class="min-w-0">
@@ -946,7 +938,7 @@
             </div>
           </div>
           <div class="settings-panel-actions">
-          <button class="settings-panel-primary"
+          <button class="settings-btn-primary"
             (click)="openCreateLockerTypeModal()">
             <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Tipo
           </button>
@@ -956,23 +948,21 @@
           <table class="settings-panel-table min-w-[500px]">
             <thead>
               <tr>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Nombre</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">M³</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa] w-32 text-right">Acciones</th>
+                <th>Nombre</th>
+                <th class="settings-col-figure">M³</th>
+                <th class="settings-col-actions">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr *ngFor="let lockerType of lockerTypes" class="hover:bg-gray-50/60 transition-colors group">
-                <td class="px-5 py-3 align-middle font-semibold text-gray-900">{{lockerType.name}}</td>
-                <td class="px-5 py-3 align-middle">
-                  <span class="px-3 py-1 text-[11px] font-medium tracking-wide rounded-full bg-indigo-50 border border-indigo-200 text-indigo-600">{{lockerType.m3}} m³</span>
-                </td>
-                <td class="px-5 py-3 align-middle">
-                  <div class="flex items-center justify-end gap-1.5 opacity-100 lg:opacity-40 lg:group-hover:opacity-100 transition-opacity">
-                    <button class="p-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded-lg text-gray-500 hover:text-gray-700 transition-all shadow-sm" title="Editar" (click)="openUpdateLockerTypeModal(lockerType)">
+            <tbody>
+              <tr *ngFor="let lockerType of lockerTypes">
+                <td class="settings-cell-strong">{{lockerType.name}}</td>
+                <td class="settings-cell-figure">{{lockerType.m3}} m³</td>
+                <td>
+                  <div class="settings-row-actions">
+                    <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar" (click)="openUpdateLockerTypeModal(lockerType)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>
                     </button>
-                    <button class="p-1.5 bg-red-50 border border-red-100 hover:border-red-200 rounded-lg text-red-600 transition-all shadow-sm" title="Eliminar" (click)="deleteLockerType(lockerType)">
+                    <button type="button" class="settings-icon-btn settings-icon-btn-danger" title="Eliminar" aria-label="Eliminar" (click)="deleteLockerType(lockerType)">
                       <app-icon name="Trash2" class="w-4 h-4"></app-icon>
                     </button>
                   </div>
@@ -997,7 +987,7 @@
             </div>
           </div>
           <div class="settings-panel-actions">
-          <button class="settings-panel-primary"
+          <button class="settings-btn-primary"
             (click)="openCreateIncreaseModal()">
             <app-icon name="plus" class="w-4 h-4"></app-icon> Nuevo Aumento
           </button>
@@ -1007,26 +997,24 @@
           <table class="settings-panel-table min-w-[500px]">
             <thead>
               <tr>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Mes de Aplicación</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">Porcentaje</th>
-                <th class="px-5 py-3.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa] w-32 text-right">Acciones</th>
+                <th>Mes de Aplicación</th>
+                <th class="settings-col-figure">Porcentaje</th>
+                <th class="settings-col-actions">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody>
               <tr *ngIf="monthlyIncreases.length === 0">
-                <td colspan="3" class="px-5 py-8 text-center text-gray-500 font-medium">No hay aumentos programados.</td>
+                <td colspan="3" class="settings-panel-empty">No hay aumentos programados.</td>
               </tr>
-              <tr *ngFor="let inc of monthlyIncreases" class="hover:bg-gray-50/60 transition-colors group">
-                <td class="px-5 py-3 align-middle font-semibold text-gray-900">{{ formatDateToMonthYear(inc.effectiveDate) }}</td>
-                <td class="px-5 py-3 align-middle">
-                  <span class="px-3 py-1 text-[11px] font-medium tracking-wide rounded-full bg-red-50 border border-red-200 text-red-600">{{ inc.percentage | number:'1.2-2' }} %</span>
-                </td>
-                <td class="px-5 py-3 align-middle">
-                  <div class="flex items-center justify-end gap-1.5 opacity-100 lg:opacity-40 lg:group-hover:opacity-100 transition-opacity">
-                    <button class="p-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded-lg text-gray-500 hover:text-gray-700 transition-all shadow-sm" title="Editar" (click)="openEditIncreaseModal(inc)">
+              <tr *ngFor="let inc of monthlyIncreases">
+                <td class="settings-cell-strong">{{ formatDateToMonthYear(inc.effectiveDate) }}</td>
+                <td class="settings-cell-figure">{{ inc.percentage | number:'1.2-2' }} %</td>
+                <td>
+                  <div class="settings-row-actions">
+                    <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar" (click)="openEditIncreaseModal(inc)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>
                     </button>
-                    <button class="p-1.5 bg-red-50 border border-red-100 hover:border-red-200 rounded-lg text-red-600 transition-all shadow-sm" title="Eliminar" (click)="deleteIncrease(inc)">
+                    <button type="button" class="settings-icon-btn settings-icon-btn-danger" title="Eliminar" aria-label="Eliminar" (click)="deleteIncrease(inc)">
                       <app-icon name="Trash2" class="w-4 h-4"></app-icon>
                     </button>
                   </div>
@@ -1037,29 +1025,151 @@
         </div>
       </div>
 
-      <!-- Datos Empresa (si estuvieran funcionales) -->
-      <div *ngIf="activeSection === 'datos'" class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 flex flex-col overflow-hidden">
-        <div class="p-5 border-b border-gray-100">
-          <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Datos de la Empresa</h3>
+      <!-- Intereses por mora -->
+      <div *ngIf="activeSection === 'intereses'" class="settings-panel h-full">
+        <div class="settings-panel-header">
+          <div class="settings-panel-heading">
+            <div class="settings-panel-icon settings-panel-icon-rose">
+              <app-icon name="percent" class="h-5 w-5"></app-icon>
+            </div>
+            <div class="min-w-0">
+              <p class="settings-panel-eyebrow">Planificación financiera</p>
+              <h3 class="settings-panel-title">Intereses por mora</h3>
+              <p class="settings-panel-description">Porcentaje y día en que se aplican los intereses de cada mes (a las 4:00).</p>
+            </div>
+          </div>
+          <div class="settings-panel-actions">
+            <button type="button" class="settings-btn-primary" (click)="openCreateInterestModal()">
+              <app-icon name="plus" class="w-4 h-4"></app-icon> Configurar mes
+            </button>
+          </div>
         </div>
-        <div class="p-5 space-y-5">
+
+        <div class="settings-panel-content space-y-4">
+          <div *ngIf="interestLoadError" class="settings-callout settings-callout-danger flex flex-wrap items-center justify-between gap-2" role="alert">
+            <span>No se pudo cargar la configuración de intereses. Mientras tanto rige el valor por defecto.</span>
+            <button type="button" class="settings-btn-secondary settings-btn-sm" (click)="loadMonthlyInterests()">Reintentar</button>
+          </div>
+
+          <section class="interest-summary" aria-label="Intereses del mes en curso y del próximo">
+            <article *ngFor="let card of interestMonthCards" class="interest-summary-card">
+              <div class="interest-summary-head">
+                <span class="interest-summary-title">{{ card.title }}</span>
+                <span class="interest-summary-month">{{ card.label }}</span>
+              </div>
+              <div class="interest-summary-figures">
+                <div class="interest-summary-figure interest-summary-figure-main">
+                  <span>Interés</span>
+                  <strong>{{ formatInterestPercentage(card.rule.percentage) }}</strong>
+                </div>
+                <div class="interest-summary-figure">
+                  <span>Se aplica el día</span>
+                  <strong>{{ card.rule.applyDay }}</strong>
+                </div>
+              </div>
+              <p class="interest-summary-status">
+                <ng-container *ngIf="card.run; else interestNotApplied">
+                  <app-icon name="check-circle" class="h-4 w-4 shrink-0"></app-icon>
+                  Aplicado el {{ formatInterestDate(card.run.appliedAt) }} · {{ card.run.affectedRentals }} alquileres · {{ formatInterestAmount(card.run.totalAmount) }}
+                </ng-container>
+                <ng-template #interestNotApplied>
+                  <app-icon name="clock" class="h-4 w-4 shrink-0"></app-icon>
+                  {{ card.rule.isDefault ? 'Valor por defecto' : 'Configurado' }} · todavía no se aplicó
+                </ng-template>
+              </p>
+            </article>
+          </section>
+
+          <p class="settings-field-hint">
+            Un mes sin configurar usa <strong>{{ formatInterestPercentage(interestDefaultPercentage) }}</strong> el día
+            <strong>{{ interestDefaultApplyDay }}</strong>. Un mes se bloquea cuando llega su día o cuando ya se aplicó.
+          </p>
+        </div>
+
+        <div class="overflow-x-auto overflow-y-hidden flex-1 w-full custom-scrollbar">
+          <table class="settings-panel-table min-w-[560px]">
+            <thead>
+              <tr>
+                <th>Mes</th>
+                <th class="settings-col-figure" title="Día en que se aplican los intereses (a las 4:00)">Se aplica el día</th>
+                <th class="settings-col-figure">Interés</th>
+                <th>Estado</th>
+                <th class="settings-col-actions">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="interestSettings.length === 0">
+                <td colspan="5" class="settings-panel-empty">No hay meses configurados: rige el valor por defecto.</td>
+              </tr>
+              <tr *ngFor="let setting of interestSettings">
+                <td class="settings-cell-strong whitespace-nowrap">{{ interestMonthLabel(setting.effectiveDate) }}</td>
+                <td class="settings-cell-figure">{{ setting.applyDay }}</td>
+                <td class="settings-cell-figure">{{ formatInterestPercentage(setting.percentage) }}</td>
+                <td [ngSwitch]="interestStatus(setting)">
+                  <span *ngSwitchCase="'applied'" class="settings-pill settings-pill-green">Aplicado</span>
+                  <span *ngSwitchCase="'locked'" class="settings-pill settings-pill-slate">Bloqueado</span>
+                  <span *ngSwitchDefault class="settings-pill settings-pill-blue">Programado</span>
+                </td>
+                <td>
+                  <div *ngIf="!setting.isLocked; else interestLocked" class="settings-row-actions">
+                    <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar intereses del mes" (click)="openEditInterestModal(setting)">
+                      <app-icon name="edit" class="w-4 h-4"></app-icon>
+                    </button>
+                    <button type="button" class="settings-icon-btn settings-icon-btn-danger" title="Eliminar" aria-label="Eliminar intereses del mes" (click)="deleteInterest(setting)">
+                      <app-icon name="Trash2" class="w-4 h-4"></app-icon>
+                    </button>
+                  </div>
+                  <ng-template #interestLocked>
+                    <div class="settings-row-actions interest-locked" title="Ya se aplicó o llegó su día: no se puede modificar">
+                      <app-icon name="lock" class="w-4 h-4"></app-icon>
+                    </div>
+                  </ng-template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div *ngIf="interestRuns.length > 0" class="interest-runs">
+          <p class="settings-section-label">Últimas aplicaciones del job</p>
+          <ul>
+            <li *ngFor="let run of interestRuns">
+              <span class="interest-runs-month">{{ interestMonthLabel(run.period) }}</span>
+              <span>{{ formatInterestPercentage(run.percentage) }} el día {{ run.applyDay }}{{ run.usedDefault ? ' (por defecto)' : '' }}</span>
+              <span>{{ run.affectedRentals }} alquileres</span>
+              <strong>{{ formatInterestAmount(run.totalAmount) }}</strong>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Datos Empresa (si estuvieran funcionales) -->
+      <div *ngIf="activeSection === 'datos'" class="settings-panel">
+        <div class="settings-panel-header">
+          <div class="settings-panel-heading">
+            <div class="min-w-0">
+              <h3 class="settings-panel-title">Datos de la Empresa</h3>
+            </div>
+          </div>
+        </div>
+        <div class="settings-panel-content space-y-5">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Nombre Empresa</label>
-              <input type="text" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all" placeholder="GuardeSoftware"/>
+              <label class="settings-field-label">Nombre Empresa</label>
+              <input type="text" class="settings-field" placeholder="GuardeSoftware"/>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">CUIT</label>
-              <input type="text" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all" placeholder="20-12345678-9"/>
+              <label class="settings-field-label">CUIT</label>
+              <input type="text" class="settings-field" placeholder="20-12345678-9"/>
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Dirección</label>
-            <input type="text" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all" placeholder="Av. Principal 1234"/>
+            <label class="settings-field-label">Dirección</label>
+            <input type="text" class="settings-field" placeholder="Av. Principal 1234"/>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Teléfono</label>
-            <input type="text" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all" placeholder="+54 11 1234-5678"/>
+            <label class="settings-field-label">Teléfono</label>
+            <input type="text" class="settings-field" placeholder="+54 11 1234-5678"/>
           </div>
         </div>
       </div>
@@ -1068,36 +1178,38 @@
   </div>
 </div>
 <div *ngIf="showCreateBillingTypeModal"
-       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+       class="settings-backdrop z-50"
        (keydown.escape)="closeCreateBillingTypeModal()"
        tabindex="-1">
-    <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
-         (click)="$event.stopPropagation()">
+    <div class="settings-modal"
+         (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-labelledby="create-billing-type-title">
 
-      <div class="flex items-center justify-between border-b pb-3 mb-5">
-        <div class="flex items-center gap-2">
-          <app-icon name="file-plus" class="h-6 w-6 text-blue-600"></app-icon>
-          <h3 class="text-xl font-semibold text-gray-800">Crear Tipo de Factura</h3>
+      <div class="settings-modal-header">
+        <div class="settings-modal-heading">
+          <div class="settings-modal-icon"><app-icon name="file-plus" class="h-5 w-5"></app-icon></div>
+          <h3 id="create-billing-type-title" class="settings-modal-title">Crear Tipo de Factura</h3>
         </div>
-        <button type="button" (click)="closeCreateBillingTypeModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+        <button type="button" (click)="closeCreateBillingTypeModal()" class="settings-modal-close" aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
       </div>
 
-      <div class="space-y-4">
+      <div class="settings-modal-body space-y-4">
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre</label>
+          <label class="settings-field-label">Nombre</label>
           <input type="text"
                  [(ngModel)]="newBillingType.name"
                  (keydown.enter)="saveNewBillingType()"
-                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"
+                 class="settings-field"
                  placeholder="Ej: Factura A"/>
         </div>
       </div>
 
-      <div class="mt-6 flex justify-end gap-3 border-t pt-4">
-        <button type="button" (click)="closeCreateBillingTypeModal()" class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">
+      <div class="settings-modal-footer">
+        <button type="button" (click)="closeCreateBillingTypeModal()" class="settings-btn-secondary">
           Cancelar
         </button>
-        <button type="button" (click)="saveNewBillingType()" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">
+        <button type="button" (click)="saveNewBillingType()" class="settings-btn-primary">
+          <app-icon name="check" class="h-4 w-4"></app-icon>
           Crear
         </button>
       </div>
@@ -1105,149 +1217,155 @@
   </div>
 
   <div *ngIf="showCreateWarehouseModal"
-       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+       class="settings-backdrop z-50"
        (keydown.escape)="closeCreateWarehouseModal()"
        tabindex="-1">
-    <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn" (click)="$event.stopPropagation()">
-      <div class="flex items-center justify-between border-b pb-3 mb-5">
-        <div class="flex items-center gap-2">
-          <app-icon name="building" class="h-6 w-6 text-blue-600"></app-icon>
-          <h3 class="text-xl font-semibold text-gray-800">Crear Depósito</h3>
+    <div class="settings-modal" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-labelledby="create-warehouse-title">
+      <div class="settings-modal-header">
+        <div class="settings-modal-heading">
+          <div class="settings-modal-icon"><app-icon name="building" class="h-5 w-5"></app-icon></div>
+          <h3 id="create-warehouse-title" class="settings-modal-title">Crear Depósito</h3>
         </div>
-        <button type="button" (click)="closeCreateWarehouseModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+        <button type="button" (click)="closeCreateWarehouseModal()" class="settings-modal-close" aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
       </div>
-      <div class="space-y-4">
+      <div class="settings-modal-body space-y-4">
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre *</label>
-          <input type="text" [(ngModel)]="newWarehouse.name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none"/>
+          <label class="settings-field-label">Nombre <span class="text-rose-600">*</span></label>
+          <input type="text" [(ngModel)]="newWarehouse.name" class="settings-field"/>
         </div>
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Dirección</label>
-          <textarea [(ngModel)]="newWarehouse.address" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none" rows="2"></textarea>
+          <label class="settings-field-label">Dirección</label>
+          <textarea [(ngModel)]="newWarehouse.address" class="settings-field" rows="2"></textarea>
         </div>
       </div>
-      <div class="mt-6 flex justify-end gap-3 border-t pt-4">
-        <button type="button" (click)="closeCreateWarehouseModal()" class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">Cancelar</button>
-        <button type="button" (click)="saveNewWarehouse()" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">Crear</button>
+      <div class="settings-modal-footer">
+        <button type="button" (click)="closeCreateWarehouseModal()" class="settings-btn-secondary">Cancelar</button>
+        <button type="button" (click)="saveNewWarehouse()" class="settings-btn-primary"><app-icon name="check" class="h-4 w-4"></app-icon>Crear</button>
       </div>
     </div>
   </div>
 
   <!-- MODAL EDITAR DEPÓSITO -->
   <div *ngIf="showEditWarehouseModal"
-       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+       class="settings-backdrop z-50"
        (keydown.escape)="closeEditWarehouseModal()"
        tabindex="-1">
-    <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn" (click)="$event.stopPropagation()">
-      <div class="flex items-center justify-between border-b pb-3 mb-5">
-        <div class="flex items-center gap-2">
-          <app-icon name="edit" class="h-6 w-6 text-blue-600"></app-icon>
-          <h3 class="text-xl font-semibold text-gray-800">Editar Depósito</h3>
+    <div class="settings-modal" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-labelledby="edit-warehouse-title">
+      <div class="settings-modal-header">
+        <div class="settings-modal-heading">
+          <div class="settings-modal-icon"><app-icon name="edit" class="h-5 w-5"></app-icon></div>
+          <h3 id="edit-warehouse-title" class="settings-modal-title">Editar Depósito</h3>
         </div>
-        <button type="button" (click)="closeEditWarehouseModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+        <button type="button" (click)="closeEditWarehouseModal()" class="settings-modal-close" aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
       </div>
-      <div class="space-y-4">
+      <div class="settings-modal-body space-y-4">
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre *</label>
-          <input type="text" [(ngModel)]="editingWarehouse.name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none"/>
+          <label class="settings-field-label">Nombre <span class="text-rose-600">*</span></label>
+          <input type="text" [(ngModel)]="editingWarehouse.name" class="settings-field"/>
         </div>
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Dirección</label>
-          <textarea [(ngModel)]="editingWarehouse.address" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none" rows="2"></textarea>
+          <label class="settings-field-label">Dirección</label>
+          <textarea [(ngModel)]="editingWarehouse.address" class="settings-field" rows="2"></textarea>
         </div>
       </div>
-      <div class="mt-6 flex justify-end gap-3 border-t pt-4">
-        <button type="button" (click)="closeEditWarehouseModal()" class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">Cancelar</button>
-        <button type="button" (click)="saveUpdatedWarehouse()" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">Actualizar</button>
+      <div class="settings-modal-footer">
+        <button type="button" (click)="closeEditWarehouseModal()" class="settings-btn-secondary">Cancelar</button>
+        <button type="button" (click)="saveUpdatedWarehouse()" class="settings-btn-primary"><app-icon name="check" class="h-4 w-4"></app-icon>Actualizar</button>
       </div>
     </div>
   </div>
 
     <div *ngIf="showEditBillingTypeModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+        class="settings-backdrop z-50"
         (keydown.escape)="closeEditBillingTypeModal()"
         tabindex="-1">
-      <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
-          (click)="$event.stopPropagation()">
+      <div class="settings-modal"
+          (click)="$event.stopPropagation()"
+          role="dialog" aria-modal="true" aria-labelledby="edit-billing-type-title">
 
-        <div class="flex items-center justify-between border-b pb-3 mb-5">
-          <div class="flex items-center gap-2">
-            <app-icon name="file-text" class="h-6 w-6 text-blue-600"></app-icon>
-            <h3 class="text-xl font-semibold text-gray-800">Editar Tipo de Factura</h3>
+        <div class="settings-modal-header">
+          <div class="settings-modal-heading">
+            <div class="settings-modal-icon"><app-icon name="file-text" class="h-5 w-5"></app-icon></div>
+            <h3 id="edit-billing-type-title" class="settings-modal-title">Editar Tipo de Factura</h3>
           </div>
-          <button type="button" (click)="closeEditBillingTypeModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+          <button type="button" (click)="closeEditBillingTypeModal()" class="settings-modal-close" aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
         </div>
 
-        <div class="space-y-4">
+        <div class="settings-modal-body space-y-4">
           <div>
-            <label class="block text-sm text-gray-600 mb-1 font-medium">ID</label>
+            <label class="settings-field-label">ID</label>
             <input type="text"
                   [value]="editingBillingType.id"
                   disabled
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500"/>
+                  class="settings-field"/>
           </div>
           <div>
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre</label>
+            <label class="settings-field-label">Nombre</label>
             <input type="text"
                   [(ngModel)]="editingBillingType.name"
                   (keydown.enter)="saveUpdatedBillingType()"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"
+                  class="settings-field"
                   placeholder="Ej: Factura A"/>
           </div>
         </div>
 
-        <div class="mt-6 flex justify-end gap-3 border-t pt-4">
-          <button type="button" (click)="closeEditBillingTypeModal()" class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">
+        <div class="settings-modal-footer">
+          <button type="button" (click)="closeEditBillingTypeModal()" class="settings-btn-secondary">
             Cancelar
           </button>
-          <button type="button" (click)="saveUpdatedBillingType()" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">
+          <button type="button" (click)="saveUpdatedBillingType()" class="settings-btn-primary">
+            <app-icon name="check" class="h-4 w-4"></app-icon>
             Actualizar
           </button>
         </div>
       </div>
     </div>
-  
-  
+
+
 
 <div *ngIf="showCreateUserModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+     class="settings-backdrop z-50"
      (keydown.escape)="closeCreateUserModal()"
      tabindex="-1">
 
-  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
-       (click)="$event.stopPropagation()">
+  <div class="settings-modal settings-modal-md"
+       (click)="$event.stopPropagation()"
+       role="dialog" aria-modal="true" aria-labelledby="create-user-title">
 
     <!-- Header -->
-    <div class="flex items-center justify-between border-b pb-3 mb-5">
-      <div class="flex items-center gap-2">
-        <app-icon name="user-plus" class="h-6 w-6 text-blue-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">Registrar nuevo usuario</h3>
+    <div class="settings-modal-header">
+      <div class="settings-modal-heading">
+        <div class="settings-modal-icon"><app-icon name="user-plus" class="h-5 w-5"></app-icon></div>
+        <h3 id="create-user-title" class="settings-modal-title">Registrar nuevo usuario</h3>
       </div>
       <button type="button"
               (click)="closeCreateUserModal()"
-              class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+              class="settings-modal-close"
+              aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
     </div>
 
     <!-- Body -->
-    <div class="space-y-5">
-      
+    <div class="settings-modal-body space-y-6">
+
       <!-- Datos personales -->
       <div>
-        <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Datos personales</h4>
+        <h4 class="settings-section-label">Datos personales</h4>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre</label>
+            <label class="settings-field-label">Nombre</label>
             <input type="text"
                    [(ngModel)]="userCreated.firstName"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"
+                   class="settings-field"
                    placeholder="Ej: Augusto" />
           </div>
 
           <div>
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Apellido</label>
+            <label class="settings-field-label">Apellido</label>
             <input type="text"
                    [(ngModel)]="userCreated.lastName"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"
+                   class="settings-field"
                    placeholder="Ej: palasTANGA" />
           </div>
         </div>
@@ -1255,49 +1373,48 @@
 
       <!-- Datos de acceso -->
       <div>
-        <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Datos de acceso</h4>
+        <h4 class="settings-section-label">Datos de acceso</h4>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre de usuario</label>
+            <label class="settings-field-label">Nombre de usuario</label>
             <input type="text"
                    [(ngModel)]="userCreated.userName"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"
+                   class="settings-field"
                    placeholder="Ej: chinitoo12" />
           </div>
 
           <div>
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Contraseña</label>
+            <label class="settings-field-label">Contraseña</label>
             <input type="password"
                    [(ngModel)]="userCreated.password"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"
+                   class="settings-field"
                    placeholder="********" />
-            <p class="text-xs text-gray-500 mt-1">Sin requisitos mínimos para administradores.</p>
+            <p class="settings-field-hint">Sin requisitos mínimos para administradores.</p>
           </div>
         </div>
       </div>
 
       <!-- Rol / permisos -->
       <div>
-        <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Rol de usuario</h4>
-        <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white focus-within:ring-2 focus-within:ring-blue-400">
-          <select [(ngModel)]="userCreated.userTypeId"
-                  class="w-full px-3 py-2 text-gray-700 focus:outline-none bg-white">
-            <option *ngFor="let usertype of userTypes" [value]="usertype.id">{{ usertype.name }}</option>
-          </select>
-        </div>
+        <h4 class="settings-section-label">Rol de usuario</h4>
+        <select [(ngModel)]="userCreated.userTypeId"
+                class="settings-field">
+          <option *ngFor="let usertype of userTypes" [value]="usertype.id">{{ usertype.name }}</option>
+        </select>
       </div>
     </div>
 
     <!-- Footer -->
-    <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+    <div class="settings-modal-footer">
       <button type="button"
               (click)="closeCreateUserModal()"
-              class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">
+              class="settings-btn-secondary">
         Cancelar
       </button>
       <button type="button"
               (click)="saveCreateUser(userCreated)"
-              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">
+              class="settings-btn-primary">
+        <app-icon name="check" class="h-4 w-4"></app-icon>
         Crear usuario
       </button>
     </div>
@@ -1306,85 +1423,86 @@
 </div>
 
 
- 
+
   <!-- EDIT USER MODAL-->
 <div *ngIf="showEditUserModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+     class="settings-backdrop z-50"
      (keydown.escape)="closeEditUserModal()"
      tabindex="-1">
 
-  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
-       (click)="$event.stopPropagation()">
+  <div class="settings-modal settings-modal-md"
+       (click)="$event.stopPropagation()"
+       role="dialog" aria-modal="true" aria-labelledby="edit-user-title">
 
     <!-- Header -->
-    <div class="flex items-center justify-between border-b pb-3 mb-5">
-      <div class="flex items-center gap-2">
-        <app-icon name="user-gear" class="h-6 w-6 text-blue-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">Editar usuario</h3>
+    <div class="settings-modal-header">
+      <div class="settings-modal-heading">
+        <div class="settings-modal-icon"><app-icon name="user-gear" class="h-5 w-5"></app-icon></div>
+        <h3 id="edit-user-title" class="settings-modal-title">Editar usuario</h3>
       </div>
       <button type="button"
               (click)="closeEditUserModal()"
-              class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+              class="settings-modal-close"
+              aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
     </div>
 
     <!-- Body -->
-    <div class="space-y-5">
-      
+    <div class="settings-modal-body space-y-6">
+
       <!-- Datos personales -->
-        <div>
-        <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Datos personales</h4>
+      <div>
+        <h4 class="settings-section-label">Datos personales</h4>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre</label>
+            <label class="settings-field-label">Nombre</label>
             <input type="text"
                    [(ngModel)]="userEdit.firstName"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"/>
+                   class="settings-field"/>
           </div>
 
           <div>
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Apellido</label>
+            <label class="settings-field-label">Apellido</label>
             <input type="text"
                    [(ngModel)]="userEdit.lastName"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"/>
+                   class="settings-field"/>
           </div>
         </div>
       </div>
 
       <!-- Datos de acceso -->
       <div>
-        <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Datos de acceso</h4>
+        <h4 class="settings-section-label">Datos de acceso</h4>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre de usuario</label>
+            <label class="settings-field-label">Nombre de usuario</label>
             <input type="text"
                    [(ngModel)]="userEdit.userName"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"/>
+                   class="settings-field"/>
           </div>
         </div>
       </div>
 
       <!-- Rol / permisos -->
       <div>
-        <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Rol de usuario</h4>
-        <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white focus-within:ring-2 focus-within:ring-blue-400">
-          <select [(ngModel)]="userEdit.userTypeId"
-                  class="w-full px-3 py-2 text-gray-700 focus:outline-none bg-white">
-            <option *ngFor="let usertype of userTypes" [value]="usertype.id">{{ usertype.name }}</option>
-          </select>
-        </div>
+        <h4 class="settings-section-label">Rol de usuario</h4>
+        <select [(ngModel)]="userEdit.userTypeId"
+                class="settings-field">
+          <option *ngFor="let usertype of userTypes" [value]="usertype.id">{{ usertype.name }}</option>
+        </select>
       </div>
     </div>
 
     <!-- Footer -->
-    <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+    <div class="settings-modal-footer">
       <button type="button"
               (click)="closeEditUserModal()"
-              class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">
+              class="settings-btn-secondary">
         Cancelar
       </button>
       <button type="button"
-              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
+              class="settings-btn-primary"
               (click)="SaveUpdateUserModal(userEdit)">
+        <app-icon name="check" class="h-4 w-4"></app-icon>
         Actualizar
       </button>
     </div>
@@ -1392,58 +1510,60 @@
   </div>
 </div>
 
-<div *ngIf="showCreateLockerTypeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+<div *ngIf="showCreateLockerTypeModal" class="settings-backdrop z-50"
      (keydown.escape)="closeCreateLockerTypeModal()"
      tabindex="-1">
-  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn" (click)="$event.stopPropagation()">
-    <div class="flex items-center justify-between border-b pb-3 mb-5">
-      <div class="flex items-center gap-2">
-        <app-icon name="plus-square" class="h-6 w-6 text-green-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">Crear Tipo de Baulera</h3>
+  <div class="settings-modal" (click)="$event.stopPropagation()"
+       role="dialog" aria-modal="true" aria-labelledby="create-locker-type-title">
+    <div class="settings-modal-header">
+      <div class="settings-modal-heading">
+        <div class="settings-modal-icon"><app-icon name="plus-square" class="h-5 w-5"></app-icon></div>
+        <h3 id="create-locker-type-title" class="settings-modal-title">Crear Tipo de Baulera</h3>
       </div>
-      <button type="button" (click)="closeCreateLockerTypeModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+      <button type="button" (click)="closeCreateLockerTypeModal()" class="settings-modal-close" aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
     </div>
-    <div class="space-y-4">
+    <div class="settings-modal-body space-y-4">
       <div>
-        <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre</label>
-        <input type="text" [(ngModel)]="newLockerType.name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none"/>
+        <label class="settings-field-label">Nombre</label>
+        <input type="text" [(ngModel)]="newLockerType.name" class="settings-field"/>
       </div>
       <div>
-        <label class="block text-sm text-gray-600 mb-1 font-medium">Metros cúbicos (m³)</label>
-        <input type="number" [(ngModel)]="newLockerType.m3" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none"/>
+        <label class="settings-field-label">Metros cúbicos <span class="normal-case">(m³)</span></label>
+        <input type="number" [(ngModel)]="newLockerType.m3" min="0" step="0.01" class="settings-field"/>
       </div>
     </div>
-    <div class="mt-6 flex justify-end gap-3 border-t pt-4">
-      <button type="button" (click)="closeCreateLockerTypeModal()" class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">Cancelar</button>
-      <button type="button" (click)="saveNewLockerType()" class="px-4 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700">Crear</button>
+    <div class="settings-modal-footer">
+      <button type="button" (click)="closeCreateLockerTypeModal()" class="settings-btn-secondary">Cancelar</button>
+      <button type="button" (click)="saveNewLockerType()" class="settings-btn-primary"><app-icon name="check" class="h-4 w-4"></app-icon>Crear</button>
     </div>
   </div>
 </div>
 
-<div *ngIf="showEditLockerTypeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+<div *ngIf="showEditLockerTypeModal" class="settings-backdrop z-50"
      (keydown.escape)="closeEditLockerTypeModal()"
      tabindex="-1">
-  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn" (click)="$event.stopPropagation()">
-    <div class="flex items-center justify-between border-b pb-3 mb-5">
-      <div class="flex items-center gap-2">
-        <app-icon name="package" class="h-6 w-6 text-green-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">Editar Tipo de Baulera</h3>
+  <div class="settings-modal" (click)="$event.stopPropagation()"
+       role="dialog" aria-modal="true" aria-labelledby="edit-locker-type-title">
+    <div class="settings-modal-header">
+      <div class="settings-modal-heading">
+        <div class="settings-modal-icon"><app-icon name="package" class="h-5 w-5"></app-icon></div>
+        <h3 id="edit-locker-type-title" class="settings-modal-title">Editar Tipo de Baulera</h3>
       </div>
-      <button type="button" (click)="closeEditLockerTypeModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+      <button type="button" (click)="closeEditLockerTypeModal()" class="settings-modal-close" aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
     </div>
-    <div class="space-y-4">
+    <div class="settings-modal-body space-y-4">
       <div>
-        <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre</label>
-        <input type="text" [(ngModel)]="editingLockerType.name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none"/>
+        <label class="settings-field-label">Nombre</label>
+        <input type="text" [(ngModel)]="editingLockerType.name" class="settings-field"/>
       </div>
       <div>
-        <label class="block text-sm text-gray-600 mb-1 font-medium">Metros cúbicos (m³)</label>
-        <input type="number" [(ngModel)]="editingLockerType.m3" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none"/>
+        <label class="settings-field-label">Metros cúbicos <span class="normal-case">(m³)</span></label>
+        <input type="number" [(ngModel)]="editingLockerType.m3" min="0" step="0.01" class="settings-field"/>
       </div>
     </div>
-    <div class="mt-6 flex justify-end gap-3 border-t pt-4">
-      <button type="button" (click)="closeEditLockerTypeModal()" class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">Cancelar</button>
-      <button type="button" (click)="saveUpdatedLockerType()" class="px-4 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700">Actualizar</button>
+    <div class="settings-modal-footer">
+      <button type="button" (click)="closeEditLockerTypeModal()" class="settings-btn-secondary">Cancelar</button>
+      <button type="button" (click)="saveUpdatedLockerType()" class="settings-btn-primary"><app-icon name="check" class="h-4 w-4"></app-icon>Actualizar</button>
     </div>
   </div>
 </div>
@@ -1451,252 +1571,336 @@
 
 <!-- CREATE MONTHLY INCREASE MODAL -->
 <div *ngIf="showCreateIncreaseModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+     class="settings-backdrop z-50"
      (keydown.escape)="closeCreateIncreaseModal()"
      tabindex="-1">
-  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
-       (click)="$event.stopPropagation()">
-    <div class="flex items-center justify-between border-b pb-3 mb-5">
-      <div class="flex items-center gap-2">
-        <app-icon name="trending-up" class="h-6 w-6 text-blue-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">Nuevo aumento mensual</h3>
+  <div class="settings-modal"
+       (click)="$event.stopPropagation()"
+       role="dialog" aria-modal="true" aria-labelledby="create-increase-title">
+    <div class="settings-modal-header">
+      <div class="settings-modal-heading">
+        <div class="settings-modal-icon"><app-icon name="trending-up" class="h-5 w-5"></app-icon></div>
+        <h3 id="create-increase-title" class="settings-modal-title">Nuevo aumento mensual</h3>
       </div>
       <button type="button"
               (click)="closeCreateIncreaseModal()"
-              class="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-              aria-label="Cerrar">×</button>
+              class="settings-modal-close"
+              aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
     </div>
 
-    <div class="space-y-4">
+    <div class="settings-modal-body space-y-4">
       <div>
-        <label class="block text-sm text-gray-600 mb-1 font-medium" for="increase-effective-date">Mes de aplicación</label>
-        <input id="increase-effective-date"
-               type="month"
-               [(ngModel)]="newIncrease.effectiveDate"
-               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700" />
-        <p class="text-xs text-gray-500 mt-1">El aumento se aplicará al mes seleccionado.</p>
+        <span class="settings-field-label">Mes de aplicación</span>
+        <app-month-picker variant="field" [(ngModel)]="newIncrease.effectiveDate"></app-month-picker>
+        <p class="settings-field-hint">El aumento se aplicará al mes seleccionado.</p>
       </div>
       <div>
-        <label class="block text-sm text-gray-600 mb-1 font-medium" for="increase-percentage">Porcentaje de aumento</label>
-        <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white focus-within:ring-2 focus-within:ring-blue-400">
+        <label class="settings-field-label" for="increase-percentage">Porcentaje de aumento</label>
+        <div class="settings-field-group">
           <input id="increase-percentage"
                  type="number"
                  min="0.01"
                  step="0.01"
                  [(ngModel)]="newIncrease.percentage"
-                 class="w-full px-3 py-2 focus:outline-none text-gray-700"
                  placeholder="Ej: 10" />
-          <span class="px-3 text-gray-500 select-none">%</span>
+          <span class="settings-field-suffix">%</span>
         </div>
       </div>
     </div>
 
-    <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+    <div class="settings-modal-footer">
       <button type="button"
               (click)="closeCreateIncreaseModal()"
-              class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">Cancelar</button>
+              class="settings-btn-secondary">Cancelar</button>
       <button type="button"
               (click)="saveNewIncrease()"
-              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">Crear</button>
+              class="settings-btn-primary"><app-icon name="check" class="h-4 w-4"></app-icon>Crear</button>
     </div>
   </div>
 </div>
 
 <!-- EDIT MONTHLY INCREASE MODAL -->
 <div *ngIf="showEditIncreaseModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+     class="settings-backdrop z-50"
      (keydown.escape)="closeEditIncreaseModal()"
      tabindex="-1">
-  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
-       (click)="$event.stopPropagation()">
-    <div class="flex items-center justify-between border-b pb-3 mb-5">
-      <div class="flex items-center gap-2">
-        <app-icon name="trending-up" class="h-6 w-6 text-blue-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">Editar aumento mensual</h3>
+  <div class="settings-modal"
+       (click)="$event.stopPropagation()"
+       role="dialog" aria-modal="true" aria-labelledby="edit-increase-title">
+    <div class="settings-modal-header">
+      <div class="settings-modal-heading">
+        <div class="settings-modal-icon"><app-icon name="trending-up" class="h-5 w-5"></app-icon></div>
+        <h3 id="edit-increase-title" class="settings-modal-title">Editar aumento mensual</h3>
       </div>
       <button type="button"
               (click)="closeEditIncreaseModal()"
-              class="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-              aria-label="Cerrar">×</button>
+              class="settings-modal-close"
+              aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
     </div>
 
-    <div class="space-y-4">
+    <div class="settings-modal-body space-y-4">
       <div>
-        <label class="block text-sm text-gray-600 mb-1 font-medium">Mes de aplicación</label>
-        <div class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600">
+        <span class="settings-field-label">Mes de aplicación</span>
+        <div class="settings-field-static">
           {{ formatDateToMonthYear(editingIncrease.effectiveDate) }}
         </div>
       </div>
       <div>
-        <label class="block text-sm text-gray-600 mb-1 font-medium" for="edit-increase-percentage">Porcentaje de aumento</label>
-        <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white focus-within:ring-2 focus-within:ring-blue-400">
+        <label class="settings-field-label" for="edit-increase-percentage">Porcentaje de aumento</label>
+        <div class="settings-field-group">
           <input id="edit-increase-percentage"
                  type="number"
                  min="0.01"
                  step="0.01"
-                 [(ngModel)]="editingIncrease.percentage"
-                 class="w-full px-3 py-2 focus:outline-none text-gray-700" />
-          <span class="px-3 text-gray-500 select-none">%</span>
+                 [(ngModel)]="editingIncrease.percentage" />
+          <span class="settings-field-suffix">%</span>
         </div>
       </div>
     </div>
 
-    <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+    <div class="settings-modal-footer">
       <button type="button"
               (click)="closeEditIncreaseModal()"
-              class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">Cancelar</button>
+              class="settings-btn-secondary">Cancelar</button>
       <button type="button"
               (click)="saveUpdatedIncrease()"
-              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">Actualizar</button>
+              class="settings-btn-primary"><app-icon name="check" class="h-4 w-4"></app-icon>Actualizar</button>
     </div>
   </div>
 </div>
 
 
-<!-- CREATE PAYMENT METHOD MODAL -->
-<div *ngIf="showCreatePaymentMethod"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-     (keydown.escape)="closeCreatePaymentMethodModal()"
+<!-- CREATE MONTHLY INTEREST MODAL -->
+<div *ngIf="showCreateInterestModal"
+     class="settings-backdrop z-50"
+     (keydown.escape)="closeCreateInterestModal()"
      tabindex="-1">
-
-  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
-       (click)="$event.stopPropagation()">
-
-    <!-- Header -->
-    <div class="flex items-center justify-between border-b pb-3 mb-5">
-      <div class="flex items-center gap-2">
-        <app-icon name="plus-square" class="h-6 w-6 text-green-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">Crear método de pago</h3>
+  <div class="settings-modal"
+       (click)="$event.stopPropagation()"
+       role="dialog" aria-modal="true" aria-labelledby="create-interest-title">
+    <div class="settings-modal-header">
+      <div class="settings-modal-heading">
+        <div class="settings-modal-icon"><app-icon name="percent" class="h-5 w-5"></app-icon></div>
+        <h3 id="create-interest-title" class="settings-modal-title">Configurar intereses de un mes</h3>
       </div>
-      <button type="button"
-              (click)="closeCreatePaymentMethodModal()"
-              class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+      <button type="button" (click)="closeCreateInterestModal()" class="settings-modal-close" aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
     </div>
 
-    <!-- Body -->
-    <div class="space-y-6">
-      <!-- Información general -->
+    <div class="settings-modal-body space-y-4">
       <div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Nombre -->
-          <div class="md:col-span-2">
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre del método</label>
-            <input type="text"
-                   [(ngModel)]="createPaymentMethodDto.name"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 "
-                   placeholder="Ej: Transferencia, Efectivo, Mercado Pago..." />
-          </div>
-
-          <!-- Comisión -->
-          <div class="md:col-span-2">
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Comisión (%)</label>
-            <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
-              <input type="number"
-                     min="0"
-                     max="100"
-                     step="0.01"
-                     [(ngModel)]="createPaymentMethodDto.commission"
-                     class="w-full px-3 py-2 focus:outline-none text-gray-800"
-                     placeholder="Ej: 1.50" />
-              <span class="px-3 text-gray-500 select-none">%</span>
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Debe ser un valor entre 0 y 100.</p>
+        <span class="settings-field-label">Mes</span>
+        <app-month-picker variant="field" [(ngModel)]="newInterest.effectiveDate"></app-month-picker>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="settings-field-label" for="interest-day">Se aplica el día</label>
+          <input id="interest-day" type="number" min="2" max="28" step="1" [(ngModel)]="newInterest.applyDay" class="settings-field" />
+        </div>
+        <div>
+          <label class="settings-field-label" for="interest-percentage">Interés</label>
+          <div class="settings-field-group">
+            <input id="interest-percentage" type="number" min="0" max="100" step="0.01" [(ngModel)]="newInterest.percentage" />
+            <span class="settings-field-suffix">%</span>
           </div>
         </div>
       </div>
-      
+      <p class="interest-modal-note">
+        Los intereses se aplican el día <strong>{{ newInterest.applyDay }}</strong> a las 4:00. Con 0 % ese mes no se cobran intereses.
+      </p>
+    </div>
+
+    <div class="settings-modal-footer">
+      <button type="button" (click)="closeCreateInterestModal()" [disabled]="isSavingInterest" class="settings-btn-secondary">Cancelar</button>
+      <button type="button" (click)="saveNewInterest()" [disabled]="isSavingInterest" class="settings-btn-primary">
+        <app-icon name="check" class="h-4 w-4"></app-icon>{{ isSavingInterest ? 'Guardando…' : 'Guardar' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MONTHLY INTEREST MODAL -->
+<div *ngIf="showEditInterestModal && editingInterest"
+     class="settings-backdrop z-50"
+     (keydown.escape)="closeEditInterestModal()"
+     tabindex="-1">
+  <div class="settings-modal"
+       (click)="$event.stopPropagation()"
+       role="dialog" aria-modal="true" aria-labelledby="edit-interest-title">
+    <div class="settings-modal-header">
+      <div class="settings-modal-heading">
+        <div class="settings-modal-icon"><app-icon name="percent" class="h-5 w-5"></app-icon></div>
+        <h3 id="edit-interest-title" class="settings-modal-title">Editar intereses del mes</h3>
+      </div>
+      <button type="button" (click)="closeEditInterestModal()" class="settings-modal-close" aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
+    </div>
+
+    <div class="settings-modal-body space-y-4">
+      <div>
+        <span class="settings-field-label">Mes</span>
+        <div class="settings-field-static">{{ interestMonthLabel(editingInterest.effectiveDate) }}</div>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="settings-field-label" for="edit-interest-day">Se aplica el día</label>
+          <input id="edit-interest-day" type="number" min="2" max="28" step="1" [(ngModel)]="editInterestForm.applyDay" class="settings-field" />
+        </div>
+        <div>
+          <label class="settings-field-label" for="edit-interest-percentage">Interés</label>
+          <div class="settings-field-group">
+            <input id="edit-interest-percentage" type="number" min="0" max="100" step="0.01" [(ngModel)]="editInterestForm.percentage" />
+            <span class="settings-field-suffix">%</span>
+          </div>
+        </div>
+      </div>
+      <p class="interest-modal-note">
+        Los intereses se aplican el día <strong>{{ editInterestForm.applyDay }}</strong> a las 4:00.
+      </p>
+    </div>
+
+    <div class="settings-modal-footer">
+      <button type="button" (click)="closeEditInterestModal()" [disabled]="isSavingInterest" class="settings-btn-secondary">Cancelar</button>
+      <button type="button" (click)="saveUpdatedInterest()" [disabled]="isSavingInterest" class="settings-btn-primary">
+        <app-icon name="check" class="h-4 w-4"></app-icon>{{ isSavingInterest ? 'Guardando…' : 'Actualizar' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE PAYMENT METHOD MODAL -->
+<div *ngIf="showCreatePaymentMethod"
+     class="settings-backdrop z-50"
+     (keydown.escape)="closeCreatePaymentMethodModal()"
+     tabindex="-1">
+
+  <div class="settings-modal"
+       (click)="$event.stopPropagation()"
+       role="dialog" aria-modal="true" aria-labelledby="create-payment-method-title">
+
+    <!-- Header -->
+    <div class="settings-modal-header">
+      <div class="settings-modal-heading">
+        <div class="settings-modal-icon"><app-icon name="plus-square" class="h-5 w-5"></app-icon></div>
+        <h3 id="create-payment-method-title" class="settings-modal-title">Crear método de pago</h3>
+      </div>
+      <button type="button"
+              (click)="closeCreatePaymentMethodModal()"
+              class="settings-modal-close"
+              aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
+    </div>
+
+    <!-- Body -->
+    <div class="settings-modal-body space-y-4">
+      <!-- Nombre -->
+      <div>
+        <label class="settings-field-label">Nombre del método</label>
+        <input type="text"
+               [(ngModel)]="createPaymentMethodDto.name"
+               class="settings-field"
+               placeholder="Ej: Transferencia, Efectivo, Mercado Pago..." />
+      </div>
+
+      <!-- Comisión -->
+      <div>
+        <label class="settings-field-label">Comisión (%)</label>
+        <div class="settings-field-group">
+          <input type="number"
+                 min="0"
+                 max="100"
+                 step="0.01"
+                 [(ngModel)]="createPaymentMethodDto.commission"
+                 placeholder="Ej: 1.50" />
+          <span class="settings-field-suffix">%</span>
+        </div>
+        <p class="settings-field-hint">Debe ser un valor entre 0 y 100.</p>
+      </div>
     </div>
 
     <!-- Footer -->
-    <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+    <div class="settings-modal-footer">
       <button type="button"
               (click)="closeCreatePaymentMethodModal()"
-              class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">
+              class="settings-btn-secondary">
         Cancelar
       </button>
       <button type="button"
               (click)="createPaymentMethod(createPaymentMethodDto)"
-              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">
+              class="settings-btn-primary">
+        <app-icon name="check" class="h-4 w-4"></app-icon>
         Crear
       </button>
     </div>
 
   </div>
-  
+
 </div>
 
 
 <!-- UPDATE PAYMENT METHOD MODAL -->
 <div *ngIf="showUpdatePaymentMethodModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+     class="settings-backdrop z-50"
      (keydown.escape)="closeUpdatePaymentMethodModal()"
      tabindex="-1">
 
-  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
-       (click)="$event.stopPropagation()">
+  <div class="settings-modal"
+       (click)="$event.stopPropagation()"
+       role="dialog" aria-modal="true" aria-labelledby="update-payment-method-title">
 
     <!-- Header -->
-    <div class="flex items-center justify-between border-b pb-3 mb-5">
-      <div class="flex items-center gap-2">
-        <app-icon name="credit-card" class="h-6 w-6 text-indigo-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">Editar método de pago</h3>
+    <div class="settings-modal-header">
+      <div class="settings-modal-heading">
+        <div class="settings-modal-icon"><app-icon name="credit-card" class="h-5 w-5"></app-icon></div>
+        <h3 id="update-payment-method-title" class="settings-modal-title">Editar método de pago</h3>
       </div>
       <button type="button"
               (click)="closeUpdatePaymentMethodModal()"
-              class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+              class="settings-modal-close"
+              aria-label="Cerrar"><app-icon name="x" class="h-4 w-4"></app-icon></button>
     </div>
 
     <!-- Body -->
-    <div class="space-y-6">
-      <!-- Información general -->
+    <div class="settings-modal-body space-y-4">
+      <!-- Nombre -->
       <div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Nombre -->
-          <div class="md:col-span-2">
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Nombre del método</label>
-            <input type="text"
-                   [(ngModel)]="paymentMethodUpdate.name"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 "
-                   placeholder="Ej: Transferencia, Efectivo, Mercado Pago..." />
-          </div>
-
-          <!-- Comisión -->
-          <div class="md:col-span-2">
-            <label class="block text-sm text-gray-600 mb-1 font-medium">Comisión (%)</label>
-            <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
-              <input type="number"
-                     min="0"
-                     max="100"
-                     step="0.01"
-                     [(ngModel)]="paymentMethodUpdate.commission"
-                     class="w-full px-3 py-2 focus:outline-none text-gray-800"
-                     placeholder="Ej: 1.50" />
-              <span class="px-3 text-gray-500 select-none">%</span>
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Debe ser un valor entre 0 y 100.</p>
-          </div>
-        </div>
+        <label class="settings-field-label">Nombre del método</label>
+        <input type="text"
+               [(ngModel)]="paymentMethodUpdate.name"
+               class="settings-field"
+               placeholder="Ej: Transferencia, Efectivo, Mercado Pago..." />
       </div>
-      
+
+      <!-- Comisión -->
+      <div>
+        <label class="settings-field-label">Comisión (%)</label>
+        <div class="settings-field-group">
+          <input type="number"
+                 min="0"
+                 max="100"
+                 step="0.01"
+                 [(ngModel)]="paymentMethodUpdate.commission"
+                 placeholder="Ej: 1.50" />
+          <span class="settings-field-suffix">%</span>
+        </div>
+        <p class="settings-field-hint">Debe ser un valor entre 0 y 100.</p>
+      </div>
     </div>
 
     <!-- Footer -->
-    <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+    <div class="settings-modal-footer">
       <button type="button"
               (click)="closeUpdatePaymentMethodModal()"
-              class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-200">
+              class="settings-btn-secondary">
         Cancelar
       </button>
       <button type="button"
-              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
+              class="settings-btn-primary"
               (click)="updatePaymentMethod(SelectedPaymentMethodId, paymentMethodUpdate)">
+        <app-icon name="check" class="h-4 w-4"></app-icon>
         Actualizar
       </button>
     </div>
 
   </div>
 
-  
 </div>
 
 <!-- Modal para emitir advertencia al sistema -->
@@ -1704,9 +1908,3 @@
   *ngIf="isCreateAlertOpen"
   (closeModal)="closeCreateAlertModal()"
 ></app-create-alert-modal>
-
-
-
-
-
-
