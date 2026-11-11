@@ -157,9 +157,56 @@ try
             if (!string.IsNullOrWhiteSpace(batch)) await db.ExecuteCommandAsync(batch);
     Check(true, "collection decision migration applies twice");
 
+    var arrearsMigration = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "arrears-migration.sql"));
+    for (int pass = 0; pass < 2; pass++)
+        foreach (var batch in System.Text.RegularExpressions.Regex.Split(arrearsMigration, @"(?im)^GO\s*$"))
+            if (!string.IsNullOrWhiteSpace(batch)) await db.ExecuteCommandAsync(batch);
+    Check(true, "arrears migration applies twice");
+
+    var collectionCurrentMonthMigration = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "collection-current-month-migration.sql"));
+    for (int pass = 0; pass < 2; pass++)
+        foreach (var batch in System.Text.RegularExpressions.Regex.Split(collectionCurrentMonthMigration, @"(?im)^GO\s*$"))
+            if (!string.IsNullOrWhiteSpace(batch)) await db.ExecuteCommandAsync(batch);
+    Check(true, "current collection month migration applies twice");
+
+    if (args.Contains("--client-statistics-only"))
+    {
+        await ClientStatisticsChecks.RunAsync(db, Check);
+        Console.WriteLine($"ALL {checks} CHECKS PASSED");
+        return;
+    }
+
+    if (args.Contains("--arrears-only"))
+    {
+        await ArrearsChecks.RunAsync(db, balances, Check);
+        Console.WriteLine($"ALL {checks} CHECKS PASSED");
+        return;
+    }
+
+    if (args.Contains("--movement-statistics-only"))
+    {
+        await MovementStatisticsChecks.RunAsync(db, Check);
+        Console.WriteLine($"ALL {checks} CHECKS PASSED");
+        return;
+    }
+
     if (args.Contains("--client-search-only"))
     {
         await ClientSearchChecks.RunAsync(db, Check);
+        Console.WriteLine($"ALL {checks} CHECKS PASSED");
+        return;
+    }
+
+    if (args.Contains("--statement-surcharge-only"))
+    {
+        await StatementSurchargeChecks.RunAsync(db, balances, Check);
+        Console.WriteLine($"ALL {checks} CHECKS PASSED");
+        return;
+    }
+
+    if (args.Contains("--projected-clients-only"))
+    {
+        await ProjectedClientViewChecks.RunAsync(db, balances, Check);
         Console.WriteLine($"ALL {checks} CHECKS PASSED");
         return;
     }
@@ -183,6 +230,30 @@ try
     var payments = new PaymentService(db, accountService, NullLogger<PaymentService>.Instance,
         new RentalService(db), historyService, new PaymentMethodService(db, activity), balances,
         stateService, new PaymentPresenceRegistry(), activity);
+    if (args.Contains("--collection-current-month-only"))
+    {
+        await PaymentCollectionCurrentMonthChecks.RunAsync(db, payments, balances, stateService, Check);
+        Console.WriteLine($"ALL {checks} CHECKS PASSED");
+        return;
+    }
+    if (args.Contains("--payment-decisions-only"))
+    {
+        await PaymentDecisionChecks.RunAsync(db, payments, balances, stateService, Check);
+        Console.WriteLine($"ALL {checks} CHECKS PASSED");
+        return;
+    }
+    if (args.Contains("--interest-settings-only"))
+    {
+        await InterestSettingsChecks.RunAsync(db, payments, stateService, Check);
+        Console.WriteLine($"ALL {checks} CHECKS PASSED");
+        return;
+    }
+    if (args.Contains("--automatic-increase-only"))
+    {
+        await AutomaticIncreaseChecks.RunAsync(db, balances, accountService, historyService, Check);
+        Console.WriteLine($"ALL {checks} CHECKS PASSED");
+        return;
+    }
     async Task Pay(decimal amount, int day, bool skipFuture = true, string? action = null) {
         var dto = new CreatePaymentTransaction {
             ClientId = 1, PaymentMethodId = 1, Amount = amount, Date = new DateTime(2026, 9, day),
@@ -192,8 +263,9 @@ try
         try { await payments.CreatePaymentWithMovementAsync(dto); }
         catch (PaymentDecisionRequiredException ex) {
             Check(ex.Details.Scenario == "partial_payment", "prior principal partial payment consults collection month");
-            dto.FutureDebitAction = ex.Details.Options.Any(o=>o.Action=="close_partial_month")
-                ? "close_partial_month" : "keep_month_pending";
+            // Keep the collection month without adding rent: this helper verifies
+            // allocation against the original ledger, not the optional next debit.
+            dto.FutureDebitAction = "keep_month_pending";
             dto.PaymentDecisionToken = ex.Details.DecisionToken;
             await payments.CreatePaymentWithMovementAsync(dto);
         }
@@ -206,17 +278,27 @@ try
     var concept = (await db.ExecuteScalarAsync("SELECT concept FROM account_movements WHERE movement_type='CREDITO'"))?.ToString();
     Check(concept!.Contains("Alquiler Agosto 2026") && !concept.Contains("Interés"), "real payment description only names August principal");
     var clients = await new DaoClient(db).GetClients();
-    Check(Convert.ToDecimal(clients.Rows[0]["PreviousBalance"]) == -62000 &&
+    var firstPaymentLocalNow = DateTime.UtcNow.AddHours(-3);
+    var firstPaymentCurrentMonth = new DateTime(firstPaymentLocalNow.Year,firstPaymentLocalNow.Month,1);
+    var firstPaymentPartialMonth = new DateTime(2026,8,1);
+    var firstPaymentVisibleMonth = firstPaymentPartialMonth > firstPaymentCurrentMonth
+        ? firstPaymentPartialMonth : firstPaymentCurrentMonth;
+    decimal firstPaymentPreviousPrincipal = (firstPaymentPartialMonth < firstPaymentVisibleMonth ? 62000m : 0m)
+        + (new DateTime(2026,9,1) < firstPaymentVisibleMonth ? 232000m : 0m);
+    Check(Convert.ToDateTime(clients.Rows[0]["next_payment_day"])==firstPaymentVisibleMonth
+        && Convert.ToDateTime(await db.ExecuteScalarAsync("SELECT dbo.GetPaymentArrearsMonth(1)"))==firstPaymentPartialMonth,
+        "old partial payment uses the current collection-month floor while retaining August arrears");
+    Check(Convert.ToDecimal(clients.Rows[0]["PreviousBalance"]) == -firstPaymentPreviousPrincipal &&
         Convert.ToDecimal(clients.Rows[0]["interest_amount"]) == 48700 &&
         Convert.ToDecimal(clients.Rows[0]["balance"]) == -342700, "client list SQL uses the actual allocation");
     var financial = await new CommunicationDao(db).GetClientFinancialData(1);
-    Check(financial.PreviousBalance == 62000 && financial.Surcharge == 48700,
+    Check(financial.PreviousBalance == firstPaymentPreviousPrincipal && financial.Surcharge == 48700,
         "account statements agree with client capital and interest");
     var snapshot = await new SyncService(db, payments, NullLogger<SyncService>.Instance).GetSnapshotAsync();
-    Check(snapshot.Clients[0].PreviousBalance == -62000 && snapshot.Clients[0].InterestAmount == 48700,
+    Check(snapshot.Clients[0].PreviousBalance == -firstPaymentPreviousPrincipal && snapshot.Clients[0].InterestAmount == 48700,
         "offline snapshot agrees with client capital and interest");
     var pending = await new DaoRental(db).GetPendingPaymentsAsync();
-    Check(Convert.ToDecimal(pending.Rows[0]["PreviousBalance"]) == -62000 &&
+    Check(Convert.ToDecimal(pending.Rows[0]["PreviousBalance"]) == -firstPaymentPreviousPrincipal &&
         Convert.ToDecimal(pending.Rows[0]["InterestAmount"]) == 48700 &&
         Convert.ToDecimal(pending.Rows[0]["balance"]) == -342700, "dashboard uses full debt, excluding interests from prior principal");
     var late = await new DaoRental(db).GetAllActiveRentalsWithStatusAsync();
@@ -427,9 +509,8 @@ try
     Check(projectedPlannedStatement.CurrentBalance == 300m,
         "projected statement includes the complete plan due in its target month");
 
-    // A pending surcharge belongs to the statement even when the planned
-    // debits include an assigned increase. It is not materialized as an
-    // account movement until the payment workflow applies it.
+    // The normal statement follows the posted ledger even with planned
+    // increases. Only the next-month projection anticipates the pending fee.
     var increasedPlanMonth = projectedStatementMonth.AddMonths(1);
     await db.ExecuteCommandAsync("""
         INSERT clients(client_id, full_name, payment_identifier, preferred_payment_method_id, initial_amount,
@@ -476,8 +557,13 @@ try
         "payment plan applies the assigned increase to its month and following month");
 
     var normalIncreasedStatement = await new CommunicationDao(db).GetClientFinancialData(4);
-    Check(normalIncreasedStatement.Surcharge == 25m && normalIncreasedStatement.CurrentBalance == 345m,
-        "normal statement includes pending surcharge alongside the increased plan");
+    Check(normalIncreasedStatement.Surcharge == 0m && normalIncreasedStatement.CurrentBalance == 320m,
+        "normal statement excludes unposted surcharge alongside the increased plan");
+    var increasedPlanClients = await new DaoClient(db).GetClients();
+    var increasedPlanClient = increasedPlanClients.Select("client_id=4").Single();
+    Check(normalIncreasedStatement.Surcharge == Convert.ToDecimal(increasedPlanClient["interest_amount"])
+          && normalIncreasedStatement.CurrentBalance == -Convert.ToDecimal(increasedPlanClient["balance"]),
+        "normal increased-plan statement agrees with the posted client balance");
 
     var projectedIncreasedStatement = await new CommunicationDao(db).GetClientFinancialData(4, isNextMonth: true);
     Check(projectedIncreasedStatement.Surcharge == 25m && projectedIncreasedStatement.CurrentBalance == 345m,
@@ -626,9 +712,13 @@ try
     }
 
     await PaymentDecisionChecks.RunAsync(db, payments, balances, stateService, Check);
+    await PaymentCollectionCurrentMonthChecks.RunAsync(db, payments, balances, stateService, Check);
 
     await DepartureChecks.RunAsync(db, balances, Check);
     await ReactivationChecks.RunAsync(db, balances, Check);
+
+    await StatementSurchargeChecks.RunAsync(db, balances, Check);
+    await MovementStatisticsChecks.RunAsync(db, Check);
 
     Console.WriteLine($"ALL {checks} CHECKS PASSED");
 }
