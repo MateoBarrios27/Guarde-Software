@@ -1,26 +1,23 @@
-<section class="activity-log-shell flex min-h-[34rem] flex-col overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)]">
-  <header class="border-b border-slate-100 bg-gradient-to-br from-slate-50 via-white to-blue-50/60 px-5 py-5 sm:px-7">
-    <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-      <div class="flex items-start gap-3">
-        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600">
-          <app-icon name="clock" class="h-5 w-5"></app-icon>
-        </div>
-        <div>
-          <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">Auditoría del sistema</p>
-          <h2 class="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Registro de actividad</h2>
-          <p class="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500">Consultá quién realizó cada alta, modificación, baja o inicio de sesión.</p>
-        </div>
+<section class="activity-log-shell flex min-h-[34rem] flex-col overflow-hidden">
+  <header class="activity-log-header">
+    <div class="flex items-center gap-3.5">
+      <div class="activity-log-icon">
+        <app-icon name="clock" class="h-5 w-5"></app-icon>
       </div>
-
+      <div class="min-w-0">
+        <p class="activity-log-eyebrow">Auditoría del sistema</p>
+        <h2 class="activity-log-title">Registro de actividad</h2>
+        <p class="activity-log-description">Consultá quién realizó cada alta, modificación, baja o inicio de sesión.</p>
+      </div>
     </div>
 
-    <div class="activity-quick-filters mt-5 flex gap-2 overflow-x-auto pb-1" aria-label="Filtrar por área">
+    <div class="activity-quick-filters mt-4 flex gap-2 overflow-x-auto pb-1" aria-label="Filtrar por área">
       <button type="button" (click)="selectArea('')" [class.activity-chip-active]="!selectedArea" class="activity-chip shrink-0">Todas las áreas</button>
       <button *ngFor="let area of areas" type="button" (click)="selectArea(area.value)" [class.activity-chip-active]="selectedArea === area.value" class="activity-chip shrink-0">{{ area.label }}</button>
     </div>
   </header>
 
-  <div class="border-b border-slate-100 bg-white px-5 py-4 sm:px-7">
+  <div class="activity-filters">
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
       <label class="activity-field xl:col-span-2">
         <span>Buscar</span>
@@ -66,11 +63,11 @@
     </div>
   </div>
 
-  <div *ngIf="errorMessage" class="mx-5 mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 sm:mx-7" role="alert">
+  <div *ngIf="errorMessage" class="activity-alert" role="alert">
     {{ errorMessage }}
   </div>
 
-  <div class="min-h-0 flex-1 overflow-x-auto overflow-y-hidden px-0 sm:px-2">
+  <div class="min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
     <table class="activity-table min-w-[980px] w-full text-left">
       <thead>
         <tr>
@@ -84,12 +81,12 @@
       </thead>
       <tbody>
         <tr *ngIf="isLoading">
-          <td colspan="6" class="px-5 py-14 text-center text-sm text-slate-500">
+          <td colspan="6" class="activity-empty">
             <span class="inline-flex items-center gap-2"><span class="activity-spinner"></span> Cargando actividad…</span>
           </td>
         </tr>
         <tr *ngIf="!isLoading && activities.length === 0">
-          <td colspan="6" class="px-5 py-14 text-center text-sm text-slate-500">No hay actividades para los filtros seleccionados.</td>
+          <td colspan="6" class="activity-empty">No hay actividades para los filtros seleccionados.</td>
         </tr>
         <tr *ngFor="let activity of activities; trackBy: trackByActivityId" class="activity-row">
           <td class="activity-date-cell">
@@ -100,20 +97,21 @@
             <div class="flex min-w-40 items-center gap-2.5">
               <span class="activity-avatar">{{ (displayUser(activity) || 'U').charAt(0).toUpperCase() }}</span>
               <div class="min-w-0">
-                <p class="truncate font-semibold text-slate-800">{{ displayUser(activity) }}</p>
-                <p class="truncate text-xs text-slate-400">{{ activity.userName || ('ID ' + activity.userId) }}</p>
+                <p class="activity-user-name truncate">{{ displayUser(activity) }}</p>
+                <p class="activity-user-id truncate">{{ activity.userName || ('ID ' + activity.userId) }}</p>
               </div>
             </div>
           </td>
           <td><span class="activity-area-label">{{ areaLabel(activity.tableName) }}</span></td>
           <td><span [class]="actionClass(activity.action)">{{ actionLabel(activity.action) }}</span></td>
-          <td class="max-w-[30rem] text-sm leading-5 text-slate-600">
+          <td class="max-w-[30rem]">
             <p class="activity-summary">{{ activitySummary(activity) }}</p>
           </td>
           <td class="text-right">
             <button
               type="button"
               class="activity-detail-button"
+              title="Ver detalle"
               [attr.aria-label]="'Ver detalle de ' + activitySummary(activity)"
               (click)="openDetails(activity)">
               <app-icon name="file-text" class="h-4 w-4"></app-icon>
@@ -125,8 +123,8 @@
     </table>
   </div>
 
-  <footer class="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-    <div class="flex items-center gap-2 text-xs font-medium text-slate-500">
+  <footer class="activity-footer">
+    <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
       <span>Filas por página</span>
       <select [(ngModel)]="pageSize" name="activityPageSize" (ngModelChange)="onPageSizeChange()" class="activity-page-size">
         <option *ngFor="let size of pageSizes" [ngValue]="size">{{ size }}</option>
@@ -156,7 +154,7 @@
     aria-labelledby="activity-detail-title"
     (click)="$event.stopPropagation()">
     <header class="activity-detail-header">
-      <div class="flex min-w-0 items-start gap-3">
+      <div class="flex min-w-0 items-center gap-3.5">
         <div class="activity-detail-icon">
           <app-icon name="file-text" class="h-5 w-5"></app-icon>
         </div>
@@ -166,7 +164,7 @@
           <p class="activity-detail-meta">{{ displayUser(activity) }} · {{ activity.logDate | date:'dd/MM/yyyy HH:mm' }}</p>
         </div>
       </div>
-      <button type="button" class="activity-detail-close" aria-label="Cerrar detalle" (click)="closeDetails()">×</button>
+      <button type="button" class="activity-detail-close" aria-label="Cerrar detalle" (click)="closeDetails()"><app-icon name="x" class="h-4 w-4"></app-icon></button>
     </header>
 
     <div class="activity-detail-body">
