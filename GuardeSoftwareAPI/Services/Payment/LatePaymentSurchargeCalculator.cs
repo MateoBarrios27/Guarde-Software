@@ -1,14 +1,19 @@
 using System.Globalization;
 using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Utils;
 
 namespace GuardeSoftwareAPI.Services.payment;
 
 public static class LatePaymentSurchargeCalculator
 {
+    /// <param name="percentage">
+    /// Interés del mes (Configuración → Intereses por mora). Por defecto el 10 % histórico.
+    /// </param>
     public static LatePaymentSurchargeProjection Project(
         IEnumerable<ClientMonthBalance> balances,
         DateTime paymentDate,
-        decimal currentRentFallback)
+        decimal currentRentFallback,
+        decimal percentage = InterestRule.DefaultPercentage)
     {
         var paymentMonth = new DateTime(paymentDate.Year, paymentDate.Month, 1);
         var components = balances
@@ -55,15 +60,13 @@ public static class LatePaymentSurchargeCalculator
             LateRentBase = lateRentBase,
             UnpaidInterestsAtCutoff = unpaidInterestsAtCutoff,
             TaxableBase = taxableBase,
-            SurchargeAmount = RoundDownToHundred(taxableBase * 0.10m)
+            SurchargeAmount = InterestRule.Calculate(taxableBase, percentage)
         };
     }
 
-    public static decimal Calculate(decimal lateRentBase, decimal unpaidInterestsAtCutoff) =>
-        RoundDownToHundred((Math.Max(0m, lateRentBase) + Math.Max(0m, unpaidInterestsAtCutoff)) * 0.10m);
-
-    private static decimal RoundDownToHundred(decimal amount) =>
-        amount <= 0m ? 0m : Math.Floor(amount / 100m) * 100m;
+    public static decimal Calculate(decimal lateRentBase, decimal unpaidInterestsAtCutoff,
+        decimal percentage = InterestRule.DefaultPercentage) =>
+        InterestRule.Calculate(Math.Max(0m, lateRentBase) + Math.Max(0m, unpaidInterestsAtCutoff), percentage);
 
     private sealed class LatePaymentComponent
     {

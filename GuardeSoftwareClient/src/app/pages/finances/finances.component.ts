@@ -28,6 +28,8 @@ import { PaymentCompletedNotice, PaymentPresenceService, PaymentPresenceUser } f
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 import { CommunicationService, ReceiptDeliveryResult } from '../../core/services/communication-service/communication.service';
 import { projectLatePaymentSurcharge } from '../../core/utils/late-payment-surcharge';
+import { MonthlyInterestService } from '../../core/services/monthlyInterest-service/monthly-interest.service';
+import { MonthlyInterestRule } from '../../core/utils/interest-rule';
 import { AuthService } from '../../core/services/auth-service/auth.service';
 
 export interface DetailedPaymentView extends DetailedPaymentDTO {
@@ -96,6 +98,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
     private communicationService: CommunicationService,
     public authService: AuthService,
     overlay: Overlay,
+    private monthlyInterestService: MonthlyInterestService,
   ){
     this.clientStatsScrollStrategy = overlay.scrollStrategies.close();
     this.monthPickerScrollStrategy = overlay.scrollStrategies.reposition();
@@ -329,6 +332,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.monthlyInterestService.refresh();
     this.paymentPresenceSubscriptions.add(
       this.paymentPresenceService.onPresenceChanged$.subscribe(event => this.handlePaymentPresenceChanged(event.clientId, event.viewers))
     );
@@ -342,6 +346,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
       this.dataRefresh.watch(['clients', 'finances', 'catalog'], 'finances').subscribe(event => {
         if (event.domains.includes('catalog')) {
           this.loadPaymentMethods();
+          this.monthlyInterestService.refresh();
         }
         if (event.domains.includes('finances')) {
           this.loadPayments();
@@ -1721,6 +1726,15 @@ export class FinancesComponent implements OnInit, OnDestroy {
     return new Date().getDate();
   }
 
+  /** Día y porcentaje de intereses del mes del pago (Configuración → Intereses por mora). */
+  getPaymentInterestRule(): MonthlyInterestRule {
+    if (this.manualDateEnabled && this.dateString) {
+      const [year, month] = this.dateString.split('-').map(Number);
+      if (year && month) return this.monthlyInterestService.ruleForMonth(year, month);
+    }
+    return this.monthlyInterestService.ruleForDate(new Date());
+  }
+
   isNextPaymentInNextMonthOrLater(): boolean {
     const nextDate = this.selectedClientNextPaymentDay;
     if (!nextDate) return false;
@@ -1740,10 +1754,12 @@ export class FinancesComponent implements OnInit, OnDestroy {
   getSurchargeScenario(): 'A' | 'B' | 'C' | 'D' {
     if (this.isPreviousBalanceSelected) return 'D';
     const day = this.getPaymentDay();
+    // Plazo del mes del pago (Configuración → Intereses por mora; por defecto hasta el día 10).
+    const cutoff = this.getPaymentInterestRule().cutoffDay;
     const hasSurcharge = (this.selectedPendingSurcharge > 0);
-    if (hasSurcharge && day <= 10) return 'A';
-    if (hasSurcharge && day > 10) return 'B';
-    if (!hasSurcharge && day > 10 && this.selectedClientRentAmount > 0 && !this.isCurrentMonthPaidFlag) return 'C';
+    if (hasSurcharge && day <= cutoff) return 'A';
+    if (hasSurcharge && day > cutoff) return 'B';
+    if (!hasSurcharge && day > cutoff && this.selectedClientRentAmount > 0 && !this.isCurrentMonthPaidFlag) return 'C';
     if (this.paymentDto.isAdvancePayment) return 'D';
     return 'D';
   }
@@ -1765,7 +1781,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
   private getProjectedLatePaymentSurcharge() {
     return projectLatePaymentSurcharge(
       Number(this.selectedInterestAmount || 0),
-      Number(this.selectedClientRentAmount || 0)
+      Number(this.selectedClientRentAmount || 0),
+      this.getPaymentInterestRule().percentage
     );
   }
 
@@ -2491,9 +2508,9 @@ export class FinancesComponent implements OnInit, OnDestroy {
               <span>Recargo por mora condonado</span>
               <button type="button" id="swal-edit-interest-btn-a" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-emerald-300 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors shadow-2xs">Modificar monto</button>
             </h4>
-            <p class="text-xs text-emerald-700 mt-0.5">El recargo pendiente de <span class="font-bold">${formatARS(this.selectedPendingSurcharge)}</span> será eliminado automáticamente porque el pago se registra dentro del plazo (día 10 o antes).</p>
+            <p class="text-xs text-emerald-700 mt-0.5">El recargo pendiente de <span class="font-bold">${formatARS(this.selectedPendingSurcharge)}</span> será eliminado automáticamente porque el pago se registra dentro del plazo (día ${this.getPaymentInterestRule().cutoffDay} o antes).</p>
           </div>
-          <span class="pay-tone-green text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día ≤ 10</span>
+          <span class="pay-tone-green text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día ≤ ${this.getPaymentInterestRule().cutoffDay}</span>
         </div>`;
     } else if (scenario === 'B') {
       surchargeBannerHtml = `
@@ -2505,7 +2522,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
                 <button type="button" id="swal-edit-interest-btn-b" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-amber-300 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-2xs">Editar</button>
               </h4>
             </div>
-            <span class="pay-tone-muted text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día > 10</span>
+            <span class="pay-tone-muted text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0">Día > ${this.getPaymentInterestRule().cutoffDay}</span>
           </div>
           <div class="space-y-2 pt-1 text-xs font-semibold text-amber-900">
             <label class="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-amber-100/60 transition-colors">

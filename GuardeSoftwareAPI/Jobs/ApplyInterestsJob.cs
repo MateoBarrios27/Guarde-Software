@@ -2,12 +2,14 @@ using System.Data;
 using GuardeSoftwareAPI.Dao;
 using Quartz;
 using GuardeSoftwareAPI.Services.notification;
+using GuardeSoftwareAPI.Utils;
 
 [DisallowConcurrentExecution]
 public class ApplyInterestsJob : IJob
 {
     private readonly ILogger<ApplyInterestsJob> _logger;
     private readonly DaoRental _daoRental;
+    private readonly DaoMonthlyInterest _daoMonthlyInterest;
     private readonly INotificationService _notificationService;
 
     public ApplyInterestsJob(
@@ -17,14 +19,56 @@ public class ApplyInterestsJob : IJob
     {
         _logger = logger;
         _daoRental = new DaoRental(accessDB);
+        _daoMonthlyInterest = new DaoMonthlyInterest(accessDB);
         _notificationService = notificationService;
     }
 
-    public async Task Execute(IJobExecutionContext context)
-    {
-        _logger.LogInformation("Iniciando Job de Gestión de Mora. Hora: {time}", DateTimeOffset.Now);
+    // Quartz lo dispara todos los días a las 4:00; sólo actúa el día configurado del mes.
+    public Task Execute(IJobExecutionContext context) => RunAsync(DateTime.Today);
 
+    /// <summary>
+    /// Aplica los intereses del mes de <paramref name="today"/> si hoy es su día de aplicación
+    /// (Configuración → Intereses por mora; sin configuración, el día 11 y el 10 %) y si el mes
+    /// todavía no se aplicó. Devuelve true cuando procesó el mes.
+    /// </summary>
+    public async Task<bool> RunAsync(DateTime today)
+    {
+        today = today.Date;
         try
+        {
+            MonthlyInterestRule rule = await _daoMonthlyInterest.GetRuleForMonthAsync(today);
+            if (today.Day != rule.ApplyDay)
+            {
+                _logger.LogDebug("Job de Gestión de Mora: hoy no corresponde (día {day}; se aplica el {applyDay}).", today.Day, rule.ApplyDay);
+                return false;
+            }
+            if (await _daoMonthlyInterest.IsMonthAppliedAsync(today))
+            {
+                _logger.LogInformation("Job de Gestión de Mora: los intereses de {period:MM/yyyy} ya se aplicaron.", today);
+                return false;
+            }
+            return await ApplyAsync(today, rule);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ocurrió un error crítico en el Job de Gestión de Mora.");
+            return false;
+        }
+    }
+
+    private async Task<bool> ApplyAsync(DateTime today, MonthlyInterestRule rule)
+    {
+        _logger.LogInformation("Iniciando Job de Gestión de Mora. Hora: {time}. Interés del mes: {percentage} % ({source}).",
+            DateTimeOffset.Now, rule.Percentage, rule.IsDefault ? "por defecto" : "configurado");
+
+        if (rule.Percentage <= 0m)
+        {
+            // Un 0 % configurado significa «sin intereses este mes»: no se guarda recargo.
+            await _daoMonthlyInterest.RecordRunAsync(today, rule, 0, 0m);
+            _logger.LogInformation("Job de Gestión de Mora: {period:MM/yyyy} está configurado sin intereses.", today);
+            return true;
+        }
+
         {
             DataTable allRentals = await _daoRental.GetAllActiveRentalsWithStatusAsync();
             _logger.LogInformation("Procesando {count} alquileres activos.", allRentals.Rows.Count);
@@ -52,15 +96,16 @@ public class ApplyInterestsJob : IJob
 
                     // Si existe registro CMB con débitos, usamos la porción impaga (descontando pagos parciales).
                     // Si no hay CMB aún, usamos la cuota actual como fallback.
-                    var interestAmount = taxableBase * 0.10m;
-                    
+                    // Porcentaje del mes (Configuración → Intereses por mora; 10 % si no está configurado).
+                    var interestAmount = taxableBase * rule.Percentage / 100m;
+
                     var roundedInterest = RoundInterestToNearestHundredDown(interestAmount);
 
                     await _daoRental.SavePendingSurchargeAsync(
                         rentalId,
                         roundedInterest,
                         lateRentBase,
-                        DateTime.Today);
+                        today);
                     affectedRentals++;
                     totalInterests += roundedInterest;
                     _logger.LogInformation("Interés de ${amount} aplicado al alquiler ID {rentalId}. (Base Imponible: ${baseImponible}, Método Preferido: {method})", roundedInterest, rentalId, taxableBase, preferredMethod);
@@ -68,22 +113,22 @@ public class ApplyInterestsJob : IJob
                 }
             }
 
+            // Se registra el mes aplicado: no se vuelve a aplicar y su configuración queda fija.
+            await _daoMonthlyInterest.RecordRunAsync(today, rule, affectedRentals, totalInterests);
+
             if (affectedRentals > 0)
             {
-                string period = DateTime.Today.ToString("MM/yyyy");
+                string period = today.ToString("MM/yyyy");
                 await _notificationService.CreateEventAsync(
                     sourceType: "interests_applied",
                     severity: "info",
                     title: "Intereses aplicados",
-                    message: $"Se aplicaron intereses a {affectedRentals} alquileres por un total de {totalInterests:C0} para el período {period}.",
+                    message: $"Se aplicaron intereses del {rule.Percentage:0.##} % a {affectedRentals} alquileres por un total de {totalInterests:C0} para el período {period}.",
                     actionUrl: "/finances",
-                    notificationKey: $"interests-applied:{DateTime.Today:yyyy-MM}");
+                    notificationKey: $"interests-applied:{today:yyyy-MM}");
             }
             _logger.LogInformation("Job de Gestión de Mora finalizado con éxito.");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ocurrió un error crítico en el Job de Gestión de Mora.");
+            return true;
         }
     }
 

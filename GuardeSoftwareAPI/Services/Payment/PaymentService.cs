@@ -308,12 +308,17 @@ namespace GuardeSoftwareAPI.Services.payment
                 var ledger = await ClientMonthBalanceService.GetMovementsAsync(rental.Id, connection, transaction);
                 var beforePayment = PaymentAllocationEngine.Allocate(
                     ledger.Where(m => m.PaymentId != paymentId));
+                // Interés del mes de la mora (Configuración → Intereses por mora; 10 % por defecto),
+                // el mismo porcentaje que usa el job del día de aplicación.
+                var interestRule = await new DaoMonthlyInterest(accessDB).GetRuleForMonthAsync(
+                    rental.PendingSurchargePeriod ?? dto.Date, connection, transaction);
                 var latePaymentProjection = LatePaymentSurchargeCalculator.Project(
                     beforePayment.Rows,
                     dto.Date,
                     !isClientMarkedAsLeaving && dto.NewRentAmount.HasValue && dto.NewRentAmount.Value > baseRent
                         ? dto.NewRentAmount.Value
-                        : baseRent);
+                        : baseRent,
+                    interestRule.Percentage);
 
                 // Include the chosen fee in the provisional ledger so the decision
                 // reflects the exact waterfall and balance that will be persisted.
@@ -322,7 +327,7 @@ namespace GuardeSoftwareAPI.Services.payment
                         ? Math.Max(0m, dto.SurchargeAmount ?? 0m)
                         : rental.PendingSurcharge is > 0m ? rental.PendingSurcharge.Value
                         : LatePaymentSurchargeCalculator.Calculate(rental.PendingSurchargeRentBase ?? latePaymentProjection.LateRentBase,
-                            latePaymentProjection.UnpaidInterestsAtCutoff))
+                            latePaymentProjection.UnpaidInterestsAtCutoff, interestRule.Percentage))
                     : 0m;
                 AccountMovement? surchargeMovement = null;
                 if (finalPenalty > 0m)

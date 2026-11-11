@@ -23,6 +23,7 @@ using GuardeSoftwareAPI.Services.phone;
 using GuardeSoftwareAPI.Services.communication;
 using GuardeSoftwareAPI.Services.billingType;
 using GuardeSoftwareAPI.Services.monthlyIncrease;
+using GuardeSoftwareAPI.Services.monthlyInterest;
 using GuardeSoftwareAPI.Services.statistics;
 using GuardeSoftwareAPI.Services.auth;
 
@@ -167,6 +168,7 @@ builder.Services.AddScoped<IIncreaseRegimenService, IncreaseRegimenService>();
 builder.Services.AddScoped<ILockerService, LockerService>();
 builder.Services.AddScoped<ILockerTypeService, LockerTypeService>();
 builder.Services.AddScoped<IMonthlyIncreaseService, MonthlyIncreaseService>();
+builder.Services.AddScoped<IMonthlyInterestService, MonthlyInterestService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 builder.Services.AddScoped<IPhoneService, PhoneService>();
@@ -238,7 +240,10 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(applyInterestsJobKey)
         .WithIdentity("ApplyInterestsJob-trigger")
-        .WithCronSchedule("0 0 4 11 * ?") // 4:00 AM del día 11: el día 10 completo queda dentro de término
+        // 4:00 AM todos los días: el job sólo aplica intereses el día configurado para el mes en
+        // Configuración → Intereses por mora (por defecto el 11, con el día 10 completo dentro de término)
+        // y una sola vez por mes (monthly_interest_runs).
+        .WithCronSchedule("0 0 4 * * ?")
     );
 
     // var applyIncreasesJobKey = new JobKey("ApplyMonthlyIncreasesJob");

@@ -1,3 +1,5 @@
+import { calculateInterest, DEFAULT_INTEREST_PERCENTAGE } from './interest-rule';
+
 export interface LatePaymentSurchargeProjection {
   unpaidInterestsAtCutoff: number;
   lateRentBase: number;
@@ -12,7 +14,8 @@ export interface LatePaymentSurchargeProjection {
  */
 export function projectLatePaymentSurcharge(
   unpaidInterestsAtCutoff: number,
-  lateRentBase: number
+  lateRentBase: number,
+  percentage: number = DEFAULT_INTEREST_PERCENTAGE
 ): LatePaymentSurchargeProjection {
   const interestsAtCutoff = positive(unpaidInterestsAtCutoff);
   const rentBase = positive(lateRentBase);
@@ -22,7 +25,7 @@ export function projectLatePaymentSurcharge(
     unpaidInterestsAtCutoff: interestsAtCutoff,
     lateRentBase: rentBase,
     taxableBase,
-    surchargeAmount: Math.floor((taxableBase * 0.10) / 100) * 100
+    surchargeAmount: calculateInterest(taxableBase, percentage)
   };
 }
 

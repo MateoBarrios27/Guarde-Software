@@ -9,7 +9,7 @@ function createComponent(): FinancesComponent {
   const nothing = null as never;
   const component = new FinancesComponent(
     nothing, nothing, nothing, nothing, router as never, nothing, nothing, nothing,
-    nothing, nothing, nothing, nothing, nothing, nothing, overlay as never
+    nothing, nothing, nothing, nothing, nothing, nothing, overlay as never, nothing
   );
   spyOn(component, 'filterPayments');
   return component;
