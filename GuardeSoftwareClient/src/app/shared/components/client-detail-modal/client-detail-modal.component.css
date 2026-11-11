@@ -49,3 +49,13 @@
   .abono-timeline-entry { column-gap: 8px; }
   .abono-step-card, .abono-payment-event { padding: 12px; }
 }
+
+/* Selector de meses del formulario de abono: parece los demás campos del formulario (texto chico, borde gris, esquinas de 8 px). */
+app-month-picker {
+  --mp-field-height: 2.375rem;
+  --mp-field-radius: 0.5rem;
+  --mp-field-border: #d1d5db;
+  --mp-field-border-hover: #9ca3af;
+  --mp-field-font-size: 0.875rem;
+  --mp-field-pad-x: 0.75rem;
+}

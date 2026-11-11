@@ -3,17 +3,20 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MonthlyStatisticsDTO } from '../../core/dtos/statistics/MonthlyStatisticsDTO';
 import { StatisticsService } from '../../core/services/statics-service/statics-service.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { MonthPickerComponent, PickedMonth } from '../../shared/components/month-picker/month-picker.component';
 import { Subscription } from 'rxjs';
 import { DataRefreshService } from '../../core/services/data-refresh-service/data-refresh.service';
 
 @Component({
   selector: 'app-statistics',
   standalone: true,
-  imports: [CommonModule, IconComponent],
+  imports: [CommonModule, IconComponent, MonthPickerComponent],
   templateUrl: './statistics.component.html',
 })
 export class StatisticsComponent implements OnInit, OnDestroy {
   currentDate = new Date();
+  /** El mes en curso: las estadísticas no miran el futuro. Es un valor fijo para no cambiar la referencia en cada revisión. */
+  readonly maxMonth: PickedMonth = { month: new Date().getMonth() + 1, year: new Date().getFullYear() };
   isLoading = false;
   hasError = false;
 
@@ -59,13 +62,17 @@ export class StatisticsComponent implements OnInit, OnDestroy {
     });
   }
 
-  prevMonth(): void {
-    this.moveMonth(-1);
+  /** Las flechas del selector de meses: -1 mes anterior, +1 mes siguiente (no pasa del mes en curso). */
+  prevOrNext(delta: number): void {
+    if (delta > 0 && this.isCurrentMonth) return;
+    this.moveMonth(delta);
   }
 
-  nextMonth(): void {
-    if (this.isCurrentMonth) return;
-    this.moveMonth(1);
+  /** Un mes elegido en el panel del selector, o «Volver al mes actual». */
+  selectMonth(picked: PickedMonth): void {
+    if (picked.year > this.maxMonth.year || (picked.year === this.maxMonth.year && picked.month > this.maxMonth.month)) return;
+    this.currentDate = new Date(picked.year, picked.month - 1, 1);
+    this.loadStats();
   }
 
   get monthName(): string {

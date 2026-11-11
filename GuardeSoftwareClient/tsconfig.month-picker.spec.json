@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.spec.json",
+  "include": [
+    "src/app/shared/components/month-picker/month-picker.component.spec.ts",
+    "src/app/pages/cash/cash-account-notes.spec.ts",
+    "src/app/pages/statistics/statistics.component.spec.ts",
+    "src/app/shared/components/client-detail-modal/client-detail-modal.component.spec.ts"
+  ]
+}

@@ -279,7 +279,7 @@
                     <div><label class="text-sm font-medium text-purple-700">Monto Inicial *</label><input type="text" appCurrencyFormat formControlName="legacyInitialAmount" placeholder="0.00" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/></div>
                   </div>
                   <div class="grid grid-cols-2 gap-4">
-                    <div><label class="text-sm font-medium text-purple-700">Próx. Aumento *</label><input type="month" formControlName="legacyNextIncreaseDate" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/></div>
+                    <div class="col-span-2"><label class="text-sm font-medium text-purple-700">Próx. Aumento *</label><app-month-picker variant="field" formControlName="legacyNextIncreaseDate" class="mt-1"></app-month-picker></div>
                     <!-- <div><label class="text-sm font-medium text-purple-700">Meses Prepagos</label><input type="number" formControlName="prepaidMonths" placeholder="0" min="0" class="w-full mt-1 p-2 border rounded-md" (keydown.enter)="blurInput($event)"/></div> -->
                   </div>
                   <label for="promo-toggle" class="flex items-center cursor-pointer space-x-3 pt-2">

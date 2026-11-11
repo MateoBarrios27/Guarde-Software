@@ -23,6 +23,7 @@ import {
   AbstractControl 
 } from '@angular/forms';
 import { IconComponent } from '../icon/icon.component';
+import { MonthPickerComponent } from '../month-picker/month-picker.component';
 import Swal from '../../services/ui-alert.service';
 
 // --- Modelos y Servicios ---
@@ -49,7 +50,7 @@ import { AuthService } from '../../../core/services/auth-service/auth.service';
 @Component({
   selector: 'app-create-client-modal',
   standalone: true,
-  imports: [CommonModule, A11yModule, ReactiveFormsModule, IconComponent, CurrencyFormatDirective, ChangePaymentMethodModalComponent],
+  imports: [CommonModule, A11yModule, ReactiveFormsModule, IconComponent, MonthPickerComponent, CurrencyFormatDirective, ChangePaymentMethodModalComponent],
   templateUrl: './create-client-modal.component.html',
   styleUrl: './create-client-modal.component.css',
 })

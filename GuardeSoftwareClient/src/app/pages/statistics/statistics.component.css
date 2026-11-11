@@ -10,13 +10,7 @@ app-statistics { display: block; min-height: 100%; color: #172033; }
 .analytics-eyebrow,.section-kicker { display: block; margin-bottom: .25rem; color: #64748b; font-size: .69rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
 .analytics-title h1 { margin: 0; color: #111827; font-size: clamp(1.2rem,2vw,1.65rem); font-weight: 750; letter-spacing: -.025em; text-transform: capitalize; }
 .analytics-title p,.card-heading p,.section-heading p { margin: .3rem 0 0; color: #64748b; font-size: .8rem; line-height: 1.55; }
-.period-picker { display: flex; align-items: center; flex: 0 0 auto; padding: .3rem; border: 1px solid #dce2ea; border-radius: .85rem; background: #f8fafc; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
-.period-picker__button { display: grid; place-items: center; width: 2.65rem; height: 2.65rem; border: 0; border-radius: .65rem; color: #536176; background: transparent; cursor: pointer; transition: .15s ease; }
-.period-picker__button:hover:not(:disabled) { color: #1d4ed8; background: #fff; box-shadow: 0 1px 4px rgba(15,23,42,.12); }
-.period-picker__button:disabled { opacity: .35; cursor: not-allowed; }
-.period-picker__label { min-width: 11.5rem; padding: 0 1rem; text-align: center; }
-.period-picker__label span { display: block; color: #1f2937; font-size: .86rem; font-weight: 750; text-transform: capitalize; }
-.period-picker__label small { display: block; margin-top: .1rem; color: #94a3b8; font-size: .58rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.statistics-month-picker { flex: 0 0 auto; width: 24rem; max-width: 100%; }
 
 .analytics-content { padding: clamp(1.4rem,2.4vw,2.7rem) clamp(1rem,2.2vw,2.5rem) 4rem; }
 .section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; margin: 3rem 0 1.2rem; }
@@ -103,6 +97,6 @@ app-statistics { display: block; min-height: 100%; color: #172033; }
 @keyframes pulse { 50% { opacity: .5; } }
 
 @media (max-width: 1200px) { .summary-grid,.detail-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.analysis-grid,.analysis-grid--occupancy { grid-template-columns: 1fr; }.occupancy-overview { display: grid; grid-template-columns: 1fr 1fr; align-items: center; } }
-@media (max-width: 760px) { :scope { margin: 0 -1rem; }.analytics-header { position: static; }.analytics-header__inner,.section-heading,.card-heading { align-items: stretch; flex-direction: column; }.period-picker { width: 100%; }.period-picker__label { min-width: 0; flex: 1; }.definition-note { max-width: none; }.summary-grid,.detail-grid,.revenue-list { grid-template-columns: 1fr; }.donut-layout { grid-template-columns: 1fr; }.occupancy-overview { display: flex; }.occupancy-overview__chart { grid-template-columns: 1fr; text-align: center; }.tax-card > header { align-items: flex-start; flex-direction: column; }.tax-card__breakdown { grid-template-columns: 1fr; }.tax-card__breakdown div + div { border-top: 1px solid #edf0f4; border-left: 0; }.summary-card { min-height: 0; }.analytics-title__icon { display: none; } }
+@media (max-width: 760px) { :scope { margin: 0 -1rem; }.analytics-header { position: static; }.analytics-header__inner,.section-heading,.card-heading { align-items: stretch; flex-direction: column; }.statistics-month-picker { width: 100%; }.definition-note { max-width: none; }.summary-grid,.detail-grid,.revenue-list { grid-template-columns: 1fr; }.donut-layout { grid-template-columns: 1fr; }.occupancy-overview { display: flex; }.occupancy-overview__chart { grid-template-columns: 1fr; text-align: center; }.tax-card > header { align-items: flex-start; flex-direction: column; }.tax-card__breakdown { grid-template-columns: 1fr; }.tax-card__breakdown div + div { border-top: 1px solid #edf0f4; border-left: 0; }.summary-card { min-height: 0; }.analytics-title__icon { display: none; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; }.skeleton-block { animation: none; } }
 }

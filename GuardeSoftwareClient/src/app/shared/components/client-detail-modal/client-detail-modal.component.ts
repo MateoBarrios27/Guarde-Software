@@ -12,6 +12,7 @@ import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { CdkScrollable } from '@angular/cdk/scrolling';
 import { MovementStatisticsPopoverComponent } from '../movement-statistics-popover/movement-statistics-popover.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { MonthPickerComponent } from '../month-picker/month-picker.component';
 import { IconComponent } from '../icon/icon.component';
 import { PaymentIncreaseModalComponent } from '../payment-increase-modal/payment-increase-modal.component';
 import { ClientDetailDTO } from '../../../core/dtos/client/ClientDetailDTO';
@@ -70,6 +71,7 @@ const SPANISH_MONTHS = [
     NgxPaginationModule,
     TimeDurationPipe,
     FormsModule,
+    MonthPickerComponent,
     CurrencyFormatDirective
 ],
   templateUrl: './client-detail-modal.component.html',
@@ -131,9 +133,17 @@ export class ClientDetailModalComponent implements OnChanges {
   public abonoFormYear: number = new Date().getFullYear();
   public isSavingAbono = false;
 
-  public readonly months = SPANISH_MONTHS;
-  public readonly currentYear = new Date().getFullYear();
-  public readonly years = Array.from({ length: 10 }, (_, i) => this.currentYear - 5 + i);
+  /** Mes y año de inicio del tramo de abono como «YYYY-MM», que es lo que usa el selector de meses. */
+  get abonoFormMonthKey(): string {
+    return `${this.abonoFormYear}-${String(this.abonoFormMonth).padStart(2, '0')}`;
+  }
+
+  set abonoFormMonthKey(value: string) {
+    const match = /^(\d{4})-(\d{2})$/.exec(value ?? '');
+    if (!match) return;
+    this.abonoFormYear = Number(match[1]);
+    this.abonoFormMonth = Number(match[2]);
+  }
 
   constructor(
     private accountMovementService: AccountMovementService,

@@ -12,30 +12,11 @@
         </div>
       </div>
 
-      <nav class="period-picker" aria-label="Seleccionar período">
-        <button
-          type="button"
-          (click)="prevMonth()"
-          [disabled]="isLoading"
-          aria-label="Ver mes anterior"
-          class="period-picker__button"
-        >
-          <app-icon name="chevron-left" class="h-5 w-5"></app-icon>
-        </button>
-        <div class="period-picker__label">
-          <span>{{ monthName }}</span>
-          <small>Período seleccionado</small>
-        </div>
-        <button
-          type="button"
-          (click)="nextMonth()"
-          [disabled]="isLoading || isCurrentMonth"
-          aria-label="Ver mes siguiente"
-          class="period-picker__button"
-        >
-          <app-icon name="chevron-right" class="h-5 w-5"></app-icon>
-        </button>
-      </nav>
+      <!-- El mismo selector de meses que Finanzas y Caja; no se puede ir a un mes futuro -->
+      <app-month-picker class="statistics-month-picker"
+                        [month]="currentDate.getMonth() + 1" [year]="currentDate.getFullYear()"
+                        [maxMonth]="maxMonth" [disabled]="isLoading"
+                        (monthStep)="prevOrNext($event)" (monthSelect)="selectMonth($event)"></app-month-picker>
     </div>
   </header>
 
