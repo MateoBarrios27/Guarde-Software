@@ -1,4 +1,5 @@
-/* Hover de filas: resaltado suave, continuo y sin acento lateral. */
+/* Hover de filas: resaltado suave, continuo y sin acento lateral.
+   El acabado de escritorio se define al final; celular conserva sus tarjetas. */
 tr.cash-item-row > td,
 tr.cash-account-row > td {
   transition: background-color 160ms ease, box-shadow 160ms ease;
@@ -135,4 +136,1380 @@ tbody.cdk-drop-list-dragging tr:not(.cdk-drag-placeholder) {
   inset: 0;
   min-width: 0;
   padding-right: 10px;
+}
+
+/* Adelantos: tres cifras del mismo tamaño; lo adelantado en azul sólido y el saldo restante como resultado. */
+.cash-advance-kpi {
+  min-width: 0;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.85rem;
+}
+
+.cash-advance-kpi__label {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.cash-advance-kpi__value {
+  margin-top: 0.15rem;
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+  .cash-advance-kpi {
+    padding: 0.55rem 0.6rem;
+  }
+
+  .cash-advance-kpi__value {
+    font-size: 0.9375rem;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Planilla de movimientos en celular (< 768 px): cada fila es una tarjeta.
+   Mismo template que en escritorio; sólo cambia cómo se reparten las celdas.
+     arriba   → mover · N° · día ········ nota · seleccionar · eliminar
+     título   → concepto (a todo el ancho)
+     montos   → Depo | Casa / Retiros | Iaia (una columna por debajo de 350 px)
+     pie      → Pagado (+ adelantos) ················ Replicar
+   Las etiquetas salen de `data-label` (montos) y de ::before (día, pagado,
+   replicar): al agregar o quitar una columna hay que actualizarlas acá.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Barra de la planilla: tamaños táctiles y 16 px para que iPhone no haga zoom. */
+  .cash-sheet-toolbar > button {
+    min-height: 2.75rem;
+  }
+
+  .cash-sheet-toolbar input[type='text'] {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+
+  .cash-sheet-toolbar .cash-date-picker-container {
+    min-height: 2.75rem;
+  }
+
+  /* El panel blanco que envuelve la planilla desaparece: las tarjetas van sobre el fondo de la página
+     (una tarjeta dentro de otra les quitaba 34 px de ancho) y la barra queda como tarjeta propia. */
+  .cash-sheet-panel {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .cash-sheet-panel > .cash-sheet-header {
+    border: 1px solid rgba(229, 231, 235, 0.6);
+    border-radius: 1rem;
+  }
+
+  .cash-sheet-panel > .flex-wrap {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .cash-sheet-panel > .mx-4 {
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  .cash-sheet-viewport {
+    overflow: visible;
+    margin-top: 0.75rem;
+    /* El último total queda libre del botón flotante Bajar/Subir. */
+    padding: 0 0 5rem;
+  }
+
+  table.cash-sheet {
+    display: block;
+    min-width: 0;
+  }
+
+  .cash-sheet > thead,
+  .cash-sheet > tbody,
+  .cash-sheet > tfoot {
+    display: block;
+  }
+
+  /* Encabezado → controles de selección («Seleccionar todos» y uno por columna).
+     En la vista histórica no hay botones y el encabezado desaparece. */
+  .cash-sheet > thead {
+    position: static;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .cash-sheet > thead > tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding: 0.25rem 0 0.75rem;
+  }
+
+  .cash-sheet > thead > tr > th {
+    display: none;
+    position: static;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .cash-sheet > thead > tr > th:has(button) {
+    display: block;
+  }
+
+  .cash-sheet > thead > tr > th.cash-head-concept {
+    grid-column: 1 / -1;
+  }
+
+  .cash-head-concept > div {
+    justify-content: flex-start;
+  }
+
+  .cash-head-concept > div > span {
+    display: none;
+  }
+
+  .cash-head-concept button {
+    min-height: 2.5rem;
+    padding: 0 0.75rem;
+    border-radius: 0.625rem;
+    font-size: 0.8125rem;
+  }
+
+  .cash-head-concept button:not(.bg-blue-50) {
+    border-color: #e2e8f0;
+    background: #fff;
+    color: #475569;
+  }
+
+  .cash-head-amount > div {
+    position: relative;
+    justify-content: space-between;
+    min-height: 2.5rem;
+    padding: 0 0.5rem 0 0.625rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.625rem;
+    background: #fff;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+
+  /* Toda la pastilla es el botón, no sólo la casilla de 20 px. */
+  .cash-head-amount button::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+
+  /* Filas → tarjetas */
+  .cash-sheet > tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    background: transparent;
+  }
+
+  .cash-sheet > tbody > tr.cash-item-row {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.5rem;
+    padding: 0.5rem 0.625rem 0.875rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.875rem;
+    background: #fff;
+  }
+
+  .cash-sheet > tbody > tr.cash-item-row.cash-item-row-selected {
+    border-color: #2563eb;
+    background: #eff6ff;
+    box-shadow: 0 0 0 1px #2563eb;
+  }
+
+  tr.cash-item-row > td {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    white-space: normal;
+  }
+
+  /* En táctil el «hover» queda pegado después de tocar: sin resaltado por celda. */
+  .cash-sheet tr.cash-item-row:hover > td,
+  .cash-sheet tr.cash-item-row.cash-item-row-selected:hover > td {
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  tr.cash-item-row > td.cash-cell-grip {
+    order: 1;
+  }
+
+  .cash-cell-grip .cursor-grab {
+    padding: 0.5rem 0.375rem;
+  }
+
+  /* En la vista histórica el asa sigue oculta (`opacity-0`). */
+  .cash-cell-grip .cursor-grab:not(.opacity-0) {
+    opacity: 1;
+  }
+
+  .cash-cell-grip app-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  tr.cash-item-row > td.cash-cell-num {
+    order: 2;
+    position: static;
+  }
+
+  .cash-cell-num > span {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #64748b;
+  }
+
+  .cash-cell-num > span::before {
+    content: 'N° ';
+  }
+
+  /* «Insertar fila debajo»: a caballo del borde inferior de la tarjeta, siempre visible. */
+  .cash-cell-num .insert-row-btn {
+    bottom: -0.875rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #2563eb;
+    box-shadow: none;
+    opacity: 1;
+  }
+
+  .cash-cell-num .insert-row-btn app-icon {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+
+  tr.cash-item-row > td.cash-cell-date {
+    order: 3;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-left: 0.25rem;
+  }
+
+  tr.cash-item-row > td.cash-cell-date::before,
+  tr.cash-item-row > td.cash-cell-paid::before,
+  tr.cash-item-row > td.cash-cell-replicate::before {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  tr.cash-item-row > td.cash-cell-date::before {
+    content: 'Día';
+  }
+
+  .cash-cell-date .cash-item-date-picker {
+    width: 2.125rem;
+    height: 2.125rem;
+    margin: 0;
+    border-radius: 0.625rem;
+    background: #f1f5f9;
+  }
+
+  .cash-cell-date .cash-item-date-picker > span {
+    font-size: 0.875rem;
+    font-weight: 800;
+    color: #123a74;
+  }
+
+  tr.cash-item-row > td.cash-cell-delete {
+    order: 4;
+    margin-left: auto;
+  }
+
+  .cash-cell-delete > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.125rem;
+    height: 2.125rem;
+    color: #94a3b8;
+    opacity: 1;
+  }
+
+  /* Concepto: título de la tarjeta, a todo el ancho. */
+  tr.cash-item-row > td.cash-cell-concept {
+    order: 5;
+    flex: 0 0 100%;
+    position: static;
+  }
+
+  .cash-cell-concept > div:first-child {
+    position: static;
+    min-height: 2.5rem;
+    padding: 0 0.625rem;
+    border-radius: 0.625rem;
+    background: #f8fafc;
+  }
+
+  .cash-cell-concept > div:first-child > .relative {
+    height: 1.25rem;
+  }
+
+  .cash-cell-concept input[type='text'] {
+    padding: 0.25rem;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  /* Nota y selección suben a la fila de arriba, junto a «eliminar», y quedan siempre a la vista
+     (en escritorio aparecen al pasar el mouse por el concepto). */
+  .cash-cell-concept .cash-concept-actions {
+    top: 0.5rem;
+    right: 3.125rem;
+    gap: 0.375rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  /* Vista histórica: no hay «eliminar» y las acciones van contra el borde. */
+  tr.cash-item-row:not(:has(> td.cash-cell-delete)) .cash-concept-actions {
+    right: 0.625rem;
+  }
+
+  .cash-concept-actions > button {
+    width: 2.125rem;
+    height: 2.125rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.625rem;
+  }
+
+  .cash-concept-actions > .w-px,
+  .cash-cell-concept .cash-comment-dot {
+    display: none;
+  }
+
+  /* La nota se abre debajo de la tarjeta, a su ancho. */
+  .cash-cell-concept .note-popup-container {
+    top: calc(100% - 0.5rem);
+    right: 0.5rem;
+    left: 0.5rem;
+    width: auto;
+  }
+
+  .cash-cell-concept .note-popup-container textarea {
+    font-size: 1rem;
+  }
+
+  /* Montos: etiqueta arriba y campo de 40 px. El campo con valor es blanco con borde; el vacío, gris liso.
+     «Borrar monto» sube a la línea de la etiqueta para dejarle todo el ancho al número. */
+  tr.cash-item-row > td.cash-cell-amount {
+    order: 6;
+    flex: 0 0 calc(50% - 0.25rem);
+    align-self: flex-start;
+  }
+
+  tr.cash-item-row > td.cash-cell-amount::before {
+    content: attr(data-label);
+    display: block;
+    margin: 0 0 0.125rem 0.125rem;
+    line-height: 1.125rem;
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  tr.cash-item-row > td.cash-cell-amount[data-label='Depo']::before {
+    color: #2563eb;
+  }
+
+  tr.cash-item-row > td.cash-cell-amount[data-label='Casa']::before {
+    color: #c2410c;
+  }
+
+  tr.cash-item-row > td.cash-cell-amount[data-label='Iaia']::before {
+    color: #15803d;
+  }
+
+  .cash-cell-amount > div {
+    align-items: stretch;
+  }
+
+  .cash-cell-amount .cash-amount-editor {
+    width: 100%;
+    min-width: 0;
+    height: 2.5rem;
+  }
+
+  .cash-cell-amount .cash-amount-measure {
+    display: none;
+  }
+
+  .cash-cell-amount .cash-amount-input {
+    height: 2.5rem;
+    padding-left: 0.375rem;
+    padding-right: 0.5rem;
+    border-color: transparent;
+    border-radius: 0.625rem;
+    background: #f8fafc;
+    font-size: 1rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cash-cell-amount .cash-amount-editor:has(> button) .cash-amount-input {
+    border-color: #e2e8f0;
+    background: #fff;
+  }
+
+  .cash-cell-amount .cash-amount-editor > button {
+    top: -1.25rem;
+    right: 0;
+    left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    transform: none;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    opacity: 1;
+  }
+
+  .cash-cell-amount > div > div:last-child:not(.cash-amount-editor) {
+    padding-right: 0.25rem;
+    font-size: 0.625rem;
+  }
+
+  /* Pie: Pagado (con la barra de adelantos al lado) y Replicar, con su nombre. */
+  tr.cash-item-row > td.cash-cell-paid,
+  tr.cash-item-row > td.cash-cell-replicate {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2.25rem;
+  }
+
+  tr.cash-item-row > td.cash-cell-paid {
+    order: 7;
+  }
+
+  tr.cash-item-row > td.cash-cell-replicate {
+    order: 8;
+    margin-left: auto;
+  }
+
+  tr.cash-item-row > td.cash-cell-paid::before {
+    content: 'Pagado';
+  }
+
+  tr.cash-item-row > td.cash-cell-replicate::before {
+    content: 'Replicar';
+  }
+
+  .cash-cell-paid > div {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .cash-cell-paid > div > button:first-child,
+  .cash-cell-replicate > button {
+    width: 1.75rem;
+    height: 1.75rem;
+    margin: 0;
+    border-radius: 0.5rem;
+  }
+
+  .cash-cell-paid .cash-advance-bar {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    width: 1.25rem;
+    height: 0.625rem;
+    transform: none;
+  }
+
+  /* Área táctil de la barra de adelantos (la barra mide 10 px de alto). */
+  .cash-cell-paid .cash-advance-bar::after {
+    content: '';
+    position: absolute;
+    inset: -0.75rem -0.125rem;
+  }
+
+  /* Agregar fila + filtro rápido */
+  .cash-sheet > tbody > tr.cash-sheet-addrow {
+    display: block;
+    border: 0;
+    background: transparent;
+  }
+
+  tr.cash-sheet-addrow > td {
+    display: block;
+  }
+
+  tr.cash-sheet-addrow > td > div {
+    gap: 0.625rem;
+    padding: 0.25rem 0 0;
+  }
+
+  tr.cash-sheet-addrow button {
+    min-height: 2.75rem;
+  }
+
+  tr.cash-sheet-addrow input[type='text'] {
+    min-height: 2.75rem;
+    padding-left: 2.25rem;
+    font-size: 1rem;
+  }
+
+  /* Totales: bloque al pie con «columna … importe» en filas. */
+  .cash-sheet > tfoot {
+    position: static;
+    margin-top: 0.875rem;
+    padding: 0.5rem 0.875rem;
+    border-radius: 0.875rem;
+    background: #f1f5f9;
+    box-shadow: none;
+  }
+
+  .cash-sheet > tfoot > tr {
+    display: block;
+  }
+
+  .cash-sheet > tfoot > tr > td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: auto;
+    padding: 0.5rem 0;
+    border-top: 1px solid #e2e8f0;
+    background: transparent;
+    text-align: left;
+  }
+
+  .cash-sheet > tfoot > tr > td:first-child {
+    border-top: 0;
+    padding-bottom: 0.25rem;
+  }
+
+  .cash-sheet > tfoot > tr > td:last-child {
+    display: none;
+  }
+
+  .cash-sheet > tfoot > tr > td:not(:first-child) > div {
+    margin: 0;
+  }
+
+  .cash-sheet > tfoot > tr > td:not(:first-child) > div:first-child {
+    font-size: 0.6875rem;
+  }
+
+  .cash-sheet > tfoot > tr > td:not(:first-child) > div:last-child {
+    font-size: 1rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Al arrastrar, la vista previa no puede ser más ancha que la pantalla. */
+  .cdk-drag-preview {
+    width: calc(100vw - 1.5rem) !important;
+    min-width: 0 !important;
+    overflow: hidden;
+  }
+}
+
+/* Desde 480 px las cuatro pastillas de columna entran en una fila. */
+@media (min-width: 480px) and (max-width: 767px) {
+  .cash-sheet > thead > tr {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Teléfonos angostos: sin el rótulo «Día» y con botones de 32 px para que la fila de arriba entre. */
+@media (max-width: 374px) {
+  tr.cash-item-row > td.cash-cell-date::before {
+    content: none;
+  }
+
+  .cash-cell-date .cash-item-date-picker,
+  .cash-cell-delete > button,
+  .cash-concept-actions > button {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .cash-cell-concept .cash-concept-actions {
+    right: 2.875rem;
+    gap: 0.25rem;
+  }
+}
+
+/* Por debajo de 350 px, un monto por fila: en dos columnas no entra un importe de millones. */
+@media (max-width: 349px) {
+  tr.cash-item-row > td.cash-cell-amount {
+    flex-basis: 100%;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Cuentas («Saldos Disponibles») en celular (< 768 px): cada cuenta es un bloque
+   de la lista, sin desplazamiento lateral.
+     arriba → mover · color · nombre y tipo ············ eliminar
+     abajo  → saldo (campo ancho) ············ nota · seleccionar
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .cash-accounts-viewport {
+    overflow: visible;
+  }
+
+  table.cash-accounts {
+    display: block;
+    min-width: 0;
+  }
+
+  .cash-accounts > thead,
+  .cash-accounts > tbody {
+    display: block;
+  }
+
+  .cash-accounts > thead {
+    position: static;
+    background: transparent;
+  }
+
+  .cash-accounts > thead > tr {
+    display: block;
+    padding: 0.625rem 1rem 0.25rem;
+  }
+
+  .cash-accounts > thead > tr > th {
+    display: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .cash-accounts > thead > tr > th:has(button) {
+    display: block;
+  }
+
+  .cash-accounts > thead th > div {
+    justify-content: flex-start;
+  }
+
+  .cash-accounts > thead th > div > span {
+    display: none;
+  }
+
+  .cash-accounts > thead th button {
+    min-height: 2.5rem;
+    padding: 0 0.75rem;
+    border-radius: 0.625rem;
+    font-size: 0.8125rem;
+  }
+
+  .cash-accounts > thead th button:not(.bg-indigo-50) {
+    border-color: #e2e8f0;
+    background: #fff;
+    color: #475569;
+  }
+
+  .cash-accounts > tbody > tr.cash-account-row {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.5rem;
+    padding: 0.625rem 1rem 0.625rem 0.625rem;
+  }
+
+  .cash-accounts > tbody > tr.cash-account-row.cash-account-row-selected {
+    background: #eef2ff;
+    box-shadow: inset 3px 0 0 #4f46e5;
+  }
+
+  tr.cash-account-row > td {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .cash-accounts tr.cash-account-row:hover > td,
+  .cash-accounts tr.cash-account-row.cash-account-row-selected:hover > td {
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  tr.cash-account-row > td.cash-acc-grip {
+    order: 1;
+  }
+
+  .cash-acc-grip .cursor-grab {
+    padding: 0.5rem 0.25rem;
+    opacity: 1;
+  }
+
+  tr.cash-account-row > td.cash-acc-name {
+    order: 2;
+    flex: 1 1 0;
+    position: static;
+  }
+
+  .cash-acc-name > div > .flex-1 {
+    min-width: 0;
+    padding-right: 0;
+  }
+
+  .cash-acc-name input[type='text'] {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .cash-acc-name .cash-acc-dot {
+    display: none;
+  }
+
+  tr.cash-account-row > td.cash-acc-delete {
+    order: 3;
+  }
+
+  .cash-acc-delete > button {
+    width: 2.125rem;
+    height: 2.125rem;
+    color: #94a3b8;
+    opacity: 1;
+  }
+
+  /* El saldo ocupa la segunda línea y deja lugar a la derecha para nota y selección. */
+  tr.cash-account-row > td.cash-acc-balance {
+    order: 4;
+    flex: 0 0 calc(100% - 5rem);
+  }
+
+  .cash-acc-balance input[type='text'] {
+    height: 2.5rem;
+    border-radius: 0.625rem;
+    background: #f8fafc;
+    font-size: 1rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cash-acc-balance .group\/amt > button {
+    opacity: 0.75;
+  }
+
+  .cash-acc-balance > div > div:not(.group\/amt) {
+    height: 1rem;
+    margin: 0;
+    font-size: 0.625rem;
+    line-height: 1rem;
+  }
+
+  /* Nota y selección: siempre a la vista, a la altura del campo de saldo. */
+  .cash-acc-name .cash-acc-actions {
+    top: auto;
+    right: 1rem;
+    bottom: calc(0.625rem + 1rem + 0.1875rem);
+    gap: 0.375rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  .cash-acc-actions > button {
+    width: 2.125rem;
+    height: 2.125rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.625rem;
+  }
+
+  .cash-acc-actions > .w-px {
+    display: none;
+  }
+
+  /* Nota (de cuenta o de movimiento): 16 px para que iPhone no haga zoom. */
+  .note-popup-container textarea {
+    font-size: 1rem;
+  }
+
+  /* Resumen ARS / USD: dos columnas, con el importe entero en una línea. */
+  .cash-acc-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cash-acc-summary > div {
+    padding: 0.625rem 0.5rem;
+  }
+
+  .cash-acc-summary > div:nth-child(odd) {
+    border-left-width: 0;
+  }
+
+  .cash-acc-summary > div:nth-child(n + 3) {
+    border-top: 1px solid rgba(226, 232, 240, 0.8);
+  }
+
+  .cash-acc-summary p:last-child {
+    font-size: 0.9375rem;
+    font-weight: 800;
+    white-space: nowrap;
+    word-break: normal;
+  }
+}
+
+/* Resumen Financiero en celular: ningún importe se parte en dos líneas ni se corta con «…». */
+@media (max-width: 767px) {
+  .cash-summary-list > .flex > :last-child {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .cash-summary-list > .flex > :first-child {
+    min-width: 0;
+  }
+
+  /* «Falta cobrar» y «Falta pagar»: uno debajo del otro, etiqueta a la izquierda e importe completo a la derecha. */
+  .cash-pending-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .cash-pending-grid > div {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    overflow: visible;
+  }
+
+  .cash-pending-grid > div > span {
+    margin: 0;
+    overflow: visible;
+    white-space: nowrap;
+  }
+
+  .cash-pending-grid > div > span:last-child {
+    font-size: 1rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Teléfonos muy angostos (< 350 px). */
+@media (max-width: 349px) {
+  /* Cuentas: el saldo usa todo el ancho y nota/selección bajan a una tercera línea. */
+  .cash-accounts > tbody > tr.cash-account-row {
+    padding-bottom: 3.125rem;
+  }
+
+  tr.cash-account-row > td.cash-acc-balance {
+    flex-basis: 100%;
+  }
+
+  .cash-acc-name .cash-acc-actions {
+    bottom: 0.5rem;
+  }
+
+  /* «Falta cobrar» / «Falta pagar»: etiqueta arriba, para que el importe entre completo. */
+  .cash-pending-grid > div {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+  }
+
+  /* Resumen ARS / USD: una fila por dato, etiqueta a la izquierda. */
+  .cash-acc-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cash-acc-summary > div {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    border-left-width: 0;
+    text-align: left;
+  }
+
+  .cash-acc-summary > div:nth-child(n + 2) {
+    border-top: 1px solid rgba(226, 232, 240, 0.8);
+  }
+
+  .cash-acc-summary p {
+    margin: 0;
+  }
+}
+
+/* Filtros de movimientos en celular: hoja inferior (como los filtros de Clientes y Bauleras) en vez de un
+   globo junto al botón. La posición que calcula el componente (top/left/max-height en línea) no se usa acá.
+   El oscurecido del fondo es la sombra de la propia hoja: tocar afuera la cierra, como en escritorio. */
+@media (max-width: 767px) {
+  .cash-filters-popover {
+    top: auto !important;
+    right: 0;
+    bottom: 0;
+    left: 0 !important;
+    width: 100%;
+    max-width: 100%;
+    max-height: min(85dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 1rem)) !important;
+    padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    border: 0;
+    border-radius: 1.25rem 1.25rem 0 0;
+    box-shadow: 0 0 0 100vmax rgba(15, 23, 42, 0.5);
+    visibility: visible;
+  }
+
+  .cash-filters-popover h4 {
+    font-size: 0.8125rem;
+    font-weight: 800;
+    color: #123a74;
+  }
+
+  .cash-filters-popover > div:first-child > button {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .cash-filters-popover section button {
+    min-height: 2.5rem;
+    padding: 0 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .cash-filters-popover section input[type='text'] {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+
+  .cash-filters-popover > div:last-child:not(:first-child) > button {
+    min-height: 2.5rem;
+    padding: 0 0.75rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* IVA Compras y Adelantos en celular: pantalla completa con áreas seguras, campos de 16 px y botones de 44 px. */
+@media (max-width: 639px) {
+  .cash-modal-overlay {
+    padding: 0;
+  }
+
+  .cash-modal-overlay > .cash-modal {
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border: 0;
+    border-radius: 0;
+  }
+
+  .cash-modal input {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+
+  /* Adelantos: las tres cifras en filas (etiqueta a la izquierda, importe completo a la derecha);
+     en tres columnas un importe de seis cifras ya no entraba. */
+  .cash-modal div:has(> .cash-advance-kpi) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.375rem;
+  }
+
+  .cash-modal .cash-advance-kpi {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.625rem 0.875rem;
+  }
+
+  .cash-modal .cash-advance-kpi__value {
+    margin-top: 0;
+    font-size: 1.125rem;
+  }
+
+  /* El importe de cada renglón, en una sola línea. */
+  .cash-modal tbody td:nth-child(3) {
+    white-space: nowrap;
+  }
+
+  .cash-modal button[class*='bg-[#111827]'],
+  .cash-modal button[class*='bg-gray-900'] {
+    min-height: 2.75rem;
+  }
+}
+
+/* Caja de escritorio: tablas compactas, edición a la medida del texto y notas
+   fuera de las filas. El orden y los cálculos de las columnas no cambian. */
+.cash-inline-editor { display: block; min-width: 0; flex: 1 1 auto; }
+.cash-inline-editor::after { display: none; }
+
+/* Las notas guardadas se reconocen por el propio ícono, no por un punto aparte. */
+.cash-page .note-toggle-btn,
+.cash-note-indicator { color: #64748b; }
+.cash-page .note-toggle-btn:hover { color: #64748b; background: #f1f5f9; }
+.cash-page .note-toggle-btn.text-orange-700,
+.cash-note-indicator.text-orange-700 { color: #fff; background: #c2410c; }
+.cash-page .note-toggle-btn.text-orange-700:hover { color: #fff; background: #9a3412; }
+.cash-row-select[aria-pressed='false'] > div { border-color: #64748b; }
+.cash-comment-dot,
+.cash-acc-dot { display: none; }
+
+@media (min-width: 768px) {
+  .cash-page { --cash-line: #e5eaf0; --cash-partial: #3b82f6; }
+
+  .cash-sheet-panel,
+  .cash-accounts-panel {
+    border: 1px solid var(--cash-line);
+    border-radius: 1rem;
+    box-shadow: none;
+    background: #fff;
+  }
+
+  .cash-sheet-viewport {
+    margin-top: 0;
+    padding-bottom: 0;
+    border-radius: 0 0 1rem 1rem;
+    container-type: inline-size;
+  }
+
+  .cash-sheet-panel > .cash-sheet-header { border-radius: calc(1rem - 1px) calc(1rem - 1px) 0 0; }
+
+  .cash-sheet,
+  .cash-accounts { border-collapse: separate; border-spacing: 0; }
+
+  .cash-sheet > thead,
+  .cash-sheet > tfoot,
+  .cash-accounts > thead {
+    box-shadow: none;
+    --tw-ring-shadow: 0 0 #0000;
+  }
+
+  .cash-sheet > thead th,
+  .cash-accounts > thead th {
+    padding-block: 0.875rem;
+    border-bottom: 1px solid var(--cash-line);
+    color: #475569;
+    background: #f8fafc;
+    font-weight: 800;
+    letter-spacing: 0.045em;
+  }
+
+  .cash-sheet > thead th:nth-child(2) { min-width: 2rem; }
+  .cash-sheet > thead th:nth-child(3) { min-width: 3rem; }
+  .cash-account-actions-head { width: 3rem; padding-inline: 0.375rem; text-align: center; font-size: 0.5625rem; }
+
+  .cash-sheet > tbody > tr.cash-item-row > td,
+  .cash-accounts > tbody > tr.cash-account-row > td {
+    border-top: 0;
+    border-bottom: 1px solid #edf0f4;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .cash-sheet > tbody > tr.cash-item-row:is(:hover, :focus-within) > td,
+  .cash-accounts > tbody > tr.cash-account-row:is(:hover, :focus-within) > td {
+    background: #f8fafc;
+    box-shadow: none;
+  }
+
+  .cash-sheet > tbody > tr.cash-item-row.cash-item-row-selected > td,
+  .cash-accounts > tbody > tr.cash-account-row.cash-account-row-selected > td {
+    background: #eff6ff;
+  }
+
+  .cash-sheet > tbody > tr.cash-item-row > td:first-child,
+  .cash-accounts > tbody > tr.cash-account-row > td:first-child { border-left-color: transparent; }
+
+  /* Una nota abierta no acumula highlights detrás de su superficie. */
+  .cash-note-open .cash-sheet > tbody > tr.cash-item-row:not(.cash-item-row-selected) > td,
+  .cash-note-open .cash-accounts > tbody > tr.cash-account-row:not(.cash-account-row-selected) > td { background: #fff; }
+
+  .cash-cell-num > span,
+  .cash-cell-grip .cursor-grab,
+  .cash-acc-grip .cursor-grab { color: #94a3b8; }
+
+  .cash-accounts .cash-acc-grip { width: 2.25rem; padding: 0.625rem 0.375rem; }
+  .cash-accounts .cash-acc-name { padding: 0.75rem 0.5rem; }
+  .cash-acc-name > div { gap: 0.625rem; }
+  .cash-acc-name .group\/clr { width: 0.375rem; height: 1.75rem; }
+  .cash-acc-name .group\/clr > div { box-shadow: none; border: 0; border-radius: 0.25rem; }
+
+  .cash-account-copy {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    min-width: 0;
+    gap: 0.5rem;
+    padding-right: 4rem;
+  }
+
+  .cash-account-meta {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    letter-spacing: 0.025em;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .cash-page :is(input[type='text'], textarea) { outline: none; box-shadow: none; }
+  .cash-page :is(input[type='text'], textarea):focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+    background-color: #fff;
+    box-shadow: none;
+  }
+
+  /* El área de Concepto sigue siendo amplia; el editor sólo ocupa su texto. */
+  .cash-inline-editor {
+    display: inline-flex;
+    width: fit-content;
+    min-inline-size: 2.5ch;
+    max-inline-size: 100%;
+    flex: 0 1 auto;
+    align-self: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.5rem;
+  }
+
+  .cash-inline-editor--concept { max-inline-size: calc(100% - 4.5rem); }
+  .cash-page .cash-inline-editor input {
+    field-sizing: content;
+    width: auto;
+    min-inline-size: 2.5ch;
+    max-inline-size: 100%;
+    min-height: 2rem;
+    align-self: start;
+    box-sizing: border-box;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 0.25rem 0.375rem;
+    font: inherit;
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+  }
+
+  .cash-page .cash-inline-editor input:hover:not(:disabled) { border-bottom-color: #cbd5e1; }
+  .cash-page .cash-inline-editor input:focus-visible {
+    border-bottom-color: #475569;
+    background: transparent;
+    outline: none;
+    box-shadow: none;
+  }
+
+  /* Safari/Chrome antiguos: el espejo tiene la MISMA fuente, borde y padding. */
+  @supports not (field-sizing: content) {
+    .cash-inline-editor { display: inline-grid; grid-template-columns: minmax(0, 1fr); width: max-content; }
+    .cash-inline-editor::after,
+    .cash-inline-editor input { grid-area: 1 / 1; font: inherit; border-bottom: 2px solid transparent; padding: 0.25rem 0.375rem; }
+    .cash-inline-editor::after { content: attr(data-value) ' '; display: block; visibility: hidden; white-space: pre; }
+    .cash-page .cash-inline-editor input { width: 100%; min-width: 0; }
+  }
+
+  /* Acciones en su propio espacio, sin animaciones que las desplacen. */
+  .cash-page :is(.cash-concept-actions, .cash-acc-actions) {
+    gap: 0.25rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: translateY(-50%);
+    transition: none;
+    z-index: auto;
+  }
+
+  :is(.cash-concept-actions, .cash-acc-actions) > .w-px { display: none; }
+  :is(.cash-concept-actions, .cash-acc-actions) > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: #64748b;
+  }
+
+  :is(.cash-concept-actions, .cash-acc-actions) > button:hover { background: #e9eef4; color: #172033; }
+  :is(.cash-concept-actions, .cash-acc-actions) button > div { box-shadow: none; border-radius: 0.25rem; }
+
+  /* Input y espejo reservan el mismo espacio para la ×. Centrar por insets,
+     sin combinar translate de Tailwind con otro transform. */
+  .cash-amount-measure { height: 2.125rem; padding: 6px 12px 6px 32px; }
+  .cash-amount-input { height: 2.125rem; padding: 6px 12px 6px 32px; border-radius: 0.5rem; }
+  .cash-account-balance-input { border-radius: 0.5rem; }
+  .cash-clear-amount {
+    display: grid;
+    place-items: center;
+    top: 0;
+    bottom: 0;
+    left: 0.25rem;
+    right: auto;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-block: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: #64748b;
+    box-shadow: none;
+    translate: none;
+    transform: none;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .cash-clear-amount app-icon { display: block; width: 0.875rem; height: 0.875rem; }
+  .cash-amount-editor:is(:hover, :focus-within) > .cash-clear-amount,
+  .cash-acc-balance .group\/amt:is(:hover, :focus-within) > .cash-clear-amount { opacity: 1; pointer-events: auto; }
+  .cash-clear-amount:hover { background: #fff1f2; color: #be123c; }
+
+  :is(.cash-cell-delete, .cash-acc-delete) > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.75rem;
+    min-height: 1.75rem;
+    padding: 0.25rem;
+    border-radius: 0.375rem;
+    color: #64748b;
+    opacity: 0.6;
+    margin-inline: auto;
+  }
+
+  .cash-sheet > tbody > tr.cash-item-row > td.cash-cell-delete,
+  .cash-accounts > tbody > tr.cash-account-row > td.cash-acc-delete { padding-inline: 0.5rem; }
+
+  tr:is(:hover, :focus-within) :is(.cash-cell-delete, .cash-acc-delete) > button { opacity: 1; }
+  :is(.cash-cell-delete, .cash-acc-delete) > button:hover { color: #be123c; background: #fff1f2; }
+  .cash-cell-paid > div > button:first-child,
+  .cash-cell-replicate > button { width: 1.5rem; height: 1.5rem; border-radius: 0.375rem; box-shadow: none; }
+  .cash-cell-paid .bg-emerald-500,
+  .cash-cell-replicate .bg-emerald-500 { background: #15803d; border-color: #15803d; }
+  .cash-cell-paid .bg-blue-500,
+  .cash-cell-replicate .bg-blue-500 { background: var(--cash-partial); border-color: var(--cash-partial); }
+
+  .cash-sheet > tfoot > tr > td { border-top: 1px solid var(--cash-line); background: #f8fafc; padding-block: 1rem; }
+  .cash-sheet-addrow > td { border: 0; background: #fff; }
+  .cash-page button:focus-visible,
+  :is(.cash-sheet-viewport, .cash-accounts-viewport):focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; box-shadow: none; }
+  .cash-footer-month { --mp-compact-background: transparent; --mp-compact-border: 0; --mp-compact-shadow: none; --mp-radius: 0.5rem; }
+  .cash-add-account { width: auto; min-height: 2.5rem; margin-block: 1rem; }
+
+  /* Desglose blanco, total tipográfico. Sin parches ni sombras en una celda. */
+  .cash-account-overview { container-type: inline-size; background: #fff; padding-top: 1.25rem; }
+  .cash-currency-summary { border: 0; border-radius: 0; background: #fff; box-shadow: none; overflow: visible; }
+  .cash-currency-summary > div:first-child { padding: 0 0 0.75rem; border: 0; }
+  .cash-currency-summary > div:first-child > span { color: #475569; font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.06em; }
+  .cash-currency-summary .cash-acc-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+  .cash-currency-summary .cash-acc-summary > div { align-items: flex-start; min-width: 0; padding: 0.5rem 0.75rem 1rem 0; border: 0; background: transparent; box-shadow: none; text-align: left; }
+  .cash-currency-summary .cash-acc-summary p:first-child { margin: 0 0 0.375rem; color: #64748b; font-size: 0.625rem; font-weight: 700; }
+  .cash-currency-summary .cash-acc-summary p:last-child { color: #172033; font-size: 1rem; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; word-break: normal; }
+  .cash-currency-summary .cash-acc-summary > div:last-child { grid-column: 1 / -1; flex-direction: row; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding: 0.75rem 0 0; border-top: 1px solid var(--cash-line); }
+  .cash-currency-summary .cash-acc-summary > div:last-child p:first-child { color: #172033; font-size: 0.6875rem; font-weight: 800; }
+  .cash-currency-summary .cash-acc-summary > div:last-child p:last-child { color: #123a74; font-size: 1.375rem; }
+  .cash-currency-summary--usd .cash-acc-summary > div:last-child p:last-child { color: #15803d; }
+
+  @container (max-width: 38rem) {
+    .cash-currency-summary .cash-acc-summary { grid-template-columns: minmax(0, 1fr); }
+    .cash-currency-summary .cash-acc-summary > div { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 0.375rem 0; }
+    .cash-currency-summary .cash-acc-summary > div:last-child { margin-top: 0.5rem; padding-top: 0.75rem; }
+  }
+}
+
+/* El mes se integra al contorno del panel que lo contiene, sólo en Caja. */
+@media (min-width: 1280px) {
+  .cash-page-header { padding-block: 0; align-items: stretch; }
+  .cash-page-heading { padding-block: 1.25rem; }
+  .cash-period-controls { flex: 0 1 62%; width: auto; max-width: 70rem; min-width: 0; align-self: stretch; align-items: stretch; margin-right: -1.25rem; padding-left: 1rem; border-radius: 0 1rem 1rem 0; background: #2563eb; }
+  .cash-period-controls > button { align-self: center; background: #fff; color: #123a74; }
+  .cash-period-controls > button:hover { background: #eff6ff; }
+  .cash-header-month { flex: 1 1 0; width: auto; min-width: 0; max-width: none; --mp-radius: 0 1rem 1rem 0; --mp-min-height: 100%; }
+}
+
+/* Sumar aire sólo cuando la propia tabla tiene ancho sobrante. El espacio está
+   fuera del editor: campo y medidor conservan idénticos ancho y tipografía. */
+@container (min-width: 80rem) {
+  .cash-sheet .cash-amount-cell { padding-inline: clamp(0.75rem, 1.2cqi, 2.5rem); }
+}
+
+/* Anatomía de las tarjetas de Registrar Pago: color sólido, 104 px, Inter 800,
+   etiqueta/ícono arriba e importe completo debajo. Se reutiliza g-block. */
+.cash-financial-panel { container-type: inline-size; }
+.cash-pending-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.65rem; padding-block: 0.75rem; }
+.cash-pending-grid > .cash-pending-card { display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; min-width: 0; min-height: 104px; gap: 0.65rem; padding: 1rem; border: 0; border-radius: 0.75rem; box-shadow: none; }
+.cash-pending-card--collect { background: #2563eb; }
+.cash-pending-card--pay { background: #e11d48; }
+.cash-pending-card__label { display: flex; align-items: center; gap: 0.5rem; }
+.cash-pending-card__label :is(app-icon, .g-block__label) { color: #fff; }
+.cash-pending-grid > .cash-pending-card > .cash-pending-card__amount { margin: 0; color: #fff; font-size: 1.25rem; line-height: 1.35; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@container (min-width: 36rem) {
+  .cash-pending-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 19rem) {
+  .cash-pending-grid > .cash-pending-card { padding-inline: 0.75rem; }
+}
+
+@media (forced-colors: active) {
+  .cash-page :is(input, textarea, button):focus-visible { outline: 2px solid Highlight; }
+  .cash-page .cash-inline-editor input:focus-visible { outline: 2px solid Highlight; outline-offset: 1px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cash-page :is(input, textarea, button, td, .cash-concept-actions, .cash-acc-actions) { transition: none !important; }
 }

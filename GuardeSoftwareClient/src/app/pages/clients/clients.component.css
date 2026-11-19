@@ -393,3 +393,348 @@ tr.client-row.has-color > td:last-child {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
+
+/* ───────────── Estética Guarde: barra de herramientas, acciones de fila y situación del cliente ───────────── */
+
+.clients-search-input {
+  min-height: 2.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  color: #172033;
+  background: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 150ms ease;
+}
+
+.clients-search-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.clients-search-input:hover {
+  border-color: #94a3b8;
+}
+
+.clients-search-input:focus-visible {
+  border-color: #2563eb;
+  outline: 3px solid #60a5fa;
+  outline-offset: 1px;
+}
+
+/* Botones de la barra: blancos con contorno; encendidos se rellenan de color sólido. */
+.clients-toolbar-btn {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.9rem;
+  color: #334155;
+  background: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.clients-toolbar-btn:hover {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.clients-toolbar-btn:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.clients-toolbar-btn.is-active,
+.clients-toolbar-btn.is-active:hover {
+  border-color: #2563eb;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.clients-toolbar-btn.is-danger,
+.clients-toolbar-btn.is-danger:hover {
+  border-color: #e11d48;
+  color: #ffffff;
+  background: #e11d48;
+}
+
+.clients-toolbar-btn__count {
+  display: inline-flex;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 0.35rem;
+  color: #123a74;
+  background: #ffffff;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.clients-thead th {
+  font-weight: 800;
+}
+
+/* Acciones de fila: neutras y, al apuntarlas, llenas de color sólido. */
+.clients-row-action {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.625rem;
+  color: #475569;
+  background: #ffffff;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.clients-row-action:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.clients-row-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.clients-row-action--pay:hover:not(:disabled) {
+  border-color: #15803d;
+  color: #ffffff;
+  background: #15803d;
+}
+
+.clients-row-action--view:hover:not(:disabled) {
+  border-color: #2563eb;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.clients-row-action--danger:hover:not(:disabled) {
+  border-color: #e11d48;
+  color: #ffffff;
+  background: #e11d48;
+}
+
+/* Situación del cliente: la opción elegida se rellena de su color. */
+.clients-departure-option {
+  min-height: 2.25rem;
+  flex: 1 1 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.625rem;
+  padding: 0.4rem 0.5rem;
+  color: #334155;
+  background: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.clients-departure-option:hover {
+  background: #f1f5f9;
+}
+
+.clients-departure-option:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.clients-departure-option.is-selected {
+  color: #ffffff;
+}
+
+.clients-departure-option.is-leaving { border-color: #e11d48; background: #e11d48; }
+.clients-departure-option.is-staying { border-color: #15803d; background: #15803d; }
+.clients-departure-option.is-deactivating { border-color: #111827; background: #111827; }
+
+@media (prefers-reduced-motion: reduce) {
+  .clients-search-input,
+  .clients-toolbar-btn,
+  .clients-row-action,
+  .clients-departure-option {
+    transition: none;
+  }
+}
+
+/* ───────────── Celular: cada cliente es una tarjeta (sin tabla ni scroll lateral) ───────────── */
+@media (max-width: 767px) {
+  .clients-table-viewport table {
+    display: block;
+    min-width: 0;
+  }
+
+  .clients-table-viewport thead {
+    display: none;
+  }
+
+  .clients-table-viewport tbody,
+  .clients-table-viewport tfoot {
+    display: block;
+    width: 100%;
+  }
+
+  .clients-table-viewport tbody tr {
+    display: block;
+  }
+
+  .clients-table-viewport tbody tr > td {
+    display: block;
+  }
+
+  .clients-table-viewport tbody tr.client-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'name name'
+      'locker next'
+      'prev interest'
+      'rent balance'
+      'actions actions';
+    gap: 0.55rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.9rem 1rem;
+  }
+
+
+  tr.client-row.has-color {
+    border-left: 3px solid var(--client-color);
+  }
+
+  tr.client-row > td,
+  tr.client-row.has-color > td,
+  tr.client-row:not(.has-color) > td,
+  tr.client-row.has-color > td:first-child {
+    display: flex !important;
+    min-width: 0;
+    flex-direction: column;
+    border: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  tr.client-row > td::before {
+    margin-bottom: 0.1rem;
+    color: #64748b;
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
+
+  tr.client-row > td:nth-child(1) { grid-area: name; }
+  tr.client-row > td:nth-child(2) { grid-area: locker; }
+  tr.client-row > td:nth-child(3) { grid-area: next; }
+  tr.client-row > td:nth-child(4) { grid-area: prev; }
+  tr.client-row > td:nth-child(5) { grid-area: interest; }
+  tr.client-row > td:nth-child(6) { grid-area: rent; }
+  tr.client-row > td:nth-child(7) { grid-area: balance; }
+  tr.client-row > td:nth-child(8) { grid-area: actions; }
+
+  tr.client-row > td:nth-child(2)::before { content: 'Baulera'; }
+  tr.client-row > td:nth-child(3)::before { content: 'Próx. pago'; }
+  tr.client-row > td:nth-child(4)::before { content: 'Saldo ant.'; }
+  tr.client-row > td:nth-child(5)::before { content: 'Interés'; }
+  tr.client-row > td:nth-child(6)::before { content: 'Abono'; }
+  tr.client-row > td:nth-child(7)::before { content: 'Saldo'; }
+
+  tr.client-row > td:nth-child(3),
+  tr.client-row > td:nth-child(5),
+  tr.client-row > td:nth-child(7) {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  tr.client-row > td:nth-child(n + 4):nth-child(-n + 7) {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  tr.client-row > td:nth-child(7) {
+    font-size: 1.125rem;
+    letter-spacing: -0.02em;
+  }
+
+  tr.client-row > td:nth-child(8) > div {
+    justify-content: flex-end;
+  }
+
+  .clients-row-action {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  /* Totales: un bloque al pie con las mismas etiquetas que las tarjetas. */
+  .clients-table-viewport tfoot tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.4rem 1rem;
+    padding: 0.75rem 1rem 0;
+  }
+
+  .clients-table-viewport tfoot tr + tr {
+    padding: 0.15rem 1rem 0.85rem;
+  }
+
+  .clients-table-viewport tfoot td {
+    display: flex !important;
+    min-width: 0;
+    flex-direction: column;
+    border: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  .clients-table-viewport tfoot tr:first-child > td:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .clients-table-viewport tfoot td:empty,
+  .clients-table-viewport tfoot tr:first-child > td:last-child {
+    display: none !important;
+  }
+
+  .clients-table-viewport tfoot tr:first-child > td:nth-child(n + 2)::before {
+    color: #64748b;
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .clients-table-viewport tfoot tr:first-child > td:nth-child(2)::before { content: 'Saldo ant.'; }
+  .clients-table-viewport tfoot tr:first-child > td:nth-child(3)::before { content: 'Interés'; }
+  .clients-table-viewport tfoot tr:first-child > td:nth-child(4)::before { content: 'Abono'; }
+  .clients-table-viewport tfoot tr:first-child > td:nth-child(5)::before { content: 'Saldo'; }
+
+  .clients-table-viewport tfoot tr:first-child > td:nth-child(3),
+  .clients-table-viewport tfoot tr:first-child > td:nth-child(5),
+  .clients-table-viewport tfoot tr + tr > td:last-of-type {
+    align-items: flex-end;
+    text-align: right;
+  }
+}
+
+/* Celular: en tarjeta ninguna celda conserva los filetes de la fila de tabla. */
+@media (max-width: 767px) {
+  tr.client-row > td,
+  tr.client-row.has-color > td:last-child {
+    border: 0 !important;
+  }
+}
+
+/* Una nota guardada comparte el indicador sólido usado en Caja. */
+.note-toggle-btn.text-orange-700 { color: #fff; background: #c2410c; }
+.note-toggle-btn.text-orange-700:hover { color: #fff; background: #9a3412; }

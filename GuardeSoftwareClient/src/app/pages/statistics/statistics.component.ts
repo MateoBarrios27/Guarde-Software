@@ -166,7 +166,7 @@ export class StatisticsComponent implements OnInit, OnDestroy {
 
   get occupancyDonutStyle(): string {
     const occupied = this.clampPercentage(this.stats.porcentajeOcupacion || 0);
-    return `conic-gradient(#0f766e 0 ${occupied}%, #e5e7eb ${occupied}% 100%)`;
+    return `conic-gradient(#16a34a 0 ${occupied}%, #e5e7eb ${occupied}% 100%)`;
   }
 
   get maxWarehouseRevenue(): number {

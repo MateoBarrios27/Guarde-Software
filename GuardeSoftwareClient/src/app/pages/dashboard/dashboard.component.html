@@ -1,59 +1,68 @@
-<div class="space-y-8 pt-6">
-  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-    <div>
-      <h2 class="text-gray-500 mt-1">
-        Resumen general de alquileres y pagos
-      </h2>
+<div class="dashboard-page space-y-6 pt-6">
+  <!-- Resumen: lo pendiente manda (bloque azul); lo cobrado acompaña en tarjeta blanca -->
+  <section class="dashboard-summary" aria-label="Resumen de pagos">
+    <div class="dashboard-summary__main">
+      <p class="dashboard-summary__label">Pagos pendientes</p>
+      <p class="dashboard-summary__value">{{ pendingRentals.length }}</p>
+      <p class="dashboard-summary__meta">Alquileres con saldo por cobrar</p>
     </div>
-  </div>
+    <div class="dashboard-summary__card">
+      <p class="dashboard-summary__label">Pagos realizados</p>
+      <p class="dashboard-summary__value">{{filteredPayments.length}}</p>
+      <p class="dashboard-summary__meta">Registrados en el último mes</p>
+    </div>
+  </section>
+
   <!-- pagos pendientes-->
-  <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
-    <div class="p-4 flex items-center justify-between border-b">
-      <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-        <app-icon name="clock" class="h-5 w-5 text-yellow-500"></app-icon>
-        Pagos Pendientes
-      </h2>
-      <div class="flex items-center gap-3">
+  <div class="g-card">
+    <div class="g-card__header">
+      <div class="g-card__heading">
+        <span class="g-card__icon g-card__icon--orange" aria-hidden="true"><app-icon name="clock" class="h-5 w-5"></app-icon></span>
+        <div class="min-w-0">
+          <h2 class="g-card__title">Pagos pendientes</h2>
+          <p class="g-card__subtitle">Actualizado hoy</p>
+        </div>
+      </div>
+      <div class="g-card__tools">
         <input type="text"
            [(ngModel)]="searchPending"
            placeholder="Buscar..."
-           class="p-1.5 border border-gray-300 rounded bg-white text-gray-700 text-sm"
+           aria-label="Buscar en pagos pendientes"
+           class="g-field dashboard-tool !w-48"
            (input)="filterPendingRentals()"/>
 
-        <span class="text-sm text-gray-500">Actualizado hoy</span>
-
-         <select [(ngModel)]="itemsPerPage2" (change)="page2 = 1"
-                    class="p-1 border border-gray-300 rounded bg-white text-gray-700">
+         <select [(ngModel)]="itemsPerPage2" (change)="page2 = 1" aria-label="Filas por página"
+                    class="g-field dashboard-tool !w-auto">
               <option *ngFor="let size of [5, 10, 20, 50]" [value]="size">{{ size }}</option>
           </select>
       </div>
     </div>
 
     <div class="relative w-full overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="text-xs text-gray-700 bg-gray-50 uppercase">
-          <tr class="border-b">
-            <th class="px-5 py-3 text-left font-medium">Cliente</th>
-            <th class="px-5 py-3 text-left font-medium">Identificador</th>
+      <table class="g-table dashboard-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Identificador</th>
             <!-- <th class="px-5 py-3 text-left font-medium">Lockers</th> -->
-            <th class="px-5 py-3 text-left font-medium">Meses Impagos</th>
-            <th class="px-5 py-3 text-left font-medium">Saldo</th>
-            <th class="px-5 py-3 text-left font-medium">Pago Mensual</th>
-            <th *ngIf="!authService.isObserver()" class="px-5 py-3 text-center font-medium">Acción</th>
+            <th class="g-center">Meses impagos</th>
+            <th class="g-amount">Saldo</th>
+            <th class="g-amount">Pago mensual</th>
+            <th *ngIf="!authService.isObserver()" class="g-center">Acción</th>
           </tr>
         </thead>
 
         <tbody>
-          <tr *ngFor="let item of filteredPendingRentals | paginate:{ itemsPerPage: itemsPerPage2, currentPage: page2, id: 'pendings' }" class="border-b hover:bg-gray-50 transition">
-            <td class="px-5 py-3 font-medium text-gray-800">{{ item.clientName }}</td>
-            <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier | number : "1.2-2" }}</td>
+          <tr *ngFor="let item of filteredPendingRentals | paginate:{ itemsPerPage: itemsPerPage2, currentPage: page2, id: 'pendings' }">
+            <td class="g-strong" data-label="Cliente">{{ item.clientName }}</td>
+            <td class="g-mono" data-label="Identificador">{{ item.paymentIdentifier | number : "1.2-2" }}</td>
             <!-- <td class="px-5 py-3 text-gray-700">{{ item.lockerIdentifiers }}</td> -->
-            <td class="px-5 py-3 text-center text-gray-800 font-medium">{{ item.monthsUnpaid }}</td>
-            <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.balance | number:'1.2-2' }}</td>
-            <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.currentRent | number:'1.2-2' }}</td>
-            <td *ngIf="!authService.isObserver()" class="px-5 py-3 text-center">
+            <td class="g-center g-strong" data-label="Meses impagos">{{ item.monthsUnpaid }}</td>
+            <td class="g-amount" data-label="Saldo">$ {{ item.balance | number:'1.2-2' }}</td>
+            <td class="g-amount" data-label="Pago mensual">$ {{ item.currentRent | number:'1.2-2' }}</td>
+            <td *ngIf="!authService.isObserver()" class="g-center dashboard-table__action">
               <button
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
+                class="g-btn g-btn--primary g-btn--sm"
                  (click)="openPaymentModalWith(item)">
                 <app-icon name="dollar-sign" class="h-4 w-4"></app-icon>
                 Registrar Pago
@@ -62,7 +71,7 @@
           </tr>
 
           <tr *ngIf="pendingRentals.length === 0">
-            <td [attr.colspan]="authService.isObserver() ? 6 : 7" class="text-center py-6 text-gray-400">
+            <td [attr.colspan]="authService.isObserver() ? 6 : 7" class="g-table__empty">
               No hay alquileres pendientes de pago.
             </td>
           </tr>
@@ -71,113 +80,93 @@
     </div>
 
     <pagination-template [id]="'pendings'" #pPendings="paginationApi" (pageChange)="page2 = $event">
-      <div class="flex justify-center items-center gap-3">
-        <button (click)="pPendings.previous()" [disabled]="pPendings.isFirstPage()" class="px-2 py-1 rounded disabled:opacity-40">«</button>
-        <span class="px-3 py-1 rounded">{{ pPendings.getCurrent() }}</span>
-        <button (click)="pPendings.next()" [disabled]="pPendings.isLastPage()" class="px-2 py-1  rounded disabled:opacity-40">»</button>
+      <div class="g-card__footer">
+        <div class="g-pager">
+          <button type="button" (click)="pPendings.previous()" [disabled]="pPendings.isFirstPage()" aria-label="Página anterior">«</button>
+          <span class="g-pager__current">{{ pPendings.getCurrent() }}</span>
+          <button type="button" (click)="pPendings.next()" [disabled]="pPendings.isLastPage()" aria-label="Página siguiente">»</button>
+        </div>
       </div>
     </pagination-template>
 
   </div>
 
-  
-
-  <div class="grid grid-cols-1 xl:grid-cols-[4fr_1fr] gap-6 items-start">
-    <!--historial de pagos -->
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div class="p-4 flex items-center justify-between border-b">
-          <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-            <app-icon name="wallet" class="h-5 w-5 text-green-600"></app-icon>
-            Historial de Pagos
-          </h2>
-
-          <div class="flex items-center gap-3">
-           
-             <input type="text"
-              [(ngModel)]="searchPayment"
-              placeholder="Buscar..."
-              class="p-1.5 border border-gray-300 rounded bg-white text-gray-700 text-sm"
-              (input)="filterPayments()"/>
-            <span class="text-sm text-gray-500">Actualizado al último mes</span>
-
-            <select [(ngModel)]="itemsPerPage" (change)="page = 1"
-                    class="p-1 border border-gray-300 rounded bg-white text-gray-700">
-              <option *ngFor="let size of [5, 10, 20, 50]" [value]="size">{{ size }}</option>
-            </select>
-          </div>
+  <!--historial de pagos -->
+  <div class="g-card">
+    <div class="g-card__header">
+      <div class="g-card__heading">
+        <span class="g-card__icon g-card__icon--green" aria-hidden="true"><app-icon name="wallet" class="h-5 w-5"></app-icon></span>
+        <div class="min-w-0">
+          <h2 class="g-card__title">Historial de pagos</h2>
+          <p class="g-card__subtitle">Actualizado al último mes</p>
         </div>
-
-        <div class="relative w-full overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="text-xs text-gray-700 bg-gray-50 uppercase">
-              <tr class="border-b">
-                <th class="px-5 py-3 text-left font-medium">Cliente</th>
-                <th class="px-5 py-3 text-left font-medium">Identificador</th>
-                <th class="px-5 py-3 text-left font-medium">Fecha</th>
-                <th class="px-5 py-3 text-left font-medium">Método de pago</th>
-                <th class="px-5 py-3 text-left font-medium">Monto</th>
-                <th *ngIf="!authService.isObserver()" class="px-5 py-3 text-left font-medium">Acción</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr *ngFor="let item of filteredPayments | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'paymenthistory' }" class="border-b hover:bg-gray-50 transition">
-                <td class="px-5 py-3 font-medium text-gray-800">{{ item.clientName }}</td>
-                <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentIdentifier | number : "1.2-2" }}</td>
-                <td class="px-5 py-3 font-mono text-gray-700">{{ item.paymentDate | date:'dd/MM/yyyy' }}</td>
-                <td class="px-5 py-3 text-gray-700">{{getNamePaymentMethodById(item.paymentMethodId)}}</td>
-                <td class="px-5 py-3 font-medium text-gray-800">$ {{ item.amount | number:'1.2-2' }}</td>
-                <td *ngIf="!authService.isObserver()" class="px-5 py-3 text-center">
-                  <button
-                    (click)="openReceiptModal(item)" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all">
-                    <app-icon name="file-text" class="h-4 w-4"></app-icon>
-                      Generar recibo
-                  </button>
-                </td>
-              </tr>
-
-              <tr *ngIf="payments.length === 0">
-                <td [attr.colspan]="authService.isObserver() ? 5 : 6" class="text-center py-6 text-gray-400">
-                  No hay pagos realizados este mes.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-       <pagination-template [id]="'paymenthistory'" #pPayments="paginationApi" (pageChange)="page = $event">
-          <div class="flex justify-center items-center gap-3">
-            <button (click)="pPayments.previous()" [disabled]="pPayments.isFirstPage()" class="px-2 py-1 rounded disabled:opacity-40">«</button>
-            <span class="px-3 py-1 rounded">{{ pPayments.getCurrent() }}</span>
-            <button (click)="pPayments.next()" [disabled]="pPayments.isLastPage()" class="px-2 py-1 rounded disabled:opacity-40">»</button>
-          </div>
-        </pagination-template>
-
-    </div>
-    
-
-   <!-- cards datos-->
-    <div class="flex flex-col gap-3 w-full max-w-[250px] ml-auto">
-      <!-- Pendientes -->
-      <div class="bg-white p-3 rounded-lg border shadow-sm flex items-center justify-between h-[68px]">
-        <div class="flex items-center gap-2">
-          <app-icon name="alert-triangle" class="h-6 w-6 text-red-500"></app-icon>
-          <span class="text-xs text-gray-500">Pendientes</span>
-        </div>
-        <p class="text-lg font-bold text-red-900 mr-3">{{ pendingRentals.length }}</p>
       </div>
-      <!-- Recaudación -->
-      <div class="bg-white p-3 rounded-lg border shadow-sm flex items-center justify-between h-[68px]">
-        <div class="flex items-center gap-2">
-          <app-icon name="check-circle" class="h-6 w-6 text-green-500"></app-icon>
-          <span class="text-xs text-gray-500">Realizados</span>
-        </div>
-        <p class="text-lg font-bold text-green-900 mr-3">{{filteredPayments.length}}</p>
+
+      <div class="g-card__tools">
+         <input type="text"
+          [(ngModel)]="searchPayment"
+          placeholder="Buscar..."
+          aria-label="Buscar en el historial de pagos"
+          class="g-field dashboard-tool !w-48"
+          (input)="filterPayments()"/>
+
+        <select [(ngModel)]="itemsPerPage" (change)="page = 1" aria-label="Filas por página"
+                class="g-field dashboard-tool !w-auto">
+          <option *ngFor="let size of [5, 10, 20, 50]" [value]="size">{{ size }}</option>
+        </select>
       </div>
     </div>
+
+    <div class="relative w-full overflow-x-auto">
+      <table class="g-table dashboard-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Identificador</th>
+            <th>Fecha</th>
+            <th>Método de pago</th>
+            <th class="g-amount">Monto</th>
+            <th *ngIf="!authService.isObserver()" class="g-center">Acción</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let item of filteredPayments | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'paymenthistory' }">
+            <td class="g-strong" data-label="Cliente">{{ item.clientName }}</td>
+            <td class="g-mono" data-label="Identificador">{{ item.paymentIdentifier | number : "1.2-2" }}</td>
+            <td class="g-mono" data-label="Fecha">{{ item.paymentDate | date:'dd/MM/yyyy' }}</td>
+            <td data-label="Método de pago">{{getNamePaymentMethodById(item.paymentMethodId)}}</td>
+            <td class="g-amount" data-label="Monto">$ {{ item.amount | number:'1.2-2' }}</td>
+            <td *ngIf="!authService.isObserver()" class="g-center dashboard-table__action">
+              <button
+                (click)="openReceiptModal(item)" class="g-btn g-btn--secondary g-btn--sm">
+                <app-icon name="file-text" class="h-4 w-4"></app-icon>
+                  Generar recibo
+              </button>
+            </td>
+          </tr>
+
+          <tr *ngIf="payments.length === 0">
+            <td [attr.colspan]="authService.isObserver() ? 5 : 6" class="g-table__empty">
+              No hay pagos realizados este mes.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+   <pagination-template [id]="'paymenthistory'" #pPayments="paginationApi" (pageChange)="page = $event">
+      <div class="g-card__footer">
+        <div class="g-pager">
+          <button type="button" (click)="pPayments.previous()" [disabled]="pPayments.isFirstPage()" aria-label="Página anterior">«</button>
+          <span class="g-pager__current">{{ pPayments.getCurrent() }}</span>
+          <button type="button" (click)="pPayments.next()" [disabled]="pPayments.isLastPage()" aria-label="Página siguiente">»</button>
+        </div>
+      </div>
+    </pagination-template>
+
   </div>
 </div>
-
 
 
 <div *ngIf="showPaymentModal"
@@ -512,90 +501,92 @@
 ></app-payment-increase-modal>
 
 <div *ngIf="showReceiptModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+     class="g-overlay"
      (keydown.escape)="closeReceiptModal()"
      tabindex="-1">
 
-  <div class="w-full max-w-2xl bg-white rounded-2xl shadow-2xl p-6 relative animate-fadeIn"
+  <div class="g-modal g-modal--wide" role="dialog" aria-modal="true" aria-labelledby="dashboard-receipt-title"
        (click)="$event.stopPropagation()">
 
-    <div class="flex items-center justify-between border-b pb-3 mb-4">
-      <div class="flex items-center gap-2">
-        <app-icon name="file-text" class="h-6 w-6 text-blue-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">Generar Recibo de Pago</h3>
+    <header class="g-modal__header">
+      <div class="g-modal__heading">
+        <span class="g-modal__icon" aria-hidden="true"><app-icon name="file-text" class="h-5 w-5"></app-icon></span>
+        <h3 id="dashboard-receipt-title" class="g-modal__title">Generar recibo de pago</h3>
       </div>
-      <button type="button" (click)="closeReceiptModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
-    </div>
+      <button type="button" (click)="closeReceiptModal()" class="g-modal__close" aria-label="Cerrar">
+        <app-icon name="x" class="h-4 w-4"></app-icon>
+      </button>
+    </header>
 
-    <div class="mb-5 bg-gray-50 p-3 rounded-lg border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <div>
-        <p class="text-sm text-gray-600">Cliente: <span class="font-bold text-gray-900">{{ receiptPaymentInfo?.clientName }}</span></p>
-        <p class="text-sm text-gray-600">Cliente N°: <span class="font-bold text-gray-900 font-mono">{{ receiptPaymentInfo?.paymentIdentifier | number:'1.2-2' }}</span></p>
-        <p class="text-sm text-gray-600">Monto del registro: <span class="font-bold text-gray-900">$ {{ receiptPaymentInfo?.amount | number:'1.2-2' }}</span></p>
-      </div>
-      
-      <div>
-        <label class="block text-xs text-gray-500 uppercase tracking-wider mb-1 sm:text-right">Fecha del recibo</label>
-        <input type="date" [(ngModel)]="receiptDateStr" 
-               class="w-full sm:w-40 p-1.5 bg-white border border-gray-300 text-sm text-gray-700 font-medium rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors shadow-sm">
-      </div>
-    </div>
-
-    <div class="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
-      <div *ngFor="let concept of receiptConcepts; let i = index" class="flex items-center gap-3">
-        
-        <div class="flex-1">
-          <label class="block text-xs font-medium text-gray-500 mb-1" *ngIf="i === 0">Descripción del concepto</label>
-          <input type="text" [(ngModel)]="concept.description" placeholder="Ej: SERVICIO DE BAULERAS" 
-                 class="w-full p-2.5 bg-white border border-gray-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors">
+    <div class="g-modal__body">
+      <!-- Lo que manda: de quién es el recibo y por cuánto se registró el pago -->
+      <div class="g-block flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <p class="g-block__label">Cliente N° <span class="font-mono">{{ receiptPaymentInfo?.paymentIdentifier | number:'1.2-2' }}</span></p>
+          <p class="mt-0.5 truncate text-xl font-extrabold leading-tight tracking-[-0.03em]" [title]="receiptPaymentInfo?.clientName || ''">{{ receiptPaymentInfo?.clientName }}</p>
+          <p class="g-block__meta">Monto del registro: <strong class="font-extrabold tabular-nums text-white">$ {{ receiptPaymentInfo?.amount | number:'1.2-2' }}</strong></p>
         </div>
-               
-        <div class="w-36">
-          <label class="block text-xs font-medium text-gray-500 mb-1" *ngIf="i === 0">Monto</label>
-          <div class="relative">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3 font-bold text-gray-500 pointer-events-none">$</span>
-            <input type="text" [(ngModel)]="concept.amount" appCurrencyFormat
-                   (ngModelChange)="recalculateTotalAmount()"
-                   class="w-full pl-7 p-2.5 bg-white border border-gray-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right hide-arrows transition-colors">
+
+        <div class="g-block__inner flex-none">
+          <label for="dashboard-receipt-date" class="g-block__label block">Fecha del recibo</label>
+          <input id="dashboard-receipt-date" type="date" [(ngModel)]="receiptDateStr"
+                 class="mt-1 w-full rounded-lg border-0 bg-white px-2.5 py-1.5 text-sm font-bold text-[#123A74] focus:outline-none focus:ring-2 focus:ring-blue-200 sm:w-40">
+        </div>
+      </div>
+
+      <div class="mt-5 space-y-3">
+        <div *ngFor="let concept of receiptConcepts; let i = index" class="flex items-end gap-2 sm:gap-3">
+
+          <div class="min-w-0 flex-1">
+            <label class="g-label" *ngIf="i === 0">Descripción del concepto</label>
+            <input type="text" [(ngModel)]="concept.description" placeholder="Ej.: SERVICIO DE BAULERAS"
+                   [attr.aria-label]="'Descripción del concepto ' + (i + 1)"
+                   class="g-field">
           </div>
-        </div>
 
-        <div [ngClass]="{'mt-5': i === 0}">
-          <button (click)="removeReceiptConcept(i)" [disabled]="receiptConcepts.length === 1"
-                  [ngClass]="receiptConcepts.length === 1 ? 'opacity-30 cursor-not-allowed' : 'text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50'"
-                  class="p-2.5 rounded-lg border border-transparent transition-colors" title="Eliminar concepto">
-            <app-icon name="Trash2" class="w-5 h-5"></app-icon>
+          <div class="w-36 flex-none sm:w-40">
+            <label class="g-label" *ngIf="i === 0">Monto</label>
+            <div class="g-field-group">
+              <span class="g-field-group__symbol" aria-hidden="true">$</span>
+              <input type="text" [(ngModel)]="concept.amount" appCurrencyFormat inputmode="decimal"
+                     (ngModelChange)="recalculateTotalAmount()"
+                     [attr.aria-label]="'Monto del concepto ' + (i + 1)"
+                     class="hide-arrows text-right">
+            </div>
+          </div>
+
+          <button type="button" (click)="removeReceiptConcept(i)" [disabled]="receiptConcepts.length === 1"
+                  class="g-icon-btn g-icon-btn--danger !h-11 !w-11" title="Eliminar concepto" aria-label="Eliminar concepto">
+            <app-icon name="Trash2" class="h-4 w-4"></app-icon>
           </button>
         </div>
       </div>
-    </div>
 
-    <div class="mt-4 flex items-center justify-between pt-4 border-t border-gray-200">
-      <button (click)="addReceiptConcept()" class="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg">
-        <app-icon name="plus" class="w-4 h-4"></app-icon> Agregar concepto
+      <button type="button" (click)="addReceiptConcept()" class="g-btn g-btn--secondary g-btn--sm mt-4">
+        <app-icon name="plus" class="h-4 w-4"></app-icon> Agregar concepto
       </button>
 
-      <div class="flex items-center gap-3">
-        <span class="text-xs uppercase tracking-wider font-bold text-gray-500">Total a Imprimir:</span>
-        <div class="relative w-36">
-          <span class="absolute inset-y-0 left-0 flex items-center pl-3 font-bold text-gray-500 pointer-events-none">$</span>
-          <input type="text" [(ngModel)]="receiptTotalAmountCustom" appCurrencyFormat
-                 class="w-full pl-7 p-2 bg-white border border-gray-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 text-right font-bold text-blue-700 transition-colors">
+      <!-- Total: franja con más peso que las filas -->
+      <div class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-100 px-4 py-3">
+        <label for="dashboard-receipt-total" class="g-section-label">Total a imprimir</label>
+        <div class="g-field-group w-48">
+          <span class="g-field-group__symbol" aria-hidden="true">$</span>
+          <input id="dashboard-receipt-total" type="text" [(ngModel)]="receiptTotalAmountCustom" appCurrencyFormat inputmode="decimal"
+                 class="text-right !text-lg">
         </div>
       </div>
     </div>
 
-    <div class="mt-6 flex justify-end gap-3">
-      <button type="button" (click)="closeReceiptModal()" class="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-100 transition-colors font-medium">
+    <footer class="g-modal__footer">
+      <button type="button" (click)="closeReceiptModal()" class="g-btn g-btn--secondary">
         Cancelar
       </button>
-      <button type="button" (click)="confirmGenerateReceipt()" class="px-6 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 shadow-sm transition-all flex items-center gap-2">
+      <button type="button" (click)="confirmGenerateReceipt()" class="g-btn g-btn--primary">
         <!-- <app-icon name="printer" class="w-4 h-4"></app-icon>  -->
-        Generar Recibo
+        <app-icon name="check" class="h-4 w-4"></app-icon>
+        Generar recibo
       </button>
-    </div>
+    </footer>
 
   </div>
 </div>
-
- 

@@ -132,10 +132,10 @@ export class NotificationInboxComponent implements OnInit, OnDestroy {
 
   iconClasses(notification: UserNotification): string {
     switch (notification.severity) {
-      case 'danger': return 'bg-red-100 text-red-600';
-      case 'warning': return 'bg-amber-100 text-amber-600';
-      case 'success': return 'bg-emerald-100 text-emerald-600';
-      default: return 'bg-blue-100 text-blue-600';
+      case 'danger': return 'bg-[#E11D48] text-white';
+      case 'warning': return 'bg-[#C2410C] text-white';
+      case 'success': return 'bg-[#15803D] text-white';
+      default: return 'bg-[#2563EB] text-white';
     }
   }
 

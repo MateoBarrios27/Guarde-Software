@@ -34,14 +34,14 @@
       </div>
     </section>
 
-    <div class="clients-table-card bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible min-w-[1180px]">
+    <div class="clients-table-card bg-white rounded-2xl border border-[#E9EDF2] overflow-visible min-w-[1180px]">
       <div class="clients-toolbar p-4 space-y-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3
-            class="clients-list-title text-lg font-semibold text-gray-800 flex items-center gap-2"
+            class="clients-list-title text-xl font-extrabold tracking-[-0.035em] text-[#172033] flex items-center gap-2.5"
           >
-            <app-icon name="user" class="h-5 w-5"></app-icon> Lista de Clientes
-            <span class="text-sm font-normal bg-gray-100 px-2 py-0.5 rounded-md"
+            <span class="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-[#2563EB] text-white"><app-icon name="user" class="h-[18px] w-[18px]"></app-icon></span> Lista de Clientes
+            <span class="text-xs font-bold tracking-normal tabular-nums text-slate-600 bg-slate-100 px-2 py-1 rounded-full"
               >{{ isLoading ? 'Cargando...' : totalClientes + ' resultados' }}</span
             >
           </h3>
@@ -49,7 +49,7 @@
             <button
               *ngIf="!authService.isObserver()"
               (click)="openNewClientModal()"
-              class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              class="g-btn g-btn--primary !min-h-[2.5rem]"
             >
               <app-icon name="plus" class="h-4 w-4"></app-icon> Nuevo Cliente
             </button>
@@ -69,19 +69,19 @@
               (ngModelChange)="onSearchChange()"
               placeholder="Nombre, ID, baulera, CUIT o email..."
               aria-label="Buscar clientes por nombre, identificador, baulera, CUIT o email"
-              class="w-full sm:w-80 pl-10 pr-12 py-2 border rounded-lg"
+              class="clients-search-input w-full sm:w-80 pl-10 pr-12"
               
             />
             <button *ngIf="searchClientes" type="button" (click)="searchClientes = ''; onSearchChange()"
-                    class="absolute right-1 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 z-10" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">
+                    class="absolute right-1 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 z-10" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">
                     <app-icon name="Trash2" class="h-4 w-4"></app-icon>
             </button>
           </div>
 
           <button
             (click)="toggleInactivos()" 
-            class="clients-inactive-toggle px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap"
-            [ngClass]="showInactivos ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-700 hover:bg-gray-50'"
+            class="clients-inactive-toggle clients-toolbar-btn"
+            [ngClass]="showInactivos ? 'is-danger' : ''"
           >
             <app-icon name="user-x" class="h-4 w-4"></app-icon> 
             {{ showInactivos ? 'Ver Activos' : 'Ver Dados de Baja' }}
@@ -93,12 +93,12 @@
               #tagsButtonRef
               type="button"
               (click)="toggleTagsPopover()"
-              class="clients-filter-toggle px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap shadow-sm"
-              [ngClass]="totalActiveTagsCount > 0 ? 'bg-blue-50 text-blue-700 border-blue-300' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+              class="clients-filter-toggle clients-toolbar-btn"
+              [ngClass]="totalActiveTagsCount > 0 ? 'is-active' : ''"
             >
               <app-icon name="plus" class="h-4 w-4"></app-icon>
               <span>Filtros</span>
-              <span *ngIf="totalActiveTagsCount > 0" class="ml-1 px-1.5 py-0.5 text-xs bg-blue-600 text-white rounded-full font-bold">
+              <span *ngIf="totalActiveTagsCount > 0" class="clients-toolbar-btn__count">
                 {{ totalActiveTagsCount }}
               </span>
             </button>
@@ -339,9 +339,8 @@
           <!-- Datos proyectados al mes siguiente (los mismos del estado de cuenta proyectado) -->
           <label
             *ngIf="!showInactivos"
-            class="clients-projection-toggle flex items-center gap-2 px-3 py-2 text-sm font-semibold border rounded-lg whitespace-nowrap select-none transition-colors shadow-sm"
-            [ngClass]="projectionActive ? 'bg-blue-50 text-blue-700 border-blue-300' : 'bg-white text-gray-700 border-gray-300'"
-            [class.hover:bg-gray-50]="!projectionActive && canProject"
+            class="clients-projection-toggle clients-toolbar-btn select-none"
+            [ngClass]="projectionActive ? 'is-active' : ''"
             [class.cursor-pointer]="canProject"
             [class.cursor-not-allowed]="!canProject"
             [class.opacity-60]="!canProject"
@@ -356,7 +355,7 @@
               (change)="toggleProjected()"
               aria-label="Ver datos proyectados del mes siguiente"
             />
-            <span class="relative h-5 w-9 flex-none rounded-full bg-gray-300 transition-colors peer-checked:bg-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400 peer-focus-visible:ring-offset-2 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"></span>
+            <span class="relative h-5 w-9 flex-none rounded-full bg-gray-300 transition-colors peer-checked:bg-[#1D4ED8] peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400 peer-focus-visible:ring-offset-2 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"></span>
             <span>Datos proyectados</span>
           </label>
         </div>
@@ -364,34 +363,34 @@
         <!-- Aviso de la vista proyectada -->
         <div
           *ngIf="projectionActive"
-          class="client-projection-banner flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900"
+          class="client-projection-banner flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-[#2563EB] px-3.5 py-2.5 text-xs text-white"
           role="status"
           aria-live="polite"
         >
           <div class="flex min-w-0 flex-[1_1_100%] items-start gap-2 sm:flex-1">
-            <app-icon name="calendar" class="mt-0.5 h-4 w-4 flex-none text-blue-700"></app-icon>
+            <app-icon name="calendar" class="mt-0.5 h-4 w-4 flex-none text-white"></app-icon>
             <p class="min-w-0">
-              <strong class="font-bold">
+              <strong class="font-extrabold">
                 Proyección <ng-container *ngIf="projectionTargetMonth">de {{ projectionTargetMonth | date : "MMMM yyyy" }}</ng-container>:
               </strong>
               Saldo ant., interés, abono y saldo muestran lo mismo que enviaría el estado de cuenta proyectado.
               Filtros, estado y Próx. pago siguen usando los datos actuales.
             </p>
           </div>
-          <span *ngIf="projectionLoading" class="font-semibold text-blue-700">Calculando...</span>
-          <span *ngIf="projectionError" class="font-semibold text-red-700">No se pudo calcular la proyección.</span>
+          <span *ngIf="projectionLoading" class="rounded-md bg-[#1D4ED8] px-2 py-1 font-bold text-white">Calculando...</span>
+          <span *ngIf="projectionError" class="rounded-md bg-[#E11D48] px-2 py-1 font-bold text-white">No se pudo calcular la proyección.</span>
           <button
             *ngIf="projectionError"
             type="button"
             (click)="retryProjection()"
-            class="rounded-md border border-red-300 bg-white px-2 py-1 font-semibold text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+            class="rounded-md bg-white px-2.5 py-1 font-extrabold text-[#123A74] hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
           >
             Reintentar
           </button>
-          <span *ngIf="projectionMissingCount > 0" class="font-semibold text-amber-700" title="No se pudo calcular o no tienen un alquiler activo">
+          <span *ngIf="projectionMissingCount > 0" class="rounded-md bg-[#1D4ED8] px-2 py-1 font-bold text-white" title="No se pudo calcular o no tienen un alquiler activo">
             {{ projectionMissingCount }} sin proyección
           </span>
-          <span *ngIf="projectionIncreaseMissingCount > 0" class="font-semibold text-amber-700" title="Les corresponde un aumento pero no hay porcentaje configurado para ese mes en Configuración: se muestra su abono vigente.">
+          <span *ngIf="projectionIncreaseMissingCount > 0" class="rounded-md bg-[#C2410C] px-2 py-1 font-bold text-white" title="Les corresponde un aumento pero no hay porcentaje configurado para ese mes en Configuración: se muestra su abono vigente.">
             {{ projectionIncreaseMissingCount }} con aumento sin porcentaje
           </span>
         </div>
@@ -556,10 +555,10 @@
         </div>
       </div>
 
-      <div #tableViewport (scroll)="onTableScroll()" class="clients-table-viewport table-scroll-viewport relative w-full min-w-0 overflow-visible" aria-label="Tabla de clientes" tabindex="0">
+      <div *appSuspendView="showNewClientModal" #tableViewport appOutsideEvents (quietScroll)="onTableScroll()" class="clients-table-viewport table-scroll-viewport relative w-full min-w-0 overflow-visible" aria-label="Tabla de clientes" tabindex="0">
         <table class="min-w-[1180px] w-full text-sm border-separate border-spacing-0">
           
-          <thead class="text-xs text-gray-700 bg-gray-50 sticky top-0 z-20 shadow-sm">
+          <thead class="clients-thead text-[11px] uppercase tracking-[0.05em] text-slate-500 bg-slate-50 sticky top-0 z-20">
             <tr>
               
               <th class="p-4 text-left font-medium cursor-pointer border-b border-gray-200 bg-gray-50" (click)="handleSort('FullName')">
@@ -706,8 +705,9 @@
                     <input type="color"
                            *ngIf="!authService.isObserver()"
                            (click)="$event.stopPropagation()"
-                           [(ngModel)]="cliente.color"
-                           (change)="onClientColorChange(cliente)"
+                           [value]="cliente.color || '#dbeafe'"
+                           (input)="previewClientColor(cliente, $any($event.target).value)"
+                           (change)="onClientColorChange(cliente, $any($event.target).value)"
                            title="Cambiar color del cliente"
                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                     <span class="text-sm font-bold pointer-events-none">{{ cliente.fullName.charAt(0) }}</span>
@@ -735,16 +735,14 @@
                         </span>
                       </div>
                       <button (click)="toggleComment(cliente); $event.stopPropagation()"
-                              (mouseenter)="onCommentMouseEnter(cliente)"
-                              (mouseleave)="onCommentMouseLeave(cliente)"
-                              title="Observaciones del cliente"
+                              appOutsideEvents (quietMouseenter)="onCommentMouseEnter(cliente)"
+                              (quietMouseleave)="onCommentMouseLeave(cliente)"
+                              title="Observaciones del cliente" aria-label="Observaciones del cliente"
                               class="note-toggle-btn w-6 h-6 inline-flex items-center justify-center rounded-md transition-colors"
-                              [ngClass]="cliente.comment && cliente.comment.trim() !== '' ? 'text-gray-700 hover:bg-black/5' : 'text-gray-400 hover:text-gray-700 hover:bg-black/5'">
+                              [ngClass]="cliente.comment && cliente.comment.trim() !== '' ? 'text-orange-700 hover:bg-orange-50' : 'text-gray-400 hover:text-gray-700 hover:bg-black/5'">
                         <app-icon name="message-square" class="w-3.5 h-3.5 block"></app-icon>
                       </button>
-                      <div *ngIf="cliente.comment && cliente.comment.trim() !== '' && activeCommentClient !== cliente"
-                           class="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-sm inline-block">
-                      </div>
+
                     </div>
                     <div class="flex items-center gap-2 flex-wrap">
                       <span class="font-semibold transition-colors"
@@ -760,8 +758,8 @@
                 </div>
 
                 <div *ngIf="activeCommentClient === cliente"
-                     (mouseenter)="onCommentMouseEnter(cliente)"
-                     (mouseleave)="onCommentMouseLeave(cliente)"
+                     appOutsideEvents (quietMouseenter)="onCommentMouseEnter(cliente)"
+                     (quietMouseleave)="onCommentMouseLeave(cliente)"
                      (click)="pinComment(cliente); $event.stopPropagation()"
                      class="note-popup-container absolute top-6 left-12 z-50 w-80 bg-white border border-gray-200 shadow-2xl p-0 origin-top-left animate-fade-in-down rounded-xl overflow-hidden text-left">
                   <div class="flex justify-between items-center border-b border-gray-100 px-3 py-2 bg-gray-50/50">
@@ -848,25 +846,25 @@
               <td class="p-4 relative">
                 <div class="flex items-center justify-center gap-2">
 
-                  <button *ngIf="cliente.status !== 'Baja' && !authService.isObserver()" (click)="goToPayment(cliente.id)" class="p-1 hover:text-green-600 flex items-center justify-center" title="Registrar Pago">
-                      <app-icon name="dollar-circle" class="h-4 w-4 inline-block text-black hover:text-green-600"></app-icon>
+                  <button *ngIf="cliente.status !== 'Baja' && !authService.isObserver()" (click)="goToPayment(cliente.id)" class="clients-row-action clients-row-action--pay" title="Registrar Pago" aria-label="Registrar pago">
+                      <app-icon name="dollar-circle" class="h-4 w-4"></app-icon>
                   </button>
 
-                  <button (click)="openDetailClientModal(cliente.id)" class="p-1 hover:text-blue-600 flex items-center justify-center" title="Ver Detalles">
-                    <app-icon name="eye" class="h-4 w-4 inline-block text-black hover:text-blue-600"></app-icon>
+                  <button (click)="openDetailClientModal(cliente.id)" class="clients-row-action clients-row-action--view" title="Ver Detalles" aria-label="Ver detalles">
+                    <app-icon name="eye" class="h-4 w-4"></app-icon>
                   </button>
 
                   <button *ngIf="cliente.status !== 'Baja' && !authService.isObserver()"
                           type="button"
                           data-departure-trigger
                           (click)="toggleDeparturePopover(cliente); $event.stopPropagation()"
-                          class="p-1 hover:text-red-600 flex items-center justify-center"
-                          title="Situación del cliente">
-                    <app-icon name="Trash2" class="h-4 w-4 text-black hover:text-red-600"></app-icon>
+                          class="clients-row-action clients-row-action--danger"
+                          title="Situación del cliente" aria-label="Situación del cliente">
+                    <app-icon name="Trash2" class="h-4 w-4"></app-icon>
                   </button>
 
-                  <button *ngIf="cliente.status === 'Baja' && !authService.isObserver()" (click)="onReactivateClient(cliente)" [disabled]="clientToReactivate !== null" class="p-1 hover:text-green-600 flex items-center justify-center" title="Reactivar Cliente">
-                    <app-icon name="rotate-ccw" class="h-4 w-4 text-black hover:text-green-600"></app-icon>
+                  <button *ngIf="cliente.status === 'Baja' && !authService.isObserver()" (click)="onReactivateClient(cliente)" [disabled]="clientToReactivate !== null" class="clients-row-action clients-row-action--pay" title="Reactivar Cliente" aria-label="Reactivar cliente">
+                    <app-icon name="rotate-ccw" class="h-4 w-4"></app-icon>
                   </button>
                 </div>
 
@@ -877,11 +875,11 @@
                      role="dialog"
                      aria-label="Situación del cliente"
                      (click)="$event.stopPropagation()"
-                     class="absolute right-2 bottom-12 z-50 w-80 max-w-[calc(100vw-1.5rem)] rounded-xl border border-gray-200 bg-white p-3 text-left shadow-2xl">
+                     class="clients-departure-panel absolute right-2 bottom-12 z-50 w-80 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-slate-200 bg-white p-3.5 text-left shadow-[0_24px_60px_-24px_rgba(15,23,42,0.55)]">
                   <div class="flex items-start justify-between gap-3 border-b border-gray-100 pb-2">
                     <div class="min-w-0">
-                      <p class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Situación del cliente</p>
-                      <p class="mt-0.5 truncate text-sm font-semibold text-gray-800">{{ cliente.fullName }}</p>
+                      <p class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-500">Situación del cliente</p>
+                      <p class="mt-0.5 truncate text-lg font-extrabold leading-tight tracking-[-0.03em] text-[#172033]">{{ cliente.fullName }}</p>
                     </div>
                     <button type="button"
                             (click)="closeDeparturePopover()"
@@ -895,27 +893,27 @@
                     <button *ngIf="!isClientLeaving(cliente)"
                             type="button"
                             (click)="selectDepartureAction('SE_VA')"
-                            class="flex-1 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors"
-                            [ngClass]="departureAction === 'SE_VA' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'">
+                            class="clients-departure-option"
+                            [ngClass]="departureAction === 'SE_VA' ? 'is-selected is-leaving' : ''">
                       SE VA
                     </button>
                     <button *ngIf="isClientLeaving(cliente)"
                             type="button"
                             (click)="selectDepartureAction('SE_QUEDA')"
-                            class="flex-1 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors"
-                            [ngClass]="departureAction === 'SE_QUEDA' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'">
+                            class="clients-departure-option"
+                            [ngClass]="departureAction === 'SE_QUEDA' ? 'is-selected is-staying' : ''">
                       SE QUEDA
                     </button>
                     <button type="button"
                             (click)="selectDepartureAction('DAR_DE_BAJA')"
-                            class="flex-1 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors"
-                            [ngClass]="departureAction === 'DAR_DE_BAJA' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                            class="clients-departure-option"
+                            [ngClass]="departureAction === 'DAR_DE_BAJA' ? 'is-selected is-deactivating' : ''">
                       DAR DE BAJA
                     </button>
                   </div>
 
                   <ng-container *ngIf="departureAction !== 'SE_QUEDA'">
-                    <p class="mt-3 rounded-lg bg-amber-50 p-2 text-[11px] leading-snug text-amber-800">
+                    <p class="mt-3 rounded-lg bg-slate-100 p-2.5 text-[11px] font-semibold leading-snug text-slate-600">
                       {{ departureAction === 'SE_VA'
                         ? 'Las bauleras quedarán en POR LIBERARSE y se mostrarán en amarillo.'
                         : 'Se finalizará el alquiler y se liberarán las bauleras.' }}
@@ -929,14 +927,14 @@
                       <span>Cobrar proporcional hasta la fecha del retiro.</span>
                     </label>
 
-                    <div *ngIf="departureChargeProportional" class="mt-2 rounded-lg border border-blue-100 bg-blue-50 p-2.5">
-                      <label class="block text-[11px] font-semibold text-blue-900" for="departure-date-{{cliente.id}}">Fecha del retiro</label>
+                    <div *ngIf="departureChargeProportional" class="mt-2 rounded-xl bg-[#2563EB] p-3">
+                      <label class="block text-[10px] font-extrabold uppercase tracking-[0.05em] text-blue-100" for="departure-date-{{cliente.id}}">Fecha del retiro</label>
                       <input [id]="'departure-date-' + cliente.id"
                              type="date"
                              [(ngModel)]="departureDate"
                              (ngModelChange)="onDepartureDateChange($event)"
-                             class="mt-1 w-full rounded-md border border-blue-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                      <label class="mt-2 block text-[11px] font-semibold text-blue-900" for="departure-amount-{{cliente.id}}">Monto a cobrar</label>
+                             class="clients-departure-field mt-1 w-full rounded-lg border-0 bg-white px-2.5 py-2 text-sm font-bold text-[#123A74] focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                      <label class="mt-2.5 block text-[10px] font-extrabold uppercase tracking-[0.05em] text-blue-100" for="departure-amount-{{cliente.id}}">Monto a cobrar</label>
                       <input [id]="'departure-amount-' + cliente.id"
                              type="text"
                              inputmode="decimal"
@@ -944,8 +942,8 @@
                              [(ngModel)]="departureProportionalAmount"
                              [disabled]="departureProportionalPreviewLoading || departureSubmitting"
                              [placeholder]="departureProportionalPreviewLoading ? 'Calculando…' : 'Ingresá el monto'"
-                             class="mt-1 w-full rounded-md border border-blue-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60" />
-                      <p class="mt-1.5 text-[10px] leading-snug text-blue-800">
+                             class="clients-departure-field mt-1 w-full rounded-lg border-0 bg-white px-2.5 py-2 text-base font-extrabold tabular-nums tracking-[-0.02em] text-[#123A74] focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-60" />
+                      <p class="mt-2 text-[10px] leading-snug text-blue-100">
                         Se cobrarán {{ getDepartureProportionalDays() }} días del mes del retiro.
                         Podés modificar el monto sugerido. Si existe un débito de alquiler de ese mes, se actualizará con este importe.
                       </p>
@@ -960,9 +958,9 @@
                       </span>
                     </label>
 
-                    <div *ngIf="(cliente.pendingSurcharge || 0) > 0" class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-                      <p class="text-[11px] font-semibold text-amber-900">Recargo pendiente: {{ cliente.pendingSurcharge | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</p>
-                      <p class="mt-0.5 text-[10px] text-amber-800">Elegí qué hacer con él.</p>
+                    <div *ngIf="(cliente.pendingSurcharge || 0) > 0" class="mt-3 rounded-xl bg-slate-100 p-3">
+                      <p class="flex items-baseline justify-between gap-2 text-[11px] font-bold text-slate-600">Recargo pendiente <span class="text-sm font-extrabold tabular-nums text-[#172033]">{{ cliente.pendingSurcharge | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</span></p>
+                      <p class="mt-0.5 text-[10px] text-slate-500">Elegí qué hacer con él.</p>
                       <label class="mt-2 flex items-center gap-2 text-[11px] text-gray-700">
                         <input type="radio" name="departure-surcharge-{{cliente.id}}" value="forgive" [(ngModel)]="departurePendingSurchargeAction" />
                         Perdonar recargo
@@ -973,21 +971,21 @@
                       </label>
                     </div>
 
-                    <p *ngIf="departureFormError" class="mt-2 text-[11px] font-medium text-red-600">{{ departureFormError }}</p>
+                    <p *ngIf="departureFormError" class="mt-2 rounded-lg bg-[#E11D48] px-2.5 py-2 text-[11px] font-bold text-white" role="alert">{{ departureFormError }}</p>
                     <button type="button"
                             [disabled]="departureSubmitting"
                             (click)="applyDepartureFromPopover($event)"
-                            class="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+                            class="clients-departure-submit mt-3 w-full rounded-xl bg-[#111827] px-3 py-2.5 text-sm font-extrabold text-white transition-colors hover:bg-[#1F2937] disabled:cursor-not-allowed disabled:opacity-60">
                       {{ departureSubmitting ? 'Guardando...' : (departureAction === 'DAR_DE_BAJA' ? 'Confirmar baja' : 'Confirmar SE VA') }}
                     </button>
                   </ng-container>
 
                   <ng-container *ngIf="departureAction === 'SE_QUEDA'">
-                    <p class="mt-3 rounded-lg bg-emerald-50 p-2 text-[11px] leading-snug text-emerald-800">
+                    <p class="mt-3 rounded-lg bg-slate-100 p-2.5 text-[11px] font-semibold leading-snug text-slate-600">
                       El cliente seguirá activo y sus bauleras volverán a OCUPADO.
                     </p>
-                    <div class="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5">
-                      <p class="text-[11px] font-semibold text-emerald-900">
+                    <div class="mt-3 rounded-xl bg-slate-100 p-3">
+                      <p class="text-xs font-extrabold text-[#172033]">
                         ¿Qué hacemos con el cobro del mes siguiente?
                         </p>
                         <label class="mt-2 flex items-start gap-2 text-[11px] text-gray-700">
@@ -1008,15 +1006,15 @@
                                class="mt-0.5 border-gray-300 text-gray-600 focus:ring-gray-500" />
                         <span>Conservar el proporcional, si existe.</span>
                       </label>
-                      <p class="mt-1.5 text-[10px] leading-snug text-emerald-800">
+                      <p class="mt-1.5 text-[10px] leading-snug text-slate-500">
                         Si hay un mes anterior impago, se elimina solamente el proporcional. Si no, se genera automáticamente el débito completo correspondiente.
                       </p>
                     </div>
-                    <p *ngIf="departureFormError" class="mt-2 text-[11px] font-medium text-red-600">{{ departureFormError }}</p>
+                    <p *ngIf="departureFormError" class="mt-2 rounded-lg bg-[#E11D48] px-2.5 py-2 text-[11px] font-bold text-white" role="alert">{{ departureFormError }}</p>
                     <button type="button"
                             [disabled]="departureSubmitting"
                             (click)="applyDepartureFromPopover($event)"
-                            class="mt-3 w-full rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">
+                            class="clients-departure-submit mt-3 w-full rounded-xl bg-[#111827] px-3 py-2.5 text-sm font-extrabold text-white transition-colors hover:bg-[#1F2937] disabled:cursor-not-allowed disabled:opacity-60">
                       {{ departureSubmitting ? 'Guardando...' : 'Confirmar SE QUEDA' }}
                     </button>
                   </ng-container>
@@ -1026,7 +1024,7 @@
 
             </tr>
           </tbody>
-          <tfoot *ngIf="!isLoading" class="font-bold text-gray-700 bg-gray-50 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <tfoot *ngIf="!isLoading" class="font-extrabold text-slate-700 bg-slate-50 sticky bottom-0 z-20">
             <tr>
               <td colspan="3" class="px-4 py-2 text-right align-middle border-t border-gray-200 bg-gray-50">
                 <span class="text-xs uppercase tracking-wider text-gray-500 font-bold">
@@ -1102,7 +1100,7 @@
 <div #bottomAnchor class="w-full h-1 opacity-0 pointer-events-none mt-4"></div>
 
 <button (click)="toggleScroll()"
-        class="table-scroll-fab fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-110 hover:shadow-blue-500/30 transition-all duration-300 focus:outline-none"
+        class="table-scroll-fab fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center rounded-2xl bg-[#111827] text-white shadow-[0_14px_30px_-14px_rgba(15,23,42,0.7)] hover:bg-[#1F2937] transition-colors duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300"
         [title]="pointingUp ? 'Subir' : 'Bajar'">
   <app-icon [name]="pointingUp ? 'arrow-up' : 'arrow-down'" class="h-6 w-6"></app-icon>
 </button>

@@ -40,7 +40,7 @@
   var BASE = API + '/api/public/chat';
   var STORE_KEY = 'guarde-chat:v1';
   var MUTE_KEY = 'guarde-chat:mute';
-  var LAUNCHER_LABEL = 'Chateá ahora mismo desde acá';
+  var LAUNCHER_LABEL = 'Habla desde aquí con uno de nuestros asesores';
   var CONTACT_KEY = 'guarde-chat:contact';
   var RESUME_CLOSED_MS = 24 * 60 * 60 * 1000;
   var MAX_MESSAGE = 1000;
@@ -641,7 +641,8 @@
     '.panel:not(.panel--inline){inset:0;width:auto;height:auto;max-height:none;border-radius:0;padding-top:env(safe-area-inset-top,0px);background:#336a91}',
     '.panel:not(.panel--inline) .form,.panel:not(.panel--inline) .thread{background:#fff}',
     '.head{padding:14px 12px;gap:10px}.head__title{font-size:12.5px;letter-spacing:1.1px}.mark{width:40px;height:40px;font-size:23px}',
-    '.launcher{right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));height:48px;padding:0 14px 0 12px;gap:8px;font-size:14px;letter-spacing:.2px}',
+    '.launcher{right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));height:48px;padding:0 14px 0 12px;gap:8px;font-size:14px;letter-spacing:.2px;max-width:calc(100vw - 28px)}',
+    '.launcher__label{white-space:normal;line-height:1.15;text-align:left}',
     '}',
     '@media (prefers-reduced-motion:no-preference){',
     '.panel{animation:pop .2s ease-out}@keyframes pop{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}',

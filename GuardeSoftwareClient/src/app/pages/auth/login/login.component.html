@@ -1,99 +1,91 @@
-<div class="min-h-screen relative flex items-center justify-end font-sans overflow-hidden bg-slate-900">
-  <!-- Background Image with Overlay -->
-  <div class="absolute inset-0">
+<div class="login-page">
+  <!-- Foto de marca: sólo acompaña en pantallas anchas -->
+  <div class="login-photo" aria-hidden="true">
     <img
       src="assets/imgs/guardeloquequiera.png"
-      alt="Guarde Lo Que Quiera - Depósitos y mudanzas"
-      class="w-full h-full object-cover"
+      alt=""
+      class="h-full w-full object-cover"
     />
-    <div class="absolute inset-0 bg-slate-950/50"></div>
+    <div class="login-photo__shade"></div>
   </div>
 
-  <!-- Login Panel (Right-aligned Vertical Strip) -->
-  <div class="relative z-10 w-full max-w-md min-h-screen bg-white/95 backdrop-blur-md shadow-2xl flex flex-col justify-center p-8 border-l border-slate-200/50">
-    <!-- Title & Branding -->
-    <div class="mb-8 text-center">
-      <img src="assets/icons/favicon.svg" alt="GuardeSoftware Logo" class="mx-auto h-14 w-auto mb-4" />
-      <h1 class="text-2xl font-bold text-slate-800 tracking-tight">
-        Guarde Lo Que Quiera
-      </h1>
+  <main class="login-panel">
+    <!-- Bloque de marca: azul sólido; en celular continúa la franja de la hora -->
+    <header class="login-brand">
+      <span class="login-brand__logo">
+        <img src="assets/icons/favicon.svg" alt="" class="h-9 w-9" />
+      </span>
+      <div class="min-w-0">
+        <p class="login-brand__eyebrow">GuardeSoftware</p>
+        <h1 class="login-brand__title">Guarde Lo Que Quiera</h1>
+      </div>
+    </header>
 
-    </div>
+    <div class="login-body">
+      <h2 class="login-heading">Ingresá a tu cuenta</h2>
 
-    <!-- Error Alert Box -->
-    <div *ngIf="errorMessage" class="mb-4 p-3 rounded-lg bg-red-50 border border-red-100 text-red-700 text-sm flex items-center gap-2">
-      <app-icon name="alert-triangle" class="w-4 h-4 text-red-500 flex-shrink-0"></app-icon>
-      <span class="font-medium">{{ errorMessage }}</span>
-    </div>
-
-    <!-- Form -->
-    <form id="loginForm" (ngSubmit)="submit()" class="space-y-5">
-      <!-- Username Input -->
-      <div class="space-y-1.5">
-        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Usuario</label>
-        <div class="relative">
-          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-            <app-icon name="user" class="w-4 h-4"></app-icon>
-          </span>
-          <input
-            type="text"
-            id="username"
-            [(ngModel)]="userName"
-            name="username"
-            autocomplete="username"
-            [disabled]="loading"
-            class="w-full pl-9 pr-4 py-2.5 rounded-lg bg-slate-50 text-slate-800 placeholder-slate-400 
-                   border border-slate-200 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
-                   transition-all duration-150 disabled:opacity-50 text-sm"
-            placeholder="Nombre de usuario"
-            required
-          />
-        </div>
+      <div *ngIf="errorMessage" class="g-notice g-notice--error mt-4" role="alert">
+        <app-icon name="alert-triangle" class="mt-0.5 h-4 w-4 flex-shrink-0"></app-icon>
+        <span>{{ errorMessage }}</span>
       </div>
 
-      <!-- Password Input -->
-      <div class="space-y-1.5">
-        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider">Contraseña</label>
-        <div class="relative">
-          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-            <app-icon name="lock" class="w-4 h-4"></app-icon>
-          </span>
-          <input
-            type="password"
-            id="password"
-            [(ngModel)]="password"
-            name="password"
-            autocomplete="current-password"
-            [disabled]="loading"
-            class="w-full pl-9 pr-10 py-2.5 rounded-lg bg-slate-50 text-slate-800 placeholder-slate-400 
-                   border border-slate-200 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
-                   transition-all duration-150 disabled:opacity-50 text-sm"
-            placeholder="••••••••"
-            required
-          />
-          <button
-            type="button"
-            (click)="togglePasswordVisibility()"
-            class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <app-icon name="eye" class="w-4 h-4" [ngClass]="{'opacity-50': !showPassword}"></app-icon>
-          </button>
+      <form id="loginForm" (ngSubmit)="submit()" class="mt-6 space-y-5">
+        <div>
+          <label for="username" class="g-label">Usuario</label>
+          <div class="relative">
+            <span class="login-field-icon">
+              <app-icon name="user" class="h-4 w-4"></app-icon>
+            </span>
+            <input
+              type="text"
+              id="username"
+              [(ngModel)]="userName"
+              name="username"
+              autocomplete="username"
+              autocapitalize="none"
+              [disabled]="loading"
+              class="g-field login-field"
+              placeholder="Nombre de usuario"
+              required
+            />
+          </div>
         </div>
-      </div>
 
-      <!-- Submit Button -->
-      <button
-        type="submit"
-        [disabled]="loading"
-        class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium 
-               shadow-sm hover:shadow active:scale-[0.99] transition-all duration-150 
-               disabled:opacity-50 disabled:cursor-not-allowed text-sm mt-3"
-      >
-        <div class="flex items-center justify-center gap-2">
-          <span *ngIf="loading" class="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent text-white rounded-full"></span>
+        <div>
+          <label for="password" class="g-label">Contraseña</label>
+          <div class="relative">
+            <span class="login-field-icon">
+              <app-icon name="lock" class="h-4 w-4"></app-icon>
+            </span>
+            <input
+              type="password"
+              id="password"
+              [(ngModel)]="password"
+              name="password"
+              autocomplete="current-password"
+              [disabled]="loading"
+              class="g-field login-field login-field--toggle"
+              placeholder="••••••••"
+              required
+            />
+            <button
+              type="button"
+              (click)="togglePasswordVisibility()"
+              class="login-toggle"
+              [attr.aria-label]="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              [attr.aria-pressed]="showPassword"
+            >
+              <app-icon name="eye" class="h-4 w-4" [ngClass]="{'opacity-50': !showPassword}"></app-icon>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" [disabled]="loading" class="g-btn g-btn--primary g-btn--block login-submit">
+          <span *ngIf="loading" class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
           <span>{{ loading ? 'Iniciando sesión...' : 'Ingresar' }}</span>
-        </div>
-      </button>
-    </form>
-  </div>
+          <app-icon *ngIf="!loading" name="arrow-right" class="h-4 w-4"></app-icon>
+        </button>
+      </form>
+    </div>
+  </main>
 </div>

@@ -333,6 +333,14 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.monthlyInterestService.refresh();
+    let previousConnection = this.offlineService.isOnline;
+    this.paymentPresenceSubscriptions.add(this.offlineService.isOnline$.subscribe(online => {
+      if (online === previousConnection) return;
+      previousConnection = online;
+      this.loadPaymentMethods(); this.loadClients();
+      this.monthlyInterestService.refresh();
+      if (online) this.loadPayments();
+    }));
     this.paymentPresenceSubscriptions.add(
       this.paymentPresenceService.onPresenceChanged$.subscribe(event => this.handlePaymentPresenceChanged(event.clientId, event.viewers))
     );
@@ -438,6 +446,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
   }
 
   loadPayments(): void {
+    if (!this.offlineService.isOnline) { this.payments = []; this.calculatePaymentStats(); this.filterPayments(); return; }
     this.paymentService.getDetailedPayment().subscribe({
       next: (data) => {
         this.payments = this.sortPaymentsDesc(this.preparePaymentViews(data));
@@ -452,15 +461,13 @@ export class FinancesComponent implements OnInit, OnDestroy {
     if (!this.offlineService.isOnline) {
       // Load from IndexedDB cache when offline
       this.idb.getCachedPaymentMethods().then(cached => {
-        if (cached.length > 0) {
           this.paymentMethods = cached.map(pm => ({
             id: pm.id,
             name: pm.name,
             commission: pm.commission
           } as PaymentMethod));
           this.paymentMethodsById = new Map(this.paymentMethods.map(method => [method.id, method]));
-        }
-      });
+      }).catch(() => Swal.fire({ icon: 'error', title: 'No se pudieron cargar los medios locales', text: 'Revisá el almacenamiento del navegador.' }));
       return;
     }
     this.paymentMethodService.getPaymentMethods().subscribe({
@@ -475,8 +482,8 @@ export class FinancesComponent implements OnInit, OnDestroy {
   loadClients(): void {
     if (!this.offlineService.isOnline) {
       // Load from IndexedDB cache when offline
-      this.idb.getCachedClients().then(cached => {
-        if (cached.length > 0) {
+      this.idb.getCachedClients().then(async cached => {
+          await this.monthlyInterestService.loadCachedRules();
           this.clients = cached.map(c => ({
             id: c.id,
             fullName: c.fullName,
@@ -490,6 +497,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
             color: c.color,
             active: c.active,
             departureStatus: c.departureStatus ?? null,
+            preferredPaymentMethodId: c.preferredPaymentMethodId ?? 0,
             preferredPaymentMethod: c.preferredPaymentMethodId ?? 0,
             // Enriched offline fields — keep dates as ISO strings for compatibility
             nextPaymentDay: c.nextPaymentDay ?? undefined,
@@ -500,17 +508,16 @@ export class FinancesComponent implements OnInit, OnDestroy {
             // Required but not critical offline
             registrationDate: new Date(),
             notes: '',
-            dni: '',
-            cuit: '',
-            ivaCondition: ''
+            dni: c.dni ?? '',
+            cuit: c.cuit ?? '',
+            ivaCondition: c.ivaCondition ?? ''
           } as Client));
           this.clientsById = new Map(this.clients.map(client => [client.id, client]));
           this.invalidateFilteredClientsCache();
           this.clientsLoaded = true;
 
           this.openAutoPaymentClientIfReady();
-        }
-      });
+      }).catch(() => Swal.fire({ icon: 'error', title: 'No se pudieron cargar los clientes locales', text: 'Importá un respaldo válido y revisá el almacenamiento del navegador.' }));
       return;
     }
     this.clientService.getClients().subscribe({
@@ -2256,6 +2263,14 @@ export class FinancesComponent implements OnInit, OnDestroy {
       this.paymentDto.date = new Date(year, month - 1, day, currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds());
     }
 
+    if (!this.offlineService.isOnline) {
+      if (dto.isAdvancePayment || dto.newRentAmount || dto.appliedIncreases?.length) {
+        void Swal.fire({ icon: 'warning', title: 'Esta planificación necesita conexión', text: 'Los adelantos y aumentos se confirman con el servidor. Para guardar un cobro simple, desactivá esas opciones.' });
+        return;
+      }
+      void this.executeBackendCall();
+      return;
+    }
     this.checkIncreaseLogic();
     const isPriceLocked = this.paymentDto.isAdvancePayment && this.paymentDto.advanceMonths && this.paymentDto.advanceMonths >= 6;
 
@@ -2817,6 +2832,16 @@ export class FinancesComponent implements OnInit, OnDestroy {
     }
 
     this.isSubmittingPayment = true;
+    if (!this.offlineService.isOnline) {
+      try {
+        if (!await this.monthlyInterestService.loadCachedRules()) throw new Error('Este respaldo no incluye las reglas mensuales de intereses. Descargá uno actualizado antes de cobrar sin conexión.');
+        if (this.paymentDto.isAdvancePayment || this.paymentDto.newRentAmount || this.paymentDto.appliedIncreases?.length) throw new Error('Los adelantos y aumentos requieren conexión. El formulario se conserva.');
+      } catch (error) {
+        this.isSubmittingPayment = false;
+        await Swal.fire({ icon: 'error', title: 'No se guardó el cobro', text: error instanceof Error ? error.message : 'No se pudo leer el respaldo local.' });
+        return;
+      }
+    }
     if (this.offlineService.isOnline && !(await this.ensurePaymentStateToken())) {
       this.isSubmittingPayment = false;
       return;
@@ -2864,6 +2889,7 @@ export class FinancesComponent implements OnInit, OnDestroy {
 
     // --- OFFLINE MODE: Queue the payment locally ---
     if (!this.offlineService.isOnline) {
+      try {
       const clientName = this.getClientNameById(payloadToSave.clientId);
       const pmName = this.getNamePaymentMethodById(payloadToSave.paymentMethodId);
       await this.syncService.queuePayment({
@@ -2887,14 +2913,18 @@ export class FinancesComponent implements OnInit, OnDestroy {
         expectedPaymentStateToken: payloadToSave.expectedPaymentStateToken
       });
 
-      Swal.fire({
+      await Swal.fire({
         title: '💾 Pago guardado localmente',
-        html: `El pago de <b>$${payloadToSave.amount.toLocaleString('es-AR')}</b> para <b>${clientName}</b> fue guardado.<br><br><small>Se enviará al servidor automáticamente cuando se restaure la conexión.</small>`,
+        text: `Se guardó $${payloadToSave.amount.toLocaleString('es-AR')} para ${clientName} en este navegador. Consultalo en Cobros locales. Se conciliará al volver la conexión; el saldo del respaldo todavía no cambia.`,
         icon: 'info',
         confirmButtonColor: '#2563eb',
         confirmButtonText: 'Entendido'
       });
       this.closeClientModal();
+      } catch (error) {
+        this.returnToUrl = targetReturnUrl;
+        await Swal.fire({ icon: 'error', title: 'No se guardó el cobro', text: error instanceof Error ? error.message : 'No hay espacio o el navegador bloqueó el almacenamiento. El formulario se conserva.' });
+      } finally { this.isSubmittingPayment = false; }
       return;
     }
 

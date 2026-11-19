@@ -8,11 +8,12 @@ import { ClientService, PaymentMethodChangeContext } from '../../../core/service
 import { PaymentMethodService } from '../../../core/services/paymentMethod-service/payment-method.service';
 import { PaymentMethod } from '../../../core/models/payment-method';
 import { CurrencyFormatDirective } from '../../directives/currency-format.directive';
+import { IconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'app-change-payment-method-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, A11yModule, CurrencyFormatDirective],
+  imports: [CommonModule, FormsModule, A11yModule, CurrencyFormatDirective, IconComponent],
   templateUrl: './change-payment-method-modal.component.html'
 })
 export class ChangePaymentMethodModalComponent implements OnInit {

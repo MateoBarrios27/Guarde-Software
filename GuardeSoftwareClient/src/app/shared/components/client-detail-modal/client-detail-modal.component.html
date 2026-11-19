@@ -1,19 +1,19 @@
 <div
-  class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+  class="client-detail-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55"
 >
   <div
     *ngIf="client"
     (click)="$event.stopPropagation()"
-    class="flex min-w-0 flex-col max-h-[90vh] w-full max-w-6xl overflow-hidden bg-gray-100 rounded-lg shadow-2xl"
+    class="client-detail-shell flex min-w-0 flex-col max-h-[90vh] w-full max-w-6xl overflow-hidden bg-slate-100 rounded-2xl shadow-[0_24px_60px_-24px_rgba(15,23,42,0.55)]"
   >
     <header
-      class="flex flex-shrink-0 flex-wrap items-start justify-between gap-3 bg-white p-4 text-gray-900 border-b"
+      class="client-detail-header flex flex-shrink-0 flex-wrap items-center justify-between gap-3 bg-white p-4 text-[#172033] border-b border-slate-200"
     >
       <div class="flex min-w-0 flex-1 items-center gap-4">
         <div
-          class="relative w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border border-black/10 transition-all cursor-pointer shadow-sm"
-          [style.backgroundColor]="client.color || '#dbeafe'"
-          [style.color]="client.color ? '#ffffff' : '#1e40af'"
+          class="relative w-12 h-12 rounded-[0.9rem] flex items-center justify-center flex-shrink-0 transition-all cursor-pointer"
+          [style.backgroundColor]="client.color || '#2563EB'"
+          [style.color]="'#ffffff'"
         >
           <input type="color"
                  *ngIf="!authService.isObserver()"
@@ -22,28 +22,28 @@
                  (change)="onClientColorChange(client)"
                  title="Cambiar color del cliente"
                  class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-          <span class="text-xl font-bold pointer-events-none">{{
+          <span class="text-xl font-extrabold pointer-events-none">{{
             client.fullName.charAt(0)
           }}</span>
         </div>
         <div class="min-w-0">
           <div class="flex items-center gap-2">
-            <h2 class="break-words text-xl font-bold transition-colors" [style.color]="client.color || '#111827'">
+            <h2 class="break-words text-[1.375rem] font-extrabold leading-tight tracking-[-0.035em] transition-colors" [style.color]="client.color || '#111827'">
               {{ client.fullName }}
             </h2>
             <span
               *ngIf="client.departureStatus === 'SE_VA'"
-              class="inline-flex items-center rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none text-red-600 border border-red-100"
+              class="inline-flex flex-none items-center rounded bg-[#E11D48] px-1.5 py-1 text-[10px] font-extrabold uppercase leading-none text-white"
             >
               SE VA
             </span>
           </div>
-          <p class="text-gray-500 text-sm">
+          <p class="text-slate-500 text-sm font-semibold tabular-nums">
             Cliente N° {{ client.paymentIdentifier | number : "1.2-2" }}
           </p>
         </div>
         <span
-          class="ml-4 inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm border"
+          class="client-detail-status ml-4 inline-flex flex-none items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.05em]"
           [ngClass]="getEstadoBadgeColor(client.paymentStatus)"
         >
           <app-icon
@@ -58,7 +58,7 @@
           *ngIf="!authService.isObserver()"
           type="button"
           (click)="editClient.emit()"
-          class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+          class="g-btn g-btn--secondary g-btn--sm"
           title="Editar cliente"
         >
           <app-icon name="edit" class="h-4 w-4"></app-icon>
@@ -67,7 +67,7 @@
         <button
           type="button"
           (click)="closeModal.emit()"
-          class="rounded-full p-2 text-gray-500 hover:bg-gray-100"
+          class="g-modal__close"
           title="Cerrar"
           aria-label="Cerrar"
         >
@@ -78,59 +78,59 @@
 
     <main cdkScrollable class="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="lg:col-span-1 space-y-6">
-        <div class="bg-white rounded-lg shadow-sm border p-5">
-           <h3 class="text-lg font-semibold text-gray-800 mb-4">Resumen</h3>
+        <div class="bg-white rounded-2xl border border-[#E9EDF2] p-5">
+           <h3 class="text-lg font-extrabold tracking-[-0.03em] text-[#172033] mb-4">Resumen</h3>
            <div class="space-y-4">
             <div>
-              <label class="text-sm font-medium text-gray-500">Saldo</label>
-              <p class="text-2xl font-bold text-blue-700"
-                [ngClass]="(client.balance || 0) >= 0 ? 'text-green-600' : 'text-red-600'"
+              <label class="block text-[11px] font-extrabold uppercase tracking-[0.05em] text-white/85">Saldo</label>
+              <p class="client-detail-balance__value"
+                [ngClass]="(client.balance || 0) >= 0 ? 'is-positive' : 'is-negative'"
               >
                 $ {{ client.balance | number:'1.2-2' }}
               </p>
             </div>
             <hr />
             <div class="flex justify-between">
-              <span class="text-sm text-gray-600">Intereses:</span>
-              <span class="text-sm font-semibold text-gray-800">$ {{ (client.interestAmount || 0) | number:'1.2-2' }}</span>
+              <span class="text-sm text-slate-500">Intereses:</span>
+              <span class="text-sm font-extrabold tabular-nums text-[#172033]">$ {{ (client.interestAmount || 0) | number:'1.2-2' }}</span>
             </div>
             <div class="flex justify-between">
-              <span class="text-sm text-gray-600">Abono:</span>
-              <span class="text-sm font-semibold text-gray-800">$ {{ client.rentAmount | number:'1.2-2' }}</span>
+              <span class="text-sm text-slate-500">Abono:</span>
+              <span class="text-sm font-extrabold tabular-nums text-[#172033]">$ {{ client.rentAmount | number:'1.2-2' }}</span>
             </div>
             <div class="flex justify-between" *ngIf="client.paymentStatus !== 'Baja'">
-              <span class="text-sm text-gray-600">Próx. Pago:</span>
+              <span class="text-sm text-slate-500">Próx. Pago:</span>
               <span class="text-sm font-semibold"
                     [ngClass]="isFutureMonthOrLater(client.nextPaymentDay) ? 'text-green-600' : 'text-gray-800'">
                 {{client.nextPaymentDay | date : "MM/yyyy"}}
               </span>
             </div>
             <div class="flex justify-between" *ngIf="client.paymentStatus !== 'Baja'">
-              <span class="text-sm text-gray-600">Próx. Aumento:</span>
-              <span class="text-sm font-semibold text-gray-800">{{
+              <span class="text-sm text-slate-500">Próx. Aumento:</span>
+              <span class="text-sm font-extrabold tabular-nums text-[#172033]">{{
                 client.nextIncreaseDay | date : "MM/yyyy"
               }}</span>
             </div>
             <div class="flex justify-between">
-              <span class="text-sm text-gray-600">Método de Pago:</span>
-              <span class="text-sm font-semibold text-gray-800">{{
+              <span class="text-sm text-slate-500">Método de Pago:</span>
+              <span class="text-sm font-extrabold tabular-nums text-[#172033]">{{
                 client.preferredPaymentMethod
               }}</span>
             </div>
            </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow-sm border p-5">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Contacto 
+        <div class="bg-white rounded-2xl border border-[#E9EDF2] p-5">
+            <h3 class="text-lg font-extrabold tracking-[-0.03em] text-[#172033] mb-4">Contacto 
               <span *ngIf="client.receiveCommunications === false" 
-                    class="ml-2 text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full border border-red-200">
+                    class="ml-2 align-middle text-[10px] font-extrabold uppercase tracking-[0.04em] text-white bg-[#E11D48] px-2 py-1 rounded">
                 No recibe comunicados
               </span></h3>
             <div class="space-y-3">
               <div class="flex items-start gap-3">
                 <app-icon name="envelope" class="h-5 w-5 text-gray-400 mt-1"></app-icon>
                 <div>
-                  <label class="text-sm font-medium text-gray-500">Email</label>
+                  <label class="g-section-label">Email</label>
                   <div *ngIf="!client.email || client.email.length === 0" class="text-sm text-gray-400 italic">N/A</div>
                   <div *ngIf="client.email && client.email.length > 0" class="text-sm text-gray-800 break-all">
                     <p *ngFor="let email of client.email">{{ email }}</p>
@@ -140,7 +140,7 @@
               <div class="flex items-start gap-3">
                 <app-icon name="phone" class="h-5 w-5 text-gray-400 mt-1"></app-icon>
                 <div>
-                  <label class="text-sm font-medium text-gray-500">Teléfono</label>
+                  <label class="g-section-label">Teléfono</label>
                   <div *ngIf="!client.phones || client.phones.length === 0" class="text-sm text-gray-400 italic">N/A</div>
                   <div *ngIf="client.phones && client.phones.length > 0" class="text-sm text-gray-800">
                     <li *ngFor="let p of client.phones" class="flex items-center gap-2 mb-1">
@@ -158,7 +158,7 @@
               <div class="flex items-start gap-3">
                 <app-icon name="map-pin" class="h-5 w-5 text-gray-400 mt-1"></app-icon>
                 <div>
-                  <label class="text-sm font-medium text-gray-500">Ubicación</label>
+                  <label class="g-section-label">Ubicación</label>
                   <p class="text-sm text-gray-800">
                     {{ client.address || 'N/A' }} {{ client.city }}
                   </p>
@@ -168,46 +168,46 @@
         </div>
       </div>
 
-      <div class="lg:col-span-2 min-w-0 bg-white rounded-lg shadow-sm border">
+      <div class="lg:col-span-2 min-w-0 bg-white rounded-2xl border border-[#E9EDF2]">
         <div class="border-b border-gray-200">
           <div class="min-w-0 overflow-x-auto">
           <nav class="flex w-max min-w-full -mb-px" aria-label="Tabs">
             <button
               (click)="activeTab = 'movimientos'"
-              [ngClass]="activeTab === 'movimientos' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm font-medium sm:flex-1 sm:px-1"
+              [ngClass]="activeTab === 'movimientos' ? 'border-[#2563EB] text-[#1D4ED8] font-extrabold' : 'border-transparent text-slate-500 font-semibold hover:text-slate-800 hover:border-slate-300'"
+              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm sm:flex-1 sm:px-1"
             >
               <app-icon name="dollar-sign" class="h-4 w-4"></app-icon> Movimientos
             </button>
 
             <button
               (click)="activeTab = 'comunicaciones'"
-              [ngClass]="activeTab === 'comunicaciones' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm font-medium sm:flex-1 sm:px-1"
+              [ngClass]="activeTab === 'comunicaciones' ? 'border-[#2563EB] text-[#1D4ED8] font-extrabold' : 'border-transparent text-slate-500 font-semibold hover:text-slate-800 hover:border-slate-300'"
+              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm sm:flex-1 sm:px-1"
             >
               <app-icon name="message-circle" class="h-4 w-4"></app-icon> Comunicaciones
             </button>
 
             <button
               (click)="activeTab = 'bauleras'"
-              [ngClass]="activeTab === 'bauleras' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm font-medium sm:flex-1 sm:px-1"
+              [ngClass]="activeTab === 'bauleras' ? 'border-[#2563EB] text-[#1D4ED8] font-extrabold' : 'border-transparent text-slate-500 font-semibold hover:text-slate-800 hover:border-slate-300'"
+              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm sm:flex-1 sm:px-1"
             >
               <app-icon name="package" class="h-4 w-4"></app-icon> Bauleras
             </button>
 
             <button
               (click)="onTabAbono()"
-              [ngClass]="activeTab === 'abono' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm font-medium sm:flex-1 sm:px-1"
+              [ngClass]="activeTab === 'abono' ? 'border-[#2563EB] text-[#1D4ED8] font-extrabold' : 'border-transparent text-slate-500 font-semibold hover:text-slate-800 hover:border-slate-300'"
+              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm sm:flex-1 sm:px-1"
             >
               <app-icon name="trending-up" class="h-4 w-4"></app-icon> Abono
             </button>
 
             <button
               (click)="activeTab = 'detalles'"
-              [ngClass]="activeTab === 'detalles' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm font-medium sm:flex-1 sm:px-1"
+              [ngClass]="activeTab === 'detalles' ? 'border-[#2563EB] text-[#1D4ED8] font-extrabold' : 'border-transparent text-slate-500 font-semibold hover:text-slate-800 hover:border-slate-300'"
+              class="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-4 text-center text-sm sm:flex-1 sm:px-1"
             >
               <app-icon name="file-text" class="h-4 w-4"></app-icon> Detalles
             </button>
@@ -228,21 +228,21 @@
            <div class="flex flex-col items-center text-center px-4">
              <app-icon name="alert-triangle" class="h-8 w-8 text-red-500"></app-icon>
              <span class="text-base font-medium text-gray-700 mt-2">Error</span>
-             <span class="text-sm text-gray-600">{{ historyError }}</span>
+             <span class="text-sm text-slate-500">{{ historyError }}</span>
            </div>
           </div>
           
           <div *ngIf="activeTab === 'movimientos' && !isLoadingHistory && !historyError" class="space-y-4 animate-fade-in">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h3 class="text-lg font-semibold text-gray-800">
+              <h3 class="text-lg font-extrabold tracking-[-0.03em] text-[#172033]">
                 Historial de Movimientos
               </h3>
               <div *ngIf="!authService.isObserver()" class="flex flex-wrap items-center gap-2">
-                <button *ngIf="client.paymentStatus !== 'Baja'" type="button" (click)="openPaymentPlanningModal()" class="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-semibold text-violet-700 hover:bg-violet-100">
+                <button *ngIf="client.paymentStatus !== 'Baja'" type="button" (click)="openPaymentPlanningModal()" class="g-btn g-btn--secondary g-btn--sm">
                   <app-icon name="calendar" class="h-4 w-4"></app-icon>
                   Planificar pago
                 </button>
-                <button type="button" (click)="openNewMovementModal()" class="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700">
+                <button type="button" (click)="openNewMovementModal()" class="g-btn g-btn--primary g-btn--sm">
                   <app-icon name="plus" class="h-4 w-4"></app-icon>
                   Nuevo Movimiento
                 </button>
@@ -252,12 +252,12 @@
             <div>
               <div cdkScrollable class="relative w-full overflow-x-auto border rounded-lg">
                 <table class="w-full text-sm">
-                  <thead class="text-xs text-gray-700 bg-gray-50">
+                  <thead class="text-[11px] uppercase tracking-[0.05em] text-slate-500 bg-slate-50">
                     <tr class="border-b">
-                      <th class="p-3 text-left font-medium">Fecha</th>
-                      <th class="p-3 text-left font-medium">Concepto</th>
-                      <th class="p-3 text-right font-medium">Monto</th>
-                      <th *ngIf="!authService.isObserver()" class="p-3 text-center font-medium">Acciones</th>
+                      <th class="p-3 text-left font-extrabold">Fecha</th>
+                      <th class="p-3 text-left font-extrabold">Concepto</th>
+                      <th class="p-3 text-right font-extrabold">Monto</th>
+                      <th *ngIf="!authService.isObserver()" class="p-3 text-center font-extrabold">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -278,8 +278,8 @@
                       </td>
                       <td class="p-3">{{ mov.concept }}</td>
                       <td 
-                        class="p-3 text-right font-medium whitespace-nowrap"
-                        [ngClass]="mov.movementType === 'CREDITO' ? 'text-green-600' : 'text-red-600'"
+                        class="p-3 text-right font-extrabold tabular-nums tracking-[-0.02em] whitespace-nowrap"
+                        [ngClass]="mov.movementType === 'CREDITO' ? 'text-[#15803D]' : 'text-[#BE123C]'"
                       >
                         <div class="inline-flex items-center justify-end gap-2">
                           <span><span *ngIf="mov.movementType === 'CREDITO'">+</span><span *ngIf="mov.movementType === 'DEBITO'">-</span>$ {{ mov.amount | number:'1.2-2' }}</span>
@@ -287,7 +287,7 @@
                         </div>
                       </td>
                       <td *ngIf="!authService.isObserver()" class="p-3 text-center">
-                        <button (click)="deleteMovement(mov.id)" class="p-1 text-black hover:text-red-600" title="Eliminar Movimiento">
+                        <button (click)="deleteMovement(mov.id)" class="g-icon-btn g-icon-btn--danger" title="Eliminar Movimiento" aria-label="Eliminar movimiento">
                           <app-icon name="Trash2" class="h-4 w-4"></app-icon>
                         </button>
                       </td>
@@ -311,7 +311,7 @@
             </div>
 
           <div *ngIf="activeTab === 'comunicaciones' && !isLoadingHistory && !historyError" class="space-y-4 animate-fade-in">
-             <h3 class="text-lg font-semibold text-gray-800">
+             <h3 class="text-lg font-extrabold tracking-[-0.03em] text-[#172033]">
                 Historial de Comunicaciones
               </h3>
               
@@ -369,21 +369,21 @@
               </div>
 
           <div *ngIf="activeTab === 'bauleras' && !isLoadingHistory && !historyError" class="space-y-4 animate-fade-in">
-            <h3 class="text-lg font-semibold text-gray-800">
+            <h3 class="text-lg font-extrabold tracking-[-0.03em] text-[#172033]">
               Historial de Bauleras y Espacios
             </h3>
             
             <div>
               <div class="relative w-full overflow-x-auto border rounded-lg bg-white shadow-sm">
                 <table class="w-full text-sm">
-                  <thead class="text-xs text-gray-700 bg-gray-50">
+                  <thead class="text-[11px] uppercase tracking-[0.05em] text-slate-500 bg-slate-50">
                     <tr class="border-b">
-                      <th class="p-3 text-left font-medium">Baulera / Depósito</th>
-                      <th class="p-3 text-left font-medium">Tipo de baulera</th>
-                      <th class="p-3 text-center font-medium">Fecha de Ingreso</th>
-                      <th class="p-3 text-center font-medium">Fecha de Egreso</th>
-                      <th class="p-3 text-center font-medium">Estado</th>
-                      <th class="p-3 text-center font-medium" *ngIf="isAdmin">Acciones</th>
+                      <th class="p-3 text-left font-extrabold">Baulera / Depósito</th>
+                      <th class="p-3 text-left font-extrabold">Tipo de baulera</th>
+                      <th class="p-3 text-center font-extrabold">Fecha de Ingreso</th>
+                      <th class="p-3 text-center font-extrabold">Fecha de Egreso</th>
+                      <th class="p-3 text-center font-extrabold">Estado</th>
+                      <th class="p-3 text-center font-extrabold" *ngIf="isAdmin">Acciones</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-100">
@@ -699,7 +699,7 @@
                   
                   <div>
                     <span class="font-medium text-indigo-800 mr-3">{{ locker.identifier }}</span>
-                    <span class="text-sm text-gray-600">{{ locker.warehouse }} - {{ locker.lockerType }}</span>
+                    <span class="text-sm text-slate-500">{{ locker.warehouse }} - {{ locker.lockerType }}</span>
                   </div>
                   <div *ngIf="locker.features" class="mt-1">
                     <p class="text-xs text-gray-500">

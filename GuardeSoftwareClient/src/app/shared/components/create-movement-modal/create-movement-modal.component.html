@@ -1,102 +1,94 @@
-<div
-  class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
->
+<div class="g-overlay">
   <form
     [formGroup]="newMovementForm"
     (ngSubmit)="onSubmit()"
     (click)="$event.stopPropagation()"
-    class="w-full max-w-md bg-white rounded-2xl shadow-2xl relative animate-fadeIn"
+    class="g-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="movement-modal-title"
   >
-    <div class="flex items-center justify-between border-b p-5">
-      <div class="flex items-center gap-3">
-        <app-icon name="plus-square" class="h-6 w-6 text-blue-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">
-          Nuevo Movimiento Manual
-        </h3>
+    <header class="g-modal__header">
+      <div class="g-modal__heading">
+        <span class="g-modal__icon" aria-hidden="true"><app-icon name="plus-square" class="h-5 w-5"></app-icon></span>
+        <h3 id="movement-modal-title" class="g-modal__title">Nuevo movimiento</h3>
       </div>
-      <button
-        type="button"
-        (click)="closeModal.emit()"
-        class="text-gray-400 hover:text-gray-600"
-      >
-        <app-icon name="x" class="h-5 w-5"></app-icon>
+      <button type="button" (click)="closeModal.emit()" class="g-modal__close" aria-label="Cerrar">
+        <app-icon name="x" class="h-4 w-4"></app-icon>
       </button>
-    </div>
+    </header>
 
-    <div class="p-5 space-y-5">
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="g-modal__body space-y-5">
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Tipo de Movimiento *</label>
-          <select
-            formControlName="movementType"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none"
-          >
+          <label for="movement-type" class="g-label">Tipo de movimiento *</label>
+          <select id="movement-type" formControlName="movementType" class="g-field">
             <option value="DEBITO">DEBITO (Deuda)</option>
             <option value="CREDITO">CREDITO (Pago)</option>
           </select>
         </div>
-        
+
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Monto *</label>
-          <div class="relative">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
+          <label for="movement-amount" class="g-label">Monto *</label>
+          <div class="g-field-group">
+            <span class="g-field-group__symbol" aria-hidden="true">$</span>
             <input
+              id="movement-amount"
               type="text"
+              inputmode="decimal"
               appCurrencyFormat
               formControlName="amount"
-              placeholder="0.00"
-              class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"
+              placeholder="0,00"
             />
           </div>
-          <div *ngIf="newMovementForm.controls['amount'].invalid && newMovementForm.controls['amount'].touched" class="text-red-500 text-xs mt-1">
+          <div *ngIf="newMovementForm.controls['amount'].invalid && newMovementForm.controls['amount'].touched" class="g-error">
             El monto debe ser mayor a 0.
           </div>
         </div>
       </div>
 
-      <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-        <div class="flex items-center justify-between mb-1.5">
-          <label class="block text-sm text-gray-600 font-medium">Fecha del movimiento</label>
-          <button
-            type="button"
-            class="text-xs text-blue-600 underline hover:text-blue-800 transition-colors"
-            (click)="toggleManualDate()">
+      <div class="g-panel">
+        <div class="flex items-center justify-between gap-3">
+          <span class="g-label !mb-0">Fecha del movimiento</span>
+          <button type="button" class="g-btn g-btn--ghost g-btn--sm" (click)="toggleManualDate()">
             {{ manualDateEnabled ? 'Usar fecha actual' : 'Editar fecha' }}
           </button>
         </div>
 
-        <div *ngIf="!manualDateEnabled" class="text-xs text-gray-500">
-          Se usará la fecha y hora actual al registrar.
-        </div>
+        <p *ngIf="!manualDateEnabled" class="mt-1 text-xs text-slate-500">
+          Se usa la fecha y hora actual al registrar.
+        </p>
 
-        <div *ngIf="manualDateEnabled" class="animate-fadeIn mt-2">
+        <div *ngIf="manualDateEnabled" class="mt-2">
           <input
             type="date"
             [(ngModel)]="dateString"
             [ngModelOptions]="{standalone: true}"
-            class="w-full p-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm transition-all"
+            aria-label="Fecha del movimiento"
+            class="g-field"
           />
         </div>
       </div>
+
       <div>
         <div
           #conceptAutocomplete
           class="relative"
           (focusout)="onConceptFocusOut($event)"
         >
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Concepto *</label>
+          <label for="movement-concept" class="g-label">Concepto *</label>
           <textarea
             id="movement-concept"
             formControlName="concept"
-            placeholder="Ej: Ajuste manual, cobro de seguro, etc."
+            placeholder="Ej.: Ajuste manual, cobro de seguro"
             aria-label="Concepto del movimiento"
             aria-autocomplete="list"
             [attr.aria-expanded]="showConceptSuggestions"
             aria-controls="movement-concept-suggestions"
             (focus)="openConceptSuggestions()"
             (click)="openConceptSuggestions()"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none resize-none"
+            class="g-field !resize-none"
             rows="3"
           ></textarea>
 
@@ -105,7 +97,7 @@
             id="movement-concept-suggestions"
             role="listbox"
             aria-label="Sugerencias de concepto"
-            class="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg"
+            class="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_16px_40px_-20px_rgba(15,23,42,0.45)]"
           >
             <button
               *ngFor="let suggestion of conceptSuggestions"
@@ -113,39 +105,34 @@
               role="option"
               (mousedown)="$event.preventDefault()"
               (click)="selectConceptSuggestion(suggestion)"
-              class="block w-full border-b border-gray-100 px-3 py-2 text-left text-sm text-gray-700 transition-colors last:border-b-0 hover:bg-blue-50 hover:text-blue-700 focus:bg-blue-50 focus:text-blue-700 focus:outline-none"
+              class="block min-h-[2.75rem] w-full border-b border-slate-100 px-3.5 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors last:border-b-0 hover:bg-[#2563EB] hover:text-white focus:bg-[#2563EB] focus:text-white focus:outline-none"
             >
               {{ suggestion }}
             </button>
           </div>
         </div>
 
-        <div *ngIf="newMovementForm.controls['concept'].invalid && newMovementForm.controls['concept'].touched" class="text-red-500 text-xs mt-1">
+        <div *ngIf="newMovementForm.controls['concept'].invalid && newMovementForm.controls['concept'].touched" class="g-error">
           El concepto es requerido.
         </div>
       </div>
-      
+
     </div>
 
-    <div class="mt-2 flex justify-end gap-3 border-t p-5 bg-gray-50 rounded-b-2xl">
-      <button
-        type="button"
-        (click)="closeModal.emit()"
-        class="px-4 py-2 rounded-lg border text-gray-700 bg-white hover:bg-gray-100 font-medium text-sm transition-colors"
-      >
+    <footer class="g-modal__footer">
+      <button type="button" (click)="closeModal.emit()" class="g-btn g-btn--secondary">
         Cancelar
       </button>
-      <button
-        type="submit"
-        [disabled]="isLoading || newMovementForm.invalid"
-        class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-      >
-        <span *ngIf="!isLoading">Guardar Movimiento</span>
-        <span *ngIf="isLoading" class="flex items-center gap-2">
-            <app-icon name="loader" class="h-4 w-4 animate-spin"></app-icon>
-            Guardando...
-        </span>
+      <button type="submit" [disabled]="isLoading || newMovementForm.invalid" class="g-btn g-btn--primary">
+        <ng-container *ngIf="!isLoading">
+          <app-icon name="check" class="h-4 w-4"></app-icon>
+          Guardar movimiento
+        </ng-container>
+        <ng-container *ngIf="isLoading">
+          <app-icon name="loader" class="h-4 w-4 animate-spin"></app-icon>
+          Guardando...
+        </ng-container>
       </button>
-    </div>
+    </footer>
   </form>
 </div>

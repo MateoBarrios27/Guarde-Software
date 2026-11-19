@@ -59,12 +59,12 @@
 
 .locker-client-trigger:hover,
 .locker-client-trigger-active {
-    background: #f0fdfa;
-    box-shadow: inset 3px 0 0 #0f766e;
+    background: #eff6ff;
+    box-shadow: none;
 }
 
 .locker-client-trigger:focus-visible {
-    outline: 2px solid #0f766e;
+    outline: 2px solid #1d4ed8;
     outline-offset: -2px;
 }
 
@@ -80,7 +80,7 @@
 }
 
 .locker-client-trigger:hover .locker-client-arrow {
-    color: #0f766e;
+    color: #1d4ed8;
 }
 
 .locker-client-list-compact {
@@ -111,7 +111,7 @@
 
 .locker-client-trigger-compact:hover,
 .locker-client-trigger-compact.locker-client-trigger-active {
-    color: #0f766e;
+    color: #1d4ed8;
     background: transparent;
     box-shadow: none;
 }
@@ -310,5 +310,231 @@
     color: #fff;
     font-size: 0.9375rem;
     font-weight: 800;
+  }
+}
+
+/* ───────────── Estética Guarde: barra de herramientas y tabla ───────────── */
+
+.locker-search {
+  min-height: 2.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  color: #172033;
+  background: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 150ms ease;
+}
+
+.locker-search::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.locker-search:hover {
+  border-color: #94a3b8;
+}
+
+.locker-search:focus-visible {
+  border-color: #2563eb;
+  outline: 3px solid #60a5fa;
+  outline-offset: 1px;
+}
+
+/* «Filtros»: blanco con contorno; con filtros activos se rellena de azul. */
+.locker-toolbar-btn {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.9rem;
+  color: #334155;
+  background: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.locker-toolbar-btn:hover {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.locker-toolbar-btn:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.locker-toolbar-btn.is-active,
+.locker-toolbar-btn.is-active:hover {
+  border-color: #2563eb;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.locker-toolbar-btn__count {
+  display: inline-flex;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 0.35rem;
+  color: #123a74;
+  background: #ffffff;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+/* El estado es texto con un punto de color, no una cápsula por fila. */
+.locker-status {
+  --status-dot: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #475569;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.locker-status::before {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 auto;
+  border-radius: 0.15rem;
+  background: var(--status-dot);
+  content: '';
+}
+
+.locker-status--available { --status-dot: #16a34a; color: #14532d; }
+.locker-status--occupied { --status-dot: #ef4444; color: #991b1b; }
+.locker-status--releasing { --status-dot: #f59e0b; color: #92400e; }
+.locker-status--maintenance { --status-dot: #f97316; color: #9a3412; }
+
+/* Acciones de fila: atenuadas hasta apuntar la fila o enfocarlas con teclado (sólo con mouse). */
+@media (hover: hover) and (min-width: 1024px) {
+  .locker-row .locker-row__action {
+    opacity: 0.55;
+    transition: opacity 140ms ease, background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+  }
+
+  .locker-row:hover .locker-row__action,
+  .locker-row__action:focus-visible {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .locker-search,
+  .locker-toolbar-btn,
+  .locker-row .locker-row__action {
+    transition: none;
+  }
+}
+
+/* ───────────── Celular: cada baulera es una tarjeta (sin tabla ni scroll lateral) ───────────── */
+@media (max-width: 767px) {
+  .locker-table-card table {
+    display: block;
+    min-width: 0;
+  }
+
+  .locker-table-card thead {
+    display: none;
+  }
+
+  .locker-table-card tbody,
+  .locker-table-card tfoot,
+  .locker-table-card tfoot tr,
+  .locker-table-card tfoot td {
+    display: block;
+    width: 100%;
+  }
+
+  .locker-table-card tbody tr {
+    display: block;
+    padding: 0.85rem 1rem;
+  }
+
+  .locker-table-card tbody tr.locker-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "code status"
+      "ware type"
+      "feat feat"
+      "client actions";
+    align-items: center;
+    gap: 0.3rem 0.75rem;
+  }
+
+  .locker-row > td {
+    display: block;
+    min-width: 0;
+    max-width: none;
+    border: 0;
+    padding: 0;
+    white-space: normal;
+  }
+
+  .locker-row > td:nth-child(1) {
+    grid-area: code;
+    font-size: 1.25rem;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+  }
+
+  .locker-row > td:nth-child(2) {
+    grid-area: ware;
+    font-weight: 600;
+  }
+
+  .locker-row > td:nth-child(3) {
+    grid-area: type;
+    text-align: right;
+  }
+
+  .locker-row > td:nth-child(4) {
+    grid-area: feat;
+    color: #64748b;
+    font-size: 0.8125rem;
+  }
+
+  .locker-row > td:nth-child(5) {
+    grid-area: status;
+    text-align: right;
+  }
+
+  .locker-row > td:nth-child(6) {
+    grid-area: client;
+  }
+
+  .locker-row > td:nth-child(7) {
+    grid-area: actions;
+    white-space: nowrap;
+  }
+
+  .locker-row .locker-client-list {
+    min-width: 0;
+    max-width: none;
+    padding: 0;
+  }
+
+  .locker-row .locker-client-trigger:not(.locker-client-trigger-compact) {
+    min-height: 2.5rem;
+    border-radius: 0.6rem;
+    padding: 0.35rem 0.65rem;
+    background: #f1f5f9;
+  }
+
+  .locker-row .locker-client-list > span.block {
+    padding: 0.5rem 0;
   }
 }

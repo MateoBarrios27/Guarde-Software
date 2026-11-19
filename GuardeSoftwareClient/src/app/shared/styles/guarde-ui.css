@@ -1,0 +1,1060 @@
+/*
+ * Guarde UI: piezas compartidas de la estética Guarde (modal blanco, botones, campos, avisos y tabla).
+ *
+ * Misma anatomía que los modales de Configuración (`.settings-modal*`), pero global y con prefijo `g-` para que
+ * cualquier componente la use sin copiar estilos. Reglas:
+ *  - Acción principal sobre blanco: oscura (#111827). El azul #2563EB es una superficie, no un botón.
+ *  - Color sólido sólo en lo que manda (ícono del encabezado, bloque de resultado, avisos).
+ *  - Inter 800 en títulos, importes y acciones; etiquetas en mayúsculas pequeñas.
+ *  - Sin degradados, desenfoque ni sombras decorativas (sólo la que separa el modal del fondo).
+ *  - Celular (< 640 px): el modal es una hoja a pantalla completa con áreas seguras, pie apilado con la acción
+ *    principal arriba, campos de 16 px y botones de 44 px.
+ */
+
+/* ───────────── Modal ───────────── */
+
+.g-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 0.55);
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  animation: g-overlay-in 160ms ease both;
+}
+
+.g-modal {
+  display: flex;
+  width: 100%;
+  max-width: 32rem;
+  max-height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 1rem;
+  color: #172033;
+  background: #ffffff;
+  box-shadow: 0 24px 60px -24px rgb(15 23 42 / 0.55);
+  animation: g-modal-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.g-modal--sm { max-width: 28rem; }
+.g-modal--md { max-width: 36rem; }
+.g-modal--wide { max-width: 42rem; }
+.g-modal--lg { max-width: 56rem; }
+.g-modal--xl { max-width: 72.5rem; }
+
+/* Un <form> que envuelve cuerpo y pie conserva la columna con scroll interno. */
+.g-modal__form {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.g-modal__header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1.2rem 1.5rem;
+}
+
+.g-modal__heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.g-modal__icon {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.85rem;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.g-modal__icon--indigo { background: #4f46e5; }
+.g-modal__icon--orange { background: #c2410c; }
+.g-modal__icon--rose { background: #e11d48; }
+.g-modal__icon--green { background: #15803d; }
+.g-modal__icon--dark { background: #111827; }
+
+.g-modal__eyebrow {
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.g-modal__title {
+  margin: 0;
+  color: #172033;
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+}
+
+.g-modal__subtitle {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.g-modal__tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.g-modal__esc {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  padding: 0.15rem 0.45rem;
+  color: #94a3b8;
+  background: #f8fafc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.g-modal__close {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  color: #64748b;
+  background: #ffffff;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.g-modal__close:hover {
+  color: #172033;
+  background: #f1f5f9;
+}
+
+.g-modal__close:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.g-modal__close:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.g-modal__body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1.5rem;
+  scrollbar-width: thin;
+}
+
+.g-modal__footer {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  padding: 1rem 1.5rem;
+  background: #f8fafc;
+}
+
+/* Un dato o aclaración a la izquierda del pie; las acciones quedan a la derecha. */
+.g-modal__footer-note {
+  margin-right: auto;
+  min-width: 0;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+/* ───────────── Botones ───────────── */
+
+.g-btn {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  padding: 0.6rem 1.1rem;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.g-btn:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.g-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.g-btn--primary {
+  color: #ffffff;
+  background: #111827;
+}
+
+.g-btn--primary:hover:not(:disabled) {
+  background: #1f2937;
+}
+
+.g-btn--secondary {
+  border-color: #e2e8f0;
+  color: #334155;
+  background: #ffffff;
+}
+
+.g-btn--secondary:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  color: #172033;
+  background: #f1f5f9;
+}
+
+.g-btn--warning {
+  color: #ffffff;
+  background: #c2410c;
+}
+
+.g-btn--warning:hover:not(:disabled) {
+  background: #9a3412;
+}
+
+.g-btn--danger {
+  color: #ffffff;
+  background: #e11d48;
+}
+
+.g-btn--danger:hover:not(:disabled) {
+  background: #be123c;
+}
+
+/* Acción de texto: «Cancelar» junto a una principal fuerte, «Editar fecha», etc. */
+.g-btn--ghost {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.6rem;
+  color: #475569;
+  background: transparent;
+}
+
+.g-btn--ghost:hover:not(:disabled) {
+  color: #172033;
+  background: #f1f5f9;
+}
+
+/* Sobre una superficie azul sólida: la principal es blanca y la secundaria, azul profundo. */
+.g-btn--on-blue {
+  color: #123a74;
+  background: #ffffff;
+}
+
+.g-btn--on-blue:hover:not(:disabled) {
+  background: #eff6ff;
+}
+
+.g-btn--on-blue-secondary {
+  color: #ffffff;
+  background: #1d4ed8;
+}
+
+.g-btn--on-blue-secondary:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.g-btn--sm {
+  min-height: 2.25rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.75rem;
+}
+
+.g-btn--block {
+  width: 100%;
+}
+
+/* Botón de ícono de fila: neutro y, al apuntarlo, lleno de color sólido. */
+.g-icon-btn {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.625rem;
+  color: #64748b;
+  background: #ffffff;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.g-icon-btn:hover:not(:disabled) {
+  border-color: #111827;
+  color: #ffffff;
+  background: #111827;
+}
+
+.g-icon-btn--blue:hover:not(:disabled) {
+  border-color: #2563eb;
+  background: #2563eb;
+}
+
+.g-icon-btn--danger:hover:not(:disabled) {
+  border-color: #e11d48;
+  background: #e11d48;
+}
+
+.g-icon-btn:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.g-icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* ───────────── Campos ───────────── */
+
+.g-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #475569;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+/* Aclaración dentro de una etiqueta («(máx. 80 caracteres)», unidades): sin mayúsculas ni peso. */
+.g-label__aside {
+  margin-left: 0.25rem;
+  color: #94a3b8;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.g-field {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  color: #172033;
+  background-color: #ffffff;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.35;
+  outline: none;
+  transition: border-color 150ms ease;
+}
+
+.g-field::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.g-field:hover:not(:disabled) {
+  border-color: #94a3b8;
+}
+
+.g-field:focus-visible {
+  border-color: #2563eb;
+  outline: 3px solid #60a5fa;
+  outline-offset: 1px;
+}
+
+.g-field:disabled {
+  color: #64748b;
+  background-color: #f1f5f9;
+  cursor: not-allowed;
+}
+
+.g-field--invalid {
+  border-color: #e11d48;
+}
+
+textarea.g-field {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+/* Una sola flecha, gris y chica (un chevrón superpuesto o la flecha negra del navegador desentonan). */
+select.g-field {
+  appearance: none;
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 0.8rem center;
+  background-repeat: no-repeat;
+  background-size: 1rem;
+}
+
+/* Importe: símbolo azul a la izquierda y la cifra en navy 800, como en «Ajustar abono». */
+.g-field-group {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  transition: border-color 150ms ease;
+}
+
+.g-field-group:hover {
+  border-color: #94a3b8;
+}
+
+.g-field-group:focus-within {
+  border-color: #2563eb;
+  outline: 3px solid #60a5fa;
+  outline-offset: 1px;
+}
+
+.g-field-group input {
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 0;
+  padding: 0.65rem 0.9rem 0.65rem 0;
+  color: #123a74;
+  background: transparent;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.0625rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  outline: none;
+}
+
+.g-field-group input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.g-field-group input:disabled {
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.g-field-group:has(input:disabled) {
+  background: #f1f5f9;
+}
+
+.g-field-group__symbol {
+  flex: 0 0 auto;
+  padding: 0 0.6rem 0 0.9rem;
+  color: #2563eb;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  user-select: none;
+}
+
+.g-hint {
+  display: block;
+  margin-top: 0.4rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.g-error {
+  display: block;
+  margin-top: 0.4rem;
+  color: #be123c;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* Interruptor en tarjeta: encendido, toda la tarjeta pasa a azul sólido (se ve de un vistazo qué quedó activo). */
+.g-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  background: #ffffff;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.g-toggle__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #172033;
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+.g-toggle__hint {
+  display: block;
+  margin-top: 0.15rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.g-toggle__track {
+  position: relative;
+  width: 2.75rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background-color 150ms ease;
+}
+
+.g-toggle__track::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: #ffffff;
+  content: '';
+  transition: transform 150ms ease;
+}
+
+.g-toggle:has(input:checked) {
+  border-color: #2563eb;
+  background: #2563eb;
+}
+
+.g-toggle:has(input:checked) .g-toggle__title {
+  color: #ffffff;
+}
+
+.g-toggle:has(input:checked) .g-toggle__hint {
+  color: #dbeafe;
+}
+
+.g-toggle:has(input:checked) .g-toggle__track {
+  background: #1d4ed8;
+}
+
+.g-toggle:has(input:checked) .g-toggle__track::after {
+  transform: translateX(1.25rem);
+}
+
+.g-toggle:has(input:focus-visible) {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.g-toggle:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ───────────── Avisos y bloques ───────────── */
+
+/* Un aviso es una superficie sólida: el fondo tenue con borde de color no tiene presencia. */
+.g-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  color: #475569;
+  background: #f1f5f9;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.g-notice--error {
+  color: #ffffff;
+  background: #e11d48;
+}
+
+.g-notice--success {
+  color: #ffffff;
+  background: #15803d;
+}
+
+.g-notice--warning {
+  color: #ffffff;
+  background: #c2410c;
+}
+
+.g-notice--info {
+  color: #ffffff;
+  background: #2563eb;
+}
+
+/* Bloque dominante: lo que el operador necesita ver primero (un total, un resultado). */
+.g-block {
+  border-radius: 0.75rem;
+  padding: 1rem 1.1rem;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.g-block__label {
+  color: #dbeafe;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.g-block__value {
+  margin-top: 0.2rem;
+  font-size: 1.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.g-block__meta {
+  margin-top: 0.3rem;
+  color: #dbeafe;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Dato secundario dentro de un bloque azul. */
+.g-block__inner {
+  border-radius: 0.625rem;
+  padding: 0.6rem 0.75rem;
+  background: #1d4ed8;
+}
+
+/* Sección de formulario sobre gris muy claro (fecha opcional, datos de contexto). */
+.g-panel {
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: #f8fafc;
+}
+
+.g-section-label {
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+/* ───────────── Tabla ───────────── */
+
+.g-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #334155;
+  font-size: 0.875rem;
+}
+
+.g-table th {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.7rem 1rem;
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.g-table td {
+  border-bottom: 1px solid #eef2f6;
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+}
+
+.g-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.g-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.g-table .g-num,
+.g-table .g-amount {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.g-table td.g-amount {
+  color: #172033;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.g-table .g-strong {
+  color: #172033;
+  font-weight: 700;
+}
+
+.g-table .g-mono {
+  color: #475569;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+}
+
+.g-table .g-center {
+  text-align: center;
+}
+
+.g-table__empty {
+  padding: 2rem 1rem !important;
+  color: #94a3b8;
+  text-align: center;
+}
+
+/* ───────────── Tarjeta de página ───────────── */
+
+.g-card {
+  border: 1px solid #e9edf2;
+  border-radius: 1rem;
+  background: #ffffff;
+}
+
+.g-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  border-bottom: 1px solid #e9edf2;
+  padding: 1rem 1.25rem;
+}
+
+.g-card__heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.g-card__icon {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.g-card__icon--green { background: #15803d; }
+.g-card__icon--orange { background: #c2410c; }
+.g-card__icon--indigo { background: #4f46e5; }
+.g-card__icon--rose { background: #e11d48; }
+
+.g-card__title {
+  margin: 0;
+  color: #172033;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+}
+
+.g-card__subtitle {
+  margin: 0.15rem 0 0;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.g-card__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.g-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-top: 1px solid #e9edf2;
+  padding: 0.6rem 1rem;
+}
+
+/* Paginador compacto « n » */
+.g-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #334155;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.g-pager button {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.625rem;
+  color: #475569;
+  background: #ffffff;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.g-pager button:hover:not(:disabled) {
+  color: #172033;
+  background: #f1f5f9;
+}
+
+.g-pager button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.g-pager__current {
+  min-width: 2.25rem;
+  text-align: center;
+}
+
+/* ───────────── Celular ───────────── */
+
+@media (max-width: 639px) {
+  /* El modal es una hoja a pantalla completa: sin márgenes perdidos, con el pie siempre a la vista. */
+  .g-overlay {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .g-modal,
+  .g-modal--sm,
+  .g-modal--md,
+  .g-modal--wide,
+  .g-modal--lg,
+  .g-modal--xl {
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  .g-modal__header {
+    padding: 0.85rem 1rem;
+  }
+
+  .g-modal__icon {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .g-modal__title {
+    font-size: 1.25rem;
+  }
+
+  .g-modal__subtitle {
+    display: none;
+  }
+
+  .g-modal__esc {
+    display: none;
+  }
+
+  .g-modal__close {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .g-modal__body {
+    padding: 1rem;
+  }
+
+  .g-modal__footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .g-modal__footer > .g-btn {
+    width: 100%;
+  }
+
+  .g-modal__footer-note {
+    margin-right: 0;
+  }
+
+  .g-btn {
+    min-height: 2.75rem;
+  }
+
+  .g-btn--sm {
+    min-height: 2.5rem;
+  }
+
+  .g-icon-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  /* Con menos de 16 px Safari de iPhone hace zoom al enfocar. */
+  .g-field,
+  .g-field-group input {
+    font-size: 1rem;
+  }
+
+  .g-card__header {
+    padding: 0.85rem 1rem;
+  }
+
+  .g-card__title {
+    font-size: 1.125rem;
+  }
+}
+
+/* Celular en horizontal: poco alto, así que el encabezado y el pie se compactan. */
+@media (max-width: 1023px) and (orientation: landscape) and (max-height: 520px) {
+  .g-overlay {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .g-modal,
+  .g-modal--sm,
+  .g-modal--md,
+  .g-modal--wide,
+  .g-modal--lg,
+  .g-modal--xl {
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  .g-modal__header {
+    padding: 0.5rem 1rem;
+  }
+
+  .g-modal__icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.6rem;
+  }
+
+  .g-modal__title {
+    font-size: 1.0625rem;
+  }
+
+  .g-modal__subtitle,
+  .g-modal__eyebrow,
+  .g-modal__esc {
+    display: none;
+  }
+
+  .g-modal__body {
+    padding: 0.75rem 1rem;
+  }
+
+  .g-modal__footer {
+    padding: 0.5rem 1rem;
+  }
+}
+
+@keyframes g-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes g-modal-in {
+  from { opacity: 0; transform: translateY(0.5rem) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-overlay,
+  .g-modal {
+    animation: none;
+  }
+
+  .g-btn,
+  .g-icon-btn,
+  .g-field,
+  .g-field-group,
+  .g-toggle,
+  .g-toggle__track,
+  .g-toggle__track::after,
+  .g-modal__close {
+    transition: none;
+  }
+}
+
+/* Celular: con pie, el área segura inferior la ocupa el pie (mismo gris), no una franja blanca debajo. */
+@media (max-width: 639px) {
+  .g-modal:has(> .g-modal__footer),
+  .g-modal:has(> .g-modal__form > .g-modal__footer) {
+    padding-bottom: 0;
+  }
+
+  .g-modal__footer {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+}

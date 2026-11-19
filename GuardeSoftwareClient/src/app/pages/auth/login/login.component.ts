@@ -8,6 +8,7 @@ import { IconComponent } from '../../../shared/components/icon/icon.component';
 @Component({
   selector: 'app-login',
   templateUrl: './login.component.html',
+  styleUrl: './login.component.css',
   imports: [FormsModule, CommonModule, IconComponent],
 })
 export class LoginComponent {

@@ -419,19 +419,19 @@
                   </div>
                   
                   <div class="max-h-80 overflow-y-auto space-y-2 border rounded-md p-2 bg-gray-50/50">
-                    <p *ngIf="filteredLockers.length === 0" class="text-center py-8 text-gray-500">No se encontraron lockers disponibles.</p>
+                    <p *ngIf="lockerOptions.length === 0" class="text-center py-8 text-gray-500">No se encontraron lockers disponibles.</p>
                     
-                    <div *ngFor="let locker of filteredLockers"
+                    <div *ngFor="let locker of lockerOptions; trackBy: trackByLockerId"
                          (click)="handleLockerToggle(locker.id)"
-                         [attr.aria-disabled]="isLockerDisabled(locker)"
+                         [attr.aria-disabled]="locker.disabled"
                          [ngClass]="{
-                           'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200': newClientForm.get('lockersAsignados')?.value.includes(locker.id),
-                           'cursor-not-allowed border-gray-200 bg-gray-100 opacity-75': isLockerDisabled(locker),
-                           'cursor-pointer bg-white hover:border-indigo-300': !isLockerDisabled(locker)
+                           'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200': locker.selected,
+                           'cursor-not-allowed border-gray-200 bg-gray-100 opacity-75': locker.disabled,
+                           'cursor-pointer bg-white hover:border-indigo-300': !locker.disabled
                          }"
                          class="p-3 rounded-lg border">
                       <div class="flex items-start space-x-3">
-                        <input type="checkbox" [checked]="newClientForm.get('lockersAsignados')?.value.includes(locker.id)" [disabled]="isLockerDisabled(locker)" readonly class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" (keydown.enter)="blurInput($event)"/>
+                        <input type="checkbox" [checked]="locker.selected" [disabled]="locker.disabled" readonly class="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" (keydown.enter)="blurInput($event)"/>
                         <div class="flex-1">
                           <div class="flex justify-between items-center mb-1">
                             <div class="flex items-center gap-2">
@@ -441,12 +441,12 @@
                             </div>
                           </div>
                           <div class="flex items-center gap-4 text-sm text-gray-600">
-                            <span *ngIf="getLockerDetails(locker.id).warehouse">{{ getLockerDetails(locker.id).warehouse?.name }}</span>
-                            <span *ngIf="getLockerDetails(locker.id).lockerType">{{ getLockerDetails(locker.id).lockerType?.name }}</span>
-                            <span *ngIf="getLockerDetails(locker.id).lockerType">{{ getLockerDetails(locker.id).lockerType?.m3 }}m³</span>
+                            <span *ngIf="locker.warehouse">{{ locker.warehouse.name }}</span>
+                            <span *ngIf="locker.lockerType">{{ locker.lockerType.name }}</span>
+                            <span *ngIf="locker.lockerType">{{ locker.lockerType.m3 }}m³</span>
                           </div>
-                          <p *ngIf="isLockerDisabled(locker)" class="mt-1 text-xs font-medium text-amber-700">
-                            Ocupada por: {{ getLockerOccupantNames(locker) || 'cliente sin identificar' }}
+                          <p *ngIf="locker.disabled" class="mt-1 text-xs font-medium text-amber-700">
+                            Ocupada por: {{ locker.occupantNames || 'cliente sin identificar' }}
                           </p>
                         </div>
                       </div>

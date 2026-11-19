@@ -713,3 +713,149 @@
     .finance-table-viewport { padding-bottom: 0; }
     .finance-table-viewport:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
 }
+
+/* ───────────── Envío del recibo: lista de selección ───────────── */
+
+.receipt-recipient {
+  display: flex;
+  min-height: 2.75rem;
+  cursor: pointer;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  color: #172033;
+  background: #ffffff;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.receipt-recipient:hover {
+  border-color: #cbd5e1;
+}
+
+.receipt-recipient.is-selected {
+  border-color: #2563eb;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.receipt-recipient:has(input:focus-visible) {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.receipt-recipient__tag {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.receipt-recipient.is-selected .receipt-recipient__tag {
+  color: #dbeafe;
+}
+
+.receipt-recipient__remove {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  color: inherit;
+  opacity: 0.75;
+}
+
+.receipt-recipient__remove:hover {
+  opacity: 1;
+  background: rgb(0 0 0 / 0.14);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .receipt-recipient {
+    transition: none;
+  }
+}
+
+/* ───────────── Celular: cada pago es una tarjeta (sin tabla ni scroll lateral) ───────────── */
+@media (max-width: 767px) {
+  .finance-table-viewport table {
+    display: block;
+    min-width: 0 !important;
+  }
+
+  .finance-table-viewport thead {
+    display: none;
+  }
+
+  .finance-table-viewport tbody,
+  .finance-table-viewport tfoot {
+    display: block;
+    width: 100%;
+  }
+
+  .finance-table-viewport tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'client amount'
+      'method date'
+      'concept concept'
+      'id actions';
+    align-items: center;
+    gap: 0.35rem 0.75rem;
+    border-bottom: 1px solid #e9edf2;
+    padding: 0.85rem 1rem;
+  }
+
+  .finance-table-viewport tbody td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  .finance-table-viewport tbody td:nth-child(1) { grid-area: client; }
+  .finance-table-viewport tbody td:nth-child(2) { grid-area: id; font-size: 0.75rem; }
+  .finance-table-viewport tbody td:nth-child(3) { grid-area: method; }
+  .finance-table-viewport tbody td:nth-child(4) { grid-area: concept; color: #475569; font-size: 0.8125rem; }
+  .finance-table-viewport tbody td:nth-child(5) { grid-area: amount; font-size: 1.0625rem; text-align: right; }
+  .finance-table-viewport tbody td:nth-child(6) { grid-area: date; text-align: right; }
+  .finance-table-viewport tbody td:nth-child(7) { grid-area: actions; text-align: right; white-space: nowrap; }
+
+  .finance-table-viewport tbody td[colspan] {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+
+  .finance-table-viewport tbody td:nth-child(6) .finance-date,
+  .finance-table-viewport tbody td:nth-child(6) .finance-time {
+    display: inline;
+  }
+
+  .finance-table-viewport tbody td:nth-child(6) .finance-time {
+    margin-left: 0.35rem;
+  }
+
+  .finance-table-viewport tfoot tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem 1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .finance-table-viewport tfoot td {
+    display: block;
+    padding: 0;
+  }
+
+  .finance-table-viewport tfoot td:empty {
+    display: none;
+  }
+}

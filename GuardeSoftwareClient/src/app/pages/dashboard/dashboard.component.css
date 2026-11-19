@@ -139,3 +139,187 @@
         to { opacity: 1; transform: translateY(0); }
     }
 }
+
+/* ───────────── Estética Guarde: página del panel ───────────── */
+
+.dashboard-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.dashboard-summary__main,
+.dashboard-summary__card {
+  min-width: 0;
+  border-radius: 1rem;
+  padding: 1.1rem 1.25rem;
+}
+
+.dashboard-summary__main {
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.dashboard-summary__card {
+  border: 1px solid #e9edf2;
+  color: #172033;
+  background: #ffffff;
+}
+
+.dashboard-summary__label {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.dashboard-summary__main .dashboard-summary__label,
+.dashboard-summary__main .dashboard-summary__meta {
+  color: #dbeafe;
+}
+
+.dashboard-summary__card .dashboard-summary__label,
+.dashboard-summary__card .dashboard-summary__meta {
+  color: #64748b;
+}
+
+.dashboard-summary__value {
+  margin-top: 0.15rem;
+  font-size: 2.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.dashboard-summary__card .dashboard-summary__value {
+  color: #14532d;
+  font-size: 2rem;
+  line-height: 1.45;
+}
+
+.dashboard-summary__meta {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.dashboard-tool {
+  min-height: 2.5rem;
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+  font-size: 0.875rem;
+}
+
+/* Celular: cada fila es una tarjeta con etiqueta a la izquierda y dato a la derecha; sin scroll lateral. */
+@media (max-width: 767px) {
+  .dashboard-page {
+    padding-top: 1rem;
+  }
+
+  .dashboard-summary {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .dashboard-summary__main,
+  .dashboard-summary__card {
+    padding: 0.85rem 1rem;
+  }
+
+  .dashboard-summary__value,
+  .dashboard-summary__card .dashboard-summary__value {
+    font-size: 2rem;
+    line-height: 1.15;
+  }
+
+  .dashboard-summary__meta {
+    display: none;
+  }
+
+  .dashboard-tool {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+
+  .g-card__tools {
+    width: 100%;
+  }
+
+  .g-card__tools input.dashboard-tool {
+    width: auto !important;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .dashboard-table thead {
+    display: none;
+  }
+
+  .dashboard-table,
+  .dashboard-table tbody,
+  .dashboard-table tr,
+  .dashboard-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .dashboard-table tr {
+    border-bottom: 1px solid #e9edf2;
+    padding: 0.75rem 1rem;
+  }
+
+  .dashboard-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .dashboard-table td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 0 !important;
+    padding: 0.2rem 0;
+    background: transparent !important;
+    text-align: right;
+  }
+
+  .dashboard-table td[data-label]::before {
+    flex: 0 0 auto;
+    color: #64748b;
+    content: attr(data-label);
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* El nombre encabeza la tarjeta, sin etiqueta. */
+  .dashboard-table td[data-label='Cliente'] {
+    justify-content: flex-start;
+    padding-bottom: 0.35rem;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-align: left;
+  }
+
+  .dashboard-table td[data-label='Cliente']::before {
+    content: none;
+  }
+
+  .dashboard-table td.dashboard-table__action {
+    padding-top: 0.6rem;
+  }
+
+  .dashboard-table td.dashboard-table__action .g-btn {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .dashboard-table td.g-table__empty {
+    display: block;
+    text-align: center;
+  }
+}

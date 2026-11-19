@@ -726,3 +726,80 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ───────────── Celular: cada registro es una tarjeta (sin scroll lateral ni columna fija) ───────────── */
+@media (max-width: 767.98px) {
+  .activity-table {
+    display: block;
+    min-width: 0;
+  }
+
+  .activity-table thead {
+    display: none;
+  }
+
+  .activity-table tbody {
+    display: block;
+  }
+
+  .activity-table tbody tr {
+    display: block;
+    border-bottom: 1px solid #eef2f6;
+    padding: 0.85rem 1rem;
+  }
+
+  .activity-table tbody tr.activity-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'user user detail'
+      'action area date'
+      'summary summary summary';
+    align-items: center;
+    gap: 0.45rem 0.6rem;
+  }
+
+  .activity-table tbody td,
+  .activity-table tbody td:first-child,
+  .activity-table tbody td:last-child {
+    display: block;
+    position: static;
+    min-width: 0;
+    max-width: none;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .activity-row > td:nth-child(1) { grid-area: date; text-align: right; white-space: nowrap; }
+  .activity-row > td:nth-child(2) { grid-area: user; }
+  .activity-row > td:nth-child(3) { grid-area: area; }
+  .activity-row > td:nth-child(4) { grid-area: action; }
+  .activity-row > td:nth-child(5) { grid-area: summary; }
+  .activity-row > td:nth-child(6) { grid-area: detail; }
+
+  .activity-row > td:nth-child(2) > div {
+    min-width: 0;
+  }
+
+  .activity-row .activity-date,
+  .activity-row .activity-time {
+    display: inline;
+  }
+
+  .activity-row .activity-time {
+    margin-left: 0.3rem;
+  }
+
+  .activity-row .activity-detail-button {
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+  }
+
+  .activity-table tbody td.activity-empty,
+  .activity-table tbody td[colspan] {
+    text-align: center;
+  }
+}

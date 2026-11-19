@@ -1,5 +1,5 @@
-import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { CdkConnectedOverlay, CdkOverlayOrigin, ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import { CashService } from '../../core/services/cash-service/cash.service';
 import { CashSignalrService } from '../../core/services/cash-signalr/cash-signalr.service';
 import { Subject, Subscription } from 'rxjs';
@@ -55,7 +55,10 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   currentDate = new Date();
   selectedMonth = this.currentDate.getMonth() + 1;
   selectedYear = this.currentDate.getFullYear();
+  cashNotesDesktop = typeof window === 'undefined' || window.innerWidth >= 768;
   activeCommentItem: CashFlowItem | null = null;
+  private activeNoteOverlay?: CdkConnectedOverlay;
+  private activeNoteOrigin?: CdkOverlayOrigin;
   isCommentPinned: boolean = false;
   private commentHoverTimer: any = null;
   private commentLeaveTimer: any = null;
@@ -173,7 +176,9 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   
   isScrolledDown: boolean = false;
   private scrollObserver!: IntersectionObserver;
+  private scrollCleanup?: () => void;
   private readonly cashMainScrollHandler = (): void => {
+    this.repositionCashNote();
     if (this.showCashFilters) {
       this.positionCashFiltersPopover();
     }
@@ -204,7 +209,9 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     private cashService: CashService,
     private cashSignalrService: CashSignalrService,
     private deleteConfirmation: DeleteConfirmationService,
-    private router: Router
+    private router: Router,
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef,
   ) {
     this.saveSubject.pipe(
       groupBy(item => item), 
@@ -802,27 +809,60 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit() {
-    this.scrollObserver = new IntersectionObserver(([entry]) => {
-      this.isScrolledDown = !entry.isIntersecting;
-    }, { threshold: 0 });
-
-    if (this.topAnchor) {
-      this.scrollObserver.observe(this.topAnchor.nativeElement);
-    }
-
-    setTimeout(() => {
-      document.getElementById('main-scroll')?.addEventListener('scroll', this.cashMainScrollHandler, { passive: true });
-    }, 100);
+    const container = document.getElementById('main-scroll');
+    this.ngZone.runOutsideAngular(() => {
+      this.scrollObserver = new IntersectionObserver(([entry]) => {
+        const next = !entry.isIntersecting;
+        if (next !== this.isScrolledDown) this.ngZone.run(() => {
+          this.isScrolledDown = next;
+          this.cdr.markForCheck();
+        });
+      }, { threshold: 0 });
+      if (this.topAnchor) this.scrollObserver.observe(this.topAnchor.nativeElement);
+      container?.addEventListener('scroll', this.cashMainScrollHandler, { passive: true });
+      window.addEventListener('scroll', this.cashMainScrollHandler, { passive: true });
+    });
+    this.scrollCleanup = () => {
+      container?.removeEventListener('scroll', this.cashMainScrollHandler);
+      window.removeEventListener('scroll', this.cashMainScrollHandler);
+    };
   }
 
   @HostListener('window:resize')
   onCashFiltersResize(): void {
+    this.cashNotesDesktop = window.innerWidth >= 768;
     if (this.showCashFilters) {
       this.positionCashFiltersPopover();
     }
   }
 
-  @HostListener('window:scroll')
+  attachCashNote(overlay: CdkConnectedOverlay, origin: CdkOverlayOrigin): void {
+    this.activeNoteOverlay = overlay;
+    this.activeNoteOrigin = origin;
+  }
+
+  detachCashNote(overlay: CdkConnectedOverlay): void {
+    if (this.activeNoteOverlay !== overlay) return;
+    this.activeNoteOverlay = undefined;
+    this.activeNoteOrigin = undefined;
+  }
+
+  private repositionCashNote(): void {
+    if (!this.activeNoteOverlay || !this.activeNoteOrigin) return;
+    const element = this.activeNoteOrigin.elementRef.nativeElement as HTMLElement;
+    const rect = element.getBoundingClientRect();
+    const viewport = document.getElementById('main-scroll')?.getBoundingClientRect();
+    if (viewport && (rect.bottom < viewport.top || rect.top > viewport.bottom)) {
+      this.ngZone.run(() => {
+        if (this.activeCommentItem) this.closeComment(this.activeCommentItem);
+        if (this.activeCommentAccount) this.closeAccountComment(this.activeCommentAccount);
+        this.cdr.markForCheck();
+      });
+      return;
+    }
+    this.activeNoteOverlay.overlayRef?.updatePosition();
+  }
+
   onCashFiltersScroll(): void {
     if (this.showCashFilters) {
       this.positionCashFiltersPopover();
@@ -836,7 +876,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.signalRSubscription) {
       this.signalRSubscription.unsubscribe();
     }
-    document.getElementById('main-scroll')?.removeEventListener('scroll', this.cashMainScrollHandler);
+    this.scrollCleanup?.();
     this.cashSignalrService.stopConnection();
   }
 
@@ -1131,7 +1171,7 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const buttonRect = button.getBoundingClientRect();
     if (buttonRect.bottom < 0 || buttonRect.top > window.innerHeight) {
-      this.closeCashFilters();
+      this.ngZone.run(() => { this.closeCashFilters(); this.cdr.markForCheck(); });
       return;
     }
 
@@ -1159,8 +1199,14 @@ export class CashComponent implements OnInit, AfterViewInit, OnDestroy {
       Math.min(buttonRect.left, viewportWidth - viewportMargin - popoverWidth)
     );
 
-    this.cashFiltersPopoverPosition = { top, left, maxHeight: availableHeight };
-    this.cashFiltersPopoverReady = true;
+    if (!this.cashFiltersPopoverReady || this.cashFiltersPopoverPosition.top !== top ||
+        this.cashFiltersPopoverPosition.left !== left || this.cashFiltersPopoverPosition.maxHeight !== availableHeight) {
+      this.ngZone.run(() => {
+        this.cashFiltersPopoverPosition = { top, left, maxHeight: availableHeight };
+        this.cashFiltersPopoverReady = true;
+        this.cdr.markForCheck();
+      });
+    }
   }
 
   private cycleCashFilterSelection(
@@ -1713,11 +1759,31 @@ filterItems(): void {
       toast: true,
       position: 'top-end',
       icon: 'info',
-      title: 'Período histórico: solo lectura',
+      titleText: 'Período histórico: solo lectura',
       text: 'Quitá el rango de fechas para volver a modificar movimientos.',
       showConfirmButton: false,
+      showCloseButton: true,
+      closeButtonAriaLabel: 'Cerrar aviso de solo lectura',
+      closeButtonHtml: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+      backdrop: false,
+      focusConfirm: false,
+      returnFocus: false,
+      customClass: {
+        container: 'guarde-result-container',
+        popup: 'guarde-result-toast cash-readonly-toast',
+      },
       timer: 3200,
-      timerProgressBar: true
+      timerProgressBar: false,
+      didOpen: (toast) => {
+        toast.addEventListener('mouseenter', () => Swal.stopTimer());
+        toast.addEventListener('mouseleave', () => {
+          if (!toast.contains(document.activeElement)) Swal.resumeTimer();
+        });
+        toast.addEventListener('focusin', () => Swal.stopTimer());
+        toast.addEventListener('focusout', () => {
+          if (!toast.matches(':hover')) Swal.resumeTimer();
+        });
+      },
     });
   }
 
@@ -1859,21 +1925,39 @@ filterItems(): void {
 
   addAccount(): void {
     Swal.fire({
-      title: 'Nueva Cuenta / Caja',
+      title: `<span class="cash-account-heading"><span class="cash-account-heading__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h16v14H3zM3 9h16M15 13h6v4h-6z"/></svg></span>Nueva cuenta</span>`,
+      width: '34rem',
+      customClass: { popup: 'cash-account-dialog' },
       html: `
-        <input id="acc-name" class="swal2-input" placeholder="Nombre (ej: Banco Galicia)">
-        <select id="acc-type" class="swal2-input">
-          <option value="Banco">Banco</option>
-          <option value="Caja">Caja</option>
-          <option value="Otro">Otro</option>
-        </select>
-        <select id="acc-currency" class="swal2-input">
-          <option value="ARS">Pesos Argentinos (ARS)</option>
-          <option value="USD">Dólares (USD)</option>
-        </select>
+        <div class="cash-account-form">
+          <p class="cash-account-form__intro">Agregá un banco, una caja u otra cuenta a tus saldos disponibles.</p>
+          <div class="cash-account-form__field">
+            <label class="g-label" for="acc-name">Nombre de la cuenta</label>
+            <input id="acc-name" name="account-name" class="g-field" placeholder="Ej.: Banco Galicia" aria-required="true">
+          </div>
+          <div class="cash-account-form__grid">
+            <div class="cash-account-form__field">
+              <label class="g-label" for="acc-type">Tipo de cuenta</label>
+              <select id="acc-type" name="account-type" class="g-field">
+                <option value="Banco">Banco</option>
+                <option value="Caja">Caja</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
+            <div class="cash-account-form__field">
+              <label class="g-label" for="acc-currency">Moneda</label>
+              <select id="acc-currency" name="account-currency" class="g-field">
+                <option value="ARS">Pesos (ARS)</option>
+                <option value="USD">Dólares (USD)</option>
+              </select>
+            </div>
+          </div>
+          <div class="cash-account-form__opening"><span>Saldo inicial</span><strong>0,00</strong></div>
+        </div>
       `,
+      didOpen: () => document.getElementById('acc-name')?.focus(),
       showCancelButton: true,
-      confirmButtonText: 'Crear',
+      confirmButtonText: 'Crear cuenta',
       preConfirm: () => {
         const name = (document.getElementById('acc-name') as HTMLInputElement).value;
         const type = (document.getElementById('acc-type') as HTMLSelectElement).value;
@@ -1950,6 +2034,9 @@ filterItems(): void {
     }
 
     this.commentHoverTimer = setTimeout(() => {
+      // Hover must never replace a note that the operator pinned for editing.
+      if ((this.activeCommentItem && this.isCommentPinned) ||
+          (this.activeCommentAccount && this.isAccountCommentPinned)) return;
       if (this.activeCommentItem && !this.isCommentPinned && this.activeCommentItem !== item) {
         this.closeComment(this.activeCommentItem);
       }
@@ -2117,7 +2204,8 @@ filterItems(): void {
     this.accountCommentHoverTimer = setTimeout(() => {
       this.accountCommentHoverTimer = null;
       // Una nota que se está escribiendo (fija) no se reemplaza por pasar el mouse sobre otra cuenta.
-      if (this.activeCommentAccount && this.isAccountCommentPinned) return;
+      if ((this.activeCommentAccount && this.isAccountCommentPinned) ||
+          (this.activeCommentItem && this.isCommentPinned)) return;
       this.openAccountComment(account, false);
     }, 400);
   }
@@ -2396,12 +2484,12 @@ dropAccount(event: CdkDragDrop<FinancialAccount[]>) {
 
     if (this.selectedAccountIds.length > 0 && this.saldosContainer) {
       const clickedInside = this.saldosContainer.nativeElement.contains(event.target);
-      if (!clickedInside) this.selectedAccountIds = [];
+      if (!clickedInside && !clickedElement.closest('.cash-account-note')) this.selectedAccountIds = [];
     }
 
     if (this.selectedItemIds.length > 0 && this.planillaContainer) {
       const clickedInside = this.planillaContainer.nativeElement.contains(event.target);
-      if (!clickedInside) this.selectedItemIds = [];
+      if (!clickedInside && !clickedElement.closest('.cash-item-note')) this.selectedItemIds = [];
     }
   }
 

@@ -70,6 +70,14 @@ export class UiAlertService {
     return SweetAlert.isVisible();
   }
 
+  static stopTimer(): void {
+    SweetAlert.stopTimer();
+  }
+
+  static resumeTimer(): void {
+    SweetAlert.resumeTimer();
+  }
+
   static success(title: string, text?: string): Promise<SweetAlertResult> {
     // Una operación completada informa sin interrumpir el formulario ni su foco.
     return UiAlertService.fire({

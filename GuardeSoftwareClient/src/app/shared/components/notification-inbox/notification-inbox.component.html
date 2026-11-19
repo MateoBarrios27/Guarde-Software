@@ -21,14 +21,14 @@
 
   <section
     *ngIf="isOpen"
-    class="notification-panel fixed inset-x-3 top-[4.5rem] z-[80] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[26rem]"
+    class="notification-panel fixed inset-x-3 z-[80] overflow-hidden rounded-2xl border border-slate-200 bg-white sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[26rem]"
     aria-label="Bandeja de notificaciones"
     (click)="$event.stopPropagation()"
   >
-    <header class="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
-      <div>
-        <h2 class="text-sm font-bold text-slate-900">Notificaciones</h2>
-        <p class="mt-0.5 text-xs text-slate-500">
+    <header class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3.5">
+      <div class="min-w-0">
+        <h2 class="text-lg font-extrabold leading-tight tracking-[-0.03em] text-[#172033]">Notificaciones</h2>
+        <p class="mt-0.5 text-xs font-semibold" [ngClass]="unreadCount ? 'text-[#1D4ED8]' : 'text-slate-500'">
           {{ unreadCount ? unreadCount + ' sin leer' : 'Todo al día' }}
         </p>
       </div>
@@ -36,13 +36,13 @@
         *ngIf="unreadCount > 0"
         type="button"
         (click)="markAllAsRead($event)"
-        class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50"
+        class="notification-mark-all"
       >
         Marcar todas como leídas
       </button>
     </header>
 
-    <div class="max-h-[min(32rem,calc(100vh-8rem))] overflow-y-auto">
+    <div class="notification-list overflow-y-auto">
       <div *ngIf="isLoading && notifications.length === 0" class="flex items-center justify-center gap-2 px-5 py-10 text-sm text-slate-500">
         <app-icon name="loader" class="h-5 w-5 animate-spin"></app-icon>
         Cargando notificaciones...
@@ -50,8 +50,8 @@
 
       <article
         *ngFor="let notification of notifications; trackBy: trackById"
-        class="group relative flex w-full gap-3 border-b border-slate-100 px-4 py-3.5 text-left transition-colors last:border-b-0 hover:bg-slate-50"
-        [ngClass]="!notification.isRead ? 'bg-blue-50 hover:bg-blue-100/60' : ''"
+        class="notification-row group relative flex w-full gap-3 border-b border-slate-100 px-4 py-3.5 text-left transition-colors last:border-b-0 hover:bg-slate-50"
+        [class.is-read]="notification.isRead"
       >
         <button
           type="button"
@@ -60,21 +60,21 @@
           [attr.aria-label]="'Abrir notificación: ' + notification.title"
         ></button>
 
-        <span class="pointer-events-none relative z-[1] mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" [ngClass]="iconClasses(notification)">
+        <span class="notification-row__icon pointer-events-none relative z-[1] mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" [ngClass]="iconClasses(notification)">
           <app-icon [name]="iconFor(notification)" class="h-[18px] w-[18px]"></app-icon>
         </span>
 
         <span class="pointer-events-none relative z-[1] min-w-0 flex-1">
           <span class="flex items-start justify-between gap-2">
             <span class="flex min-w-0 items-start gap-2">
-              <span class="text-sm text-slate-900" [class.font-bold]="!notification.isRead" [class.font-semibold]="notification.isRead">
+              <span class="text-sm leading-snug text-[#172033]" [class.font-extrabold]="!notification.isRead" [class.font-semibold]="notification.isRead">
                 {{ notification.title }}
               </span>
-              <span *ngIf="!notification.isRead" class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600"></span>
+              <span *ngIf="!notification.isRead" class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#2563EB]"></span>
             </span>
             <button
               type="button"
-              class="pointer-events-auto relative z-10 shrink-0 rounded px-1 text-xs font-semibold text-slate-500 underline-offset-2 transition-colors hover:text-red-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+              class="notification-row__delete pointer-events-auto relative z-10 shrink-0"
               (click)="deleteNotification(notification, $event)"
               [attr.aria-label]="'Borrar notificación: ' + notification.title"
             >
@@ -84,22 +84,22 @@
           <span class="mt-1 block text-xs leading-5 text-slate-600">{{ notification.message }}</span>
           <span class="mt-1.5 flex items-center gap-2 text-[11px] font-medium text-slate-400">
             {{ relativeDate(notification.createdAt) }}
-            <span *ngIf="notification.actionUrl" class="text-blue-600 group-hover:underline">Ver detalle</span>
+            <span *ngIf="notification.actionUrl" class="font-bold text-[#1D4ED8] group-hover:underline">Ver detalle</span>
           </span>
         </span>
       </article>
 
       <div *ngIf="!isLoading && notifications.length === 0 && !hasLoadError" class="px-6 py-12 text-center">
-        <div class="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+        <div class="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
           <app-icon name="bell" class="h-5 w-5"></app-icon>
         </div>
-        <p class="text-sm font-semibold text-slate-700">No hay notificaciones</p>
+        <p class="text-sm font-extrabold text-[#172033]">No hay notificaciones</p>
         <p class="mt-1 text-xs text-slate-500">Cuando haya algo para revisar va a aparecer acá.</p>
       </div>
 
       <div *ngIf="hasLoadError" class="px-6 py-8 text-center">
-        <p class="text-sm font-semibold text-red-700">No se pudo cargar la bandeja</p>
-        <button type="button" (click)="loadNotifications()" class="mt-2 text-xs font-semibold text-blue-600 hover:underline">
+        <p class="text-sm font-extrabold text-[#BE123C]">No se pudo cargar la bandeja</p>
+        <button type="button" (click)="loadNotifications()" class="g-btn g-btn--secondary g-btn--sm mt-3">
           Reintentar
         </button>
       </div>

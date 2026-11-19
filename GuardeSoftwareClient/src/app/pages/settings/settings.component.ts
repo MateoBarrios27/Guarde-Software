@@ -42,6 +42,7 @@ import { ɵɵDir } from "@angular/cdk/scrolling";
 import { AuthService } from '../../core/services/auth-service/auth.service';
 import { CreateAlertModalComponent } from '../../shared/components/create-alert-modal/create-alert-modal.component';
 import { SyncService } from '../../core/services/offline-service/sync.service';
+import { OfflinePaymentsComponent } from '../../shared/components/offline-payments/offline-payments.component';
 import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
 import { ActivityLogPanelComponent } from '../../shared/components/activity-log-panel/activity-log-panel.component';
 import { MonthPickerComponent } from '../../shared/components/month-picker/month-picker.component';
@@ -58,7 +59,7 @@ import { NgxPaginationModule } from 'ngx-pagination';
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent, MonthPickerComponent, CreateAlertModalComponent, ActivityLogPanelComponent, ToastNotificationComponent],
+  imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent, MonthPickerComponent, CreateAlertModalComponent, ActivityLogPanelComponent, ToastNotificationComponent, OfflinePaymentsComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css'
 })
@@ -75,7 +76,7 @@ export class SettingsComponent implements OnInit {
     private communicationService: CommunicationService,
     private lockerTypeService: LockerTypeService,
     public authService: AuthService,
-    private syncService: SyncService,
+    public syncService: SyncService,
     private deleteConfirmation: DeleteConfirmationService,
     private massRecipientService: MassCommunicationRecipientService,
     private route: ActivatedRoute
@@ -976,14 +977,25 @@ export class SettingsComponent implements OnInit {
   }
 
   // --- Offline Snapshot Methods ---
+  offlineBusy = false;
+  async useLocalMode(): Promise<void> {
+    this.syncService.offlineService.setManualMode(true);
+  }
+  async reconnectOffline(): Promise<void> {
+    await this.syncService.checkConnection();
+    this.syncService.offlineService.setManualMode(false);
+    if (!await this.syncService.checkConnection()) await Swal.fire({ icon: 'warning', title: 'El servidor sigue sin responder', text: 'Podés seguir consultando el respaldo local.' });
+  }
   async downloadSnapshot(): Promise<void> {
+    if (this.offlineBusy) return;
+    this.offlineBusy = true;
     try {
       await this.syncService.downloadSnapshot();
       Swal.success('Respaldo descargado', 'El archivo de respaldo se descargó correctamente.');
     } catch (err) {
       console.error(err);
       Swal.fire('Error', 'No se pudo generar el archivo de respaldo.', 'error');
-    }
+    } finally { this.offlineBusy = false; }
   }
 
   async importSnapshot(event: Event): Promise<void> {
@@ -991,18 +1003,25 @@ export class SettingsComponent implements OnInit {
     if (!input.files || input.files.length === 0) return;
     
     const file = input.files[0];
+    this.offlineBusy = true;
     try {
-      const success = await this.syncService.importSnapshot(file);
+      const snapshot = await this.syncService.readSnapshot(file);
+      const confirm = await Swal.fire({ icon: 'question', title: 'Cargar respaldo local',
+        text: `Se reemplazarán los datos de consulta por los del ${new Date(snapshot.generatedAt).toLocaleString('es-AR')}. Los cobros locales se conservan. Si es un archivo anterior, también se verán saldos anteriores.`,
+        showCancelButton: true, confirmButtonText: 'Importar respaldo', cancelButtonText: 'Cancelar' });
+      if (!confirm.isConfirmed) return;
+      const success = await this.syncService.importSnapshot(file, true);
       if (success) {
         Swal.success('Respaldo importado', 'El respaldo se guardó localmente para uso sin conexión.');
       } else {
-        Swal.fire('Error', 'El archivo es inválido o corrupto.', 'error');
+        Swal.fire('Error', this.syncService.importError, 'error');
       }
     } catch (err) {
       console.error(err);
-      Swal.fire('Error', 'Hubo un problema al importar el archivo.', 'error');
+      Swal.fire('Error', err instanceof Error ? err.message : 'Hubo un problema al importar el archivo.', 'error');
     } finally {
       input.value = ''; // Reset input
+      this.offlineBusy = false;
     }
   }
 
