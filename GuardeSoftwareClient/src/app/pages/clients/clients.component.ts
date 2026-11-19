@@ -37,6 +37,8 @@ import { DataRefreshService } from '../../core/services/data-refresh-service/dat
 import { AuthService } from '../../core/services/auth-service/auth.service';
 import { ClientReactivationModalComponent, ClientReactivationPrepared } from '../../shared/components/client-reactivation-modal/client-reactivation-modal.component';
 import { CurrencyFormatDirective } from '../../shared/directives/currency-format.directive';
+import { OutsideEventsDirective } from '../../shared/directives/outside-events.directive';
+import { SuspendViewDirective } from '../../shared/directives/suspend-view.directive';
 
 type FilterTagState = 'none' | 'include' | 'exclude';
 type FilterTagGroup = 'warehouse' | 'quick' | 'billing' | 'paymentMethod' | 'iva' | 'lockerType' | 'paymentDay' | 'arrears';
@@ -53,7 +55,9 @@ type FilterTagGroup = 'warehouse' | 'quick' | 'billing' | 'paymentMethod' | 'iva
     ClientDetailModalComponent,
     ToastNotificationComponent,
     CurrencyFormatDirective,
-    ClientReactivationModalComponent
+    ClientReactivationModalComponent,
+    OutsideEventsDirective,
+    SuspendViewDirective
   ],
   templateUrl: './clients.component.html',
   styleUrl: './clients.component.css',
@@ -202,6 +206,8 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('tagsButtonRef') tagsButtonRef!: ElementRef;
 
   private readonly mainScrollHandler = (event: Event): void => this.onScroll(event);
+  private readonly windowScrollHandler = (): void => this.onWindowScroll();
+  private scrollCleanup?: () => void;
 
   totals = {
     previousBalance: 0,
@@ -514,6 +520,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       this.offlineService.isOnline$.subscribe(() => {
         this.applyProjection();
         void this.ensureProjection();
+        void this.loadClients();
       }),
     );
 
@@ -758,18 +765,18 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
   public getFilterTagClasses(group: FilterTagGroup, value: string | number): string {
     const state = this.getFilterTagState(group, value);
     if (state === 'include') {
-      return 'bg-blue-600 text-white border-blue-600 font-medium shadow-sm';
+      return 'bg-[#2563EB] text-white border-[#2563EB] font-extrabold';
     }
     if (state === 'exclude') {
-      return 'bg-red-600 text-white border-red-600 font-medium shadow-sm';
+      return 'bg-[#E11D48] text-white border-[#E11D48] font-extrabold';
     }
-    return 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
+    return 'bg-white text-slate-700 border-slate-200 font-semibold hover:bg-slate-100';
   }
 
   public getActiveFilterTagClasses(group: FilterTagGroup, value: string | number): string {
     return this.getFilterTagState(group, value) === 'exclude'
-      ? 'bg-red-50 text-red-700 border-red-200'
-      : 'bg-blue-50 text-blue-700 border-blue-200';
+      ? 'bg-[#E11D48] text-white border-[#E11D48] font-bold'
+      : 'bg-[#2563EB] text-white border-[#2563EB] font-bold';
   }
 
   public getFilterTagTitle(group: FilterTagGroup, value: string | number): string {
@@ -887,8 +894,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.showTagsPopover) return;
 
     if (this.isCompactFilterLayout()) {
-      this.tagsPopoverReady = true;
-      this.cdr.markForCheck();
+      if (!this.tagsPopoverReady) this.ngZone.run(() => {
+        this.tagsPopoverReady = true;
+        this.cdr.markForCheck();
+      });
       return;
     }
 
@@ -901,7 +910,7 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const buttonRect = button.getBoundingClientRect();
     if (buttonRect.bottom < 0 || buttonRect.top > window.innerHeight) {
-      this.closeTagsPopover();
+      this.ngZone.run(() => { this.closeTagsPopover(); this.cdr.markForCheck(); });
       return;
     }
     const viewportMargin = 12;
@@ -920,9 +929,12 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     const popoverWidth = Math.min(680, viewportWidth - viewportMargin * 2);
     const left = Math.max(viewportMargin, Math.min(buttonRect.left, viewportWidth - viewportMargin - popoverWidth));
 
-    this.tagsPopoverPosition = { top, left, maxHeight: availableHeight };
-    this.tagsPopoverReady = true;
-    this.cdr.markForCheck();
+    if (!this.tagsPopoverReady || this.tagsPopoverPosition.top !== top || this.tagsPopoverPosition.left !== left ||
+        this.tagsPopoverPosition.maxHeight !== availableHeight) this.ngZone.run(() => {
+      this.tagsPopoverPosition = { top, left, maxHeight: availableHeight };
+      this.tagsPopoverReady = true;
+      this.cdr.markForCheck();
+    });
   }
 
   private buildPaymentCalendarDays(): number[] {
@@ -961,13 +973,16 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     return lt ? lt.name : `Tipo (${id})`;
   }
   ngAfterViewInit() {
-    setTimeout(() => {
-      const scrollContainer = document.getElementById('main-scroll');
-      if (scrollContainer) {
-        scrollContainer.addEventListener('scroll', this.mainScrollHandler, { passive: true });
-        this.onScroll({ target: scrollContainer } as any); // Initialize
-      }
-    }, 100);
+    const scrollContainer = document.getElementById('main-scroll');
+    this.ngZone.runOutsideAngular(() => {
+      scrollContainer?.addEventListener('scroll', this.mainScrollHandler, { passive: true });
+      window.addEventListener('scroll', this.windowScrollHandler, { passive: true });
+    });
+    this.scrollCleanup = () => {
+      scrollContainer?.removeEventListener('scroll', this.mainScrollHandler);
+      window.removeEventListener('scroll', this.windowScrollHandler);
+    };
+    this.onTableScroll();
   }
 
   onScroll(event: Event) {
@@ -985,7 +1000,6 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  @HostListener('window:scroll')
   onWindowScroll(): void {
     if (this.showTagsPopover) {
       this.positionTagsPopover();
@@ -997,17 +1011,18 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.clientLoadSequence++;
     this.searchSubject.complete();
     this.dataRefreshSubscription.unsubscribe();
-    const scrollContainer = document.getElementById('main-scroll');
-    if (scrollContainer) {
-      scrollContainer.removeEventListener('scroll', this.mainScrollHandler);
-    }
+    this.scrollCleanup?.();
+    if (this.commentHoverTimer) clearTimeout(this.commentHoverTimer);
+    if (this.commentLeaveTimer) clearTimeout(this.commentLeaveTimer);
   }
 
   onTableScroll(): void {
     const pointingUp = isTableViewAtBottom(this.tableViewport?.nativeElement);
     if (this.pointingUp !== pointingUp) {
-      this.pointingUp = pointingUp;
-      this.cdr.markForCheck();
+      this.ngZone.run(() => {
+        this.pointingUp = pointingUp;
+        this.cdr.markForCheck();
+      });
     }
   }
 
@@ -1819,11 +1834,25 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
     this.closeComment(cliente);
   }
 
-  onClientColorChange(cliente: TableClient): void {
-    if (cliente.color && cliente.color.toLowerCase() === '#ffffff') {
-      cliente.color = null as any;
-    }
-    // Recompute precomputed color styles
+  /** Vista previa local mientras se arrastra en el selector; no guarda nada. */
+  previewClientColor(cliente: TableClient, value: string): void {
+    this.applyClientColor(cliente, value);
+    this.cdr.markForCheck();
+  }
+
+  /** Confirma el color elegido (evento change del selector) y lo guarda. */
+  onClientColorChange(cliente: TableClient, value?: string): void {
+    this.applyClientColor(cliente, value === undefined ? (cliente.color ?? null) : value);
+    this.cdr.markForCheck();
+    this.clientService.updateClientColor(cliente.id, cliente.color).subscribe({
+      error: () => { void this.showClientError('No se pudo guardar el color del cliente'); }
+    });
+  }
+
+  private applyClientColor(cliente: TableClient, value: string | null): void {
+    const color = value && value.trim() ? value.trim() : null;
+    // Blanco = sin color
+    cliente.color = color && color.toLowerCase() !== '#ffffff' ? color : (null as any);
     if (cliente.color) {
       cliente._bgColor = cliente.color + '15';
       cliente._colorLight = cliente.color + 'B3';
@@ -1831,15 +1860,10 @@ export class ClientsComponent implements OnInit, AfterViewInit, OnDestroy {
       cliente._bgColor = '';
       cliente._colorLight = null;
     }
-    this.cdr.markForCheck();
-    this.clientService.updateClientColor(cliente.id, cliente.color).subscribe({
-      error: () => { void this.showClientError('No se pudo guardar el color del cliente'); }
-    });
   }
 
   resetClientColor(cliente: TableClient): void {
-    cliente.color = null as any;
-    this.onClientColorChange(cliente);
+    this.onClientColorChange(cliente, null as any);
   }
 
   getCellStyle(cliente: TableClient, position?: 'first' | 'last'): { [key: string]: string } {

@@ -35,36 +35,36 @@ export class CreateAlertModalComponent implements OnInit {
       label: 'Advertencia',
       description: 'Aviso importante no urgente',
       icon: 'alert-triangle',
-      colorClass: 'text-amber-500',
-      selectedClass: 'border-amber-400 bg-amber-50',
-      ringClass: 'ring-amber-300'
+      colorClass: 'text-[#C2410C]',
+      selectedClass: 'alert-severity--warning',
+      ringClass: ''
     },
     {
       value: 'danger',
       label: 'Urgente',
       description: 'Situación crítica inmediata',
       icon: 'alert-octagon',
-      colorClass: 'text-red-500',
-      selectedClass: 'border-red-400 bg-red-50',
-      ringClass: 'ring-red-300'
+      colorClass: 'text-[#E11D48]',
+      selectedClass: 'alert-severity--danger',
+      ringClass: ''
     },
     {
       value: 'maintenance',
       label: 'Mantenimiento',
       description: 'Tareas de mantenimiento',
       icon: 'settings',
-      colorClass: 'text-violet-500',
-      selectedClass: 'border-violet-400 bg-violet-50',
-      ringClass: 'ring-violet-300'
+      colorClass: 'text-[#4F46E5]',
+      selectedClass: 'alert-severity--maintenance',
+      ringClass: ''
     },
     {
       value: 'info',
       label: 'Información',
       description: 'Comunicado general',
       icon: 'info',
-      colorClass: 'text-blue-500',
-      selectedClass: 'border-blue-400 bg-blue-50',
-      ringClass: 'ring-blue-300'
+      colorClass: 'text-[#2563EB]',
+      selectedClass: 'alert-severity--info',
+      ringClass: ''
     }
   ];
 

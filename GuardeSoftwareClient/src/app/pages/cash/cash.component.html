@@ -1,23 +1,23 @@
-<div class="flex flex-col mb-3 min-h-screen bg-[#f4f7f9] font-inter relative pt-6 px-2 md:px-6">
+<div [class.cash-note-open]="activeCommentItem || activeCommentAccount" class="cash-page flex flex-col mb-3 min-h-screen bg-[#f4f7f9] font-inter relative pt-6 px-2 md:px-6">
 
   <app-cash-receivables *ngIf="showReceivablesModal" (closed)="showReceivablesModal = false"></app-cash-receivables>
   <div #topAnchor class="absolute left-0 top-0 w-full h-[600px] -z-10 opacity-0 pointer-events-none"></div>
 
-  <div class="flex flex-col mb-6 xl:flex-row xl:items-center justify-between gap-4 bg-white p-4 md:p-5 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60">
-    <div class="flex-1 text-center xl:text-left">
-      <h1 class="text-xl font-bold text-gray-900 tracking-tight">Gestión de Saldos y Gastos</h1>
+  <div class="cash-page-header flex flex-col mb-6 xl:flex-row xl:items-center justify-between gap-4 bg-white p-4 md:p-5 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60">
+    <div class="cash-page-heading flex-1 text-center xl:text-left">
+      <h1 class="text-xl font-extrabold text-[#172033] tracking-tight">Gestión de Saldos y Gastos</h1>
       <p class="text-gray-400 text-sm mt-0.5 font-medium">Control financiero • {{ monthName }}</p>
     </div>
 
     <!-- Por debajo de 1280 px (con el menú lateral, el contenido queda angosto) los controles pasan debajo del título. -->
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-center xl:justify-end gap-2 w-full xl:w-auto">
+    <div class="cash-period-controls flex flex-col sm:flex-row items-stretch sm:items-center justify-center xl:justify-end gap-2 w-full xl:w-auto">
       <!-- Mismo alto (52 px) que la barra de meses; oscuro como los botones de acción de Finanzas, para que no compita con el azul. -->
       <button type="button" (click)="showReceivablesModal = true" class="inline-flex h-[3.25rem] items-center justify-center gap-2 px-5 bg-[#111827] hover:bg-[#1f2937] text-white text-sm font-bold rounded-[0.875rem] whitespace-nowrap transition-colors">
         <app-icon name="wallet" class="h-4 w-4" aria-hidden="true"></app-icon> Cuentas a cobrar
       </button>
       <!-- Selector de meses de Finanzas en una barra larga: las flechas pasan de a un mes y el título abre los 12 meses.
            Ancho: llena lo que queda de la fila hasta 34 rem; con la cabecera en fila (≥ 1280 px) es de 26 rem y, desde 1536 px, de 34. -->
-      <app-month-picker class="w-full sm:min-w-[19rem] sm:max-w-[34rem] sm:flex-1 xl:flex-none xl:w-[26rem] 2xl:w-[34rem]"
+      <app-month-picker class="cash-header-month w-full sm:min-w-[19rem] sm:max-w-[34rem] sm:flex-1 xl:flex-none xl:w-[26rem] 2xl:w-[34rem]"
                         [month]="selectedMonth" [year]="selectedYear" [minYear]="2026"
                         (monthStep)="changeMonth($event)"
                         (monthSelect)="goToMonth($event.month, $event.year)"></app-month-picker>
@@ -28,80 +28,80 @@
     
     <div class="lg:col-span-2 flex flex-col gap-5">
       
-      <div class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 p-5 md:p-6 flex flex-col">
+      <div class="cash-financial-panel bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 p-5 md:p-6 flex flex-col">
         <div class="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
-          <h3 class="font-semibold text-gray-800 text-base">Resumen Financiero</h3>
-          <span class="text-xs font-medium text-gray-400 bg-gray-50 px-2 py-1 rounded-md">{{ monthName | slice:0:3 }}</span>
+          <h3 class="font-extrabold text-[#172033] text-base tracking-tight">Resumen Financiero</h3>
+          <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-1 rounded-md">{{ monthName | slice:0:3 }}</span>
         </div>
         
-        <div class="flex flex-col text-sm divide-y divide-gray-50/80">
+        <div class="cash-summary-list flex flex-col text-sm divide-y divide-gray-50/80">
           <div class="flex justify-between items-center py-2.5">
             <span class="text-gray-500 font-medium">Ingresos Sistema (Alq.)</span>
             <div class="flex flex-col items-end">
-              <span class="font-semibold text-gray-800">$ {{ (summary.totalSystemIncome || 0) | number:'1.2-2' }}</span>
+              <span class="font-bold text-[#172033] tabular-nums">$ {{ (summary.totalSystemIncome || 0) | number:'1.2-2' }}</span>
               <span class="text-[10px] text-gray-400">≈ U$D {{ ((summary.totalSystemIncome || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
             </div>
           </div>
           <div class="flex justify-between items-center py-2.5">
             <span class="text-gray-500 font-medium">Pagos Adelantados</span>
             <div class="flex flex-col items-end">
-              <span class="font-semibold text-gray-800">$ {{ (summary.totalAdvancePayments || 0) | number:'1.2-2' }}</span>
+              <span class="font-bold text-[#172033] tabular-nums">$ {{ (summary.totalAdvancePayments || 0) | number:'1.2-2' }}</span>
               <span class="text-[10px] text-gray-400">≈ U$D {{ ((summary.totalAdvancePayments || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
             </div>
           </div>
           <div class="flex justify-between items-center py-2.5">
             <span class="text-gray-500 font-medium">Abonos</span>
             <div class="flex flex-col items-end">
-              <span class="font-semibold text-gray-800">$ {{ (summary.abono || 0) | number:'1.2-2' }}</span>
+              <span class="font-bold text-[#172033] tabular-nums">$ {{ (summary.abono || 0) | number:'1.2-2' }}</span>
               <span class="text-[10px] text-gray-400">≈ U$D {{ ((summary.abono || 0) / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
             </div>
           </div>
           <div class="flex justify-between items-center py-2.5 bg-gray-50/50 -mx-5 md:-mx-6 px-5 md:px-6 border-y border-gray-100 my-1">
             <span class="text-gray-700 font-semibold">Ingresos Brutos</span>
-            <div class="flex flex-col items-end"><span class="font-bold text-gray-900">$ {{ 0 || 0 | number:'1.2-2' }}</span></div>
+            <div class="flex flex-col items-end"><span class="font-extrabold text-[#172033] tabular-nums">$ {{ 0 || 0 | number:'1.2-2' }}</span></div>
           </div>
           <div class="flex justify-between items-center py-2.5">
-            <span class="text-gray-500 font-medium flex items-center gap-2"><div class="w-1.5 h-4 rounded-full bg-purple-400"></div> IVA Ventas</span>
-            <div class="flex flex-col items-end"><span class="font-semibold text-purple-700">$ {{ (summary.ivaFacturaA + summary.ivaFacturaB || 0) | number:'1.2-2' }}</span></div>
+            <span class="text-gray-500 font-medium flex items-center gap-2"><div class="w-1.5 h-4 rounded-full bg-[#4F46E5]"></div> IVA Ventas</span>
+            <div class="flex flex-col items-end"><span class="font-bold text-[#4F46E5] tabular-nums">$ {{ (summary.ivaFacturaA + summary.ivaFacturaB || 0) | number:'1.2-2' }}</span></div>
           </div>
           <div class="flex justify-between items-center py-2.5">
-            <span class="text-gray-500 font-medium flex items-center gap-2"><div class="w-1.5 h-4 rounded-full bg-purple-400"></div> IVA Compras
-              <button (click)="openIvaComprasModal()" class="ml-1 p-1 bg-white border border-gray-200 hover:border-purple-300 rounded-md text-gray-400 hover:text-purple-600 transition-colors shadow-sm" title="Gestionar facturas"><app-icon name="plus" class="w-3 h-3 stroke-[3]"></app-icon></button>
+            <span class="text-gray-500 font-medium flex items-center gap-2"><div class="w-1.5 h-4 rounded-full bg-[#4F46E5]"></div> IVA Compras
+              <button (click)="openIvaComprasModal()" class="ml-1 p-1 bg-white border border-gray-200 hover:border-indigo-300 rounded-md text-gray-400 hover:text-[#4F46E5] transition-colors shadow-sm" title="Gestionar facturas"><app-icon name="plus" class="w-3 h-3 stroke-[3]"></app-icon></button>
             </span>
-            <div class="flex flex-col items-end"><span class="font-semibold text-purple-700">$ {{ totalIvaCompras | number:'1.2-2' }}</span></div>
+            <div class="flex flex-col items-end"><span class="font-bold text-[#4F46E5] tabular-nums">$ {{ totalIvaCompras | number:'1.2-2' }}</span></div>
           </div>
           <div class="flex justify-between items-center py-2.5">
             <span class="text-gray-600 font-medium">Dif. IVA (Ventas - Compras)</span>
-            <div class="flex flex-col items-end"><span class="font-semibold text-purple-700">$ {{ (summary.ivaFacturaA + summary.ivaFacturaB) - totalIvaCompras || 0 | number:'1.2-2' }}</span></div>
+            <div class="flex flex-col items-end"><span class="font-bold text-[#4F46E5] tabular-nums">$ {{ (summary.ivaFacturaA + summary.ivaFacturaB) - totalIvaCompras || 0 | number:'1.2-2' }}</span></div>
           </div>
           
           <div class="py-2 mt-2"></div>
 
           <div class="flex justify-between items-center py-2.5 border-t border-gray-100">
             <span class="text-gray-500 font-medium flex items-center gap-2"><div class="w-1.5 h-4 rounded-full bg-blue-400"></div> Total Depo</span>
-            <div class="flex flex-col items-end"><span class="font-semibold text-blue-700">$ {{ totals.depo | number:'1.2-2' }}</span></div>
+            <div class="flex flex-col items-end"><span class="font-bold text-blue-700 tabular-nums">$ {{ totals.depo | number:'1.2-2' }}</span></div>
           </div>
           <div class="flex justify-between items-center py-2.5">
             <span class="text-gray-500 font-medium flex items-center gap-2"><div class="w-1.5 h-4 rounded-full bg-orange-400"></div> Casa + Retiros</span>
-            <div class="flex flex-col items-end"><span class="font-semibold text-orange-600">$ {{ (totals.casa + totals.retiros) | number:'1.2-2' }}</span></div>
+            <div class="flex flex-col items-end"><span class="font-bold text-orange-600 tabular-nums">$ {{ (totals.casa + totals.retiros) | number:'1.2-2' }}</span></div>
           </div>
           <div class="flex justify-between items-center py-2.5">
             <span class="text-gray-700 font-semibold">Total A Pagar <span class="text-xs text-gray-400 font-normal">(Depo + Casa)</span></span>
-            <div class="flex flex-col items-end"><span class="font-bold text-gray-900">$ {{ totals.aPagar | number:'1.2-2' }}</span></div>
+            <div class="flex flex-col items-end"><span class="font-extrabold text-[#172033] tabular-nums">$ {{ totals.aPagar | number:'1.2-2' }}</span></div>
           </div>
           <div class="flex justify-between items-center py-2.5">
             <span class="text-green-600 font-medium flex items-center gap-2">Total Pagado</span>
-            <div class="flex flex-col items-end"><span class="font-semibold text-green-600">- $ {{ totals.pagado | number:'1.2-2' }}</span></div>
+            <div class="flex flex-col items-end"><span class="font-bold text-green-600 tabular-nums">- $ {{ totals.pagado | number:'1.2-2' }}</span></div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3 py-3">
-            <div class="bg-blue-50/50 border border-blue-100/60 rounded-xl p-3 flex flex-col justify-center overflow-hidden">
-              <span class="text-[10px] uppercase tracking-wider font-bold text-blue-600/80 mb-1 truncate">Falta Cobrar</span>
-              <span class="font-bold text-blue-700 text-sm truncate">$ {{ summary.pendingCollection | number:'1.2-2' }}</span>
+          <div class="cash-pending-grid">
+            <div class="g-block cash-pending-card cash-pending-card--collect">
+              <div class="cash-pending-card__label"><app-icon name="wallet" aria-hidden="true" class="h-4 w-4"></app-icon><span class="g-block__label">Falta Cobrar</span></div>
+              <span class="g-block__value cash-pending-card__amount">$ {{ summary.pendingCollection | number:'1.2-2' }}</span>
             </div>
-            <div class="bg-red-50/50 border border-red-100/60 rounded-xl p-3 flex flex-col justify-center overflow-hidden">
-              <span class="text-[10px] uppercase tracking-wider font-bold text-red-600/80 mb-1 truncate">Falta Pagar</span>
-              <span class="font-bold text-red-700 text-sm truncate">$ {{ totals.faltaPagar | number:'1.2-2' }}</span>
+            <div class="g-block cash-pending-card cash-pending-card--pay">
+              <div class="cash-pending-card__label"><app-icon name="banknote" aria-hidden="true" class="h-4 w-4"></app-icon><span class="g-block__label">Falta Pagar</span></div>
+              <span class="g-block__value cash-pending-card__amount">$ {{ totals.faltaPagar | number:'1.2-2' }}</span>
             </div>
           </div>
 
@@ -110,74 +110,75 @@
              <span class="text-xs font-semibold">- $ {{ (totals.retiros + totals.extras) | number:'1.2-2' }}</span>
           </div>
           
-          <div class="mt-2 pt-4 border-t border-gray-200 flex justify-between items-center">
+          <div class="cash-net-strip mt-3 -mx-5 md:-mx-6 -mb-5 md:-mb-6 px-5 md:px-6 py-4 bg-[#2563EB] rounded-b-2xl flex justify-between items-center gap-3">
             <div>
-              <span class="block text-sm font-semibold text-gray-500 uppercase tracking-wide">Caja Real</span>
-              <span class="block text-[10px] text-gray-400">Ganancia neta</span>
+              <span class="block text-xs font-extrabold text-white uppercase tracking-wider">Caja Real</span>
+              <span class="block text-[11px] font-medium text-[#BFDBFE]">Ganancia neta</span>
             </div>
             <div class="flex flex-col items-end">
-              <span class="text-xl md:text-2xl font-bold tracking-tight text-gray-900">$ {{ summary.netBalance | number:'1.2-2' }}</span>
-              <span class="text-xs text-gray-400 font-medium mt-0.5">≈ U$D {{ (summary.netBalance / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+              <span class="text-xl md:text-2xl font-extrabold tracking-tight text-white tabular-nums whitespace-nowrap">$ {{ summary.netBalance | number:'1.2-2' }}</span>
+              <span class="text-xs text-[#BFDBFE] font-semibold mt-0.5">≈ U$D {{ (summary.netBalance / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div *ngIf="selectedItemIds.length > 0" class="bg-blue-50/50 rounded-2xl shadow-sm border border-blue-200/60 p-5 animate-fade-in-down" (click)="$event.stopPropagation()">
+      <div *ngIf="selectedItemIds.length > 0" class="bg-[#2563EB] text-white rounded-2xl p-5 animate-fade-in-down" (click)="$event.stopPropagation()">
          <div class="flex items-center justify-between mb-3">
-           <h3 class="font-bold flex items-center gap-2 text-blue-900 text-sm">
-             <app-icon name="check-square" class="h-4 w-4 text-blue-600"></app-icon> Conceptos Sel. ({{ selectedItemIds.length }})
+           <h3 class="font-extrabold flex items-center gap-2 text-white text-sm">
+             <app-icon name="check-square" class="h-4 w-4 text-white"></app-icon> Conceptos Sel. ({{ selectedItemIds.length }})
            </h3>
-           <button (click)="clearItemSelection()" class="text-gray-400 hover:text-red-500 transition-colors"><app-icon name="x" class="h-4 w-4"></app-icon></button>
+           <button (click)="clearItemSelection()" aria-label="Quitar la selección" class="text-white/80 hover:text-white transition-colors"><app-icon name="x" class="h-4 w-4"></app-icon></button>
          </div>
          <div class="flex justify-between items-end">
-           <span class="text-xs text-gray-500 font-medium">Total en ARS</span>
-           <span class="text-xl font-black tracking-tight text-blue-700">$ {{ selectedItemsSumARS | number:'1.2-2' }}</span>
+           <span class="text-xs text-[#DBEAFE] font-semibold">Total en ARS</span>
+           <span class="text-xl font-extrabold tracking-tight text-white tabular-nums">$ {{ selectedItemsSumARS | number:'1.2-2' }}</span>
          </div>
-         <div class="flex justify-between items-end mt-1.5 pt-1.5 border-t border-blue-100/60">
-           <span class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Equivalente USD</span>
-           <span class="text-xs font-bold text-blue-600/80">≈ U$D {{ (selectedItemsSumARS / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+         <div class="flex justify-between items-end mt-1.5 pt-1.5 border-t border-white/25">
+           <span class="text-[10px] text-[#DBEAFE] uppercase tracking-wider font-bold">Equivalente USD</span>
+           <span class="text-xs font-bold text-white tabular-nums">≈ U$D {{ (selectedItemsSumARS / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
          </div>
       </div>
 
-      <div *ngIf="selectedAccountIds.length > 0" class="bg-indigo-50/50 rounded-2xl shadow-sm border border-indigo-200/60 p-5 animate-fade-in-down" (click)="$event.stopPropagation()">
+      <div *ngIf="selectedAccountIds.length > 0" class="bg-[#4F46E5] text-white rounded-2xl p-5 animate-fade-in-down" (click)="$event.stopPropagation()">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="font-bold flex items-center gap-2 text-indigo-900 text-sm">
-            <app-icon name="check-square" class="h-4 w-4 text-indigo-600"></app-icon> Cuentas Sel. ({{ selectedAccountIds.length }})
+          <h3 class="font-extrabold flex items-center gap-2 text-white text-sm">
+            <app-icon name="check-square" class="h-4 w-4 text-white"></app-icon> Cuentas Sel. ({{ selectedAccountIds.length }})
           </h3>
-          <button (click)="selectedAccountIds = []" class="text-gray-400 hover:text-red-500 transition-colors"><app-icon name="x" class="h-4 w-4"></app-icon></button>
+          <button (click)="selectedAccountIds = []" aria-label="Quitar la selección" class="text-white/80 hover:text-white transition-colors"><app-icon name="x" class="h-4 w-4"></app-icon></button>
         </div>
         <div class="flex justify-between items-end">
-          <span class="text-xs text-gray-500 font-medium">Total en ARS</span>
-          <span class="text-xl font-black tracking-tight text-indigo-700">$ {{ selectedAccountsSumARS | number:'1.2-2' }}</span>
+          <span class="text-xs text-[#DBEAFE] font-semibold">Total en ARS</span>
+          <span class="text-xl font-extrabold tracking-tight text-white tabular-nums">$ {{ selectedAccountsSumARS | number:'1.2-2' }}</span>
         </div>
-        <div class="flex justify-between items-end mt-1.5 pt-1.5 border-t border-indigo-100/60">
-          <span class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Equivalente USD</span>
-          <span class="text-xs font-bold text-indigo-600/80">≈ U$D {{ (selectedAccountsSumARS / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
+        <div class="flex justify-between items-end mt-1.5 pt-1.5 border-t border-white/25">
+          <span class="text-[10px] text-[#DBEAFE] uppercase tracking-wider font-bold">Equivalente USD</span>
+          <span class="text-xs font-bold text-white tabular-nums">≈ U$D {{ (selectedAccountsSumARS / (usdExchangeRate || 1)) | number:'1.2-2' }}</span>
         </div>
       </div>
 
     </div>
 
-    <div #saldosContainer class="lg:col-span-3 bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 p-0 flex flex-col h-full overflow-hidden">
+    <div #saldosContainer class="cash-accounts-panel lg:col-span-3 bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 p-0 flex flex-col h-full overflow-hidden">
       
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 p-5 md:p-6 gap-3">
-        <h3 class="font-semibold text-gray-800 text-lg tracking-tight">Saldos Disponibles</h3>
+        <h3 class="font-extrabold text-[#172033] text-lg tracking-tight">Saldos Disponibles</h3>
         <div class="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 w-full sm:w-auto justify-between sm:justify-start">
           <span class="text-[10px] uppercase tracking-wider font-semibold text-gray-500">Cotización U$D:</span>
           <div class="relative flex items-center">
             <span class="text-green-600 font-bold mr-1 text-sm">$</span>
-            <input type="text" [(ngModel)]="usdExchangeRate" appCurrencyFormat (keydown.enter)="blurInput($event)" (input)="onExchangeRateChange()" class="w-16 p-0 text-sm font-bold text-gray-800 bg-transparent border-none focus:ring-0 text-right hide-arrows transition-colors focus:text-green-700">
+            <input type="text" [(ngModel)]="usdExchangeRate" appCurrencyFormat aria-label="Cotización del dólar en pesos" (keydown.enter)="blurInput($event)" (input)="onExchangeRateChange()" class="w-16 p-0 text-sm font-bold text-gray-800 bg-transparent border-none focus:ring-0 text-right hide-arrows transition-colors focus:text-green-700">
           </div>
         </div>
       </div>
       
-      <div class="overflow-x-auto overflow-y-hidden flex-1 w-full border-b border-gray-100 custom-scrollbar">
-          <table class="w-full min-w-[500px] text-sm text-left border-collapse bg-white">
+      <!-- Por debajo de 768 px cada cuenta es un bloque apilado (reglas `.cash-accounts` al final del CSS). -->
+      <div cdkScrollable tabindex="0" role="region" aria-label="Saldos de las cuentas" class="cash-accounts-viewport overflow-x-auto overflow-y-hidden flex-1 w-full border-b border-gray-100 custom-scrollbar">
+          <table class="cash-accounts w-full min-w-[500px] text-sm text-left border-collapse bg-white">
             <thead class="text-[10px] text-gray-400 uppercase tracking-widest bg-[#f8f9fa] border-b border-gray-100 sticky top-0 z-20">
               <tr>
-                <th class="w-5 px-1 py-2 border-b border-gray-200/60 bg-[#f8f9fa]"></th>
-                <th class="px-3 py-2.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">
+                <th scope="col" class="w-5 px-1 py-2 border-b border-gray-200/60 bg-[#f8f9fa]"></th>
+                <th scope="col" class="px-3 py-2.5 font-semibold border-b border-gray-200/60 bg-[#f8f9fa]">
                   <div class="flex items-center justify-between gap-2">
                     <span>Cuenta / Entidad</span>
                     <button (click)="toggleSelectAllAccounts(); $event.stopPropagation()"
@@ -195,7 +196,8 @@
                     </button>
                   </div>
                 </th>
-                <th class="px-3 py-2.5 text-right font-semibold w-44 border-b border-gray-200/60 bg-[#f8f9fa]">Saldo</th>
+                <th scope="col" class="px-3 py-2.5 text-right font-semibold w-44 border-b border-gray-200/60 bg-[#f8f9fa]">Saldo</th>
+                <th scope="col" class="cash-account-actions-head">Acciones</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100" cdkDropList (cdkDropListDropped)="dropAccount($event)" cdkDropListScrollContainer="#main-scroll">
@@ -220,23 +222,25 @@
                   </tbody></table>
                 </div>
 
-                <td class="p-3 w-10 md:w-12 align-middle text-center border-l-[3px] transition-colors" [ngClass]="selectedAccountIds.includes(account.id!) ? 'border-indigo-500' : 'border-transparent'">
+                <td class="cash-acc-grip p-3 w-10 md:w-12 align-middle text-center border-l-[3px] transition-colors" [ngClass]="selectedAccountIds.includes(account.id!) ? 'border-indigo-500' : 'border-transparent'">
                   <div class="flex items-center justify-center h-full">
                     <div cdkDragHandle (click)="$event.stopPropagation()" class="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1 opacity-75 group-hover:opacity-100 transition-opacity flex items-center justify-center"><app-icon name="grip-vertical" class="h-4 w-4"></app-icon></div>
                   </div>
                 </td>
 
-                <td class="p-3 align-middle relative group/desc w-full">
+                <td class="cash-acc-name p-3 align-middle relative group/desc w-full">
                   <div class="flex items-center gap-3 w-full">
                     <div class="relative w-3 h-8 flex-shrink-0 group/clr">
                       <input type="color" (click)="$event.stopPropagation()" (focus)="captureAccount(account)" [(ngModel)]="account.color" (change)="checkAccountChange(account); onAccountColorChange(account)" title="Cambiar color" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                       <div class="w-full h-full rounded-md shadow-sm border border-black/10" [style.backgroundColor]="account.color || '#1f2937'"></div>
                     </div>
-                    <div class="w-full min-w-[120px] pr-14 flex-1">
-                      <input type="text" (click)="$event.stopPropagation()" (focus)="captureAccount(account)" [(ngModel)]="account.name" (change)="checkAccountChange(account); onAccountNameChange(account)" (keydown.enter)="blurInput($event)" [style.color]="account.color || '#1f2937'" class="font-semibold text-sm transition-colors bg-transparent border-none p-0 focus:ring-1 focus:ring-blue-300 rounded w-full overflow-hidden text-ellipsis m-0 shadow-none" placeholder="Nombre de la cuenta...">
-                      <div class="text-[10px] font-semibold tracking-wider uppercase mt-0.5" [ngClass]="account.currency === 'USD' ? 'text-green-600' : 'text-gray-400'">{{ account.type }} • {{ account.currency || 'ARS' }}</div>
+                    <div class="cash-account-copy w-full min-w-[120px] pr-14 flex-1">
+                      <span class="cash-inline-editor cash-inline-editor--account" [attr.data-value]="account.name || 'Nombre de la cuenta...'">
+                      <input type="text" (click)="$event.stopPropagation()" (focus)="captureAccount(account)" [(ngModel)]="account.name" (change)="checkAccountChange(account); onAccountNameChange(account)" (keydown.enter)="blurInput($event)" [style.color]="account.color || '#1f2937'" aria-label="Nombre de la cuenta" class="cash-account-name-input font-semibold text-sm transition-colors bg-transparent border-none p-0 focus:ring-1 focus:ring-blue-300 rounded w-full overflow-hidden text-ellipsis m-0 shadow-none" placeholder="Nombre de la cuenta...">
+                      </span>
+                      <div class="cash-account-meta text-[10px] font-semibold tracking-wider uppercase mt-0.5" [ngClass]="account.currency === 'USD' ? 'text-green-600' : 'text-gray-400'">{{ account.type }} • {{ account.currency || 'ARS' }}</div>
                     </div>
-                    <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center p-1 bg-white/80 backdrop-blur-md shadow-sm border border-gray-200/80 rounded-lg transition-all duration-200 z-10" [ngClass]="selectedAccountIds.includes(account.id!) || activeCommentAccount === account ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2 pointer-events-none group-hover/desc:opacity-100 group-hover/desc:translate-x-0 group-hover/desc:pointer-events-auto'">
+                    <div class="cash-acc-actions absolute right-2 top-1/2 -translate-y-1/2 flex items-center p-1 rounded-lg transition-all duration-200 z-10" [ngClass]="selectedAccountIds.includes(account.id!) || activeCommentAccount === account ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2 pointer-events-none group-hover/desc:opacity-100 group-hover/desc:translate-x-0 group-hover/desc:pointer-events-auto'">
                       <button cdkOverlayOrigin #accountNoteOrigin="cdkOverlayOrigin"
                               (click)="toggleAccountComment(account); $event.stopPropagation()"
                               (mouseenter)="onAccountCommentMouseEnter(account)"
@@ -245,23 +249,26 @@
                               [attr.aria-expanded]="activeCommentAccount === account"
                               title="Comentario"
                               class="note-toggle-btn w-7 h-7 flex items-center justify-center rounded-md transition-colors"
-                              [ngClass]="hasAccountComment(account) ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-50'">
+                              [ngClass]="hasAccountComment(account) ? 'text-orange-700 hover:bg-orange-50' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-50'">
                         <app-icon name="message-square" class="w-[15px] h-[15px] block"></app-icon>
                       </button>
 
                       <!-- Popup de la nota: en un overlay, porque la tabla de cuentas recorta lo que sobresale. -->
                       <ng-template
+                        #accountNoteOverlay="cdkConnectedOverlay"
                         cdkConnectedOverlay
                         [cdkConnectedOverlayOrigin]="accountNoteOrigin"
                         [cdkConnectedOverlayOpen]="activeCommentAccount === account"
                         [cdkConnectedOverlayPositions]="accountNotePositions"
                         [cdkConnectedOverlayViewportMargin]="12"
-                        [cdkConnectedOverlayPush]="true">
+                        [cdkConnectedOverlayPush]="true"
+                        (attach)="attachCashNote(accountNoteOverlay, accountNoteOrigin)"
+                        (detach)="detachCashNote(accountNoteOverlay)">
                         <div (mouseenter)="onAccountCommentMouseEnter(account)"
                              (mouseleave)="onAccountCommentMouseLeave(account)"
                              (click)="pinAccountComment(account); $event.stopPropagation()"
                              role="dialog" [attr.aria-label]="'Nota de ' + account.name"
-                             class="note-popup-container w-80 max-w-[calc(100vw-1.5rem)] bg-white border border-gray-200 shadow-2xl p-0 origin-top-right animate-fade-in-down rounded-xl overflow-hidden">
+                             class="cash-note-popover cash-account-note note-popup-container w-80 max-w-[calc(100vw-1.5rem)] bg-white border border-gray-200 shadow-2xl p-0 origin-top-right animate-fade-in-down rounded-xl overflow-hidden">
                           <div class="flex justify-between items-center border-b border-gray-100 px-3 py-2 bg-gray-50/50">
                             <span class="text-[10px] uppercase font-bold text-gray-500 tracking-wider flex items-center gap-1.5"><app-icon name="align-left" class="w-3 h-3"></app-icon> Notas</span>
                             <button type="button" (click)="closeAccountComment(account); $event.stopPropagation()" aria-label="Cerrar la nota" class="text-gray-400 hover:text-gray-700 hover:bg-gray-200 p-1 rounded-md transition-colors"><app-icon name="x" class="w-3.5 h-3.5"></app-icon></button>
@@ -282,7 +289,7 @@
                         </div>
                       </ng-template>
                       <div class="w-px h-4 bg-gray-200 mx-0.5"></div>
-                      <button (click)="toggleAccountSelection(account); $event.stopPropagation()" title="Seleccionar cuenta" class="w-7 h-7 flex items-center justify-center rounded-md transition-colors group/chk hover:bg-gray-50">
+                      <button (click)="toggleAccountSelection(account); $event.stopPropagation()" title="Seleccionar cuenta" aria-label="Seleccionar cuenta" [attr.aria-pressed]="selectedAccountIds.includes(account.id!)" class="cash-row-select w-7 h-7 flex items-center justify-center rounded-md transition-colors group/chk hover:bg-gray-50">
                          <div class="w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all duration-200" [ngClass]="selectedAccountIds.includes(account.id!) ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'border-gray-300 bg-white group-hover/chk:border-indigo-400'">
                               <app-icon name="check" class="w-3.5 h-3.5 stroke-[3] transition-transform duration-200" [ngClass]="selectedAccountIds.includes(account.id!) ? 'scale-100 opacity-100' : 'scale-0 opacity-0'"></app-icon>
                          </div>
@@ -291,22 +298,22 @@
                   </div>
                   <!-- Punto ámbar: la cuenta tiene una nota (igual que en los movimientos). -->
                   <div *ngIf="hasAccountComment(account) && activeCommentAccount !== account"
-                       class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-sm pointer-events-none" aria-hidden="true"></div>
+                       class="cash-acc-dot absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-sm pointer-events-none" aria-hidden="true"></div>
                 </td>
 
-                <td class="py-2 px-2 align-middle text-right w-44 min-w-[250px]">
+                <td class="cash-acc-balance py-2 px-2 align-middle text-right w-44 min-w-[250px]">
                   <div class="flex flex-col items-end w-full relative">
                     <div class="relative w-full flex items-center justify-end group/amt">
-                      <button *ngIf="account.balance != 0" (click)="clearAccountBalance(account); $event.stopPropagation()" tabindex="-1" class="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 group-hover/amt:opacity-100 transition-opacity z-20 p-1 rounded-md border border-gray-100"><app-icon name="Trash2" class="h-3.5 w-3.5 block"></app-icon></button>
+                      <button *ngIf="account.balance != 0" (click)="clearAccountBalance(account); $event.stopPropagation()" type="button" aria-label="Borrar saldo de la cuenta" title="Borrar saldo" class="cash-clear-amount absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 group-hover/amt:opacity-100 transition-opacity z-20 p-1 rounded-md border border-gray-100"><app-icon name="x" class="h-3.5 w-3.5 block"></app-icon></button>
                       <span class="absolute left-8 text-xs font-bold text-gray-400 pointer-events-none">{{ account.currency === 'USD' ? 'U$D' : '$' }}</span>
-                      <input type="text" (click)="$event.stopPropagation()" (focus)="captureAccount(account)" [(ngModel)]="account.balance" (blur)="checkAccountChange(account); onAccountChange(account)" (keydown.enter)="blurInput($event)" appCurrencyFormat class="w-full pl-12 pr-2 py-1.5 text-sm font-bold text-right bg-transparent border border-transparent hover:border-gray-200 hover:bg-gray-50 focus:bg-white focus:ring-1 focus:ring-blue-300 rounded-lg transition-colors text-gray-900">
+                      <input type="text" (click)="$event.stopPropagation()" (focus)="captureAccount(account)" [(ngModel)]="account.balance" (blur)="checkAccountChange(account); onAccountChange(account)" (keydown.enter)="blurInput($event)" appCurrencyFormat aria-label="Saldo de la cuenta" class="cash-account-balance-input w-full pl-12 pr-2 py-1.5 text-sm font-extrabold tabular-nums text-right bg-transparent border border-transparent hover:border-gray-200 hover:bg-gray-50 focus:bg-white focus:ring-1 focus:ring-blue-300 rounded-lg transition-colors text-gray-900">
                     </div>
                     <div *ngIf="account.currency === 'USD'" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ $ {{ (account.balance * usdExchangeRate) | number:'1.2-2' }}</div>
                     <div *ngIf="account.currency !== 'USD'" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (account.balance / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
                   </div>
                 </td>
 
-                <td class="p-2 w-8 text-center align-middle">
+                <td class="cash-acc-delete p-2 w-8 text-center align-middle">
                   <button (click)="deleteAccount(account, i); $event.stopPropagation()" class="text-gray-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md opacity-75 group-hover:opacity-100 transition-all flex items-center justify-center" title="Eliminar cuenta"><app-icon name="Trash2" class="h-4 w-4"></app-icon></button>
                 </td>
               </tr>
@@ -315,36 +322,36 @@
       </div>  
       
       <div class="px-5 md:px-6 pt-2">
-        <button (click)="addAccount()" class="mt-2 w-full py-2.5 border border-dashed border-gray-300 text-gray-500 font-medium rounded-xl hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50 transition-all text-sm flex items-center justify-center gap-2">
+        <button (click)="addAccount()" class="cash-add-account g-btn g-btn--primary my-3 w-full">
           <app-icon name="plus" class="h-4 w-4 stroke-[2.5]"></app-icon> Agregar nueva cuenta
         </button>
       </div>
 
-      <div class="mt-auto pt-6 px-5 md:px-6 pb-5 md:pb-6 space-y-4 bg-gray-50/30 border-t border-gray-100">
-        <div class="bg-[#f8fafc] rounded-xl border border-slate-200/60 overflow-hidden">
+      <div class="cash-account-overview mt-auto pt-6 px-5 md:px-6 pb-5 md:pb-6 space-y-4 bg-gray-50/30 border-t border-gray-100">
+        <div class="cash-currency-summary cash-currency-summary--ars bg-[#f8fafc] rounded-xl border border-slate-200/60 overflow-hidden">
             <div class="px-3 md:px-4 py-2 border-b border-slate-200/60"><span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Resumen ARS</span></div>
-            <div class="grid grid-cols-4 divide-x divide-slate-200/60">
-                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-0.5">Bancos</p><p class="text-xs md:text-sm font-bold text-slate-800 break-all">$ {{ accountTotals.ars.banks | number:'1.0-0' }}</p></div>
-                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-0.5">Cajas</p><p class="text-xs md:text-sm font-bold text-slate-800 break-all">$ {{ accountTotals.ars.cash | number:'1.0-0' }}</p></div>
-                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-0.5">Otros</p><p class="text-xs md:text-sm font-bold text-slate-800 break-all">$ {{ accountTotals.ars.others | number:'1.0-0' }}</p></div>
-                <div class="p-2 md:p-3 text-center bg-white flex flex-col justify-center shadow-[inset_1px_0_0_rgba(0,0,0,0.02)]"><p class="text-[9px] md:text-[10px] uppercase tracking-widest font-bold text-blue-500 mb-0.5">Total ARS</p><p class="text-xs md:text-sm font-extrabold text-blue-700 break-all">$ {{ accountTotals.ars.total | number:'1.0-0' }}</p></div>
+            <div class="cash-acc-summary grid grid-cols-4 divide-x divide-slate-200/60">
+                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-0.5">Bancos</p><p class="text-xs md:text-sm font-bold text-slate-800 tabular-nums whitespace-nowrap">$ {{ accountTotals.ars.banks | number:'1.2-2' }}</p></div>
+                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-0.5">Cajas</p><p class="text-xs md:text-sm font-bold text-slate-800 tabular-nums whitespace-nowrap">$ {{ accountTotals.ars.cash | number:'1.2-2' }}</p></div>
+                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-0.5">Otros</p><p class="text-xs md:text-sm font-bold text-slate-800 tabular-nums whitespace-nowrap">$ {{ accountTotals.ars.others | number:'1.2-2' }}</p></div>
+                <div class="p-2 md:p-3 text-center bg-white flex flex-col justify-center shadow-[inset_1px_0_0_rgba(0,0,0,0.02)]"><p class="text-[9px] md:text-[10px] uppercase tracking-widest font-bold text-blue-500 mb-0.5">Total ARS</p><p class="text-xs md:text-sm font-extrabold text-blue-700 tabular-nums whitespace-nowrap">$ {{ accountTotals.ars.total | number:'1.2-2' }}</p></div>
             </div>
         </div>
 
-        <div class="bg-[#f0fdf4] rounded-xl border border-green-200/60 overflow-hidden">
+        <div class="cash-currency-summary cash-currency-summary--usd bg-[#f0fdf4] rounded-xl border border-green-200/60 overflow-hidden">
             <div class="px-3 md:px-4 py-2 border-b border-green-200/60"><span class="text-[10px] font-bold text-green-700 uppercase tracking-widest">Resumen USD</span></div>
-            <div class="grid grid-cols-4 divide-x divide-green-200/60">
-                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-green-600/60 mb-0.5">Bancos</p><p class="text-xs md:text-sm font-bold text-green-900 break-all">U$D {{ accountTotals.usd.banks | number:'1.0-0' }}</p></div>
-                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-green-600/60 mb-0.5">Cajas</p><p class="text-xs md:text-sm font-bold text-green-900 break-all">U$D {{ accountTotals.usd.cash | number:'1.0-0' }}</p></div>
-                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-green-600/60 mb-0.5">Otros</p><p class="text-xs md:text-sm font-bold text-green-900 break-all">U$D {{ accountTotals.usd.others | number:'1.0-0' }}</p></div>
-                <div class="p-2 md:p-3 text-center bg-white flex flex-col justify-center shadow-[inset_1px_0_0_rgba(0,0,0,0.02)]"><p class="text-[9px] md:text-[10px] uppercase tracking-widest font-bold text-green-600 mb-0.5">Total USD</p><p class="text-xs md:text-sm font-extrabold text-green-700 break-all">U$D {{ accountTotals.usd.total | number:'1.0-0' }}</p></div>
+            <div class="cash-acc-summary grid grid-cols-4 divide-x divide-green-200/60">
+                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-green-600/60 mb-0.5">Bancos</p><p class="text-xs md:text-sm font-bold text-green-900 tabular-nums whitespace-nowrap">U$D {{ accountTotals.usd.banks | number:'1.2-2' }}</p></div>
+                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-green-600/60 mb-0.5">Cajas</p><p class="text-xs md:text-sm font-bold text-green-900 tabular-nums whitespace-nowrap">U$D {{ accountTotals.usd.cash | number:'1.2-2' }}</p></div>
+                <div class="p-2 md:p-3 text-center flex flex-col justify-center"><p class="text-[9px] md:text-[10px] uppercase tracking-wider font-semibold text-green-600/60 mb-0.5">Otros</p><p class="text-xs md:text-sm font-bold text-green-900 tabular-nums whitespace-nowrap">U$D {{ accountTotals.usd.others | number:'1.2-2' }}</p></div>
+                <div class="p-2 md:p-3 text-center bg-white flex flex-col justify-center shadow-[inset_1px_0_0_rgba(0,0,0,0.02)]"><p class="text-[9px] md:text-[10px] uppercase tracking-widest font-bold text-green-600 mb-0.5">Total USD</p><p class="text-xs md:text-sm font-extrabold text-green-700 tabular-nums whitespace-nowrap">U$D {{ accountTotals.usd.total | number:'1.2-2' }}</p></div>
             </div>
         </div>
         
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 md:py-5 px-4 md:px-6 bg-[#0f172a] rounded-2xl text-white shadow-lg gap-2">
-            <span class="text-xs md:text-sm uppercase tracking-widest font-medium text-slate-300">Patrimonio Total</span>
+        <div class="cash-patrimony flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 md:py-5 px-4 md:px-6 bg-[#111827] rounded-xl text-white gap-2">
+            <span class="text-xs md:text-sm uppercase tracking-widest font-extrabold text-slate-200">Patrimonio Total</span>
             <div class="flex flex-col items-start sm:items-end">
-              <span class="text-lg md:text-xl font-bold tracking-tight text-white break-all">$ {{ (accountTotals.ars.total + (accountTotals.usd.total * usdExchangeRate)) | number:'1.2-2' }}</span>
+              <span class="text-lg md:text-2xl font-extrabold tracking-tight text-white tabular-nums whitespace-nowrap">$ {{ (accountTotals.ars.total + (accountTotals.usd.total * usdExchangeRate)) | number:'1.2-2' }}</span>
               <span class="text-[10px] md:text-[11px] text-slate-400 font-medium mt-0.5 md:mt-1">≈ U$D {{ ((accountTotals.ars.total / (usdExchangeRate || 1)) + accountTotals.usd.total) | number:'1.2-2' }}</span>
             </div>
         </div>
@@ -353,14 +360,14 @@
     </div>
   </div>
 
-  <div #planillaContainer class="w-full flex flex-col bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 mt-2">
+  <div #planillaContainer class="cash-sheet-panel w-full flex flex-col bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.03)] border border-gray-200/60 mt-2">
   
-    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-gray-100 bg-white z-40 px-4 md:px-6 pt-4 md:pt-6 pb-4">
+    <div class="cash-sheet-header flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-gray-100 bg-white z-40 px-4 md:px-6 pt-4 md:pt-6 pb-4">
       <div class="flex items-center gap-4">
-        <h2 class="font-semibold text-gray-900 text-xl tracking-tight">Movimientos</h2>
+        <h2 class="font-extrabold text-[#172033] text-xl tracking-tight">Gastos</h2>
       </div>
 
-      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto justify-end">
+      <div class="cash-sheet-toolbar flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto justify-end">
         <!-- El botón queda antes del buscador para que el panel no se ancle al borde derecho de la tabla. -->
         <button
           #cashFiltersButtonRef
@@ -438,7 +445,7 @@
       [style.left.px]="cashFiltersPopoverPosition.left"
       [style.max-height.px]="cashFiltersPopoverPosition.maxHeight"
       [class.invisible]="!cashFiltersPopoverReady"
-      class="fixed z-[100] flex w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-3 text-sm shadow-2xl sm:w-[900px] sm:p-5"
+      class="cash-filters-popover fixed z-[100] flex w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-3 text-sm shadow-2xl sm:w-[900px] sm:p-5"
     >
       <div class="flex flex-none items-start justify-between gap-3 border-b border-gray-100 pb-2">
         <div class="min-w-0">
@@ -608,16 +615,16 @@
       <button type="button" (click)="clearAllCashFilters()" class="ml-2 text-xs font-semibold text-red-600 hover:underline">Limpiar todo</button>
     </div>
 
-    <div *ngIf="isHistoricalView" class="mx-4 mt-3 overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-[0_14px_34px_-24px_rgba(15,23,42,0.45)] md:mx-6">
+    <div *ngIf="isHistoricalView" class="mx-4 mt-3 overflow-hidden rounded-2xl border border-gray-200/90 bg-white md:mx-6">
       <div class="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:px-5">
         <div class="flex min-w-0 flex-1 items-center gap-3">
-          <div class="flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-600 shadow-sm">
+          <div class="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-[#C2410C] text-white">
             <app-icon name="lock" class="h-4 w-4"></app-icon>
           </div>
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
-              <p class="text-sm font-bold text-gray-900">Vista histórica</p>
-              <span class="rounded-full border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">Solo lectura</span>
+              <p class="text-sm font-extrabold text-[#172033]">Vista histórica</p>
+              <span class="rounded-full bg-[#C2410C] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">Solo lectura</span>
             </div>
             <p class="mt-0.5 text-xs leading-relaxed text-gray-500">
               Período <span class="font-semibold text-gray-700">{{ searchDateFrom | date:'dd/MM/yyyy' }} — {{ searchDateTo | date:'dd/MM/yyyy' }}</span>. Los movimientos no se pueden modificar.
@@ -626,19 +633,19 @@
         </div>
         <button type="button" (click)="clearDateFilter()" class="inline-flex flex-none items-center justify-center rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900">Salir del período</button>
       </div>
-      <div class="h-0.5 bg-gradient-to-r from-amber-400/70 via-amber-200/70 to-transparent"></div>
     </div>
 
-    <div class="relative w-full pb-2 overflow-x-auto custom-scrollbar mt-2">
-      
-      <table class="w-full min-w-[980px] text-sm text-left border-collapse">
+    <!-- Por debajo de 768 px la planilla deja de ser una tabla: cada fila es una tarjeta (reglas `.cash-sheet` al final del CSS). -->
+    <div cdkScrollable tabindex="0" role="region" aria-label="Planilla de gastos de Caja" class="cash-sheet-viewport relative w-full pb-2 overflow-x-auto custom-scrollbar mt-2">
+
+      <table class="cash-sheet w-full min-w-[980px] text-sm text-left border-collapse">
         
         <thead class="text-[10px] text-gray-400 uppercase tracking-widest bg-[#f8f9fa] sticky top-0 z-30 shadow-sm ring-1 ring-gray-200/60">
           <tr>
-            <th class="w-5 px-0.5 border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30"></th> 
-            <th class="px-0.5 py-3 w-6 text-center font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">N°</th> 
-            <th class="px-0.5 py-3 w-10 text-center font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">Fecha</th>
-            <th class="px-2 py-3 w-full min-w-[280px] font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
+            <th scope="col" class="w-5 px-0.5 border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30"></th>
+            <th scope="col" class="px-0.5 py-3 w-6 text-center font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">N°</th>
+            <th scope="col" class="px-0.5 py-3 w-10 text-center font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">Fecha</th>
+            <th scope="col" class="cash-head-concept px-2 py-3 w-full min-w-[280px] font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-between gap-2">
                 <span>Concepto / Detalle</span>
                 <button *ngIf="!isHistoricalView" (click)="toggleSelectAllItems(); $event.stopPropagation()"
@@ -657,7 +664,7 @@
               </div>
             </th>
             
-            <th class="px-0.5 py-3 cash-amount-cell text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
+            <th scope="col" class="cash-head-amount px-0.5 py-3 cash-amount-cell text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-end gap-1.5 text-blue-600">
                 <span>Depo</span>
                 <button *ngIf="!isHistoricalView" (click)="toggleSelectAllColumn('depo'); $event.stopPropagation()" title="Seleccionar visibles con Depo" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
@@ -668,7 +675,7 @@
               </div>
             </th>
 
-            <th class="px-0.5 py-3 cash-amount-cell text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
+            <th scope="col" class="cash-head-amount px-0.5 py-3 cash-amount-cell text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-end gap-1.5 text-orange-600">
                 <span>Casa</span>
                 <button *ngIf="!isHistoricalView" (click)="toggleSelectAllColumn('casa'); $event.stopPropagation()" title="Seleccionar visibles con Casa" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
@@ -679,7 +686,7 @@
               </div>
             </th>
 
-            <th class="px-0.5 py-3 cash-amount-cell text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
+            <th scope="col" class="cash-head-amount px-0.5 py-3 cash-amount-cell text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-end gap-1.5 text-slate-500">
                 <span>Retiros</span>
                 <button *ngIf="!isHistoricalView" (click)="toggleSelectAllColumn('retiros'); $event.stopPropagation()" title="Seleccionar visibles con Retiros" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
@@ -690,7 +697,7 @@
               </div>
             </th>
 
-            <th class="px-0.5 py-3 cash-amount-cell text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
+            <th scope="col" class="cash-head-amount px-0.5 py-3 cash-amount-cell text-right font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30">
               <div class="flex items-center justify-end gap-1.5 text-green-600">
                 <span>Iaia</span>
                 <button *ngIf="!isHistoricalView" (click)="toggleSelectAllColumn('iaia'); $event.stopPropagation()" title="Seleccionar visibles con Iaia" class="w-5 h-5 flex items-center justify-center rounded-[4px] transition-colors group/chk hover:bg-gray-200/50">
@@ -701,9 +708,9 @@
               </div>
             </th>
 
-            <th class="px-0.5 py-3 w-10 text-center font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30 text-emerald-600">Pagado</th>
-            <th class="px-0.5 py-3 w-10 text-center font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30 text-indigo-500">Replicar</th>
-            <th class="px-0 py-3 w-7 border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30"></th>
+            <th scope="col" class="px-0.5 py-3 w-10 text-center font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30 text-emerald-600">Pagado</th>
+            <th scope="col" class="px-0.5 py-3 w-10 text-center font-semibold border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30 text-indigo-500">Replicar</th>
+            <th scope="col" class="px-0 py-3 w-7 border-b border-gray-200/60 bg-[#f8f9fa] sticky top-0 z-30"></th>
           </tr>
         </thead>
         
@@ -738,7 +745,7 @@
               </table>
             </div>
 
-            <td class="px-0 py-1.5 w-5 align-middle text-center border-l-[3px] transition-colors"
+            <td class="cash-cell-grip px-0 py-1.5 w-5 align-middle text-center border-l-[3px] transition-colors"
                 [ngClass]="selectedItemIds.includes(item.id!) ? 'border-blue-500' : 'border-transparent'">
               <div class="relative inline-flex items-center justify-center">
                 <div cdkDragHandle 
@@ -750,7 +757,7 @@
               </div>
             </td>
 
-            <td class="px-0 py-1.5 w-6 align-middle text-center relative">
+            <td class="cash-cell-num px-0 py-1.5 w-6 align-middle text-center relative">
               <span class="font-mono text-[10px] text-gray-400 select-none">{{ item.rowNum }}</span>
               <button *ngIf="!isHistoricalView" (click)="insertRowBelow(item); $event.stopPropagation()"
                       class="insert-row-btn absolute -bottom-[9px] left-1/2 -translate-x-1/2 z-40 w-[16px] h-[16px] rounded-full bg-blue-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-150 hover:scale-110 hover:bg-blue-600 shadow-md border-2 border-white"
@@ -759,7 +766,7 @@
               </button>
             </td>
 
-            <td class="px-0 py-1.5 text-center align-middle w-10">
+            <td class="cash-cell-date px-0 py-1.5 text-center align-middle w-10">
               <div class="cash-item-date-picker relative flex items-center justify-center w-6 h-6 mx-auto rounded-md transition-colors group/cal">
                 <span *ngIf="item.date" class="text-xs font-semibold text-gray-700 group-hover/cal:text-blue-600 transition-colors pointer-events-none">
                   {{ item.date | slice:-2 }}
@@ -820,7 +827,7 @@
               </div>
             </td>
 
-            <td class="px-1.5 py-2.5 relative w-full min-w-[200px] align-middle group/desc">
+            <td class="cash-cell-concept px-1.5 py-2.5 relative w-full min-w-[200px] align-middle group/desc">
               <div class="flex items-center relative w-full h-full min-h-[36px]">      
                 
                 <div class="relative w-1.5 h-4 flex-shrink-0 mr-1.5 rounded-full group/clr">
@@ -835,6 +842,7 @@
                   <div class="w-full h-full rounded-full" [style.backgroundColor]="item.color || '#1f2937'"></div>
                 </div>
 
+                <span class="cash-inline-editor cash-inline-editor--concept" [attr.data-value]="item.description || ' '">
                 <input type="text" 
                        (focus)="captureItem(item)"
                        [(ngModel)]="item.description" 
@@ -842,26 +850,27 @@
                        (blur)="checkItemChange(item); onItemChange(item)" 
                        (keydown.enter)="blurInput($event)" 
                        [style.color]="item.color || '#1f2937'"
-                       class="w-full bg-transparent border-none text-sm font-medium p-1 pr-16 disabled:font-bold disabled:text-gray-500 text-ellipsis overflow-hidden focus:ring-0">
+                       aria-label="Concepto del movimiento" class="cash-description-input w-full bg-transparent border-none text-sm font-medium p-1 pr-16 disabled:font-bold disabled:text-gray-500 text-ellipsis overflow-hidden focus:ring-0">
+                </span>
                 
-                <div class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center p-0.5 bg-white/80 backdrop-blur-md shadow-sm border border-gray-200/80 rounded-lg transition-all duration-200 z-10"
+                <div cdkOverlayOrigin #itemNoteOrigin="cdkOverlayOrigin" class="cash-concept-actions absolute right-1 top-1/2 -translate-y-1/2 flex items-center p-0.5 rounded-lg transition-all duration-200 z-10"
                      [ngClass]="selectedItemIds.includes(item.id!) || activeCommentItem === item ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2 pointer-events-none group-hover/desc:opacity-100 group-hover/desc:translate-x-0 group-hover/desc:pointer-events-auto'">
                      
                   <button *ngIf="item.description !== 'IVA (21% Transferencias)'" 
                           (click)="toggleComment(item); $event.stopPropagation()" 
                           (mouseenter)="onCommentMouseEnter(item)"
                           (mouseleave)="onCommentMouseLeave(item)"
-                          title="Comentario"
+                          title="Comentario" aria-label="Nota del movimiento" [attr.aria-expanded]="activeCommentItem === item"
                           class="note-toggle-btn w-7 h-7 flex items-center justify-center rounded-md transition-colors"
-                          [ngClass]="item.comment && item.comment.trim() !== '' ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-50'">
+                          [ngClass]="item.comment && item.comment.trim() !== '' ? 'text-orange-700 hover:bg-orange-50' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-50'">
                     <app-icon name="message-square" class="w-4 h-4 block"></app-icon>
                   </button>
 
                   <div *ngIf="item.description !== 'IVA (21% Transferencias)'" class="w-px h-4 bg-gray-200 mx-0.5"></div>
 
                   <button *ngIf="!isHistoricalView" (click)="toggleItemSelection(item); $event.stopPropagation()"
-                          title="Seleccionar concepto"
-                          class="w-7 h-7 flex items-center justify-center rounded-md transition-colors group/chk hover:bg-gray-50">
+                          title="Seleccionar concepto" aria-label="Seleccionar concepto" [attr.aria-pressed]="selectedItemIds.includes(item.id!)"
+                          class="cash-row-select w-7 h-7 flex items-center justify-center rounded-md transition-colors group/chk hover:bg-gray-50">
                      <div class="w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all duration-200"
                           [ngClass]="selectedItemIds.includes(item.id!) ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'border-gray-300 bg-white group-hover/chk:border-blue-400'">
                           <app-icon name="check" class="w-3 h-3 stroke-[3] transition-transform duration-200" [ngClass]="selectedItemIds.includes(item.id!) ? 'scale-100 opacity-100' : 'scale-0 opacity-0'"></app-icon>
@@ -869,19 +878,20 @@
                   </button>
                 </div>
 
-                <div *ngIf="item.comment && item.comment.trim() !== '' && activeCommentItem !== item" 
-                     class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-sm pointer-events-none">
+                <div *ngIf="item.comment && item.comment.trim() !== '' && activeCommentItem !== item"
+                     class="cash-comment-dot absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-sm pointer-events-none">
                 </div>
               </div>
               
-              <div *ngIf="activeCommentItem === item" 
+              <ng-template #itemNoteContent>
+              <div role="dialog" aria-label="Nota del movimiento"
                    (mouseenter)="onCommentMouseEnter(item)"
                    (mouseleave)="onCommentMouseLeave(item)"
                    (click)="pinComment(item); $event.stopPropagation()"
-                   class="note-popup-container absolute top-8 right-0 z-50 w-80 bg-white border border-gray-200 shadow-2xl p-0 origin-top-right animate-fade-in-down rounded-xl overflow-hidden">
+                   class="cash-note-popover cash-item-note note-popup-container absolute top-8 right-0 z-50 w-80 bg-white border border-gray-200 shadow-2xl p-0 origin-top-right animate-fade-in-down rounded-xl overflow-hidden">
                 <div class="flex justify-between items-center border-b border-gray-100 px-3 py-2 bg-gray-50/50">
                   <span class="text-[10px] uppercase font-bold text-gray-500 tracking-wider flex items-center gap-1.5"><app-icon name="align-left" class="w-3 h-3"></app-icon> Notas</span>
-                  <button (click)="closeComment(item)" class="text-gray-400 hover:text-gray-700 hover:bg-gray-200 p-1 rounded-md transition-colors"><app-icon name="x" class="w-3.5 h-3.5"></app-icon></button>
+                  <button (click)="closeComment(item)" type="button" aria-label="Cerrar nota del movimiento" class="text-gray-400 hover:text-gray-700 hover:bg-gray-200 p-1 rounded-md transition-colors"><app-icon name="x" class="w-3.5 h-3.5"></app-icon></button>
                 </div>
                 <div class="p-3">
                   <textarea [id]="'excel-comment-' + item.id" (focus)="captureItem(item); pinComment(item)" [(ngModel)]="item.comment" [disabled]="isHistoricalView" (input)="autoResizeTextarea($event); onItemCommentInput(item)" (keydown.enter)="onCommentEnter($event, item)" class="w-full bg-transparent border-none focus:ring-0 text-sm text-gray-700 p-0 resize-none overflow-hidden min-h-[60px]" placeholder="Escribe una observación detallada..."></textarea>
@@ -891,79 +901,93 @@
                   <button *ngIf="item.comment && item.comment.trim() !== ''" (click)="deleteComment(item)" class="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-md font-medium transition-colors focus:outline-none">Borrar nota</button>
                 </div>
               </div>
+              </ng-template>
+              <ng-template #itemNoteOverlay="cdkConnectedOverlay" cdkConnectedOverlay
+                [cdkConnectedOverlayOrigin]="itemNoteOrigin"
+                [cdkConnectedOverlayOpen]="cashNotesDesktop && activeCommentItem === item"
+                [cdkConnectedOverlayPositions]="accountNotePositions"
+                [cdkConnectedOverlayViewportMargin]="12"
+                [cdkConnectedOverlayPush]="true"
+                (attach)="attachCashNote(itemNoteOverlay, itemNoteOrigin)"
+                (detach)="detachCashNote(itemNoteOverlay)">
+                <ng-container *ngTemplateOutlet="itemNoteContent"></ng-container>
+              </ng-template>
+              <ng-container *ngIf="!cashNotesDesktop && activeCommentItem === item">
+                <ng-container *ngTemplateOutlet="itemNoteContent"></ng-container>
+              </ng-container>
             </td>
 
-            <td class="px-0 py-1.5 bg-[#f8fafc]/30 cash-amount-cell">
+            <td data-label="Depo" class="cash-cell-amount px-0 py-1.5 bg-[#f8fafc]/30 cash-amount-cell">
               <div class="w-full flex flex-col items-end relative">
                 <div class="cash-amount-editor relative group/amt">
-                  <span aria-hidden="true" class="cash-amount-measure text-sm font-semibold">{{ item.depo !== null && item.depo !== undefined ? (item.depo | number:'1.2-2') : '' }}</span>
-                  <button *ngIf="item.depo && !isHistoricalView" (click)="clearItemField(item, 'depo'); $event.stopPropagation()" tabindex="-1"
-                          class="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-white/90 rounded-md border border-gray-100 shadow-sm">
-                    <app-icon name="Trash2" class="h-3 w-3"></app-icon>
+                  <span aria-hidden="true" class="cash-amount-measure text-sm font-extrabold tabular-nums">{{ item.depo !== null && item.depo !== undefined ? (item.depo | number:'1.2-2') : '' }}</span>
+                  <button *ngIf="item.depo && !isHistoricalView" (click)="clearItemField(item, 'depo'); $event.stopPropagation()" type="button" aria-label="Borrar importe de Depo" title="Borrar importe"
+                          class="cash-clear-amount absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-white/90 rounded-md border border-gray-100 shadow-sm">
+                    <app-icon name="x" class="h-3 w-3"></app-icon>
                   </button> 
                   <input type="text" appCurrencyFormat 
                         (focus)="captureItem(item)" [(ngModel)]="item.depo" [disabled]="isHistoricalView"
                         (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)" 
-                        class="cash-amount-input w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-blue-600 font-semibold focus:bg-white focus:ring-1 focus:ring-blue-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
+                        class="cash-amount-input w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-[#2563EB] font-extrabold tabular-nums focus:bg-white focus:ring-1 focus:ring-blue-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
                 </div>
                 <div *ngIf="item.depo" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (item.depo / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </div>
             </td>
 
-            <td class="px-0 py-1.5 bg-[#fff7ed]/30 cash-amount-cell">
+            <td data-label="Casa" class="cash-cell-amount px-0 py-1.5 bg-[#fff7ed]/30 cash-amount-cell">
               <div class="w-full flex flex-col items-end relative">
                 <div class="cash-amount-editor relative group/amt">
-                  <span aria-hidden="true" class="cash-amount-measure text-sm font-semibold">{{ item.casa !== null && item.casa !== undefined ? (item.casa | number:'1.2-2') : '' }}</span>
-                  <button *ngIf="item.casa && !isHistoricalView" (click)="clearItemField(item, 'casa'); $event.stopPropagation()" tabindex="-1"
-                          class="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-white/90 rounded-md border border-gray-100 shadow-sm">
-                    <app-icon name="Trash2" class="h-3 w-3"></app-icon>
+                  <span aria-hidden="true" class="cash-amount-measure text-sm font-extrabold tabular-nums">{{ item.casa !== null && item.casa !== undefined ? (item.casa | number:'1.2-2') : '' }}</span>
+                  <button *ngIf="item.casa && !isHistoricalView" (click)="clearItemField(item, 'casa'); $event.stopPropagation()" type="button" aria-label="Borrar importe de Casa" title="Borrar importe"
+                          class="cash-clear-amount absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-white/90 rounded-md border border-gray-100 shadow-sm">
+                    <app-icon name="x" class="h-3 w-3"></app-icon>
                   </button>
                   <input type="text" appCurrencyFormat 
                         (focus)="captureItem(item)" [(ngModel)]="item.casa" [disabled]="isHistoricalView"
                         (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
-                        class="cash-amount-input w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-orange-600 font-semibold focus:bg-white focus:ring-1 focus:ring-orange-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
+                        class="cash-amount-input w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-[#C2410C] font-extrabold tabular-nums focus:bg-white focus:ring-1 focus:ring-orange-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
                 </div>
                 <div *ngIf="item.casa" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (item.casa / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </div>
             </td>
 
-            <td class="px-0 py-1.5 cash-amount-cell">
+            <td data-label="Retiros" class="cash-cell-amount px-0 py-1.5 cash-amount-cell">
               <div class="w-full flex flex-col items-end relative">
                 <div class="cash-amount-editor relative group/amt">
-                  <span aria-hidden="true" class="cash-amount-measure text-sm font-medium">{{ item.retiros !== null && item.retiros !== undefined ? (item.retiros | number:'1.2-2') : '' }}</span>
-                  <button *ngIf="item.retiros && !isHistoricalView" (click)="clearItemField(item, 'retiros'); $event.stopPropagation()" tabindex="-1"
-                          class="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-gray-50/80 rounded-md border border-gray-100 shadow-sm">
-                    <app-icon name="Trash2" class="h-3 w-3"></app-icon>
+                  <span aria-hidden="true" class="cash-amount-measure text-sm font-bold tabular-nums">{{ item.retiros !== null && item.retiros !== undefined ? (item.retiros | number:'1.2-2') : '' }}</span>
+                  <button *ngIf="item.retiros && !isHistoricalView" (click)="clearItemField(item, 'retiros'); $event.stopPropagation()" type="button" aria-label="Borrar importe de Retiros" title="Borrar importe"
+                          class="cash-clear-amount absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-gray-50/80 rounded-md border border-gray-100 shadow-sm">
+                    <app-icon name="x" class="h-3 w-3"></app-icon>
                   </button>
                   <input type="text" appCurrencyFormat 
                         (focus)="captureItem(item)" [(ngModel)]="item.retiros" [disabled]="isHistoricalView"
                         (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
-                        class="cash-amount-input w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-slate-600 font-medium focus:bg-white focus:ring-1 focus:ring-slate-300 hover:bg-gray-50 hover:border-gray-200 rounded-lg transition-all">
+                        class="cash-amount-input w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-slate-600 font-bold tabular-nums focus:bg-white focus:ring-1 focus:ring-slate-300 hover:bg-gray-50 hover:border-gray-200 rounded-lg transition-all">
                 </div>
                 <div *ngIf="item.retiros" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (item.retiros / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </div>
             </td>
 
-            <td class="px-0 py-1.5 bg-[#f0fdf4]/30 cash-amount-cell">
+            <td data-label="Iaia" class="cash-cell-amount px-0 py-1.5 bg-[#f0fdf4]/30 cash-amount-cell">
               <div class="w-full flex flex-col items-end relative">
                 <div class="cash-amount-editor relative group/amt">
-                  <span aria-hidden="true" class="cash-amount-measure text-sm font-semibold">{{ item.iaia !== null && item.iaia !== undefined ? (item.iaia | number:'1.2-2') : '' }}</span>
-                  <button *ngIf="item.iaia && !isHistoricalView" (click)="clearItemField(item, 'iaia'); $event.stopPropagation()" tabindex="-1"
-                          class="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-white/90 rounded-md border border-gray-100 shadow-sm">
-                    <app-icon name="Trash2" class="h-3 w-3"></app-icon>
+                  <span aria-hidden="true" class="cash-amount-measure text-sm font-extrabold tabular-nums">{{ item.iaia !== null && item.iaia !== undefined ? (item.iaia | number:'1.2-2') : '' }}</span>
+                  <button *ngIf="item.iaia && !isHistoricalView" (click)="clearItemField(item, 'iaia'); $event.stopPropagation()" type="button" aria-label="Borrar importe de Iaia" title="Borrar importe"
+                          class="cash-clear-amount absolute left-0.5 top-1/2 -translate-y-1/2 opacity-75 group-hover/amt:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-opacity z-20 bg-white/90 rounded-md border border-gray-100 shadow-sm">
+                    <app-icon name="x" class="h-3 w-3"></app-icon>
                   </button>
                   <input type="text" appCurrencyFormat 
                         (focus)="captureItem(item)" [(ngModel)]="item.iaia" [disabled]="isHistoricalView"
                         (blur)="checkItemChange(item)" (change)="onItemChange(item)" (keydown.enter)="blurInput($event)"
-                        class="cash-amount-input w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-green-600 font-semibold focus:bg-white focus:ring-1 focus:ring-green-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
+                        class="cash-amount-input w-full pl-6 pr-2 py-1.5 bg-transparent border border-transparent text-right text-sm text-[#15803D] font-extrabold tabular-nums focus:bg-white focus:ring-1 focus:ring-green-300 hover:bg-white hover:border-gray-200 rounded-lg transition-all">
                 </div>
                 <div *ngIf="item.iaia" class="text-[9px] text-gray-400 font-medium text-right pr-2 mt-0.5 whitespace-nowrap">≈ U$D {{ (item.iaia / (usdExchangeRate || 1)) | number:'1.2-2' }}</div>
               </div>
             </td>
 
-            <td class="px-0 py-1.5 text-center align-middle w-10">
+            <td class="cash-cell-paid px-0 py-1.5 text-center align-middle w-10">
               <div class="relative inline-block">
-                <button (click)="item.hasAdvances ? openAdvancesModal(item) : togglePaid(item)" 
+                <button (click)="item.hasAdvances ? openAdvancesModal(item) : togglePaid(item)"
                         class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border focus:outline-none focus:ring-2 focus:ring-emerald-200"
                         [disabled]="isHistoricalView"
                         [ngClass]="item.hasAdvances 
@@ -975,7 +999,7 @@
                   <app-icon *ngIf="(item.hasAdvances && isAdvancesComplete(item)) || (!item.hasAdvances && item.isPaid)" name="check" class="w-3 h-3 stroke-[3]"></app-icon>
                 </button>
                 <button *ngIf="!isHistoricalView" (click)="openAdvancesModal(item); $event.stopPropagation()" 
-                        class="w-7 h-1.5 rounded-full transition-all cursor-pointer absolute -bottom-3.5 left-1/2 -translate-x-1/2"
+                        class="cash-advance-bar w-7 h-1.5 rounded-full transition-all cursor-pointer absolute -bottom-3.5 left-1/2 -translate-x-1/2"
                         [ngClass]="item.hasAdvances 
                           ? (isAdvancesComplete(item) ? 'bg-emerald-500 hover:bg-emerald-600 shadow-sm' : 'bg-blue-400 hover:bg-blue-500 shadow-sm') 
                           : 'bg-gray-200 hover:bg-blue-300'"
@@ -984,13 +1008,13 @@
               </div>
             </td>
 
-            <td class="px-0 py-1.5 text-center align-middle w-10">
-              <button (click)="toggleReplication(item)" 
+            <td class="cash-cell-replicate px-0 py-1.5 text-center align-middle w-10">
+              <button (click)="toggleReplication(item)" aria-label="Replicar movimiento"
                       [disabled]="isHistoricalView"
                       class="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all shadow-sm border focus:outline-none"
                       [ngClass]="{
                           'border-gray-300 bg-white text-transparent hover:border-gray-400': item.replicationState === 0,
-                          'border-indigo-500 bg-indigo-500 text-white': item.replicationState === 1,
+                          'border-blue-500 bg-blue-500 text-white': item.replicationState === 1,
                           'border-emerald-500 bg-emerald-500 text-white': item.replicationState === 2
                       }">
                 <app-icon *ngIf="item.replicationState === 1" name="minus" class="w-3 h-3 stroke-[3] text-white"></app-icon>
@@ -998,8 +1022,8 @@
               </button>
             </td>
 
-            <td *ngIf="!isHistoricalView" class="px-0 py-1.5 text-center align-middle w-7">
-              <button (click)="deleteItem(item)" class="text-gray-300 opacity-75 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 rounded-md p-1 transition-all">
+            <td *ngIf="!isHistoricalView" class="cash-cell-delete px-0 py-1.5 text-center align-middle w-7">
+              <button (click)="deleteItem(item)" aria-label="Eliminar fila" class="text-gray-300 opacity-75 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 rounded-md p-1 transition-all">
                 <app-icon name="Trash2" class="h-4 w-4"></app-icon>
               </button>
             </td>
@@ -1007,10 +1031,10 @@
 
           </tr>
           
-          <tr *ngIf="!isHistoricalView" class="border-t border-gray-100/60 bg-gray-50/30">
+          <tr *ngIf="!isHistoricalView" class="cash-sheet-addrow border-t border-gray-100/60 bg-gray-50/30">
             <td colspan="11" class="p-0">
               <div class="flex flex-col sm:flex-row items-center justify-between px-4 md:px-6 py-3 gap-4">
-                <button (click)="addNewRow()" class="flex items-center gap-2 text-blue-600 hover:text-blue-700 bg-blue-50/50 hover:bg-blue-100/50 px-4 py-1.5 rounded-lg transition-colors font-semibold text-sm w-full sm:w-auto justify-center border border-blue-100/50">
+                <button (click)="addNewRow()" class="flex items-center gap-2 text-white bg-[#111827] hover:bg-[#1f2937] px-4 py-2 rounded-lg transition-colors font-bold text-sm w-full sm:w-auto justify-center">
                   <app-icon name="plus" class="h-3.5 w-3.5 stroke-[2.5]"></app-icon> Agregar fila
                 </button>
                 <div class="relative w-full sm:w-72">
@@ -1029,34 +1053,34 @@
             <td colspan="4" class="px-4 py-3 align-middle bg-[#f8f9fa]">
               <div class="flex items-center justify-between w-full h-full">
                 <div class="hidden md:block">
-                  <app-month-picker variant="compact"
+                  <app-month-picker class="cash-footer-month" variant="compact"
                                     [month]="selectedMonth" [year]="selectedYear" [minYear]="2026"
                                     (monthStep)="changeMonth($event)"
                                     (monthSelect)="goToMonth($event.month, $event.year)"></app-month-picker>
                 </div>
-                <span class="text-[10px] uppercase tracking-widest font-bold text-gray-400">Totales Columna</span>
+                <span class="text-[10px] uppercase tracking-widest font-extrabold text-slate-500">Totales Columna</span>
               </div>
             </td>
             
             <td class="px-1 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa] cash-amount-cell">
-               <div class="text-[10px] uppercase tracking-wider text-blue-600/60 font-bold mb-0.5">Depo</div>
-               <div class="text-sm font-bold text-blue-700">$ {{ tableTotals.depo | number:'1.2-2' }}</div>
+               <div class="text-[10px] uppercase tracking-wider text-slate-500 font-extrabold mb-0.5">Depo</div>
+               <div class="text-sm font-extrabold tabular-nums text-[#2563EB]">$ {{ tableTotals.depo | number:'1.2-2' }}</div>
             </td>
             <td class="px-1 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa] cash-amount-cell">
-               <div class="text-[10px] uppercase tracking-wider text-orange-600/60 font-bold mb-0.5">Casa</div>
-               <div class="text-sm font-bold text-orange-700">$ {{ tableTotals.casa | number:'1.2-2' }}</div>
+               <div class="text-[10px] uppercase tracking-wider text-slate-500 font-extrabold mb-0.5">Casa</div>
+               <div class="text-sm font-extrabold tabular-nums text-[#C2410C]">$ {{ tableTotals.casa | number:'1.2-2' }}</div>
             </td>
             <td class="px-1 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa] cash-amount-cell">
-               <div class="text-[10px] uppercase tracking-wider text-slate-500/60 font-bold mb-0.5">Retiros</div>
-               <div class="text-sm font-bold text-slate-700">$ {{ tableTotals.retiros | number:'1.2-2' }}</div>
+               <div class="text-[10px] uppercase tracking-wider text-slate-500 font-extrabold mb-0.5">Retiros</div>
+               <div class="text-sm font-extrabold tabular-nums text-[#172033]">$ {{ tableTotals.retiros | number:'1.2-2' }}</div>
             </td>
             <td class="px-1 py-3 text-right whitespace-nowrap align-middle bg-[#f8f9fa] cash-amount-cell">
-               <div class="text-[10px] uppercase tracking-wider text-green-600/60 font-bold mb-0.5">Iaia</div>
-               <div class="text-sm font-bold text-green-700">$ {{ tableTotals.iaia | number:'1.2-2' }}</div>
+               <div class="text-[10px] uppercase tracking-wider text-slate-500 font-extrabold mb-0.5">Iaia</div>
+               <div class="text-sm font-extrabold tabular-nums text-[#15803D]">$ {{ tableTotals.iaia | number:'1.2-2' }}</div>
             </td>
             <td class="px-1 py-3 text-center whitespace-nowrap align-middle bg-[#f8f9fa]">
-               <div class="text-[10px] uppercase tracking-wider text-emerald-600/60 font-bold mb-0.5">Pagado</div>
-               <div class="text-sm font-bold text-emerald-700">$ {{ tableTotals.pagado | number:'1.2-2' }}</div>
+               <div class="text-[10px] uppercase tracking-wider text-slate-500 font-extrabold mb-0.5">Pagado</div>
+               <div class="text-sm font-extrabold tabular-nums text-[#15803D]">$ {{ tableTotals.pagado | number:'1.2-2' }}</div>
             </td>
             <td colspan="2" class="bg-[#f8f9fa]"></td>
           </tr>
@@ -1077,7 +1101,7 @@
         <div class="relative w-1.5 h-5 flex-shrink-0 mr-2 rounded-full" [style.backgroundColor]="pItem.color || '#1f2937'"></div>
         <span class="text-sm font-medium p-1 pr-16 text-ellipsis overflow-hidden whitespace-nowrap" [style.color]="pItem.color || '#1f2937'">{{ pItem.description || 'Sin concepto' }}</span>
         <div class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center p-0.5 bg-white/80 rounded-lg border border-gray-100">
-          <div class="w-6 h-6 flex items-center justify-center rounded-[5px]" [ngClass]="pItem.comment ? 'text-blue-600 bg-blue-50' : 'text-gray-400'"><app-icon name="message-square" class="w-3.5 h-3.5 block"></app-icon></div>
+          <div class="cash-note-indicator w-6 h-6 flex items-center justify-center rounded-[5px]" [ngClass]="pItem.comment && pItem.comment.trim() ? 'text-orange-700' : 'text-gray-400'"><app-icon name="message-square" class="w-3.5 h-3.5 block"></app-icon></div>
           <div class="w-px h-3 bg-gray-200 mx-0.5"></div>
           <div class="w-6 h-6 flex items-center justify-center rounded-[5px]">
             <div class="w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center" [ngClass]="selectedItemIds.includes(pItem.id!) ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'border-gray-300 bg-white'">
@@ -1103,7 +1127,7 @@
       <div class="w-4 h-4 rounded flex items-center justify-center mx-auto border" [ngClass]="pItem.isPaid ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-gray-300 bg-white text-transparent'"><app-icon *ngIf="pItem.isPaid" name="check" class="w-3 h-3 stroke-[3]"></app-icon></div>
     </td>
     <td class="p-0.5 text-center align-middle w-12">
-      <div class="w-4 h-4 rounded flex items-center justify-center mx-auto border" [ngClass]="{'border-gray-300 bg-white text-transparent': pItem.replicationState === 0, 'border-indigo-500 bg-indigo-500 text-white': pItem.replicationState === 1, 'border-emerald-500 bg-emerald-500 text-white': pItem.replicationState === 2}">
+      <div class="w-4 h-4 rounded flex items-center justify-center mx-auto border" [ngClass]="{'border-gray-300 bg-white text-transparent': pItem.replicationState === 0, 'border-blue-500 bg-blue-500 text-white': pItem.replicationState === 1, 'border-emerald-500 bg-emerald-500 text-white': pItem.replicationState === 2}">
         <app-icon *ngIf="pItem.replicationState === 1" name="minus" class="w-3 h-3 stroke-[3] text-white"></app-icon>
         <app-icon *ngIf="pItem.replicationState === 2" name="check" class="w-3 h-3 stroke-[3] text-white"></app-icon>
       </div>
@@ -1121,7 +1145,7 @@
           <div class="text-[10px] font-semibold tracking-wider uppercase mt-0.5" [ngClass]="pAcc.currency === 'USD' ? 'text-green-600' : 'text-gray-400'">{{ pAcc.type }} • {{ pAcc.currency || 'ARS' }}</div>
         </div>
         <div class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center p-1 bg-white/80 rounded-lg border border-gray-100">
-          <div class="w-6 h-6 flex items-center justify-center rounded-md"><app-icon name="message-square" class="w-3.5 h-3.5 text-gray-300"></app-icon></div>
+          <div class="cash-note-indicator w-6 h-6 flex items-center justify-center rounded-md" [ngClass]="hasAccountComment(pAcc) ? 'text-orange-700' : 'text-gray-400'"><app-icon name="message-square" class="w-3.5 h-3.5"></app-icon></div>
           <div class="w-px h-3.5 bg-gray-200 mx-0.5"></div>
           <div class="w-6 h-6 flex items-center justify-center rounded-md">
             <div class="w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center" [ngClass]="selectedAccountIds.includes(pAcc.id!) ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'border-gray-300 bg-white'">
@@ -1144,27 +1168,25 @@
 
   <div #bottomAnchor class="w-full h-1 opacity-0 pointer-events-none mt-4"></div>
 
-  <button (click)="toggleScroll(); $event.stopPropagation()" class="fixed bottom-8 right-8 z-50 w-12 h-12 flex items-center justify-center rounded-full bg-blue-600 text-white shadow-[0_4px_20px_rgba(37,99,235,0.4)] border border-blue-500 hover:bg-blue-700 hover:scale-105 transition-all duration-300 focus:outline-none" [title]="isScrolledDown ? 'Volver al inicio' : 'Ir a los totales'">
+  <button (click)="toggleScroll(); $event.stopPropagation()" class="table-scroll-fab fixed bottom-8 right-8 z-50 w-14 h-14 flex items-center justify-center rounded-2xl bg-[#111827] text-white shadow-[0_14px_30px_-14px_rgba(15,23,42,0.7)] hover:bg-[#1F2937] transition-colors duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300" [title]="isScrolledDown ? 'Volver al inicio' : 'Ir a los totales'">
     <app-icon [name]="isScrolledDown ? 'arrow-up' : 'arrow-down'" class="h-5 w-5 stroke-[2.5]"></app-icon>
   </button>
 
   <!-- MODAL IVA COMPRAS (Notion / Figma Style) -->
-  <div *ngIf="showIvaComprasModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
-    <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-[0_24px_60px_-15px_rgba(0,0,0,0.2)] border border-gray-200/90 flex flex-col max-h-[85vh] overflow-hidden animate-fade-in-down" (click)="$event.stopPropagation()">
+  <div *ngIf="showIvaComprasModal" class="cash-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+    <div class="absolute inset-0 bg-slate-900/55"></div>
+    <div class="cash-modal relative w-full max-w-2xl bg-white rounded-2xl shadow-[0_24px_60px_-15px_rgba(0,0,0,0.2)] border border-gray-200/90 flex flex-col max-h-[85vh] overflow-hidden animate-fade-in-down" (click)="$event.stopPropagation()">
 
       <!-- Header -->
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shadow-sm">
-            <app-icon name="file-text" class="w-4 h-4"></app-icon>
+          <div class="w-11 h-11 rounded-[0.85rem] bg-[#2563EB] flex items-center justify-center text-white flex-none">
+            <app-icon name="file-text" class="w-5 h-5"></app-icon>
           </div>
           <div>
-            <div class="flex items-center gap-2">
-              <h4 class="text-sm font-bold text-gray-900 tracking-tight">IVA Compras</h4>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100/70 text-purple-700 border border-purple-200/50">{{ monthName }}</span>
-            </div>
-            <p class="text-[11px] text-gray-400 mt-0.5">Control de facturas y deducciones fiscales del período</p>
+            <p class="text-[11px] font-extrabold uppercase tracking-[0.06em] text-slate-500">{{ monthName }}</p>
+            <h4 class="text-[1.375rem] font-extrabold leading-tight tracking-[-0.035em] text-[#172033]">IVA Compras</h4>
+            <p class="hidden sm:block text-xs text-slate-500 mt-0.5">Facturas y deducciones fiscales del período</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -1180,15 +1202,15 @@
         <div class="flex flex-col sm:flex-row gap-2.5 items-end">
           <div class="w-full sm:w-36">
             <label class="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Fecha</label>
-            <input type="date" [(ngModel)]="newIvaCompra.date" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-medium focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 transition-all outline-none shadow-2xs">
+            <input type="date" [(ngModel)]="newIvaCompra.date" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-medium focus:border-[#2563EB] focus:ring-2 focus:ring-blue-200 transition-all outline-none shadow-2xs">
           </div>
           <div class="w-full sm:w-36">
             <label class="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Monto</label>
-            <input type="text" appCurrencyFormat [(ngModel)]="newIvaCompra.amount" (keydown.enter)="blurInput($event)" placeholder="0.00" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 transition-all outline-none shadow-2xs">
+            <input type="text" appCurrencyFormat [(ngModel)]="newIvaCompra.amount" (keydown.enter)="blurInput($event)" placeholder="0.00" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:border-[#2563EB] focus:ring-2 focus:ring-blue-200 transition-all outline-none shadow-2xs">
           </div>
           <div class="w-full sm:flex-1">
             <label class="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Detalle</label>
-            <input type="text" [(ngModel)]="newIvaCompra.comment" (keydown.enter)="saveIvaCompra()" placeholder="Ej: Factura Proveedor / Internet" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-medium focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 transition-all placeholder:text-gray-300 outline-none shadow-2xs">
+            <input type="text" [(ngModel)]="newIvaCompra.comment" (keydown.enter)="saveIvaCompra()" placeholder="Ej: Factura Proveedor / Internet" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-700 font-medium focus:border-[#2563EB] focus:ring-2 focus:ring-blue-200 transition-all placeholder:text-gray-300 outline-none shadow-2xs">
           </div>
           <button (click)="saveIvaCompra()" class="w-full sm:w-auto px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shadow-sm active:scale-[0.98]">
             <app-icon name="plus" class="w-3.5 h-3.5 stroke-[2.5]"></app-icon> Agregar
@@ -1199,12 +1221,12 @@
       <!-- Table View -->
       <div class="flex-1 overflow-y-auto min-h-0 bg-white" style="max-height: 42vh;">
         <table class="w-full">
-          <thead class="sticky top-0 z-10 bg-gray-50/90 backdrop-blur-md border-b border-gray-100">
+          <thead class="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
             <tr>
-              <th class="px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400">Fecha</th>
-              <th class="px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400">Detalle</th>
-              <th class="px-6 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-gray-400">Monto</th>
-              <th class="w-12 py-2.5"></th>
+              <th scope="col" class="px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400">Fecha</th>
+              <th scope="col" class="px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400">Detalle</th>
+              <th scope="col" class="px-6 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-gray-400">Monto</th>
+              <th scope="col" class="w-12 py-2.5"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
@@ -1244,21 +1266,19 @@
   </div>
 
   <!-- MODAL ADELANTOS (Notion / Figma Style) -->
-  <div *ngIf="showAdvancesModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
-    <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-[0_24px_60px_-15px_rgba(0,0,0,0.2)] border border-gray-200/90 flex flex-col max-h-[85vh] overflow-hidden animate-fade-in-down" (click)="$event.stopPropagation()">
+  <div *ngIf="showAdvancesModal" class="cash-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+    <div class="absolute inset-0 bg-slate-900/55"></div>
+    <div class="cash-modal relative w-full max-w-2xl bg-white rounded-2xl shadow-[0_24px_60px_-15px_rgba(0,0,0,0.2)] border border-gray-200/90 flex flex-col max-h-[85vh] overflow-hidden animate-fade-in-down" (click)="$event.stopPropagation()">
 
       <!-- Header -->
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm shrink-0">
-            <app-icon name="clock-clockwise" class="w-4 h-4"></app-icon>
+          <div class="w-11 h-11 rounded-[0.85rem] bg-[#2563EB] flex items-center justify-center text-white shrink-0">
+            <app-icon name="clock-clockwise" class="w-5 h-5"></app-icon>
           </div>
           <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <h4 class="text-sm font-bold text-gray-900 tracking-tight">Adelantos y Pagos Parciales</h4>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100/70 text-blue-700 border border-blue-200/50 shrink-0">{{ monthName }}</span>
-            </div>
+            <p class="text-[11px] font-extrabold uppercase tracking-[0.06em] text-slate-500">{{ monthName }}</p>
+            <h4 class="text-[1.375rem] font-extrabold leading-tight tracking-[-0.035em] text-[#172033]">Adelantos y pagos parciales</h4>
             <div class="flex items-center gap-1.5 mt-0.5">
               <div class="w-2 h-2 rounded-full shrink-0" [style.backgroundColor]="selectedItemForAdvances?.color || '#3b82f6'"></div>
               <p class="text-[11px] text-gray-500 font-medium truncate">{{ selectedItemForAdvances?.description || '—' }}</p>
@@ -1276,25 +1296,25 @@
       <!-- KPI Progress Summary -->
       <div class="px-6 py-4 bg-gray-50/50 border-b border-gray-100 flex flex-col gap-3.5">
         <div class="grid grid-cols-3 gap-2.5">
-          <div class="bg-white rounded-xl px-3.5 py-2.5 border border-gray-200/80 shadow-2xs">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Monto Concepto</p>
-            <p class="text-sm font-bold text-gray-900 tabular-nums">$ {{ getAdvancesItemTotal() | number:'1.2-2' }}</p>
+          <div class="cash-advance-kpi bg-white border border-[#E9EDF2]">
+            <p class="cash-advance-kpi__label text-slate-500">Monto concepto</p>
+            <p class="cash-advance-kpi__value text-[#172033]">$ {{ getAdvancesItemTotal() | number:'1.2-2' }}</p>
           </div>
-          <div class="bg-blue-50/70 rounded-xl px-3.5 py-2.5 border border-blue-200/60 shadow-2xs">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-blue-600 mb-0.5">Total Adelantado</p>
-            <p class="text-sm font-bold text-blue-700 tabular-nums">$ {{ advancesTotalAmount | number:'1.2-2' }}</p>
+          <div class="cash-advance-kpi bg-[#2563EB]">
+            <p class="cash-advance-kpi__label text-blue-100">Total adelantado</p>
+            <p class="cash-advance-kpi__value text-white">$ {{ advancesTotalAmount | number:'1.2-2' }}</p>
           </div>
-          <div class="rounded-xl px-3.5 py-2.5 border shadow-2xs transition-colors"
-               [ngClass]="getAdvancesRemaining() <= 0 ? 'bg-emerald-50/70 border-emerald-200/60' : 'bg-white border-gray-200/80'">
-            <p class="text-[10px] font-bold uppercase tracking-wider mb-0.5" [ngClass]="getAdvancesRemaining() <= 0 ? 'text-emerald-600' : 'text-gray-400'">Saldo Restante</p>
-            <p class="text-sm font-bold tabular-nums" [ngClass]="getAdvancesRemaining() <= 0 ? 'text-emerald-700' : 'text-gray-900'">$ {{ getAdvancesRemaining() | number:'1.2-2' }}</p>
+          <div class="cash-advance-kpi"
+               [ngClass]="getAdvancesRemaining() <= 0 ? 'bg-[#15803D]' : 'bg-[#111827]'">
+            <p class="cash-advance-kpi__label" [ngClass]="getAdvancesRemaining() <= 0 ? 'text-green-100' : 'text-slate-300'">Saldo restante</p>
+            <p class="cash-advance-kpi__value text-white">$ {{ getAdvancesRemaining() | number:'1.2-2' }}</p>
           </div>
         </div>
 
         <div class="flex items-center gap-3">
-          <div class="flex-1 h-2 bg-gray-200/70 rounded-full overflow-hidden p-0.5">
+          <div class="flex-1 h-2 bg-[#F1F3F5] rounded-full overflow-hidden">
             <div class="h-full rounded-full transition-all duration-500 ease-out"
-                 [ngClass]="getAdvancesProgress() >= 100 ? 'bg-emerald-500' : 'bg-blue-500'"
+                 [ngClass]="getAdvancesProgress() >= 100 ? 'bg-[#16A34A]' : 'bg-[#2563EB]'"
                  [style.width.%]="getAdvancesProgress()"></div>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
@@ -1328,12 +1348,12 @@
       <!-- Table View -->
       <div class="flex-1 overflow-y-auto min-h-0 bg-white" style="max-height: 38vh;">
         <table class="w-full">
-          <thead class="sticky top-0 z-10 bg-gray-50/90 backdrop-blur-md border-b border-gray-100">
+          <thead class="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
             <tr>
-              <th class="px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400">Fecha</th>
-              <th class="px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400">Concepto</th>
-              <th class="px-6 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-gray-400">Monto</th>
-              <th class="w-12 py-2.5"></th>
+              <th scope="col" class="px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400">Fecha</th>
+              <th scope="col" class="px-6 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400">Concepto</th>
+              <th scope="col" class="px-6 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-gray-400">Monto</th>
+              <th scope="col" class="w-12 py-2.5"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">

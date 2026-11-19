@@ -1,4 +1,7 @@
 @import './app/shared/styles/payment-flow.css';
+@import './app/shared/styles/guarde-ui.css';
+@import './app/shared/styles/cash-account-dialog.css';
+@import './app/shared/styles/cash-notes.css';
 @import './app/pages/statistics/statistics.component.css';
 @import '@angular/cdk/overlay-prebuilt.css';
 

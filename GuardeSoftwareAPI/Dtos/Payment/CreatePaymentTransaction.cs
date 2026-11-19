@@ -39,5 +39,12 @@ namespace GuardeSoftwareAPI.Dtos.Payment
         public decimal? SurchargeAmount { get; set; }
         public bool SurchargeAmountWasOverridden { get; set; }
         public string? ExpectedPaymentStateToken { get; set; }
+        // Internal sync metadata; direct payment requests cannot supply these properties.
+        [System.Text.Json.Serialization.JsonIgnore]
+        public Guid? OfflineLocalId { get; set; }
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string? OfflineRequestHash { get; set; }
+        [System.Text.Json.Serialization.JsonIgnore]
+        public int? RegisteredPaymentId { get; set; }
     }
 }

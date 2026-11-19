@@ -4,6 +4,8 @@ import {
   OnInit,
   HostListener,
   ChangeDetectorRef,
+  ChangeDetectionStrategy,
+  OnDestroy,
   Input,
   Output,
   EventEmitter,
@@ -40,12 +42,21 @@ import { PaymentMethodService } from '../../../core/services/paymentMethod-servi
 import { LockerTypeService } from '../../../core/services/lockerType-service/locker-type.service';
 import { ClientService, ReactivationBalanceDecision } from '../../../core/services/client-service/client.service';
 import { forkJoin, Observable, of, Subject } from 'rxjs'; 
-import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators'; 
+import { debounceTime, distinctUntilChanged, switchMap, catchError, takeUntil } from 'rxjs/operators';
 import { BillingType } from '../../../core/models/billing-type.model';
 import { BillingTypeService } from '../../../core/services/billingType-service/billing-type.service';
 import { PhoneInputDto } from '../../../core/dtos/phone/PhoneInputDto';
 import { CurrencyFormatDirective } from "../../directives/currency-format.directive";
 import { AuthService } from '../../../core/services/auth-service/auth.service';
+import { naturalIdentifierCollator } from '../../utils/natural-sort';
+
+interface LockerOption extends Locker {
+  warehouse: Warehouse | null;
+  lockerType: LockerType | null;
+  selected: boolean;
+  disabled: boolean;
+  occupantNames: string;
+}
 
 @Component({
   selector: 'app-create-client-modal',
@@ -53,8 +64,16 @@ import { AuthService } from '../../../core/services/auth-service/auth.service';
   imports: [CommonModule, A11yModule, ReactiveFormsModule, IconComponent, MonthPickerComponent, CurrencyFormatDirective, ChangePaymentMethodModalComponent],
   templateUrl: './create-client-modal.component.html',
   styleUrl: './create-client-modal.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CreateClientModalComponent implements OnInit, OnChanges {
+export class CreateClientModalComponent implements OnInit, OnChanges, OnDestroy {
+  private readonly formReset$ = new Subject<void>();
+  private readonly destroyed$ = new Subject<void>();
+  private optionInputs: unknown[] = [];
+  private cachedOptions: LockerOption[] = [];
+  private cachedFilteredLockers: Locker[] = [];
+  private indexInputs: unknown[] = [];
+  private lockerDetails = new Map<number, { locker: Locker; warehouse: Warehouse | null; lockerType: LockerType | null }>();
   public showMethodChange = false;
   public methodChangeMessage = '';
 
@@ -122,6 +141,13 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     this.loadFormData();
   }
 
+  ngOnDestroy(): void {
+    this.formReset$.next();
+    this.formReset$.complete();
+    this.destroyed$.next();
+    this.destroyed$.complete();
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     
     // Si cambia clientData o isReactivation, reinicializamos la lógica
@@ -138,8 +164,9 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
 
         // 2. Si ya tenemos los datos maestros (warehouses, etc), poblamos el form
         if (this.areBasicDataLoaded) {
+            this.updateAvailableLockers();
             this.tryPopulateForm();
-            if (this.isReactivation) this.cdr.markForCheck();
+            this.cdr.markForCheck();
         }
     }
   }
@@ -156,7 +183,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
       lockerTypes: this.lockerTypeService.getLockerTypes()
     };
 
-    forkJoin(commonObservables).subscribe({
+    forkJoin(commonObservables).pipe(takeUntil(this.destroyed$)).subscribe({
       next: (results: any) => {
         this.warehouses = results.warehouses;
         this.paymentMethods = results.paymentMethods;
@@ -164,23 +191,17 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
         this.lockerTypes = results.lockerTypes; 
 
         this.allLockers = results.lockers;
-        this.availableLockers = this.allLockers.filter(
-          (l: Locker) =>
-            l.status.toLowerCase() === 'disponible' ||
-            (l.isFreeSpace && l.status.toUpperCase() !== 'OCUPADO') ||
-            (this.clientData?.lockersList?.some(
-              (assignedLocker) => assignedLocker.id === l.id
-            ) === true)
-        );
+        this.updateAvailableLockers();
 
         this.areBasicDataLoaded = true;
         this.isLoading = false;
         
         this.tryPopulateForm();
-        if (this.isReactivation) this.cdr.markForCheck();
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.isLoading = false;
+        this.cdr.markForCheck();
         console.error('Error cargando datos:', err);
         if (this.isReactivation) {
           this.reactivationError = 'No se pudieron cargar los datos necesarios. Cerrá el formulario e intentá nuevamente.';
@@ -206,6 +227,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   }
 
   private initNewClientForm(): void {
+    this.formReset$.next();
     this.hasAttemptedSubmit = false;
 
     // 1. Inicialización Base: TODOS los controles deben existir desde el principio
@@ -255,7 +277,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
 
     // 2. Suscripciones y lógica de negocio para los FormArrays
     
-    this.newClientForm.get('reactivationIdentifierMode')?.valueChanges.subscribe((mode) => {
+    this.newClientForm.get('reactivationIdentifierMode')?.valueChanges.pipe(takeUntil(this.formReset$), takeUntil(this.destroyed$)).subscribe((mode) => {
       const numCtrl = this.newClientForm.get('numeroIdentificacion');
       if (mode === 'manual') {
         numCtrl?.enable();
@@ -267,15 +289,17 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
       } else if (mode === 'auto') {
         numCtrl?.disable();
         numCtrl?.setValue('Cargando...');
-        this.clientService.getNextPaymentIdentifier().subscribe({
+        this.clientService.getNextPaymentIdentifier().pipe(takeUntil(this.formReset$), takeUntil(this.destroyed$)).subscribe({
           next: (res) => {
             if (this.newClientForm.get('reactivationIdentifierMode')?.value === 'auto') {
                numCtrl?.setValue(res.nextIdentifier);
+               this.cdr.markForCheck();
             }
           },
           error: (err) => {
             console.error(err);
             numCtrl?.setValue('Error');
+            this.cdr.markForCheck();
           }
         });
       }
@@ -295,8 +319,10 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
           return this.clientService.checkPaymentIdentifierExists(Number(value), excludeId);
         }
         return of(null);
-      })
+      }),
+      takeUntil(this.formReset$), takeUntil(this.destroyed$)
     ).subscribe(res => {
+      this.cdr.markForCheck();
       if (res?.exists) {
         this.identifierError = 'Este número ya está en uso por otro cliente.';
         this.newClientForm.get('numeroIdentificacion')?.setErrors({ taken: true });
@@ -314,7 +340,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
 
     // A. Lógica para Lockers Físicos
     const lockersAsignados = this.newClientForm.get('lockersAsignados') as FormArray;
-    lockersAsignados.valueChanges.subscribe((ids: (number | null)[]) => {
+    lockersAsignados.valueChanges.pipe(takeUntil(this.formReset$), takeUntil(this.destroyed$)).subscribe((ids: (number | null)[]) => {
       const validIds = ids.filter((id): id is number => typeof id === 'number' && id > 0);
       
       // Solo recalculamos los M3 basados en lockers físicos si estamos editando
@@ -330,7 +356,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
         this.setAssignmentMode(this.assignmentMode);
     }
     
-    spaceRequests.valueChanges.subscribe((requests: any[]) => {
+    spaceRequests.valueChanges.pipe(takeUntil(this.formReset$), takeUntil(this.destroyed$)).subscribe((requests: any[]) => {
       let totalM3 = 0;
       requests.forEach((req) => {
         const m3 = parseFloat(req.m3) || 0;
@@ -352,7 +378,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
       });
     }
 
-    this.newClientForm.get('isLegacyClient')?.valueChanges.subscribe((isLegacy) => {
+    this.newClientForm.get('isLegacyClient')?.valueChanges.pipe(takeUntil(this.formReset$), takeUntil(this.destroyed$)).subscribe((isLegacy) => {
        if (this.isEditMode) return;
        const fields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate', 'isLegacy6MonthPromo', 'prepaidMonths'];
        const requiredFields = ['legacyStartDate', 'legacyInitialAmount', 'legacyNextIncreaseDate'];
@@ -372,17 +398,17 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
        this.updateProportionalControls();
     });
 
-    this.newClientForm.get('proportionalMode')?.valueChanges.subscribe(() => {
+    this.newClientForm.get('proportionalMode')?.valueChanges.pipe(takeUntil(this.formReset$), takeUntil(this.destroyed$)).subscribe(() => {
       this.updateProportionalControls();
     });
 
-    this.newClientForm.get('proportionalDays')?.valueChanges.subscribe(() => {
+    this.newClientForm.get('proportionalDays')?.valueChanges.pipe(takeUntil(this.formReset$), takeUntil(this.destroyed$)).subscribe(() => {
       if (this.shouldGenerateProportional && this.isManualProportional) {
         this.recalculateManualProportionalAmount();
       }
     });
 
-    this.newClientForm.get('montoManual')?.valueChanges.subscribe(() => {
+    this.newClientForm.get('montoManual')?.valueChanges.pipe(takeUntil(this.formReset$), takeUntil(this.destroyed$)).subscribe(() => {
       if (this.shouldGenerateProportional) {
         this.recalculateManualProportionalAmount();
       }
@@ -627,12 +653,37 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
   }
   
   get filteredLockers(): Locker[] {
-    if (!this.isEditMode && this.assignmentMode !== 'direct') return []; 
-    
+    this.updateLockerOptions();
+    return this.cachedFilteredLockers;
+  }
+
+  get lockerOptions(): LockerOption[] {
+    this.updateLockerOptions();
+    return this.cachedOptions;
+  }
+
+  private updateAvailableLockers(): void {
+    const owned = new Set(this.clientData?.lockersList?.map(locker => locker.id) ?? []);
+    this.availableLockers = this.allLockers.filter(locker =>
+      locker.status.toLowerCase() === 'disponible' ||
+      (locker.isFreeSpace && locker.status.toUpperCase() !== 'OCUPADO') || owned.has(locker.id));
+  }
+
+  private updateLockerOptions(): void {
     const search = this.normalizeLockerIdentifier(this.newClientForm.value.lockerSearch);
     const warehouseId = this.newClientForm.value.selectedWarehouse;
     const typeId = this.newClientForm.value.selectedLockerType;
     const assignedLockerIds = this.newClientForm.get('lockersAsignados')?.value || [];
+    const inputs = [this.allLockers, this.availableLockers, this.warehouses, this.lockerTypes,
+      this.clientData, this.isEditMode, this.assignmentMode, search, warehouseId, typeId, assignedLockerIds];
+    if (inputs.every((value, index) => value === this.optionInputs[index])) return;
+    this.optionInputs = inputs;
+    if (!this.isEditMode && this.assignmentMode !== 'direct') {
+      this.cachedFilteredLockers = [];
+      this.cachedOptions = [];
+      return;
+    }
+    const assigned = new Set<number>(assignedLockerIds);
     const availableLockerIds = new Set(this.availableLockers.map(locker => locker.id));
     const exactOccupiedMatches = this.isEditMode && search !== ''
       ? this.allLockers.filter(locker =>
@@ -653,25 +704,39 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
       return searchMatch && warehouseMatch && typeMatch;
     });
 
-    return filtered.sort((a, b) => {
-      const aAssigned = assignedLockerIds.includes(a.id) ? 1 : 0;
-      const bAssigned = assignedLockerIds.includes(b.id) ? 1 : 0;
+    this.cachedFilteredLockers = filtered.sort((a, b) => {
+      const aAssigned = assigned.has(a.id) ? 1 : 0;
+      const bAssigned = assigned.has(b.id) ? 1 : 0;
       
       if (aAssigned !== bAssigned) {
         return bAssigned - aAssigned;
       }
       
-      return a.identifier.localeCompare(b.identifier, undefined, { numeric: true, sensitivity: 'base' });
+      return naturalIdentifierCollator.compare(a.identifier, b.identifier);
+    });
+    const owned = new Set(this.clientData?.lockersList?.map(locker => locker.id) ?? []);
+    this.cachedOptions = this.cachedFilteredLockers.map(locker => {
+      const details = this.getLockerDetails(locker.id);
+      return { ...locker, warehouse: details.warehouse, lockerType: details.lockerType,
+        selected: assigned.has(locker.id), disabled: !owned.has(locker.id) && locker.status.toUpperCase() === 'OCUPADO',
+        occupantNames: this.getLockerOccupantNames(locker) };
     });
   }
+
+  trackByLockerId(_index: number, locker: Locker): number { return locker.id; }
   
   getLockerDetails(lockerId: number | null) {
-      if (typeof lockerId !== 'number' || lockerId <= 0) return { locker: null, warehouse: null, lockerType: null };
-      const locker = this.allLockers.find((l) => l.id === lockerId);
-      if (!locker) return { locker: null, warehouse: null, lockerType: null };
-      const warehouse = this.warehouses.find((w) => w.id === locker.warehouseId);
-      const lockerType = this.lockerTypes.find((lt) => lt.id === locker.lockerTypeId);
-      return { locker: locker, warehouse: warehouse || null, lockerType: lockerType || null };
+    const inputs = [this.allLockers, this.warehouses, this.lockerTypes];
+    if (inputs.some((value, index) => value !== this.indexInputs[index])) {
+      this.indexInputs = inputs;
+      const warehouses = new Map(this.warehouses.map(item => [item.id, item]));
+      const types = new Map(this.lockerTypes.map(item => [item.id, item]));
+      this.lockerDetails = new Map(this.allLockers.map(locker => [locker.id, {
+        locker, warehouse: warehouses.get(locker.warehouseId) ?? null, lockerType: types.get(locker.lockerTypeId) ?? null,
+      }]));
+    }
+    return (lockerId != null && lockerId > 0 ? this.lockerDetails.get(lockerId) : null)
+      ?? { locker: null, warehouse: null, lockerType: null };
   }
 
   isLockerDisabled(locker: Locker): boolean {
@@ -881,10 +946,11 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
       apiCall = this.clientService.CreateClient(dto);
     }
 
-  apiCall.subscribe({
+  apiCall.pipe(takeUntil(this.destroyed$)).subscribe({
     next: (response) => {
       this.isLoading = false;
       this.isSavingReactivation = false;
+      this.cdr.markForCheck();
       if (this.isReactivation) {
         this.saveSuccess.emit();
         return;
@@ -900,6 +966,7 @@ export class CreateClientModalComponent implements OnInit, OnChanges {
     error: (err) => {
       this.isLoading = false;
       this.isSavingReactivation = false;
+      this.cdr.markForCheck();
       console.error('Error al guardar:', err);
       const actionLabel = isEditing ? 'actualizar' : 'crear';
       const backendUnavailable = err?.status === 0;

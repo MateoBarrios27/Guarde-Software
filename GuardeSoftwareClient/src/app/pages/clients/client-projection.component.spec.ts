@@ -76,7 +76,8 @@ describe('Clients projected next month', () => {
         { provide: PaymentMethodService, useValue: { getPaymentMethods: () => of([]) } },
         { provide: LockerTypeService, useValue: { getLockerTypes: () => of([]) } },
         { provide: OfflineService, useValue: { get isOnline() { return online$.value; }, isOnline$: online$.asObservable() } },
-        { provide: IndexedDbService, useValue: { getCachedClients: () => Promise.resolve([]) } },
+        // The offline flow reloads the snapshot: populate it for this online/offline comparison.
+        { provide: IndexedDbService, useValue: { getCachedClients: () => Promise.resolve(serverRows()) } },
         { provide: DataRefreshService, useValue: { watch: () => refresh$.asObservable() } },
         { provide: AuthService, useValue: { isObserver: () => false } },
       ],

@@ -83,11 +83,11 @@
             </thead>
             <tbody>
               <tr *ngFor="let user of users">
-                <td class="settings-cell-strong">{{user.userName}}</td>
-                <td class="settings-cell-muted font-bold">{{getUserTypeName(user.userTypeId)}}</td>
-                <td>{{user.firstName}}</td>
-                <td>{{user.lastName}}</td>
-                <td>
+                <td class="settings-cell-strong" data-label="Usuario">{{user.userName}}</td>
+                <td class="settings-cell-muted font-bold" data-label="Tipo">{{getUserTypeName(user.userTypeId)}}</td>
+                <td data-label="Nombre">{{user.firstName}}</td>
+                <td data-label="Apellido">{{user.lastName}}</td>
+                <td data-label="Acciones">
                   <div class="settings-row-actions">
                     <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar" (click)="openEditModalModal(user)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>
@@ -383,28 +383,28 @@
             <tbody>
               @for (recipient of filteredMassRecipients | paginate: { id: 'massRecipients', itemsPerPage: massRecipientItemsPerPage, currentPage: massRecipientCurrentPage, totalItems: filteredMassRecipients.length }; track recipient.id) {
                 <tr>
-                  <td class="settings-cell-strong">
+                  <td class="settings-cell-strong" data-label="Nombre">
                     {{ recipient.name || 'Sin nombre' }}
                   </td>
-                  <td class="font-bold text-slate-600">
+                  <td class="font-bold text-slate-600" data-label="Tipo / rubro">
                     <span *ngIf="recipient.type; else noRecipientType">{{ recipient.type }}</span>
                     <ng-template #noRecipientType>
                       <span class="font-normal italic text-slate-400">Sin tipo</span>
                     </ng-template>
                   </td>
-                  <td>
+                  <td data-label="Email">
                     <span *ngIf="recipient.email; else noRecipientEmail">{{ recipient.email }}</span>
                     <ng-template #noRecipientEmail>
                       <span class="italic text-slate-400">Sin email</span>
                     </ng-template>
                   </td>
-                  <td class="whitespace-nowrap">
+                  <td class="whitespace-nowrap" data-label="Teléfono">
                     <span *ngIf="recipient.phone; else noRecipientPhone">{{ recipient.phone }}</span>
                     <ng-template #noRecipientPhone>
                       <span class="italic text-slate-400">Sin teléfono</span>
                     </ng-template>
                   </td>
-                  <td>
+                  <td data-label="Acciones">
                     <div class="settings-row-actions">
                       <button
                         type="button"
@@ -746,10 +746,10 @@
               </div>
               <h3 class="settings-offline-title">Descargar Respaldo</h3>
               <p class="settings-offline-text">
-                Genera y descarga un archivo .json con los clientes, métodos de pago y bauleras actuales para usar como respaldo en caso de caída del servidor.
+                Descargá los clientes activos, sus saldos, identificadores de bauleras, medios de pago y reglas de intereses. También actualiza los datos locales de este navegador. Requiere conexión al servidor.
               </p>
-              <button (click)="downloadSnapshot()" class="settings-btn-primary w-full">
-                Descargar ahora
+              <button (click)="downloadSnapshot()" [disabled]="offlineBusy" class="settings-btn-primary w-full">
+                {{ offlineBusy ? 'Procesando…' : 'Descargar y actualizar' }}
               </button>
             </div>
 
@@ -760,15 +760,28 @@
               </div>
               <h3 class="settings-offline-title">Importar Respaldo</h3>
               <p class="settings-offline-text">
-                Si el sistema se cae, importa el archivo de respaldo aquí para cargar los datos localmente y poder seguir cobrando de forma offline.
+                Cargá los datos de consulta de un archivo .json. Esto reemplaza la copia local y conserva los cobros pendientes. Después podés elegir «Usar datos locales», aunque la computadora tenga Internet.
               </p>
               <div class="w-full">
-                <input type="file" id="snapshotFile" (change)="importSnapshot($event)" accept=".json" class="hidden">
+                <input type="file" id="snapshotFile" (change)="importSnapshot($event)" [disabled]="offlineBusy" accept=".json" class="hidden">
                 <label for="snapshotFile" class="settings-btn-secondary w-full cursor-pointer">
                   Seleccionar archivo .json
                 </label>
               </div>
             </div>
+          </div>
+          <div class="settings-panel-card space-y-3">
+            <h3 class="settings-offline-title">Conexión y alcance</h3>
+            <p class="settings-offline-text">Estado: {{ syncService.offlineService.isOnline ? 'Conectado al servidor' : syncService.offlineService.reason }}. Para cobrar sin conexión usá Finanzas. Los adelantos, aumentos y decisiones pendientes se revisan con conexión.</p>
+            <div class="flex flex-wrap gap-3">
+              <button type="button" class="settings-btn-secondary" (click)="useLocalMode()">Usar datos locales</button>
+              <button type="button" class="settings-btn-secondary" (click)="reconnectOffline()">Volver a conectar</button>
+            </div>
+            <p class="settings-offline-text">Este archivo no restaura la base del servidor ni contiene el historial completo. Necesitás una sesión vigente y haber abierto antes la aplicación en este navegador.</p>
+          </div>
+          <div class="settings-panel-card">
+            <h3 class="settings-offline-title">Cobros locales</h3>
+            <app-offline-payments></app-offline-payments>
           </div>
         </div>
       </div>
@@ -807,9 +820,9 @@
                 <td colspan="3" class="settings-panel-empty">No hay depósitos definidos.</td>
               </tr>
               <tr *ngFor="let wh of warehouses">
-                <td class="settings-cell-strong">{{ wh.name }}</td>
-                <td class="settings-cell-muted">{{ wh.address || '-' }}</td>
-                <td>
+                <td class="settings-cell-strong" data-label="Nombre">{{ wh.name }}</td>
+                <td class="settings-cell-muted" data-label="Dirección">{{ wh.address || '-' }}</td>
+                <td data-label="Acciones">
                   <div class="settings-row-actions">
                     <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar" (click)="openEditWarehouseModal(wh)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>
@@ -856,9 +869,9 @@
             </thead>
             <tbody>
               <tr *ngFor="let paymentmeth of paymentMethods">
-                <td class="settings-cell-strong">{{paymentmeth.name}}</td>
-                <td class="settings-cell-figure">{{paymentmeth.commission}} %</td>
-                <td>
+                <td class="settings-cell-strong" data-label="Nombre">{{paymentmeth.name}}</td>
+                <td class="settings-cell-figure" data-label="Comisión">{{paymentmeth.commission}} %</td>
+                <td data-label="Acciones">
                   <div class="settings-row-actions">
                     <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar" (click)="openUpdatePaymentModal(paymentmeth)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>
@@ -907,8 +920,8 @@
                 <td colspan="2" class="settings-panel-empty">No hay tipos de factura definidos.</td>
               </tr>
               <tr *ngFor="let bt of billingTypes">
-                <td class="settings-cell-strong">{{ bt.name }}</td>
-                <td>
+                <td class="settings-cell-strong" data-label="Nombre">{{ bt.name }}</td>
+                <td data-label="Acciones">
                   <div class="settings-row-actions">
                     <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar" (click)="openEditBillingTypeModal(bt)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>
@@ -955,9 +968,9 @@
             </thead>
             <tbody>
               <tr *ngFor="let lockerType of lockerTypes">
-                <td class="settings-cell-strong">{{lockerType.name}}</td>
-                <td class="settings-cell-figure">{{lockerType.m3}} m³</td>
-                <td>
+                <td class="settings-cell-strong" data-label="Nombre">{{lockerType.name}}</td>
+                <td class="settings-cell-figure" data-label="M³">{{lockerType.m3}} m³</td>
+                <td data-label="Acciones">
                   <div class="settings-row-actions">
                     <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar" (click)="openUpdateLockerTypeModal(lockerType)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>
@@ -1007,9 +1020,9 @@
                 <td colspan="3" class="settings-panel-empty">No hay aumentos programados.</td>
               </tr>
               <tr *ngFor="let inc of monthlyIncreases">
-                <td class="settings-cell-strong">{{ formatDateToMonthYear(inc.effectiveDate) }}</td>
-                <td class="settings-cell-figure">{{ inc.percentage | number:'1.2-2' }} %</td>
-                <td>
+                <td class="settings-cell-strong" data-label="Mes de Aplicación">{{ formatDateToMonthYear(inc.effectiveDate) }}</td>
+                <td class="settings-cell-figure" data-label="Porcentaje">{{ inc.percentage | number:'1.2-2' }} %</td>
+                <td data-label="Acciones">
                   <div class="settings-row-actions">
                     <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar" (click)="openEditIncreaseModal(inc)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>
@@ -1102,15 +1115,15 @@
                 <td colspan="5" class="settings-panel-empty">No hay meses configurados: rige el valor por defecto.</td>
               </tr>
               <tr *ngFor="let setting of interestSettings">
-                <td class="settings-cell-strong whitespace-nowrap">{{ interestMonthLabel(setting.effectiveDate) }}</td>
-                <td class="settings-cell-figure">{{ setting.applyDay }}</td>
-                <td class="settings-cell-figure">{{ formatInterestPercentage(setting.percentage) }}</td>
-                <td [ngSwitch]="interestStatus(setting)">
+                <td class="settings-cell-strong whitespace-nowrap" data-label="Mes">{{ interestMonthLabel(setting.effectiveDate) }}</td>
+                <td class="settings-cell-figure" data-label="Se aplica el día">{{ setting.applyDay }}</td>
+                <td class="settings-cell-figure" data-label="Interés">{{ formatInterestPercentage(setting.percentage) }}</td>
+                <td [ngSwitch]="interestStatus(setting)" data-label="Estado">
                   <span *ngSwitchCase="'applied'" class="settings-pill settings-pill-green">Aplicado</span>
                   <span *ngSwitchCase="'locked'" class="settings-pill settings-pill-slate">Bloqueado</span>
                   <span *ngSwitchDefault class="settings-pill settings-pill-blue">Programado</span>
                 </td>
-                <td>
+                <td data-label="Acciones">
                   <div *ngIf="!setting.isLocked; else interestLocked" class="settings-row-actions">
                     <button type="button" class="settings-icon-btn" title="Editar" aria-label="Editar intereses del mes" (click)="openEditInterestModal(setting)">
                       <app-icon name="edit" class="w-4 h-4"></app-icon>

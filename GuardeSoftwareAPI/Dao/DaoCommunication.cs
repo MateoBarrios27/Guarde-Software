@@ -442,6 +442,87 @@ namespace GuardeSoftwareAPI.Dao
         }
         
         // Usado para "Enviar Ahora" y "Reintentar"
+        /// <summary>Ventana en la que un comunicado idéntico se considera el mismo pedido repetido.</summary>
+        public const int DuplicateWindowSeconds = 120;
+
+        /// <summary>
+        /// Serializa las altas de comunicados dentro de la transacción (se libera al confirmar o revertir), para
+        /// que dos pedidos simultáneos no pasen juntos el control de duplicados.
+        /// </summary>
+        public async Task LockCommunicationCreationAsync(SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = @"
+                DECLARE @result INT;
+                EXEC @result = sp_getapplock @Resource = N'communications:create', @LockMode = N'Exclusive',
+                                             @LockOwner = N'Transaction', @LockTimeout = 15000;
+                IF @result < 0 THROW 50001, N'No se pudo reservar el alta del comunicado. Intentá de nuevo.', 1;";
+            using var command = new SqlCommand(query, connection, transaction);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        /// <summary>
+        /// Un comunicado creado en los últimos <see cref="DuplicateWindowSeconds"/> segundos con el mismo título,
+        /// tipo (estado de cuenta, proyectado, todos los emails) y contenido. Devuelve su id o null.
+        /// </summary>
+        public async Task<int?> FindRecentDuplicateAsync(UpsertCommunicationRequest request, SqlConnection connection, SqlTransaction transaction)
+        {
+            const string query = @"
+                SELECT TOP (1) c.communication_id
+                FROM communications c
+                WHERE c.title = @Title
+                  AND c.creation_date >= DATEADD(SECOND, -@Window, GETDATE())
+                  AND c.is_account_statement = @IsAccountStatement
+                  AND c.is_next_month_statement = @IsNextMonthStatement
+                  AND c.send_to_all_emails = @SendToAllEmails
+                  AND (@IsAccountStatement = 1 OR EXISTS (
+                        SELECT 1 FROM communication_channel_content ccc
+                        WHERE ccc.communication_id = c.communication_id AND ccc.content = @Content))
+                ORDER BY c.communication_id DESC";
+            using var command = new SqlCommand(query, connection, transaction);
+            command.Parameters.Add(new SqlParameter("@Title", SqlDbType.NVarChar, -1) { Value = request.Title ?? string.Empty });
+            command.Parameters.Add(new SqlParameter("@Window", SqlDbType.Int) { Value = DuplicateWindowSeconds });
+            command.Parameters.Add(new SqlParameter("@IsAccountStatement", SqlDbType.Bit) { Value = request.IsAccountStatement });
+            command.Parameters.Add(new SqlParameter("@IsNextMonthStatement", SqlDbType.Bit) { Value = request.IsNextMonthStatement });
+            command.Parameters.Add(new SqlParameter("@SendToAllEmails", SqlDbType.Bit) { Value = request.SendToAllEmails });
+            command.Parameters.Add(new SqlParameter("@Content", SqlDbType.NVarChar, -1) { Value = request.Content ?? string.Empty });
+            object? result = await command.ExecuteScalarAsync();
+            return result == null || result == DBNull.Value ? null : Convert.ToInt32(result);
+        }
+
+        /// <summary>
+        /// Condición SQL de «ya está en cola o enviándose»: Procesando, o Programado para dentro de 5 minutos o
+        /// vencido hace menos de 30 (un programado vencido hace más se considera trabado y se puede volver a enviar).
+        /// </summary>
+        private const string QueuedForSendingCondition = @"
+            (status = 'Procesando'
+             OR (status = 'Scheduled' AND scheduled_date IS NOT NULL
+                 AND scheduled_date <= DATEADD(MINUTE, 5, GETDATE())
+                 AND scheduled_date >= DATEADD(MINUTE, -30, GETDATE())))";
+
+        public async Task<bool> IsQueuedForSendingAsync(int communicationId)
+        {
+            string query = $"SELECT COUNT(1) FROM communications WHERE communication_id = @Id AND {QueuedForSendingCondition}";
+            object result = await _accessDB.ExecuteScalarAsync(query, [new SqlParameter("@Id", SqlDbType.Int) { Value = communicationId }]);
+            return result != null && result != DBNull.Value && Convert.ToInt32(result) > 0;
+        }
+
+        /// <summary>
+        /// Pone el comunicado en cola («Enviar ahora» / reintento) en una sola sentencia, sólo si todavía no lo
+        /// está: de dos pedidos simultáneos uno solo modifica la fila. Devuelve false si ya estaba en cola.
+        /// </summary>
+        public async Task<bool> TryQueueForSendingAsync(int communicationId, DateTime scheduledDate)
+        {
+            string query = $@"
+                UPDATE communications SET status = 'Scheduled', scheduled_date = @Date, error_message = NULL
+                WHERE communication_id = @Id AND NOT {QueuedForSendingCondition}";
+            var parameters = new[]
+            {
+                new SqlParameter("@Date", SqlDbType.DateTime) { Value = scheduledDate },
+                new SqlParameter("@Id", SqlDbType.Int) { Value = communicationId }
+            };
+            return await _accessDB.ExecuteCommandAsync(query, parameters) > 0;
+        }
+
         public async Task<bool> UpdateCommunicationStatusAndDateAsync(int communicationId, string status, DateTime scheduledDate)
         {
             string query = "UPDATE communications SET status = @Status, scheduled_date = @Date, error_message = NULL WHERE communication_id = @Id";

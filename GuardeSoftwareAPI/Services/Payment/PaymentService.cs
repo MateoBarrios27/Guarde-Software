@@ -136,6 +136,17 @@ namespace GuardeSoftwareAPI.Services.payment
 
             try
             {
+                if (dto.OfflineLocalId.HasValue)
+                {
+                    dto.OfflineRequestHash ??= OfflinePaymentReceiptStore.Hash(dto);
+                    var existingPayment = await OfflinePaymentReceiptStore.FindAsync(dto, connection, transaction);
+                    if (existingPayment.HasValue)
+                    {
+                        dto.RegisteredPaymentId = existingPayment.Value;
+                        await transaction.CommitAsync();
+                        return true;
+                    }
+                }
                 await AcquireClientPaymentLockAsync(dto.ClientId, connection, transaction);
 
                 var currentState = await _paymentStateService.GetSnapshotAsync(dto.ClientId, connection, transaction);
@@ -422,7 +433,9 @@ namespace GuardeSoftwareAPI.Services.payment
             dto.Concept = smartConcept;
         }
 
+        await OfflinePaymentReceiptStore.SaveAsync(dto, paymentId, connection, transaction);
         await transaction.CommitAsync();
+        dto.RegisteredPaymentId = paymentId;
 
         await _activityLogService.TryCreateActivityLogAsync(new ActivityLog
         {
@@ -462,7 +475,7 @@ namespace GuardeSoftwareAPI.Services.payment
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
+                if (transaction.Connection != null) await transaction.RollbackAsync();
                 throw;
             }
         }

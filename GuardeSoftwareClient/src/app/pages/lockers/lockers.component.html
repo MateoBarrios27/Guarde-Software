@@ -74,9 +74,9 @@
                  [(ngModel)]="searchTerm"
                  (keydown.enter)="blurInput($event)"
                  placeholder="Buscar por código, características o cliente..."
-                 class="w-full sm:w-80 pl-10 pr-8 py-2 border rounded-lg"/>
+                 class="locker-search w-full sm:w-80 pl-10 pr-9"/>
           <button *ngIf="searchTerm" (click)="searchTerm = ''" tabindex="-1"
-                  class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-700 transition-opacity z-10" title="Limpiar búsqueda">
+                  class="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 z-10" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">
             <app-icon name="Trash2" class="h-3.5 w-3.5"></app-icon>
           </button>
         </div>
@@ -87,12 +87,12 @@
             #tagsButtonRef
             type="button"
             (click)="toggleTagsPopover()"
-            class="px-3 py-2 text-sm font-semibold border rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap shadow-sm"
-            [ngClass]="totalActiveTagsCount > 0 ? 'bg-blue-50 text-blue-700 border-blue-300' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+            class="locker-toolbar-btn"
+            [class.is-active]="totalActiveTagsCount > 0"
           >
             <app-icon name="plus" class="h-4 w-4"></app-icon>
             <span>Filtros</span>
-            <span *ngIf="totalActiveTagsCount > 0" class="ml-1 px-1.5 py-0.5 text-xs bg-blue-600 text-white rounded-full font-bold">
+            <span *ngIf="totalActiveTagsCount > 0" class="locker-toolbar-btn__count">
               {{ totalActiveTagsCount }}
             </span>
           </button>
@@ -106,12 +106,12 @@
             *ngIf="showTagsPopover"
             role="dialog"
             aria-label="Filtrar bauleras"
-            class="locker-filter-popover absolute left-0 mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-2xl w-[calc(100vw-2rem)] sm:w-[480px] max-w-[320px] sm:max-w-none p-4 sm:p-5 text-sm"
+            class="locker-filter-popover absolute left-0 mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-[0_24px_60px_-24px_rgba(15,23,42,0.55)] w-[calc(100vw-2rem)] sm:w-[480px] max-w-[320px] sm:max-w-none p-4 sm:p-5 text-sm"
           >
             <div class="flex items-center justify-between pb-2 border-b border-gray-100">
               <div>
-                <h4 class="text-xs font-bold text-gray-500 tracking-wider">FILTRAR BAULERAS</h4>
-                <p class="text-xs text-gray-400 mt-0.5">Primer click incluye, segundo click excluye y tercero limpia.</p>
+                <h4 class="text-lg font-extrabold leading-tight tracking-[-0.03em] text-[#172033]">Filtrar bauleras</h4>
+                <p class="text-xs text-slate-500 mt-0.5">Un toque incluye, dos excluyen y tres limpian.</p>
               </div>
               <button
                 type="button"
@@ -125,7 +125,7 @@
             <div class="py-3 space-y-4 max-h-[520px] overflow-y-auto pr-1">
               <!-- Depósito -->
               <div>
-                <span class="block text-xs font-semibold text-gray-600 mb-2">Depósito</span>
+                <span class="g-label">Depósito</span>
                 <div class="flex flex-wrap gap-1.5">
                   <button
                     *ngFor="let w of warehouses"
@@ -143,7 +143,7 @@
 
               <!-- Estado -->
               <div>
-                <span class="block text-xs font-semibold text-gray-600 mb-2">Estado</span>
+                <span class="g-label">Estado</span>
                 <div class="flex flex-wrap gap-1.5">
                   <button
                     *ngFor="let s of statusList"
@@ -161,7 +161,7 @@
 
               <!-- Tipo de baulera -->
               <div>
-                <span class="block text-xs font-semibold text-gray-600 mb-2">Tipo de baulera</span>
+                <span class="g-label">Tipo de baulera</span>
                 <div class="flex flex-wrap gap-1.5">
                   <button
                     *ngFor="let lt of lockerTypes"
@@ -182,7 +182,7 @@
               <button
                 type="button"
                 (click)="clearAllTags()"
-                class="text-xs font-semibold text-red-600 hover:text-red-700"
+                class="g-btn g-btn--ghost g-btn--sm"
               >
                 Limpiar filtros
               </button>
@@ -198,12 +198,12 @@
 
       <!-- Grupo de Acciones (Botón y Paginación) -->
       <div class="flex items-center gap-3 justify-end flex-shrink-0">
-        <select [(ngModel)]="itemsPerPage" (change)="page = 1"
-                class="p-2 border border-gray-300 rounded-lg bg-white text-gray-800 text-sm">
+        <select [(ngModel)]="itemsPerPage" (change)="page = 1" aria-label="Bauleras por página"
+                class="g-field !w-auto !min-h-[2.5rem] !py-1.5 !text-sm !font-bold">
           <option *ngFor="let size of [500, 1000, 2000]" [value]="size">{{ size }} por pág.</option>
         </select>
         
-        <button *ngIf="!authService.isObserver()" (click)="openCreateLockerModal()" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <button *ngIf="!authService.isObserver()" (click)="openCreateLockerModal()" class="g-btn g-btn--primary !min-h-[2.5rem]">
           <app-icon name="plus" class="h-4 w-4"></app-icon>
           Nueva baulera
         </button>
@@ -212,45 +212,45 @@
 
     <!-- Fila de Filtros/Etiquetas Activas -->
     <div *ngIf="totalActiveTagsCount > 0" class="pt-2 border-t border-gray-100 flex flex-wrap items-center gap-2">
-      <span class="text-xs font-semibold text-gray-500 mr-1">Filtros activos:</span>
+      <span class="g-section-label mr-1">Filtros activos</span>
       
       <!-- Depósitos activos -->
-      <span *ngFor="let id of selectedWarehouseIds" [ngClass]="getActiveFilterTagClasses('warehouse', id)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
+      <span *ngFor="let id of selectedWarehouseIds" [ngClass]="getActiveFilterTagClasses('warehouse', id)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
         Depósito: {{ getWarehouseName(id) }}
-        <button type="button" (click)="clearFilterTag('warehouse', id)" class="hover:text-blue-900 focus:outline-none">
+        <button type="button" (click)="clearFilterTag('warehouse', id)" class="rounded-full hover:bg-black/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
           <app-icon name="x" class="h-3 w-3"></app-icon>
         </button>
       </span>
-      <span *ngFor="let id of excludedWarehouseIds" [ngClass]="getActiveFilterTagClasses('warehouse', id)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
+      <span *ngFor="let id of excludedWarehouseIds" [ngClass]="getActiveFilterTagClasses('warehouse', id)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
         Excepto depósito: {{ getWarehouseName(id) }}
-        <button type="button" (click)="clearFilterTag('warehouse', id)" class="hover:text-red-900 focus:outline-none"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+        <button type="button" (click)="clearFilterTag('warehouse', id)" class="rounded-full hover:bg-black/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"><app-icon name="x" class="h-3 w-3"></app-icon></button>
       </span>
 
       <!-- Estados activos -->
-      <span *ngFor="let s of selectedStatuses" [ngClass]="getActiveFilterTagClasses('status', s)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
+      <span *ngFor="let s of selectedStatuses" [ngClass]="getActiveFilterTagClasses('status', s)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
         Estado: {{ s }}
-        <button type="button" (click)="clearFilterTag('status', s)" class="hover:text-blue-900 focus:outline-none">
+        <button type="button" (click)="clearFilterTag('status', s)" class="rounded-full hover:bg-black/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
           <app-icon name="x" class="h-3 w-3"></app-icon>
         </button>
       </span>
-      <span *ngFor="let s of excludedStatuses" [ngClass]="getActiveFilterTagClasses('status', s)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
+      <span *ngFor="let s of excludedStatuses" [ngClass]="getActiveFilterTagClasses('status', s)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
         Excepto estado: {{ s }}
-        <button type="button" (click)="clearFilterTag('status', s)" class="hover:text-red-900 focus:outline-none"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+        <button type="button" (click)="clearFilterTag('status', s)" class="rounded-full hover:bg-black/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"><app-icon name="x" class="h-3 w-3"></app-icon></button>
       </span>
 
       <!-- Tipos de baulera activos -->
-      <span *ngFor="let id of selectedLockerTypeIds" [ngClass]="getActiveFilterTagClasses('lockerType', id)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
+      <span *ngFor="let id of selectedLockerTypeIds" [ngClass]="getActiveFilterTagClasses('lockerType', id)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
         Tipo: {{ getLockerTypeName(id) }}
-        <button type="button" (click)="clearFilterTag('lockerType', id)" class="hover:text-blue-900 focus:outline-none">
+        <button type="button" (click)="clearFilterTag('lockerType', id)" class="rounded-full hover:bg-black/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
           <app-icon name="x" class="h-3 w-3"></app-icon>
         </button>
       </span>
-      <span *ngFor="let id of excludedLockerTypeIds" [ngClass]="getActiveFilterTagClasses('lockerType', id)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs">
+      <span *ngFor="let id of excludedLockerTypeIds" [ngClass]="getActiveFilterTagClasses('lockerType', id)" class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
         Excepto tipo: {{ getLockerTypeName(id) }}
-        <button type="button" (click)="clearFilterTag('lockerType', id)" class="hover:text-red-900 focus:outline-none"><app-icon name="x" class="h-3 w-3"></app-icon></button>
+        <button type="button" (click)="clearFilterTag('lockerType', id)" class="rounded-full hover:bg-black/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"><app-icon name="x" class="h-3 w-3"></app-icon></button>
       </span>
 
-      <button type="button" (click)="clearAllTags()" class="ml-2 text-xs font-semibold text-red-600 hover:underline">
+      <button type="button" (click)="clearAllTags()" class="g-btn g-btn--ghost g-btn--sm ml-1">
         Limpiar todo
       </button>
     </div>
@@ -258,13 +258,13 @@
 
   
   <!-- Tabla -->
-  <div class="locker-table-card relative w-full mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible min-w-[1050px]">
-    <div #tableViewport (scroll)="onTableScroll()" class="locker-table-viewport table-scroll-viewport w-full min-w-0 overflow-visible" aria-label="Tabla de bauleras" tabindex="0">
+  <div class="locker-table-card relative w-full mt-6 bg-white rounded-2xl border border-[#E9EDF2] overflow-visible min-w-[1050px]">
+    <div #tableViewport appOutsideEvents (quietScroll)="onTableScroll()" class="locker-table-viewport table-scroll-viewport w-full min-w-0 overflow-visible" aria-label="Tabla de bauleras" tabindex="0">
     <table class="min-w-[1050px] w-full">
       
-      <thead class="bg-gray-50 sticky top-0 z-20 shadow-sm text-gray-600 uppercase text-xs">
+      <thead class="bg-slate-50 sticky top-0 z-20 text-slate-500 uppercase text-[11px]">
         <tr class="border-b">
-          <th class="px-4 py-3 text-left font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('identifier')">
+          <th class="px-4 py-3 text-left font-extrabold tracking-[0.05em] cursor-pointer select-none bg-slate-50" (click)="handleSort('identifier')">
             <div class="flex items-center gap-1 group">
               Código
               <app-icon
@@ -276,7 +276,7 @@
             </div>
           </th>
 
-          <th class="px-2 py-3 text-left font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('warehouse')">
+          <th class="px-2 py-3 text-left font-extrabold tracking-[0.05em] cursor-pointer select-none bg-slate-50" (click)="handleSort('warehouse')">
             <div class="flex items-center gap-1 group">
               Depósito
               <app-icon
@@ -288,7 +288,7 @@
             </div>
           </th>
 
-          <th class="px-2 py-3 text-left font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('lockerType')">
+          <th class="px-2 py-3 text-left font-extrabold tracking-[0.05em] cursor-pointer select-none bg-slate-50" (click)="handleSort('lockerType')">
             <div class="flex items-center gap-1 group">
               Tipo
               <app-icon
@@ -300,7 +300,7 @@
             </div>
           </th>
 
-          <th class="px-2 py-3 text-left font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('features')">
+          <th class="px-2 py-3 text-left font-extrabold tracking-[0.05em] cursor-pointer select-none bg-slate-50" (click)="handleSort('features')">
             <div class="flex items-center gap-1 group">
               Características
               <app-icon
@@ -312,7 +312,7 @@
             </div>
           </th>
 
-          <th class="px-2 py-3 text-left font-medium cursor-pointer select-none bg-gray-50" (click)="handleSort('status')">
+          <th class="px-2 py-3 text-left font-extrabold tracking-[0.05em] cursor-pointer select-none bg-slate-50" (click)="handleSort('status')">
             <div class="flex items-center gap-1 group">
               Estado
               <app-icon
@@ -324,7 +324,7 @@
             </div>
           </th>
 
-          <th class="px-2 py-3 text-left font-medium cursor-pointer select-none w-24 bg-gray-50" (click)="handleSort('clientName')">
+          <th class="px-2 py-3 text-left font-extrabold tracking-[0.05em] cursor-pointer select-none w-24 bg-slate-50" (click)="handleSort('clientName')">
             <div class="flex items-center gap-1 group">
               Cliente
               <app-icon
@@ -336,17 +336,17 @@
             </div>
           </th>
 
-          <th class="px-2 py-3 text-left font-medium bg-gray-50">Acciones</th>
+          <th class="px-2 py-3 text-left font-extrabold tracking-[0.05em] bg-slate-50">Acciones</th>
         </tr>
       </thead>
       
-      <tbody class="divide-y divide-gray-200">
-        <tr *ngFor="let locker of filteredLockers | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'lockers' }" class="hover:bg-gray-50">
-          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+      <tbody class="divide-y divide-[#EEF2F6]">
+        <tr *ngFor="let locker of filteredLockers | paginate: { itemsPerPage: itemsPerPage, currentPage: page, id: 'lockers' }; trackBy: trackByLockerId" class="locker-row hover:bg-slate-50">
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-extrabold tracking-[-0.01em] text-[#172033]">
             <div class="flex items-center gap-2">
               {{ locker.identifier }}
               <span *ngIf="locker.isFreeSpace"
-                    class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-700 border border-teal-200 uppercase tracking-wide"
+                    class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-[#4F46E5] text-white uppercase tracking-wide"
                     title="Espacio Libre - puede tener múltiples clientes asignados">EL</span>
             </div>
           </td>
@@ -354,7 +354,7 @@
           <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-600">{{ getLockerTypeName(locker.lockerTypeId) }}</td>
           <td class="px-2 py-3 text-sm text-gray-600 truncate max-w-64">{{ locker.features || '-' }}</td>
           <td class="px-2 py-3 whitespace-nowrap text-sm">
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium" [ngClass]="getStatusColor(locker.status)">
+            <span class="locker-status" [ngClass]="getStatusColor(locker.status)">
               {{ locker.status }}
             </span>
           </td>
@@ -390,29 +390,29 @@
           </td>
           <td class="px-2 py-3 whitespace-nowrap text-sm font-medium">
             <button type="button" (click)="openClientHistory(locker)"
-                    class="mr-2 rounded p-1 text-gray-500 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-500"
+                    class="g-icon-btn locker-row__action mr-1"
                     title="Historial de clientes" [attr.aria-label]="'Historial de clientes de la baulera ' + locker.identifier">
               <app-icon name="clock-clockwise" class="h-4 w-4"></app-icon>
             </button>
             <button *ngIf="!authService.isObserver()" (click)="openUpdateLockerModal(locker)" 
-                    class="p-1 text-black hover:text-blue-800" title="Editar"> 
+                    class="g-icon-btn g-icon-btn--blue locker-row__action" title="Editar" [attr.aria-label]="'Editar la baulera ' + locker.identifier">
               <app-icon name="edit" class="h-4 w-4"></app-icon>
             </button> 
             <button *ngIf="!authService.isObserver()" (click)="deleteLocker(locker)" 
-                    class="ml-2 p-1 text-black hover:text-red-600" title="Borrar">
+                    class="g-icon-btn g-icon-btn--danger locker-row__action ml-1" title="Borrar" [attr.aria-label]="'Borrar la baulera ' + locker.identifier">
               <app-icon name="Trash2" class="h-4 w-4"></app-icon>
             </button>
           </td>
         </tr>
         <tr *ngIf="filteredLockers.length === 0">
-            <td colspan="7" class="px-4 py-6 text-center text-gray-500">
-                No se encontraron lockers con los filtros aplicados.
+            <td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">
+                No hay bauleras con estos filtros.
             </td>
         </tr>
       </tbody>
-      <tfoot class="sticky bottom-0 z-20 bg-gray-50 font-bold text-gray-700 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      <tfoot class="sticky bottom-0 z-20 bg-slate-50 font-extrabold text-slate-700">
         <tr>
-          <td colspan="7" class="border-t border-gray-200 px-4 py-3 text-right text-xs uppercase tracking-wider text-gray-500 bg-gray-50">
+          <td colspan="7" class="border-t border-slate-200 px-4 py-3 text-right text-[11px] uppercase tracking-[0.05em] text-slate-500 bg-slate-50">
             {{ filteredLockers.length }} bauleras visibles
           </td>
         </tr>
@@ -434,7 +434,7 @@
 </app-locker-client-history-modal>
 
 <button (click)="toggleScroll()"
-        class="table-scroll-fab fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-110 hover:shadow-blue-500/30 transition-all duration-300 focus:outline-none"
+        class="table-scroll-fab fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center rounded-2xl bg-[#111827] text-white shadow-[0_14px_30px_-14px_rgba(15,23,42,0.7)] hover:bg-[#1F2937] transition-colors duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300"
         [title]="pointingUp ? 'Subir' : 'Bajar'">
   <app-icon [name]="pointingUp ? 'arrow-up' : 'arrow-down'" class="h-6 w-6"></app-icon>
 </button>
@@ -443,41 +443,37 @@
 <!-- === MODAL EDITAR (Existente) === -->
 <!-- ============================== -->
 <div *ngIf="showUpdateLockerModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+     class="g-overlay"
      (keydown.escape)="closeUpdateLockerModal()"
      tabindex="-1">
 
-  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl relative animate-fadeIn"
+  <div class="g-modal" role="dialog" aria-modal="true" aria-labelledby="locker-edit-title"
        (click)="$event.stopPropagation()">
-    
-    <!-- Header -->
-    <div class="flex items-center justify-between border-b p-5">
-      <div class="flex items-center gap-3">
-        <app-icon name="package" class="h-6 w-6 text-blue-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">Editar Baulera</h3>
+
+    <header class="g-modal__header">
+      <div class="g-modal__heading">
+        <span class="g-modal__icon" aria-hidden="true"><app-icon name="package" class="h-5 w-5"></app-icon></span>
+        <h3 id="locker-edit-title" class="g-modal__title">Editar baulera</h3>
       </div>
-      <button type="button" (click)="closeUpdateLockerModal()" class="text-gray-400 hover:text-gray-600">
-        <app-icon name="x" class="h-5 w-5"></app-icon>
+      <button type="button" (click)="closeUpdateLockerModal()" class="g-modal__close" aria-label="Cerrar">
+        <app-icon name="x" class="h-4 w-4"></app-icon>
       </button>
-    </div>
-    
-    <!-- Contenido -->
-    <div class="p-5 space-y-5"> 
+    </header>
+
+    <div class="g-modal__body space-y-5">
 
       <!-- Fila 1: Depósito y Tipo -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Depósito *</label>
-          <select [(ngModel)]="lockerUpdate.warehouseId"
-                  class="w-full h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700">
+          <label for="locker-edit-warehouse" class="g-label">Depósito *</label>
+          <select id="locker-edit-warehouse" [(ngModel)]="lockerUpdate.warehouseId" class="g-field">
             <option [ngValue]="0" disabled>Seleccionar depósito...</option>
             <option *ngFor="let w of warehouses" [value]="w.id">{{ w.name }}</option>
           </select>
         </div>
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Tipo de Baulera *</label>
-          <select [(ngModel)]="lockerUpdate.lockerTypeId"
-                  class="w-full h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700">
+          <label for="locker-edit-type" class="g-label">Tipo de baulera *</label>
+          <select id="locker-edit-type" [(ngModel)]="lockerUpdate.lockerTypeId" class="g-field">
             <option [ngValue]="0" disabled>Seleccionar tipo...</option>
             <option *ngFor="let type of lockerTypes" [value]="type.id">{{ type.name }}</option>
           </select>
@@ -485,18 +481,17 @@
       </div>
 
       <!-- Fila 2: Identificador y Estado -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Identificador *</label>
-          <input type="text"
+          <label for="locker-edit-identifier" class="g-label">Identificador *</label>
+          <input id="locker-edit-identifier" type="text"
                  [(ngModel)]="lockerUpdate.identifier"
                  (keydown.enter)="blurInput($event)"
-                 class="w-full h-[42px] px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700" />
+                 class="g-field !font-extrabold" />
         </div>
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Estado *</label>
-          <select [(ngModel)]="lockerUpdate.status"
-                  class="w-full h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700">
+          <label for="locker-edit-status" class="g-label">Estado *</label>
+          <select id="locker-edit-status" [(ngModel)]="lockerUpdate.status" class="g-field">
             <option value="DISPONIBLE">DISPONIBLE</option>
             <option value="OCUPADO">OCUPADO</option>
             <option value="POR LIBERARSE">POR LIBERARSE</option>
@@ -507,44 +502,36 @@
 
       <!-- Fila 3: Características -->
       <div>
-        <label class="block text-sm text-gray-600 mb-1 font-medium">Características</label>
-        <textarea [(ngModel)]="lockerUpdate.features"
-                  placeholder="Ej: Locker con seguridad."
-                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none resize-none"
+        <label for="locker-edit-features" class="g-label">Características</label>
+        <textarea id="locker-edit-features" [(ngModel)]="lockerUpdate.features"
+                  placeholder="Ej.: Baulera con seguridad."
+                  class="g-field !resize-none"
                   rows="3"></textarea>
       </div>
 
-      <!-- Toggle: Espacio Libre -->
-      <div class="pt-2 border-t border-dashed border-gray-200">
-        <label class="flex items-center justify-between cursor-pointer group">
-          <div class="flex flex-col">
-            <span class="text-sm font-medium text-teal-800 flex items-center gap-2">
-              <app-icon name="layers" class="h-4 w-4 text-teal-600"></app-icon>
-              Espacio Libre (Multi-cliente)
-            </span>
-            <span class="text-xs text-gray-500 mt-0.5">Permite asignar este espacio a múltiples clientes simultáneamente.</span>
-          </div>
-          <div class="relative ml-4 flex-shrink-0">
-            <input type="checkbox" [(ngModel)]="lockerUpdate.isFreeSpace" class="sr-only peer">
-            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-          </div>
-        </label>
-      </div>
+      <!-- Interruptor: Espacio Libre -->
+      <label class="g-toggle">
+        <span class="min-w-0">
+          <span class="g-toggle__title">
+            <app-icon name="layers" class="h-4 w-4 flex-shrink-0"></app-icon>
+            Espacio libre (multicliente)
+          </span>
+          <span class="g-toggle__hint">Se puede asignar a varios clientes a la vez.</span>
+        </span>
+        <input type="checkbox" [(ngModel)]="lockerUpdate.isFreeSpace" class="sr-only">
+        <span class="g-toggle__track" aria-hidden="true"></span>
+      </label>
     </div>
 
-    <!-- Footer -->
-    <div class="mt-2 flex justify-end gap-3 border-t p-5 bg-gray-50 rounded-b-2xl">
-      <button type="button"
-              (click)="closeUpdateLockerModal()"
-              class="px-4 py-2 rounded-lg border text-gray-700 bg-white hover:bg-gray-100 font-medium text-sm">
+    <footer class="g-modal__footer">
+      <button type="button" (click)="closeUpdateLockerModal()" class="g-btn g-btn--secondary">
         Cancelar
       </button>
-      <button type="button"
-              (click)="saveLockerUpdated(idLockerUpdated, lockerUpdate)"
-              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 text-sm">
+      <button type="button" (click)="saveLockerUpdated(idLockerUpdated, lockerUpdate)" class="g-btn g-btn--primary">
+        <app-icon name="check" class="h-4 w-4"></app-icon>
         Actualizar
       </button>
-    </div>
+    </footer>
 
   </div>
 </div>
@@ -554,108 +541,86 @@
 <!-- === MODAL CREAR (Nuevo) === -->
 <!-- ============================== -->
 <div *ngIf="showCreateLockerModal"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+     class="g-overlay"
      (keydown.escape)="closeCreateLockerModal()"
      tabindex="-1">
 
-  <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl relative animate-fadeIn"
+  <div class="g-modal" role="dialog" aria-modal="true" aria-labelledby="locker-create-title"
        (click)="$event.stopPropagation()">
-    
-    <!-- Header -->
-    <div class="flex items-center justify-between border-b p-5">
-      <div class="flex items-center gap-3">
-        <app-icon name="plus-square" class="h-6 w-6 text-blue-600"></app-icon>
-        <h3 class="text-xl font-semibold text-gray-800">Crear Nueva Baulera</h3>
+
+    <header class="g-modal__header">
+      <div class="g-modal__heading">
+        <span class="g-modal__icon" aria-hidden="true"><app-icon name="plus-square" class="h-5 w-5"></app-icon></span>
+        <h3 id="locker-create-title" class="g-modal__title">Nueva baulera</h3>
       </div>
-      <button type="button" (click)="closeCreateLockerModal()" class="text-gray-400 hover:text-gray-600">
-        <app-icon name="x" class="h-5 w-5"></app-icon>
+      <button type="button" (click)="closeCreateLockerModal()" class="g-modal__close" aria-label="Cerrar">
+        <app-icon name="x" class="h-4 w-4"></app-icon>
       </button>
-    </div>
-    
-    <!-- Contenido -->
-    <div class="p-5 space-y-5"> 
+    </header>
+
+    <div class="g-modal__body space-y-5">
 
       <!-- Fila 1: Depósito y Tipo -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Depósito *</label>
-          <select [(ngModel)]="newLocker.warehouseId"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none">
-            <option [ngValue]="0" disabled>Seleccionar depósito...</option> <!-- Cambiado a 0 -->
+          <label for="locker-new-warehouse" class="g-label">Depósito *</label>
+          <select id="locker-new-warehouse" [(ngModel)]="newLocker.warehouseId" class="g-field">
+            <option [ngValue]="0" disabled>Seleccionar depósito...</option>
             <option *ngFor="let w of warehouses" [value]="w.id">{{ w.name }}</option>
           </select>
         </div>
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Tipo de Locker *</label>
-          <select [(ngModel)]="newLocker.lockerTypeId"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none">
-            <option [ngValue]="0" disabled>Seleccionar tipo...</option> <!-- Cambiado a 0 -->
+          <label for="locker-new-type" class="g-label">Tipo de baulera *</label>
+          <select id="locker-new-type" [(ngModel)]="newLocker.lockerTypeId" class="g-field">
+            <option [ngValue]="0" disabled>Seleccionar tipo...</option>
             <option *ngFor="let lt of lockerTypes" [value]="lt.id">{{ lt.name }} </option>
           </select>
         </div>
       </div>
 
-      <!-- Fila 2: Identificador y Estado -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Fila 2: Identificador (el estado inicial es siempre DISPONIBLE) -->
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Identificador *</label>
-          <input type="text"
+          <label for="locker-new-identifier" class="g-label">Identificador *</label>
+          <input id="locker-new-identifier" type="text"
                  [(ngModel)]="newLocker.identifier"
                  (keydown.enter)="blurInput($event)"
-                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none text-gray-700"
-                 placeholder="Ej: A-13" />
+                 class="g-field !font-extrabold"
+                 placeholder="Ej.: A-13" />
         </div>
-        <!-- <div>
-          <label class="block text-sm text-gray-600 mb-1 font-medium">Estado Inicial</label>
-          <select [(ngModel)]="newLocker.status"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none">
-            <option value="DISPONIBLE">DISPONIBLE</option>
-            <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-            <!-- Ocupado no debería ser una opción inicial
-          </select>
-        </div> -->
       </div>
 
       <!-- Fila 3: Características -->
       <div>
-        <label class="block text-sm text-gray-600 mb-1 font-medium">Características</label>
-        <textarea [(ngModel)]="newLocker.features"
-                  placeholder="Ej: Locker con ventilación, candado magnético, etc."
-                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-700 focus:ring-2 focus:ring-blue-400 focus:outline-none resize-none"
+        <label for="locker-new-features" class="g-label">Características</label>
+        <textarea id="locker-new-features" [(ngModel)]="newLocker.features"
+                  placeholder="Ej.: Baulera con ventilación, candado magnético, etc."
+                  class="g-field !resize-none"
                   rows="3"></textarea>
       </div>
 
-      <!-- Toggle: Espacio Libre -->
-      <div class="pt-2 border-t border-dashed border-gray-200">
-        <label class="flex items-center justify-between cursor-pointer group">
-          <div class="flex flex-col">
-            <span class="text-sm font-medium text-teal-800 flex items-center gap-2">
-              <app-icon name="layers" class="h-4 w-4 text-teal-600"></app-icon>
-              Espacio Libre (Multi-cliente)
-            </span>
-            <span class="text-xs text-gray-500 mt-0.5">Al activar esto, el espacio podrá ser asignado a múltiples clientes. El estado inicial será siempre DISPONIBLE.</span>
-          </div>
-          <div class="relative ml-4 flex-shrink-0">
-            <input type="checkbox" [(ngModel)]="newLocker.isFreeSpace" class="sr-only peer">
-            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-          </div>
-        </label>
-      </div>
+      <!-- Interruptor: Espacio Libre -->
+      <label class="g-toggle">
+        <span class="min-w-0">
+          <span class="g-toggle__title">
+            <app-icon name="layers" class="h-4 w-4 flex-shrink-0"></app-icon>
+            Espacio libre (multicliente)
+          </span>
+          <span class="g-toggle__hint">Se puede asignar a varios clientes. Empieza siempre como DISPONIBLE.</span>
+        </span>
+        <input type="checkbox" [(ngModel)]="newLocker.isFreeSpace" class="sr-only">
+        <span class="g-toggle__track" aria-hidden="true"></span>
+      </label>
     </div>
 
-    <!-- Footer -->
-    <div class="mt-2 flex justify-end gap-3 border-t p-5 bg-gray-50 rounded-b-2xl">
-      <button type="button"
-              (click)="closeCreateLockerModal()"
-              class="px-4 py-2 rounded-lg border text-gray-700 bg-white hover:bg-gray-100 font-medium text-sm">
+    <footer class="g-modal__footer">
+      <button type="button" (click)="closeCreateLockerModal()" class="g-btn g-btn--secondary">
         Cancelar
       </button>
-      <button type="button"
-              (click)="saveNewLocker()"
-              class="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 text-sm">
-        Guardar Locker
+      <button type="button" (click)="saveNewLocker()" class="g-btn g-btn--primary">
+        <app-icon name="check" class="h-4 w-4"></app-icon>
+        Guardar baulera
       </button>
-    </div>
+    </footer>
   </div>
 </div>
-

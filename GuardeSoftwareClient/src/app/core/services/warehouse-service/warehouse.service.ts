@@ -6,6 +6,7 @@ import { environment } from '../../../../environments/environments';
 import { CreateWarehouseDto } from '../../dtos/warehouse/CreateWarehouseDto';
 import { UpdateWarehouseDto } from '../../dtos/warehouse/UpdateWarehouseDto';
 import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
+import { cacheCatalog } from '../data-refresh-service/catalog-cache';
 
 @Injectable({
   providedIn: 'root'
@@ -13,13 +14,14 @@ import { DataRefreshService } from '../data-refresh-service/data-refresh.service
 export class WarehouseService {
 
   private url: string = environment.apiUrl
+  private loadCatalog?: () => Observable<Warehouse[]>;
   constructor(
     private httpClient: HttpClient,
     private dataRefresh: DataRefreshService,
   ) { }
 
   getWarehouses(): Observable<Warehouse[]>{
-        return this.httpClient.get<Warehouse[]>(`${this.url}/Warehouse`);
+        return (this.loadCatalog ??= cacheCatalog(this.dataRefresh, () => this.httpClient.get<Warehouse[]>(`${this.url}/Warehouse`)))();
   }
 
    getWarehouseById(id: number): Observable<Warehouse>{

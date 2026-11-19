@@ -1,6 +1,5 @@
 import { Component, signal, computed, ChangeDetectionStrategy, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from "../../shared/components/icon/icon.component";
 import { CommunicationService } from '../../core/services/communication-service/communication.service';
@@ -15,9 +14,16 @@ import { ClientService } from '../../core/services/client-service/client.service
 import { MassCommunicationRecipientService } from '../../core/services/mass-communication-recipient-service/mass-communication-recipient.service';
 import { MassCommunicationRecipient } from '../../core/models/mass-communication-recipient';
 import { DeleteConfirmationService } from '../../shared/services/delete-confirmation.service';
-import { catchError, debounceTime, distinctUntilChanged, of, Subject, switchMap, Subscription } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, finalize, of, Subject, switchMap, Subscription } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
-import { getLogisticasTemplateCopy, LOGISTICAS_TEMPLATE_MARKER, updateLogisticasTemplateCopy } from '../../shared/utils/logisticas-template.util';
+import { getLogisticasTemplateCopy, updateLogisticasTemplateCopy } from '../../shared/utils/logisticas-template.util';
+import {
+  INMOBILIARIAS_TEMPLATE_MARKER,
+  LABORATORIOS_TEMPLATE_MARKER,
+  LOGISTICAS_TEMPLATE_MARKER,
+  VISITADORES_MEDICOS_TEMPLATE_MARKER
+} from '../../shared/utils/communication-template-catalog';
+import { CommunicationTemplatesComponent, PickedCommunicationTemplate } from './communication-templates/communication-templates.component';
 import {
   buildCommunicationPreviewDocument,
   buildCommunicationPreviewText
@@ -28,13 +34,13 @@ import { AuthService } from '../../core/services/auth-service/auth.service';
 
 /** State for the Add/Edit form */
 interface FormDataState {
-  id: number | null;
-  title: string;
-  content: string; 
-  sendDate: string;
-  sendTime: string;
-  channels: ('Email' | 'WhatsApp')[];
-  recipients: string[];
+  id: number | null;
+  title: string;
+  content: string; 
+  sendDate: string;
+  sendTime: string;
+  channels: ('Email' | 'WhatsApp')[];
+  recipients: string[];
   externalRecipientIds: number[];
   type: 'programar' | 'borrador' | 'enviar_ahora';
   isAccountStatement: boolean;
@@ -45,11 +51,11 @@ interface FormDataState {
 
 /** State for the notification toast */
 interface ToastState {
-  show: boolean;
-  message: string;
-  description: string;
-  icon: string;
-  color: 'success' | 'error';
+  show: boolean;
+  message: string;
+  description: string;
+  icon: string;
+  color: 'success' | 'error';
 }
 
 interface ClientSelectorItem {
@@ -83,36 +89,29 @@ interface MonthFilter {
   month: number;
 }
 
-const INMOBILIARIAS_TEMPLATE_MARKER = 'GUARDE_TEMPLATE:INMOBILIARIAS_V1';
-const INMOBILIARIAS_TEMPLATE_URL = 'assets/email-templates/inmobiliarias/inmobiliarias.html';
-const LABORATORIOS_TEMPLATE_MARKER = 'GUARDE_TEMPLATE:LABORATORIOS_V1';
-const LABORATORIOS_TEMPLATE_URL = 'assets/email-templates/laboratorios/laboratorios.html';
-const VISITADORES_MEDICOS_TEMPLATE_MARKER = 'GUARDE_TEMPLATE:VISITADORES_MEDICOS_V1';
-const VISITADORES_MEDICOS_TEMPLATE_URL = 'assets/email-templates/visitadores-medicos/visitadores-medicos.html';
-const LOGISTICAS_TEMPLATE_URL = 'assets/email-templates/logisticas/logisticas.html';
+/** Pausa mínima entre dos envíos desde Comunicaciones (seguro contra doble clic). */
+const SUBMIT_COOLDOWN_MS = 3000;
 const UNTYPED_RECIPIENT_TYPE = '__sin_rubro__';
 const DEFAULT_EXTENSION_RECIPIENT_TYPE = 'inmobiliaria';
 
 @Component({
-  selector: 'communications',
-  standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, QuillModule],
-  templateUrl: './communications.component.html',
-  styleUrl: './communications.component.css',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  selector: 'communications',
+  standalone: true,
+  imports: [CommonModule, FormsModule, IconComponent, QuillModule, CommunicationTemplatesComponent],
+  templateUrl: './communications.component.html',
+  styleUrl: './communications.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CommunicationsComponent implements OnInit, OnDestroy {
 
-  communications = signal<ComunicacionDto[]>([]); 
-  staticGroups = signal<string[]>([]); 
-  searchResults = signal<string[]>([]);
-  isSearchFocused = signal(false);
-  private searchSubject = new Subject<string>();
+  communications = signal<ComunicacionDto[]>([]); 
+  staticGroups = signal<string[]>([]); 
+  searchResults = signal<string[]>([]);
+  isSearchFocused = signal(false);
+  private searchSubject = new Subject<string>();
   selectedFiles = signal<File[]>([]);
-  isLoadingInmobiliariasTemplate = signal(false);
-  isLoadingLaboratoriosTemplate = signal(false);
-  isLoadingVisitadoresMedicosTemplate = signal(false);
-  isLoadingLogisticasTemplate = signal(false);
+  /** Gestor de plantillas abierto: «Plantillas» (manage) o «Cargar plantilla» desde el alta (pick). */
+  templatesView = signal<'manage' | 'pick' | null>(null);
   isEditingLogisticasText = signal(false);
   smtpConfigs = signal<any[]>([]);
 
@@ -195,7 +194,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       const names = recipients.slice(0, 2);
       return `${names.join(', ')} ${count > 2 ? `(+${count - 2} más)` : ''}`;
   });
-  
+  
   dynamicMonthFilters = signal<MonthFilter[]>([]);
   activeQuickFilter = signal<string | null>(null);
   modalSendToAllEmails = signal(false);
@@ -204,7 +203,6 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   private readonly dataRefreshSubscription = new Subscription();
 
   constructor(
-    private http: HttpClient,
     private commService: CommunicationService, 
     private clientService: ClientService,
     private massRecipientService: MassCommunicationRecipientService,
@@ -214,534 +212,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     public authService: AuthService,
   ) {}
 
-  private readonly icbcTemplate = `
-<p style="color: #111827;"><strong>Estimado/a: {data[0]}</strong></p>
-<p style="color: #1d4ed8;"><strong>POR SER CLIENTE DE GUARDE LO QUE QUIERA</strong></p>
-<p style="color: #15803d;"><strong>EL BANCO ICBC LE OFRECE BONIFICACIONES EN CUENTAS, PAQUETES Y MUCHO MÁS.</strong></p>
-<p style="color: #b91c1c;"><strong>CONTACTO ICBC:</strong> Natalia Pedro 113478-9917</p>
-<p style="color: #6b7280;">Saludos</p>
-<p style="color: #6b7280;">La Administración</p>
-<p><a href="https://www.guardeloquequiera.net/">guardeloquequiera.net</a></p>
-<p style="color: #15803d;">WhatsApp 115-780-0251</p>`;
 
-  private readonly icbcTemplate2 = `
-<!doctype html>
-<html lang="es">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="x-apple-disable-message-reformatting">
-    <title>Beneficios ICBC para nuestros clientes</title>
-</head>
-
-<body style="
-    margin: 0;
-    padding: 0;
-    background-color: #f3f5f7;
-    font-family: Arial, Helvetica, sans-serif;
-    color: #263238;
-">
-
-    <!-- Texto de previsualización que aparece junto al asunto -->
-    <div style="
-        display: none;
-        max-height: 0;
-        overflow: hidden;
-        opacity: 0;
-        color: transparent;
-        mso-hide: all;
-    ">
-        Consultá las bonificaciones disponibles en cuentas, paquetes bancarios
-        y otras propuestas de ICBC.
-    </div>
-
-    <table
-        role="presentation"
-        width="100%"
-        cellpadding="0"
-        cellspacing="0"
-        border="0"
-        style="
-            width: 100%;
-            background-color: #f3f5f7;
-            border-collapse: collapse;
-        "
-    >
-        <tr>
-            <td align="center" style="padding: 32px 12px;">
-
-                <table
-                    role="presentation"
-                    width="100%"
-                    cellpadding="0"
-                    cellspacing="0"
-                    border="0"
-                    style="
-                        width: 100%;
-                        max-width: 620px;
-                        background-color: #ffffff;
-                        border-collapse: separate;
-                        border-spacing: 0;
-                        border-radius: 14px;
-                        overflow: hidden;
-                        box-shadow: 0 6px 22px rgba(25, 45, 60, 0.10);
-                    "
-                >
-
-                    <!-- Encabezado textual -->
-                    <tr>
-                        <td
-                            style="
-                                padding: 25px 32px;
-                                background-color: #17324d;
-                                border-bottom: 4px solid #d71920;
-                            "
-                        >
-                            <p style="
-                                margin: 0 0 7px;
-                                color: #ffffff;
-                                font-size: 20px;
-                                line-height: 26px;
-                                font-weight: 700;
-                                letter-spacing: 0.4px;
-                            ">
-                                GUARDE LO QUE QUIERA
-                            </p>
-
-                            <p style="
-                                margin: 0;
-                                color: #cbd8e3;
-                                font-size: 12px;
-                                line-height: 18px;
-                                font-weight: 600;
-                                letter-spacing: 1px;
-                                text-transform: uppercase;
-                            ">
-                                Beneficio especial para clientes
-                            </p>
-                        </td>
-                    </tr>
-
-                    <!-- Presentación principal -->
-                    <tr>
-                        <td style="padding: 36px 32px 18px;">
-
-                            <p style="
-                                margin: 0 0 12px;
-                                color: #d71920;
-                                font-size: 13px;
-                                line-height: 18px;
-                                font-weight: 700;
-                                letter-spacing: 0.9px;
-                                text-transform: uppercase;
-                            ">
-                                Propuesta especial ICBC
-                            </p>
-
-                            <h1 style="
-                                margin: 0 0 22px;
-                                color: #17324d;
-                                font-size: 30px;
-                                line-height: 38px;
-                                font-weight: 700;
-                            ">
-                                Más beneficios por ser nuestro cliente
-                            </h1>
-
-                            <p style="
-                                margin: 0 0 18px;
-                                color: #263238;
-                                font-size: 17px;
-                                line-height: 27px;
-                            ">
-                                Hola, <strong>{data[0]}</strong>:
-                            </p>
-
-                            <p style="
-                                margin: 0;
-                                color: #455a64;
-                                font-size: 16px;
-                                line-height: 26px;
-                            ">
-                                Por ser cliente de
-                                <strong style="color: #263238;">
-                                    Guarde Lo Que Quiera
-                                </strong>,
-                                queremos acercarte una propuesta especial de
-                                <strong style="color: #263238;">ICBC</strong>
-                                con bonificaciones y alternativas pensadas para vos.
-                            </p>
-
-                        </td>
-                    </tr>
-
-                    <!-- Beneficios -->
-                    <tr>
-                        <td style="padding: 14px 32px 26px;">
-
-                            <table
-                                role="presentation"
-                                width="100%"
-                                cellpadding="0"
-                                cellspacing="0"
-                                border="0"
-                                style="
-                                    width: 100%;
-                                    background-color: #f7f9fb;
-                                    border: 1px solid #e2e8ed;
-                                    border-radius: 10px;
-                                "
-                            >
-                                <tr>
-                                    <td style="padding: 24px;">
-
-                                        <p style="
-                                            margin: 0 0 16px;
-                                            color: #17324d;
-                                            font-size: 17px;
-                                            line-height: 24px;
-                                            font-weight: 700;
-                                        ">
-                                            Podés consultar por:
-                                        </p>
-
-                                        <table
-                                            role="presentation"
-                                            width="100%"
-                                            cellpadding="0"
-                                            cellspacing="0"
-                                            border="0"
-                                        >
-                                            <tr>
-                                                <td
-                                                    width="25"
-                                                    valign="top"
-                                                    style="
-                                                        padding: 3px 0 11px;
-                                                        color: #d71920;
-                                                        font-size: 17px;
-                                                        font-weight: 700;
-                                                    "
-                                                >
-                                                    ✓
-                                                </td>
-                                                <td style="
-                                                    padding: 0 0 11px;
-                                                    color: #455a64;
-                                                    font-size: 15px;
-                                                    line-height: 23px;
-                                                ">
-                                                    Bonificaciones en cuentas.
-                                                </td>
-                                            </tr>
-
-                                            <tr>
-                                                <td
-                                                    width="25"
-                                                    valign="top"
-                                                    style="
-                                                        padding: 3px 0 11px;
-                                                        color: #d71920;
-                                                        font-size: 17px;
-                                                        font-weight: 700;
-                                                    "
-                                                >
-                                                    ✓
-                                                </td>
-                                                <td style="
-                                                    padding: 0 0 11px;
-                                                    color: #455a64;
-                                                    font-size: 15px;
-                                                    line-height: 23px;
-                                                ">
-                                                    Beneficios en paquetes bancarios.
-                                                </td>
-                                            </tr>
-
-                                            <tr>
-                                                <td
-                                                    width="25"
-                                                    valign="top"
-                                                    style="
-                                                        padding: 3px 0 0;
-                                                        color: #d71920;
-                                                        font-size: 17px;
-                                                        font-weight: 700;
-                                                    "
-                                                >
-                                                    ✓
-                                                </td>
-                                                <td style="
-                                                    padding: 0;
-                                                    color: #455a64;
-                                                    font-size: 15px;
-                                                    line-height: 23px;
-                                                ">
-                                                    Otras alternativas disponibles según tu
-                                                    perfil y las condiciones vigentes.
-                                                </td>
-                                            </tr>
-                                        </table>
-
-                                    </td>
-                                </tr>
-                            </table>
-
-                        </td>
-                    </tr>
-
-                    <!-- Contacto -->
-                    <tr>
-                        <td style="padding: 0 32px 34px;">
-
-                            <p style="
-                                margin: 0 0 18px;
-                                color: #263238;
-                                font-size: 18px;
-                                line-height: 26px;
-                                font-weight: 700;
-                            ">
-                                ¿Querés conocer más?
-                            </p>
-
-                            <p style="
-                                margin: 0 0 20px;
-                                color: #455a64;
-                                font-size: 15px;
-                                line-height: 24px;
-                            ">
-                                Para recibir asesoramiento y conocer las opciones,
-                                los requisitos y las condiciones vigentes,
-                                comunicate directamente con:
-                            </p>
-
-                            <table
-                                role="presentation"
-                                width="100%"
-                                cellpadding="0"
-                                cellspacing="0"
-                                border="0"
-                                style="
-                                    width: 100%;
-                                    background-color: #fff5f5;
-                                    border-left: 4px solid #d71920;
-                                    border-radius: 8px;
-                                "
-                            >
-                                <tr>
-                                    <td style="padding: 19px 20px;">
-
-                                        <p style="
-                                            margin: 0 0 4px;
-                                            color: #263238;
-                                            font-size: 17px;
-                                            line-height: 24px;
-                                            font-weight: 700;
-                                        ">
-                                            Natalia Pedro
-                                        </p>
-
-                                        <p style="
-                                            margin: 0 0 7px;
-                                            color: #607d8b;
-                                            font-size: 14px;
-                                            line-height: 21px;
-                                        ">
-                                            Contacto ICBC
-                                        </p>
-
-                                        <p style="
-                                            margin: 0;
-                                            color: #263238;
-                                            font-size: 17px;
-                                            line-height: 24px;
-                                            font-weight: 700;
-                                        ">
-                                            <a
-                                                href="tel:+541134789917"
-                                                style="
-                                                    color: #d71920;
-                                                    text-decoration: none;
-                                                "
-                                            >
-                                                11 3478-9917
-                                            </a>
-                                        </p>
-
-                                    </td>
-                                </tr>
-                            </table>
-
-                            <!-- Botón principal -->
-                            <table
-                                role="presentation"
-                                cellpadding="0"
-                                cellspacing="0"
-                                border="0"
-                                align="center"
-                                style="margin: 26px auto 0;"
-                            >
-                                <tr>
-                                    <td
-                                        align="center"
-                                        bgcolor="#d71920"
-                                        style="
-                                            border-radius: 7px;
-                                            background-color: #d71920;
-                                        "
-                                    >
-                                        <a
-                                            href="tel:+541134789917"
-                                            style="
-                                                display: inline-block;
-                                                padding: 14px 28px;
-                                                color: #ffffff;
-                                                font-size: 15px;
-                                                line-height: 20px;
-                                                font-weight: 700;
-                                                text-decoration: none;
-                                                border-radius: 7px;
-                                            "
-                                        >
-                                            Consultar beneficios
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
-
-                        </td>
-                    </tr>
-
-                    <!-- Despedida -->
-                    <tr>
-                        <td
-                            style="
-                                padding: 27px 32px;
-                                background-color: #f7f9fb;
-                                border-top: 1px solid #e2e8ed;
-                            "
-                        >
-                            <p style="
-                                margin: 0 0 7px;
-                                color: #455a64;
-                                font-size: 15px;
-                                line-height: 23px;
-                            ">
-                                Esperamos que esta propuesta te resulte útil.
-                            </p>
-
-                            <p style="
-                                margin: 0;
-                                color: #263238;
-                                font-size: 15px;
-                                line-height: 23px;
-                            ">
-                                Saludos,<br>
-                                <strong>La Administración</strong><br>
-                                Guarde Lo Que Quiera
-                            </p>
-                        </td>
-                    </tr>
-
-                    <!-- Datos de Guarde Lo Que Quiera -->
-                    <tr>
-                        <td
-                            align="center"
-                            style="
-                                padding: 25px 26px;
-                                background-color: #17324d;
-                            "
-                        >
-                            <p style="
-                                margin: 0 0 9px;
-                                color: #ffffff;
-                                font-size: 14px;
-                                line-height: 22px;
-                                font-weight: 700;
-                            ">
-                                Guarde Lo Que Quiera
-                            </p>
-
-                            <p style="
-                                margin: 0 0 8px;
-                                color: #d9e3ea;
-                                font-size: 13px;
-                                line-height: 21px;
-                            ">
-                                WhatsApp:
-                                <a
-                                    href="https://wa.me/5491157800251"
-                                    target="_blank"
-                                    style="
-                                        color: #83d9a5;
-                                        font-weight: 700;
-                                        text-decoration: none;
-                                    "
-                                >
-                                    11 5780-0251
-                                </a>
-                            </p>
-
-                            <p style="
-                                margin: 0;
-                                color: #d9e3ea;
-                                font-size: 13px;
-                                line-height: 21px;
-                            ">
-                                <a
-                                    href="https://www.guardeloquequiera.net/"
-                                    target="_blank"
-                                    style="
-                                        color: #ffffff;
-                                        font-weight: 700;
-                                        text-decoration: underline;
-                                    "
-                                >
-                                    www.guardeloquequiera.net
-                                </a>
-                            </p>
-                        </td>
-                    </tr>
-
-                </table>
-
-                <!-- Aclaración comercial -->
-                <table
-                    role="presentation"
-                    width="100%"
-                    cellpadding="0"
-                    cellspacing="0"
-                    border="0"
-                    style="width: 100%; max-width: 620px;"
-                >
-                    <tr>
-                        <td align="center" style="padding: 18px 20px 0;">
-
-                            <p style="
-                                margin: 0;
-                                color: #7b8a92;
-                                font-size: 11px;
-                                line-height: 17px;
-                            ">
-                                Esta comunicación tiene carácter informativo.
-                                Las bonificaciones, los productos y sus condiciones
-                                comerciales dependen de ICBC y pueden variar.
-                                Consultá las condiciones vigentes con el contacto indicado.
-                            </p>
-
-                        </td>
-                    </tr>
-                </table>
-
-            </td>
-        </tr>
-    </table>
-
-</body>
-</html>
-`;
-
-  ngOnInit(): void {
+  ngOnInit(): void {
     if (!this.authService.isObserver()) {
       this.dataRefreshSubscription.add(
         this.dataRefresh.watch(['clients', 'catalog'], 'communications').subscribe(event => {
@@ -774,16 +246,16 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       }
     });
 
-    this.loadCommunications();
+    this.loadCommunications();
     this.setupSearchDebounce();
     if (!this.authService.isObserver()) {
-      this.loadRecipientOptions();
+      this.loadRecipientOptions();
       this.loadSmtpConfigs();
       this.loadClientsForSelector();
       this.loadExternalRecipientsForSelector();
     }
     this.generateMonthFilters();
-  }
+  }
 
   private ensureQuillStylesheet(): void {
     const stylesheetId = 'quill-snow-styles';
@@ -796,7 +268,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     document.head.appendChild(link);
   }
 
-  ngOnDestroy(): void {
+  ngOnDestroy(): void {
     this.dataRefreshSubscription.unsubscribe();
     if (this.signalRSubscription) {
       this.signalRSubscription.unsubscribe();
@@ -804,9 +276,9 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     this.commService.stopSignalRConnection();
   }
 
-  loadCommunications(): void {
-    this.commService.getCommunications().subscribe({ 
-      next: (data) => {
+  loadCommunications(): void {
+    this.commService.getCommunications().subscribe({ 
+      next: (data) => {
         const oldComms = this.communications();
         const newTrans = new Set(this.transitioningCommunications());
         let hasNewTransitions = false;
@@ -835,68 +307,68 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
         }
         this.communications.set(data);
       },
-      error: (err) => this.showToast('Error de Carga', 'No se pudieron cargar los datos', '❌', 'error')
-    });
-  }
+      error: (err) => this.showToast('Error de Carga', 'No se pudieron cargar los datos', '❌', 'error')
+    });
+  }
 
-  loadRecipientOptions(): void {
-    this.clientService.getRecipientOptions().subscribe({
-      next: (data) => {
-        const groups = data.filter(d => 
-            d.startsWith("Todos los clientes") || 
-            d.startsWith("Clientes morosos") || 
-            d.startsWith("Clientes al día")
-        );
-        this.staticGroups.set(groups);
-      },
-      error: (err) => {
-        this.staticGroups.set([
-          'Todos los clientes', 'Clientes morosos', 'Clientes al día'
-        ]);
-      }
-    });
-  }
+  loadRecipientOptions(): void {
+    this.clientService.getRecipientOptions().subscribe({
+      next: (data) => {
+        const groups = data.filter(d => 
+            d.startsWith("Todos los clientes") || 
+            d.startsWith("Clientes morosos") || 
+            d.startsWith("Clientes al día")
+        );
+        this.staticGroups.set(groups);
+      },
+      error: (err) => {
+        this.staticGroups.set([
+          'Todos los clientes', 'Clientes morosos', 'Clientes al día'
+        ]);
+      }
+    });
+  }
 
-  setupSearchDebounce(): void {
-    this.searchSubject.pipe(
-      debounceTime(300),
-      distinctUntilChanged(),
-      switchMap(query => {
-        if (query.length < 2) {
-          return of([]);
-        }
-        return this.clientService.searchClients(query).pipe(
-          catchError(() => of([]))
-        );
-      })
-    ).subscribe(results => {
-      this.searchResults.set(results);
-    });
-  }
+  setupSearchDebounce(): void {
+    this.searchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap(query => {
+        if (query.length < 2) {
+          return of([]);
+        }
+        return this.clientService.searchClients(query).pipe(
+          catchError(() => of([]))
+        );
+      })
+    ).subscribe(results => {
+      this.searchResults.set(results);
+    });
+  }
 
-  onSearchInput(event: Event): void {
-    const query = (event.target as HTMLInputElement).value;
-    this.searchSubject.next(query);
-  }
-  
-  formData = signal<FormDataState>({
-    id: null,
-    title: '',
-    content: '', 
-    sendDate: '',
-    sendTime: '',
-    channels: ['Email'],
-    recipients: [],
+  onSearchInput(event: Event): void {
+    const query = (event.target as HTMLInputElement).value;
+    this.searchSubject.next(query);
+  }
+  
+  formData = signal<FormDataState>({
+    id: null,
+    title: '',
+    content: '', 
+    sendDate: '',
+    sendTime: '',
+    channels: ['Email'],
+    recipients: [],
     externalRecipientIds: [],
-    type: 'enviar_ahora',
+    type: 'enviar_ahora',
     smtpConfigId: null,
     isAccountStatement: false,
     isNextMonthStatement: false,
     sendToAllEmails: false
-  });
-  
+  });
+  
   currentModal = signal<'add' | 'edit' | 'view' | 'send-confirm' | 'retry' | 'extend' | 'history' | 'none'>('none');
-  selectedCommunication = signal<ComunicacionDto | null>(null);
+  selectedCommunication = signal<ComunicacionDto | null>(null);
   transitioningCommunications = signal<Set<number>>(new Set());
   extensionPreview = signal<CommunicationExtensionPreview | null>(null);
   extensionRecipientType = signal(DEFAULT_EXTENSION_RECIPIENT_TYPE);
@@ -911,17 +383,17 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   historyCurrentPage = signal<number>(1);
   historyItemsPerPage = 10;
 
-  toast = signal<ToastState>({
-    show: false,
-    message: '',
-    description: '',
-    icon: '',
-    color: 'success',
-  });
+  toast = signal<ToastState>({
+    show: false,
+    message: '',
+    description: '',
+    icon: '',
+    color: 'success',
+  });
 
-  // --- Computed Signals ---
-  
-  scheduledCommunications = computed(() => {
+  // --- Computed Signals ---
+  
+  scheduledCommunications = computed(() => {
     const trans = this.transitioningCommunications();
     return this.communications().filter(c => 
       c.status === 'Scheduled' || 
@@ -930,11 +402,11 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     );
   });
 
-  draftCommunications = computed(() => 
-    this.communications().filter(c => c.status === 'Draft')
-  );
+  draftCommunications = computed(() => 
+    this.communications().filter(c => c.status === 'Draft')
+  );
 
-  pastCommunications = computed(() => {
+  pastCommunications = computed(() => {
     const trans = this.transitioningCommunications();
     return this.communications().filter(c => 
       (c.status === 'Finished' || c.status === 'Finished w/ Errors' || c.status === 'Failed') &&
@@ -979,7 +451,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     return Math.max(1, Math.ceil(this.filteredHistoryCommunications().length / this.historyItemsPerPage));
   });
 
-  isFormValid = computed(() => {
+  isFormValid = computed(() => {
     const data = this.formData();
     
     const isContentEmpty = !data.content || data.content.trim() === '<p><br></p>' || data.content.trim() === '';
@@ -1003,8 +475,29 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     return baseValid;
   });
 
+  /**
+   * Qué impide enviar, en palabras del operador, para la franja del alta.
+   * Sólo presentación: las condiciones son las mismas de `isFormValid`.
+   */
+  formMissing = computed<string[]>(() => {
+    const data = this.formData();
+    const missing: string[] = [];
+    const hasRecipients = data.sendToAllEmails || data.recipients.length > 0 || data.externalRecipientIds.length > 0;
+    const isContentEmpty = !data.content || data.content.trim() === '<p><br></p>' || data.content.trim() === '';
 
-  private resetForm(): void {
+    if (!hasRecipients) missing.push('destinatarios');
+    if (!data.title.trim()) missing.push('título');
+    if (!data.isAccountStatement && isContentEmpty) missing.push('contenido');
+    if (data.externalRecipientIds.length > 0 && data.isAccountStatement) missing.push('quitar los receptores externos');
+    if (data.type === 'programar' && (!data.sendDate || !data.sendTime)) missing.push('fecha y hora');
+    return missing;
+  });
+
+  formClientRecipientCount = computed(() => this.formData().recipients.length);
+  formExternalRecipientCount = computed(() => this.formData().externalRecipientIds.length);
+
+
+  private resetForm(): void {
     const defaultSmtp = this.smtpConfigs().length > 0 ? this.smtpConfigs()[0].id : null;
 
     this.formData.set({
@@ -1024,10 +517,10 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     });
   }
 
-  private showToast(message: string, description: string, icon: string, color: 'success' | 'error'): void {
-    this.toast.set({ show: true, message, description, icon, color });
-    setTimeout(() => this.toast.set({ ...this.toast(), show: false }), 4000);
-  }
+  private showToast(message: string, description: string, icon: string, color: 'success' | 'error'): void {
+    this.toast.set({ show: true, message, description, icon, color });
+    setTimeout(() => this.toast.set({ ...this.toast(), show: false }), 4000);
+  }
 
   openModal(
     modalType: 'add' | 'edit' | 'view' | 'send-confirm' | 'retry' | 'history',
@@ -1039,6 +532,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     }
 
     this.selectedCommunication.set(communication);
+    this.viewDispatchFilter.set(null);
+    this.viewShowContent.set(false);
     this.resetForm();
 
     let finalModalType = modalType;
@@ -1084,16 +579,14 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       if (isResend) finalModalType = 'add';
     }
     
+    this.retryExcluded.set(new Set());
+    this.retrySearch.set('');
+    this.sendMode.set('now');
+    this.sendScheduleDate.set('');
+    this.sendScheduleTime.set('');
     if (communication && (modalType === 'view' || modalType === 'retry')) {
       this.commService.getCommunicationById(communication.id).subscribe({
         next: (fullComm) => {
-          if (modalType === 'retry' && fullComm.dispatches) {
-            fullComm.dispatches.forEach(d => {
-              d.isSelected = !d.isTest
-                && d.status !== 'Exitoso'
-                && d.channel.toLocaleLowerCase() === 'email';
-            });
-          }
           this.selectedCommunication.set(fullComm);
         },
         error: (err) => console.error('Error cargando detalle del comunicado', err)
@@ -1146,9 +639,43 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     }
   }
 
-  addCommunication(): void {
+  /**
+   * Seguro contra envíos dobles: bloquea las acciones que crean o envían un comunicado mientras hay una
+   * petición en curso y durante SUBMIT_COOLDOWN_MS después de cada una (también si falló), aunque el botón
+   * se toque varias veces o se reabra el formulario.
+   */
+  readonly isSubmitting = signal(false);
+  private lastSubmitAt = 0;
+
+  private beginSubmit(): boolean {
+    if (this.isSubmitting() || Date.now() - this.lastSubmitAt < SUBMIT_COOLDOWN_MS) return false;
+    this.isSubmitting.set(true);
+    this.lastSubmitAt = Date.now();
+    return true;
+  }
+
+  /**
+   * 409 DUPLICATE_COMMUNICATION de la API: el comunicado ya se creó o ya está en cola. Avisa con el mensaje del
+   * servidor, cierra el formulario y recarga la lista para que se vea el que ya existe. Devuelve true si lo manejó.
+   */
+  private handleDuplicateError(err: unknown): boolean {
+    const error = err as { status?: number; error?: { code?: string; message?: string } };
+    if (error?.status !== 409 || error.error?.code !== 'DUPLICATE_COMMUNICATION') return false;
+    this.showToast('Envío ya registrado', error.error.message || 'Este comunicado ya se envió.', 'alert-triangle', 'error');
+    this.closeModal();
+    this.loadCommunications();
+    return true;
+  }
+
+  private endSubmit(): void {
+    this.lastSubmitAt = Date.now();
+    this.isSubmitting.set(false);
+  }
+
+  addCommunication(): void {
     const data = this.formData();
     if (!this.isFormValid()) { return; }
+    if (!this.beginSubmit()) { return; }
 
     let finalSendDate = '';
     let finalSendTime = '';
@@ -1182,20 +709,21 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       sendTime: finalSendTime
     };
 
-    this.commService.createCommunication(request, this.selectedFiles()).subscribe({
+    this.commService.createCommunication(request, this.selectedFiles()).pipe(finalize(() => this.endSubmit())).subscribe({
       next: (newCommunication) => {
         this.communications.update(comms => [newCommunication, ...comms]);
         this.closeModal();
         this.showToast('¡Comunicado creado!', 'Se guardó correctamente', '📨', 'success');
         this.selectedFiles.set([]);
       },
-      error: (err) => this.showToast('Error', 'No se pudo crear el comunicado', '❌', 'error')
+      error: (err) => { if (!this.handleDuplicateError(err)) this.showToast('Error', 'No se pudo crear el comunicado', '❌', 'error'); }
     });
   }
 
   sendTestCommunication(): void {
     const data = this.formData();
     if (!this.isFormValid()) { return; }
+    if (!this.beginSubmit()) { return; }
 
     const now = new Date();
     const year = now.getFullYear();
@@ -1219,7 +747,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       testEmailAddress: 'fsgbrunofranco@gmail.com'
     };
 
-    this.commService.createCommunication(request, this.selectedFiles()).subscribe({
+    this.commService.createCommunication(request, this.selectedFiles()).pipe(finalize(() => this.endSubmit())).subscribe({
       next: (newCommunication) => {
         this.communications.update(comms => [newCommunication, ...comms]);
         this.closeModal();
@@ -1231,16 +759,17 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error(err);
-        this.showToast('Error', 'No se pudo enviar la prueba', 'alert-circle', 'error');
+        if (!this.handleDuplicateError(err)) this.showToast('Error', 'No se pudo enviar la prueba', 'alert-circle', 'error');
       }
     });
   }
 
-  editCommunication(): void {
+  editCommunication(): void {
     const data = this.formData();
     const commId = data.id;
 
     if (!commId || !this.isFormValid()) { return; }
+    if (!this.beginSubmit()) { return; }
 
     let finalSendDate = '';
     let finalSendTime = '';
@@ -1281,7 +810,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       sendToAllEmails: data.sendToAllEmails
     };
 
-    this.commService.updateCommunication(commId, request).subscribe({
+    this.commService.updateCommunication(commId, request).pipe(finalize(() => this.endSubmit())).subscribe({
       next: (updatedComm) => {
         this.communications.update(comms => comms.map(c => c.id === commId ? updatedComm : c));
         
@@ -1300,80 +829,187 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     });
   }
 
-  handleDeleteCommunication(communicationId: number): void {
-    this.commService.deleteCommunication(communicationId).subscribe({
-      next: () => {
-        this.communications.update(comms => comms.filter(c => c.id !== communicationId));
-        this.closeModal();
-        this.showToast('Comunicado eliminado', 'Se eliminó correctamente', '🗑️', 'success');
-      },
-      error: (err) => this.showToast('Error', 'No se pudo eliminar', '❌', 'error')
-    });
-  }
+  handleDeleteCommunication(communicationId: number): void {
+    this.commService.deleteCommunication(communicationId).subscribe({
+      next: () => {
+        this.communications.update(comms => comms.filter(c => c.id !== communicationId));
+        this.closeModal();
+        this.showToast('Comunicado eliminado', 'Se eliminó correctamente', '🗑️', 'success');
+      },
+      error: (err) => this.showToast('Error', 'No se pudo eliminar', '❌', 'error')
+    });
+  }
 
-  handleSendCommunication(communicationId: number): void {
-    this.commService.sendDraftNow(communicationId).subscribe({
-      next: (sentComm) => {
-        this.communications.update(comms => comms.map(c => c.id === communicationId ? sentComm : c));
-        this.closeModal();
-        this.showToast('¡Comunicado enviado!', 'El envío se ha puesto en cola', '✅', 'success');
-      },
-      error: (err) => this.showToast('Error', 'No se pudo enviar', '❌', 'error')
-    });
-  }
+  /** «Enviar» un guardado: el operador elige entre enviar ya o programar fecha y hora. */
+  sendMode = signal<'now' | 'schedule'>('now');
+  sendScheduleDate = signal('');
+  sendScheduleTime = signal('');
 
-  addRecipientFromList(recipient: string, inputElement: HTMLInputElement): void {
-    if (recipient && !this.formData().recipients.includes(recipient)) {
-      this.formData.update(data => ({ ...data, recipients: [...data.recipients, recipient] }));
-    }
-    inputElement.value = ''; 
-    this.searchResults.set([]);
-    this.isSearchFocused.set(false);
-  }
+  /** Mensaje de lo que falta para programar (vacío = listo). */
+  getScheduleProblem(): string {
+    if (this.sendMode() !== 'schedule') return '';
+    const date = this.sendScheduleDate();
+    const time = this.sendScheduleTime();
+    if (!date || !time) return 'Elegí fecha y hora';
+    const when = new Date(`${date}T${time}`);
+    if (isNaN(when.getTime())) return 'Fecha u hora inválida';
+    if (when.getTime() <= Date.now()) return 'Elegí un horario futuro';
+    return '';
+  }
 
-  removeRecipient(recipient: string): void {
-    this.formData.update(data => ({ ...data, recipients: data.recipients.filter(d => d !== recipient) }));
-  }
+  getTodayIso(): string {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  }
+
+  confirmSend(comm: ComunicacionDto): void {
+    if (this.sendMode() === 'now') { this.handleSendCommunication(comm.id); return; }
+    if (this.getScheduleProblem()) return;
+    if (!this.beginSubmit()) { return; }
+    const request: UpsertComunicacionRequest = {
+      id: comm.id,
+      title: comm.title,
+      content: comm.content,
+      type: 'schedule',
+      sendDate: this.sendScheduleDate(),
+      sendTime: this.sendScheduleTime(),
+      channels: ['Email'],
+      recipients: comm.sendToAllEmails ? [] : [...comm.recipients],
+      externalRecipientIds: comm.sendToAllEmails ? [] : (comm.externalRecipients || []).map(r => r.id),
+      smtpConfigId: comm.smtpConfigId ?? null,
+      isAccountStatement: comm.isAccountStatement || false,
+      isNextMonthStatement: comm.isNextMonthStatement || false,
+      sendToAllEmails: comm.sendToAllEmails || false
+    };
+    this.commService.updateCommunication(comm.id, request).pipe(finalize(() => this.endSubmit())).subscribe({
+      next: (updated) => {
+        this.communications.update(list => list.map(c => c.id === comm.id ? updated : c));
+        this.closeModal();
+        this.showToast('Comunicado programado', 'Se enviará en el horario elegido.', 'clock', 'success');
+      },
+      error: () => this.showToast('Error', 'No se pudo programar el comunicado', 'alert-triangle', 'error')
+    });
+  }
+
+  handleSendCommunication(communicationId: number): void {
+    if (!this.beginSubmit()) { return; }
+    this.commService.sendDraftNow(communicationId).pipe(finalize(() => this.endSubmit())).subscribe({
+      next: (sentComm) => {
+        this.communications.update(comms => comms.map(c => c.id === communicationId ? sentComm : c));
+        this.closeModal();
+        this.showToast('¡Comunicado enviado!', 'El envío se ha puesto en cola', '✅', 'success');
+      },
+      error: (err) => { if (!this.handleDuplicateError(err)) this.showToast('Error', 'No se pudo enviar', '❌', 'error'); }
+    });
+  }
+
+  addRecipientFromList(recipient: string, inputElement: HTMLInputElement): void {
+    if (recipient && !this.formData().recipients.includes(recipient)) {
+      this.formData.update(data => ({ ...data, recipients: [...data.recipients, recipient] }));
+    }
+    inputElement.value = ''; 
+    this.searchResults.set([]);
+    this.isSearchFocused.set(false);
+  }
+
+  removeRecipient(recipient: string): void {
+    this.formData.update(data => ({ ...data, recipients: data.recipients.filter(d => d !== recipient) }));
+  }
 
 
-  getBadgeMeta(status: ComunicacionDto['status']): { text: string; classes: string; icon?: string } {
-    let colorClass = '';
-    let icon: string | undefined;
-    let text: string;
+  getBadgeMeta(status: ComunicacionDto['status']): { text: string; classes: string; icon?: string } {
+    let colorClass = '';
+    let icon: string | undefined;
+    let text: string;
 
-    switch (status) {
-      case 'Finished': 
-        colorClass = 'badge-finished'; icon = 'check-circle'; text = 'Enviado';
-        break;
-      case 'Scheduled': 
-        colorClass = 'badge-scheduled'; icon = 'clock'; text = 'Programado';
-        break;
-      case 'Draft': 
-        colorClass = 'badge-draft'; icon = 'file-text'; text = 'Borrador';
-        break;
-      case 'Procesando':
-        colorClass = 'processing-badge'; icon = 'refresh-cw'; text = 'Procesando';
-        break;
-      case 'Failed':
-      case 'Finished w/ Errors':
-        colorClass = 'badge-error'; icon = 'alert-triangle'; text = 'Error';
-        break;
-      default: 
-        colorClass = 'badge-draft'; text = status;
-    }
-    return { text, classes: `status-badge ${colorClass}`, icon };
-  }
+    switch (status) {
+      case 'Finished': 
+        colorClass = 'badge-finished'; icon = 'check-circle'; text = 'Enviado';
+        break;
+      case 'Scheduled': 
+        colorClass = 'badge-scheduled'; icon = 'clock'; text = 'Programado';
+        break;
+      case 'Draft': 
+        colorClass = 'badge-draft'; icon = 'file-text'; text = 'Borrador';
+        break;
+      case 'Procesando':
+        colorClass = 'processing-badge'; icon = 'refresh-cw'; text = 'Procesando';
+        break;
+      case 'Failed':
+      case 'Finished w/ Errors':
+        colorClass = 'badge-error'; icon = 'alert-triangle'; text = 'Error';
+        break;
+      default: 
+        colorClass = 'badge-draft'; text = status;
+    }
+    return { text, classes: `status-badge ${colorClass}`, icon };
+  }
 
-  getChannelMeta(channel: string): { icons: { name: string; classes?: string }[] } {
-    const mail = { name: 'Mail', classes: 'text-blue-600' };
-    const wa = { name: 'whatsapp', classes: 'text-green-600' };
-    if (channel === 'Email + WhatsApp') return { icons: [mail, wa] };
-    if (channel === 'Email') return { icons: [mail] };
-    if (channel === 'WhatsApp') return { icons: [wa] };
-    return { icons: [] };
-  }
+  getChannelMeta(channel: string): { icons: { name: string; classes?: string }[] } {
+    const mail = { name: 'Mail', classes: 'text-blue-600' };
+    const wa = { name: 'whatsapp', classes: 'text-green-600' };
+    if (channel === 'Email + WhatsApp') return { icons: [mail, wa] };
+    if (channel === 'Email') return { icons: [mail] };
+    if (channel === 'WhatsApp') return { icons: [wa] };
+    return { icons: [] };
+  }
 
-  getCommunicationPreview(content: string, _channel: string): string {
+  /** Estado en «Ver detalle»: cápsula sólida (más precisa que la tarjeta: distingue «con errores»). */
+  getDetailStatus(status: ComunicacionDto['status']): { text: string; tone: string; icon: string } {
+    switch (status) {
+      case 'Finished': return { text: 'Enviado', tone: 'is-finished', icon: 'check-circle' };
+      case 'Finished w/ Errors': return { text: 'Enviado con errores', tone: 'is-warning', icon: 'alert-triangle' };
+      case 'Failed': return { text: 'Fallido', tone: 'is-error', icon: 'alert-octagon' };
+      case 'Scheduled': return { text: 'Programado', tone: 'is-scheduled', icon: 'clock' };
+      case 'Draft': return { text: 'Borrador', tone: 'is-draft', icon: 'file-text' };
+      default: return { text: status, tone: 'is-draft', icon: 'info' };
+    }
+  }
+
+  /**
+   * Ajusta la vista previa del contenido a su alto real (entre 10 y 36 rem): un texto corto no queda
+   * en un marco enorme y un correo diseñado no se corta. El iframe es same-origin (sandbox sin scripts).
+   */
+  /** Barra de desplazamiento fina dentro de un iframe de vista previa (same-origin, sin scripts). */
+  styleScroll(event: Event): void {
+    try {
+      const doc = (event.target as HTMLIFrameElement).contentDocument;
+      if (doc?.head && !doc.getElementById('guarde-preview-scroll')) {
+        const style = doc.createElement('style');
+        style.id = 'guarde-preview-scroll';
+        style.textContent = 'html{scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}'
+          + '::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:8px}'
+          + '::-webkit-scrollbar-track{background:transparent}';
+        doc.head.appendChild(style);
+      }
+    } catch { /* sin acceso: queda la barra del navegador */ }
+  }
+
+  fitPreviewFrame(event: Event): void {
+    const frame = event.target as HTMLIFrameElement;
+    try {
+      const doc = frame.contentDocument;
+      if (!doc?.body) return;
+      // Barra de desplazamiento fina dentro del marco (sólo si el contenido supera el alto máximo).
+      if (!doc.getElementById('guarde-preview-scroll')) {
+        const style = doc.createElement('style');
+        style.id = 'guarde-preview-scroll';
+        style.textContent = 'html{scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}'
+          + '::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:8px}'
+          + '::-webkit-scrollbar-track{background:transparent}';
+        doc.head?.appendChild(style);
+      }
+      // scrollHeight nunca es menor que el alto visible: se mide con el marco colapsado.
+      frame.style.height = '0px';
+      const height = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      frame.style.height = `${Math.min(Math.max(height + 2, 10 * rem), 36 * rem)}px`;
+    } catch {
+      // Sin acceso al documento: queda el alto por defecto del CSS.
+    }
+  }
+
+  getCommunicationPreview(content: string, _channel: string): string {
     return buildCommunicationPreviewText(content);
   }
 
@@ -1400,176 +1036,51 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     }
   }
 
-  loadIcbcTemplate(): void {
-    this.updateFormField('title', 'Beneficio especial ICBC para clientes');
-    this.updateFormField('channels', ['Email']);
-    this.updateFormField('content', this.icbcTemplate);
+  /** Botón «Plantillas» del encabezado. El Observador las ve en sólo lectura. */
+  openTemplatesManager(): void {
+    this.templatesView.set('manage');
+  }
+
+  /** «Cargar plantilla» dentro del alta/edición de un comunicado. */
+  openTemplatePicker(): void {
+    if (this.authService.isObserver()) return;
+    this.templatesView.set('pick');
+  }
+
+  closeTemplates(): void {
+    this.templatesView.set(null);
+  }
+
+  /**
+   * Plantilla elegida en el gestor. Desde «Cargar plantilla» completa el comunicado abierto; desde
+   * «Usar en un comunicado» abre uno nuevo con ella. Destinatarios, servidor y adjuntos no cambian.
+   */
+  onTemplatePicked(picked: PickedCommunicationTemplate): void {
+    const fromManager = this.templatesView() === 'manage';
+    this.templatesView.set(null);
+    if (fromManager) {
+      if (this.authService.isObserver()) return;
+      this.openModal('add');
+    }
+    this.applyTemplate(picked);
+  }
+
+  applyTemplate(picked: PickedCommunicationTemplate): void {
+    this.formData.update(data => ({
+      ...data,
+      title: picked.template.subject,
+      channels: ['Email'],
+      isAccountStatement: false,
+      isNextMonthStatement: false,
+      content: picked.content
+    }));
+    this.isEditingLogisticasText.set(false);
     this.showToast(
-      'Plantilla cargada',
-      'Revisá el contenido y seleccioná "Todos los emails" antes de enviarlo.',
+      `Plantilla ${picked.template.name} cargada`,
+      'Revisá el contenido, elegí los destinatarios y enviá una prueba antes del envío final.',
       'mail',
       'success'
     );
-  }
-
-  loadInmobiliariasTemplate(): void {
-    if (this.isLoadingInmobiliariasTemplate()) return;
-
-    this.isLoadingInmobiliariasTemplate.set(true);
-    this.http.get(INMOBILIARIAS_TEMPLATE_URL, { responseType: 'text' }).subscribe({
-      next: (template) => {
-        if (!template.includes(INMOBILIARIAS_TEMPLATE_MARKER)) {
-          this.isLoadingInmobiliariasTemplate.set(false);
-          this.showToast(
-            'Plantilla no disponible',
-            'El archivo de la Plantilla Inmobiliarias no es válido.',
-            'alert-circle',
-            'error'
-          );
-          return;
-        }
-
-        this.formData.update(data => ({
-          ...data,
-          title: 'PUBLICIDAD | Una solución de guardado para tu inmobiliaria y tus clientes',
-          channels: ['Email'],
-          content: template
-        }));
-        this.isLoadingInmobiliariasTemplate.set(false);
-        this.showToast(
-          'Plantilla Inmobiliarias cargada',
-          'Elegí las inmobiliarias destinatarias o enviá una prueba antes del envío final.',
-          'mail',
-          'success'
-        );
-      },
-      error: (error) => {
-        console.error('No se pudo cargar la Plantilla Inmobiliarias', error);
-        this.isLoadingInmobiliariasTemplate.set(false);
-        this.showToast(
-          'Error al cargar la plantilla',
-          'No se pudo abrir la Plantilla Inmobiliarias.',
-          'alert-circle',
-          'error'
-        );
-      }
-    });
-  }
-
-  loadLaboratoriosTemplate(): void {
-    if (this.isLoadingLaboratoriosTemplate()) return;
-
-    this.isLoadingLaboratoriosTemplate.set(true);
-    this.http.get(LABORATORIOS_TEMPLATE_URL, { responseType: 'text' }).subscribe({
-      next: (template) => {
-        if (!template.includes(LABORATORIOS_TEMPLATE_MARKER)) {
-          this.isLoadingLaboratoriosTemplate.set(false);
-          this.showToast(
-            'Plantilla no disponible',
-            'El archivo de la Plantilla Laboratorios no es válido.',
-            'alert-circle',
-            'error'
-          );
-          return;
-        }
-
-        this.formData.update(data => ({
-          ...data,
-          title: 'PUBLICIDAD | Espacio flexible para materiales y equipamiento de tu laboratorio',
-          channels: ['Email'],
-          content: template
-        }));
-        this.isLoadingLaboratoriosTemplate.set(false);
-        this.showToast(
-          'Plantilla Laboratorios cargada',
-          'Elegí los laboratorios destinatarios o enviá una prueba antes del envío final.',
-          'mail',
-          'success'
-        );
-      },
-      error: (error) => {
-        console.error('No se pudo cargar la Plantilla Laboratorios', error);
-        this.isLoadingLaboratoriosTemplate.set(false);
-        this.showToast(
-          'Error al cargar la plantilla',
-          'No se pudo abrir la Plantilla Laboratorios.',
-          'alert-circle',
-          'error'
-        );
-      }
-    });
-  }
-
-  loadVisitadoresMedicosTemplate(): void {
-    if (this.isLoadingVisitadoresMedicosTemplate()) return;
-
-    this.isLoadingVisitadoresMedicosTemplate.set(true);
-    this.http.get(VISITADORES_MEDICOS_TEMPLATE_URL, { responseType: 'text' }).subscribe({
-      next: (template) => {
-        if (!template.includes(VISITADORES_MEDICOS_TEMPLATE_MARKER)) {
-          this.isLoadingVisitadoresMedicosTemplate.set(false);
-          this.showToast(
-            'Plantilla no disponible',
-            'El archivo de la Plantilla Visitadores Médicos no es válido.',
-            'alert-circle',
-            'error'
-          );
-          return;
-        }
-
-        this.formData.update(data => ({
-          ...data,
-          title: 'PUBLICIDAD | Más espacio para organizar tu material de trabajo',
-          channels: ['Email'],
-          content: template
-        }));
-        this.isLoadingVisitadoresMedicosTemplate.set(false);
-        this.showToast(
-          'Plantilla Visitadores Médicos cargada',
-          'Elegí los visitadores destinatarios o enviá una prueba antes del envío final.',
-          'mail',
-          'success'
-        );
-      },
-      error: (error) => {
-        console.error('No se pudo cargar la Plantilla Visitadores Médicos', error);
-        this.isLoadingVisitadoresMedicosTemplate.set(false);
-        this.showToast(
-          'Error al cargar la plantilla',
-          'No se pudo abrir la Plantilla Visitadores Médicos.',
-          'alert-circle',
-          'error'
-        );
-      }
-    });
-  }
-
-  loadLogisticasTemplate(): void {
-    if (this.isLoadingLogisticasTemplate()) return;
-    this.isLoadingLogisticasTemplate.set(true);
-    this.http.get(LOGISTICAS_TEMPLATE_URL, { responseType: 'text' }).subscribe({
-      next: (template) => {
-        this.isLoadingLogisticasTemplate.set(false);
-        if (!template.includes(LOGISTICAS_TEMPLATE_MARKER) || !getLogisticasTemplateCopy(template)) {
-          this.showToast('Plantilla no disponible', 'El archivo de la Plantilla Logísticas no es válido.', 'alert-circle', 'error');
-          return;
-        }
-        this.formData.update(data => ({
-          ...data,
-          title: 'Tu logística, con más espacio.',
-          channels: ['Email'],
-          isAccountStatement: false,
-          isNextMonthStatement: false,
-          content: template
-        }));
-        this.isEditingLogisticasText.set(false);
-        this.showToast('Plantilla Logísticas cargada', 'Podés editar el texto con Quill. Elegí los destinatarios y enviá una prueba antes del envío final.', 'mail', 'success');
-      },
-      error: () => {
-        this.isLoadingLogisticasTemplate.set(false);
-        this.showToast('Error al cargar la plantilla', 'No se pudo abrir la Plantilla Logísticas.', 'alert-circle', 'error');
-      }
-    });
   }
 
   getLogisticasCopyContent(): string {
@@ -1581,18 +1092,6 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     this.formData.update(data => ({ ...data, content: updateLogisticasTemplateCopy(data.content, copy) }));
   }
 
-  loadIcbcTemplate2(): void {
-    this.updateFormField('title', 'Beneficios ICBC para nuestros clientes');
-    this.updateFormField('channels', ['Email']);
-    this.updateFormField('content', this.icbcTemplate2);
-    this.showToast(
-      'Plantilla 2 cargada',
-      'Revisá el contenido y seleccioná "Todos los emails" antes de enviarlo.',
-      'mail',
-      'success'
-    );
-  }
-
   getCommunicationPreviewDocument(): SafeHtml {
     return this.buildTrustedPreviewDocument(this.selectedCommunication()?.content);
   }
@@ -1601,13 +1100,25 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     return this.buildTrustedPreviewDocument(this.formData().content);
   }
 
+  private readonly trustedPreviewCache = new Map<string, SafeHtml>();
+
   private buildTrustedPreviewDocument(content: string | null | undefined): SafeHtml {
     // srcdoc necesita un valor confiable para conservar los estilos de email.
     // El iframe permanece sin allow-scripts ni allow-forms, por lo que el
     // contenido se muestra aislado y no puede ejecutar acciones en la app.
-    return this.sanitizer.bypassSecurityTrustHtml(
-      buildCommunicationPreviewDocument(content)
-    );
+    // Se devuelve SIEMPRE el mismo objeto para el mismo contenido: si cada
+    // detección de cambios entregara uno nuevo, Angular reasignaría `srcdoc`,
+    // el marco se recargaría, su `load` dispararía otra detección y el
+    // contenido parpadearía sin fin («Ver contenido» se «bugueaba»).
+    const key = content ?? '';
+    const cached = this.trustedPreviewCache.get(key);
+    if (cached) return cached;
+    const trusted = this.sanitizer.bypassSecurityTrustHtml(buildCommunicationPreviewDocument(content));
+    if (this.trustedPreviewCache.size >= 8) {
+      this.trustedPreviewCache.delete(this.trustedPreviewCache.keys().next().value as string);
+    }
+    this.trustedPreviewCache.set(key, trusted);
+    return trusted;
   }
 
   loadSmtpConfigs(): void {
@@ -1779,37 +1290,63 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
         channel: 'Email',
         status: 'Fallido',
         errorMessage: comm.errorMessage || 'Envío fallido o interrumpido',
-        dispatchDate: comm.creationDate,
-        isSelected: true
+        dispatchDate: comm.creationDate
       }));
     }
-    return comm.dispatches.filter(d =>
-      !d.isTest
-      && d.status !== 'Exitoso'
-      && d.channel.toLocaleLowerCase() === 'email'
-    );
+    return comm.dispatches.filter(d => this.isFailedDispatch(d) && d.channel.toLocaleLowerCase() === 'email');
   }
 
   canSendCommunicationByEmail(comm: ComunicacionDto): boolean {
     return comm.channel.toLocaleLowerCase().includes('email');
   }
 
+  /**
+   * Reenvío: la selección vive aparte de los despachos (ids que el operador DESmarcó; por defecto va
+   * todo). Así no se muta el DTO y funciona también con la lista sin despachos, que se arma de nuevo
+   * en cada lectura.
+   */
+  retryExcluded = signal<ReadonlySet<number>>(new Set());
+  retrySearch = signal('');
+
+  isRetrySelected(d: CommunicationDispatchDto): boolean {
+    return !this.retryExcluded().has(d.dispatchId);
+  }
+
+  toggleRetry(d: CommunicationDispatchDto): void {
+    this.retryExcluded.update(current => {
+      const next = new Set(current);
+      if (!next.delete(d.dispatchId)) next.add(d.dispatchId);
+      return next;
+    });
+  }
+
   toggleAllRetrySelection(select: boolean): void {
     const comm = this.selectedCommunication();
-    if (!comm || !comm.dispatches) return;
-    comm.dispatches.forEach(d => {
-      if (!d.isTest && d.status !== 'Exitoso' && d.channel.toLocaleLowerCase() === 'email') {
-        d.isSelected = select;
-      }
-    });
-    this.selectedCommunication.set({ ...comm });
+    if (!comm) return;
+    this.retryExcluded.set(select ? new Set() : new Set(this.getFailedDispatches(comm).map(d => d.dispatchId)));
   }
 
   getSelectedRetryCount(): number {
     const comm = this.selectedCommunication();
     if (!comm) return 0;
+    return this.getFailedDispatches(comm).filter(d => this.isRetrySelected(d)).length;
+  }
+
+  /** Fallidos que coinciden con la búsqueda del modal de reenvío (nombre, motivo o canal). */
+  getRetryRows(comm: ComunicacionDto): CommunicationDispatchDto[] {
+    const term = this.retrySearch().trim().toLocaleLowerCase();
     const failed = this.getFailedDispatches(comm);
-    return failed.filter(d => d.isSelected !== false).length;
+    if (!term) return failed;
+    return failed.filter(d => `${d.clientName} ${d.errorMessage ?? ''}`.toLocaleLowerCase().includes(term));
+  }
+
+  /** Fallido = intentó y no llegó. «Pendiente» (programado o en cola) todavía no se intentó: no es un error. */
+  isFailedDispatch(d: CommunicationDispatchDto): boolean {
+    return !d.isTest && d.status !== 'Exitoso' && d.status !== 'Pendiente';
+  }
+
+  getPendingCount(dispatches: CommunicationDispatchDto[]): number {
+    return dispatches.filter(d => !d.isTest && d.status === 'Pendiente').length;
   }
 
   getSuccessCount(dispatches: CommunicationDispatchDto[]): number {
@@ -1817,11 +1354,66 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
   }
 
   getFailedCount(dispatches: CommunicationDispatchDto[]): number {
-    return dispatches.filter(d => !d.isTest && d.status !== 'Exitoso').length;
+    return dispatches.filter(d => this.isFailedDispatch(d)).length;
   }
 
   getTestCount(dispatches: CommunicationDispatchDto[]): number {
     return dispatches.filter(d => d.isTest).length;
+  }
+
+  /**
+   * «Ver detalle»: tramo elegido en la barra de resultado (null = el predeterminado:
+   * fallidos si los hay, si no exitosos, si no prueba). Sólo cambia qué filas se ven.
+   */
+  viewDispatchFilter = signal<'failed' | 'success' | 'pending' | 'test' | null>(null);
+  viewShowContent = signal(false);
+
+  getViewFilter(dispatches: CommunicationDispatchDto[]): 'failed' | 'success' | 'pending' | 'test' {
+    const picked = this.viewDispatchFilter();
+    if (picked) return picked;
+    if (this.getFailedCount(dispatches) > 0) return 'failed';
+    if (this.getSuccessCount(dispatches) > 0) return 'success';
+    if (this.getPendingCount(dispatches) > 0) return 'pending';
+    return 'test';
+  }
+
+  getViewDispatches(dispatches: CommunicationDispatchDto[]): CommunicationDispatchDto[] {
+    switch (this.getViewFilter(dispatches)) {
+      case 'failed': return dispatches.filter(d => this.isFailedDispatch(d));
+      case 'success': return dispatches.filter(d => !d.isTest && d.status === 'Exitoso');
+      case 'pending': return dispatches.filter(d => !d.isTest && d.status === 'Pendiente');
+      default: return dispatches.filter(d => d.isTest);
+    }
+  }
+
+  /** Frase principal del detalle: lo primero que necesita saber el operador. */
+  getViewHeadline(comm: ComunicacionDto): string {
+    const dispatches = comm.dispatches || [];
+    const failed = this.getFailedCount(dispatches);
+    switch (comm.status) {
+      case 'Finished': return 'Llegó a todos los destinatarios.';
+      case 'Finished w/ Errors': return failed === 1
+        ? '1 envío no llegó. Revisá el motivo y reintentá.'
+        : `${failed} envíos no llegaron. Revisá el motivo y reintentá.`;
+      case 'Failed': return failed > 0 ? 'El envío falló. Revisá el motivo y reintentá.' : 'El envío falló.';
+      case 'Scheduled': return 'Todavía no se envió: está programado.';
+      case 'Draft': return 'Borrador: todavía no se envió.';
+      case 'Procesando': return 'Se está enviando.';
+      default: return '';
+    }
+  }
+
+  canRetryFromView(comm: ComunicacionDto): boolean {
+    return !this.authService.isObserver()
+      && !!comm.channel
+      && this.canSendCommunicationByEmail(comm)
+      && (comm.status === 'Failed' || comm.status === 'Finished w/ Errors')
+      && this.getFailedCount(comm.dispatches || []) > 0;
+  }
+
+  getSmtpName(id: number | null | undefined): string {
+    if (id == null) return '';
+    return this.smtpConfigs().find(config => config.id === id)?.name || '';
   }
 
   getCommunicationRecipientCount(communication: ComunicacionDto): number {
@@ -1834,8 +1426,8 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
     const comm = this.selectedCommunication();
     if (!comm) return;
     const failed = this.getFailedDispatches(comm);
-    const selected = failed.filter(d => d.isSelected !== false);
-    
+    const selected = failed.filter(d => this.isRetrySelected(d));
+
     if (selected.length === 0) {
       this.showToast('Advertencia', 'Debés seleccionar al menos un destinatario para reintentar.', 'alert-triangle', 'error');
       return;
@@ -1849,11 +1441,12 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       .map(d => d.externalRecipientId)
       .filter((id): id is number => typeof id === 'number' && id > 0);
     
+    if (!this.beginSubmit()) { return; }
     this.commService.retrySelectedCommunication(
       comm.id,
       selectedClientIds,
       selectedExternalRecipientIds
-    ).subscribe({
+    ).pipe(finalize(() => this.endSubmit())).subscribe({
       next: (res) => {
         this.showToast('Reintento Programado', 'Se enviará a ' + selected.length + ' destinatarios seleccionados.', 'check', 'success');
         this.closeModal();
@@ -1861,7 +1454,7 @@ export class CommunicationsComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Error en reintento', err);
-        this.showToast('Error', 'Hubo un error al iniciar el reintento.', 'alert-triangle', 'error');
+        if (!this.handleDuplicateError(err)) this.showToast('Error', 'Hubo un error al iniciar el reintento.', 'alert-triangle', 'error');
       }
     });
   }

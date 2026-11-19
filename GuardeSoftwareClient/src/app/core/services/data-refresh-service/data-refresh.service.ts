@@ -30,6 +30,8 @@ export interface DataRefreshEvent {
  */
 @Injectable({ providedIn: 'root' })
 export class DataRefreshService {
+  /** Changes before publishing the event, so every catalog consumer sees the new version. */
+  catalogRevision = 0;
   private readonly changesSubject = new Subject<DataRefreshEvent>();
   readonly changes$ = this.changesSubject.asObservable();
 
@@ -44,6 +46,8 @@ export class DataRefreshService {
     )];
 
     if (normalizedDomains.length === 0) return;
+
+    if (normalizedDomains.includes('catalog') || normalizedDomains.includes('all')) this.catalogRevision++;
 
     this.changesSubject.next({
       domains: normalizedDomains,

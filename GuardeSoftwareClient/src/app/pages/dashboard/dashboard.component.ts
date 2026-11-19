@@ -22,6 +22,8 @@ import { projectLatePaymentSurcharge } from '../../core/utils/late-payment-surch
 import { MonthlyInterestService } from '../../core/services/monthlyInterest-service/monthly-interest.service';
 import { MonthlyInterestRule } from '../../core/utils/interest-rule';
 import { AuthService } from '../../core/services/auth-service/auth.service';
+import { OfflineService } from '../../core/services/offline-service/offline.service';
+import { Router } from '@angular/router';
 
 interface PaymentMonthBreakdown {
   year: number;
@@ -140,6 +142,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private dataRefresh: DataRefreshService,
     public authService: AuthService,
     private monthlyInterestService: MonthlyInterestService,
+    private offlineService: OfflineService,
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -399,6 +403,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   openPaymentModalWith(item: any, updatePresence = true) { 
+    if (!this.offlineService.isOnline) {
+      void this.router.navigate(['/finances'], { queryParams: { autoOpenPayment: Number(item.clientId) } });
+      return;
+    }
     const nextClientId = Number(item.clientId ?? 0);
     if (updatePresence && this.activePresenceClientId && this.activePresenceClientId !== nextClientId) {
       void this.paymentPresenceService.leaveClientRoom(this.activePresenceClientId);

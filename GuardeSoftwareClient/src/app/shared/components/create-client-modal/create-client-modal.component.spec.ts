@@ -22,6 +22,7 @@ describe('CreateClientModalComponent', () => {
       serviceStub as ConstructorArgs[5],
       clientServiceStub as ConstructorArgs[6],
       serviceStub as ConstructorArgs[7],
+      { markForCheck: () => undefined } as unknown as ConstructorArgs[8],
     ];
     const instance = new CreateClientModalComponent(...constructorArgs);
     Object.defineProperty(instance, 'getArgentinaToday', { value: () => today });
@@ -31,6 +32,41 @@ describe('CreateClientModalComponent', () => {
 
   beforeEach(() => {
     component = createComponentForDate(new Date(2026, 8, 20));
+  });
+
+  afterEach(() => component.ngOnDestroy());
+
+  it('reuses locker options while unrelated client fields change', () => {
+    component.isEditMode = true;
+    component.allLockers = component.availableLockers = [
+      { id: 1, warehouseId: 1, lockerTypeId: 1, identifier: 'B-10', features: '', status: 'DISPONIBLE' },
+      { id: 2, warehouseId: 1, lockerTypeId: 1, identifier: 'B-2', features: '', status: 'DISPONIBLE' },
+    ];
+    component.warehouses = [{ id: 1, name: 'Depósito' } as never];
+    component.lockerTypes = [{ id: 1, name: 'Tipo', m3: 2 }];
+    const options = component.lockerOptions;
+    const filtered = component.filteredLockers;
+    expect(filtered.map(locker => locker.identifier)).toEqual(['B-2', 'B-10']);
+    component.newClientForm.get('nombreCompleto')?.setValue('Otro nombre');
+    expect(component.lockerOptions).toBe(options);
+    expect(component.filteredLockers).toBe(filtered);
+    expect(options[0].warehouse?.name).toBe('Depósito');
+    expect(options[0].lockerType?.m3).toBe(2);
+    component.handleLockerToggle(1);
+    expect(component.lockerOptions[0].id).toBe(1);
+    expect(component.lockerOptions[0].selected).toBeTrue();
+    expect(component.newClientForm.value.contractedM3).toBe(2);
+  });
+
+  it('stops subscriptions belonging to a replaced form and to a destroyed modal', () => {
+    const oldForm = component.newClientForm;
+    component.ngOnChanges({ clientData: new SimpleChange(null, null, false) });
+    const calculate = spyOn(component as never, 'recalculateManualProportionalAmount' as never);
+    oldForm.get('montoManual')?.setValue(123);
+    expect(calculate).not.toHaveBeenCalled();
+    component.ngOnDestroy();
+    component.newClientForm.get('montoManual')?.setValue(456);
+    expect(calculate).not.toHaveBeenCalled();
   });
 
   it('should create', () => {

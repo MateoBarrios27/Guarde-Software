@@ -1,0 +1,242 @@
+<div class="tpl-backdrop" role="presentation" (keydown)="onKeydown($event)">
+  <section #dialog class="tpl-shell" [class.tpl-shell-pick]="mode === 'pick'" tabindex="-1"
+           role="dialog" aria-modal="true" aria-labelledby="tpl-title">
+
+    <header class="tpl-header">
+      <div class="tpl-heading">
+        <span class="tpl-heading-icon" aria-hidden="true"><app-icon name="file-text" class="h-5 w-5"></app-icon></span>
+        <div class="min-w-0">
+          <h2 id="tpl-title" class="tpl-title">{{ mode === 'pick' ? 'Cargar plantilla' : 'Plantillas' }}</h2>
+          <p class="tpl-subtitle">
+            {{ mode === 'pick'
+              ? 'Elegí una plantilla: completa el asunto y el contenido del comunicado.'
+              : 'Ordená, revisá y editá las plantillas de comunicados.' }}
+          </p>
+        </div>
+      </div>
+      <div class="tpl-header-actions">
+        <span class="tpl-esc" aria-hidden="true">ESC</span>
+        <button type="button" class="tpl-close" (click)="close()" aria-label="Cerrar">
+          <app-icon name="x" class="h-5 w-5"></app-icon>
+        </button>
+      </div>
+    </header>
+
+    @if (!isLoading() && !storageReady() && mode === 'manage') {
+      <p class="tpl-notice">
+        <app-icon name="info" class="h-4 w-4 shrink-0"></app-icon>
+        <span>Se muestran las plantillas originales. Para ordenarlas, editarlas o crear nuevas falta aplicar la actualización de la base de datos.</span>
+      </p>
+    }
+
+    <div class="tpl-body" [class.is-detail]="showDetailOnMobile()">
+      <!-- Lista -->
+      <aside class="tpl-list-pane" aria-label="Plantillas">
+        <div class="tpl-list-head">
+          <span class="tpl-label">{{ templates().length }} {{ templates().length === 1 ? 'plantilla' : 'plantillas' }}</span>
+          @if (canEdit() && !isLoading()) {
+            <button type="button" class="tpl-btn tpl-btn-dark tpl-btn-sm" (click)="startNew()" [disabled]="!!editor()">
+              <app-icon name="plus" class="h-4 w-4"></app-icon> Nueva
+            </button>
+          }
+        </div>
+
+        @if (isLoading()) {
+          <div class="tpl-list-state" aria-live="polite">
+            <app-icon name="loader" class="h-5 w-5 animate-spin"></app-icon> Cargando plantillas…
+          </div>
+        } @else if (loadError()) {
+          <div class="tpl-list-state tpl-list-error" role="alert">
+            <span>{{ loadError() }}</span>
+            <button type="button" class="tpl-btn tpl-btn-outline tpl-btn-sm" (click)="load()">Reintentar</button>
+          </div>
+        } @else if (templates().length === 0) {
+          <div class="tpl-list-state">
+            <span>Todavía no hay plantillas.</span>
+          </div>
+        } @else {
+          <ol class="tpl-list" cdkDropList (cdkDropListDropped)="drop($event)"
+              [cdkDropListDisabled]="!canEdit() || !!editor() || isReordering()" [class.is-busy]="isReordering()">
+            @for (template of templates(); track template.id; let i = $index; let first = $first; let last = $last) {
+              <li class="tpl-item" cdkDrag [cdkDragData]="template"
+                  [class.is-selected]="template.id === selectedId() && !(editor() && editor()!.id === null)">
+                @if (canEdit()) {
+                  <span class="tpl-grip" cdkDragHandle title="Arrastrar para ordenar" aria-hidden="true">
+                    <app-icon name="grip-vertical" class="h-4 w-4"></app-icon>
+                  </span>
+                }
+                <button type="button" class="tpl-item-main" (click)="select(template)"
+                        [disabled]="!!editor()" [attr.aria-current]="template.id === selectedId() ? 'true' : null">
+                  <span class="tpl-item-name">{{ template.name }}</span>
+                  <span class="tpl-item-subject">{{ template.subject }}</span>
+                  <span class="tpl-item-meta">
+                    {{ kindLabel(template) }} · {{ isSystem(template) ? 'Del sistema' : 'Propia' }}@if (isEdited(template)) { · Editada }
+                  </span>
+                </button>
+                @if (canEdit()) {
+                  <span class="tpl-move">
+                    <button type="button" class="tpl-icon-btn" (click)="move(template, -1, $event)"
+                            [disabled]="first || !!editor() || isReordering()" [attr.aria-label]="'Subir ' + template.name">
+                      <app-icon name="arrow-up" class="h-4 w-4"></app-icon>
+                    </button>
+                    <button type="button" class="tpl-icon-btn" (click)="move(template, 1, $event)"
+                            [disabled]="last || !!editor() || isReordering()" [attr.aria-label]="'Bajar ' + template.name">
+                      <app-icon name="arrow-down" class="h-4 w-4"></app-icon>
+                    </button>
+                  </span>
+                }
+                <div *cdkDragPlaceholder class="tpl-item-placeholder"></div>
+              </li>
+            }
+          </ol>
+        }
+      </aside>
+
+      <!-- Detalle / editor -->
+      <section class="tpl-detail-pane">
+        <button type="button" class="tpl-back" (click)="editor() ? cancelEdit() : backToList()">
+          <app-icon name="arrow-left" class="h-4 w-4"></app-icon> Plantillas
+        </button>
+
+        @if (editor(); as state) {
+          <div class="tpl-editor">
+            <h3 class="tpl-detail-title">{{ state.id === null ? 'Nueva plantilla' : 'Editar plantilla' }}</h3>
+
+            <div class="tpl-field-grid">
+              <label class="tpl-field">
+                <span class="tpl-label">Nombre</span>
+                <input type="text" maxlength="150" [ngModel]="state.name" (ngModelChange)="updateEditor('name', $event)"
+                       placeholder="Ej.: Aviso de aumento" />
+              </label>
+              <label class="tpl-field">
+                <span class="tpl-label">Asunto del correo</span>
+                <input type="text" maxlength="300" [ngModel]="state.subject" (ngModelChange)="updateEditor('subject', $event)"
+                       placeholder="Es el título del comunicado" />
+              </label>
+            </div>
+
+            <div class="tpl-content-head">
+              <span class="tpl-label">Contenido</span>
+              @if (state.id === null) {
+                <span class="tpl-segmented" role="group" aria-label="Formato del contenido">
+                  <button type="button" [class.is-active]="!state.designed" (click)="setDesigned(false)">Texto con formato</button>
+                  <button type="button" [class.is-active]="state.designed" (click)="setDesigned(true)">HTML diseñado</button>
+                </span>
+              } @else if (state.designed) {
+                <span class="tpl-segmented" role="group" aria-label="Vista del contenido">
+                  <button type="button" [class.is-active]="editorTab() === 'preview'" (click)="editorTab.set('preview')">Vista previa</button>
+                  <button type="button" [class.is-active]="editorTab() === 'html'" (click)="editorTab.set('html')">HTML</button>
+                </span>
+              }
+            </div>
+
+            @if (state.designed) {
+              @if (state.id === null) {
+                <span class="tpl-segmented tpl-segmented-inline" role="group" aria-label="Vista del contenido">
+                  <button type="button" [class.is-active]="editorTab() === 'preview'" (click)="editorTab.set('preview')">Vista previa</button>
+                  <button type="button" [class.is-active]="editorTab() === 'html'" (click)="editorTab.set('html')">HTML</button>
+                </span>
+              }
+              @if (editorTab() === 'html') {
+                <textarea class="tpl-html" spellcheck="false" [ngModel]="state.content"
+                          (ngModelChange)="updateEditor('content', $event)"
+                          aria-label="HTML de la plantilla"></textarea>
+                <p class="tpl-hint">Es un correo diseñado: editalo como HTML para conservar tablas, estilos e imágenes.</p>
+              } @else {
+                <div class="tpl-preview">
+                  @if (editorPreview(); as html) {
+                    <iframe [srcdoc]="html" sandbox="allow-same-origin" title="Vista previa de la plantilla"></iframe>
+                  }
+                </div>
+              }
+            } @else {
+              <quill-editor class="tpl-quill" [ngModel]="state.content" (ngModelChange)="updateEditor('content', $event)"
+                            [styles]="{ height: '260px', display: 'block' }"
+                            placeholder="Escribí el contenido del comunicado…"></quill-editor>
+              <p class="tpl-hint">Podés usar {{ '{' }}data[0]{{ '}' }} para el nombre del destinatario.</p>
+            }
+
+            @if (editorError()) {
+              <p class="tpl-error" role="alert">{{ editorError() }}</p>
+            }
+          </div>
+        } @else {
+          @if (selectedTemplate(); as template) {
+          <div class="tpl-detail">
+            <div class="tpl-detail-head">
+              <div class="min-w-0">
+                <h3 class="tpl-detail-title">{{ template.name }}</h3>
+                <p class="tpl-detail-subject"><span class="tpl-label">Asunto</span> {{ template.subject }}</p>
+                <p class="tpl-detail-meta">
+                  {{ kindLabel(template) }} · {{ isSystem(template) ? 'Del sistema' : 'Propia' }}@if (isEdited(template)) { · Contenido editado }
+                </p>
+              </div>
+              @if (mode === 'manage') {
+                <div class="tpl-detail-actions">
+                  @if (!readOnly) {
+                    <button type="button" class="tpl-btn tpl-btn-dark" (click)="usePicked(template)"
+                            [disabled]="previewLoading() || isResolvingPick()">
+                      <app-icon name="Send" class="h-4 w-4"></app-icon> Usar en un comunicado
+                    </button>
+                  }
+                  @if (canEdit()) {
+                    <button type="button" class="tpl-btn tpl-btn-outline" (click)="startEdit(template)"
+                            [disabled]="previewLoading() || !!previewError()">
+                      <app-icon name="edit" class="h-4 w-4"></app-icon> Editar
+                    </button>
+                    <button type="button" class="tpl-btn tpl-btn-outline" (click)="duplicate(template)"
+                            [disabled]="previewLoading() || !!previewError()">
+                      <app-icon name="copy" class="h-4 w-4"></app-icon> Duplicar
+                    </button>
+                    @if (isEdited(template)) {
+                      <button type="button" class="tpl-btn tpl-btn-outline" (click)="restoreOriginal(template)">
+                        <app-icon name="rotate-ccw" class="h-4 w-4"></app-icon> Restaurar original
+                      </button>
+                    }
+                    <button type="button" class="tpl-btn tpl-btn-danger" (click)="remove(template)" [attr.aria-label]="'Eliminar ' + template.name">
+                      <app-icon name="Trash2" class="h-4 w-4"></app-icon><span class="tpl-btn-text">Eliminar</span>
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="tpl-preview">
+              @if (previewLoading()) {
+                <div class="tpl-preview-state"><app-icon name="loader" class="h-5 w-5 animate-spin"></app-icon> Cargando vista previa…</div>
+              } @else if (previewError()) {
+                <div class="tpl-preview-state tpl-error" role="alert">
+                  {{ previewError() }}
+                  <button type="button" class="tpl-btn tpl-btn-outline tpl-btn-sm" (click)="select(template, false)">Reintentar</button>
+                </div>
+              } @else if (previewHtml()) {
+                <iframe [srcdoc]="previewHtml()" sandbox="allow-same-origin" [title]="'Vista previa de ' + template.name"></iframe>
+              }
+            </div>
+          </div>
+          } @else if (!isLoading()) {
+          <div class="tpl-empty">Elegí una plantilla para verla.</div>
+          }
+        }
+      </section>
+    </div>
+
+    @if (editor()) {
+      <footer class="tpl-footer">
+        <button type="button" class="tpl-btn tpl-btn-outline" (click)="cancelEdit()" [disabled]="isSaving()">Cancelar</button>
+        <button type="button" class="tpl-btn tpl-btn-dark tpl-btn-main" (click)="save()" [disabled]="!editorValid() || isSaving()">
+          <app-icon [name]="isSaving() ? 'loader' : 'check'" class="h-4 w-4" [class.animate-spin]="isSaving()"></app-icon>
+          {{ isSaving() ? 'Guardando…' : 'Guardar plantilla' }}
+        </button>
+      </footer>
+    } @else if (mode === 'pick') {
+      <footer class="tpl-footer">
+        <button type="button" class="tpl-btn tpl-btn-outline" (click)="close()">Cancelar</button>
+        <button type="button" class="tpl-btn tpl-btn-dark tpl-btn-main" (click)="usePicked()"
+                [disabled]="!selectedTemplate() || previewLoading() || !!previewError() || isResolvingPick()">
+          <app-icon name="check" class="h-4 w-4"></app-icon> Cargar plantilla
+        </button>
+      </footer>
+    }
+  </section>
+</div>

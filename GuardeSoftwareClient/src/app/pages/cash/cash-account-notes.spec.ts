@@ -22,7 +22,9 @@ describe('Caja: notas de las cuentas', () => {
     };
     const deleteConfirmation = { confirm: jasmine.createSpy('confirm').and.resolveTo(true) };
     const router = { url: '/cash' };
-    component = new CashComponent(cashService as never, {} as never, deleteConfirmation as never, router as never);
+    component = new CashComponent(cashService as never, {} as never, deleteConfirmation as never, router as never,
+      { run: (callback: () => unknown) => callback(), runOutsideAngular: (callback: () => unknown) => callback() } as never,
+      { markForCheck: () => undefined } as never);
     galicia = account(1, 'Banco Galicia', 'Transferir el 5');
     efectivo = account(2, 'Caja Fuerte');
     component.accounts = [galicia, efectivo];

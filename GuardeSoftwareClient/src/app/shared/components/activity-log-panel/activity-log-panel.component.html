@@ -89,11 +89,11 @@
           <td colspan="6" class="activity-empty">No hay actividades para los filtros seleccionados.</td>
         </tr>
         <tr *ngFor="let activity of activities; trackBy: trackByActivityId" class="activity-row">
-          <td class="activity-date-cell">
+          <td class="activity-date-cell" data-label="Fecha y hora">
             <span class="activity-date">{{ activity.logDate | date:'dd/MM/yyyy' }}</span>
             <span class="activity-time">{{ activity.logDate | date:'HH:mm' }}</span>
           </td>
-          <td>
+          <td data-label="Usuario">
             <div class="flex min-w-40 items-center gap-2.5">
               <span class="activity-avatar">{{ (displayUser(activity) || 'U').charAt(0).toUpperCase() }}</span>
               <div class="min-w-0">
@@ -102,12 +102,12 @@
               </div>
             </div>
           </td>
-          <td><span class="activity-area-label">{{ areaLabel(activity.tableName) }}</span></td>
-          <td><span [class]="actionClass(activity.action)">{{ actionLabel(activity.action) }}</span></td>
-          <td class="max-w-[30rem]">
+          <td data-label="Área"><span class="activity-area-label">{{ areaLabel(activity.tableName) }}</span></td>
+          <td data-label="Acción"><span [class]="actionClass(activity.action)">{{ actionLabel(activity.action) }}</span></td>
+          <td class="max-w-[30rem]" data-label="Resumen">
             <p class="activity-summary">{{ activitySummary(activity) }}</p>
           </td>
-          <td class="text-right">
+          <td class="text-right" data-label="Detalle">
             <button
               type="button"
               class="activity-detail-button"

@@ -53,10 +53,12 @@ namespace GuardeSoftwareAPI.Dtos.Sync
 
     public class SyncSnapshotDto
     {
+        public int SchemaVersion { get; set; } = 1;
         public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
         public List<SyncClientDto> Clients { get; set; } = new();
         public List<SyncPaymentMethodDto> PaymentMethods { get; set; } = new();
         public List<SyncRentalDto> Rentals { get; set; } = new();
+        public GuardeSoftwareAPI.Dtos.MonthlyInterest.MonthlyInterestOverviewDTO? MonthlyInterest { get; set; }
     }
 
     /// <summary>
@@ -81,6 +83,8 @@ namespace GuardeSoftwareAPI.Dtos.Sync
         public decimal? SurchargeAmount { get; set; }
         public bool SurchargeAmountWasOverridden { get; set; }
         public string? ExpectedPaymentStateToken { get; set; }
+        public string? FutureDebitAction { get; set; }
+        public string? PaymentDecisionToken { get; set; }
     }
 
     public class SyncPaymentsRequestDto
@@ -93,6 +97,9 @@ namespace GuardeSoftwareAPI.Dtos.Sync
         public string LocalId { get; set; } = string.Empty;
         public bool Success { get; set; }
         public string? ErrorMessage { get; set; }
+        public string? ErrorCode { get; set; }
+        public int? PaymentId { get; set; }
+        public GuardeSoftwareAPI.Services.payment.PaymentDecisionDetails? Decision { get; set; }
     }
 
     public class SyncPaymentsResponseDto

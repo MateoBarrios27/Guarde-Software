@@ -1660,3 +1660,83 @@ app-month-picker {
   --mp-field-placeholder: #94a3b8;
   --mp-field-bg-disabled: #f1f5f9;
 }
+
+/* ───────────── Celular: cada fila de las tablas es una tarjeta (sin scroll lateral) ─────────────
+   Las etiquetas salen del atributo data-label de cada celda (el texto de su encabezado). */
+@media (max-width: 767.98px) {
+  .settings-panel-table {
+    display: block;
+    min-width: 0;
+  }
+
+  .settings-panel-table thead {
+    display: none;
+  }
+
+  .settings-panel-table tbody {
+    display: block;
+  }
+
+  .settings-panel-table tbody tr {
+    display: block;
+    border-bottom: 1px solid #eef2f6;
+    padding: 0.8rem 1rem;
+  }
+
+  .settings-panel-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .settings-panel-table tbody td,
+  .settings-panel-table tbody td:first-child,
+  .settings-panel-table tbody td:last-child {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 0;
+    padding: 0.2rem 0;
+    text-align: right;
+  }
+
+  .settings-panel-table tbody td[data-label]::before {
+    flex: 0 0 auto;
+    color: #64748b;
+    content: attr(data-label);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* La primera celda es el título de la tarjeta. */
+  .settings-panel-table tbody td[data-label]:first-child {
+    justify-content: flex-start;
+    padding-bottom: 0.3rem;
+    color: #172033;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-align: left;
+  }
+
+  .settings-panel-table tbody td[data-label]:first-child::before,
+  .settings-panel-table tbody td[data-label='Acciones']::before {
+    content: none;
+  }
+
+  .settings-panel-table tbody td[data-label='Acciones'] {
+    justify-content: flex-end;
+    padding-top: 0.5rem;
+  }
+
+  .settings-panel-table tbody td[data-label='Acciones'] .settings-row-actions {
+    opacity: 1;
+  }
+
+  .settings-panel-table tbody td.settings-panel-empty,
+  .settings-panel-table tbody td[colspan] {
+    display: block;
+    text-align: center;
+  }
+}

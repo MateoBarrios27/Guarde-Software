@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../../environments/environments';
 import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
+import { cacheCatalog } from '../data-refresh-service/catalog-cache';
 import { UpdateLockerTypeDto } from '../../dtos/lockerType/updateLockerTypeDto';
 import { CreateLockerTypeDto } from '../../dtos/lockerType/CreateLockerTypeDto';
 
@@ -13,13 +14,14 @@ import { CreateLockerTypeDto } from '../../dtos/lockerType/CreateLockerTypeDto';
 export class LockerTypeService {
 
   private url: string = environment.apiUrl
+  private loadCatalog?: () => Observable<LockerType[]>;
   constructor(
     private httpCliente: HttpClient,
     private dataRefresh: DataRefreshService,
   ) { }
 
   public getLockerTypes(): Observable<LockerType[]>{
-        return this.httpCliente.get<LockerType[]>(`${this.url}/LockerType`);
+        return (this.loadCatalog ??= cacheCatalog(this.dataRefresh, () => this.httpCliente.get<LockerType[]>(`${this.url}/LockerType`)))();
   }
 
   public getLockerTypeById(id: number): Observable<LockerType>{

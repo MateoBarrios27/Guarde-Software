@@ -80,7 +80,7 @@ internal static class PaymentDecisionChecks
             check(statement.PreviousBalance==-amount && statement.CurrentBalance==0,"account statement preserves credit without demanding a payment");
             var projected=await new CommunicationDao(db).GetClientFinancialData(100,true);
             check(projected.PreviousBalance==-(projectedCredit ?? amount) && projected.CurrentBalance==Math.Max(0m,100m-(projectedCredit ?? amount)),
-                "projected account statement subtracts real credit from next rent");
+                $"projected account statement subtracts real credit from next rent (previous {projected.PreviousBalance}, current {projected.CurrentBalance})");
         }
 
         async Task VerifyOutcome(PaymentDecisionOption option, string context)
@@ -133,7 +133,7 @@ internal static class PaymentDecisionChecks
             "payment API returns a structured consultation instead of recording an excess payment");
         var syncResult=await new SyncService(db,payments,NullLogger<SyncService>.Instance).ProcessOfflinePaymentsAsync(new SyncPaymentsRequestDto
         {
-            Payments=[new OfflinePaymentDto { LocalId="offline-decision-check",ClientId=100,PaymentMethodId=1,
+            Payments=[new OfflinePaymentDto { LocalId=Guid.NewGuid().ToString(),ClientId=100,PaymentMethodId=1,
                 Amount=110,Date=dto.Date,ExpectedPaymentStateToken=initialToken,SkipFutureProjection=false }]
         });
         check(!syncResult.Results.Single().Success && await Scalar("SELECT COUNT(*) FROM payments WHERE client_id=100")==0 && await Rents()==1,
@@ -156,7 +156,14 @@ internal static class PaymentDecisionChecks
         await Reset(); dto=await Dto(350); decision=await Consult(dto,"surplus");
         await Confirm(dto,decision,"credit_next_month");
         check(await Rents()==2 && await Net()==150,"large surplus also stops after one chosen debit");
-        await CheckVisibleCredit(150,250);
+        // The projected statement is for the month after the real current month (Argentina, UTC-3):
+        // the credit left for it is 350 minus the rents of October and November that are already
+        // current or past. Run in October 2026 it is 250 (only October consumed); from November on, 150.
+        var argentinaToday = DateTime.UtcNow.AddHours(-3);
+        var currentMonth = new DateTime(argentinaToday.Year, argentinaToday.Month, 1);
+        decimal projectedCredit = 350m - 100m * new[] { new DateTime(2026, 10, 1), new DateTime(2026, 11, 1) }
+            .Count(rentMonth => rentMonth <= currentMonth);
+        await CheckVisibleCredit(150, projectedCredit);
 
         await Reset(); dto=await Dto(100); await payments.CreatePaymentWithMovementAsync(dto);
         check(await Rents()==2 && await Net()==-100,"ordinary exact payment projects only the next rent without consultation");
@@ -180,8 +187,12 @@ internal static class PaymentDecisionChecks
         await VerifyOutcome(decision.Options.Single(o=>o.Action=="close_partial_month"),"partial month closed");
         var oldDebtOnly = await Dto(10);
         await payments.CreatePaymentWithMovementAsync(oldDebtOnly);
-        check(Convert.ToDateTime(await db.ExecuteScalarAsync("SELECT dbo.GetPaymentCollectionMonth(100)"))==new DateTime(2026,11,1),
-            "payment against prior debt preserves already chosen following month without asking to close old month again");
+        // The chosen following month depends on the real current month (base = max(partial month, current
+        // Argentina month)): November when run in October 2026, December when run in November.
+        var chosenFollowingMonth = decision.Options.Single(o=>o.Action=="close_partial_month").NextPaymentDate;
+        var collectionAfterOldDebt = Convert.ToDateTime(await db.ExecuteScalarAsync("SELECT dbo.GetPaymentCollectionMonth(100)"));
+        check(collectionAfterOldDebt==chosenFollowingMonth,
+            $"payment against prior debt preserves already chosen following month without asking to close old month again (chosen {chosenFollowingMonth:yyyy-MM}, now {collectionAfterOldDebt:yyyy-MM})");
 
         await Reset(); dto=await Dto(110); decision=await Consult(dto,"surplus");
         dto.Amount=111; dto.FutureDebitAction="credit_next_month"; dto.PaymentDecisionToken=decision.DecisionToken;
@@ -287,16 +298,26 @@ internal static class PaymentDecisionChecks
         dto=await Dto(110); dto.SurchargeAction="next_payment";
         await payments.CreatePaymentWithMovementAsync(dto);
         check(await Net()==-100 && await Rents()==2,"money consumed by the deferred fee is not reported as a false surplus");
-        // A partially paid older month can remain due even with its following debit already issued.
+        // A partially paid older month asks about the current collection month; old principal remains due.
         foreach (var action in new[] { "keep_month_pending", "close_partial_month" }) {
             await Reset();
             await db.ExecuteCommandAsync("INSERT account_movements(rental_id,movement_date,movement_type,concept,amount) VALUES(100,'2026-09-01','DEBITO','Alquiler Septiembre 2026',100)");
             await balances.RebuildForRentalAsync(100);
             dto=await Dto(50); decision=await Consult(dto,"partial_payment");
             var option=decision.Options.Single(o=>o.Action==action);
-            check(option.Debits.Count==0 && option.ResultingBalance==-150
-                && option.PreviousBalance==(action=="keep_month_pending" ? 0 : -50),
-                "partial older month previews the chosen prior balance without duplicating its existing following rent");
+            // Base month = max(partial month, real current month in Argentina): October when run in
+            // October 2026, the current month afterwards. Saldo anterior counts the September balance
+            // (50) plus October's rent when October is already before the month shown.
+            var arToday = DateTime.UtcNow.AddHours(-3);
+            var baseMonth = new[] { new DateTime(2026, 10, 1), new DateTime(arToday.Year, arToday.Month, 1) }.Max();
+            var shownMonth = action == "keep_month_pending" ? baseMonth : baseMonth.AddMonths(1);
+            decimal expectedPrevious = -(50m + (new DateTime(2026, 10, 1) < shownMonth ? 100m : 0m));
+            check(option.Debits.Count==(action=="keep_month_pending" ? 0 : 1)
+                && (action=="keep_month_pending" || option.Debits[0].Month==shownMonth)
+                && option.ResultingBalance==(action=="keep_month_pending" ? -150 : -250)
+                && option.PreviousBalance==expectedPrevious
+                && option.NextPaymentDate==shownMonth,
+                $"partial older month previews current or following month while preserving the prior principal ({action}: debits {option.Debits.Count} [{string.Join(", ", option.Debits.Select(d => d.Month.ToString("yyyy-MM") + "=" + d.Amount))}], resulting {option.ResultingBalance}, previous {option.PreviousBalance}, next {option.NextPaymentDate:yyyy-MM})");
             await Confirm(dto,decision,action);
             await VerifyOutcome(option,"older partial month "+action);
         }

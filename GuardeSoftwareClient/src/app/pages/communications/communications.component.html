@@ -5,11 +5,18 @@
       <h1 class="text-2xl font-bold text-gray-900">Comunicaciones</h1>
       <p class="text-gray-600 mt-1">Gestiona los comunicados a tus clientes</p>
     </div>
-    <button *ngIf="!authService.isObserver()" (click)="openModal('add')"
-      class="mt-4 sm:mt-0 px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition duration-200 flex items-center">
-      <app-icon name="Plus" class="h-4 w-4 mr-2"></app-icon>
-      Agregar Comunicado
-    </button>
+    <div class="mt-4 flex w-full flex-wrap gap-2 sm:mt-0 sm:w-auto">
+      <button type="button" (click)="openTemplatesManager()"
+        class="flex flex-1 items-center justify-center rounded-full border border-gray-300 bg-white px-5 py-2 font-semibold text-gray-800 transition duration-200 hover:border-gray-400 hover:bg-gray-50 sm:flex-none">
+        <app-icon name="file-text" class="h-4 w-4 mr-2"></app-icon>
+        Plantillas
+      </button>
+      <button *ngIf="!authService.isObserver()" (click)="openModal('add')"
+        class="flex flex-1 items-center justify-center px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition duration-200 sm:flex-none">
+        <app-icon name="Plus" class="h-4 w-4 mr-2"></app-icon>
+        Agregar Comunicado
+      </button>
+    </div>
   </div>
 
   <div class="bg-white p-4 rounded-xl shadow-lg">
@@ -90,6 +97,8 @@
 <section
   class="communications-modal-shell relative z-[110] flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden transform transition-all duration-300 ease-in-out sm:max-h-[calc(100vh-3rem)]"
   [class.communications-modal-history-shell]="currentModal() === 'history'"
+  [class.communications-modal-view-shell]="currentModal() === 'view'"
+  [class.communications-modal-form-shell]="currentModal() === 'add' || currentModal() === 'edit'"
   [class.communications-modal-accent-success]="currentModal() === 'send-confirm'"
   [class.communications-modal-accent-warning]="currentModal() === 'retry'"
   (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="communications-modal-title">
@@ -106,7 +115,7 @@
             @case ('add') { Agregar Nuevo Comunicado }
             @case ('edit') { Editar Comunicado }
             @case ('view') { Detalles del Comunicado }
-            @case ('send-confirm') { Confirmar Envío }
+            @case ('send-confirm') { Enviar comunicado }
             @case ('retry') { Reintentar Envíos Fallidos }
             @case ('extend') { Ampliar comunicado }
             @case ('history') { Historial de Comunicados }
@@ -121,314 +130,274 @@
 
   <div class="communications-modal-scroll min-h-0 flex-1 overflow-y-auto">
   @if (currentModal() === 'add' || currentModal() === 'edit') {
-  <div class="communications-modal-content space-y-4">
-    
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Título del comunicado *</label>
-      <input type="text" [ngModel]="formData().title" 
-             (ngModelChange)="updateFormField('title', $event)" placeholder="Ej: Aumento de tarifas 2024"
-        class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
-    </div>
+  <div class="comm-form">
+    <div class="comm-form-body">
 
-    <div>
-      <div class="flex justify-between items-center mb-1">
-        <label class="block text-sm font-medium text-gray-700">Destinatarios *</label>
-        <span class="text-xs text-blue-600 font-semibold" *ngIf="formData().sendToAllEmails">
-          Todos los emails de clientes y receptores externos
-        </span>
-        <span class="text-xs text-blue-600 font-semibold" *ngIf="!formData().sendToAllEmails && selectedCount() > 0">
-          {{ selectedCount() }} destinatarios seleccionados
-        </span>
-      </div>
-      
-      <div (click)="openRecipientSelector()" 
-           class="w-full p-3 border border-gray-300 rounded-lg cursor-pointer bg-white hover:bg-gray-50 transition flex justify-between items-center group">
-          <div class="flex-1 overflow-hidden">
-              <span *ngIf="formData().sendToAllEmails" class="font-medium text-emerald-700 text-sm">
-                Se enviará un email a todas las direcciones registradas de clientes y receptores externos.
-              </span>
-              <span *ngIf="!formData().sendToAllEmails && selectedCount() === 0" class="text-gray-400 text-sm">Haz clic para seleccionar clientes o receptores externos...</span>
-              <div *ngIf="!formData().sendToAllEmails && selectedCount() > 0" class="flex flex-col">
-                  <span class="font-medium text-gray-900 text-sm truncate">{{ selectedSummary() }}</span>
-              </div>
-          </div>
-          <app-icon name="users" class="text-gray-400 group-hover:text-blue-600 transition h-5 w-5"></app-icon>
-      </div>
-      
-      <div class="flex justify-between items-center mt-2">
-        <p *ngIf="!formData().sendToAllEmails" class="text-xs text-gray-500">Podés combinar clientes con receptores externos y seleccionarlos por rubro.</p>
-        <p *ngIf="formData().sendToAllEmails" class="text-xs text-emerald-700">Se incluirán las direcciones de la tabla emails y de Receptores de comunicados, sin mostrar la lista individual.</p>
-        
-        <button type="button" 
-                (click)="sendTestCommunication()" 
-                [disabled]="!isFormValid()"
-                class="text-xs font-semibold bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-md hover:bg-indigo-100 flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-100">
-          <app-icon name="send" class="w-3.5 h-3.5 mr-1.5"></app-icon>
-          Enviar Prueba
+    <!-- Tipo -->
+    <section class="comm-form-section">
+      <span class="comm-form-label" id="comm-form-type-label">¿Qué vas a enviar?</span>
+      <div class="comm-form-types" role="group" aria-labelledby="comm-form-type-label">
+        <button type="button" class="comm-form-type" [class.is-on]="!formData().isAccountStatement"
+                [attr.aria-pressed]="!formData().isAccountStatement"
+                (click)="updateFormField('isAccountStatement', false)">
+          <span class="comm-form-type-icon" aria-hidden="true"><app-icon name="megaphone" class="h-5 w-5"></app-icon></span>
+          <span class="min-w-0">
+            <span class="comm-form-type-title">Comunicado</span>
+            <span class="comm-form-type-text">Texto o plantilla diseñada, igual para todos.</span>
+          </span>
+        </button>
+        <button type="button" class="comm-form-type" [class.is-on]="formData().isAccountStatement"
+                [attr.aria-pressed]="formData().isAccountStatement"
+                (click)="updateFormField('isAccountStatement', true)">
+          <span class="comm-form-type-icon" aria-hidden="true"><app-icon name="receipt" class="h-5 w-5"></app-icon></span>
+          <span class="min-w-0">
+            <span class="comm-form-type-title">Estado de cuenta</span>
+            <span class="comm-form-type-text">Cada cliente recibe sus saldos. Se genera solo.</span>
+          </span>
         </button>
       </div>
-    </div>
 
-    <div class="space-y-4 pt-2 border-t border-dashed">
-      
-      <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-center justify-between">
-        <div>
-            <span class="block font-bold text-blue-900 text-sm">¿Es un Estado de Cuenta?</span>
-            <span class="block text-xs text-blue-600 mt-0.5">Se genera automáticamente con los saldos del cliente y se envía por Email.</span>
-        </div>
-        
-        <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" [ngModel]="formData().isAccountStatement" (ngModelChange)="updateFormField('isAccountStatement', $event)" class="sr-only peer">
-            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-        </label>
+      @if (formData().isAccountStatement) {
+      <label class="comm-form-switch">
+        <span class="min-w-0">
+          <span class="comm-form-switch-title">Proyectar al mes siguiente</span>
+          <span class="comm-form-switch-text">Calcula el saldo simulando los cargos del próximo mes.</span>
+        </span>
+        <input type="checkbox" [ngModel]="formData().isNextMonthStatement"
+               (ngModelChange)="updateFormField('isNextMonthStatement', $event)" class="sr-only peer">
+        <span class="comm-form-switch-track" aria-hidden="true"></span>
+      </label>
+      }
+
+      <label class="comm-form-label comm-form-label-spaced" for="comm-form-title">Título</label>
+      <input id="comm-form-title" type="text" class="comm-form-input" [ngModel]="formData().title"
+             (ngModelChange)="updateFormField('title', $event)" placeholder="Ej: Novedades de noviembre" />
+    </section>
+
+    <!-- Destinatarios -->
+    <section class="comm-form-section">
+      <span class="comm-form-label">Destinatarios</span>
+      <button type="button" class="comm-form-recipients" (click)="openRecipientSelector()"
+              [class.is-empty]="!formData().sendToAllEmails && selectedCount() === 0">
+        @if (formData().sendToAllEmails) {
+          <span class="comm-form-recipients-count">Todos</span>
+          <span class="comm-form-recipients-copy">
+            <span class="comm-form-recipients-title">Todos los emails</span>
+            <span class="comm-form-recipients-text">Clientes y receptores externos registrados.</span>
+          </span>
+        } @else if (selectedCount() === 0) {
+          <span class="comm-form-recipients-icon" aria-hidden="true"><app-icon name="users" class="h-5 w-5"></app-icon></span>
+          <span class="comm-form-recipients-copy">
+            <span class="comm-form-recipients-title">Elegí a quién enviarlo</span>
+            <span class="comm-form-recipients-text">Clientes, receptores externos o rubros completos.</span>
+          </span>
+        } @else {
+          <span class="comm-form-recipients-count">{{ selectedCount() }}</span>
+          <span class="comm-form-recipients-copy">
+            <span class="comm-form-recipients-title">
+              {{ formClientRecipientCount() }} {{ formClientRecipientCount() === 1 ? 'cliente' : 'clientes' }}
+              @if (formExternalRecipientCount() > 0) { · {{ formExternalRecipientCount() }} {{ formExternalRecipientCount() === 1 ? 'receptor externo' : 'receptores externos' }} }
+            </span>
+            <span class="comm-form-recipients-text">{{ selectedSummary() }}</span>
+          </span>
+        }
+        <span class="comm-form-ghost-btn" aria-hidden="true">
+          <app-icon name="users" class="h-4 w-4"></app-icon>
+          {{ !formData().sendToAllEmails && selectedCount() === 0 ? 'Elegir' : 'Cambiar' }}
+        </span>
+      </button>
+    </section>
+
+    <!-- Contenido -->
+    <section class="comm-form-section">
+      <div class="comm-form-label-row">
+        <span class="comm-form-label">Contenido</span>
+        @if (formData().channels.includes('Email') && !formData().isAccountStatement) {
+          <button type="button" (click)="openTemplatePicker()" class="comm-form-ghost-btn communications-template-trigger">
+            <app-icon name="file-text" class="h-4 w-4"></app-icon>
+            Cargar plantilla
+          </button>
+        }
       </div>
 
-        @if (formData().isAccountStatement) {
-        <div class="bg-indigo-50 p-3 rounded-lg border border-indigo-200 flex items-center justify-between">
-          <div>
-              <span class="block font-bold text-indigo-900 text-sm">¿Proyectar al mes siguiente?</span>
-              <span class="block text-xs text-indigo-600 mt-0.5">Calcula el saldo simulando los cargos del próximo mes.</span>
-          </div>
-          <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" [ngModel]="formData().isNextMonthStatement" (ngModelChange)="updateFormField('isNextMonthStatement', $event)" class="sr-only peer">
-              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-          </label>
+      @if (formData().isAccountStatement) {
+        <div class="comm-form-auto">
+          <span class="comm-form-auto-icon" aria-hidden="true"><app-icon name="receipt" class="h-5 w-5"></app-icon></span>
+          <span class="min-w-0">
+            <span class="comm-form-auto-title">Contenido automático</span>
+            <span class="comm-form-auto-text">
+              El sistema arma un estado de cuenta por cliente con sus saldos
+              {{ formData().isNextMonthStatement ? 'proyectados al mes siguiente' : 'del mes' }}.
+            </span>
+          </span>
         </div>
-        }
-      
-
-      <div class="relative">
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          {{ formData().isAccountStatement ? 'Contenido (Automático)' : 'Contenido *' }}
-        </label>
-
-        @if (formData().channels.includes('Email') && !formData().isAccountStatement) {
-        <div class="mb-2 flex flex-wrap justify-end gap-2">
-          <button type="button"
-                  (click)="loadIcbcTemplate()"
-                  class="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100">
-            <app-icon name="file-text" class="h-3.5 w-3.5"></app-icon>
-            Cargar plantilla ICBC
-          </button>
-          <button type="button"
-                  (click)="loadInmobiliariasTemplate()"
-                  [disabled]="isLoadingInmobiliariasTemplate()"
-                  class="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-800 transition hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60">
-            <app-icon name="building" class="h-3.5 w-3.5"></app-icon>
-            {{ isLoadingInmobiliariasTemplate() ? 'Cargando...' : 'Plantilla Inmobiliarias' }}
-          </button>
-          <button type="button"
-                  (click)="loadLogisticasTemplate()"
-                  [disabled]="isLoadingLogisticasTemplate()"
-                  class="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-800 transition hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60">
-            <app-icon name="file-text" class="h-3.5 w-3.5"></app-icon>
-            {{ isLoadingLogisticasTemplate() ? 'Cargando...' : 'Plantilla Logísticas' }}
-          </button>
-          <button type="button"
-                  (click)="loadLaboratoriosTemplate()"
-                  [disabled]="isLoadingLaboratoriosTemplate()"
-                  class="inline-flex items-center gap-1.5 rounded-md border border-cyan-200 bg-cyan-50 px-2.5 py-1.5 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:cursor-wait disabled:opacity-60">
-            <app-icon name="building" class="h-3.5 w-3.5"></app-icon>
-            {{ isLoadingLaboratoriosTemplate() ? 'Cargando...' : 'Plantilla Laboratorios' }}
-          </button>
-          <button type="button"
-                  (click)="loadVisitadoresMedicosTemplate()"
-                  [disabled]="isLoadingVisitadoresMedicosTemplate()"
-                  class="inline-flex items-center gap-1.5 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-xs font-semibold text-teal-800 transition hover:bg-teal-100 disabled:cursor-wait disabled:opacity-60">
-            <app-icon name="user" class="h-3.5 w-3.5"></app-icon>
-            {{ isLoadingVisitadoresMedicosTemplate() ? 'Cargando...' : 'Plantilla Visitadores médicos' }}
-          </button>
-          <button type="button"
-                  (click)="loadIcbcTemplate2()"
-                  class="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100">
-            <app-icon name="file-text" class="h-3.5 w-3.5"></app-icon>
-            Cargar plantilla 2 ICBC
-          </button>
-        </div>
-        }
-
-        <div *ngIf="formData().isAccountStatement" 
-             class="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex items-center justify-center rounded-lg border border-gray-200 mt-6">
-          <div class="bg-white px-4 py-2 rounded-lg shadow-sm border border-blue-100 flex items-center gap-2">
-            <app-icon name="file-text" class="h-5 w-5 text-blue-600"></app-icon>
-            <span class="text-sm font-medium text-gray-700">Contenido generado por sistema</span>
-          </div>
-        </div>
-
-        <div [class.opacity-40]="formData().isAccountStatement">
-          @if (formData().channels.includes('Email')) {
-            @if (isDesignedMarketingTemplate()) {
-              @if (isLogisticasTemplate()) {
-                <div class="mb-3">
-                  <button type="button" (click)="isEditingLogisticasText.set(!isEditingLogisticasText())"
-                          [attr.aria-expanded]="isEditingLogisticasText()"
-                          class="mb-2 rounded-md bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800">
-                    {{ isEditingLogisticasText() ? 'Cerrar editor de texto' : 'Editar texto con Quill' }}
-                  </button>
-                  @if (isEditingLogisticasText()) {
-                    <p class="mb-2 text-xs text-gray-600">Editá la introducción. El flyer, los accesos de contacto y el ancho del correo se conservan.</p>
-                    <quill-editor [ngModel]="getLogisticasCopyContent()"
-                                  (ngModelChange)="updateLogisticasCopyContent($event)"
-                                  [styles]="{ 'height': '240px', 'display': 'block' }"
-                                  placeholder="Escribí la introducción del correo..."></quill-editor>
-                  }
-                </div>
+      } @else if (formData().channels.includes('Email')) {
+        @if (isDesignedMarketingTemplate()) {
+          @if (isLogisticasTemplate()) {
+            <div class="mb-3">
+              <button type="button" (click)="isEditingLogisticasText.set(!isEditingLogisticasText())"
+                      [attr.aria-expanded]="isEditingLogisticasText()"
+                      class="comm-form-ghost-btn mb-2">
+                <app-icon name="edit" class="h-4 w-4"></app-icon>
+                {{ isEditingLogisticasText() ? 'Cerrar editor de texto' : 'Editar texto con Quill' }}
+              </button>
+              @if (isEditingLogisticasText()) {
+                <p class="mb-2 text-xs text-slate-500">Editá la introducción. El flyer, los accesos de contacto y el ancho del correo se conservan.</p>
+                <quill-editor [ngModel]="getLogisticasCopyContent()"
+                              (ngModelChange)="updateLogisticasCopyContent($event)"
+                              [styles]="{ 'height': '240px', 'display': 'block' }"
+                              placeholder="Escribí la introducción del correo..."></quill-editor>
               }
-              <div class="overflow-hidden rounded-lg border border-blue-200 bg-blue-50/40">
-                <div class="flex items-start gap-2 border-b border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-                  <app-icon name="check-circle" class="mt-0.5 h-4 w-4 shrink-0 text-blue-700"></app-icon>
-                  <span><strong>Plantilla {{ activeDesignedTemplateLabel() }} lista.</strong> Esta vista conserva el diseño y las imágenes que recibirán los destinatarios.</span>
-                </div>
-                <iframe [srcdoc]="getFormContentPreviewDocument()"
-                        class="block h-[32rem] w-full border-0 bg-white"
-                        sandbox="allow-same-origin"
-                        [title]="'Vista previa de la Plantilla ' + activeDesignedTemplateLabel()"></iframe>
-              </div>
-            } @else {
-              <quill-editor
-                [ngModel]="formData().content"
-                (ngModelChange)="updateFormField('content', $event)"
-                [styles]="{ 'height': '200px', 'display': 'block' }"
-                placeholder="Escribe el contenido del email aquí...">
-              </quill-editor>
-            }
-          } @else {
-            <div class="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400 text-center h-32 flex items-center justify-center">
-              <p>El contenido se enviará por Email.</p>
             </div>
           }
-        </div>
-      </div>
-    </div>
-
-    @if (formData().channels.includes('Email')) {
-    <div class="animate-fade-in">
-      <label class="block text-sm font-medium text-gray-700 mb-1">Servidor de Envío</label>
-      <div class="relative">
-        <select [ngModel]="formData().smtpConfigId" 
-                (ngModelChange)="updateFormField('smtpConfigId', $event)"
-                class="w-full p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-            <option *ngFor="let smtp of smtpConfigs()" [ngValue]="smtp.id">{{ smtp.name }}</option>
-        </select>
-      </div>
-    </div>
-    }
-
-    @if (formData().channels.includes('Email')) {
-    <div class="animate-fade-in">
-      <label class="block text-sm font-medium text-gray-700 mb-1">Archivos Adjuntos</label>
-      <div class="flex items-center gap-4">
-          <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg border border-gray-300 transition flex items-center shadow-sm">
-              <app-icon name="file-plus" class="w-4 h-4 mr-2"></app-icon>
-              Adjuntar Archivos
-              <input type="file" multiple (change)="onFileSelected($event)" class="hidden">
-          </label>
-          <span class="text-xs text-gray-500">{{ selectedFiles().length }} archivos seleccionados</span>
-      </div>
-      <div *ngIf="selectedFiles().length > 0" class="mt-2 space-y-1">
-          <div *ngFor="let file of selectedFiles(); let i = index" class="flex items-center justify-between text-sm bg-blue-50 p-2 rounded border border-blue-100">
-              <span class="truncate max-w-[200px] text-blue-700">{{ file.name }}</span>
-              <button (click)="removeFile(i)" class="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded">
-                  <app-icon name="x" class="w-4 h-4"></app-icon>
-              </button>
+          <div class="comm-form-preview">
+            <div class="comm-form-preview-head">
+              <app-icon name="check" class="h-4 w-4 shrink-0"></app-icon>
+              <span>Plantilla {{ activeDesignedTemplateLabel() }} · así la reciben los destinatarios</span>
+            </div>
+            <iframe [srcdoc]="getFormContentPreviewDocument()"
+                    class="block h-[32rem] w-full border-0 bg-white"
+                    sandbox="allow-same-origin"
+                    [title]="'Vista previa de la Plantilla ' + activeDesignedTemplateLabel()"></iframe>
           </div>
-      </div>
-    </div>
-    }
-
-    <div class="border-t pt-4">
-      <label class="block text-sm font-medium text-gray-700 mb-2">¿Cuándo enviar?</label>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        
-        <div class="flex items-center p-3 border rounded-lg cursor-pointer transition hover:bg-gray-50"
-             [ngClass]="formData().type === 'enviar_ahora' ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300' : 'border-gray-200'"
-             (click)="updateFormField('type', 'enviar_ahora')">
-          <input type="radio" name="type" value="enviar_ahora" 
-                 [ngModel]="formData().type" class="text-blue-600 pointer-events-none" />
-          <div class="ml-2">
-            <span class="block text-sm font-semibold text-gray-900">Ahora</span>
-            <span class="block text-[10px] text-gray-500 leading-tight">Envío inmediato</span>
-          </div>
-        </div>
-
-        <div class="flex items-center p-3 border rounded-lg cursor-pointer transition hover:bg-gray-50"
-             [ngClass]="formData().type === 'programar' ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300' : 'border-gray-200'"
-             (click)="updateFormField('type', 'programar')">
-          <input type="radio" name="type" value="programar" 
-                 [ngModel]="formData().type" class="text-blue-600 pointer-events-none" />
-          <div class="ml-2">
-            <span class="block text-sm font-semibold text-gray-900">Programar</span>
-            <span class="block text-[10px] text-gray-500 leading-tight">Elegir fecha</span>
-          </div>
-        </div>
-
-        <div class="flex items-center p-3 border rounded-lg cursor-pointer transition hover:bg-gray-50"
-             [ngClass]="formData().type === 'borrador' ? 'bg-gray-100 border-gray-400' : 'border-gray-200'"
-             (click)="updateFormField('type', 'borrador')">
-          <input type="radio" name="type" value="borrador" 
-                 [ngModel]="formData().type" class="text-gray-600 pointer-events-none" />
-          <div class="ml-2">
-            <span class="block text-sm font-medium text-gray-700">Borrador</span>
-            <span class="block text-[10px] text-gray-500 leading-tight">Guardar para después</span>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    @if (formData().type === 'programar') {
-    <div class="grid grid-cols-2 gap-4 animate-fade-in bg-gray-50 p-3 rounded-lg border border-gray-200">
-      <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">Fecha de envío</label>
-        <input type="date" [ngModel]="formData().sendDate"
-               (ngModelChange)="updateFormField('sendDate', $event)"
-          class="w-full p-2 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" />
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">Hora de envío</label>
-        <input type="time" [ngModel]="formData().sendTime"
-               (ngModelChange)="updateFormField('sendTime', $event)"
-          class="w-full p-2 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" />
-      </div>
-    </div>
-    }
-
-    <div class="flex gap-3 pt-2 mt-2">
-      <button (click)="currentModal() === 'add' ? addCommunication() : editCommunication()" [disabled]="!isFormValid()"
-        class="communications-submit-action flex-1 px-4 py-3 rounded-lg text-white shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-bold flex justify-center items-center gap-2"
-        [ngClass]="isFormValid() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'">
-        
-        @switch (formData().type) {
-          @case ('enviar_ahora') { <app-icon name="Send" class="h-4 w-4"></app-icon> Enviar Ahora }
-          @case ('programar') { <app-icon name="Calendar" class="h-4 w-4"></app-icon> Programar Comunicado }
-          @case ('borrador') { <app-icon name="save" class="h-4 w-4"></app-icon> Guardar Borrador }
+        } @else {
+          <quill-editor
+            [ngModel]="formData().content"
+            (ngModelChange)="updateFormField('content', $event)"
+            [styles]="{ 'height': '200px', 'display': 'block' }"
+            placeholder="Escribí el contenido del email...">
+          </quill-editor>
         }
-      </button>
-      <button (click)="closeModal()"
-        class="communications-cancel-action px-6 py-3 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition duration-200 font-medium">
-        Cancelar
-      </button>
+      }
+
+      @if (formData().channels.includes('Email')) {
+      <div class="comm-form-extras">
+        <div class="comm-form-files">
+          @for (file of selectedFiles(); track $index; let i = $index) {
+            <span class="comm-form-file">
+              <app-icon name="file-text" class="h-3.5 w-3.5 shrink-0"></app-icon>
+              <span class="truncate">{{ file.name }}</span>
+              <button type="button" (click)="removeFile(i)" [attr.aria-label]="'Quitar ' + file.name">
+                <app-icon name="x" class="h-3.5 w-3.5"></app-icon>
+              </button>
+            </span>
+          }
+          <label class="comm-form-ghost-btn cursor-pointer">
+            <app-icon name="file-plus" class="h-4 w-4"></app-icon>
+            Adjuntar
+            <input type="file" multiple (change)="onFileSelected($event)" class="hidden">
+          </label>
+        </div>
+        <label class="comm-form-smtp">
+          <span>Servidor</span>
+          <select [ngModel]="formData().smtpConfigId" (ngModelChange)="updateFormField('smtpConfigId', $event)">
+            <option *ngFor="let smtp of smtpConfigs()" [ngValue]="smtp.id">{{ smtp.name }}</option>
+          </select>
+        </label>
+      </div>
+      }
+    </section>
+
+    <!-- Cuándo -->
+    <section class="comm-form-section">
+      <div class="comm-form-when">
+        <span class="comm-form-label m-0" id="comm-form-when-label">¿Cuándo?</span>
+        <div class="comm-form-seg" role="radiogroup" aria-labelledby="comm-form-when-label">
+          <button type="button" role="radio" [attr.aria-checked]="formData().type === 'enviar_ahora'"
+                  [class.is-on]="formData().type === 'enviar_ahora'" (click)="updateFormField('type', 'enviar_ahora')">Ahora</button>
+          <button type="button" role="radio" [attr.aria-checked]="formData().type === 'programar'"
+                  [class.is-on]="formData().type === 'programar'" (click)="updateFormField('type', 'programar')">Programar</button>
+          <button type="button" role="radio" [attr.aria-checked]="formData().type === 'borrador'"
+                  [class.is-on]="formData().type === 'borrador'" (click)="updateFormField('type', 'borrador')">Borrador</button>
+        </div>
+      </div>
+      @if (formData().type === 'programar') {
+      <div class="comm-form-schedule animate-fade-in">
+        <label>
+          <span class="comm-form-label">Fecha</span>
+          <input type="date" class="comm-form-input" [ngModel]="formData().sendDate" (ngModelChange)="updateFormField('sendDate', $event)" />
+        </label>
+        <label>
+          <span class="comm-form-label">Hora</span>
+          <input type="time" class="comm-form-input" [ngModel]="formData().sendTime" (ngModelChange)="updateFormField('sendTime', $event)" />
+        </label>
+      </div>
+      }
+    </section>
+    </div>
+
+    <!-- Franja de resultado -->
+    <div class="comm-form-band" [class.is-pending]="!isFormValid()">
+      <div class="comm-form-band-facts">
+        @if (isFormValid()) {
+          <div class="comm-form-band-fact">
+            <span class="comm-form-band-key">
+              @switch (formData().type) {
+                @case ('programar') { Se programa para }
+                @case ('borrador') { Se guarda como }
+                @default { Se envía }
+              }
+            </span>
+            <span class="comm-form-band-value">
+              @switch (formData().type) {
+                @case ('programar') { {{ formData().sendDate | date: 'dd/MM/yyyy' }} · {{ formData().sendTime }} }
+                @case ('borrador') { Borrador }
+                @default { Ahora }
+              }
+            </span>
+          </div>
+          <span class="comm-form-band-sep" aria-hidden="true"></span>
+          <div class="comm-form-band-fact">
+            <span class="comm-form-band-key">A</span>
+            <span class="comm-form-band-value">
+              {{ formData().sendToAllEmails ? 'Todos los emails' : selectedCount() + (selectedCount() === 1 ? ' destinatario' : ' destinatarios') }}
+            </span>
+          </div>
+          @if (selectedFiles().length > 0) {
+          <span class="comm-form-band-sep comm-form-band-extra" aria-hidden="true"></span>
+          <div class="comm-form-band-fact comm-form-band-extra">
+            <span class="comm-form-band-key">Adjuntos</span>
+            <span class="comm-form-band-value">{{ selectedFiles().length }}</span>
+          </div>
+          }
+        } @else {
+          <div class="comm-form-band-fact">
+            <span class="comm-form-band-key">Para enviar falta</span>
+            <span class="comm-form-band-value comm-form-band-missing">{{ formMissing().join(', ') }}</span>
+          </div>
+        }
+      </div>
+      <div class="comm-form-band-actions">
+        <button type="button" (click)="closeModal()" class="comm-form-band-cancel">Cancelar</button>
+        <button type="button" (click)="sendTestCommunication()" [disabled]="!isFormValid() || isSubmitting()" class="comm-form-band-test">
+          <app-icon name="send" class="h-4 w-4"></app-icon>
+          Enviar prueba
+        </button>
+        <button type="button" (click)="currentModal() === 'add' ? addCommunication() : editCommunication()" [disabled]="!isFormValid() || isSubmitting()" [attr.aria-busy]="isSubmitting()"
+                class="comm-form-band-submit">
+          @if (isSubmitting()) {
+            <app-icon name="loader" class="h-4 w-4 animate-spin"></app-icon> Enviando…
+          } @else {
+          @switch (formData().type) {
+            @case ('enviar_ahora') { <app-icon name="Send" class="h-4 w-4"></app-icon> Enviar ahora }
+            @case ('programar') { <app-icon name="Calendar" class="h-4 w-4"></app-icon> Programar }
+            @case ('borrador') { <app-icon name="save" class="h-4 w-4"></app-icon> Guardar borrador }
+          }
+          }
+        </button>
+      </div>
     </div>
   </div>
   }
 
-  @if (currentModal() === 'view' && selectedCommunication()) {
-  <div class="communications-modal-content space-y-4 animate-fade-in">
-    @if (selectedCommunication()!.errorMessage) {
-    <div class="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-800 text-sm shadow-sm">
-      <div class="font-bold flex items-center gap-2 mb-1.5 text-red-900">
-        <app-icon name="alert-triangle" class="h-4 w-4 text-red-600 shrink-0"></app-icon>
-        <span>Detalle o motivo del fallo general:</span>
-      </div>
-      <pre class="whitespace-pre-wrap font-mono text-xs bg-red-100/60 p-2.5 rounded-lg border border-red-200 mt-1 max-h-36 overflow-y-auto text-red-900">{{ selectedCommunication()!.errorMessage }}</pre>
-    </div>
-    }
+  @if (currentModal() === 'view' && selectedCommunication(); as comm) {
+  <div class="communications-modal-content comm-view animate-fade-in">
 
-    <div class="p-4 rounded-lg space-y-3 border bg-gray-50">
-      <div class="flex items-center justify-between">
-        <h3 class="text-lg font-bold text-gray-900">{{ selectedCommunication()!.title }}</h3>
-        @if (selectedCommunication()!.status === 'Procesando') {
-          <span class="status-badge processing-badge">
+    <!-- Título, estado en palabras y acción -->
+    <div class="comm-view-top">
+      <div class="min-w-0 flex-1">
+        @if (comm.status === 'Procesando') {
+          <span class="status-badge processing-badge mb-2">
             <span class="signal-bars">
               <span class="signal-bar"></span>
               <span class="signal-bar"></span>
@@ -438,233 +407,325 @@
             Procesando
           </span>
         } @else {
-        <span [ngClass]="getBadgeMeta(selectedCommunication()!.status).classes + (transitioningCommunications().has(selectedCommunication()!.id) ? ' badge-transition-pop' : '')">
-          <app-icon *ngIf="getBadgeMeta(selectedCommunication()!.status).icon"
-            [name]="getBadgeMeta(selectedCommunication()!.status).icon!" class="h-3.5 w-3.5"></app-icon>
-          <span>{{ getBadgeMeta(selectedCommunication()!.status).text }}</span>
-        </span>
-        }
-      </div>
-
-      <div class="flex items-center gap-2 text-sm text-gray-600">
-        <ng-container *ngFor="let ic of getChannelMeta(selectedCommunication()!.channel).icons">
-          <app-icon [name]="ic.name" [ngClass]="ic.classes + ' h-4 w-4'" class="inline-block"></app-icon>
-        </ng-container>
-        <span>{{ selectedCommunication()!.channel }}</span>
-      </div>
-
-      <div class="border-t pt-3">
-        <h4 class="text-sm font-medium text-gray-700 mb-2">Contenido:</h4>
-        <div class="bg-white rounded border shadow-inner overflow-hidden">
-          <iframe [srcdoc]="getCommunicationPreviewDocument()"
-                  class="block w-full h-[28rem] border-0"
-                  sandbox="allow-same-origin"
-                  title="Vista previa del contenido del comunicado"></iframe>
-        </div>
-      </div>
-
-      @if (selectedCommunication()!.dispatches && selectedCommunication()!.dispatches!.length > 0) {
-      <div class="border-t pt-3">
-        <div class="flex items-center justify-between mb-2">
-          <h4 class="text-sm font-medium text-gray-700">Estado por Destinatario ({{ selectedCommunication()!.dispatches!.length }}):</h4>
-          <div class="flex gap-2 text-xs">
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-800 font-medium">
-              <app-icon name="check" class="h-3 w-3"></app-icon> {{ getSuccessCount(selectedCommunication()!.dispatches!) }} exitosos
-            </span>
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-medium">
-              <app-icon name="x" class="h-3 w-3"></app-icon> {{ getFailedCount(selectedCommunication()!.dispatches!) }} fallidos
-            </span>
-            <span *ngIf="getTestCount(selectedCommunication()!.dispatches!) > 0" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-medium">
-              <app-icon name="info" class="h-3 w-3"></app-icon> {{ getTestCount(selectedCommunication()!.dispatches!) }} de prueba
-            </span>
-          </div>
-        </div>
-        <div class="border rounded-lg overflow-hidden max-h-52 overflow-y-auto shadow-inner bg-white">
-          <table class="min-w-full divide-y divide-gray-200 text-xs">
-            <thead class="bg-gray-50 sticky top-0">
-              <tr>
-                <th class="px-3 py-2 text-left font-semibold text-gray-600">Destinatario</th>
-                <th class="px-3 py-2 text-left font-semibold text-gray-600">Canal</th>
-                <th class="px-3 py-2 text-left font-semibold text-gray-600">Teléfono</th>
-                <th class="px-3 py-2 text-left font-semibold text-gray-600">Estado</th>
-                <th class="px-3 py-2 text-left font-semibold text-gray-600">Motivo / Respuesta</th>
-                <th *ngIf="!authService.isObserver()" class="px-3 py-2 text-center font-semibold text-gray-600">Ver</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100 bg-white">
-              @for (disp of selectedCommunication()!.dispatches; track $index) {
-              <tr [ngClass]="disp.isTest ? 'bg-yellow-50/70' : (disp.status === 'Exitoso' ? 'bg-white' : 'bg-red-50/40')">
-                <td class="px-3 py-2 font-medium text-gray-900">{{ disp.clientName }}</td>
-                <td class="px-3 py-2 text-gray-600">{{ disp.channel }}</td>
-                <td class="px-3 py-2 text-gray-600 font-mono text-[11px]">{{ disp.recipientPhone || '-' }}</td>
-                <td class="px-3 py-2">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-                        [ngClass]="disp.isTest ? 'bg-yellow-100 text-yellow-800' : (disp.status === 'Exitoso' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')">
-                    {{ disp.isTest ? 'Prueba · ' + disp.status : disp.status }}
-                  </span>
-                </td>
-                <td class="px-3 py-2 text-gray-600 font-mono text-[11px] break-words max-w-xs">{{ disp.errorMessage || '-' }}</td>
-                <td *ngIf="!authService.isObserver()" class="p-2 text-center">
-                  <button *ngIf="disp.hasContent"
-                          (click)="viewDispatchContent(disp.dispatchId, disp.clientName)"
-                          class="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
-                          title="Ver contenido enviado">
-                    <app-icon name="eye" class="w-4 h-4"></app-icon>
-                  </button>
-                </td>
-              </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      </div>
-      } @else {
-      <div class="border-t pt-3">
-        @if (selectedCommunication()!.sendToAllEmails) {
-        <h4 class="text-sm font-medium text-emerald-700 mb-2">Destinatarios:</h4>
-        <p class="text-sm text-slate-600">Todos los emails de clientes y receptores externos.</p>
-        } @else {
-        <h4 class="text-sm font-medium text-gray-700 mb-2">Destinatarios ({{ getCommunicationRecipientCount(selectedCommunication()!) }}):</h4>
-        <div class="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
-          @for (dest of selectedCommunication()!.recipients; track dest) {
-          <span class="inline-flex items-center text-xs font-medium bg-gray-200 text-gray-800 px-2.5 py-0.5 rounded-full">{{ dest }}</span>
-          }
-          @for (recipient of (selectedCommunication()!.externalRecipients || []); track recipient.id) {
-          <span class="inline-flex items-center gap-1 text-xs font-medium bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full">
-            {{ recipient.name || recipient.email || ('Receptor #' + recipient.id) }}
-            <span class="opacity-70">· {{ recipient.type || 'Sin rubro' }}</span>
+          <span class="comm-view-state" [ngClass]="getDetailStatus(comm.status).tone"
+                [class.badge-transition-pop]="transitioningCommunications().has(comm.id)">
+            {{ getDetailStatus(comm.status).text }}
           </span>
-          }
-        </div>
         }
+        <h3 class="comm-view-title">{{ comm.title }}</h3>
+        <p class="comm-view-headline">{{ getViewHeadline(comm) }}</p>
       </div>
+      @if (canRetryFromView(comm)) {
+        <button type="button" class="comm-view-retry" (click)="openRetryModal(comm)">
+          <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
+          Reintentar {{ getFailedCount(comm.dispatches!) }}
+        </button>
       }
-      
-      @if (selectedCommunication()!.status === 'Scheduled' || selectedCommunication()!.status === 'Finished' || selectedCommunication()!.status === 'Finished w/ Errors') {
-      <div class="border-t pt-3 text-sm text-gray-600">
-        <strong>{{ selectedCommunication()!.status === 'Scheduled' ? 'Programado para' : 'Enviado el' }}:</strong>
-        {{ selectedCommunication()!.sendDate | date: 'dd/MM/yyyy' }} a las {{ selectedCommunication()!.sendTime }}
-      </div>
-      }
-
-      <div class="border-t pt-3 text-sm text-gray-600">
-        <strong>Creado:</strong> {{ selectedCommunication()!.creationDate | date: 'dd/MM/yyyy' }}
-      </div>
     </div>
 
-    <button (click)="closeModal()"
-      class="communications-cancel-action w-full px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200">
-      Cerrar
-    </button>
-  </div>
-  }
-
-  @if (currentModal() === 'retry' && selectedCommunication()) {
-  <div class="communications-modal-content space-y-4 animate-fade-in">
-    @if (selectedCommunication()!.errorMessage) {
-    <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-      <div class="font-bold flex items-center gap-1.5 mb-1">
-        <app-icon name="alert-triangle" class="h-4 w-4 text-red-600 shrink-0"></app-icon>
-        <span>Motivo del fallo general del comunicado:</span>
+    @if (comm.errorMessage) {
+    <div class="comm-view-alert" role="alert">
+      <div class="comm-view-alert-head">
+        <app-icon name="alert-triangle" class="h-4 w-4 shrink-0"></app-icon>
+        <span>Motivo del fallo general</span>
       </div>
-      <p class="font-mono text-xs bg-red-100/60 p-2 rounded border border-red-200 whitespace-pre-wrap max-h-32 overflow-y-auto">{{ selectedCommunication()!.errorMessage }}</p>
+      <pre class="comm-view-alert-body">{{ comm.errorMessage }}</pre>
     </div>
     }
 
-    <div class="space-y-2">
-      <div class="flex items-center justify-between">
-          <h4 class="text-sm font-semibold text-gray-800">
-            Seleccioná los destinatarios de Email a reintentar:
-        </h4>
-        <div class="flex gap-2">
-          <button (click)="toggleAllRetrySelection(true)" class="text-xs text-blue-600 hover:text-blue-800 font-medium underline">
-            Seleccionar todos
+    @if (comm.dispatches && comm.dispatches.length > 0) {
+      @let currentFilter = getViewFilter(comm.dispatches);
+      <!-- Barra de resultado: cada tramo es un filtro de la lista -->
+      <div class="comm-view-bar" role="group" aria-label="Resultado del envío">
+        @if (getSuccessCount(comm.dispatches) > 0) {
+          <button type="button" class="comm-view-seg is-success" [style.flex-grow]="getSuccessCount(comm.dispatches)"
+                  [class.is-on]="currentFilter === 'success'" [attr.aria-pressed]="currentFilter === 'success'"
+                  (click)="viewDispatchFilter.set('success')">
+            <b>{{ getSuccessCount(comm.dispatches) }}</b><span>Llegaron</span>
           </button>
-          <span class="text-gray-300">|</span>
-          <button (click)="toggleAllRetrySelection(false)" class="text-xs text-gray-500 hover:text-gray-700 font-medium underline">
-            Desmarcar todos
-          </button>
-        </div>
-      </div>
-
-      <div class="border rounded-lg overflow-hidden max-h-64 overflow-y-auto divide-y divide-gray-100 bg-white shadow-sm">
-        @let failedDispatches = getFailedDispatches(selectedCommunication()!);
-        @if (failedDispatches.length === 0) {
-        <div class="p-6 text-center text-gray-400 text-sm">
-          No se encontraron destinatarios fallidos para este comunicado.
-        </div>
-        } @else {
-          @for (disp of failedDispatches; track $index) {
-          <label class="flex items-start p-3 gap-3 hover:bg-gray-50 cursor-pointer transition select-none"
-                 [ngClass]="disp.isSelected ? 'bg-orange-50/40' : ''">
-            <input type="checkbox" [(ngModel)]="disp.isSelected" class="mt-0.5 h-4 w-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500">
-            <div class="flex-1 min-w-0">
-              <div class="flex justify-between items-center mb-1">
-                <span class="font-bold text-gray-900 text-sm">
-                  {{ disp.clientName }}
-                  <span *ngIf="disp.isExternalRecipient" class="ml-1 inline-flex rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">
-                    Externo
-                  </span>
-                </span>
-                <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-medium">{{ disp.channel }}</span>
-              </div>
-              <div class="text-xs text-red-700 bg-red-50 p-1.5 rounded border border-red-100 font-mono flex items-center gap-1.5">
-                <app-icon name="alert-circle" class="h-3.5 w-3.5 text-red-500 shrink-0"></app-icon>
-                <span class="break-words">{{ disp.errorMessage || 'Envío fallido o interrumpido' }}</span>
-              </div>
-            </div>
-          </label>
-          }
         }
+        @if (getFailedCount(comm.dispatches) > 0) {
+          <button type="button" class="comm-view-seg is-failed" [style.flex-grow]="getFailedCount(comm.dispatches)"
+                  [class.is-on]="currentFilter === 'failed'" [attr.aria-pressed]="currentFilter === 'failed'"
+                  (click)="viewDispatchFilter.set('failed')">
+            <b>{{ getFailedCount(comm.dispatches) }}</b><span>Fallaron</span>
+          </button>
+        }
+        @if (getPendingCount(comm.dispatches) > 0) {
+          <button type="button" class="comm-view-seg is-pending" [style.flex-grow]="getPendingCount(comm.dispatches)"
+                  [class.is-on]="currentFilter === 'pending'" [attr.aria-pressed]="currentFilter === 'pending'"
+                  (click)="viewDispatchFilter.set('pending')">
+            <b>{{ getPendingCount(comm.dispatches) }}</b><span>Pendientes</span>
+          </button>
+        }
+        @if (getTestCount(comm.dispatches) > 0) {
+          <button type="button" class="comm-view-seg is-test" [style.flex-grow]="getTestCount(comm.dispatches)"
+                  [class.is-on]="currentFilter === 'test'" [attr.aria-pressed]="currentFilter === 'test'"
+                  (click)="viewDispatchFilter.set('test')">
+            <b>{{ getTestCount(comm.dispatches) }}</b><span>Prueba</span>
+          </button>
+        }
+      </div>
+      <p class="comm-view-legend">
+        Tocá un tramo para filtrar. Mostrando:
+        <strong>{{ currentFilter === 'failed' ? 'los que fallaron' : currentFilter === 'success' ? 'los que llegaron' : currentFilter === 'pending' ? 'los que todavía no se enviaron' : 'los envíos de prueba' }}</strong>
+      </p>
+
+      <div class="comm-view-list">
+        @for (disp of getViewDispatches(comm.dispatches); track $index) {
+        <div class="comm-view-row">
+          <div class="min-w-0">
+            <div class="comm-view-name">{{ disp.clientName }}</div>
+            <div class="comm-view-sub">
+              {{ disp.channel }}@if (disp.recipientPhone) { · {{ disp.recipientPhone }} }
+            </div>
+          </div>
+          <div class="comm-view-reason" [class.is-error]="isFailedDispatch(disp)" [class.is-test]="disp.isTest">
+            @if (disp.isTest) { Prueba · {{ disp.status }} }
+            @else if (disp.status === 'Exitoso') { Enviado }
+            @else if (disp.status === 'Pendiente') { Pendiente de envío }
+            @else { {{ disp.errorMessage || disp.status }} }
+          </div>
+          @if (!authService.isObserver() && disp.hasContent) {
+            <button type="button" class="comm-view-row-action"
+                    (click)="viewDispatchContent(disp.dispatchId, disp.clientName)"
+                    title="Ver contenido enviado" [attr.aria-label]="'Ver contenido enviado a ' + disp.clientName">
+              <app-icon name="eye" class="h-4 w-4"></app-icon>
+            </button>
+          } @else {
+            <span class="comm-view-row-action-placeholder" aria-hidden="true"></span>
+          }
+        </div>
+        }
+      </div>
+    } @else {
+      <section>
+        <span class="comm-view-label">Destinatarios</span>
+        @if (comm.sendToAllEmails) {
+          <p class="comm-view-text">Todos los emails de clientes y receptores externos.</p>
+        } @else if (getCommunicationRecipientCount(comm) === 0) {
+          <p class="comm-view-text">Sin destinatarios cargados.</p>
+        } @else {
+          <div class="comm-view-chips">
+            @for (dest of comm.recipients; track dest) {
+            <span class="comm-view-chip">{{ dest }}</span>
+            }
+            @for (recipient of (comm.externalRecipients || []); track recipient.id) {
+            <span class="comm-view-chip">
+              {{ recipient.name || recipient.email || ('Receptor #' + recipient.id) }}
+              <span class="comm-view-chip-meta">{{ recipient.type || 'Sin rubro' }}</span>
+            </span>
+            }
+          </div>
+        }
+      </section>
+    }
+
+    <!-- Recorrido y datos de contexto -->
+    <div class="comm-view-strip">
+      <div class="comm-view-cell">
+        <span class="comm-view-key">Creado</span>
+        <span class="comm-view-value">{{ comm.creationDate | date: 'dd/MM/yyyy' }}</span>
+      </div>
+      @if (comm.status === 'Scheduled' || comm.status === 'Finished' || comm.status === 'Finished w/ Errors') {
+      <div class="comm-view-cell">
+        <span class="comm-view-key">{{ comm.status === 'Scheduled' ? 'Programado' : 'Enviado' }}</span>
+        <span class="comm-view-value">{{ comm.sendDate | date: 'dd/MM/yyyy' }}@if (comm.sendTime) { · {{ comm.sendTime.slice(0, 5) }} }</span>
+      </div>
+      }
+      <div class="comm-view-cell">
+        <span class="comm-view-key">Canal</span>
+        <span class="comm-view-value">
+          @if (comm.sendToAllEmails) { {{ comm.channel }} · todos }
+          @else { {{ comm.channel }} }
+        </span>
+      </div>
+      @if (getSmtpName(comm.smtpConfigId)) {
+      <div class="comm-view-cell">
+        <span class="comm-view-key">Servidor</span>
+        <span class="comm-view-value">{{ getSmtpName(comm.smtpConfigId) }}</span>
+      </div>
+      }
+      <button type="button" class="comm-view-cell comm-view-cell-action" (click)="viewShowContent.set(!viewShowContent())"
+              [attr.aria-expanded]="viewShowContent()">
+        <span class="comm-view-key">Contenido</span>
+        <span class="comm-view-value">
+          {{ comm.isAccountStatement ? 'Estado de cuenta' : (viewShowContent() ? 'Ocultar' : 'Ver contenido') }}
+          <app-icon name="chevron-down" class="comm-view-chevron h-4 w-4" [class.is-open]="viewShowContent()"></app-icon>
+        </span>
+      </button>
+    </div>
+
+    @if (viewShowContent()) {
+      @if (comm.isAccountStatement) {
+        <div class="comm-view-statement animate-fade-in">
+          <span class="comm-view-statement-icon" aria-hidden="true"><app-icon name="receipt" class="h-5 w-5"></app-icon></span>
+          <div class="min-w-0">
+            <p class="comm-view-statement-title">
+              Estado de cuenta automático
+              @if (comm.isNextMonthStatement) { <span class="comm-view-statement-tag">Mes siguiente</span> }
+            </p>
+            <p class="comm-view-statement-text">
+              Cada destinatario recibe su propio estado con los saldos
+              {{ comm.isNextMonthStatement ? 'proyectados al mes siguiente' : 'del mes' }}.
+              @if (comm.dispatches && comm.dispatches.length > 0 && !authService.isObserver()) {
+                Para ver lo que recibió cada uno, tocá el ojo en la lista.
+              }
+            </p>
+          </div>
+        </div>
+      } @else {
+        <div class="comm-view-preview animate-fade-in">
+          <iframe [srcdoc]="getCommunicationPreviewDocument()" (load)="fitPreviewFrame($event)"
+                  sandbox="allow-same-origin" title="Vista previa del contenido del comunicado"></iframe>
+        </div>
+      }
+    }
+
+    <div class="comm-view-footer">
+      <button type="button" (click)="closeModal()" class="comm-view-close">Cerrar</button>
+    </div>
+  </div>
+  }
+
+  @if (currentModal() === 'retry' && selectedCommunication(); as comm) {
+  @let failedAll = getFailedDispatches(comm);
+  @let retryRows = getRetryRows(comm);
+  @let selectedCount = getSelectedRetryCount();
+  <div class="communications-modal-content comm-retry animate-fade-in">
+
+    <!-- Qué se va a reenviar -->
+    <div class="comm-retry-top">
+      <span class="comm-view-state is-error">Reenvío</span>
+      <h3 class="comm-view-title">{{ comm.title }}</h3>
+      <p class="comm-view-headline">
+        @if (failedAll.length === 0) { No hay envíos fallidos para reenviar. }
+        @else { Se vuelve a enviar sólo a quienes elijas; los que ya recibieron el correo no se tocan. }
+      </p>
+    </div>
+
+    @if (comm.errorMessage) {
+    <div class="comm-view-alert" role="alert">
+      <div class="comm-view-alert-head">
+        <app-icon name="alert-triangle" class="h-4 w-4 shrink-0"></app-icon>
+        <span>Motivo del fallo general</span>
+      </div>
+      <pre class="comm-view-alert-body">{{ comm.errorMessage }}</pre>
+    </div>
+    }
+
+    @if (failedAll.length > 0) {
+    <!-- Resumen y acciones de selección -->
+    <div class="comm-retry-bar">
+      <div class="comm-retry-count" aria-live="polite">
+        <b>{{ selectedCount }}</b>
+        <span>de {{ failedAll.length }} seleccionados</span>
+      </div>
+      <div class="comm-retry-tools">
+        <button type="button" class="comm-retry-link" (click)="toggleAllRetrySelection(true)"
+                [disabled]="selectedCount === failedAll.length">Todos</button>
+        <button type="button" class="comm-retry-link" (click)="toggleAllRetrySelection(false)"
+                [disabled]="selectedCount === 0">Ninguno</button>
       </div>
     </div>
 
-    <div class="pt-3 border-t flex justify-end gap-2">
-      <button (click)="closeModal()" class="communications-cancel-action px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
-        Cancelar
-      </button>
-      <button (click)="confirmRetrySelected()" 
-              [disabled]="getSelectedRetryCount() === 0"
-              class="communications-warning-action px-5 py-2 bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+    @if (failedAll.length > 6) {
+    <input type="search" class="comm-retry-search" placeholder="Buscar por nombre o motivo"
+           aria-label="Buscar entre los envíos fallidos"
+           [value]="retrySearch()" (input)="retrySearch.set($any($event.target).value)">
+    }
+
+    <ul class="comm-retry-list" aria-label="Envíos fallidos">
+      @for (disp of retryRows; track disp.dispatchId) {
+      <li>
+        <label class="comm-retry-row" [class.is-on]="isRetrySelected(disp)">
+          <input type="checkbox" class="comm-retry-check" [checked]="isRetrySelected(disp)" (change)="toggleRetry(disp)">
+          <span class="min-w-0">
+            <span class="comm-view-name">
+              {{ disp.clientName }}
+              @if (disp.isExternalRecipient) { <span class="comm-retry-tag">Externo</span> }
+            </span>
+            <span class="comm-retry-reason">{{ disp.errorMessage || 'Envío fallido o interrumpido' }}</span>
+          </span>
+        </label>
+      </li>
+      } @empty {
+      <li class="comm-retry-empty">Ningún envío coincide con «{{ retrySearch() }}».</li>
+      }
+    </ul>
+    }
+
+    <div class="comm-view-footer comm-retry-footer">
+      <button type="button" (click)="closeModal()" class="comm-view-close">Cancelar</button>
+      <button type="button" (click)="confirmRetrySelected()" class="comm-view-retry"
+              [disabled]="selectedCount === 0 || isSubmitting()">
         <app-icon name="RefreshCw" class="h-4 w-4"></app-icon>
-        <span>Reintentar {{ getSelectedRetryCount() }} seleccionados</span>
+        {{ isSubmitting() ? 'Enviando…' : 'Reenviar ' + selectedCount }}
       </button>
     </div>
   </div>
   }
 
-  @if (currentModal() === 'send-confirm' && selectedCommunication()) {
-  <div class="communications-modal-content space-y-4">
-    <div class="bg-blue-50 p-4 rounded-lg space-y-2 border border-blue-200">
-      <h4 class="text-sm font-semibold text-gray-700">Resumen del comunicado:</h4>
-      <p class="text-sm"><strong>Título:</strong> {{ selectedCommunication()!.title }}</p>
-      <p class="text-sm"><strong>Canal:</strong> Email</p>
-      <p class="text-sm"><strong>Destinatarios:</strong>
-        @if (selectedCommunication()!.sendToAllEmails) {
-          Todos los emails de clientes y receptores externos
-        } @else {
-          {{ getCommunicationRecipientCount(selectedCommunication()!) }} destinatario(s)
-        }
+  @if (currentModal() === 'send-confirm' && selectedCommunication(); as comm) {
+  @let problem = getScheduleProblem();
+  <div class="communications-modal-content comm-send animate-fade-in">
+    <div>
+      <span class="comm-view-state is-scheduled">Guardado</span>
+      <h3 class="comm-view-title">{{ comm.title }}</h3>
+      <p class="comm-view-headline">
+        Para
+        @if (comm.sendToAllEmails) { todos los emails de clientes y receptores externos }
+        @else { {{ getCommunicationRecipientCount(comm) }} destinatario(s) }
+        · Email
       </p>
     </div>
 
-    <div class="bg-yellow-50 p-3 rounded text-sm border border-yellow-200">
-      <p class="text-yellow-800 font-medium flex items-center">
-        <app-icon name="AlertTriangle" class="h-4 w-4 mr-2"></app-icon>
-        <strong>Atención:</strong>&nbsp;El comunicado se enviará <strong>&nbsp;inmediatamente</strong>.
-      </p>
+    <div class="comm-send-label" id="comm-send-when">¿Cuándo querés enviarlo?</div>
+    <div class="comm-send-modes" role="group" aria-labelledby="comm-send-when">
+      <button type="button" class="comm-send-mode" [class.is-on]="sendMode() === 'now'"
+              [attr.aria-pressed]="sendMode() === 'now'" (click)="sendMode.set('now')">
+        <app-icon name="Send" class="h-5 w-5"></app-icon>
+        <b>Ahora</b><span>Se envía enseguida</span>
+      </button>
+      <button type="button" class="comm-send-mode" [class.is-on]="sendMode() === 'schedule'"
+              [attr.aria-pressed]="sendMode() === 'schedule'" (click)="sendMode.set('schedule')">
+        <app-icon name="Calendar" class="h-5 w-5"></app-icon>
+        <b>Programar</b><span>Elegís día y horario</span>
+      </button>
     </div>
 
-    <div class="flex gap-2 pt-2">
-      <button (click)="handleSendCommunication(selectedCommunication()!.id)"
-        class="communications-success-action flex-1 px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white shadow-md transition duration-200 flex items-center justify-center">
-        <app-icon name="Send" class="h-4 w-4 mr-2"></app-icon>
-        Confirmar Envío
-      </button>
-      <button (click)="closeModal()"
-        class="communications-cancel-action flex-1 px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition duration-200">
-        Cancelar
-      </button>
+    @if (sendMode() === 'schedule') {
+    <div class="comm-send-when animate-fade-in">
+      <label class="comm-send-field">
+        <span>Fecha</span>
+        <input type="date" [min]="getTodayIso()" [value]="sendScheduleDate()"
+               (input)="sendScheduleDate.set($any($event.target).value)">
+      </label>
+      <label class="comm-send-field">
+        <span>Hora</span>
+        <input type="time" [value]="sendScheduleTime()" (input)="sendScheduleTime.set($any($event.target).value)">
+      </label>
+    </div>
+    }
+
+    <!-- Franja: dice qué va a pasar al confirmar -->
+    <div class="comm-send-strip" [class.is-blocked]="!!problem">
+      <div class="min-w-0">
+        <span class="comm-send-strip-key">{{ problem ? 'Para programar falta' : 'Al confirmar' }}</span>
+        <span class="comm-send-strip-value">
+          @if (problem) { {{ problem }} }
+          @else if (sendMode() === 'now') { Se envía ahora }
+          @else { Se envía el {{ sendScheduleDate() | date: 'dd/MM/yyyy' }} a las {{ sendScheduleTime() }} }
+        </span>
+      </div>
+      <div class="comm-send-strip-actions">
+        <button type="button" (click)="closeModal()" class="comm-send-cancel">Cancelar</button>
+        <button type="button" (click)="confirmSend(comm)" class="comm-send-confirm"
+                [disabled]="!!problem || isSubmitting()">
+          <app-icon [name]="sendMode() === 'now' ? 'Send' : 'Calendar'" class="h-4 w-4"></app-icon>
+          {{ isSubmitting() ? 'Enviando…' : (sendMode() === 'now' ? 'Enviar ahora' : 'Programar') }}
+        </button>
+      </div>
     </div>
   </div>
   }
@@ -1007,7 +1068,7 @@
       }
 
       @if (!authService.isObserver() && canSendCommunicationByEmail(comm) && comm.status === 'Draft') {
-      <button (click)="openModal('send-confirm', comm)" title="Enviar ahora"
+      <button (click)="openModal('send-confirm', comm)" title="Enviar o programar"
         class="flex-1 flex justify-center items-center p-2 rounded-full text-green-600 hover:bg-green-100 transition">
         <app-icon name="Send" class="h-4 w-4"></app-icon>
       </button>
@@ -1039,28 +1100,24 @@
   </div>
 </ng-template>
 
-<!-- Content Preview Modal -->
+<!-- Contenido enviado a un destinatario -->
 <div *ngIf="previewContent()"
-     class="fixed inset-0 bg-black/50 z-[140] flex items-center justify-center p-4">
-  <div class="relative z-[150] bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
-       (click)="$event.stopPropagation()">
-    <div class="flex items-center justify-between p-4 border-b">
-      <div class="flex items-center gap-2">
-        <app-icon name="eye" class="w-5 h-5 text-indigo-600"></app-icon>
-        <h3 class="font-semibold text-gray-900">Contenido enviado a {{ previewClientName() }}</h3>
+     class="comm-sent-backdrop fixed inset-0 z-[140] flex items-center justify-center p-3 sm:p-6" (keydown.escape)="closeContentPreview()" role="presentation">
+  <div class="comm-sent" role="dialog" aria-modal="true" aria-labelledby="comm-sent-title" (click)="$event.stopPropagation()">
+    <div class="comm-sent-head">
+      <span class="comm-sent-icon" aria-hidden="true"><app-icon name="eye" class="h-5 w-5"></app-icon></span>
+      <div class="min-w-0 flex-1">
+        <p class="comm-sent-eyebrow">Contenido enviado a</p>
+        <h3 id="comm-sent-title" class="comm-sent-title">{{ previewClientName() }}</h3>
       </div>
-      <button (click)="closeContentPreview()"
-              class="p-1 rounded-lg hover:bg-gray-100 transition">
-        <app-icon name="x" class="w-5 h-5 text-gray-500"></app-icon>
+      <button type="button" (click)="closeContentPreview()" class="comm-sent-close" aria-label="Cerrar">
+        <app-icon name="x" class="h-5 w-5"></app-icon>
       </button>
     </div>
-    <div class="flex-1 overflow-auto p-4 sm:p-6 bg-gray-50/50 rounded-b-xl">
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200 h-full min-h-[60vh]">
-        <iframe [srcdoc]="previewContent()"
-                class="w-full h-full min-h-[60vh] border-0 rounded-lg"
-                sandbox="allow-same-origin"
-                title="Vista previa del contenido enviado"></iframe>
-      </div>
+    <div class="comm-sent-body">
+      <iframe [srcdoc]="previewContent()" (load)="styleScroll($event)"
+              sandbox="allow-same-origin"
+              title="Vista previa del contenido enviado"></iframe>
     </div>
   </div>
 </div>
@@ -1363,4 +1420,9 @@
         </div>
     </div>
 </div>
+}
+
+@if (templatesView(); as view) {
+<app-communication-templates [mode]="view" [readOnly]="authService.isObserver()"
+                             (closed)="closeTemplates()" (picked)="onTemplatePicked($event)"></app-communication-templates>
 }

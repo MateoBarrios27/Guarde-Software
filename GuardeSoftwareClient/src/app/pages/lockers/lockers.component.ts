@@ -1,5 +1,7 @@
 import { isTableViewAtBottom, toggleTableScroll } from '../../shared/utils/table-scroll.util';
-import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { OutsideEventsDirective } from '../../shared/directives/outside-events.directive';
+import { naturalIdentifierCollator, spanishTextCollator, textCollator } from '../../shared/utils/natural-sort';
 import { Locker, LockerClientSummary } from '../../core/models/locker';
 import { LockerService } from '../../core/services/locker-service/locker.service';
 import { CommonModule } from '@angular/common';
@@ -35,7 +37,7 @@ interface LockerClientTarget {
 @Component({
   selector: 'app-lockers',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent, OverlayModule, LockerClientHistoryModalComponent],
+  imports: [CommonModule, FormsModule, NgxPaginationModule, IconComponent, OverlayModule, LockerClientHistoryModalComponent, OutsideEventsDirective],
   templateUrl: './lockers.component.html',
   styleUrls: ['./lockers.component.css'],
   host: {
@@ -43,6 +45,13 @@ interface LockerClientTarget {
   }
 })
 export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
+  private filterInputs: unknown[] = [];
+  private cachedFilteredLockers: Locker[] = [];
+  private filteredCounts = { ocupados: 0, libres: 0, mantenimiento: 0, porLiberarse: 0 };
+  private clientLookupInputs: unknown[] = [];
+  private clientsByName = new Map<string, Client>();
+  private lockerClientsCache = new WeakMap<Locker, LockerClientSummary[]>();
+  private scrollCleanup?: () => void;
   lockers: Locker[] = [];
   selectedLocker: Locker | null = null;
   historyLocker: Locker | null = null;
@@ -52,7 +61,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showTagsPopover = false;
     this.historyLocker = locker;
   }
-  
+
   warehouses: Warehouse[] = [];
   lockerTypes: LockerType[] = [];
 
@@ -65,10 +74,10 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
     warehouseId: 0,
     isFreeSpace: false
   };
-  lockerOriginal: LockerUpdateDTO = { ...this.lockerUpdate }; 
+  lockerOriginal: LockerUpdateDTO = { ...this.lockerUpdate };
   showUpdateLockerModal = false;
   idLockerUpdated = 0;
-  warehouseId = 0; 
+  warehouseId = 0;
   selectedLockerForEdit: Locker | null = null;
 
   // --- Modal de Creación  ---
@@ -125,7 +134,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('tagsButtonRef') tagsButtonRef!: ElementRef;
 
   page: number = 1;
-  itemsPerPage: number = 500; 
+  itemsPerPage: number = 500;
 
   // --- VARIABLES PARA EL BOTÓN FLOTANTE ---
   @ViewChild('bottomAnchor') bottomAnchor!: ElementRef;
@@ -143,6 +152,8 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
     private router: Router,
     public authService: AuthService,
     overlay: Overlay,
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef,
   ) {
     this.clientStatsScrollStrategy = overlay.scrollStrategies.close();
     this.dataRefreshSubscription.add(this.router.events.subscribe(event => {
@@ -177,7 +188,11 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    document.getElementById('main-scroll')?.addEventListener('scroll', this.mainScrollHandler, { passive: true });
+    const container = document.getElementById('main-scroll');
+    this.ngZone.runOutsideAngular(() => {
+      container?.addEventListener('scroll', this.mainScrollHandler, { passive: true });
+    });
+    this.scrollCleanup = () => container?.removeEventListener('scroll', this.mainScrollHandler);
     this.onTableScroll();
   }
 
@@ -187,13 +202,17 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onTableScroll(): void {
-    this.pointingUp = isTableViewAtBottom(this.tableViewport?.nativeElement);
+    const next = isTableViewAtBottom(this.tableViewport?.nativeElement);
+    if (next !== this.pointingUp) this.ngZone.run(() => {
+      this.pointingUp = next;
+      this.cdr.markForCheck();
+    });
   }
 
   ngOnDestroy() {
     this.closeClientStats();
     this.dataRefreshSubscription.unsubscribe();
-    document.getElementById('main-scroll')?.removeEventListener('scroll', this.mainScrollHandler);
+    this.scrollCleanup?.();
   }
 
   @HostListener('document:keydown.escape')
@@ -255,15 +274,15 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
 
   getFilterTagClasses(group: LockerFilterGroup, value: string | number): string {
     const state = this.getFilterTagState(group, value);
-    if (state === 'include') return 'bg-blue-600 text-white border-blue-600 font-medium shadow-sm';
-    if (state === 'exclude') return 'bg-red-600 text-white border-red-600 font-medium shadow-sm';
-    return 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
+    if (state === 'include') return 'bg-[#2563EB] text-white border-[#2563EB] font-extrabold';
+    if (state === 'exclude') return 'bg-[#E11D48] text-white border-[#E11D48] font-extrabold';
+    return 'bg-white text-slate-700 border-slate-200 font-semibold hover:bg-slate-100';
   }
 
   getActiveFilterTagClasses(group: LockerFilterGroup, value: string | number): string {
     return this.getFilterTagState(group, value) === 'exclude'
-      ? 'bg-red-50 text-red-700 border-red-200'
-      : 'bg-blue-50 text-blue-700 border-blue-200';
+      ? 'bg-[#E11D48] text-white border-[#E11D48]'
+      : 'bg-[#2563EB] text-white border-[#2563EB]';
   }
 
   getFilterTagTitle(group: LockerFilterGroup, value: string | number): string {
@@ -370,7 +389,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
       error: (err) => { console.error('Error al cargar locker types', err); }
     });
   }
-  
+
   async deleteLocker(locker: Locker): Promise<void> {
     if (!locker.id) return;
 
@@ -429,19 +448,35 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get ocupados(): number {
-    return this.filteredLockers.filter(l => l.status === 'OCUPADO').length;
+    this.updateFilteredLockers();
+    return this.filteredCounts.ocupados;
   }
   get libres(): number {
-    return this.filteredLockers.filter(l => l.status === 'DISPONIBLE').length;
+    this.updateFilteredLockers();
+    return this.filteredCounts.libres;
   }
   get mantenimiento(): number {
-    return this.filteredLockers.filter(l => l.status === 'MANTENIMIENTO').length;
+    this.updateFilteredLockers();
+    return this.filteredCounts.mantenimiento;
   }
   get porLiberarse(): number {
-    return this.filteredLockers.filter(l => l.status === 'POR LIBERARSE').length;
+    this.updateFilteredLockers();
+    return this.filteredCounts.porLiberarse;
   }
 
   get filteredLockers(): Locker[] {
+    this.updateFilteredLockers();
+    return this.cachedFilteredLockers;
+  }
+
+  private updateFilteredLockers(): void {
+    const inputs = [this.lockers, this.clients, this.warehouses, this.lockerTypes, this.searchTerm,
+      this.selectedWarehouse, this.selectedStatus, this.sortField, this.sortDirection,
+      this.selectedWarehouseIds, this.excludedWarehouseIds, this.selectedStatuses, this.excludedStatuses,
+      this.selectedLockerTypeIds, this.excludedLockerTypeIds];
+    if (inputs.every((value, index) => value === this.filterInputs[index])) return;
+    this.filterInputs = inputs;
+    const searchLower = this.searchTerm.toLowerCase().trim();
     const filtered = this.lockers.filter(item => {
       const warehouseMatch = (this.selectedWarehouseIds.length === 0 || this.selectedWarehouseIds.includes(item.warehouseId)) &&
                              !this.excludedWarehouseIds.includes(item.warehouseId) &&
@@ -454,8 +489,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
       const lockerTypeMatch = (this.selectedLockerTypeIds.length === 0 || this.selectedLockerTypeIds.includes(item.lockerTypeId)) &&
                               !this.excludedLockerTypeIds.includes(item.lockerTypeId);
 
-      const searchLower = this.searchTerm.toLowerCase().trim();
-      const searchMatch = !this.searchTerm || 
+      const searchMatch = !this.searchTerm ||
         item.identifier.toLowerCase().includes(searchLower) ||
         (item.features && item.features.toLowerCase().includes(searchLower)) ||
         this.getLockerClientNames(item).toLowerCase().includes(searchLower);
@@ -463,42 +497,72 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
       return warehouseMatch && statusMatch && lockerTypeMatch && searchMatch;
     });
 
-    return filtered.sort((a, b) => {
+    this.cachedFilteredLockers = filtered.sort((a, b) => {
       let comparison = 0;
 
       if (this.sortField === 'identifier') {
-        comparison = (a.identifier || '').localeCompare(b.identifier || '', undefined, { numeric: true, sensitivity: 'base' });
+        comparison = naturalIdentifierCollator.compare(a.identifier || '', b.identifier || '');
       } else if (this.sortField === 'warehouse') {
-        comparison = this.getWarehouseName(a.warehouseId).localeCompare(this.getWarehouseName(b.warehouseId));
+        comparison = textCollator.compare(this.getWarehouseName(a.warehouseId), this.getWarehouseName(b.warehouseId));
       } else if (this.sortField === 'lockerType') {
-        comparison = this.getLockerTypeName(a.lockerTypeId).localeCompare(this.getLockerTypeName(b.lockerTypeId));
+        comparison = textCollator.compare(this.getLockerTypeName(a.lockerTypeId), this.getLockerTypeName(b.lockerTypeId));
       } else if (this.sortField === 'features') {
-        comparison = (a.features || '').localeCompare(b.features || '');
+        comparison = textCollator.compare(a.features || '', b.features || '');
       } else if (this.sortField === 'status') {
         const weightA = this.getStatusSortWeight(a.status);
         const weightB = this.getStatusSortWeight(b.status);
-        comparison = weightA !== weightB ? weightA - weightB : (a.status || '').localeCompare(b.status || '');
+        comparison = weightA !== weightB ? weightA - weightB : textCollator.compare(a.status || '', b.status || '');
       } else if (this.sortField === 'clientName') {
-        comparison = this.getLockerClientNames(a).localeCompare(this.getLockerClientNames(b), 'es');
+        comparison = spanishTextCollator.compare(this.getLockerClientNames(a), this.getLockerClientNames(b));
       }
 
       if (comparison === 0 && this.sortField !== 'identifier') {
-        comparison = (a.identifier || '').localeCompare(b.identifier || '', undefined, { numeric: true, sensitivity: 'base' });
+        comparison = naturalIdentifierCollator.compare(a.identifier || '', b.identifier || '');
       }
 
       return this.sortDirection === 'asc' ? comparison : -comparison;
     });
+    const counts = { ocupados: 0, libres: 0, mantenimiento: 0, porLiberarse: 0 };
+    for (const locker of filtered) {
+      switch (locker.status) {
+        case 'OCUPADO': counts.ocupados++; break;
+        case 'DISPONIBLE': counts.libres++; break;
+        case 'MANTENIMIENTO': counts.mantenimiento++; break;
+        case 'POR LIBERARSE': counts.porLiberarse++; break;
+      }
+    }
+    this.filteredCounts = counts;
   }
+
+  trackByLockerId(_index: number, locker: Locker): number { return locker.id; }
 
   getFilteredLockers(): Locker[] {
     return this.filteredLockers;
   }
 
   getLockerClients(locker: Locker): LockerClientSummary[] {
+    const inputs = [this.clients, this.lockers];
+    if (inputs.some((value, index) => value !== this.clientLookupInputs[index])) {
+      this.clientLookupInputs = inputs;
+      this.lockerClientsCache = new WeakMap();
+      this.clientsByName = new Map();
+      for (const client of this.clients) {
+        const name = client.fullName.trim().toLowerCase();
+        if (!this.clientsByName.has(name)) this.clientsByName.set(name, client);
+      }
+    }
+    const cached = this.lockerClientsCache.get(locker);
+    if (cached) return cached;
+    const clients = this.resolveLockerClients(locker);
+    this.lockerClientsCache.set(locker, clients);
+    return clients;
+  }
+
+  private resolveLockerClients(locker: Locker): LockerClientSummary[] {
     if (locker.clients?.length) return locker.clients;
 
     if (!locker.isFreeSpace && locker.clientName) {
-      const match = this.clients.find(client => client.fullName.trim().toLowerCase() === locker.clientName!.trim().toLowerCase());
+      const match = this.clientsByName.get(locker.clientName.trim().toLowerCase());
       return [{ id: match?.id ?? 0, fullName: locker.clientName, paymentIdentifier: match?.paymentIdentifier ?? 0 }];
     }
 
@@ -507,7 +571,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
       .map(name => name.trim())
       .filter(Boolean)
       .map(name => {
-        const match = this.clients.find(client => client.fullName.trim().toLowerCase() === name.toLowerCase());
+        const match = this.clientsByName.get(name.toLowerCase());
         return { id: match?.id ?? 0, fullName: name, paymentIdentifier: match?.paymentIdentifier ?? 0 };
       });
   }
@@ -607,15 +671,15 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
   getStatusColor(status: string): string {
     switch (status) {
       case 'DISPONIBLE':
-        return 'bg-green-100 text-green-800';
+        return 'locker-status--available';
       case 'OCUPADO':
-        return 'bg-red-100 text-red-800';
+        return 'locker-status--occupied';
       case 'MANTENIMIENTO':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'locker-status--maintenance';
       case 'POR LIBERARSE':
-        return 'bg-yellow-200 text-yellow-900 border border-yellow-300';
+        return 'locker-status--releasing';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'locker-status--other';
     }
   }
 
@@ -719,7 +783,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
                   confirmButtonColor: '#2563eb'
                 });
          this.closeUpdateLockerModal();
-         setTimeout(() => this.loadLockers(), 100); 
+         setTimeout(() => this.loadLockers(), 100);
        },
        error: (err) => {
          console.error('Error locker update', err)
@@ -737,7 +801,7 @@ export class LockersComponent implements OnInit, AfterViewInit, OnDestroy {
      });
   }
 
-  
+
   private getDefaultNewLocker(): CreateLockerDTO {
     return {
       identifier: '',

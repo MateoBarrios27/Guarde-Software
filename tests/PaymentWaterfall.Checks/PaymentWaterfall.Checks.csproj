@@ -6,6 +6,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="../../Database/Update_Add_OfflinePaymentReceipts.sql" Link="offline-receipts-migration.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../Database/Update_Fix_ArrearsLevels.sql" Link="arrears-migration.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../Database/Update_Fix_PaymentCollectionCurrentMonth.sql" Link="collection-current-month-migration.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../Database/Update_Add_UserNotifications.sql" Link="notifications-migration.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../Database/Update_Add_NotificationDismissal.sql" Link="notification-dismissal-migration.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../Database/Update_Add_MonthlyInterestSettings.sql" Link="interest-settings-migration.sql" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../GuardeSoftwareAPI/GuardeSoftwareAPI.csproj" />
     <None Include="../../Database/Update_Add_PaymentComponentAllocations.sql" Link="migration.sql" CopyToOutputDirectory="PreserveNewest" />
       <None Include="../../Database/Update_Add_PaymentCollectionDecisions.sql" Link="collection-migration.sql" CopyToOutputDirectory="PreserveNewest" />
