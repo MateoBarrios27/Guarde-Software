@@ -1,16 +1,16 @@
-<div *ngIf="showBanner" class="offline-banner" [ngClass]="bannerClass">
-  <div class="banner-content">
-    <span class="banner-dot"></span>
-    <span class="banner-text">{{ bannerMessage }}</span>
-    <span class="banner-meta" *ngIf="!isOnline">{{ formattedSnapshotTime }}</span>
-  </div>
+<div *ngIf="showBanner" class="offline-banner" [ngClass]="bannerClass" role="status" aria-live="polite">
+  <div class="banner-content"><span class="banner-dot" aria-hidden="true"></span><span class="banner-text">{{ bannerMessage }}</span>
+    <span class="banner-meta" *ngIf="!isOnline">{{ formattedSnapshotTime }}</span></div>
   <div class="banner-actions">
-    <button
-      *ngIf="isOnline && pendingCount > 0 && syncStatus !== 'syncing'"
-      class="sync-btn"
-      (click)="manualSync()">
-      Sincronizar ahora
-    </button>
-    <div class="spinner" *ngIf="syncStatus === 'syncing'"></div>
+    <button type="button" class="sync-btn" (click)="showPayments = true">Cobros locales ({{ pendingCount }})</button>
+    <button *ngIf="!isOnline && offlineService.networkOnline" type="button" class="sync-btn" (click)="reconnect()">Volver a conectar</button>
+    <div class="spinner" *ngIf="syncStatus === 'syncing'" aria-label="Conciliando cobros"></div>
   </div>
+</div>
+<div *ngIf="showPayments" class="g-overlay local-overlay" (click)="showPayments = false">
+  <section class="g-modal g-modal--lg local-dialog" role="dialog" aria-modal="true" aria-labelledby="local-payment-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
+    (click)="$event.stopPropagation()" (keydown.escape)="showPayments = false; $event.stopPropagation()">
+    <header class="g-modal__header"><h2 id="local-payment-title" class="g-modal__title">Cobros locales</h2><button type="button" class="g-modal__close" cdkFocusInitial (click)="showPayments = false" aria-label="Cerrar cobros locales">✕</button></header>
+    <div class="g-modal__body"><app-offline-payments></app-offline-payments></div>
+  </section>
 </div>

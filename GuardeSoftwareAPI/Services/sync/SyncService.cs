@@ -3,6 +3,9 @@ using GuardeSoftwareAPI.Dtos.Payment;
 using GuardeSoftwareAPI.Dtos.Sync;
 using GuardeSoftwareAPI.Services.payment;
 using System.Data;
+using GuardeSoftwareAPI.Dtos.MonthlyInterest;
+using GuardeSoftwareAPI.Entities;
+using GuardeSoftwareAPI.Utils;
 
 namespace GuardeSoftwareAPI.Services.sync
 {
@@ -410,6 +413,23 @@ namespace GuardeSoftwareAPI.Services.sync
                 });
             }
 
+            // Persist the monthly rules with the snapshot; do not silently use 10% after an offline reload.
+            var settings = await _accessDB.GetTableAsync("offline_interest", @"
+                IF OBJECT_ID(N'dbo.monthly_interest_settings', N'U') IS NOT NULL
+                    SELECT interest_setting_id, effective_date, percentage, apply_day FROM dbo.monthly_interest_settings ORDER BY effective_date;");
+            snapshot.MonthlyInterest = new MonthlyInterestOverviewDTO
+            {
+                DefaultPercentage = InterestRule.DefaultPercentage,
+                DefaultApplyDay = InterestRule.DefaultApplyDay,
+                Today = DateTime.Today.ToString("yyyy-MM-dd"),
+                Settings = settings.Rows.Cast<DataRow>().Select(row => new MonthlyInterestSetting
+                {
+                    Id = Convert.ToInt32(row["interest_setting_id"]),
+                    EffectiveDate = Convert.ToDateTime(row["effective_date"]),
+                    Percentage = Convert.ToDecimal(row["percentage"]),
+                    ApplyDay = Convert.ToInt32(row["apply_day"])
+                }).ToList()
+            };
             return snapshot;
         }
 
@@ -428,6 +448,10 @@ namespace GuardeSoftwareAPI.Services.sync
                 var result = new SyncPaymentResultDto { LocalId = offlinePayment.LocalId };
                 try
                 {
+                    if (!Guid.TryParse(offlinePayment.LocalId, out var localId) || localId == Guid.Empty)
+                        throw new OfflineSyncException("INVALID_LOCAL_ID", "El cobro no tiene un identificador local válido. Se conserva para revisión.");
+                    if (offlinePayment.MovementType != "CREDITO")
+                        throw new OfflineSyncException("INVALID_OFFLINE_PAYMENT", "El modo offline sólo admite cobros de tipo CREDITO.");
                     var dto = new CreatePaymentTransaction
                     {
                         ClientId = offlinePayment.ClientId,
@@ -445,13 +469,33 @@ namespace GuardeSoftwareAPI.Services.sync
                         SurchargeAmount = offlinePayment.SurchargeAmount,
                         SurchargeAmountWasOverridden = offlinePayment.SurchargeAmountWasOverridden,
                         ExpectedPaymentStateToken = offlinePayment.ExpectedPaymentStateToken,
+                        FutureDebitAction = offlinePayment.FutureDebitAction,
+                        PaymentDecisionToken = offlinePayment.PaymentDecisionToken,
+                        OfflineLocalId = localId,
                         AppliedIncreases = new List<PaymentIncreaseDto>()
                     };
 
                     bool success = await _paymentService.CreatePaymentWithMovementAsync(dto);
                     result.Success = success;
+                    result.PaymentId = dto.RegisteredPaymentId;
                     if (!success)
                         result.ErrorMessage = "El servidor no pudo procesar el pago.";
+                }
+                catch (PaymentDecisionRequiredException ex)
+                {
+                    result.ErrorCode = "PAYMENT_DECISION_REQUIRED";
+                    result.ErrorMessage = ex.Message;
+                    result.Decision = ex.Details;
+                }
+                catch (PaymentConflictException ex)
+                {
+                    result.ErrorCode = ex.Details.Code;
+                    result.ErrorMessage = ex.Message;
+                }
+                catch (OfflineSyncException ex)
+                {
+                    result.ErrorCode = ex.Code;
+                    result.ErrorMessage = ex.Message;
                 }
                 catch (Exception ex)
                 {

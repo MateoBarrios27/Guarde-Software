@@ -169,6 +169,12 @@ try
             if (!string.IsNullOrWhiteSpace(batch)) await db.ExecuteCommandAsync(batch);
     Check(true, "current collection month migration applies twice");
 
+    if (!args.Contains("--offline-sync-only"))
+    {
+        var offlineMigration = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "offline-receipts-migration.sql"));
+        await db.ExecuteCommandAsync(offlineMigration);
+    }
+
     if (args.Contains("--client-statistics-only"))
     {
         await ClientStatisticsChecks.RunAsync(db, Check);
@@ -230,6 +236,12 @@ try
     var payments = new PaymentService(db, accountService, NullLogger<PaymentService>.Instance,
         new RentalService(db), historyService, new PaymentMethodService(db, activity), balances,
         stateService, new PaymentPresenceRegistry(), activity);
+    if (args.Contains("--offline-sync-only"))
+    {
+        await OfflineSyncChecks.RunAsync(db, payments, balances, Check);
+        Console.WriteLine($"ALL {checks} CHECKS PASSED");
+        return;
+    }
     if (args.Contains("--collection-current-month-only"))
     {
         await PaymentCollectionCurrentMonthChecks.RunAsync(db, payments, balances, stateService, Check);

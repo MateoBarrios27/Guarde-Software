@@ -6,6 +6,7 @@ import { BillingType } from '../../models/billing-type.model';
 import { CreateBillingTypeDTO } from '../../dtos/billingType/create-billing-type.dto';
 import { UpdateBillingTypeDTO } from '../../dtos/billingType/update-billing-type.dto';
 import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
+import { cacheCatalog } from '../data-refresh-service/catalog-cache';
 
 @Injectable({
   providedIn: 'root'
@@ -13,6 +14,7 @@ import { DataRefreshService } from '../data-refresh-service/data-refresh.service
 export class BillingTypeService {
 
   private apiUrl = `${environment.apiUrl}/BillingType`;
+  private loadCatalog?: () => Observable<BillingType[]>;
 
   constructor(
     private http: HttpClient,
@@ -20,7 +22,7 @@ export class BillingTypeService {
   ) { }
 
   getBillingTypes(): Observable<BillingType[]> {
-    return this.http.get<BillingType[]>(this.apiUrl);
+    return (this.loadCatalog ??= cacheCatalog(this.dataRefresh, () => this.http.get<BillingType[]>(this.apiUrl)))();
   }
 
   createBillingType(dto: CreateBillingTypeDTO): Observable<BillingType> {

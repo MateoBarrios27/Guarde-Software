@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="../../Database/Update_Add_OfflinePaymentReceipts.sql" Link="offline-receipts-migration.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../Database/Update_Fix_ArrearsLevels.sql" Link="arrears-migration.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../Database/Update_Fix_PaymentCollectionCurrentMonth.sql" Link="collection-current-month-migration.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../Database/Update_Add_UserNotifications.sql" Link="notifications-migration.sql" CopyToOutputDirectory="PreserveNewest" />

@@ -9,6 +9,8 @@ import {
   UpdateMonthlyInterestDto,
 } from '../../models/monthly-interest';
 import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
+import { IndexedDbService } from '../offline-service/indexed-db.service';
+import { OfflineService } from '../offline-service/offline.service';
 import {
   DEFAULT_INTEREST_APPLY_DAY,
   DEFAULT_INTEREST_PERCENTAGE,
@@ -31,6 +33,8 @@ export class MonthlyInterestService {
   constructor(
     private http: HttpClient,
     private dataRefresh: DataRefreshService,
+    private idb: IndexedDbService,
+    private offlineService: OfflineService,
   ) {}
 
   get overview(): MonthlyInterestOverview | null {
@@ -39,13 +43,23 @@ export class MonthlyInterestService {
 
   getOverview(): Observable<MonthlyInterestOverview> {
     return this.http.get<MonthlyInterestOverview>(this.apiUrl).pipe(
-      tap(overview => this.overviewSubject.next(overview)),
+      tap(overview => {
+        this.overviewSubject.next(overview);
+        void this.idb.saveMonthlyInterest(overview).catch(() => undefined);
+      }),
     );
   }
 
   /** Recarga el resumen en segundo plano; un error deja el último conocido (o el valor por defecto). */
   refresh(): void {
+    if (!this.offlineService.isOnline) { void this.loadCachedRules().catch(() => undefined); return; }
     this.getOverview().subscribe({ error: () => undefined });
+  }
+
+  async loadCachedRules(): Promise<boolean> {
+    const overview = await this.idb.getMonthlyInterest();
+    this.overviewSubject.next(overview);
+    return overview != null;
   }
 
   /** Regla del mes de la fecha dada, con el último resumen conocido. */

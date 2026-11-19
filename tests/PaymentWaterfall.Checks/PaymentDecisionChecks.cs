@@ -133,7 +133,7 @@ internal static class PaymentDecisionChecks
             "payment API returns a structured consultation instead of recording an excess payment");
         var syncResult=await new SyncService(db,payments,NullLogger<SyncService>.Instance).ProcessOfflinePaymentsAsync(new SyncPaymentsRequestDto
         {
-            Payments=[new OfflinePaymentDto { LocalId="offline-decision-check",ClientId=100,PaymentMethodId=1,
+            Payments=[new OfflinePaymentDto { LocalId=Guid.NewGuid().ToString(),ClientId=100,PaymentMethodId=1,
                 Amount=110,Date=dto.Date,ExpectedPaymentStateToken=initialToken,SkipFutureProjection=false }]
         });
         check(!syncResult.Results.Single().Success && await Scalar("SELECT COUNT(*) FROM payments WHERE client_id=100")==0 && await Rents()==1,

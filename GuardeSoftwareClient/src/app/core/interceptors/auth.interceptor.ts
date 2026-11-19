@@ -3,10 +3,12 @@ import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth-service/auth.service';
+import { OfflineService } from '../services/offline-service/offline.service';
+import { environment } from '../../../environments/environments';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService, private offlineService: OfflineService) {}
 
   intercept(
     req: HttpRequest<any>,
@@ -25,6 +27,9 @@ export class AuthInterceptor implements HttpInterceptor {
 
     return next.handle(cloned).pipe(
       catchError((error: HttpErrorResponse) => {
+        if (req.url.startsWith(environment.apiUrl + '/') && [0, 502, 503, 504].includes(error.status)) {
+          this.offlineService.reportApiAvailability(false);
+        }
         if (error.status === 401) {
           this.authService.triggerExpirationAlert();
         }

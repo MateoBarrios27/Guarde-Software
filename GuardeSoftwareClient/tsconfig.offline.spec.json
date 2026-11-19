@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.spec.json",
+  "include": [
+    "src/app/core/services/offline-service/offline.spec.ts",
+    "src/app/core/utils/interest-rule.spec.ts",
+    "src/app/core/services/payment-service/payment-decision-dialog.spec.ts"
+  ]
+}

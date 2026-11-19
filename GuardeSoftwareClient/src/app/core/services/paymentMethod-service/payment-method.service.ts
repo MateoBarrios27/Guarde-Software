@@ -6,6 +6,7 @@ import { environment } from '../../../../environments/environments';
 import { CreatePaymentMethodDTO } from '../../dtos/paymentMethod/CreatePaymentMethodDTO';
 import { UpdatePaymentMethodDTO } from '../../dtos/paymentMethod/UpdatePaymentMethodDTO';
 import { DataRefreshService } from '../data-refresh-service/data-refresh.service';
+import { cacheCatalog } from '../data-refresh-service/catalog-cache';
 
 @Injectable({
   providedIn: 'root'
@@ -13,13 +14,14 @@ import { DataRefreshService } from '../data-refresh-service/data-refresh.service
 export class PaymentMethodService {
 
   private url: string = environment.apiUrl
+  private loadCatalog?: () => Observable<PaymentMethod[]>;
   constructor(
     private httpCliente: HttpClient,
     private dataRefresh: DataRefreshService,
   ) { }
 
   public getPaymentMethods(): Observable<PaymentMethod[]>{
-        return this.httpCliente.get<PaymentMethod[]>(`${this.url}/PaymentMethod`);
+        return (this.loadCatalog ??= cacheCatalog(this.dataRefresh, () => this.httpCliente.get<PaymentMethod[]>(`${this.url}/PaymentMethod`)))();
   }
 
   public getPaymentMethodById(id: number): Observable<PaymentMethod>{
