@@ -79,6 +79,10 @@ namespace GuardeSoftwareAPI.Controllers
                 // Return a 201 Created status with the new object
                 return CreatedAtAction(nameof(GetCommunicationById), new { id = newCommunication.Id }, newCommunication);
             }
+            catch (DuplicateCommunicationException ex)
+            {
+                return Conflict(new { message = ex.Message, code = "DUPLICATE_COMMUNICATION", existingCommunicationId = ex.ExistingCommunicationId });
+            }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
@@ -157,6 +161,10 @@ namespace GuardeSoftwareAPI.Controllers
                 });
                 return Ok(updatedComm); // Returns the updated DTO
             }
+            catch (DuplicateCommunicationException ex)
+            {
+                return Conflict(new { message = ex.Message, code = "DUPLICATE_COMMUNICATION", existingCommunicationId = ex.ExistingCommunicationId });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send communication with ID: {Id}", id);
@@ -202,6 +210,10 @@ namespace GuardeSoftwareAPI.Controllers
                 });
                 return Ok(updatedComm);
             }
+            catch (DuplicateCommunicationException ex)
+            {
+                return Conflict(new { message = ex.Message, code = "DUPLICATE_COMMUNICATION", existingCommunicationId = ex.ExistingCommunicationId });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error reintentando comunicado {Id}", id);
@@ -234,6 +246,10 @@ namespace GuardeSoftwareAPI.Controllers
                     })
                 });
                 return Ok(updatedComm);
+            }
+            catch (DuplicateCommunicationException ex)
+            {
+                return Conflict(new { message = ex.Message, code = "DUPLICATE_COMMUNICATION", existingCommunicationId = ex.ExistingCommunicationId });
             }
             catch (Exception ex)
             {

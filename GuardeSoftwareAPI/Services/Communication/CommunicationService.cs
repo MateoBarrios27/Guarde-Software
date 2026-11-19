@@ -65,7 +65,18 @@ namespace GuardeSoftwareAPI.Services.communication
                             scheduledAt = DateTime.Parse($"{request.SendDate}T{request.SendTime}");
                         }
                         string status = request.Type == "schedule" ? "Scheduled" : "Draft";
-                        
+
+                        // Seguro contra envíos dobles: un comunicado idéntico creado hace instantes es el mismo
+                        // pedido repetido (doble clic, dos pestañas, reintento de red). El bloqueo serializa las altas.
+                        await _communicationDao.LockCommunicationCreationAsync(connection, transaction);
+                        int? duplicateId = await _communicationDao.FindRecentDuplicateAsync(request, connection, transaction);
+                        if (duplicateId.HasValue)
+                        {
+                            throw new DuplicateCommunicationException(
+                                "Este comunicado ya se creó hace instantes. Revisá la lista antes de volver a enviarlo.",
+                                duplicateId.Value);
+                        }
+
                         // Step 1: Create main record, get new ID
                         int newId = await _communicationDao.InsertCommunicationAsync(request, userId, scheduledAt, status, connection, transaction);
 
@@ -146,6 +157,7 @@ namespace GuardeSoftwareAPI.Services.communication
                     {
                         // If any step failed, roll back all changes
                         await transaction.RollbackAsync();
+                        if (ex is DuplicateCommunicationException) throw;
                         // Log the error (optional)
                         throw new Exception("Transaction failed. Rolling back changes.", ex);
                     }
@@ -429,7 +441,14 @@ namespace GuardeSoftwareAPI.Services.communication
             // and the date to 1 minute from now, so Quartz can pick it up.
             var scheduleTime = DateTime.Now.AddMinutes(1);
 
-            bool success = await _communicationDao.UpdateCommunicationStatusAndDateAsync(communicationId, "Scheduled", scheduleTime);
+            // Una sola sentencia condicional: si ya estaba en cola o enviándose, no se vuelve a encolar.
+            bool success = await _communicationDao.TryQueueForSendingAsync(communicationId, scheduleTime);
+            if (!success)
+            {
+                throw new DuplicateCommunicationException(
+                    "Este comunicado ya está en cola o enviándose. Esperá a que termine antes de volver a enviarlo.",
+                    communicationId);
+            }
 
             if (success)
             {
@@ -446,6 +465,12 @@ namespace GuardeSoftwareAPI.Services.communication
             List<int> selectedClientIds,
             List<int>? selectedExternalRecipientIds = null)
         {
+            if (await _communicationDao.IsQueuedForSendingAsync(communicationId))
+            {
+                throw new DuplicateCommunicationException(
+                    "El reintento de este comunicado ya está en cola o enviándose.", communicationId);
+            }
+
             await _communicationDao.UpdateRecipientsRetrySelectionAsync(
                 communicationId,
                 selectedClientIds,

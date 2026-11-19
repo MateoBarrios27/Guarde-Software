@@ -24,6 +24,7 @@ using GuardeSoftwareAPI.Services.communication;
 using GuardeSoftwareAPI.Services.billingType;
 using GuardeSoftwareAPI.Services.monthlyIncrease;
 using GuardeSoftwareAPI.Services.monthlyInterest;
+using GuardeSoftwareAPI.Services.communicationTemplate;
 using GuardeSoftwareAPI.Services.statistics;
 using GuardeSoftwareAPI.Services.auth;
 
@@ -169,6 +170,7 @@ builder.Services.AddScoped<ILockerService, LockerService>();
 builder.Services.AddScoped<ILockerTypeService, LockerTypeService>();
 builder.Services.AddScoped<IMonthlyIncreaseService, MonthlyIncreaseService>();
 builder.Services.AddScoped<IMonthlyInterestService, MonthlyInterestService>();
+builder.Services.AddScoped<ICommunicationTemplateService, CommunicationTemplateService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 builder.Services.AddScoped<IPhoneService, PhoneService>();
