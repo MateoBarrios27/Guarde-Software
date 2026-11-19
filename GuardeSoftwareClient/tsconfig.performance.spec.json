@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.spec.json",
+  "include": [
+    "src/app/shared/utils/performance.spec.ts",
+    "src/app/shared/utils/table-scroll.util.spec.ts",
+    "src/app/shared/components/create-client-modal/create-client-modal.component.spec.ts",
+    "src/app/pages/clients/client-projection*.spec.ts",
+    "src/app/pages/cash/cash-account-notes.spec.ts",
+    "src/app/pages/finances/finances-period-header.spec.ts"
+  ]
+}

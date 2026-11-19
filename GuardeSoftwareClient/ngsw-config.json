@@ -22,7 +22,7 @@
     },
     {
       "name": "scripts",
-      "installMode": "lazy",
+      "installMode": "prefetch",
       "updateMode": "prefetch",
       "resources": {
         "files": [
