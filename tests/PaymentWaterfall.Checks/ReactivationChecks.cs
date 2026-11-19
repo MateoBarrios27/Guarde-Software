@@ -101,7 +101,11 @@ internal static class ReactivationChecks
         check(Convert.ToDecimal(detail.Rows[0]["balance"]) == -await Net(active),
             "client detail displays the carried balance together with new rent charges");
         var statement = await new CommunicationDao(db).GetClientFinancialData(100);
-        check(statement.PreviousBalance == 80000 && statement.Surcharge == 15000 &&
+        // Del día 10 en adelante la reactivación debita también el proporcional del mes, que pasa a formar parte del
+        // saldo anterior; antes del 10 no existe. Se toma del ledger para que el check no dependa del día en que corre.
+        var prorated = await Scalar($"SELECT ISNULL(SUM(amount),0) FROM account_movements WHERE rental_id={active} AND concept LIKE '%Reactivación Proporcional%'");
+        check(statement.PreviousBalance == 80000 + prorated && statement.Surcharge == 15000 &&
+            statement.PreviousBalance + statement.Surcharge + statement.Rent == await Net(active) &&
             statement.CurrentBalance == await Net(active) + 99.99m,
             "account statement keeps carried principal and interest separate without losing the previous balance");
 
@@ -148,7 +152,9 @@ internal static class ReactivationChecks
         check(Convert.ToDecimal(detail.Rows[0]["balance"]) == -await NewRent(active),
             "zero debt client summary excludes cancelled previous debt");
         statement = await new CommunicationDao(db).GetClientFinancialData(100);
-        check(statement.PreviousBalance == 0 && statement.Surcharge == 0 &&
+        // Mismo criterio que el check anterior: del día 10 en adelante el proporcional del mes pasa a saldo anterior del alquiler nuevo.
+        var zeroProrated = await Scalar($"SELECT ISNULL(SUM(amount),0) FROM account_movements WHERE rental_id={active} AND concept LIKE '%Reactivación Proporcional%'");
+        check(statement.PreviousBalance == zeroProrated && statement.Surcharge == 0 &&
             statement.CurrentBalance == await NewRent(active) + 99.99m,
             "zero debt account statement excludes cancelled principal, interests and pending surcharge");
 
